@@ -56,3 +56,26 @@ def test_env_override_replaces_openai_key(
 
     config = ConfigLoader(config_path).load()
     assert config.llm.openai_api_key == "test-openai-key"
+
+
+def test_niche_category_paths_match_known_fiverr_prefixes() -> None:
+    valid_prefixes = ("programming-tech/", "writing-translation/")
+    config = ConfigLoader("config.yaml").load()
+    assert len(config.niches) == 9
+    for niche in config.niches:
+        assert niche.category_path.startswith(valid_prefixes)
+
+
+def test_niche_pricing_tiers_ascending() -> None:
+    config = ConfigLoader("config.yaml").load()
+    for niche in config.niches:
+        prices = niche.starter_prices
+        basic = prices["basic"]
+        standard = prices["standard"]
+        premium = prices["premium"]
+        assert basic < standard < premium
+
+
+def test_discovery_skill_profile_has_primary_skills() -> None:
+    config = ConfigLoader("config.yaml").load()
+    assert config.discovery.skill_profile.primary_skills
