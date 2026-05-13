@@ -1,0 +1,225 @@
+system:
+  run_mode: full
+  checkpoint_interval: 50
+  log_level: INFO
+  data_dir: data
+
+fiverr:
+  session_mode: authenticated
+  session_file: data/sessions/fiverr_session.json
+  login_url: https://www.fiverr.com/login
+  verify_selector: "[data-testid='user-menu-button']"
+
+llm:
+  provider: openai
+  openai_api_key: ${OPENAI_API_KEY}
+  ollama_base_url: http://localhost:11434
+  cache_enabled: true
+  cache_ttl_hours: 72
+  max_tpm: 90000
+  cost_alert_daily_usd: 5.0
+  log_all_calls: true
+  models:
+    tier_high: gpt-4o
+    tier_low: gpt-4o-mini
+    embeddings: text-embedding-3-small
+
+collection:
+  retry_limit: 3
+  checkpoint_interval: 50
+  proxy_enabled: false
+  pacing:
+    fiverr_search:
+      base_delay_seconds: 4
+      jitter_seconds: 3
+      max_requests_per_hour: 60
+      human_events: true
+    fiverr_gig_detail:
+      base_delay_seconds: 6
+      jitter_seconds: 4
+      max_requests_per_hour: 40
+      human_events: true
+    fiverr_seller_profile:
+      base_delay_seconds: 5
+      jitter_seconds: 3
+      max_requests_per_hour: 40
+      human_events: true
+    google_trends:
+      base_delay_seconds: 10
+      jitter_seconds: 5
+      max_requests_per_hour: 20
+      human_events: false
+    reddit_api:
+      base_delay_seconds: 2
+      jitter_seconds: 1
+      max_requests_per_hour: 60
+      human_events: false
+    external_default:
+      base_delay_seconds: 3
+      jitter_seconds: 2
+      max_requests_per_hour: 100
+      human_events: false
+
+scoring:
+  active_profile: aggressive_new_seller
+  thresholds:
+    strong_go: 80
+    conditional_go: 60
+    monitor: 40
+    caution: 20
+  profiles:
+    default:
+      demand: 0.2
+      competition_inv: 0.2
+      opportunity: 0.25
+      feasibility: 0.1
+      profitability: 0.1
+      intent: 0.05
+      saturation_inv: 0.05
+      weakness: 0.03
+      trend: 0.02
+    aggressive_new_seller:
+      demand: 0.15
+      competition_inv: 0.1
+      opportunity: 0.2
+      feasibility: 0.25
+      profitability: 0.05
+      intent: 0.05
+      saturation_inv: 0.0
+      weakness: 0.2
+      trend: 0.0
+    profitability_focus:
+      demand: 0.15
+      competition_inv: 0.1
+      opportunity: 0.2
+      feasibility: 0.05
+      profitability: 0.25
+      intent: 0.2
+      saturation_inv: 0.0
+      weakness: 0.05
+      trend: 0.0
+    trend_chaser:
+      demand: 0.25
+      competition_inv: 0.15
+      opportunity: 0.2
+      feasibility: 0.1
+      profitability: 0.05
+      intent: 0.0
+      saturation_inv: 0.0
+      weakness: 0.0
+      trend: 0.25
+
+discovery:
+  enabled: true
+  max_hypotheses_per_run: 12
+  max_cost_per_run: 7.5
+  min_confidence: 0.6
+  gold_threshold: 0.82
+  enabled_modes:
+    - full
+    - collect-only
+  skill_profile:
+    primary_skills:
+      - market_research
+      - offer_positioning
+    secondary_skills:
+      - trend_analysis
+      - competitor_gap_detection
+
+alerts:
+  stale_data_warning_hours: 120
+  llm_cost_alert_daily_usd: 5.0
+  run_failure_notify: true
+  new_strong_go_notify: true
+
+exports:
+  output_dir: data/exports
+  include_recommendations: true
+  formats:
+    csv: true
+    excel: true
+    pdf: true
+    markdown: true
+
+niches:
+  - niche_id: prd_ai_saas
+    name: PRD / AI SaaS MVP Roadmap
+    depth: full
+    category_path: programming-tech/ai-coding/AI-Technology-Consulting
+    seed_keywords: ["product requirements document", "AI SaaS PRD", "MVP PRD"]
+    starter_prices: { basic: 95, standard: 225, premium: 395 }
+    hard_exclusions: ["No coding implementation", "No market research"]
+    is_active: true
+    metadata: { tier: 1, slot: 1 }
+  - niche_id: support_kb_readiness
+    name: Support-KB Readiness
+    depth: keyword_only
+    category_path: writing-translation/technical-writing
+    seed_keywords: ["support knowledge base AI", "support KB audit", "AI chatbot handoff"]
+    starter_prices: { basic: 75, standard: 175, premium: 325 }
+    hard_exclusions: ["No full chatbot build"]
+    is_active: true
+    metadata: { tier: 1, slot: 2, gated: true }
+  - niche_id: gumloop_lindy_workflow
+    name: Gumloop/Lindy Workflow
+    depth: keyword_only
+    category_path: programming-tech/software-development/automations-workflows
+    seed_keywords: ["Gumloop workflow", "Lindy AI automation", "AI workflow automation"]
+    starter_prices: { basic: 95, standard: 195, premium: 350 }
+    hard_exclusions: ["No live sends"]
+    is_active: true
+    metadata: { tier: 1, slot: 3, gated: true }
+  - niche_id: mcp_ai_agent
+    name: MCP Server / AI-Agent Integration
+    depth: feasibility
+    category_path: programming-tech/ai-coding/ai-agents-development
+    seed_keywords: ["MCP server integration", "model context protocol", "AI agent integration"]
+    starter_prices: { basic: 125, standard: 250, premium: 450 }
+    hard_exclusions: ["No production deployment"]
+    is_active: true
+    metadata: { tier: 1, slot: 4, gated: true }
+  - niche_id: python_automation
+    name: Python Automation Scripts
+    depth: standard
+    category_path: programming-tech/buy/web-programming-services/python
+    seed_keywords: ["Python automation script", "automate with Python", "Python bot"]
+    starter_prices: { basic: 50, standard: 125, premium: 250 }
+    hard_exclusions: []
+    is_active: true
+    metadata: { tier: 2, slot: 5 }
+  - niche_id: ai_tool_llm_integration
+    name: AI Tool / LLM Integration
+    depth: standard
+    category_path: programming-tech/ai-coding/ai-integrations
+    seed_keywords: ["LLM integration", "OpenAI API integration", "custom AI tool"]
+    starter_prices: { basic: 95, standard: 225, premium: 450 }
+    hard_exclusions: []
+    is_active: true
+    metadata: { tier: 2, slot: 6 }
+  - niche_id: ai_agent_development
+    name: AI Agent Development
+    depth: standard
+    category_path: programming-tech/ai-coding/ai-agents-development
+    seed_keywords: ["AI agent development", "agentic AI", "LangChain agent"]
+    starter_prices: { basic: 125, standard: 295, premium: 550 }
+    hard_exclusions: []
+    is_active: true
+    metadata: { tier: 2, slot: 7 }
+  - niche_id: workflow_automation
+    name: Workflow Automation
+    depth: standard
+    category_path: programming-tech/software-development/automations-workflows
+    seed_keywords: ["n8n automation", "Make automation", "Zapier automation"]
+    starter_prices: { basic: 75, standard: 175, premium: 350 }
+    hard_exclusions: []
+    is_active: true
+    metadata: { tier: 2, slot: 8 }
+  - niche_id: python_web_scraping
+    name: Python Web Scraping / Data Scripts
+    depth: standard
+    category_path: programming-tech/buy/web-programming-services/python
+    seed_keywords: ["Python web scraping", "BeautifulSoup scraper", "custom web scraper"]
+    starter_prices: { basic: 50, standard: 100, premium: 200 }
+    hard_exclusions: []
+    is_active: true
+    metadata: { tier: 2, slot: 9 }

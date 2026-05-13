@@ -1,0 +1,40 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime and generated data
+data/screenshots/
+data/checkpoints/
+data/sessions/
+data/exports/
+data/**/*.log
+logs/
+*.log
+
+# Browser/session files
+playwright/.auth/
+storage_state.json
+*.session
+
+# Build/distribution
+build/
+dist/
