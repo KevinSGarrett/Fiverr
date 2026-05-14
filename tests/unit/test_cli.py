@@ -266,7 +266,47 @@ def test_orchestrator_collection_dry_run_negative_sample_size_uses_safe_candidat
 
     assert orchestrator_module.run_collection_dry_run(str(fixture), str(output_path), sample_size=-5) == 0
     assert captured["seeds"] == ["logo design", "seo audit"]
-    assert captured["kwargs"]["max_candidates"] >= 50
+    assert captured["kwargs"]["max_candidates"] > 0
+
+
+def test_orchestrator_collection_dry_run_positive_sample_size_preserves_cap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(
+        json.dumps(
+            {
+                "seed_keywords": ["logo design", "seo audit", "landing page copy"],
+                "niche_metadata": {"modifiers": ["local", "b2b"]},
+                "max_pages": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "checkpoint.json"
+    captured: dict[str, Any] = {}
+
+    def _fake_run_collection_dry_run(seeds: list[str], **kwargs: Any) -> Any:
+        captured["seeds"] = seeds
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(
+            status="success",
+            records_seen=len(seeds),
+            records_written=len(seeds),
+            checkpoint_path=kwargs["checkpoint_path"],
+            errors=[],
+        )
+
+    monkeypatch.setattr(
+        orchestrator_module.importlib,
+        "import_module",
+        lambda _name: SimpleNamespace(run_collection_dry_run=_fake_run_collection_dry_run),
+    )
+
+    assert orchestrator_module.run_collection_dry_run(str(fixture), str(output_path), sample_size=2) == 0
+    assert captured["seeds"] == ["logo design", "seo audit"]
+    assert captured["kwargs"]["max_candidates"] == 2
 
 
 def test_phase2_smoke_reports_collection_and_analysis() -> None:

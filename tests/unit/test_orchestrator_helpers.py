@@ -81,7 +81,7 @@ def test_run_collection_dry_run_uses_positive_max_candidates_when_sample_non_pos
 
     assert orchestrator.run_collection_dry_run(str(fixture), str(output_path), sample_size=0) == 0
     assert captured["seeds"] == ["logo design", "seo audit"]
-    assert captured["kwargs"]["max_candidates"] >= 50
+    assert captured["kwargs"]["max_candidates"] == 2
 
 
 def test_run_collection_dry_run_returns_failure_with_error_lines(

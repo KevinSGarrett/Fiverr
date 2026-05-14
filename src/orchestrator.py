@@ -129,7 +129,7 @@ def _resolve_collection_max_candidates(
     # Keep uncapped dry-run stable by ensuring a positive candidate ceiling that
     # scales with fixture inputs while retaining deterministic behavior.
     estimated_candidates = len(selected_seeds) * max(1, (modifier_count * 2) + 1)
-    return max(50, estimated_candidates)
+    return max(1, estimated_candidates)
 
 
 def run_collection_dry_run(

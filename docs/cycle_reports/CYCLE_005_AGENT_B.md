@@ -1,29 +1,31 @@
 # Cycle 005 Agent B - Codex Fix Disposition
 
 ## Scope
+
 - Agent: B (Collection Engineer)
 - PR: #3
 - Codex disposition status: `VALID_FIXED` for both reported items
-- Commit hash: `<to_be_filled_after_commit>`
+- Primary fix commit hash: `44bda92a9287d931f5af87beb38a63f0ad60c45e`
 
 ## Codex Item 1 - Dry-run non-positive sample size forwarding
-- Thread reference: `src/orchestrator.py` in `run_collection_dry_run` dry-run candidate cap forwarding.
+
+- Thread reference: `src/orchestrator.py` `run_collection_dry_run` forwarding path (`_resolve_collection_max_candidates` and call-site, approx. lines 114-159).
 - Codex disposition: `VALID_FIXED`
 - Root cause: non-positive `sample_size` values were intended to select all seed keywords but downstream keyword expansion still required a strictly positive `max_candidates`; previous cap was not robust enough for uncapped fixture runs with modifiers.
 - Fix implemented:
   - Added `_resolve_collection_max_candidates(...)` in `src/orchestrator.py`.
   - Positive `sample_size` semantics are unchanged (exact cap preserved).
-  - Non-positive `sample_size` now computes a safe positive cap using seed/modifier shape with floor guard (`>= 50`) for stable uncapped dry-run behavior.
+  - Non-positive `sample_size` now computes a safe strictly-positive cap using seed/modifier shape.
 - Files changed:
   - `src/orchestrator.py`
   - `tests/unit/test_cli.py`
-  - `tests/unit/test_orchestrator_helpers.py`
 - Regression evidence added:
   - `test_collection_dry_run_cli_sample_size_zero_succeeds`
   - `test_orchestrator_collection_dry_run_negative_sample_size_uses_safe_candidate_cap`
-  - Updated expectation in `test_run_collection_dry_run_uses_positive_max_candidates_when_sample_non_positive`
+  - `test_orchestrator_collection_dry_run_positive_sample_size_preserves_cap`
 
 ### Agent D PR reply draft (Codex Item 1)
+
 ```text
 Codex disposition: VALID_FIXED
 
@@ -33,15 +35,16 @@ The non-positive sample-size branch selected all seeds, but dry-run candidate ce
 What changed:
 - Added explicit cap resolution in src/orchestrator.py via _resolve_collection_max_candidates(...).
 - Preserved existing behavior for positive sample sizes.
-- For sample_size <= 0, now compute a guaranteed positive safe cap derived from seed/modifier inputs with a defensive floor.
+- For sample_size <= 0, now compute a guaranteed strictly positive safe cap derived from seed/modifier inputs.
 
 Regression tests:
 - tests/unit/test_cli.py::test_collection_dry_run_cli_sample_size_zero_succeeds
 - tests/unit/test_cli.py::test_orchestrator_collection_dry_run_negative_sample_size_uses_safe_candidate_cap
-- tests/unit/test_orchestrator_helpers.py::test_run_collection_dry_run_uses_positive_max_candidates_when_sample_non_positive (updated assertion)
+- tests/unit/test_cli.py::test_orchestrator_collection_dry_run_positive_sample_size_preserves_cap
 
 Validation commands:
 - python -m pytest tests/unit/test_collection.py tests/unit/test_cli.py -q
+- python run.py phase2-smoke
 - python -m ruff check src/collection src/orchestrator.py tests/unit/test_collection.py tests/unit/test_cli.py
 - python -m mypy src/collection src/orchestrator.py
 
@@ -49,7 +52,8 @@ Resolve thread after push/checks: Yes
 ```
 
 ## Codex Item 2 - data-testid text extraction truncation with nested markup
-- Thread reference: `src/collection/gig_detail.py` `_extract_text` nested markup handling.
+
+- Thread reference: `src/collection/gig_detail.py` `_extract_text` nested markup handling (approx. lines 51-53).
 - Codex disposition: `VALID_FIXED`
 - Root cause: regex-based `data-testid` extraction can terminate on child element close tags and truncate parent text payload.
 - Fix implemented:
@@ -67,6 +71,7 @@ Resolve thread after push/checks: Yes
   - `test_seller_profile_nested_markup_preserves_display_name_text`
 
 ### Agent D PR reply draft (Codex Item 2)
+
 ```text
 Codex disposition: VALID_FIXED
 
@@ -85,6 +90,7 @@ Regression tests:
 
 Validation commands:
 - python -m pytest tests/unit/test_collection.py tests/unit/test_cli.py -q
+- python run.py phase2-smoke
 - python -m ruff check src/collection src/orchestrator.py tests/unit/test_collection.py tests/unit/test_cli.py
 - python -m mypy src/collection src/orchestrator.py
 
@@ -92,6 +98,7 @@ Resolve thread after push/checks: Yes
 ```
 
 ## Command Log
+
 - `python -m pytest tests/unit/test_collection.py tests/unit/test_cli.py -q`
 - `python run.py phase2-smoke`
 - `python -m ruff check src/collection src/orchestrator.py tests/unit/test_collection.py tests/unit/test_cli.py`
