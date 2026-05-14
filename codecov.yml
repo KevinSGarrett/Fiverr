@@ -1,11 +1,16 @@
-# ruff: noqa: B018
 # Keep Codecov statuses as merge blockers after first CI run creates check names.
-# Add both Codecov project and patch checks to required branch protection checks.
-{
-  "coverage": {
-    "status": {
-      "project": {"default": {"target": "90%", "threshold": "1%"}},
-      "patch": {"default": {"target": "90%", "threshold": "1%"}}
-    }
-  }
-}
+# Both contexts must remain required in branch protection.
+coverage:
+  status:
+    project:
+      default:
+        name: codecov/project
+        target: 90%
+        threshold: 1%
+        informational: false
+    patch:
+      default:
+        name: codecov/patch
+        target: 90%
+        threshold: 1%
+        informational: false
