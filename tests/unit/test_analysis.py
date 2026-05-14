@@ -444,6 +444,23 @@ def test_orchestrator_sparse_payload_without_reviews_runs_remaining_stages() -> 
     assert all(stage.stage.value != "review_analysis" for stage in summary.stages)
 
 
+def test_orchestrator_handles_empty_competitor_and_seller_lists() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    payload["competitors"] = []
+    payload["sellers"] = []
+    payload.pop("seller", None)
+    summary = run_analysis_dry_run(payload)
+
+    competitor_stage = next(stage for stage in summary.stages if stage.stage.value == "competitor_profile")
+    seller_stage = next(stage for stage in summary.stages if stage.stage.value == "seller_strength")
+    assert competitor_stage.status == AnalysisStatus.SUCCESS
+    assert competitor_stage.metadata["competitor_count"] == 0
+    assert seller_stage.status == AnalysisStatus.SUCCESS
+    assert seller_stage.metadata["evaluated_sellers"] == 1
+    assert summary.status == AnalysisStatus.SUCCESS
+    assert any(warning.code == "seller_strength_missing_fields" for warning in summary.warnings)
+
+
 def test_orchestrator_skips_invalid_additional_sellers_without_failing_stage() -> None:
     payload = _load_analysis_fixture("complete_payload.json")
     fixture_sellers = payload.get("sellers")

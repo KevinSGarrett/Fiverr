@@ -34,6 +34,7 @@ Highest-risk low-covered modules at baseline (analysis/llm focus):
 Added orchestrator tests covering:
 - deterministic stage ordering for complete payloads
 - sparse payload without optional reviews
+- explicit empty competitor and seller list handling
 - invalid additional seller rows skipped without crashing seller stage
 - non-dict intent section with fallback keyword selection
 - saturation stage failure on invalid numeric input
@@ -90,6 +91,9 @@ Validation:
 - LLM tests use injected mock/fake providers only.
 - No live OpenAI calls are made in unit tests.
 - Existing and added tests verify behavior with no required `OPENAI_API_KEY` for mocked client paths.
+- Explicit targeted validation with `OPENAI_API_KEY` unset at process level passed:
+  - Command: ``$env:OPENAI_API_KEY=$null; python -m pytest tests/unit/test_analysis.py tests/unit/test_llm.py -q``
+  - Result: `68 passed`
 
 ## Task C7 - Validation Runs
 
@@ -98,15 +102,15 @@ Targeted suite:
 `python -m pytest tests/unit/test_analysis.py tests/unit/test_llm.py -q`
 
 Result:
-- `67 passed`
+- `68 passed`
 
 Full suite with required coverage gate:
 
 `python -m pytest -q --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=90`
 
 Result:
-- `246 passed`
-- Total coverage: `92.31%`
+- `247 passed`
+- Total coverage: `92.37%`
 - Gate status: pass (`>= 90%`)
 
 ## Coverage Delta (analysis/llm focus)
