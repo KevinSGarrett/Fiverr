@@ -16,6 +16,8 @@
   - `ced7874` `test(collection): strengthen codex guardrail coverage [Agent B]`
   - `76cbc09` `fix(analysis): fallback when intent keyword text is null [Agent C]`
   - `2b1d722` `fix(analysis): sanitize literal null/none fallback [Agent C]`
+  - `d4cd73b` `docs(governance): clarify codex and codecov project gates [Agent D]`
+  - `a5fdd23` `chore(ci): provide codecov token for protected branches [Agent D]`
 
 ## Governance documentation refresh (D1/D2)
 
@@ -71,22 +73,39 @@ Runtime cleanup after parity:
 - removed `data/foundation_gate_cycle006.db`
 - removed generated `coverage.xml` artifact
 
+Final parity rerun after CI token correction commit:
+
+- `git status --short`
+  - `M .github/workflows/ci.yml`
+- `git log --oneline --decorate -12`
+  - HEAD at rerun capture: `d4cd73b` before CI token commit, then updated to `a5fdd23`
+- `python -m ruff check .` -> `PASS`
+- `python -m mypy src` -> `PASS`
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `PASS` (`266 passed`, total coverage `92.78%`)
+- `python run.py config-check` -> `PASS`
+- `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle006.db` -> `PASS`
+- `python run.py phase2-smoke` -> `PASS`
+- rerun cleanup: removed `data/foundation_gate_cycle006.db` and `coverage.xml`
+
 ## CI and Codecov status observed (D6/D8 snapshot)
 
-- PR #5 status snapshot at creation-time check:
+- Initial PR #5 check state before CI fix:
+  - CI failed because Codecov uploader was not provided repository `CODECOV_TOKEN` on a protected branch (`Token required because branch is protected`).
+- Remediation applied:
+  - updated `.github/workflows/ci.yml` to pass `token: ${{ secrets.CODECOV_TOKEN }}` to `codecov/codecov-action@v4`
+  - pushed commit `a5fdd23`
+- Latest PR #5 status:
   - state: `OPEN`
-  - merge state: `UNSTABLE`
-  - CI check runs: present, currently `IN_PROGRESS` at first inspection
-- Codecov status snapshot:
-  - PR #5: Codecov contexts not yet available at initial inspection
-  - PR #4 reference evidence: `codecov/patch` present/success, `codecov/project` absent
+  - merge state: `CLEAN`
+  - CI check `Lint, Typecheck, Tests, and Gates`: `SUCCESS`
+  - Codecov patch check `codecov/patch`: `SUCCESS` (`100.00% of diff hit`)
+  - Codecov project check `codecov/project`: **not present**
 
 ## Merge readiness decision
 
 - Current readiness: `BLOCKED`
 - Blocking conditions:
-  - required CI checks not yet fully complete on latest PR #5 head at this report snapshot
-  - `codecov/project` presence/success not yet confirmed on PR #5
+  - `codecov/project` presence/success is still not available on PR #5
   - no explicit PM/operator merge authorization provided
 
 ## Branch policy and main branch confirmation
