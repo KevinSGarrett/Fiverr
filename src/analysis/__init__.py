@@ -15,10 +15,22 @@ from src.analysis.contracts import (
     CompetitorProfileResult,
     GigQualityInput,
     GigQualityResult,
+    IntentInput,
+    IntentLabel,
+    IntentResult,
     KeywordClusterInput,
     KeywordClusterResult,
+    ReviewAnalysisInput,
+    ReviewAnalysisResult,
+    ReviewSnippetInput,
+    SaturationInput,
+    SaturationLevel,
+    SaturationResult,
+    SellerStrengthInput,
+    SellerStrengthResult,
 )
 from src.analysis.gig_quality import score_gig_quality
+from src.analysis.intent import classify_intent
 from src.analysis.keyword_features import (
     KeywordFeatureError,
     build_keyword_feature_set,
@@ -28,6 +40,9 @@ from src.analysis.keyword_features import (
     vectorize_keywords,
 )
 from src.analysis.orchestrator import run_analysis_dry_run
+from src.analysis.reviews import analyze_reviews
+from src.analysis.saturation import analyze_saturation
+from src.analysis.seller_strength import score_seller_strength
 
 __all__ = [
     "AnalysisError",
@@ -42,16 +57,31 @@ __all__ = [
     "CompetitorProfileResult",
     "GigQualityInput",
     "GigQualityResult",
+    "IntentInput",
+    "IntentLabel",
+    "IntentResult",
     "KeywordClusterInput",
     "KeywordClusterResult",
     "KeywordFeatureError",
     "build_keyword_feature_set",
     "build_lexical_features",
+    "classify_intent",
     "cluster_keywords",
     "extract_tokens",
     "normalize_keyword",
     "profile_competitors",
     "run_analysis_dry_run",
+    "SaturationInput",
+    "SaturationLevel",
+    "SaturationResult",
+    "SellerStrengthInput",
+    "SellerStrengthResult",
     "score_gig_quality",
+    "score_seller_strength",
+    "analyze_saturation",
+    "analyze_reviews",
+    "ReviewAnalysisInput",
+    "ReviewAnalysisResult",
+    "ReviewSnippetInput",
     "vectorize_keywords",
 ]
