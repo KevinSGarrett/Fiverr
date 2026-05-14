@@ -1,0 +1,89 @@
+"""Integration tests for database initialization and session helpers."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from sqlalchemy import select
+from src.models.database import (
+    build_engine,
+    create_session_factory,
+    get_session,
+    initialize_database,
+    list_tables,
+    verify_required_tables,
+)
+from src.models.niche import NicheConfigRecord
+
+
+def test_initialize_database_creates_expected_tables(tmp_path: Path) -> None:
+    db_path = tmp_path / "init_test.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+
+    engine = initialize_database(database_url=db_url)
+    tables = set(list_tables(engine))
+
+    assert "niche_configs" in tables
+    assert "keywords" in tables
+    assert "analysis_runs" in tables
+
+
+def test_verify_required_tables_reports_missing(tmp_path: Path) -> None:
+    db_path = tmp_path / "verify_tables.db"
+    engine = initialize_database(database_url=f"sqlite:///{db_path.as_posix()}")
+
+    missing = verify_required_tables(engine, ["niche_configs", "does_not_exist"])
+    assert missing == ["does_not_exist"]
+
+
+def test_get_session_commit_and_rollback_behavior(tmp_path: Path) -> None:
+    db_path = tmp_path / "session_behavior.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    engine = initialize_database(database_url=db_url)
+    session_factory = create_session_factory(engine)
+
+    with get_session(session_factory) as session:
+        session.add(
+            NicheConfigRecord(
+                niche_id="commit_case",
+                name="Commit",
+                depth="standard",
+                category_path="programming-tech/commit",
+            )
+        )
+
+    with get_session(session_factory) as session:
+        committed = session.execute(
+            select(NicheConfigRecord).where(NicheConfigRecord.niche_id == "commit_case")
+        ).scalar_one_or_none()
+        assert committed is not None
+
+    with pytest.raises(RuntimeError):
+        with get_session(session_factory) as session:
+            session.add(
+                NicheConfigRecord(
+                    niche_id="rollback_case",
+                    name="Rollback",
+                    depth="standard",
+                    category_path="programming-tech/rollback",
+                )
+            )
+            raise RuntimeError("force rollback")
+
+    with get_session(session_factory) as session:
+        rolled_back = session.execute(
+            select(NicheConfigRecord).where(NicheConfigRecord.niche_id == "rollback_case")
+        ).scalar_one_or_none()
+        assert rolled_back is None
+
+
+def test_initialize_database_creates_parent_data_path(tmp_path: Path) -> None:
+    nested_db_path = tmp_path / "nested" / "data" / "foundation.db"
+    db_url = f"sqlite:///{nested_db_path.as_posix()}"
+
+    initialize_database(database_url=db_url)
+
+    assert nested_db_path.exists()
+    engine = build_engine(db_url)
+    assert "niche_configs" in list_tables(engine)
