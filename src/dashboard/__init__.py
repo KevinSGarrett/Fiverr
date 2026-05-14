@@ -1,6 +1,14 @@
 """Dashboard package exports."""
 
-from src.dashboard.app import create_app_title, main
+from src.dashboard.app import build_page_title, get_available_pages, main
+from src.dashboard.navigation import DashboardPage
+from src.dashboard.state import DashboardState
 
-__all__ = ["create_app_title", "main"]
+__all__ = [
+    "DashboardPage",
+    "DashboardState",
+    "build_page_title",
+    "get_available_pages",
+    "main",
+]
 

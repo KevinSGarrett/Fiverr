@@ -1,32 +1,14 @@
-"""Injectable LLM client wrapper with optional response caching."""
+"""Injectable LLM client with safe metadata and cost accounting."""
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
-from typing import Any, Protocol
+from datetime import UTC, datetime
+from typing import Any
 
-from src.llm.cache import LLMCache, build_cache_key
-
-PRICING_PER_1K_TOKENS: dict[str, dict[str, float]] = {
-    "gpt-4o": {"input": 0.0050, "output": 0.0150},
-    "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-    "text-embedding-3-small": {"input": 0.00002, "output": 0.0},
-}
-
-
-class LLMProvider(Protocol):
-    """Provider interface used by ``LLMClient``."""
-
-    def complete(
-        self,
-        prompt: str,
-        model: str,
-        temperature: float,
-        response_format: dict[str, Any] | None = None,
-    ) -> dict[str, Any]: ...
-
-    def embed(self, texts: list[str], model: str) -> dict[str, Any]: ...
+from src.llm.cache import CachePolicy, LLMCache, build_cache_key
+from src.llm.costs import estimate_llm_cost
+from src.llm.provider import LLMProviderProtocol, OpenAIProvider
 
 
 @dataclass(slots=True)
@@ -36,19 +18,29 @@ class LLMResult:
     text: str
     metadata: dict[str, Any]
 
+    def __repr__(self) -> str:
+        keys = ", ".join(sorted(self.metadata.keys()))
+        return f"LLMResult(text_len={len(self.text)}, metadata_keys=[{keys}])"
+
 
 class LLMClient:
     """LLM wrapper that supports injected providers and cache metadata."""
 
     def __init__(
         self,
-        provider: LLMProvider | Any | None = None,
+        provider: LLMProviderProtocol | Any | None = None,
         cache: LLMCache | None = None,
-        cache_ttl_hours: int = 72,
+        cache_policy: CachePolicy | None = None,
+        use_openai_provider: bool = False,
+        openai_api_key: str | None = None,
     ) -> None:
+        if provider is not None and use_openai_provider:
+            raise ValueError("Provide either 'provider' or 'use_openai_provider=True', not both.")
+        if provider is None and use_openai_provider:
+            provider = OpenAIProvider(api_key=openai_api_key)
         self._provider = provider
         self._cache = cache
-        self._cache_ttl_hours = cache_ttl_hours
+        self._cache_policy = cache_policy or CachePolicy()
 
     def complete(
         self,
@@ -57,14 +49,24 @@ class LLMClient:
         temperature: float = 0.2,
         response_format: dict[str, Any] | None = None,
     ) -> LLMResult:
-        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-        cache_key = build_cache_key(model=model, temperature=temperature, prompt_text=prompt)
+        cache_key = build_cache_key(
+            model=model,
+            temperature=temperature,
+            prompt_text=prompt,
+            cache_namespace=self._cache_policy.cache_namespace,
+            max_prompt_chars_for_keying=self._cache_policy.max_prompt_chars_for_keying,
+        )
 
-        if self._cache is not None:
-            cached_payload = self._cache.get(cache_key)
+        if self._cache is not None and self._cache_policy.enabled:
+            cached_payload = self._cache.get(cache_key, policy=self._cache_policy)
             if cached_payload is not None:
                 cached_metadata = dict(cached_payload["metadata"])
                 cached_metadata["cache_hit"] = True
+                cached_metadata["estimated_cost_usd"] = 0.0
+                usage_event = dict(cached_metadata.get("usage_event", {}))
+                usage_event["cache_hit"] = True
+                usage_event["estimated_cost_usd"] = 0.0
+                cached_metadata["usage_event"] = usage_event
                 return LLMResult(text=str(cached_payload["text"]), metadata=cached_metadata)
 
         payload = self._call_provider_complete(
@@ -77,7 +79,15 @@ class LLMClient:
         usage = payload.get("usage", {})
         prompt_tokens = int(usage.get("prompt_tokens", self._estimate_tokens(prompt)))
         completion_tokens = int(usage.get("completion_tokens", self._estimate_tokens(text)))
-        estimated_cost_usd = self.calculate_cost_usd(model, prompt_tokens, completion_tokens)
+        cost_estimate = estimate_llm_cost(model, prompt_tokens, completion_tokens)
+        prompt_hash = build_cache_key(
+            model=model,
+            temperature=temperature,
+            prompt_text=prompt,
+            cache_namespace="prompt-hash-only",
+            max_prompt_chars_for_keying=self._cache_policy.max_prompt_chars_for_keying,
+            cache_version="prompt-v1",
+        )
 
         metadata = {
             "model": model,
@@ -87,15 +97,31 @@ class LLMClient:
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": prompt_tokens + completion_tokens,
-            "estimated_cost_usd": estimated_cost_usd,
+            "estimated_cost_usd": cost_estimate.estimated_cost_usd,
+            "provider_name": getattr(self._provider, "provider_name", "unknown"),
+            "created_at": datetime.now(UTC).isoformat(),
+            "usage_event": {
+                "model": model,
+                "task_name": None,
+                "input_tokens": prompt_tokens,
+                "output_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                "estimated_cost_usd": cost_estimate.estimated_cost_usd,
+                "cache_hit": False,
+                "provider_name": getattr(self._provider, "provider_name", "unknown"),
+                "created_at": datetime.now(UTC).isoformat(),
+            },
         }
         result = LLMResult(text=text, metadata=metadata)
 
-        if self._cache is not None:
+        if self._cache is not None and self._cache_policy.enabled:
             self._cache.set(
                 cache_key,
                 {"text": result.text, "metadata": result.metadata},
-                ttl_hours=self._cache_ttl_hours,
+                model=model,
+                temperature=temperature,
+                prompt_text=prompt,
+                policy=self._cache_policy,
             )
 
         return result
@@ -104,7 +130,7 @@ class LLMClient:
         payload = self._call_provider_embed(texts=texts, model=model)
         usage = payload.get("usage", {})
         prompt_tokens = int(usage.get("prompt_tokens", self._estimate_tokens(" ".join(texts))))
-        estimated_cost_usd = self.calculate_cost_usd(model, prompt_tokens, 0)
+        cost_estimate = estimate_llm_cost(model, prompt_tokens, 0)
 
         return {
             "embeddings": payload.get("embeddings", []),
@@ -113,19 +139,14 @@ class LLMClient:
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": 0,
                 "total_tokens": prompt_tokens,
-                "estimated_cost_usd": estimated_cost_usd,
+                "estimated_cost_usd": cost_estimate.estimated_cost_usd,
             },
         }
 
     @staticmethod
     def calculate_cost_usd(model: str, prompt_tokens: int, completion_tokens: int = 0) -> float:
         """Estimate request cost using per-1K token pricing."""
-        pricing = PRICING_PER_1K_TOKENS.get(model)
-        if pricing is None:
-            return 0.0
-        prompt_cost = (prompt_tokens / 1000) * pricing["input"]
-        completion_cost = (completion_tokens / 1000) * pricing["output"]
-        return round(prompt_cost + completion_cost, 8)
+        return estimate_llm_cost(model, prompt_tokens, completion_tokens).estimated_cost_usd
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
@@ -143,15 +164,6 @@ class LLMClient:
         if self._provider is None:
             raise RuntimeError("LLM provider is not configured.")
 
-        if callable(self._provider):
-            payload = self._provider(
-                prompt=prompt,
-                model=model,
-                temperature=temperature,
-                response_format=response_format,
-            )
-            return payload if isinstance(payload, dict) else {"text": str(payload)}
-
         if hasattr(self._provider, "complete"):
             payload = self._provider.complete(
                 prompt=prompt,
@@ -161,7 +173,7 @@ class LLMClient:
             )
             return payload if isinstance(payload, dict) else {"text": str(payload)}
 
-        raise TypeError("Provider must be callable or define a complete() method.")
+        raise TypeError("Provider must define a complete() method.")
 
     def _call_provider_embed(self, texts: list[str], model: str) -> dict[str, Any]:
         if self._provider is None:
