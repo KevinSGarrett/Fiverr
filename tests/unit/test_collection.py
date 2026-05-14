@@ -22,6 +22,7 @@ from src.collection.external_signals import (
     load_external_signal_fixture,
 )
 from src.collection.gig_detail import parse_gig_detail_from_html
+from src.collection.html_text import clean_html_text, extract_data_testid_text
 from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
@@ -230,6 +231,36 @@ def test_gig_detail_nested_markup_preserves_full_description_text() -> None:
     """
     parsed = parse_gig_detail_from_html(html)
     assert parsed.description == "Alpha Beta Gamma"
+
+
+def test_extract_data_testid_text_returns_nested_text_without_truncation() -> None:
+    html = """
+    <div data-testid="target">
+      <p>Alpha <strong>Beta</strong></p>
+      <p>Gamma</p>
+    </div>
+    """
+    assert extract_data_testid_text(html, "target") == "Alpha Beta Gamma"
+
+
+def test_extract_data_testid_text_returns_first_match_only() -> None:
+    html = """
+    <span data-testid="target">first value</span>
+    <span data-testid="target">second value</span>
+    """
+    assert extract_data_testid_text(html, "target") == "first value"
+
+
+def test_extract_data_testid_text_missing_or_empty_returns_none() -> None:
+    missing_html = "<div data-testid='other'>value</div>"
+    empty_html = "<div data-testid='target'><span>   </span></div>"
+    assert extract_data_testid_text(missing_html, "target") is None
+    assert extract_data_testid_text(empty_html, "target") is None
+
+
+def test_clean_html_text_collapses_tags_and_whitespace() -> None:
+    value = " <p>Hello</p>   <em>world</em>  "
+    assert clean_html_text(value) == "Hello world"
 
 
 def test_gig_detail_malformed_html_returns_controlled_warning_error() -> None:
