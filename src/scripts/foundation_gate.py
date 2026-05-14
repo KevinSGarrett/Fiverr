@@ -8,7 +8,11 @@ from pathlib import Path
 
 from src.config import ConfigLoader
 from src.models.database import initialize_database, list_tables, normalize_database_url
-from src.models.registry import get_missing_source_tables, get_registered_table_names
+from src.models.registry import (
+    SOURCE_REQUIRED_TABLE_NAMES,
+    get_missing_source_tables,
+    get_registered_table_names,
+)
 from src.scripts.repo_hygiene import find_hygiene_issues
 from src.utils.paths import project_root
 
@@ -56,6 +60,7 @@ def _run_table_checks(database_url: str) -> GateCheck:
         details=(
             f"created={len(existing_tables)}"
             f", registered={len(registered_tables)}"
+            f", source_required={len(SOURCE_REQUIRED_TABLE_NAMES)}"
             f", source_missing={len(missing_source)}"
         ),
     )

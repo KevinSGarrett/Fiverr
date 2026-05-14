@@ -39,16 +39,38 @@ REGISTERED_MODEL_CLASSES = (
     LLMCacheRecord,
 )
 
-# The source target is 28 tables; only tables declared as SQLAlchemy models are implemented.
-# Pending names are explicit placeholders until SCHEMA/FIELD_CATALOG source docs are restored.
-PENDING_SOURCE_TABLE_NAMES = (
-    "pending_source_table_01",
-    "pending_source_table_02",
-    "pending_source_table_03",
-    "pending_source_table_04",
-    "pending_source_table_05",
-    "pending_source_table_06",
-    "pending_source_table_07",
+# Source-required Foundation target table set (28 total):
+# - 21 currently implemented SQLAlchemy tables.
+# - 7 pending collection/report persistence tables declared in the Foundation backlog.
+SOURCE_REQUIRED_TABLE_NAMES = (
+    "alert_events",
+    "analysis_results",
+    "analysis_runs",
+    "collection_checkpoints",
+    "collection_proxy_events",
+    "collection_queue_items",
+    "collection_selector_audits",
+    "collection_session_events",
+    "discovery_hypotheses",
+    "export_artifacts",
+    "final_scores",
+    "gigs",
+    "job_statuses",
+    "keywords",
+    "llm_cache_records",
+    "llm_usage_logs",
+    "niche_configs",
+    "niches",
+    "pricing_snapshots",
+    "recommendations",
+    "report_runs",
+    "report_sections",
+    "reviews",
+    "run_logs",
+    "score_components",
+    "search_results",
+    "sellers",
+    "external_signals",
 )
 
 
@@ -64,5 +86,7 @@ def get_registered_table_names() -> list[str]:
 
 
 def get_missing_source_tables() -> list[str]:
-    """Return deterministic source tables that are still pending."""
-    return list(PENDING_SOURCE_TABLE_NAMES)
+    """Return deterministic source-required table names still pending implementation."""
+    registered = set(get_registered_table_names())
+    source_required = set(SOURCE_REQUIRED_TABLE_NAMES)
+    return sorted(source_required - registered)

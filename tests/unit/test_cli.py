@@ -122,6 +122,13 @@ def test_export_invalid_format_returns_nonzero() -> None:
     assert result.exit_code != 0
 
 
+def test_export_missing_input_returns_nonzero() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["export", "--format", "csv"])
+    assert result.exit_code != 0
+    assert "Missing option '--input-path'" in result.output
+
+
 def test_dashboard_stub_does_not_launch_streamlit() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["dashboard", "--mode", "local"])

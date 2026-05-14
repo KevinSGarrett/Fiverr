@@ -119,3 +119,13 @@ def test_empty_seed_keywords_fail_validation(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError, match="empty seed_keywords"):
         ConfigLoader(invalid_path).load()
+
+
+def test_loader_missing_required_top_level_section_fails_fast(tmp_path: Path) -> None:
+    source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+    source.pop("collection")
+    invalid_path = tmp_path / "missing_collection_section.yaml"
+    invalid_path.write_text(yaml.safe_dump(source), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing required section"):
+        ConfigLoader(invalid_path).load()

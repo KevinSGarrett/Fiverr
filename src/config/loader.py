@@ -10,7 +10,13 @@ from typing import Any
 import yaml  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
-from src.config.models import AppConfig, CollectionConfig, NicheConfig, ScoringProfileConfig
+from src.config.models import (
+    REQUIRED_SCORING_PROFILES,
+    AppConfig,
+    CollectionConfig,
+    NicheConfig,
+    ScoringProfileConfig,
+)
 
 ENV_VAR_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
@@ -28,6 +34,7 @@ class ConfigLoader:
 
         raw_content = yaml.safe_load(self.config_path.read_text(encoding="utf-8")) or {}
         resolved_content = self._resolve_env_vars(raw_content)
+        self._validate_raw_structure(resolved_content)
 
         try:
             self._config = AppConfig.model_validate(resolved_content)
@@ -50,7 +57,12 @@ class ConfigLoader:
         profile_name = name or config.scoring.active_profile
         profile = config.scoring.profiles.get(profile_name)
         if profile is None:
-            raise ValueError(f"Scoring profile '{profile_name}' not found")
+            required = ", ".join(REQUIRED_SCORING_PROFILES)
+            available = ", ".join(sorted(config.scoring.profiles.keys()))
+            raise ValueError(
+                f"Scoring profile '{profile_name}' not found. "
+                f"Required profiles: [{required}]. Available profiles: [{available}]"
+            )
         return profile
 
     def get_collection_config(self) -> CollectionConfig:
@@ -77,3 +89,15 @@ class ConfigLoader:
             return os.environ.get(env_var, "")
 
         return ENV_VAR_PATTERN.sub(replacer, value)
+
+    def _validate_raw_structure(self, content: Any) -> None:
+        if not isinstance(content, dict):
+            raise ValueError(f"Config root must be a mapping in '{self.config_path}'.")
+
+        required_sections = ("collection", "exports", "niches", "scoring")
+        missing_sections = [section for section in required_sections if section not in content]
+        if missing_sections:
+            raise ValueError(
+                f"Config '{self.config_path}' is missing required section(s): "
+                f"{', '.join(missing_sections)}"
+            )

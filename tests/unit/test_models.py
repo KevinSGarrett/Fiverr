@@ -84,6 +84,8 @@ def test_missing_source_tables_registry_is_deterministic() -> None:
     missing = get_missing_source_tables()
     assert missing == sorted(missing)
     assert missing
+    assert len(missing) == 7
+    assert all(not name.startswith("pending_source_table_") for name in missing)
 
 
 def test_create_all_builds_expanded_table_set(tmp_path: Path) -> None:
