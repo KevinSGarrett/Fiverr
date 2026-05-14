@@ -110,6 +110,28 @@ Final parity rerun after syncing `cycle/004/integration` with `origin/develop`:
 - `python run.py phase2-smoke`
   - `PASS`
 
+Final parity rerun after adding targeted `html_text` coverage tests:
+
+- `git status --short`
+  - `M docs/cycle_reports/CYCLE_005_AGENT_C.md` (pre-existing, not modified by Agent D)
+  - `M tests/unit/test_collection.py`
+  - `?? coverage.xml` (runtime artifact from latest coverage run)
+- `python -m pytest tests/unit/test_collection.py -q`
+  - `PASS` (`41 passed`)
+- `python -m ruff check .`
+  - `PASS`
+- `python -m mypy src`
+  - `PASS`
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
+  - `PASS` (`235 passed`)
+  - Total coverage: `91.94%`
+- `python run.py config-check`
+  - `PASS`
+- `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle005.db`
+  - `PASS`
+- `python run.py phase2-smoke`
+  - `PASS`
+
 ## D7 - GitHub Actions and Codecov Status
 
 Observed on legacy PR `#3`:
@@ -130,9 +152,9 @@ Observed on active PR `#4` (post-push for Agent D docs):
   - Two CI check runs present and both `SUCCESS`
   - Check name: `Lint, Typecheck, Tests, and Gates`
 - Codecov status:
-  - `codecov/patch` check is present and `FAILURE` on latest observed head SHA `746f70565b313572bdbe1c2fc5ad679a0a591970`
-  - Failure detail from check output: `16.27% of diff hit (target 90.00%)`
-  - Codecov gate is therefore `BLOCKED/FAIL`
+  - `codecov/patch` check is present and `SUCCESS` on latest observed head SHA `5ee5aa2028782b25e38ac38348d98968ac433507`
+  - Success detail from check output: `100.00% of diff hit (target 90.00%)`
+  - Codecov patch gate is `PASS`
 
 ## D8 - Merge Policy and Main-Branch Confirmation
 
@@ -152,15 +174,15 @@ Important governance note:
 | CI workflow exists | `PASS` | Agent A report + PR check runs |
 | Required GitHub Actions checks green | `PASS` | PR #4 has two completed `SUCCESS` CI check runs |
 | Codecov project >=90% shown on PR | `UNKNOWN` | Project context not shown in latest rollup snapshot |
-| Codecov patch >=90% shown on PR | `BLOCKED/FAIL` | `codecov/patch` reports `16.27%` vs `90%` target |
+| Codecov patch >=90% shown on PR | `PASS` | `codecov/patch` reports `100.00%` vs `90%` target |
 | Codex threads dispositioned | `PASS` | Formal disposition replies posted |
 | Codex threads resolved | `PASS` | GraphQL `reviewThreads.isResolved=true` |
 | Local parity commands | `PASS` | All required commands succeeded |
-| PR open awaiting steward merge | `BLOCKED` | PR #4 open; Codecov evidence missing and no explicit merge authorization |
+| PR open awaiting steward merge | `BLOCKED` | PR #4 open; explicit PM/operator merge authorization not provided |
 | `main` untouched by Agent D | `PASS` | No `main` operations performed |
 
 ## Final Steward Outcome
 
-- Merge-ready decision for active PR `#4`: **Not merge-ready** (`codecov/patch` failing; merge authorization not provided).
+- Merge-ready decision for active PR `#4`: **Gate-complete but not merged** (checks pass; merge authorization not provided).
 - Legacy note: PR `#3` was already merged before final steward gating window; Codex evidence is recorded there.
-- Recommended follow-up: raise patch coverage for PR diff to satisfy Codecov 90% threshold, then request explicit PM/operator merge authorization before squash merge.
+- Recommended follow-up: request explicit PM/operator merge authorization; if approved, perform squash merge only.
