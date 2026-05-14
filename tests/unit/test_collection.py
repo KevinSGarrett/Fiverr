@@ -385,6 +385,16 @@ def test_extract_data_testid_text_missing_or_empty_returns_none() -> None:
     assert extract_data_testid_text(empty_html, "target") is None
 
 
+def test_regression_nested_data_testid_text_preserves_full_nested_markup_content() -> None:
+    html = """
+    <section data-testid="target">
+      Lead <span>Designer <em>Portfolio</em></span>
+      <div><strong>SEO</strong> Strategy</div>
+    </section>
+    """
+    assert extract_data_testid_text(html, "target") == "Lead Designer Portfolio SEO Strategy"
+
+
 def test_clean_html_text_collapses_tags_and_whitespace() -> None:
     value = " <p>Hello</p>   <em>world</em>  "
     assert clean_html_text(value) == "Hello world"
