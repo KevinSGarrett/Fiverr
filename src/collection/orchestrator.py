@@ -1,121 +1,79 @@
-"""No-network collection orchestration skeleton."""
+"""Dry-run collection orchestration with no browser or network usage."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from src.collection.checkpoint import CheckpointManager
-from src.collection.contracts import (
-    CollectionError,
-    CollectionStageInput,
-    CollectionStageResult,
-    CollectionStageStatus,
-)
-from src.collection.pacing import PacingManager
-from src.collection.queue import CollectionJob, QueueProcessor
-
-StageCallable = Callable[[CollectionStageInput], CollectionStageResult]
+from src.collection.checkpoint import checkpoint_queue_state
+from src.collection.contracts import CollectionError, CollectionStageResult, CollectionStageStatus
+from src.collection.keyword_expansion import expand_keywords
+from src.collection.queue import enqueue_search_plan
+from src.collection.search_plan import build_search_plan
 
 
-@dataclass(frozen=True, slots=True)
-class CollectionStage:
-    name: str
-    handler: StageCallable
+def run_collection_dry_run(
+    seed_keywords: Sequence[str],
+    *,
+    niche_metadata: Mapping[str, Any] | None = None,
+    max_candidates: int = 50,
+    max_pages: int = 1,
+    checkpoint_path: Path | str = "artifacts/collection/queue_checkpoint.json",
+    region: str | None = None,
+    language: str | None = None,
+    sort: str | None = None,
+) -> CollectionStageResult:
+    """Run collection planning stages without external side effects."""
 
+    started_at = datetime.now(UTC)
+    try:
+        if not isinstance(seed_keywords, Sequence) or isinstance(seed_keywords, (str, bytes)):
+            raise ValueError("seed_keywords must be a sequence of strings.")
 
-class CollectionOrchestrator:
-    """Composes collection stages with queue, pacing, and checkpoints."""
+        expanded = expand_keywords(
+            seed_keywords,
+            niche_metadata=niche_metadata,
+            max_candidates=max_candidates,
+        )
+        plan = build_search_plan(
+            expanded.expanded_keywords,
+            region=region,
+            language=language,
+            sort=sort,
+            max_pages=max_pages,
+        )
+        queue = enqueue_search_plan(plan)
+        saved_checkpoint = checkpoint_queue_state(queue, checkpoint_path)
 
-    def __init__(
-        self,
-        queue_processor: QueueProcessor,
-        pacing_manager: PacingManager,
-        checkpoint_manager: CheckpointManager,
-        dry_run: bool = True,
-    ) -> None:
-        self._queue = queue_processor
-        self._pacing = pacing_manager
-        self._checkpoint = checkpoint_manager
-        self._dry_run = dry_run
-
-    def run(
-        self,
-        run_id: str,
-        stages: Sequence[CollectionStage],
-        metadata: dict[str, str] | None = None,
-    ) -> list[CollectionStageResult]:
-        results: list[CollectionStageResult] = []
-        base_metadata = metadata or {}
-
-        for index, stage in enumerate(stages):
-            _ = self._pacing.next_delay("fiverr")
-            job_id = f"{run_id}:{stage.name}:{index}"
-            self._queue.enqueue(
-                CollectionJob(
-                    job_id=job_id,
-                    payload={"run_id": run_id, "stage": stage.name, "dry_run": self._dry_run},
+        warnings = list(expanded.warnings) + list(plan.warnings)
+        return CollectionStageResult(
+            stage_name="collection_dry_run",
+            status=CollectionStageStatus.SUCCESS,
+            records_seen=len(expanded.expanded_keywords),
+            records_written=len(queue.jobs),
+            warnings=warnings,
+            checkpoint_path=saved_checkpoint,
+            started_at=started_at,
+            finished_at=datetime.now(UTC),
+            metadata={
+                "expanded_keywords_count": len(expanded.expanded_keywords),
+                "search_plan_items_count": len(plan.items),
+                "queue_jobs_count": len(queue.jobs),
+                "max_pages": max_pages,
+            },
+        )
+    except Exception as exc:
+        return CollectionStageResult(
+            stage_name="collection_dry_run",
+            status=CollectionStageStatus.FAILED,
+            started_at=started_at,
+            finished_at=datetime.now(UTC),
+            errors=[
+                CollectionError(
+                    code="dry_run_failed",
+                    message=str(exc),
                 )
-            )
-            job = self._queue.dequeue()
-            if job is None:
-                break
-            self._queue.mark_running(job.job_id)
-
-            started_at = datetime.now(UTC)
-            stage_input = CollectionStageInput(
-                stage_name=stage.name,
-                checkpoint_path=Path(self._checkpoint.save_checkpoint(run_id, {"stage_name": stage.name})),
-                metadata={**base_metadata, "dry_run": str(self._dry_run).lower()},
-            )
-
-            try:
-                result = stage.handler(stage_input)
-                if result.finished_at is None:
-                    result.finished_at = datetime.now(UTC)
-                self._queue.mark_success(job.job_id)
-                self._pacing.record_success("fiverr")
-                self._checkpoint.save_checkpoint(
-                    run_id,
-                    {
-                        "stage_name": stage.name,
-                        "cursor_offset": index,
-                        "record_counts": {
-                            "records_seen": result.records_seen,
-                            "records_written": result.records_written,
-                        },
-                        "payload": result.model_dump(mode="json"),
-                    },
-                )
-                results.append(result)
-            except Exception as exc:  # pragma: no cover - exercised via tests
-                self._queue.retry_or_dead_letter(job.job_id, str(exc))
-                self._pacing.record_error("fiverr")
-                failure = CollectionStageResult(
-                    stage_name=stage.name,
-                    status=CollectionStageStatus.FAILED,
-                    started_at=started_at,
-                    finished_at=datetime.now(UTC),
-                    errors=[
-                        CollectionError(
-                            code="stage_failure",
-                            message=str(exc),
-                            details={"job_id": job.job_id},
-                        )
-                    ],
-                )
-                self._checkpoint.save_checkpoint(
-                    run_id,
-                    {
-                        "stage_name": stage.name,
-                        "cursor_offset": index,
-                        "record_counts": {"records_seen": 0, "records_written": 0},
-                        "payload": failure.model_dump(mode="json"),
-                    },
-                )
-                results.append(failure)
-                break
-
-        return results
+            ],
+        )

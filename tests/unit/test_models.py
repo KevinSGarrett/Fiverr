@@ -20,6 +20,11 @@ from src.models.database import (
 )
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
+from src.models.registry import (
+    get_missing_source_tables,
+    get_registered_model_classes,
+    get_registered_table_names,
+)
 from src.models.runtime import RunLog
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
 
@@ -69,28 +74,27 @@ def test_metadata_naming_convention_and_unique_table_names() -> None:
     assert len(table_names) == len(set(table_names))
 
 
+def test_model_registry_has_unique_table_names() -> None:
+    table_names = get_registered_table_names()
+    assert len(table_names) == len(set(table_names))
+    assert len(table_names) == len(get_registered_model_classes())
+
+
+def test_missing_source_tables_registry_is_deterministic() -> None:
+    missing = get_missing_source_tables()
+    assert missing == sorted(missing)
+    assert missing
+    assert len(missing) == 7
+    assert all(not name.startswith("pending_source_table_") for name in missing)
+
+
 def test_create_all_builds_expanded_table_set(tmp_path: Path) -> None:
     db_path = tmp_path / "expanded_tables.db"
     engine = build_engine(f"sqlite:///{db_path.as_posix()}")
     initialize_database(engine=engine)
 
     table_names = set(inspect(engine).get_table_names())
-    required = {
-        "niche_configs",
-        "niches",
-        "keywords",
-        "search_results",
-        "gigs",
-        "sellers",
-        "reviews",
-        "external_signals",
-        "analysis_runs",
-        "analysis_results",
-        "score_components",
-        "final_scores",
-        "recommendations",
-        "run_logs",
-    }
+    required = set(get_registered_table_names())
     assert required.issubset(table_names)
 
 

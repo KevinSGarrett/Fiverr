@@ -1,0 +1,179 @@
+"""Deterministic local keyword clustering for Cycle 003 dry-runs."""
+
+from __future__ import annotations
+
+from itertools import combinations
+
+from src.analysis.contracts import (
+    AnalysisWarning,
+    ClusterEntry,
+    KeywordClusterInput,
+    KeywordClusterResult,
+)
+from src.analysis.keyword_features import normalize_keyword
+
+
+def _token_set(keyword: str) -> set[str]:
+    return set(normalize_keyword(keyword).split())
+
+
+def _jaccard_similarity(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    shared = left.intersection(right)
+    union = left.union(right)
+    if not union:
+        return 0.0
+    return len(shared) / len(union)
+
+
+def _build_adjacency(token_sets: list[set[str]]) -> list[set[int]]:
+    adjacency: list[set[int]] = [set() for _ in token_sets]
+    for i, j in combinations(range(len(token_sets)), 2):
+        similarity = _jaccard_similarity(token_sets[i], token_sets[j])
+        if similarity >= 0.34 or token_sets[i].intersection(token_sets[j]):
+            adjacency[i].add(j)
+            adjacency[j].add(i)
+    return adjacency
+
+
+def _connected_components(adjacency: list[set[int]]) -> list[list[int]]:
+    seen: set[int] = set()
+    components: list[list[int]] = []
+    for start in range(len(adjacency)):
+        if start in seen:
+            continue
+        stack = [start]
+        seen.add(start)
+        component: list[int] = []
+        while stack:
+            node = stack.pop()
+            component.append(node)
+            for neighbor in sorted(adjacency[node]):
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+        components.append(sorted(component))
+    return components
+
+
+def _cluster_label(component_keywords: list[str]) -> str:
+    token_counts: dict[str, int] = {}
+    for keyword in component_keywords:
+        for token in normalize_keyword(keyword).split():
+            token_counts[token] = token_counts.get(token, 0) + 1
+    if not token_counts:
+        return "misc"
+    sorted_tokens = sorted(token_counts.items(), key=lambda item: (-item[1], item[0]))
+    return " ".join(token for token, _ in sorted_tokens[:2])
+
+
+def _cohesion_score(component_indices: list[int], token_sets: list[set[str]]) -> float:
+    if len(component_indices) <= 1:
+        return 0.5
+    scores: list[float] = []
+    for i, j in combinations(component_indices, 2):
+        scores.append(_jaccard_similarity(token_sets[i], token_sets[j]))
+    if not scores:
+        return 0.5
+    return round(sum(scores) / len(scores), 4)
+
+
+def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
+    """Cluster keywords with deterministic token-overlap grouping."""
+    warnings: list[AnalysisWarning] = []
+    keywords = [keyword for keyword in payload.keywords if normalize_keyword(keyword)]
+
+    if not keywords:
+        warnings.append(
+            AnalysisWarning(
+                code="insufficient_keywords",
+                message="No non-empty keywords were provided for clustering.",
+                source_id=payload.source_id,
+                missing_data_fields=["keywords"],
+            )
+        )
+        return KeywordClusterResult(
+            source_id=payload.source_id,
+            clusters=[],
+            confidence=0.0,
+            explanation="Clustering skipped because there were no usable keywords.",
+            missing_data_fields=["keywords"],
+            warnings=warnings,
+            metadata=payload.metadata,
+        )
+
+    token_sets = [_token_set(keyword) for keyword in keywords]
+
+    if len(keywords) < 3:
+        warnings.append(
+            AnalysisWarning(
+                code="too_few_keywords",
+                message="Low keyword count reduced clustering quality.",
+                source_id=payload.source_id,
+                missing_data_fields=["keywords"],
+                metadata={"keyword_count": len(keywords)},
+            )
+        )
+        entry = ClusterEntry(
+            cluster_id="cluster_01",
+            label=_cluster_label(keywords),
+            keywords=sorted(keywords),
+            size=len(keywords),
+            cohesion_score=0.35,
+            explanation="Fallback single-cluster output for small keyword set.",
+        )
+        return KeywordClusterResult(
+            source_id=payload.source_id,
+            clusters=[entry],
+            confidence=0.35,
+            explanation="Generated a fallback cluster because keyword count was too low.",
+            missing_data_fields=[],
+            warnings=warnings,
+            metadata=payload.metadata,
+        )
+
+    adjacency = _build_adjacency(token_sets)
+    components = _connected_components(adjacency)
+    components = sorted(
+        components,
+        key=lambda component: (-len(component), _cluster_label([keywords[i] for i in component])),
+    )
+    clusters: list[ClusterEntry] = []
+    for index, component in enumerate(components, start=1):
+        cluster_keywords_list = sorted(keywords[i] for i in component)
+        label = _cluster_label(cluster_keywords_list)
+        cohesion = _cohesion_score(component, token_sets)
+        if len(component) < payload.min_cluster_size:
+            continue
+        clusters.append(
+            ClusterEntry(
+                cluster_id=f"cluster_{index:02d}",
+                label=label,
+                keywords=cluster_keywords_list,
+                size=len(component),
+                cohesion_score=cohesion,
+                explanation=f"Grouped by token overlap around '{label}'.",
+            )
+        )
+
+    if not clusters:
+        warnings.append(
+            AnalysisWarning(
+                code="min_cluster_size_filter",
+                message="No clusters met min_cluster_size threshold.",
+                source_id=payload.source_id,
+                metadata={"min_cluster_size": payload.min_cluster_size},
+            )
+        )
+
+    confidence = round(sum(cluster.cohesion_score for cluster in clusters) / len(clusters), 4) if clusters else 0.2
+    return KeywordClusterResult(
+        source_id=payload.source_id,
+        clusters=clusters,
+        confidence=confidence,
+        explanation="Deterministic clustering completed using lexical token overlap.",
+        missing_data_fields=[],
+        warnings=warnings,
+        metadata=payload.metadata,
+    )

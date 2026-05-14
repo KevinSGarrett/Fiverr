@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.config import ConfigLoader
 from src.models.database import initialize_database, normalize_database_url
+from src.scripts.foundation_gate import run_foundation_gate
 from src.scripts.init_db import main as init_db_script_main
 from src.utils.logging import configure_logging
 
@@ -61,6 +62,34 @@ def run_smoke_checks(config_path: str = "config.yaml") -> int:
         importlib.import_module(module_name)
         print(f"Smoke OK: {label}")
     ConfigLoader(config_path).load()
+    return 0
+
+
+def run_foundation_release_gate(config_path: str = "config.yaml", database_url: str | None = None) -> int:
+    return run_foundation_gate(config_path=config_path, database_url=database_url)
+
+
+def run_export_stub(export_format: str, input_path: str) -> int:
+    supported = {"csv", "excel", "pdf", "markdown"}
+    if export_format not in supported:
+        print(f"Unsupported export format '{export_format}'. Supported: {', '.join(sorted(supported))}")
+        return 2
+    if not input_path.strip():
+        print("Missing required --input-path.")
+        return 2
+    print(
+        "Export CLI surface is available. "
+        "Full export generation is scheduled for Epic 09."
+    )
+    return 0
+
+
+def run_dashboard_stub(mode: str) -> int:
+    normalized = mode.strip().lower() or "local"
+    print(
+        f"Dashboard command accepted in '{normalized}' mode. "
+        "Interactive dashboard runtime is scheduled for Epic 09."
+    )
     return 0
 
 

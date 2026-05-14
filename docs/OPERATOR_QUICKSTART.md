@@ -1,8 +1,9 @@
 # Operator Quickstart (Cycle Branch Workflow)
 
-This quickstart is for the human operator running cycle work in a shared branch flow.
+This quickstart is for PM/operator oversight in an agent-managed cycle branch flow.
+When GitHub auth is available, Cursor agents execute branch checks, push, and PR preparation.
 
-## 1) Verify current branch and clean context
+## 1) Confirm steward agent context
 
 ```powershell
 cd C:\Fiverr\Fiverr
@@ -11,24 +12,25 @@ git branch --show-current
 git log --oneline -8
 ```
 
-## 2) Start a new cycle branch from `develop`
+## 2) Start/verify cycle branch from `develop`
 
-Replace `002` with the active cycle number.
+Replace `003` with the active cycle number.
 
 ```powershell
 git checkout develop
 git pull origin develop
-git checkout -b cycle/002/integration
+git checkout -b cycle/003/integration
 git status
 ```
 
-## 3) Run agents in order and commit after each agent
+## 3) Run Agents A/B/C/D and commit by ownership
 
 Recommended pattern:
 
 1. Run Agent A prompt and review files changed by Agent A.
 2. Commit Agent A changes.
 3. Repeat for Agents B, C, and D.
+4. Agent D acts as final GitHub steward unless PM assigns another agent.
 
 After each agent:
 
@@ -39,7 +41,7 @@ git commit -m "<agent-scope commit message>"
 git log --oneline -8
 ```
 
-## 4) Final validation on cycle branch
+## 4) Steward agent runs final validation on cycle branch
 
 ```powershell
 python -m ruff check src tests
@@ -48,15 +50,17 @@ python -m pytest -q
 git status
 ```
 
-## 5) Push cycle branch and open PR into `develop`
+## 5) Steward agent pushes branch and opens PR into `develop`
 
 ```powershell
-git push -u origin cycle/002/integration
-gh pr create --base develop --head cycle/002/integration --title "Cycle 002 integration" --body "Cycle 002 integration branch with Agent A/B/C/D commits."
+git push -u origin cycle/003/integration
+gh pr create --base develop --head cycle/003/integration --title "Cycle 003 integration" --body "Cycle 003 integration branch with Agent A/B/C/D commits."
 ```
 
 ## 6) Branch protection reminder
 
+- PR target for cycle branches is `develop`.
 - Do not push to `main`.
 - Do not open cycle PRs to `main`.
 - `main` is release-only.
+- Human operator approves/reviews; agent steward executes git operations.

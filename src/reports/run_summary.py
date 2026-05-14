@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 
 from src.reports.templates import (
     REQUIRED_SECTION_TITLES,
+    AnalysisDryRunReport,
+    CollectionDryRunReport,
+    CycleValidationReport,
+    FoundationGateReport,
     ReportSection,
     ReportSeverity,
     ReportTemplate,
@@ -58,3 +62,27 @@ def render_plain_text_summary(summary: RunSummary) -> str:
         lines.extend(f"- {note}" for note in summary.notes)
 
     return "\n".join(lines)
+
+
+def render_structured_report_markdown(
+    report: FoundationGateReport
+    | CollectionDryRunReport
+    | AnalysisDryRunReport
+    | CycleValidationReport,
+) -> str:
+    """Render markdown for cycle reports via a single import-safe helper."""
+    return report.to_markdown()
+
+
+def build_cycle003_report_bundle(cycle_id: str) -> dict[str, dict[str, object]]:
+    """Build placeholder cycle reports as plain dictionaries for UI/report plumbing."""
+    foundation_report = FoundationGateReport(cycle_id=cycle_id)
+    collection_report = CollectionDryRunReport(cycle_id=cycle_id)
+    analysis_report = AnalysisDryRunReport(cycle_id=cycle_id)
+    validation_report = CycleValidationReport(cycle_id=cycle_id)
+    return {
+        "foundation_gate": foundation_report.to_dict(),
+        "collection_dry_run": collection_report.to_dict(),
+        "analysis_dry_run": analysis_report.to_dict(),
+        "cycle_validation": validation_report.to_dict(),
+    }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -11,6 +12,7 @@ class ReportSeverity(StrEnum):
 
     INFO = "info"
     WARNING = "warning"
+    ERROR = "error"
     CRITICAL = "critical"
 
 
@@ -25,19 +27,33 @@ REQUIRED_SECTION_TITLES = (
     "Data Freshness",
 )
 
+PENDING_PLACEHOLDER = "Pending"
+
+
+def normalize_report_severity(value: ReportSeverity | str) -> ReportSeverity:
+    """Normalize severity values and enforce the Cycle 002 severity contract."""
+    if isinstance(value, ReportSeverity):
+        return value
+
+    normalized = value.strip().lower()
+    try:
+        return ReportSeverity(normalized)
+    except ValueError as exc:
+        supported = ", ".join(member.value for member in ReportSeverity)
+        raise ValueError(f"severity must be one of: {supported}.") from exc
+
 
 @dataclass(frozen=True, slots=True)
 class ReportSection:
     """Single section in a report template."""
 
     title: str
-    severity: ReportSeverity
+    severity: ReportSeverity | str
     body: str = ""
 
     def __post_init__(self) -> None:
         """Ensure severity is constrained to the defined enum values."""
-        if not isinstance(self.severity, ReportSeverity):
-            raise ValueError("severity must be a ReportSeverity value.")
+        object.__setattr__(self, "severity", normalize_report_severity(self.severity))
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,3 +71,198 @@ class ReportTemplate:
     def is_valid(self) -> bool:
         """Return True when all required foundation sections are present."""
         return not self.missing_required_sections()
+
+
+def _render_section_lines(sections: tuple[ReportSection, ...]) -> list[str]:
+    if not sections:
+        return [f"- {PENDING_PLACEHOLDER}"]
+
+    lines: list[str] = []
+    for section in sections:
+        body = section.body.strip() or PENDING_PLACEHOLDER
+        lines.append(f"- [{normalize_report_severity(section.severity).value}] {section.title}: {body}")
+    return lines
+
+
+def _render_mapping_lines(
+    values: Mapping[str, str | int | float | None] | None,
+    empty_message: str = PENDING_PLACEHOLDER,
+) -> list[str]:
+    if not values:
+        return [f"- {empty_message}"]
+    return [f"- {key}: {value if value is not None else PENDING_PLACEHOLDER}" for key, value in values.items()]
+
+
+@dataclass(frozen=True, slots=True)
+class FoundationGateReport:
+    """Foundation gate review report for cycle validation workflows."""
+
+    cycle_id: str
+    gate_status: str = "pending"
+    findings: tuple[ReportSection, ...] = ()
+    metrics: Mapping[str, str | int | float | None] | None = None
+    blocking_issues: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "foundation_gate",
+            "cycle_id": self.cycle_id,
+            "gate_status": self.gate_status,
+            "metrics": dict(self.metrics) if self.metrics else {},
+            "blocking_issues": list(self.blocking_issues),
+            "findings": [
+                {
+                    "title": section.title,
+                    "severity": normalize_report_severity(section.severity).value,
+                    "body": section.body,
+                }
+                for section in self.findings
+            ],
+        }
+
+    def to_markdown(self) -> str:
+        blocking_issue_lines = [f"- {issue}" for issue in self.blocking_issues]
+        if not blocking_issue_lines:
+            blocking_issue_lines = [f"- {PENDING_PLACEHOLDER}"]
+
+        lines = [
+            "# Foundation Gate Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Gate Status: {self.gate_status}",
+            "## Metrics",
+            *_render_mapping_lines(self.metrics),
+            "## Findings",
+            *_render_section_lines(self.findings),
+            "## Blocking Issues",
+            *blocking_issue_lines,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionDryRunReport:
+    """Collection dry-run report that is safe to render before full execution."""
+
+    cycle_id: str
+    run_id: str | None = None
+    sample_size: int | None = None
+    findings: tuple[ReportSection, ...] = ()
+    coverage_notes: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "collection_dry_run",
+            "cycle_id": self.cycle_id,
+            "run_id": self.run_id,
+            "sample_size": self.sample_size,
+            "coverage_notes": list(self.coverage_notes),
+            "findings": [
+                {
+                    "title": section.title,
+                    "severity": normalize_report_severity(section.severity).value,
+                    "body": section.body,
+                }
+                for section in self.findings
+            ],
+        }
+
+    def to_markdown(self) -> str:
+        coverage_lines = [f"- {note}" for note in self.coverage_notes]
+        if not coverage_lines:
+            coverage_lines = [f"- {PENDING_PLACEHOLDER}"]
+
+        lines = [
+            "# Collection Dry Run Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Run ID: {self.run_id or PENDING_PLACEHOLDER}",
+            f"- Sample Size: {self.sample_size if self.sample_size is not None else PENDING_PLACEHOLDER}",
+            "## Findings",
+            *_render_section_lines(self.findings),
+            "## Coverage Notes",
+            *coverage_lines,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisDryRunReport:
+    """Analysis dry-run report contract for cycle-level QA."""
+
+    cycle_id: str
+    analyzed_keywords: int | None = None
+    scored_niches: int | None = None
+    findings: tuple[ReportSection, ...] = ()
+    next_actions: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "analysis_dry_run",
+            "cycle_id": self.cycle_id,
+            "analyzed_keywords": self.analyzed_keywords,
+            "scored_niches": self.scored_niches,
+            "next_actions": list(self.next_actions),
+            "findings": [
+                {
+                    "title": section.title,
+                    "severity": normalize_report_severity(section.severity).value,
+                    "body": section.body,
+                }
+                for section in self.findings
+            ],
+        }
+
+    def to_markdown(self) -> str:
+        next_action_lines = [f"- {action}" for action in self.next_actions]
+        if not next_action_lines:
+            next_action_lines = [f"- {PENDING_PLACEHOLDER}"]
+
+        lines = [
+            "# Analysis Dry Run Report",
+            f"- Cycle: {self.cycle_id}",
+            "- Analyzed Keywords: "
+            f"{self.analyzed_keywords if self.analyzed_keywords is not None else PENDING_PLACEHOLDER}",
+            f"- Scored Niches: {self.scored_niches if self.scored_niches is not None else PENDING_PLACEHOLDER}",
+            "## Findings",
+            *_render_section_lines(self.findings),
+            "## Next Actions",
+            *next_action_lines,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class CycleValidationReport:
+    """Cycle-level validation report for lint/type/test command outcomes."""
+
+    cycle_id: str
+    checks: Mapping[str, str | None] | None = None
+    findings: tuple[ReportSection, ...] = ()
+    summary: str = PENDING_PLACEHOLDER
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "cycle_validation",
+            "cycle_id": self.cycle_id,
+            "summary": self.summary,
+            "checks": dict(self.checks) if self.checks else {},
+            "findings": [
+                {
+                    "title": section.title,
+                    "severity": normalize_report_severity(section.severity).value,
+                    "body": section.body,
+                }
+                for section in self.findings
+            ],
+        }
+
+    def to_markdown(self) -> str:
+        lines = [
+            "# Cycle Validation Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Summary: {self.summary or PENDING_PLACEHOLDER}",
+            "## Checks",
+            *_render_mapping_lines(self.checks),
+            "## Findings",
+            *_render_section_lines(self.findings),
+        ]
+        return "\n".join(lines)

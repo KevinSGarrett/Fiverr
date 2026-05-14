@@ -4,7 +4,22 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+REQUIRED_NICHE_COUNT = 9
+REQUIRED_SCORING_PROFILES = ("default", "aggressive_new_seller", "profitability_focus", "trend_chaser")
+
+
+def _validate_safe_relative_path(value: str, field_name: str) -> str:
+    path_value = value.strip()
+    if not path_value:
+        raise ValueError(f"{field_name} cannot be empty.")
+    normalized = path_value.replace("\\", "/")
+    if normalized.startswith("/") or ":/" in normalized:
+        raise ValueError(f"{field_name} must be a relative safe path, got '{value}'.")
+    if ".." in normalized.split("/"):
+        raise ValueError(f"{field_name} cannot traverse parent directories.")
+    return normalized
 
 
 class SystemConfig(BaseModel):
@@ -22,12 +37,22 @@ class SystemConfig(BaseModel):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     data_dir: str = "data"
 
+    @field_validator("data_dir")
+    @classmethod
+    def validate_data_dir(cls, value: str) -> str:
+        return _validate_safe_relative_path(value, "system.data_dir")
+
 
 class FiverrConfig(BaseModel):
     session_mode: Literal["authenticated", "unauthenticated"] = "authenticated"
     session_file: str = "data/sessions/fiverr_session.json"
     login_url: str = "https://www.fiverr.com/login"
     verify_selector: str = "[data-testid='user-menu-button']"
+
+    @field_validator("session_file")
+    @classmethod
+    def validate_session_file(cls, value: str) -> str:
+        return _validate_safe_relative_path(value, "fiverr.session_file")
 
 
 class LLMModelsConfig(BaseModel):
@@ -49,8 +74,8 @@ class LLMConfig(BaseModel):
 
 
 class PacingConfig(BaseModel):
-    base_delay_seconds: float = Field(default=1.0, ge=0)
-    jitter_seconds: float = Field(default=0.5, ge=0)
+    base_delay_seconds: float = Field(default=1.0, gt=0)
+    jitter_seconds: float = Field(default=0.5, gt=0)
     max_requests_per_hour: int = Field(default=60, ge=1)
     human_events: bool = False
 
@@ -60,6 +85,23 @@ class CollectionConfig(BaseModel):
     retry_limit: int = Field(default=3, ge=0)
     checkpoint_interval: int = Field(default=50, ge=1)
     proxy_enabled: bool = False
+
+    @model_validator(mode="after")
+    def validate_pacing_profiles(self) -> CollectionConfig:
+        if not self.pacing:
+            raise ValueError("collection.pacing must define at least one pacing profile.")
+        for profile_name, profile in self.pacing.items():
+            if profile.base_delay_seconds <= 0 or profile.jitter_seconds <= 0:
+                raise ValueError(
+                    f"Invalid collection pacing values for '{profile_name}': "
+                    "base_delay_seconds and jitter_seconds must be positive."
+                )
+            if profile.max_requests_per_hour <= 0:
+                raise ValueError(
+                    f"Invalid collection pacing values for '{profile_name}': "
+                    "max_requests_per_hour must be positive."
+                )
+        return self
 
 
 class ScoringProfileConfig(BaseModel):
@@ -109,6 +151,8 @@ class DiscoveryConfig(BaseModel):
 
 
 class ExportFormatsConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     csv: bool = True
     excel: bool = True
     pdf: bool = True
@@ -119,6 +163,23 @@ class ExportConfig(BaseModel):
     output_dir: str = "data/exports"
     formats: ExportFormatsConfig = Field(default_factory=ExportFormatsConfig)
     include_recommendations: bool = True
+
+    @field_validator("output_dir")
+    @classmethod
+    def validate_output_dir(cls, value: str) -> str:
+        return _validate_safe_relative_path(value, "exports.output_dir")
+
+    @model_validator(mode="after")
+    def validate_formats_enabled(self) -> ExportConfig:
+        enabled = {
+            "csv": self.formats.csv,
+            "excel": self.formats.excel,
+            "pdf": self.formats.pdf,
+            "markdown": self.formats.markdown,
+        }
+        if not any(enabled.values()):
+            raise ValueError("exports.formats must enable at least one export format.")
+        return self
 
 
 class AlertThresholdsConfig(BaseModel):
@@ -139,6 +200,12 @@ class NicheConfig(BaseModel):
     is_active: bool = True
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def validate_seed_keywords(self) -> NicheConfig:
+        if not self.seed_keywords:
+            raise ValueError(f"niche '{self.niche_id}' has an empty seed_keywords list.")
+        return self
+
 
 class ScoringConfig(BaseModel):
     active_profile: str = "default"
@@ -154,6 +221,10 @@ class ScoringConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_active_profile(self) -> ScoringConfig:
+        missing_profiles = [name for name in REQUIRED_SCORING_PROFILES if name not in self.profiles]
+        if missing_profiles:
+            missing = ", ".join(missing_profiles)
+            raise ValueError(f"Missing required scoring profile(s): {missing}")
         if self.active_profile not in self.profiles:
             raise ValueError(
                 f"scoring.active_profile '{self.active_profile}' not found in scoring.profiles"
@@ -173,3 +244,15 @@ class AppConfig(BaseModel):
     exports: ExportConfig = Field(default_factory=ExportConfig)
     alerts: AlertThresholdsConfig = Field(default_factory=AlertThresholdsConfig)
     niches: list[NicheConfig]
+
+    @model_validator(mode="after")
+    def validate_niches(self) -> AppConfig:
+        if len(self.niches) != REQUIRED_NICHE_COUNT:
+            raise ValueError(
+                f"Config must define exactly {REQUIRED_NICHE_COUNT} niches, got {len(self.niches)}."
+            )
+        niche_ids = [niche.niche_id for niche in self.niches]
+        duplicate_ids = sorted({niche_id for niche_id in niche_ids if niche_ids.count(niche_id) > 1})
+        if duplicate_ids:
+            raise ValueError(f"Duplicate niche IDs are not allowed: {', '.join(duplicate_ids)}")
+        return self

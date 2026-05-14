@@ -15,6 +15,7 @@ from src.models.database import (
     verify_required_tables,
 )
 from src.models.niche import NicheConfigRecord
+from src.models.registry import get_registered_table_names
 
 
 def test_initialize_database_creates_expected_tables(tmp_path: Path) -> None:
@@ -24,9 +25,7 @@ def test_initialize_database_creates_expected_tables(tmp_path: Path) -> None:
     engine = initialize_database(database_url=db_url)
     tables = set(list_tables(engine))
 
-    assert "niche_configs" in tables
-    assert "keywords" in tables
-    assert "analysis_runs" in tables
+    assert set(get_registered_table_names()).issubset(tables)
 
 
 def test_verify_required_tables_reports_missing(tmp_path: Path) -> None:
@@ -35,6 +34,13 @@ def test_verify_required_tables_reports_missing(tmp_path: Path) -> None:
 
     missing = verify_required_tables(engine, ["niche_configs", "does_not_exist"])
     assert missing == ["does_not_exist"]
+
+
+def test_initialize_database_creates_every_registered_table(tmp_path: Path) -> None:
+    db_path = tmp_path / "registered_tables.db"
+    engine = initialize_database(database_url=f"sqlite:///{db_path.as_posix()}")
+    missing = verify_required_tables(engine)
+    assert missing == []
 
 
 def test_get_session_commit_and_rollback_behavior(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ class ExportFormat(StrEnum):
     JSON = "json"
     HTML = "html"
     PDF = "pdf"
+    MD = "md"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +29,7 @@ class ExportRequest:
     created_by: str | None = None
 
 
-def _normalize_format(value: ExportFormat | str) -> ExportFormat:
+def normalize_export_format(value: ExportFormat | str) -> ExportFormat:
     if isinstance(value, ExportFormat):
         return value
     normalized = value.strip().lower()
@@ -53,7 +54,7 @@ def _validate_output_path(output_path: str) -> None:
 
 def validate_export_request(request: ExportRequest) -> ExportRequest:
     """Validate format and output-path safety for export requests."""
-    resolved_format = _normalize_format(request.format)
+    resolved_format = normalize_export_format(request.format)
     _validate_output_path(request.output_path)
 
     return ExportRequest(

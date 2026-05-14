@@ -1,115 +1,102 @@
-"""Playwright session abstractions without browser execution."""
+"""Playwright session configuration helpers for dry-run collection."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import StrEnum
+import inspect
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from pathlib import Path
-
-
-class BrowserMode(StrEnum):
-    UNAUTHENTICATED_READ_ONLY = "unauthenticated_read_only"
-    AUTHENTICATED_READ_ONLY = "authenticated_read_only"
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
-class SessionState:
-    mode: BrowserMode
-    session_path: Path | None
-    valid: bool
-    message: str
+class BrowserSessionConfig:
+    """Configuration used to build safe browser launch options."""
 
-
-@dataclass(frozen=True, slots=True)
-class SessionManagerConfig:
-    mode: BrowserMode = BrowserMode.UNAUTHENTICATED_READ_ONLY
     headless: bool = True
-    browser_channel: str | None = None
-    session_file_path: Path | None = None
-    repo_root: Path | None = None
-    allowed_repo_session_dirs: tuple[str, ...] = field(default_factory=lambda: (".gitignored",))
+    storage_state_path: Path | None = None
+    user_agent: str | None = None
+    timeout_ms: int = 30_000
+    authenticated_mode: bool = False
 
 
-class PlaywrightSessionManager:
-    """Validates session file requirements and launch options."""
+def validate_storage_state_path(path: Path | str | None) -> Path:
+    """Validate storage state path for authenticated read-only workflows."""
 
-    def __init__(self, config: SessionManagerConfig) -> None:
-        self.config = config
-        self._repo_root = (config.repo_root or Path.cwd()).resolve()
+    if path is None:
+        raise ValueError("Authenticated mode requires a storage_state_path.")
 
-    def describe_required_manual_setup(self) -> str:
-        if self.config.mode == BrowserMode.AUTHENTICATED_READ_ONLY:
-            return (
-                "Authenticated read-only mode requires manual login outside automation and an "
-                "external Playwright storage state file path."
-            )
-        return "Unauthenticated read-only mode does not require a session state file."
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Storage state file not found: {resolved}")
+    if not resolved.is_file():
+        raise ValueError(f"Storage state path must be a file: {resolved}")
+    return resolved
 
-    def session_state_path(self) -> Path | None:
-        return self.config.session_file_path
 
-    def validate_session_state_file(self) -> SessionState:
-        session_path = self.session_state_path()
-        mode = self.config.mode
-        if mode == BrowserMode.UNAUTHENTICATED_READ_ONLY and session_path is None:
-            return SessionState(
-                mode=mode,
-                session_path=None,
-                valid=True,
-                message="No session file required for unauthenticated read-only mode.",
-            )
+def build_browser_launch_options(config: BrowserSessionConfig) -> dict[str, Any]:
+    """Build deterministic launch options without launching a browser."""
 
-        if mode == BrowserMode.AUTHENTICATED_READ_ONLY and session_path is None:
-            return SessionState(
-                mode=mode,
-                session_path=None,
-                valid=False,
-                message="Authenticated mode requires session_file_path.",
-            )
+    if config.timeout_ms <= 0:
+        raise ValueError("timeout_ms must be greater than zero.")
 
-        assert session_path is not None
-        if not self._is_session_path_safe(session_path):
-            return SessionState(
-                mode=mode,
-                session_path=session_path,
-                valid=False,
-                message="Session file path under repository is not allowed unless explicitly safe.",
-            )
+    options: dict[str, Any] = {"headless": config.headless, "timeout": config.timeout_ms}
+    if config.user_agent:
+        options["user_agent"] = config.user_agent
 
-        if not session_path.exists():
-            return SessionState(
-                mode=mode,
-                session_path=session_path,
-                valid=False,
-                message="Session state file does not exist. Complete manual login first.",
-            )
+    if config.authenticated_mode:
+        options["storage_state"] = str(validate_storage_state_path(config.storage_state_path))
+    return options
 
-        return SessionState(mode=mode, session_path=session_path, valid=True, message="Session valid.")
 
-    def build_launch_options(self) -> dict[str, object]:
-        validation = self.validate_session_state_file()
-        options: dict[str, object] = {"headless": self.config.headless}
-        if self.config.browser_channel:
-            options["channel"] = self.config.browser_channel
+async def _maybe_await(value: Any) -> Any:
+    """Await value when needed for injected async fakes."""
 
-        if (
-            self.config.mode == BrowserMode.AUTHENTICATED_READ_ONLY
-            and validation.valid
-            and validation.session_path is not None
-        ):
-            options["storage_state"] = str(validation.session_path)
-        return options
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
-    def _is_session_path_safe(self, path: Path) -> bool:
-        try:
-            resolved_path = path.resolve()
-        except OSError:
-            return False
 
-        try:
-            relative = resolved_path.relative_to(self._repo_root)
-        except ValueError:
-            return True
+class ManagedBrowserSession:
+    """Async context manager skeleton with dependency injection hooks for tests."""
 
-        relative_parts = set(relative.parts)
-        return any(part in relative_parts for part in self.config.allowed_repo_session_dirs)
+    def __init__(
+        self,
+        config: BrowserSessionConfig,
+        *,
+        playwright_factory: Callable[[], Awaitable[Any] | Any] | None = None,
+        browser: Any | None = None,
+    ) -> None:
+        self._config = config
+        self._playwright_factory = playwright_factory
+        self._injected_browser = browser
+        self._playwright: Any | None = None
+        self._browser: Any | None = None
+
+    async def __aenter__(self) -> Any:
+        build_browser_launch_options(self._config)
+
+        if self._injected_browser is not None:
+            self._browser = self._injected_browser
+            return self._browser
+
+        if self._playwright_factory is None:
+            raise RuntimeError("ManagedBrowserSession requires injected browser or playwright_factory.")
+
+        self._playwright = await _maybe_await(self._playwright_factory())
+        chromium = getattr(self._playwright, "chromium", None)
+        if chromium is None:
+            raise RuntimeError("Injected playwright object must expose a chromium launcher.")
+        self._browser = await _maybe_await(chromium.launch(**build_browser_launch_options(self._config)))
+        return self._browser
+
+    async def __aexit__(self, _exc_type: Any, _exc: Any, _tb: Any) -> None:
+        if self._browser is not None:
+            close = getattr(self._browser, "close", None)
+            if close is not None:
+                await _maybe_await(close())
+
+        if self._playwright is not None:
+            stop = getattr(self._playwright, "stop", None)
+            if stop is not None:
+                await _maybe_await(stop())

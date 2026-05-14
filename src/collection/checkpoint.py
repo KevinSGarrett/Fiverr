@@ -1,4 +1,4 @@
-"""Checkpoint persistence with atomic JSON writes."""
+"""Deterministic atomic queue checkpoint helpers."""
 
 from __future__ import annotations
 
@@ -6,75 +6,54 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
 
-
-class CheckpointCorruptionError(RuntimeError):
-    """Raised when a checkpoint file cannot be parsed safely."""
+from src.collection.queue import CollectionQueue
 
 
-class CheckpointManager:
-    """JSON checkpoint manager with atomic write guarantees."""
+class QueueCheckpointError(RuntimeError):
+    """Raised when queue checkpoint read/write operations fail safely."""
 
-    schema_version = "1.0"
 
-    def __init__(self, checkpoint_dir: Path | str) -> None:
-        self._checkpoint_dir = Path(checkpoint_dir)
-        self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
+def checkpoint_queue_state(queue: CollectionQueue, path: Path | str) -> Path:
+    """Persist queue state atomically as deterministic JSON."""
 
-    def save_checkpoint(self, run_id: str, payload: dict[str, Any]) -> Path:
-        checkpoint = {
-            "schema_version": self.schema_version,
-            "run_id": run_id,
-            "stage_name": payload.get("stage_name", "unknown"),
-            "cursor_offset": payload.get("cursor_offset"),
-            "record_counts": payload.get("record_counts", {}),
-            "updated_at": datetime.now(UTC).isoformat(),
-            "payload": payload,
-        }
-        path = self._checkpoint_path(run_id)
-        temp_path = path.with_suffix(f".tmp.{uuid4().hex}")
-        temp_path.write_text(json.dumps(checkpoint, indent=2), encoding="utf-8")
-        os.replace(temp_path, path)
-        return path
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def load_checkpoint(self, run_id: str) -> dict[str, Any]:
-        path = self._checkpoint_path(run_id)
-        try:
-            raw = path.read_text(encoding="utf-8")
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise CheckpointCorruptionError(
-                f"Checkpoint for '{run_id}' is corrupted: {exc.msg}."
-            ) from exc
+    payload = {
+        "schema_version": "1.0",
+        "saved_at": datetime.now(UTC).isoformat(),
+        "jobs": [
+            {
+                "job_id": job.job_id,
+                "keyword_id": job.keyword_id,
+                "query": job.query,
+                "url": job.url,
+                "page_number": job.page_number,
+                "max_pages": job.max_pages,
+                "source": job.source,
+                "source_seed": job.source_seed,
+                "estimated_priority": job.estimated_priority,
+                "status": job.status.value,
+            }
+            for job in queue.jobs
+        ],
+    }
 
-    def checkpoint_exists(self, run_id: str) -> bool:
-        return self._checkpoint_path(run_id).exists()
+    temp_path = output_path.with_suffix(f"{output_path.suffix}.tmp.{uuid4().hex}")
+    temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(temp_path, output_path)
+    return output_path
 
-    def list_checkpoints(self) -> list[str]:
-        run_ids: list[str] = []
-        for path in sorted(self._checkpoint_dir.glob("*.json")):
-            run_ids.append(path.stem)
-        return run_ids
 
-    def mark_complete(self, run_id: str) -> Path:
-        checkpoint = self.load_checkpoint(run_id)
-        checkpoint["completed"] = True
-        checkpoint["completed_at"] = datetime.now(UTC).isoformat()
-        path = self._checkpoint_path(run_id)
-        temp_path = path.with_suffix(f".tmp.{uuid4().hex}")
-        temp_path.write_text(json.dumps(checkpoint, indent=2), encoding="utf-8")
-        os.replace(temp_path, path)
-        return path
+def load_queue_checkpoint(path: Path | str) -> dict[str, object]:
+    """Load queue checkpoint and raise controlled error on corruption."""
 
-    def delete_checkpoint(self, run_id: str, allow_delete: bool = False) -> None:
-        if not allow_delete:
-            raise PermissionError("Checkpoint deletion requires allow_delete=True.")
-        path = self._checkpoint_path(run_id)
-        if path.exists():
-            path.unlink()
-
-    def _checkpoint_path(self, run_id: str) -> Path:
-        safe_run_id = run_id.replace("/", "_").replace("\\", "_")
-        return self._checkpoint_dir / f"{safe_run_id}.json"
+    checkpoint_path = Path(path)
+    try:
+        return json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise QueueCheckpointError(
+            f"Checkpoint at '{checkpoint_path}' is corrupted: {exc.msg}."
+        ) from exc

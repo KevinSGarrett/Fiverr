@@ -26,6 +26,9 @@ data/screenshots/
 data/checkpoints/
 data/sessions/
 data/exports/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
 data/**/*.log
 logs/
 *.log

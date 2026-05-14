@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from src.scripts.repo_hygiene import find_hygiene_issues
 from src.utils.json import safe_json_loads
 from src.utils.logging import RedactingFilter
 from src.utils.paths import ensure_dir
@@ -66,3 +68,40 @@ def test_retry_stops_after_max_attempts() -> None:
 def test_safe_json_loads_raises_clear_error() -> None:
     with pytest.raises(ValueError, match="Malformed JSON"):
         safe_json_loads("{bad json")
+
+
+@dataclass
+class _CompletedProcess:
+    returncode: int
+    stdout: str
+
+
+def test_repo_hygiene_detects_forbidden_and_runtime_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fake_run(command: list[str], **_kwargs: object) -> _CompletedProcess:
+        if command[1:] == ["ls-files"]:
+            return _CompletedProcess(
+                returncode=0,
+                stdout="src/app.py\n__pycache__/bad.pyc\n.pytest_cache/state\n",
+            )
+        if command[1:] == ["ls-files", "--others", "--exclude-standard"]:
+            return _CompletedProcess(returncode=0, stdout="data/runtime.db\nnotes.txt\n")
+        return _CompletedProcess(returncode=1, stdout="")
+
+    monkeypatch.setattr("src.scripts.repo_hygiene.subprocess.run", fake_run)
+    issues = find_hygiene_issues(repo_root=tmp_path)
+
+    paths = [issue.path for issue in issues]
+    assert "__pycache__/bad.pyc" in paths
+    assert ".pytest_cache/state" in paths
+    assert "data/runtime.db" in paths
+
+
+def test_repo_hygiene_passes_clean_repository(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def fake_run(_command: list[str], **_kwargs: object) -> _CompletedProcess:
+        return _CompletedProcess(returncode=0, stdout="")
+
+    monkeypatch.setattr("src.scripts.repo_hygiene.subprocess.run", fake_run)
+    issues = find_hygiene_issues(repo_root=tmp_path)
+    assert issues == []

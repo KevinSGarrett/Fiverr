@@ -100,7 +100,8 @@ python -m pytest tests/unit/test_dashboard.py tests/unit/test_reports.py tests/u
 ## Branching and Release Workflow
 
 - Agents commit locally to cycle branches (for example: `cycle/002/integration`).
-- Human operator pushes one cycle branch after all agent commits are complete.
+- Agent D (or PM-assigned steward agent) performs final branch checks, push, and PR prep.
+- Human operator/PM provides review and approval oversight.
 - Pull requests target `develop`.
 - `main` is release-only and receives changes through release process only.
 - Do not push directly to `main`.
