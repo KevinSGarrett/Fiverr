@@ -70,12 +70,12 @@ Cleanup after parity:
   - unresolved Codex threads: `0`
   - disposition replies required in this pass: `none` (no Codex thread present yet)
 - GitHub Actions status on PR #6:
-  - `Lint, Typecheck, Tests, and Gates` (run `25889303662`): `SUCCESS`
-  - `Lint, Typecheck, Tests, and Gates` (run `25889318506`): `SUCCESS`
+  - `Lint, Typecheck, Tests, and Gates` (run `25889435022`): `SUCCESS`
+  - `Lint, Typecheck, Tests, and Gates` (run `25889436180`): `SUCCESS`
 - Codecov statuses on PR #6:
   - `codecov/project`: `SUCCESS`
-  - `codecov/patch`: `FAILURE` (`86.84211%`, 10 patch lines missing coverage per Codecov PR comment)
-- Steward decision: **BLOCKED** (do not merge; Codecov patch gate failed and no exception is self-authorized).
+  - `codecov/patch`: **missing** on current head rollup; earlier Codecov PR comment reports patch coverage failure (`86.84211%`, 10 missing lines)
+- Steward decision: **BLOCKED** (do not merge; Codecov patch status is missing/failing and no exception is self-authorized).
 
 ## Files changed by all agents in Cycle 007
 
