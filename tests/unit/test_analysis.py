@@ -274,6 +274,19 @@ def test_intent_buyer_ready_examples_classify_correctly() -> None:
     assert result.confidence >= 0.8
 
 
+def test_intent_price_language_and_urgency_contribute_to_buyer_ready() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation expert under $200 asap",
+            title_phrases=["budget is 200 usd", "hire now"],
+        )
+    )
+    assert result.label == IntentLabel.BUYER_READY
+    assert any(rule.startswith("price_language:") for rule in result.matched_rules)
+    assert any(rule.startswith("urgency:") for rule in result.matched_rules)
+
+
 def test_intent_ambiguous_queries_return_low_confidence() -> None:
     result = classify_intent(IntentInput(source_id="intent-src", keyword_text="python automation"))
     assert result.label == IntentLabel.AMBIGUOUS
