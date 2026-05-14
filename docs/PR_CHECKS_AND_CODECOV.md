@@ -13,6 +13,17 @@ Missing checks are blockers. Pending checks are blockers. Failing checks are blo
 
 A local coverage pass is necessary but not sufficient for merge readiness.
 
+## Cycle 007 opening-gate audit note
+
+- PR #5 (`fix(cycle-006): close codex intent fallback and harden codecov project gate`) passed:
+  - `CI / Lint, Typecheck, Tests, and Gates`
+  - `codecov/project`
+  - `codecov/patch`
+- Codex Codecov-auth thread was dispositioned `VALID_FIXED` and resolved prior to merge.
+- Repository-level caveat from live audit:
+  - `develop` branch protection endpoint returned HTTP `404 Branch not protected`.
+  - Required checks may be green per-PR but are not yet guaranteed as enforced branch-protection gates.
+
 ## Coverage Signal Definitions
 
 - Local coverage gate: result of the local pytest coverage run with `--cov-fail-under=90`.
