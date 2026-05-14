@@ -1,47 +1,36 @@
-"""Integration-flavored dry-run checks for collection foundations."""
+"""Integration checks for collection dry-run orchestration."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-from src.collection.checkpoint import CheckpointManager
-from src.collection.contracts import (
-    CollectionStageInput,
-    CollectionStageResult,
-    CollectionStageStatus,
-)
-from src.collection.orchestrator import CollectionOrchestrator, CollectionStage
-from src.collection.pacing import PacingManager
-from src.collection.queue import QueueProcessor
+from src.collection.contracts import CollectionStageStatus
+from src.collection.orchestrator import run_collection_dry_run
 
 
-def test_collection_orchestrator_dry_run_pipeline(tmp_path) -> None:
-    orchestrator = CollectionOrchestrator(
-        queue_processor=QueueProcessor(),
-        pacing_manager=PacingManager(random_provider=lambda _a, _b: 0.0),
-        checkpoint_manager=CheckpointManager(tmp_path),
-        dry_run=True,
+def test_collection_dry_run_pipeline_creates_expected_artifacts(tmp_path) -> None:
+    checkpoint_path = tmp_path / "dry-run-checkpoint.json"
+    result = run_collection_dry_run(
+        ["logo design", "seo audit"],
+        niche_metadata={"modifiers": ["local"]},
+        max_candidates=12,
+        max_pages=2,
+        checkpoint_path=checkpoint_path,
+        region="US",
+        language="en",
+        sort="rating",
     )
 
-    def stage_a(_stage_input: CollectionStageInput) -> CollectionStageResult:
-        return CollectionStageResult(
-            stage_name="stage_a",
-            status=CollectionStageStatus.SUCCESS,
-            started_at=datetime.now(UTC),
-            finished_at=datetime.now(UTC),
-            records_seen=2,
-            records_written=2,
-        )
+    assert result.status == CollectionStageStatus.SUCCESS
+    assert result.metadata["expanded_keywords_count"] > 0
+    assert result.metadata["search_plan_items_count"] > 0
+    assert result.metadata["queue_jobs_count"] > 0
+    assert checkpoint_path.exists()
 
-    def stage_b(_stage_input: CollectionStageInput) -> CollectionStageResult:
-        return CollectionStageResult(
-            stage_name="stage_b",
-            status=CollectionStageStatus.SUCCESS,
-            started_at=datetime.now(UTC),
-            finished_at=datetime.now(UTC),
-            records_seen=1,
-            records_written=1,
-        )
 
-    results = orchestrator.run("integration-run", [CollectionStage("stage_a", stage_a), CollectionStage("stage_b", stage_b)])
-    assert [result.stage_name for result in results] == ["stage_a", "stage_b"]
+def test_collection_dry_run_invalid_input_returns_failed_result(tmp_path) -> None:
+    result = run_collection_dry_run(
+        ["seed"],
+        max_pages=0,
+        checkpoint_path=tmp_path / "invalid.json",
+    )
+    assert result.status == CollectionStageStatus.FAILED
+    assert result.errors
