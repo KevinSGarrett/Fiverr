@@ -18,6 +18,7 @@
   - `2b1d722` `fix(analysis): sanitize literal null/none fallback [Agent C]`
   - `d4cd73b` `docs(governance): clarify codex and codecov project gates [Agent D]`
   - `a5fdd23` `chore(ci): provide codecov token for protected branches [Agent D]`
+  - `6802fcc` `docs(cycle): update agent d final gate status after ci remediation`
 
 ## Governance documentation refresh (D1/D2)
 
@@ -100,6 +101,7 @@ Final parity rerun after CI token correction commit:
   - CI check `Lint, Typecheck, Tests, and Gates`: `SUCCESS`
   - Codecov patch check `codecov/patch`: `SUCCESS` (`100.00% of diff hit`)
   - Codecov project check `codecov/project`: **not present**
+  - latest head SHA observed for final check: `6802fcc140a035057e24d6e659b7706f72345678`
 
 ## Merge readiness decision
 
