@@ -63,6 +63,10 @@ class LLMClient:
                 cached_metadata = dict(cached_payload["metadata"])
                 cached_metadata["cache_hit"] = True
                 cached_metadata["estimated_cost_usd"] = 0.0
+                usage_event = dict(cached_metadata.get("usage_event", {}))
+                usage_event["cache_hit"] = True
+                usage_event["estimated_cost_usd"] = 0.0
+                cached_metadata["usage_event"] = usage_event
                 return LLMResult(text=str(cached_payload["text"]), metadata=cached_metadata)
 
         payload = self._call_provider_complete(

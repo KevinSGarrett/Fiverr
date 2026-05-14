@@ -291,3 +291,5 @@ def test_cache_hit_marks_zero_cost() -> None:
     assert first.metadata["cache_hit"] is False
     assert second.metadata["cache_hit"] is True
     assert second.metadata["estimated_cost_usd"] == 0.0
+    assert second.metadata["usage_event"]["cache_hit"] is True
+    assert second.metadata["usage_event"]["estimated_cost_usd"] == 0.0
