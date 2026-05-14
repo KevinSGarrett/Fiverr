@@ -83,6 +83,88 @@ def test_managed_session_closes_injected_browser_cleanly() -> None:
     assert browser.closed is True
 
 
+def test_validate_storage_state_path_requires_explicit_file_path() -> None:
+    with pytest.raises(ValueError, match="requires a storage_state_path"):
+        validate_storage_state_path(None)
+
+
+def test_validate_storage_state_path_rejects_directory(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="must be a file"):
+        validate_storage_state_path(tmp_path)
+
+
+def test_build_browser_launch_options_rejects_non_positive_timeout() -> None:
+    with pytest.raises(ValueError, match="timeout_ms must be greater than zero"):
+        build_browser_launch_options(BrowserSessionConfig(timeout_ms=0))
+
+
+def test_managed_session_requires_browser_or_factory() -> None:
+    async def _run() -> None:
+        with pytest.raises(RuntimeError, match="requires injected browser or playwright_factory"):
+            async with ManagedBrowserSession(BrowserSessionConfig()):
+                pass
+
+    asyncio.run(_run())
+
+
+def test_managed_session_requires_playwright_chromium_launcher() -> None:
+    class FakePlaywright:
+        async def stop(self) -> None:
+            return None
+
+    async def _run() -> None:
+        with pytest.raises(RuntimeError, match="must expose a chromium launcher"):
+            async with ManagedBrowserSession(
+                BrowserSessionConfig(),
+                playwright_factory=lambda: FakePlaywright(),
+            ):
+                pass
+
+    asyncio.run(_run())
+
+
+def test_managed_session_playwright_factory_launches_and_stops() -> None:
+    class FakeBrowser:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def close(self) -> None:
+            self.closed = True
+
+    class FakeChromium:
+        def __init__(self, browser: FakeBrowser) -> None:
+            self._browser = browser
+            self.launch_options: dict[str, object] | None = None
+
+        async def launch(self, **kwargs: object) -> FakeBrowser:
+            self.launch_options = dict(kwargs)
+            return self._browser
+
+    class FakePlaywright:
+        def __init__(self, chromium: FakeChromium) -> None:
+            self.chromium = chromium
+            self.stopped = False
+
+        async def stop(self) -> None:
+            self.stopped = True
+
+    browser = FakeBrowser()
+    chromium = FakeChromium(browser)
+    playwright = FakePlaywright(chromium)
+
+    async def _run() -> None:
+        async with ManagedBrowserSession(
+            BrowserSessionConfig(headless=False, timeout_ms=45_000),
+            playwright_factory=lambda: playwright,
+        ) as active_browser:
+            assert active_browser is browser
+
+    asyncio.run(_run())
+    assert chromium.launch_options == {"headless": False, "timeout": 45_000}
+    assert browser.closed is True
+    assert playwright.stopped is True
+
+
 def test_selector_registry_contains_required_groups_and_selectors() -> None:
     assert validate_selector_registry() == []
     for group, selector_names in REQUIRED_SELECTORS.items():
@@ -93,6 +175,30 @@ def test_selector_registry_contains_required_groups_and_selectors() -> None:
 def test_missing_selector_raises_clear_key_error() -> None:
     with pytest.raises(KeyError, match="Unknown selector"):
         get_selector("search_results", "does_not_exist")
+
+
+def test_missing_selector_group_raises_clear_key_error() -> None:
+    with pytest.raises(KeyError, match="Unknown selector group"):
+        get_selector("unknown_group", "gig_title")
+
+
+def test_validate_selector_registry_reports_missing_groups_and_selectors() -> None:
+    registry = {
+        "search_results": {"result_card": "", "gig_title": "h3"},
+        "gig_detail": {"gig_detail_title": "h1"},
+        "seller_profile": {
+            "seller_profile_name": "h1",
+            "seller_profile_level": "span",
+            "seller_profile_rating": "span",
+            "seller_profile_response_time": "span",
+        },
+        "page_state": {"unavailable_indicator": ".unavailable"},
+    }
+    errors = validate_selector_registry(registry)
+    assert "Missing selector group 'pagination'." in errors
+    assert "Missing selector 'result_card' in group 'search_results'." in errors
+    assert "Missing selector 'package_cards' in group 'gig_detail'." in errors
+    assert "Missing selector 'blocked_indicator' in group 'page_state'." in errors
 
 
 def test_fixture_search_page_extracts_two_or_more_result_cards() -> None:
@@ -243,12 +349,31 @@ def test_extract_data_testid_text_returns_nested_text_without_truncation() -> No
     assert extract_data_testid_text(html, "target") == "Alpha Beta Gamma"
 
 
+def test_extract_data_testid_text_joins_multiple_sibling_text_nodes() -> None:
+    html = """
+    <div data-testid="target">
+      Alpha <span>Beta</span> Gamma <strong>Delta</strong> Epsilon
+    </div>
+    """
+    assert extract_data_testid_text(html, "target") == "Alpha Beta Gamma Delta Epsilon"
+
+
 def test_extract_data_testid_text_returns_first_match_only() -> None:
     html = """
     <span data-testid="target">first value</span>
     <span data-testid="target">second value</span>
     """
     assert extract_data_testid_text(html, "target") == "first value"
+
+
+def test_extract_data_testid_text_handles_escaped_entities() -> None:
+    html = '<div data-testid="target">Tom &amp; Jerry &lt;3</div>'
+    assert extract_data_testid_text(html, "target") == "Tom & Jerry <3"
+
+
+def test_extract_data_testid_text_unclosed_target_returns_none() -> None:
+    html = '<div data-testid="target">Alpha <strong>Beta</strong><span>Gamma'
+    assert extract_data_testid_text(html, "target") is None
 
 
 def test_extract_data_testid_text_missing_or_empty_returns_none() -> None:
@@ -261,6 +386,23 @@ def test_extract_data_testid_text_missing_or_empty_returns_none() -> None:
 def test_clean_html_text_collapses_tags_and_whitespace() -> None:
     value = " <p>Hello</p>   <em>world</em>  "
     assert clean_html_text(value) == "Hello world"
+
+
+def test_parse_search_cards_skips_cards_missing_title_or_url() -> None:
+    html = """
+    <article data-testid="gig-card">
+      <h3 data-testid="gig-title">Valid Card</h3>
+      <a href="/services/valid-card">Open</a>
+    </article>
+    <article data-testid="gig-card">
+      <a href="/services/missing-title">No title</a>
+    </article>
+    <article data-testid="gig-card">
+      <h3 data-testid="gig-title">Missing Url</h3>
+    </article>
+    """
+    cards = parse_search_result_cards_from_html(html)
+    assert [card.title for card in cards] == ["Valid Card"]
 
 
 def test_gig_detail_malformed_html_returns_controlled_warning_error() -> None:
