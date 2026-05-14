@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -29,6 +29,74 @@ from src.analysis.intent import classify_intent
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
+
+
+def _stage_metadata(
+    source_id: str,
+    *,
+    result_count: int = 0,
+    warning_count: int = 0,
+    missing_field_count: int = 0,
+    **extras: Any,
+) -> dict[str, Any]:
+    """Build stable metadata keys required by dry-run consumers."""
+    return {
+        "source_id": source_id,
+        "result_count": result_count,
+        "warning_count": warning_count,
+        "missing_field_count": missing_field_count,
+        **extras,
+    }
+
+
+def _failed_stage_summary(
+    *,
+    stage: AnalysisTaskType,
+    source_id: str,
+    code: str,
+    exc: Exception,
+) -> AnalysisStageSummary:
+    """Create stable failed-stage summaries without dropping error details."""
+    error = AnalysisError.from_exception(exc, code=code)
+    return AnalysisStageSummary(
+        stage=stage,
+        status=AnalysisStatus.FAILED,
+        error=error,
+        result_type="none",
+        metadata=_stage_metadata(
+            source_id,
+            result_count=0,
+            warning_count=0,
+            missing_field_count=0,
+            error_code=error.code,
+            failed=True,
+        ),
+    )
+
+
+def summarize_scoring_readiness(
+    stages: list[AnalysisStageSummary], payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Summarize which analysis outputs are available for downstream scoring."""
+    successful_stages = {
+        stage.stage for stage in stages if stage.status == AnalysisStatus.SUCCESS
+    }
+    demand_inputs = (
+        AnalysisTaskType.INTENT_CLASSIFICATION in successful_stages
+        or AnalysisTaskType.KEYWORD_CLUSTERING in successful_stages
+    )
+    readiness: dict[str, Any] = {
+        "demand_inputs": demand_inputs,
+        "competition_inputs": AnalysisTaskType.COMPETITOR_PROFILE in successful_stages,
+        "saturation_inputs": AnalysisTaskType.SATURATION in successful_stages,
+        "review_signals": AnalysisTaskType.REVIEW_ANALYSIS in successful_stages,
+        "intent_signals": AnalysisTaskType.INTENT_CLASSIFICATION in successful_stages,
+        "seller_strength": AnalysisTaskType.SELLER_STRENGTH in successful_stages,
+        "gig_quality": AnalysisTaskType.GIG_QUALITY in successful_stages,
+    }
+    readiness["available_count"] = sum(1 for value in readiness.values() if bool(value))
+    readiness["total_expected"] = 7
+    return readiness
 
 
 def _non_empty_text_or_none(value: Any) -> str | None:
@@ -74,6 +142,26 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     This orchestrator intentionally performs no network calls and no persistence.
     """
     started_at = datetime.now(UTC)
+    if not isinstance(payload, dict):
+        finished_at = datetime.now(UTC)
+        return AnalysisRunSummary(
+            run_id="analysis-dry-run",
+            source_id="analysis-dry-run",
+            started_at=started_at,
+            finished_at=finished_at,
+            status=AnalysisStatus.FAILED,
+            stages=[],
+            warnings=[],
+            metadata={
+                "executed_stage_count": 0,
+                "success_stage_count": 0,
+                "failed_stage_count": 0,
+                "invalid_input": True,
+                "invalid_input_type": type(payload).__name__,
+                "scoring_readiness": summarize_scoring_readiness([], {}),
+            },
+        )
+
     run_id = str(payload.get("run_id", "analysis-dry-run"))
     source_id = _non_empty_text_or_none(payload.get("source_id")) or "analysis-dry-run"
 
@@ -81,6 +169,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     all_warnings: list[AnalysisWarning] = []
 
     metadata = payload.get("metadata", {})
+    metadata_dict = metadata if isinstance(metadata, dict) else {}
     seller_strength_scores: list[float] = []
     gig_quality_scores: list[float] = []
 
@@ -91,7 +180,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     "source_id": source_id,
                     "keywords": payload.get("keywords", []),
                     "min_cluster_size": payload.get("min_cluster_size", 1),
-                    "metadata": metadata,
+                    "metadata": metadata_dict,
                 }
             )
             keyword_result = cluster_keywords(keyword_input)
@@ -101,21 +190,23 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=keyword_result.warnings,
                     result_type="keyword_clustering",
-                    metadata={
-                        "cluster_count": len(keyword_result.clusters),
-                        "warning_count": len(keyword_result.warnings),
-                        "missing_field_count": len(keyword_result.missing_data_fields),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=len(keyword_result.clusters),
+                        warning_count=len(keyword_result.warnings),
+                        missing_field_count=len(keyword_result.missing_data_fields),
+                        cluster_count=len(keyword_result.clusters),
+                    ),
                 )
             )
             all_warnings.extend(keyword_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.KEYWORD_CLUSTERING,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="keyword_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="keyword_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -132,7 +223,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     "review_count": payload.get("gig", {}).get("review_count"),
                     "image_count": payload.get("gig", {}).get("image_count"),
                     "has_faq": payload.get("gig", {}).get("has_faq"),
-                    "metadata": metadata,
+                    "metadata": metadata_dict,
                 }
             )
             gig_result = score_gig_quality(gig_input)
@@ -143,21 +234,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=gig_result.warnings,
                     result_type="gig_quality",
-                    metadata={
-                        "strength_count": len(gig_result.strengths),
-                        "weakness_count": len(gig_result.weaknesses),
-                        "warning_count": len(gig_result.warnings),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=1,
+                        warning_count=len(gig_result.warnings),
+                        missing_field_count=len(gig_result.missing_data_fields),
+                        strength_count=len(gig_result.strengths),
+                        weakness_count=len(gig_result.weaknesses),
+                    ),
                 )
             )
             all_warnings.extend(gig_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.GIG_QUALITY,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="gig_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="gig_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -167,7 +261,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 {
                     "source_id": source_id,
                     "competitors": payload.get("competitors", []),
-                    "metadata": metadata,
+                    "metadata": metadata_dict,
                 }
             )
             competitor_result = profile_competitors(competitor_input)
@@ -177,21 +271,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=competitor_result.warnings,
                     result_type="competitor_profile",
-                    metadata={
-                        "competitor_count": len(competitor_input.competitors),
-                        "high_authority_count": len(competitor_result.high_authority_sellers),
-                        "warning_count": len(competitor_result.warnings),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=len(competitor_input.competitors),
+                        warning_count=len(competitor_result.warnings),
+                        missing_field_count=len(competitor_result.missing_data_fields),
+                        competitor_count=len(competitor_input.competitors),
+                        high_authority_count=len(competitor_result.high_authority_sellers),
+                    ),
                 )
             )
             all_warnings.extend(competitor_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.COMPETITOR_PROFILE,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="competitor_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="competitor_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -205,16 +302,16 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             seller_input = SellerStrengthInput.model_validate(
                 {
                     "source_id": source_id,
-                    "seller_id": seller_source.get("seller_id", "seller-dry-run"),
-                    "level": seller_source.get("level"),
-                    "rating": seller_source.get("rating"),
-                    "review_count": seller_source.get("review_count"),
-                    "response_time": seller_source.get("response_time"),
-                    "delivery_consistency": seller_source.get("delivery_consistency"),
-                    "active_gig_count": seller_source.get("active_gig_count"),
-                    "languages": seller_source.get("languages", []),
-                    "account_tenure_months": seller_source.get("account_tenure_months"),
-                    "metadata": metadata,
+                    "seller_id": cast(dict[str, Any], seller_source).get("seller_id", "seller-dry-run"),
+                    "level": cast(dict[str, Any], seller_source).get("level"),
+                    "rating": cast(dict[str, Any], seller_source).get("rating"),
+                    "review_count": cast(dict[str, Any], seller_source).get("review_count"),
+                    "response_time": cast(dict[str, Any], seller_source).get("response_time"),
+                    "delivery_consistency": cast(dict[str, Any], seller_source).get("delivery_consistency"),
+                    "active_gig_count": cast(dict[str, Any], seller_source).get("active_gig_count"),
+                    "languages": cast(dict[str, Any], seller_source).get("languages", []),
+                    "account_tenure_months": cast(dict[str, Any], seller_source).get("account_tenure_months"),
+                    "metadata": metadata_dict,
                 }
             )
             seller_result = score_seller_strength(seller_input)
@@ -234,7 +331,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                                 "active_gig_count": entry.get("active_gig_count"),
                                 "languages": entry.get("languages", []),
                                 "account_tenure_months": entry.get("account_tenure_months"),
-                                "metadata": metadata,
+                                "metadata": metadata_dict,
                             }
                         )
                         seller_strength_scores.append(score_seller_strength(additional_input).score)
@@ -246,21 +343,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=seller_result.warnings,
                     result_type="seller_strength",
-                    metadata={
-                        "evaluated_sellers": len(seller_strength_scores),
-                        "warning_count": len(seller_result.warnings),
-                        "component_count": len(seller_result.components),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=len(seller_strength_scores),
+                        warning_count=len(seller_result.warnings),
+                        missing_field_count=len(seller_result.missing_data_fields),
+                        evaluated_sellers=len(seller_strength_scores),
+                        component_count=len(seller_result.components),
+                    ),
                 )
             )
             all_warnings.extend(seller_result.warnings)
         except (ValidationError, ValueError, AttributeError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.SELLER_STRENGTH,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="seller_strength_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="seller_strength_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -300,7 +400,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     "seller_strength_scores": seller_strength_scores,
                     "prices": prices,
                     "gig_quality_scores": gig_quality_scores,
-                    "metadata": metadata,
+                    "metadata": metadata_dict,
                 }
             )
             saturation_result = analyze_saturation(saturation_input)
@@ -310,21 +410,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=saturation_result.warnings,
                     result_type="saturation",
-                    metadata={
-                        "saturation_level": saturation_result.saturation_level.value,
-                        "component_count": len(saturation_result.components),
-                        "warning_count": len(saturation_result.warnings),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=len(saturation_result.components),
+                        warning_count=len(saturation_result.warnings),
+                        missing_field_count=len(saturation_result.missing_data_fields),
+                        saturation_level=saturation_result.saturation_level.value,
+                        component_count=len(saturation_result.components),
+                    ),
                 )
             )
             all_warnings.extend(saturation_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.SATURATION,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="saturation_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="saturation_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -334,7 +437,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 {
                     "source_id": source_id,
                     "reviews": payload.get("reviews", []),
-                    "metadata": metadata,
+                    "metadata": metadata_dict,
                 }
             )
             review_result = analyze_reviews(review_input)
@@ -344,21 +447,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=review_result.warnings,
                     result_type="review_analysis",
-                    metadata={
-                        "theme_count": len(review_result.themes),
-                        "complaint_theme_count": len(review_result.complaint_frequency),
-                        "warning_count": len(review_result.warnings),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=len(review_result.themes),
+                        warning_count=len(review_result.warnings),
+                        missing_field_count=len(review_result.missing_data_fields),
+                        theme_count=len(review_result.themes),
+                        complaint_theme_count=len(review_result.complaint_frequency),
+                    ),
                 )
             )
             all_warnings.extend(review_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.REVIEW_ANALYSIS,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="review_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="review_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -376,7 +482,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     "source_id": source_id,
                     "keyword_text": keyword_text,
                     "title_phrases": title_phrases,
-                    "metadata": metadata,
+                    "metadata": metadata_dict,
                 }
             )
             intent_result = classify_intent(intent_input)
@@ -386,21 +492,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=intent_result.warnings,
                     result_type="intent_classification",
-                    metadata={
-                        "label": intent_result.label.value,
-                        "matched_rule_count": len(intent_result.matched_rules),
-                        "warning_count": len(intent_result.warnings),
-                    },
+                    metadata=_stage_metadata(
+                        source_id,
+                        result_count=len(intent_result.matched_rules),
+                        warning_count=len(intent_result.warnings),
+                        missing_field_count=0,
+                        label=intent_result.label.value,
+                        matched_rule_count=len(intent_result.matched_rules),
+                    ),
                 )
             )
             all_warnings.extend(intent_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
-                AnalysisStageSummary(
+                _failed_stage_summary(
                     stage=AnalysisTaskType.INTENT_CLASSIFICATION,
-                    status=AnalysisStatus.FAILED,
-                    error=AnalysisError.from_exception(exc, code="intent_stage_failed"),
-                    result_type="none",
+                    source_id=source_id,
+                    code="intent_stage_failed",
+                    exc=exc,
                 )
             )
 
@@ -425,6 +534,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             "executed_stage_count": len(stages),
             "success_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.SUCCESS),
             "failed_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.FAILED),
-            **metadata,
+            "scoring_readiness": summarize_scoring_readiness(stages, payload),
+            **metadata_dict,
         },
     )

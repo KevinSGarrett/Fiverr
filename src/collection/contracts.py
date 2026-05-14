@@ -9,6 +9,16 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+REQUIRED_COLLECTION_SUMMARY_STAGES: tuple[str, ...] = (
+    "stage_1_keyword_expansion",
+    "stage_2b_autocomplete",
+    "stage_2_search_plan",
+    "stage_4_gig_detail",
+    "stage_5_seller_profile",
+    "stage_7_checkpoint_metadata",
+    "stage_8_pacing_decisions",
+)
+
 
 class CollectionStageStatus(StrEnum):
     """High-level status for a collection stage execution."""
@@ -49,3 +59,31 @@ class CollectionStageResult(BaseModel):
     started_at: datetime
     finished_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+def validate_collection_stage_summary(summary: dict[str, Any]) -> None:
+    """Validate required dry-run stage representation in one summary payload."""
+
+    stage_counts = summary.get("stage_counts")
+    if not isinstance(stage_counts, dict):
+        raise ValueError("Collection stage summary requires a 'stage_counts' mapping.")
+
+    missing_stages = [stage for stage in REQUIRED_COLLECTION_SUMMARY_STAGES if stage not in stage_counts]
+    if missing_stages:
+        raise ValueError(
+            "Collection stage summary is missing required stages: "
+            + ", ".join(sorted(missing_stages))
+            + "."
+        )
+
+    invalid_stage_counts = [
+        stage_name
+        for stage_name, value in stage_counts.items()
+        if not isinstance(value, int) or value < 0
+    ]
+    if invalid_stage_counts:
+        raise ValueError(
+            "Collection stage summary has invalid stage_counts values for: "
+            + ", ".join(sorted(invalid_stage_counts))
+            + "."
+        )

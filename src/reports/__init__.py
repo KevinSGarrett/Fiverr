@@ -1,6 +1,10 @@
 """Reporting package exports."""
 
-from src.reports.placeholders import ReportPlaceholder
+from src.reports.placeholders import (
+    GOVERNANCE_REPORT_ORDER,
+    ReportPlaceholder,
+    build_governance_report_placeholders,
+)
 from src.reports.run_summary import (
     RunSummary,
     build_cycle003_report_bundle,
@@ -43,11 +47,13 @@ __all__ = [
     "AnalysisDryRunReport",
     "CycleValidationReport",
     "Phase2ReadinessReport",
+    "GOVERNANCE_REPORT_ORDER",
     "ReportPlaceholder",
     "ReportSection",
     "ReportSeverity",
     "ReportTemplate",
     "RunSummary",
+    "build_governance_report_placeholders",
     "build_cycle003_report_bundle",
     "build_default_template",
     "build_phase2_readiness_template",

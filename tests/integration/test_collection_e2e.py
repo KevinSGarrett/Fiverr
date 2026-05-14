@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from src.collection.contracts import CollectionStageStatus
 from src.collection.orchestrator import run_collection_dry_run
@@ -60,3 +61,43 @@ def test_collection_dry_run_missing_fixture_path_returns_failed_without_tracebac
     assert result.errors
     assert result.errors[0].code == "fixture_unavailable"
     assert "Traceback" not in result.errors[0].message
+
+
+def test_collection_fixture_dry_run_smoke_is_deterministic_and_local_only(tmp_path: Path) -> None:
+    checkpoint_a = tmp_path / "dry-run-a.json"
+    checkpoint_b = tmp_path / "dry-run-b.json"
+    kwargs = {
+        "niche_metadata": {"modifiers": ["local"]},
+        "max_candidates": 6,
+        "max_pages": 2,
+        "region": "US",
+        "language": "en",
+        "sort": "rating",
+        "autocomplete_fixture_path": "tests/fixtures/collection/autocomplete_suggestions.json",
+        "gig_detail_fixture_path": "tests/fixtures/collection/gig_detail.html",
+        "seller_profile_fixture_path": "tests/fixtures/collection/seller_profile.html",
+        "external_signal_fixture_path": "tests/fixtures/collection/external_signals.json",
+        "community_signal_fixture_path": "tests/fixtures/collection/community_signals.json",
+    }
+
+    result_a = run_collection_dry_run(["logo design"], checkpoint_path=checkpoint_a, **kwargs)
+    result_b = run_collection_dry_run(["logo design"], checkpoint_path=checkpoint_b, **kwargs)
+
+    assert result_a.status == CollectionStageStatus.SUCCESS
+    assert result_b.status == CollectionStageStatus.SUCCESS
+    assert result_a.warnings == result_b.warnings
+    assert result_a.metadata["stage_counts"]["stage_2_search_plan"] > 0
+    assert result_a.metadata["stage_counts"]["stage_3_queue"] > 0
+    assert result_a.metadata["stage_counts"]["stage_7_checkpoint_metadata"] == 1
+    assert result_a.metadata["stage_counts"]["stage_8_pacing_decisions"] == 1
+
+    checkpoint_payload = json.loads(checkpoint_a.read_text(encoding="utf-8"))
+    stage_summary = checkpoint_payload["stage_summary"]
+    assert stage_summary["stage_counts"]
+    assert stage_summary["checkpoint_metadata"]["schema_version"] == "1.0"
+    assert stage_summary["pacing_decisions"]["queue_mode"] == "deterministic_fixture"
+
+    assert "playwright" not in checkpoint_a.read_text(encoding="utf-8").lower()
+    assert "storage_state" not in checkpoint_a.read_text(encoding="utf-8").lower()
+    leftover_db_files = [path for path in tmp_path.rglob("*") if path.suffix in {".db", ".sqlite", ".sqlite3"}]
+    assert leftover_db_files == []

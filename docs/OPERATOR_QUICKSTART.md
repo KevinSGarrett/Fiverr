@@ -44,17 +44,28 @@ git log --oneline -8
 ## 4) Steward agent runs final validation on cycle branch
 
 ```powershell
-python -m ruff check src tests
+python -m ruff check .
 python -m mypy src
-python -m pytest -q
+python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90
+python run.py config-check
+python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle007.db
+python run.py phase2-smoke
 git status
 ```
+
+Capture status as separate categories in steward reports and dashboards:
+
+- Local parity: `ruff`, `mypy`, `pytest --cov --cov-fail-under=90`, `config-check`, `foundation-gate`, `phase2-smoke`.
+- GitHub Actions: workflow checks on the PR head SHA.
+- Codecov project: repository-level status (`codecov/project`).
+- Codecov patch: diff-level status (`codecov/patch`).
+- Codex disposition: review-thread replies/resolution per `docs/CODEX_REVIEW_DISPOSITION.md`.
 
 ## 5) Steward agent pushes branch and opens/updates PR into `develop`
 
 ```powershell
-git push -u origin cycle/004/integration
-gh pr create --base develop --head cycle/004/integration --title "Cycle 004 integration" --body "Cycle 004 integration branch with Agent A/B/C/D commits."
+git push -u origin cycle/007/integration
+gh pr create --base develop --head cycle/007/integration --title "feat(cycle-007): resume phase 2 after codex and coverage gate closure" --body "Cycle 007 integration branch with Agent A/B/C/D deliverables and stewardship evidence."
 ```
 
 ## 6) Branch protection reminder

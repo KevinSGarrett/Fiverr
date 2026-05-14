@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
@@ -11,7 +12,9 @@ from src.analysis.clustering import cluster_keywords
 from src.analysis.competitors import profile_competitors
 from src.analysis.contracts import (
     AnalysisRunSummary,
+    AnalysisStageSummary,
     AnalysisStatus,
+    AnalysisTaskType,
     CompetitorProfileInput,
     GigQualityInput,
     IntentInput,
@@ -25,7 +28,7 @@ from src.analysis.contracts import (
 )
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
-from src.analysis.orchestrator import run_analysis_dry_run
+from src.analysis.orchestrator import run_analysis_dry_run, summarize_scoring_readiness
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
@@ -414,6 +417,39 @@ def test_orchestrator_intent_keyword_uses_payload_keyword_when_intent_keyword_is
     assert intent_input.keyword_text != "None"
 
 
+@pytest.mark.parametrize("nullish_keyword", [None, "", "   ", "None", "null"])
+def test_orchestrator_intent_keyword_fallback_order_prefers_payload_before_keywords(
+    monkeypatch: pytest.MonkeyPatch, nullish_keyword: str | None
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-order-payload-first",
+            "source_id": "src-intent-order-payload-first",
+            "intent": {"keyword_text": nullish_keyword},
+            "keyword_text": "payload fallback keyword",
+            "keywords": ["keyword list fallback"],
+        },
+    )
+    assert intent_input.keyword_text == "payload fallback keyword"
+
+
+@pytest.mark.parametrize("nullish_keyword", [None, "", "   ", "None", "null"])
+def test_orchestrator_intent_keyword_fallback_order_uses_keywords_before_source_id(
+    monkeypatch: pytest.MonkeyPatch, nullish_keyword: str | None
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-order-keywords-second",
+            "source_id": "src-intent-order-keywords-second",
+            "intent": {"keyword_text": nullish_keyword},
+            "keywords": [None, "   ", "keyword list fallback"],
+        },
+    )
+    assert intent_input.keyword_text == "keyword list fallback"
+
+
 def test_orchestrator_intent_keyword_uses_payload_keyword_when_intent_keyword_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -574,6 +610,116 @@ def test_orchestrator_status_failed_when_no_stages_execute() -> None:
     summary = run_analysis_dry_run({"run_id": "run-no-stages", "source_id": "src-no-stages"})
     assert summary.status == AnalysisStatus.FAILED
     assert summary.stages == []
+
+
+def test_orchestrator_invalid_seller_stage_preserves_failure_metadata_and_runs_others() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-seller-failure-metadata",
+            "source_id": "src-seller-failure-metadata",
+            "seller": "not-a-dict",
+            "intent": {"keyword_text": "need python automation help"},
+        }
+    )
+    assert summary.status == AnalysisStatus.PARTIAL
+    seller_stage = next(stage for stage in summary.stages if stage.stage == AnalysisTaskType.SELLER_STRENGTH)
+    intent_stage = next(stage for stage in summary.stages if stage.stage == AnalysisTaskType.INTENT_CLASSIFICATION)
+    assert seller_stage.status == AnalysisStatus.FAILED
+    assert seller_stage.metadata["source_id"] == "src-seller-failure-metadata"
+    assert seller_stage.metadata["result_count"] == 0
+    assert seller_stage.metadata["warning_count"] == 0
+    assert seller_stage.metadata["missing_field_count"] == 0
+    assert seller_stage.metadata["error_code"] == "seller_strength_stage_failed"
+    assert seller_stage.metadata["failed"] is True
+    assert intent_stage.status == AnalysisStatus.SUCCESS
+
+
+def test_orchestrator_invalid_payload_type_is_fundamentally_invalid() -> None:
+    summary = run_analysis_dry_run(cast(dict[str, object], "not-a-payload"))
+    assert summary.status == AnalysisStatus.FAILED
+    assert summary.stages == []
+    assert summary.metadata["invalid_input"] is True
+    assert summary.metadata["invalid_input_type"] == "str"
+
+
+def test_orchestrator_stage_metadata_contains_required_summary_keys() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    summary = run_analysis_dry_run(payload)
+    assert summary.stages
+    for stage in summary.stages:
+        assert "source_id" in stage.metadata
+        assert "result_count" in stage.metadata
+        assert "warning_count" in stage.metadata
+        assert "missing_field_count" in stage.metadata
+        assert stage.metadata["source_id"] == summary.source_id
+
+
+def test_orchestrator_scoring_readiness_is_complete_for_full_fixture() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    summary = run_analysis_dry_run(payload)
+    readiness = summary.metadata["scoring_readiness"]
+    assert readiness["demand_inputs"] is True
+    assert readiness["competition_inputs"] is True
+    assert readiness["saturation_inputs"] is True
+    assert readiness["review_signals"] is True
+    assert readiness["intent_signals"] is True
+    assert readiness["seller_strength"] is True
+    assert readiness["gig_quality"] is True
+    assert readiness["available_count"] == 7
+    assert readiness["total_expected"] == 7
+
+
+def test_scoring_readiness_helper_handles_sparse_and_complete_stage_sets() -> None:
+    sparse_readiness = summarize_scoring_readiness([], {})
+    assert sparse_readiness["available_count"] == 0
+    assert sparse_readiness["demand_inputs"] is False
+
+    keyword_only_payload_readiness = summarize_scoring_readiness([], {"keywords": ["python automation"]})
+    assert keyword_only_payload_readiness["demand_inputs"] is False
+
+    complete_readiness = summarize_scoring_readiness(
+        [
+            AnalysisStageSummary(stage=task_type, status=AnalysisStatus.SUCCESS, result_type=task_type.value)
+            for task_type in (
+                AnalysisTaskType.KEYWORD_CLUSTERING,
+                AnalysisTaskType.GIG_QUALITY,
+                AnalysisTaskType.COMPETITOR_PROFILE,
+                AnalysisTaskType.SELLER_STRENGTH,
+                AnalysisTaskType.SATURATION,
+                AnalysisTaskType.REVIEW_ANALYSIS,
+                AnalysisTaskType.INTENT_CLASSIFICATION,
+            )
+        ],
+        {"keywords": ["python automation"]},
+    )
+    assert complete_readiness["available_count"] == 7
+    assert all(
+        complete_readiness[key]
+        for key in (
+            "demand_inputs",
+            "competition_inputs",
+            "saturation_inputs",
+            "review_signals",
+            "intent_signals",
+            "seller_strength",
+            "gig_quality",
+        )
+    )
+
+
+def test_orchestrator_dry_run_does_not_require_openai_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-no-openai-key",
+            "source_id": "src-no-openai-key",
+            "keywords": ["python automation"],
+            "intent": {"keyword_text": "need python automation"},
+        }
+    )
+    assert summary.status == AnalysisStatus.SUCCESS
 
 
 def test_fixture_golden_seller_score_ordering() -> None:

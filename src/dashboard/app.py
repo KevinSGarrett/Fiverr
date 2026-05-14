@@ -11,6 +11,7 @@ from src.dashboard.navigation import (
     get_available_pages as get_navigation_pages,
 )
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
+from src.reports import build_governance_report_placeholders
 
 
 def build_page_title() -> str:
@@ -31,6 +32,18 @@ def get_cycle003_status_state() -> dict[str, Any]:
 def get_phase2_readiness_state() -> dict[str, Any]:
     """Expose import-safe Phase 2 readiness placeholders."""
     return build_phase2_readiness_state()
+
+
+def get_governance_status_state() -> list[dict[str, str]]:
+    """Expose gate-level governance statuses for operator visibility."""
+    return [
+        {
+            "check": item.report_type,
+            "status": item.status,
+            "message": item.message,
+        }
+        for item in build_governance_report_placeholders()
+    ]
 
 
 def main() -> None:
@@ -60,4 +73,11 @@ def main() -> None:
         "- Fixture Coverage (gig detail parser): "
         f"{readiness_state['fixture_coverage']['gig_detail_parser']}"
     )
+    st.write(f"- Gate Status (foundation gate): {readiness_state['gate_status']['foundation_gate']}")
+    st.write(f"- Gate Status (phase2 smoke): {readiness_state['gate_status']['phase2_smoke']}")
+
+    st.subheader("Cycle 007 Governance and Readiness")
+    for check in get_governance_status_state():
+        st.write(f"- {check['check']}: {check['status']}")
+        st.caption(check["message"])
 
