@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
+from typing import Any
 
 from src.config import ConfigLoader
 from src.models.database import initialize_database, normalize_database_url
@@ -90,6 +92,121 @@ def run_dashboard_stub(mode: str) -> int:
         f"Dashboard command accepted in '{normalized}' mode. "
         "Interactive dashboard runtime is scheduled for Epic 09."
     )
+    return 0
+
+
+def _load_fixture_payload(fixture_path: str) -> dict[str, Any] | None:
+    fixture = Path(fixture_path)
+    if not fixture.exists() or not fixture.is_file():
+        print(f"Fixture file not found: {fixture}")
+        return None
+    try:
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"Unable to read fixture file '{fixture}': {exc}")
+        return None
+    if not isinstance(payload, dict):
+        print(f"Fixture payload must be a JSON object: {fixture}")
+        return None
+    return payload
+
+
+def run_collection_dry_run(
+    fixture_path: str,
+    output_path: str,
+    sample_size: int,
+) -> int:
+    payload = _load_fixture_payload(fixture_path)
+    if payload is None:
+        return 2
+
+    seeds = payload.get("seed_keywords", payload.get("keywords", []))
+    if not isinstance(seeds, list) or not all(isinstance(item, str) for item in seeds):
+        print("Fixture must contain 'seed_keywords' or 'keywords' as a list of strings.")
+        return 2
+
+    trimmed_seeds = [item.strip() for item in seeds if item.strip()]
+    if not trimmed_seeds:
+        print("Fixture does not contain usable seed keywords.")
+        return 2
+
+    selected_seeds = trimmed_seeds[:sample_size] if sample_size > 0 else trimmed_seeds
+    collection_module = importlib.import_module("src.collection.orchestrator")
+    result = collection_module.run_collection_dry_run(
+        selected_seeds,
+        niche_metadata=payload.get("niche_metadata"),
+        max_candidates=sample_size,
+        max_pages=payload.get("max_pages", 1),
+        checkpoint_path=Path(output_path),
+        region=payload.get("region"),
+        language=payload.get("language"),
+        sort=payload.get("sort"),
+    )
+    status = str(result.status).lower()
+    if status.endswith("success"):
+        print(
+            "Collection dry-run OK:"
+            f" records_seen={result.records_seen}, records_written={result.records_written},"
+            f" checkpoint={result.checkpoint_path}"
+        )
+        return 0
+
+    print("Collection dry-run failed.")
+    for error in result.errors:
+        print(f"- {error.code}: {error.message}")
+    return 1
+
+
+def run_analysis_dry_run(
+    fixture_path: str,
+    output_path: str,
+    sample_size: int,
+) -> int:
+    payload = _load_fixture_payload(fixture_path)
+    if payload is None:
+        return 2
+
+    if isinstance(payload.get("keywords"), list) and sample_size > 0:
+        payload["keywords"] = payload["keywords"][:sample_size]
+    if isinstance(payload.get("competitors"), list) and sample_size > 0:
+        payload["competitors"] = payload["competitors"][:sample_size]
+
+    analysis_module = importlib.import_module("src.analysis.orchestrator")
+    result = analysis_module.run_analysis_dry_run(payload)
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+
+    status = str(result.status).lower()
+    if status.endswith("failed"):
+        print(f"Analysis dry-run failed. Output written to {output}")
+        return 1
+
+    print(f"Analysis dry-run OK: status={result.status}, stages={len(result.stages)}, output={output}")
+    return 0
+
+
+def run_phase2_smoke(config_path: str = "config.yaml") -> int:
+    checks: list[tuple[str, str]] = [
+        ("collection package", "src.collection"),
+        ("analysis package", "src.analysis"),
+        ("phase2 config models", "src.config.models"),
+    ]
+    failures: list[str] = []
+    for label, module_name in checks:
+        try:
+            importlib.import_module(module_name)
+            print(f"Phase2 smoke OK: {label}")
+        except Exception as exc:  # pragma: no cover - exercised in CLI tests via monkeypatch
+            failures.append(f"{label}: {exc}")
+
+    ConfigLoader(config_path).load()
+    if failures:
+        print("Phase2 smoke failed:")
+        for failure in failures:
+            print(f"- {failure}")
+        return 1
     return 0
 
 

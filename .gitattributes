@@ -1,0 +1,19 @@
+* text=auto
+
+# Normalize common source/docs/config files to LF.
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.html text eol=lf
+
+# Keep binary assets untouched.
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.xlsx binary

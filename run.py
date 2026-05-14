@@ -6,11 +6,14 @@ import click
 from src.orchestrator import (
     AVAILABLE_MODES,
     normalize_cli_config_path,
+    run_analysis_dry_run,
+    run_collection_dry_run,
     run_config_check,
     run_dashboard_stub,
     run_export_stub,
     run_foundation_release_gate,
     run_init_db,
+    run_phase2_smoke,
     run_pipeline,
     run_smoke_checks,
 )
@@ -106,6 +109,53 @@ def run_command(mode: str, config_path: str, database_url: str | None) -> None:
             database_url=database_url,
         )
     )
+
+
+@cli.command("collection-dry-run")
+@click.option("--fixture-path", required=True, help="JSON fixture path for collection dry-run inputs.")
+@click.option(
+    "--output-path",
+    default="artifacts/collection/queue_checkpoint.json",
+    show_default=True,
+    help="Output checkpoint path.",
+)
+@click.option("--sample-size", default=25, show_default=True, type=int, help="Max fixture records to use.")
+def collection_dry_run_command(fixture_path: str, output_path: str, sample_size: int) -> None:
+    """Run local collection dry-run from fixture payload."""
+    raise SystemExit(
+        run_collection_dry_run(
+            fixture_path=normalize_cli_config_path(fixture_path),
+            output_path=normalize_cli_config_path(output_path),
+            sample_size=sample_size,
+        )
+    )
+
+
+@cli.command("analysis-dry-run")
+@click.option("--fixture-path", required=True, help="JSON fixture path for analysis dry-run inputs.")
+@click.option(
+    "--output-path",
+    default="artifacts/analysis/analysis_dry_run_output.json",
+    show_default=True,
+    help="Output summary JSON path.",
+)
+@click.option("--sample-size", default=25, show_default=True, type=int, help="Max fixture records to use.")
+def analysis_dry_run_command(fixture_path: str, output_path: str, sample_size: int) -> None:
+    """Run local analysis dry-run from fixture payload."""
+    raise SystemExit(
+        run_analysis_dry_run(
+            fixture_path=normalize_cli_config_path(fixture_path),
+            output_path=normalize_cli_config_path(output_path),
+            sample_size=sample_size,
+        )
+    )
+
+
+@cli.command("phase2-smoke")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+def phase2_smoke_command(config_path: str) -> None:
+    """Run import/config smoke checks for Phase 2 collection+analysis surfaces."""
+    raise SystemExit(run_phase2_smoke(config_path=normalize_cli_config_path(config_path)))
 
 
 if __name__ == "__main__":

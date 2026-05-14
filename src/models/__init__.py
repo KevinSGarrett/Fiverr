@@ -1,6 +1,13 @@
 ﻿"""SQLAlchemy model package exports."""
 
-from src.models.analysis import AnalysisResult, AnalysisRun, DiscoveryHypothesis, PricingSnapshot
+from src.models.analysis import (
+    AnalysisResult,
+    AnalysisRun,
+    AnalysisSignalRecord,
+    CompetitorSnapshot,
+    DiscoveryHypothesis,
+    PricingSnapshot,
+)
 from src.models.base import (
     Base,
     ExternalSourceMixin,
@@ -33,7 +40,9 @@ __all__ = [
     "AlertEvent",
     "AnalysisResult",
     "AnalysisRun",
+    "AnalysisSignalRecord",
     "Base",
+    "CompetitorSnapshot",
     "DiscoveryHypothesis",
     "ExportArtifact",
     "ExternalSignal",

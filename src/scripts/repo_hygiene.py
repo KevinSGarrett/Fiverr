@@ -11,14 +11,31 @@ from src.utils.paths import project_root
 
 FORBIDDEN_TRACKED_PATTERNS = (
     "__pycache__/*",
+    "**/__pycache__/*",
     ".pytest_cache/*",
+    "**/.pytest_cache/*",
     ".mypy_cache/*",
+    "**/.mypy_cache/*",
     ".ruff_cache/*",
+    "**/.ruff_cache/*",
     "playwright/.auth/*",
+    "**/playwright/.auth/*",
     "storage_state.json",
+    "**/storage_state.json",
     "*.session",
+    "*.har",
+    "*.trace",
+    "*.webm",
 )
-UNTRACKED_RUNTIME_DB_PATTERNS = ("*.db", "*.sqlite", "*.sqlite3")
+UNTRACKED_RUNTIME_DB_PATTERNS = (
+    "data/*.db",
+    "data/*.sqlite",
+    "data/*.sqlite3",
+    "data/**/*.db",
+    "data/**/*.sqlite",
+    "data/**/*.sqlite3",
+)
+UNTRACKED_FORBIDDEN_PATTERNS = FORBIDDEN_TRACKED_PATTERNS
 
 
 @dataclass(frozen=True)
@@ -82,6 +99,14 @@ def find_hygiene_issues(repo_root: Path | None = None) -> list[HygieneIssue]:
                     issue_type="untracked_runtime_database",
                     path=path,
                     details="Runtime database artifacts must not accumulate in repo root.",
+                )
+            )
+        if _matches_any(path, UNTRACKED_FORBIDDEN_PATTERNS):
+            issues.append(
+                HygieneIssue(
+                    issue_type="untracked_forbidden_artifact",
+                    path=path,
+                    details="Local cache/session/browser artifacts should be gitignored.",
                 )
             )
 

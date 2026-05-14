@@ -53,3 +53,28 @@ class DiscoveryHypothesis(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixi
     hypothesis_text: Mapped[str] = mapped_column(String(4096), nullable=False)
     evidence_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class CompetitorSnapshot(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixin, Base):
+    __tablename__ = "competitor_snapshots"
+
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("analysis_runs.id"), nullable=True, index=True)
+    keyword_id: Mapped[int | None] = mapped_column(ForeignKey("keywords.id"), nullable=True, index=True)
+    seller_id: Mapped[int | None] = mapped_column(ForeignKey("sellers.id"), nullable=True, index=True)
+    gig_id: Mapped[int | None] = mapped_column(ForeignKey("gigs.id"), nullable=True, index=True)
+    competitor_handle: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    observed_rank: Mapped[int | None] = mapped_column(nullable=True)
+    snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class AnalysisSignalRecord(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixin, Base):
+    __tablename__ = "analysis_signal_records"
+
+    run_id: Mapped[int] = mapped_column(ForeignKey("analysis_runs.id"), nullable=False, index=True)
+    signal_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    keyword_id: Mapped[int | None] = mapped_column(ForeignKey("keywords.id"), nullable=True, index=True)
+    gig_id: Mapped[int | None] = mapped_column(ForeignKey("gigs.id"), nullable=True, index=True)
+    seller_id: Mapped[int | None] = mapped_column(ForeignKey("sellers.id"), nullable=True, index=True)
+    signal_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    signal_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
