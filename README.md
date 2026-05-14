@@ -107,6 +107,12 @@ python -m pytest tests/unit/test_dashboard.py tests/unit/test_reports.py tests/u
 - Do not push directly to `main`.
 - Steward agents should update an existing cycle PR instead of creating duplicates when one already exists.
 
+Governance references for PR stewardship:
+
+- `docs/CODEX_REVIEW_DISPOSITION.md`
+- `docs/PR_CHECKS_AND_CODECOV.md`
+- `docs/BRANCH_PROTECTION_AND_REQUIRED_CHECKS.md`
+
 ## Runtime Artifact Hygiene
 
 - Runtime database files (for example, `data/*.db`) are local execution artifacts and remain outside tracked handoff contents.
