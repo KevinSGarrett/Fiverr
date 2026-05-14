@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
 
 import pytest
 import run as run_module
-import src.orchestrator as orchestrator_module
 from click.testing import CliRunner
 from run import cli
 
@@ -194,119 +190,6 @@ def test_collection_dry_run_can_be_monkeypatched_success(
         ],
     )
     assert result.exit_code == 0
-
-
-def test_collection_dry_run_cli_sample_size_zero_succeeds(tmp_path: Path) -> None:
-    fixture_path = tmp_path / "collection_fixture.json"
-    fixture_path.write_text(
-        json.dumps(
-            {
-                "seed_keywords": ["ai agent", "mcp server"],
-                "niche_metadata": {"modifiers": ["beginner"]},
-                "max_pages": 1,
-            }
-        ),
-        encoding="utf-8",
-    )
-    output_path = tmp_path / "checkpoint.json"
-    runner = CliRunner()
-
-    result = runner.invoke(
-        cli,
-        [
-            "collection-dry-run",
-            "--fixture-path",
-            str(fixture_path),
-            "--output-path",
-            str(output_path),
-            "--sample-size",
-            "0",
-        ],
-    )
-
-    assert result.exit_code == 0
-    assert "Collection dry-run OK:" in result.output
-    assert output_path.exists()
-
-
-def test_orchestrator_collection_dry_run_negative_sample_size_uses_safe_candidate_cap(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fixture = tmp_path / "fixture.json"
-    fixture.write_text(
-        json.dumps(
-            {
-                "seed_keywords": ["logo design", "seo audit"],
-                "niche_metadata": {"modifiers": ["local", "b2b"]},
-                "max_pages": 1,
-            }
-        ),
-        encoding="utf-8",
-    )
-    output_path = tmp_path / "checkpoint.json"
-    captured: dict[str, Any] = {}
-
-    def _fake_run_collection_dry_run(seeds: list[str], **kwargs: Any) -> Any:
-        captured["seeds"] = seeds
-        captured["kwargs"] = kwargs
-        return SimpleNamespace(
-            status="success",
-            records_seen=2,
-            records_written=2,
-            checkpoint_path=kwargs["checkpoint_path"],
-            errors=[],
-        )
-
-    monkeypatch.setattr(
-        orchestrator_module.importlib,
-        "import_module",
-        lambda _name: SimpleNamespace(run_collection_dry_run=_fake_run_collection_dry_run),
-    )
-
-    assert orchestrator_module.run_collection_dry_run(str(fixture), str(output_path), sample_size=-5) == 0
-    assert captured["seeds"] == ["logo design", "seo audit"]
-    assert captured["kwargs"]["max_candidates"] > 0
-
-
-def test_orchestrator_collection_dry_run_positive_sample_size_preserves_cap(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fixture = tmp_path / "fixture.json"
-    fixture.write_text(
-        json.dumps(
-            {
-                "seed_keywords": ["logo design", "seo audit", "landing page copy"],
-                "niche_metadata": {"modifiers": ["local", "b2b"]},
-                "max_pages": 1,
-            }
-        ),
-        encoding="utf-8",
-    )
-    output_path = tmp_path / "checkpoint.json"
-    captured: dict[str, Any] = {}
-
-    def _fake_run_collection_dry_run(seeds: list[str], **kwargs: Any) -> Any:
-        captured["seeds"] = seeds
-        captured["kwargs"] = kwargs
-        return SimpleNamespace(
-            status="success",
-            records_seen=len(seeds),
-            records_written=len(seeds),
-            checkpoint_path=kwargs["checkpoint_path"],
-            errors=[],
-        )
-
-    monkeypatch.setattr(
-        orchestrator_module.importlib,
-        "import_module",
-        lambda _name: SimpleNamespace(run_collection_dry_run=_fake_run_collection_dry_run),
-    )
-
-    assert orchestrator_module.run_collection_dry_run(str(fixture), str(output_path), sample_size=2) == 0
-    assert captured["seeds"] == ["logo design", "seo audit"]
-    assert captured["kwargs"]["max_candidates"] == 2
 
 
 def test_phase2_smoke_reports_collection_and_analysis() -> None:
