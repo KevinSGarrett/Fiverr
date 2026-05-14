@@ -50,6 +50,21 @@ addopts = "-ra"
 testpaths = ["tests"]
 pythonpath = ["."]
 
+[tool.coverage.run]
+source = ["src"]
+omit = [
+  "tests/*",
+  "**/__pycache__/*",
+  ".pytest_cache/*",
+  ".mypy_cache/*",
+  "data/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 90
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
