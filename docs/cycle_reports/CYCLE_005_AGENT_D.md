@@ -130,9 +130,9 @@ Observed on active PR `#4` (post-push for Agent D docs):
   - Two CI check runs present and both `SUCCESS`
   - Check name: `Lint, Typecheck, Tests, and Gates`
 - Codecov status:
-  - No explicit Codecov project/patch check context visible in rollup
-  - Commit status endpoint remains `pending` with `total_count: 0` statuses for latest head SHA `0ce2a422080244d46c0785b236a4c06888897c4b`
-  - Treated as `BLOCKED/UNKNOWN` for strict governance gate evidence
+  - `codecov/patch` check is present and `FAILURE` on latest observed head SHA `746f70565b313572bdbe1c2fc5ad679a0a591970`
+  - Failure detail from check output: `16.27% of diff hit (target 90.00%)`
+  - Codecov gate is therefore `BLOCKED/FAIL`
 
 ## D8 - Merge Policy and Main-Branch Confirmation
 
@@ -151,8 +151,8 @@ Important governance note:
 | --- | --- | --- |
 | CI workflow exists | `PASS` | Agent A report + PR check runs |
 | Required GitHub Actions checks green | `PASS` | PR #4 has two completed `SUCCESS` CI check runs |
-| Codecov project >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
-| Codecov patch >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
+| Codecov project >=90% shown on PR | `UNKNOWN` | Project context not shown in latest rollup snapshot |
+| Codecov patch >=90% shown on PR | `BLOCKED/FAIL` | `codecov/patch` reports `16.27%` vs `90%` target |
 | Codex threads dispositioned | `PASS` | Formal disposition replies posted |
 | Codex threads resolved | `PASS` | GraphQL `reviewThreads.isResolved=true` |
 | Local parity commands | `PASS` | All required commands succeeded |
@@ -161,6 +161,6 @@ Important governance note:
 
 ## Final Steward Outcome
 
-- Merge-ready decision for active PR `#4`: **Not merge-ready** (Codecov project/patch status evidence missing; merge authorization not provided).
+- Merge-ready decision for active PR `#4`: **Not merge-ready** (`codecov/patch` failing; merge authorization not provided).
 - Legacy note: PR `#3` was already merged before final steward gating window; Codex evidence is recorded there.
-- Recommended follow-up: ensure Codecov project/patch checks publish on PR #4 and then request explicit PM/operator merge authorization before squash merge.
+- Recommended follow-up: raise patch coverage for PR diff to satisfy Codecov 90% threshold, then request explicit PM/operator merge authorization before squash merge.
