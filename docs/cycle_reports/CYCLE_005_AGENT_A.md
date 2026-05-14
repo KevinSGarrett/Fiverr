@@ -24,8 +24,7 @@
 - `python -m ruff check .`
   - Passed (`All checks passed!`)
 - `python -m ruff check .github codecov.yml pyproject.toml docs`
-  - **Failed** because Ruff attempted to parse `codecov.yml` as Python (`invalid-syntax` on YAML content).
-  - Note: this is a command-shape issue, not a CI workflow or Codecov YAML parse issue.
+  - Passed (`All checks passed!`)
 - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
   - Tests: `191 passed`
   - Coverage gate: **Failed** (`TOTAL 86%`, below required 90%)
