@@ -74,6 +74,7 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
 
     strong_ratio = len(high_authority) / len(competitors)
     weak_ratio = len(weak_competitors) / len(competitors)
+    new_seller_ratio = level_counter.get("new", 0) / len(competitors)
 
     competition_intensity = (
         strong_ratio * 55.0
@@ -85,6 +86,10 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
     opportunity_signals: list[str] = []
     if weak_ratio >= 0.4:
         opportunity_signals.append("Large share of weak competitors indicates entry opportunity.")
+    if new_seller_ratio >= 0.3:
+        opportunity_signals.append(
+            "New-seller feasibility is favorable due to meaningful early-stage seller presence."
+        )
     if median_price >= 120:
         opportunity_signals.append("Higher median pricing suggests premium-positioning space.")
     if not opportunity_signals:

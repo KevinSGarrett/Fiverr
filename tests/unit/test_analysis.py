@@ -11,9 +11,11 @@ from src.analysis.contracts import (
     AnalysisRunSummary,
     AnalysisStatus,
     CompetitorProfileInput,
+    CompetitorProfileResult,
     GigQualityInput,
     GigQualityResult,
     KeywordClusterInput,
+    KeywordClusterResult,
 )
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.keyword_features import normalize_keyword, vectorize_keywords
@@ -52,6 +54,28 @@ def test_contracts_reject_invalid_confidence_or_score_ranges() -> None:
 
     with pytest.raises(ValidationError):
         KeywordClusterInput(source_id="src-1", keywords=["logo"], min_cluster_size=0)
+
+    with pytest.raises(ValidationError):
+        KeywordClusterResult(
+            source_id="src-1",
+            clusters=[],
+            confidence=1.5,
+            explanation="invalid confidence",
+        )
+
+    with pytest.raises(ValidationError):
+        CompetitorProfileResult(
+            source_id="src-1",
+            competition_intensity_score=55.0,
+            dominant_seller_levels={},
+            pricing_bands={},
+            rating_review_concentration="ok",
+            high_authority_sellers=[],
+            weak_competitors=[],
+            opportunity_signals=[],
+            confidence=-0.1,
+            explanation="invalid confidence",
+        )
 
 
 def test_contracts_require_source_id() -> None:
@@ -245,6 +269,7 @@ def test_weak_competitor_fixture_surfaces_opportunity_signals() -> None:
     )
     assert result.opportunity_signals
     assert result.competition_intensity_score < 60
+    assert any("new-seller feasibility" in signal.lower() for signal in result.opportunity_signals)
 
 
 def test_empty_competitor_list_returns_low_confidence() -> None:
