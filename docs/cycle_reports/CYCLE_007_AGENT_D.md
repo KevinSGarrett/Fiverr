@@ -64,6 +64,7 @@ Cleanup after parity:
 
 - PR #5 Codex thread status: disposition completed and PR merged; no remaining merge blocker on PR #5.
 - Cycle 007 PR created: `https://github.com/KevinSGarrett/Fiverr/pull/6`
+- Cycle 007 latest head at final capture: `4e48595c60338168771fafae4cdec04a02093b66`
 - Cycle 007 PR mergeability snapshot: `mergeable=MERGEABLE`, `mergeStateStatus=UNSTABLE`.
 - Codex review-thread status on PR #6:
   - review thread count: `2`
@@ -77,10 +78,13 @@ Cleanup after parity:
   - `Lint, Typecheck, Tests, and Gates` (run `25889436180`): `SUCCESS`
   - `Lint, Typecheck, Tests, and Gates` (run `25889537332`): `SUCCESS`
   - `Lint, Typecheck, Tests, and Gates` (run `25889539227`): `SUCCESS`
+  - latest rerun after final report update:
+    - `25889616425`: `IN_PROGRESS` at capture time
+    - `25889617144`: `IN_PROGRESS` at capture time
 - Codecov statuses on PR #6:
   - `codecov/project`: one run `SUCCESS` (`25889537332`), one run still `IN_PROGRESS` (`25889539227`) at capture time
   - `codecov/patch`: **missing** on current head rollup; earlier Codecov PR comment reports patch coverage failure (`86.84211%`, 10 missing lines)
-- Steward decision: **BLOCKED** (do not merge; unresolved `VALID_DEFERRED_BLOCKER` Codex threads exist, and Codecov statuses are incomplete/missing for patch gate).
+- Steward decision: **BLOCKED** (do not merge; unresolved `VALID_DEFERRED_BLOCKER` Codex threads exist, required checks are still in progress on latest head, and Codecov patch gate remains missing/failing in prior completed runs).
 
 ## Files changed by all agents in Cycle 007
 
