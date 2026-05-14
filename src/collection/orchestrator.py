@@ -10,13 +10,42 @@ from typing import Any
 from src.collection.autocomplete import AutocompleteFixtureError, load_autocomplete_fixture
 from src.collection.checkpoint import checkpoint_queue_state
 from src.collection.community_signals import load_community_signal_fixture
-from src.collection.contracts import CollectionError, CollectionStageResult, CollectionStageStatus
+from src.collection.contracts import (
+    CollectionError,
+    CollectionStageResult,
+    CollectionStageStatus,
+    validate_collection_stage_summary,
+)
 from src.collection.external_signals import load_external_signal_fixture
 from src.collection.gig_detail import parse_gig_detail_from_html
 from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
 from src.collection.seller_profile import parse_seller_profile_from_html
+
+
+def _resolve_max_candidates(
+    seed_keywords: Sequence[str],
+    niche_metadata: Mapping[str, Any] | None,
+    requested_max_candidates: int,
+) -> tuple[int, str | None]:
+    if requested_max_candidates > 0:
+        return requested_max_candidates, None
+
+    normalized_seeds = {" ".join(seed.strip().lower().split()) for seed in seed_keywords if seed.strip()}
+    raw_modifiers = niche_metadata.get("modifiers", []) if niche_metadata else []
+    modifier_count = 0
+    if isinstance(raw_modifiers, Sequence) and not isinstance(raw_modifiers, (str | bytes)):
+        modifier_count = len({modifier.strip().lower() for modifier in raw_modifiers if isinstance(modifier, str)})
+    if niche_metadata and isinstance(niche_metadata.get("niche"), str) and niche_metadata.get("niche", "").strip():
+        modifier_count += 1
+
+    safe_cap = max(1, len(normalized_seeds) * (1 + (2 * modifier_count)))
+    warning = (
+        "Received non-positive max_candidates; "
+        f"using deterministic safe cap of {safe_cap} for dry-run expansion."
+    )
+    return safe_cap, warning
 
 
 def run_collection_dry_run(
@@ -42,10 +71,15 @@ def run_collection_dry_run(
         if not isinstance(seed_keywords, Sequence) or isinstance(seed_keywords, (str | bytes)):
             raise ValueError("seed_keywords must be a sequence of strings.")
 
+        resolved_max_candidates, cap_warning = _resolve_max_candidates(
+            seed_keywords,
+            niche_metadata,
+            max_candidates,
+        )
         expanded = expand_keywords(
             seed_keywords,
             niche_metadata=niche_metadata,
-            max_candidates=max_candidates,
+            max_candidates=resolved_max_candidates,
         )
         plan = build_search_plan(
             expanded.expanded_keywords,
@@ -57,17 +91,27 @@ def run_collection_dry_run(
         queue = enqueue_search_plan(plan)
 
         warnings = list(expanded.warnings) + list(plan.warnings)
+        if cap_warning:
+            warnings.append(cap_warning)
         stage_counts: dict[str, int] = {
             "stage_1_keyword_expansion": len(expanded.expanded_keywords),
+            "stage_2b_autocomplete": 0,
             "stage_2_search_plan": len(plan.items),
             "stage_3_queue": len(queue.jobs),
-            "stage_2b_autocomplete": 0,
             "stage_4_gig_detail": 0,
             "stage_5_seller_profile": 0,
             "stage_6a_external_signals": 0,
             "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 0,
+            "stage_8_pacing_decisions": 0,
         }
         stage_warnings: dict[str, list[str]] = {}
+        pacing_decisions = {
+            "queue_mode": "deterministic_fixture",
+            "per_page_limit": max_pages,
+            "queue_jobs": len(queue.jobs),
+            "candidate_cap": resolved_max_candidates,
+        }
 
         if autocomplete_fixture_path:
             autocomplete_plan = load_autocomplete_fixture(
@@ -98,12 +142,20 @@ def run_collection_dry_run(
         if external_signal_fixture_path:
             external_signals = load_external_signal_fixture(external_signal_fixture_path)
             stage_counts["stage_6a_external_signals"] = len(external_signals)
+            if not external_signals:
+                warning = "External signal fixture returned zero records."
+                stage_warnings["stage_6a_external_signals"] = [warning]
+                warnings.append(warning)
 
         if community_signal_fixture_path:
             community_signals, community_warnings = load_community_signal_fixture(community_signal_fixture_path)
             stage_counts["stage_6b_community_signals"] = len(community_signals)
+            if not community_signals:
+                warning = "Community signal fixture returned zero records."
+                stage_warnings.setdefault("stage_6b_community_signals", []).append(warning)
+                warnings.append(warning)
             if community_warnings:
-                stage_warnings["stage_6b_community_signals"] = list(community_warnings)
+                stage_warnings.setdefault("stage_6b_community_signals", []).extend(community_warnings)
                 warnings.extend(community_warnings)
 
         records_written = len(queue.jobs) + sum(
@@ -114,8 +166,17 @@ def run_collection_dry_run(
         stage_summary: dict[str, object] = {
             "stage_counts": stage_counts,
             "stage_warnings": stage_warnings,
+            "checkpoint_metadata": {
+                "schema_version": "1.0",
+                "job_count": len(queue.jobs),
+                "checkpoint_requested": str(checkpoint_path),
+            },
+            "pacing_decisions": pacing_decisions,
             "mode": "dry_run_fixture_optional",
         }
+        stage_counts["stage_7_checkpoint_metadata"] = 1
+        stage_counts["stage_8_pacing_decisions"] = 1
+        validate_collection_stage_summary(stage_summary)
         saved_checkpoint = checkpoint_queue_state(queue, checkpoint_path, stage_summary=stage_summary)
 
         return CollectionStageResult(

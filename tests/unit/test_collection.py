@@ -15,6 +15,7 @@ from src.collection.checkpoint import (
     load_queue_checkpoint,
 )
 from src.collection.community_signals import load_community_signal_fixture
+from src.collection.contracts import validate_collection_stage_summary
 from src.collection.external_signals import (
     LiveSignalConnectorDisabledError,
     SignalFreshness,
@@ -24,6 +25,7 @@ from src.collection.external_signals import (
 from src.collection.gig_detail import parse_gig_detail_from_html
 from src.collection.html_text import clean_html_text, extract_data_testid_text
 from src.collection.keyword_expansion import expand_keywords
+from src.collection.orchestrator import run_collection_dry_run
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
 from src.collection.selectors import (
@@ -581,3 +583,68 @@ def test_orchestrator_has_no_network_or_browser_imports() -> None:
     assert "import requests" not in source
     assert "import httpx" not in source
     assert "playwright" not in source
+
+
+def test_collection_stage_summary_validator_rejects_missing_required_stage() -> None:
+    with pytest.raises(ValueError, match="missing required stages"):
+        validate_collection_stage_summary(
+            {
+                "stage_counts": {
+                    "stage_1_keyword_expansion": 1,
+                    "stage_2_search_plan": 1,
+                }
+            }
+        )
+
+
+def test_collection_dry_run_non_positive_max_candidates_uses_safe_bounded_path(tmp_path: Path) -> None:
+    result = run_collection_dry_run(
+        ["logo design", "seo audit"],
+        niche_metadata={"modifiers": ["local"]},
+        max_candidates=0,
+        max_pages=1,
+        checkpoint_path=tmp_path / "checkpoint.json",
+    )
+    assert str(result.status).endswith("success")
+    assert any("non-positive max_candidates" in warning for warning in result.warnings)
+    assert result.metadata["expanded_keywords_count"] > 0
+
+
+def test_collection_dry_run_stage_summary_validator_covers_all_required_stages(tmp_path: Path) -> None:
+    result = run_collection_dry_run(
+        ["logo design"],
+        niche_metadata={"modifiers": ["local"]},
+        max_candidates=5,
+        checkpoint_path=tmp_path / "summary-checkpoint.json",
+        autocomplete_fixture_path="tests/fixtures/collection/autocomplete_suggestions.json",
+        gig_detail_fixture_path="tests/fixtures/collection/gig_detail.html",
+        seller_profile_fixture_path="tests/fixtures/collection/seller_profile.html",
+    )
+    stage_counts = result.metadata["stage_counts"]
+    assert stage_counts["stage_1_keyword_expansion"] > 0
+    assert stage_counts["stage_2b_autocomplete"] > 0
+    assert stage_counts["stage_2_search_plan"] > 0
+    assert stage_counts["stage_4_gig_detail"] == 1
+    assert stage_counts["stage_5_seller_profile"] == 1
+    assert stage_counts["stage_7_checkpoint_metadata"] == 1
+    assert stage_counts["stage_8_pacing_decisions"] == 1
+
+
+def test_collection_dry_run_empty_signal_fixtures_warn_instead_of_fabricating_records(tmp_path: Path) -> None:
+    empty_external = tmp_path / "external_empty.json"
+    empty_external.write_text("[]", encoding="utf-8")
+    empty_community = tmp_path / "community_empty.json"
+    empty_community.write_text("[]", encoding="utf-8")
+
+    result = run_collection_dry_run(
+        ["logo design"],
+        max_candidates=5,
+        checkpoint_path=tmp_path / "empty-signals-checkpoint.json",
+        external_signal_fixture_path=empty_external,
+        community_signal_fixture_path=empty_community,
+    )
+    assert str(result.status).endswith("success")
+    assert result.metadata["stage_counts"]["stage_6a_external_signals"] == 0
+    assert result.metadata["stage_counts"]["stage_6b_community_signals"] == 0
+    assert any("External signal fixture returned zero records." == warning for warning in result.warnings)
+    assert any("Community signal fixture returned zero records." == warning for warning in result.warnings)
