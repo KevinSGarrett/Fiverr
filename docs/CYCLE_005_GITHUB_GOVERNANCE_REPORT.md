@@ -27,6 +27,7 @@ This report captures live GitHub governance state for SCRUM-247 before merge-rea
 - `gh pr view 3 --json statusCheckRollup` returned an empty array.
 - `gh api repos/KevinSGarrett/Fiverr/commits/<head>/check-runs` returned `total_count: 0`.
 - `gh api repos/KevinSGarrett/Fiverr/commits/<head>/status` returned `total_count: 0` and no status contexts.
+- Attempted Codecov app visibility probe: `gh api repos/KevinSGarrett/Fiverr/installation` returned `401` (`A JSON web token could not be decoded`), so app-installation visibility was not verifiable from current auth scope.
 - Result: no workflow/check runs currently exist on PR #3 head SHA, and no Codecov status is visible yet.
 
 ## Default branch status

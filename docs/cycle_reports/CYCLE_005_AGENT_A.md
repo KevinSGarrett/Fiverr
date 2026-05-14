@@ -21,6 +21,8 @@
 
 ## Validation run results
 
+- `python -m ruff check .`
+  - Passed (`All checks passed!`)
 - `python -m ruff check .github codecov.yml pyproject.toml docs`
   - **Failed** because Ruff attempted to parse `codecov.yml` as Python (`invalid-syntax` on YAML content).
   - Note: this is a command-shape issue, not a CI workflow or Codecov YAML parse issue.
@@ -36,6 +38,11 @@
   - Passed (`config_load`, `database_registry`, `smoke_imports`, `repo_hygiene`)
 - `python run.py phase2-smoke`
   - Passed (`collection package`, `analysis package`, `phase2 config models`)
+
+## Codecov visibility verification
+
+- `gh api repos/KevinSGarrett/Fiverr/installation` returned `401` (`A JSON web token could not be decoded`), so Codecov app-installation visibility could not be confirmed by API scope.
+- Codecov commit/pr status checks remain not visible yet because no workflow/check run had executed on the PR head at verification time.
 
 ## Coverage blockers for Agent C / Agent D follow-up
 
