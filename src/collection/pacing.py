@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +30,7 @@ class SourcePacingState:
     backoff_seconds: float = 0.0
     cooldown_until: float | None = None
     last_status_code: int | None = None
+    recent_request_timestamps: list[float] = field(default_factory=list)
 
 
 class PacingManager:
@@ -38,10 +39,12 @@ class PacingManager:
     def __init__(
         self,
         config: PacingConfig | None = None,
+        source_configs: dict[str, PacingConfig] | None = None,
         random_provider: Callable[[float, float], float] | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:
         self.config = config or PacingConfig()
+        self._source_configs = source_configs or {}
         self._random = random_provider or random.uniform
         self._clock = clock or time.time
         self._state_by_source: dict[str, SourcePacingState] = {}
@@ -49,27 +52,56 @@ class PacingManager:
     def _state(self, source: str) -> SourcePacingState:
         return self._state_by_source.setdefault(source, SourcePacingState())
 
+    def _config_for_source(self, source: str) -> PacingConfig:
+        return self._source_configs.get(source, self.config)
+
+    @staticmethod
+    def _prune_request_window(state: SourcePacingState, now: float) -> None:
+        state.recent_request_timestamps = [
+            timestamp for timestamp in state.recent_request_timestamps if timestamp > (now - 60.0)
+        ]
+
     def next_delay(self, source: str = "fiverr") -> float:
         """Return the next delay callers should apply."""
 
+        config = self._config_for_source(source)
         state = self._state(source)
         now = self._clock()
+        self._prune_request_window(state, now)
+
+        request_window_delay = 0.0
+        if (
+            config.max_requests_per_minute > 0
+            and len(state.recent_request_timestamps) >= config.max_requests_per_minute
+        ):
+            oldest = min(state.recent_request_timestamps)
+            request_window_delay = max(0.0, (oldest + 60.0) - now)
+
         cooldown_remaining = 0.0
         if state.cooldown_until is not None:
             cooldown_remaining = max(0.0, state.cooldown_until - now)
-        jitter = self._random(self.config.jitter_min_seconds, self.config.jitter_max_seconds)
-        base_delay = max(0.0, self.config.base_delay_seconds + jitter)
-        return max(0.0, cooldown_remaining, base_delay + max(0.0, state.backoff_seconds))
+        jitter = self._random(config.jitter_min_seconds, config.jitter_max_seconds)
+        base_delay = max(0.0, config.base_delay_seconds + jitter)
+        return max(
+            0.0,
+            cooldown_remaining,
+            request_window_delay,
+            base_delay + max(0.0, state.backoff_seconds),
+        )
 
     def record_success(self, source: str) -> None:
         """Reduce backoff after successful work without abrupt drops."""
 
+        config = self._config_for_source(source)
         state = self._state(source)
+        now = self._clock()
+        state.recent_request_timestamps.append(now)
+        self._prune_request_window(state, now)
         state.consecutive_errors = max(0, state.consecutive_errors - 1)
         if state.backoff_seconds > 0:
             state.backoff_seconds = max(
                 0.0,
-                state.backoff_seconds / self.config.adaptive_backoff_multiplier,
+                state.backoff_seconds / config.adaptive_backoff_multiplier,
             )
         if state.consecutive_errors == 0 and not self.should_cooldown(source):
             state.cooldown_until = None
@@ -78,22 +110,25 @@ class PacingManager:
     def record_error(self, source: str, status_code: int | None = None) -> None:
         """Increase cooldown and backoff after errors."""
 
+        config = self._config_for_source(source)
         state = self._state(source)
         now = self._clock()
+        state.recent_request_timestamps.append(now)
+        self._prune_request_window(state, now)
         state.consecutive_errors += 1
         state.last_status_code = status_code
 
         cooldown_floor = (
-            self.config.cooldown_after_429_seconds
+            config.cooldown_after_429_seconds
             if status_code == 429
-            else self.config.cooldown_after_error_seconds
+            else config.cooldown_after_error_seconds
         )
-        multiplier = self.config.adaptive_backoff_multiplier ** max(0, state.consecutive_errors - 1)
+        multiplier = config.adaptive_backoff_multiplier ** max(0, state.consecutive_errors - 1)
         if status_code == 429:
-            multiplier *= self.config.adaptive_backoff_multiplier
+            multiplier *= config.adaptive_backoff_multiplier
 
         proposed_backoff = min(
-            self.config.max_backoff_seconds,
+            config.max_backoff_seconds,
             cooldown_floor * multiplier,
         )
         state.backoff_seconds = max(state.backoff_seconds, proposed_backoff)
@@ -121,4 +156,5 @@ class PacingManager:
             backoff_seconds=state.backoff_seconds,
             cooldown_until=state.cooldown_until,
             last_status_code=state.last_status_code,
+            recent_request_timestamps=list(state.recent_request_timestamps),
         )

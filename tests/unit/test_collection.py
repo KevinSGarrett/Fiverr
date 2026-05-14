@@ -171,6 +171,39 @@ def test_pacing_delay_never_negative() -> None:
     assert manager.next_delay("fiverr") >= 0.0
 
 
+def test_pacing_supports_source_specific_limits() -> None:
+    clock = FakeClock()
+    manager = PacingManager(
+        config=PacingConfig(base_delay_seconds=1.0, jitter_min_seconds=0.0, jitter_max_seconds=0.0),
+        source_configs={
+            "fiverr": PacingConfig(base_delay_seconds=2.0, jitter_min_seconds=0.0, jitter_max_seconds=0.0)
+        },
+        clock=clock.now,
+    )
+    assert manager.next_delay("fiverr") == pytest.approx(2.0)
+    assert manager.next_delay("other-source") == pytest.approx(1.0)
+
+
+def test_pacing_enforces_max_requests_per_minute_window() -> None:
+    clock = FakeClock()
+    manager = PacingManager(
+        config=PacingConfig(
+            base_delay_seconds=0.0,
+            jitter_min_seconds=0.0,
+            jitter_max_seconds=0.0,
+            max_requests_per_minute=2,
+        ),
+        clock=clock.now,
+    )
+    manager.record_success("fiverr")
+    manager.record_success("fiverr")
+    assert manager.next_delay("fiverr") == pytest.approx(60.0)
+    clock.advance(30.0)
+    assert manager.next_delay("fiverr") == pytest.approx(30.0)
+    clock.advance(31.0)
+    assert manager.next_delay("fiverr") == pytest.approx(0.0)
+
+
 def test_queue_dequeues_highest_priority_first() -> None:
     queue = QueueProcessor()
     queue.enqueue(CollectionJob(job_id="low", payload={}, priority=JobPriority.LOW))
@@ -423,7 +456,7 @@ def test_orchestrator_consults_pacing_without_sleep(tmp_path: Path) -> None:
 
     calls = {"count": 0}
 
-    def fake_next_delay(source: str = "fiverr") -> float:
+    def fake_next_delay(_source: str = "fiverr") -> float:
         calls["count"] += 1
         return 0.0
 
