@@ -81,11 +81,9 @@ def summarize_scoring_readiness(
     successful_stages = {
         stage.stage for stage in stages if stage.status == AnalysisStatus.SUCCESS
     }
-    payload_dict = payload if isinstance(payload, dict) else {}
     demand_inputs = (
         AnalysisTaskType.INTENT_CLASSIFICATION in successful_stages
         or AnalysisTaskType.KEYWORD_CLUSTERING in successful_stages
-        or bool(payload_dict.get("keywords"))
     )
     readiness: dict[str, Any] = {
         "demand_inputs": demand_inputs,

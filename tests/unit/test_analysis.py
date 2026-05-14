@@ -674,6 +674,9 @@ def test_scoring_readiness_helper_handles_sparse_and_complete_stage_sets() -> No
     assert sparse_readiness["available_count"] == 0
     assert sparse_readiness["demand_inputs"] is False
 
+    keyword_only_payload_readiness = summarize_scoring_readiness([], {"keywords": ["python automation"]})
+    assert keyword_only_payload_readiness["demand_inputs"] is False
+
     complete_readiness = summarize_scoring_readiness(
         [
             AnalysisStageSummary(stage=task_type, status=AnalysisStatus.SUCCESS, result_type=task_type.value)

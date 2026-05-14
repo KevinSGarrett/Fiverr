@@ -638,6 +638,12 @@ def test_collection_dry_run_stage_summary_validator_covers_all_required_stages(t
     assert stage_counts["stage_5_seller_profile"] == 1
     assert stage_counts["stage_7_checkpoint_metadata"] == 1
     assert stage_counts["stage_8_pacing_decisions"] == 1
+    expected_records_written = result.metadata["queue_jobs_count"] + sum(
+        count
+        for stage_name, count in stage_counts.items()
+        if stage_name not in {"stage_1_keyword_expansion", "stage_2_search_plan", "stage_3_queue"}
+    )
+    assert result.records_written == expected_records_written
 
 
 def test_collection_dry_run_empty_signal_fixtures_warn_instead_of_fabricating_records(tmp_path: Path) -> None:

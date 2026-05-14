@@ -158,11 +158,6 @@ def run_collection_dry_run(
                 stage_warnings.setdefault("stage_6b_community_signals", []).extend(community_warnings)
                 warnings.extend(community_warnings)
 
-        records_written = len(queue.jobs) + sum(
-            count
-            for stage_name, count in stage_counts.items()
-            if stage_name not in {"stage_1_keyword_expansion", "stage_2_search_plan", "stage_3_queue"}
-        )
         stage_summary: dict[str, object] = {
             "stage_counts": stage_counts,
             "stage_warnings": stage_warnings,
@@ -176,6 +171,11 @@ def run_collection_dry_run(
         }
         stage_counts["stage_7_checkpoint_metadata"] = 1
         stage_counts["stage_8_pacing_decisions"] = 1
+        records_written = len(queue.jobs) + sum(
+            count
+            for stage_name, count in stage_counts.items()
+            if stage_name not in {"stage_1_keyword_expansion", "stage_2_search_plan", "stage_3_queue"}
+        )
         validate_collection_stage_summary(stage_summary)
         saved_checkpoint = checkpoint_queue_state(queue, checkpoint_path, stage_summary=stage_summary)
 

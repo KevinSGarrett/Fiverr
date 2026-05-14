@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import importlib
+import sys
 from dataclasses import asdict
 
 
@@ -140,4 +141,37 @@ def test_governance_status_messages_distinguish_check_sources() -> None:
     assert "Codecov project status check" in check_messages["codecov_project"]
     assert "Codecov patch status check" in check_messages["codecov_patch"]
     assert "Codex review-thread disposition" in check_messages["codex_disposition"]
+
+
+def test_main_renders_governance_and_readiness_sections_without_real_streamlit(
+    monkeypatch,
+) -> None:
+    class FakeStreamlit:
+        def __init__(self) -> None:
+            self.title_calls: list[str] = []
+            self.caption_calls: list[str] = []
+            self.subheader_calls: list[str] = []
+            self.write_calls: list[str] = []
+
+        def title(self, text: str) -> None:
+            self.title_calls.append(text)
+
+        def caption(self, text: str) -> None:
+            self.caption_calls.append(text)
+
+        def subheader(self, text: str) -> None:
+            self.subheader_calls.append(text)
+
+        def write(self, text: str) -> None:
+            self.write_calls.append(text)
+
+    fake_streamlit = FakeStreamlit()
+    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
+    app_module = importlib.import_module("src.dashboard.app")
+    app_module.main()
+
+    assert fake_streamlit.title_calls == ["Fiverr Research System Dashboard (Foundation Shell)"]
+    assert "Cycle 007 Governance and Readiness" in fake_streamlit.subheader_calls
+    assert any("codecov_project: pending" in line for line in fake_streamlit.write_calls)
+    assert any("codex_disposition: pending" in line for line in fake_streamlit.write_calls)
 
