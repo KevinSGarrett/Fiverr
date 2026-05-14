@@ -5,7 +5,8 @@
 - Agent: D (Dashboard/Presentation + Integration/GitHub Steward)
 - Branch used: `cycle/004/integration`
 - Repository: `KevinSGarrett/Fiverr`
-- PR evaluated: `#3` (`https://github.com/KevinSGarrett/Fiverr/pull/3`)
+- Legacy PR (Codex thread source): `#3` (`https://github.com/KevinSGarrett/Fiverr/pull/3`)
+- Active PR for Agent D docs updates: `#4` (`https://github.com/KevinSGarrett/Fiverr/pull/4`)
 
 ## D1 - Codex Disposition Documentation
 
@@ -90,7 +91,7 @@ Runtime artifact cleanup:
 
 ## D7 - GitHub Actions and Codecov Status
 
-Observed on PR `#3`:
+Observed on legacy PR `#3`:
 
 - PR state: `MERGED`
 - Base/head: `develop <- cycle/004/integration`
@@ -98,7 +99,17 @@ Observed on PR `#3`:
   - `Lint, Typecheck, Tests, and Gates` (success)
 - Codecov status:
   - No explicit Codecov project/patch status contexts observed in `statusCheckRollup`
-  - Governance interpretation: Codecov visibility remains `BLOCKED/UNKNOWN` for strict required-check policy evidence
+
+Observed on active PR `#4` (post-push for Agent D docs):
+
+- PR state: `OPEN`
+- Base/head: `develop <- cycle/004/integration`
+- Mergeability snapshot: `CONFLICTING` / `mergeStateStatus=DIRTY`
+- `statusCheckRollup` at report capture time:
+  - `Lint, Typecheck, Tests, and Gates` (`IN_PROGRESS`)
+- Codecov status:
+  - Not yet visible in the check rollup at capture time
+  - Treated as pending/unknown until check contexts appear
 
 ## D8 - Merge Policy and Main-Branch Confirmation
 
@@ -116,16 +127,17 @@ Important governance note:
 | Gate | Status | Evidence |
 | --- | --- | --- |
 | CI workflow exists | `PASS` | Agent A report + PR check runs |
-| Required GitHub Actions checks green | `PASS` | PR check runs successful |
-| Codecov project >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed |
-| Codecov patch >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed |
+| Required GitHub Actions checks green | `BLOCKED/PENDING` | PR #4 check currently in progress |
+| Codecov project >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
+| Codecov patch >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
 | Codex threads dispositioned | `PASS` | Formal disposition replies posted |
 | Codex threads resolved | `PASS` | GraphQL `reviewThreads.isResolved=true` |
 | Local parity commands | `PASS` | All required commands succeeded |
-| PR open awaiting steward merge | `BLOCKED` | PR already `MERGED` before final stewardship |
+| PR open awaiting steward merge | `BLOCKED` | PR #4 open but conflicting and checks not complete |
 | `main` untouched by Agent D | `PASS` | No `main` operations performed |
 
 ## Final Steward Outcome
 
-- Merge-ready decision for PR `#3`: **Not applicable / blocked for governance replay**, because PR was already merged before final steward gating window.
-- Recommended follow-up: enforce branch protection required checks on `develop` (CI + Codecov project + Codecov patch) before next cycle PR.
+- Merge-ready decision for active PR `#4`: **Not merge-ready** (conflicts + pending checks + missing visible Codecov contexts).
+- Legacy note: PR `#3` was already merged before final steward gating window; Codex evidence is recorded there.
+- Recommended follow-up: resolve PR #4 conflicts, wait for completed checks, and enforce branch protection required checks on `develop` (CI + Codecov project + Codecov patch) before next cycle merge.
