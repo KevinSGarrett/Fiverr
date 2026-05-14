@@ -89,6 +89,27 @@ Runtime artifact cleanup:
 
 - Removed `data/foundation_gate_cycle005.db` after validation.
 
+Final parity rerun after syncing `cycle/004/integration` with `origin/develop`:
+
+- `git status --short`
+  - `M docs/cycle_reports/CYCLE_005_AGENT_C.md` (pre-existing, not modified by Agent D)
+  - `?? coverage.xml` (runtime artifact from latest coverage run)
+- `git log --oneline --decorate -12`
+  - HEAD at rerun: `55bcc83` (`Merge origin/develop into cycle/004/integration for PR synchronization`)
+- `python -m ruff check .`
+  - `PASS`
+- `python -m mypy src`
+  - `PASS`
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
+  - `PASS` (`231 passed`)
+  - Total coverage: `90.98%`
+- `python run.py config-check`
+  - `PASS`
+- `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle005.db`
+  - `PASS`
+- `python run.py phase2-smoke`
+  - `PASS`
+
 ## D7 - GitHub Actions and Codecov Status
 
 Observed on legacy PR `#3`:
@@ -104,13 +125,14 @@ Observed on active PR `#4` (post-push for Agent D docs):
 
 - PR state: `OPEN`
 - Base/head: `develop <- cycle/004/integration`
-- Mergeability snapshot: `CONFLICTING` / `mergeStateStatus=DIRTY`
+- Mergeability snapshot: `MERGEABLE` / `mergeStateStatus=CLEAN`
 - `statusCheckRollup` at latest report capture time:
-  - Prior poll showed `Lint, Typecheck, Tests, and Gates` (`IN_PROGRESS`)
-  - Latest poll returned an empty rollup immediately after push (treat as checks pending/not yet attached)
+  - Two CI check runs present and both `SUCCESS`
+  - Check name: `Lint, Typecheck, Tests, and Gates`
 - Codecov status:
-  - Not visible in the check rollup at capture time
-  - Treated as missing/unknown until check contexts appear
+  - No explicit Codecov project/patch check context visible in rollup
+  - Commit status endpoint remains `pending` with `total_count: 0` statuses for head SHA `55bcc833addb3c65b42c98b50e4e875a90cd400c`
+  - Treated as `BLOCKED/UNKNOWN` for strict governance gate evidence
 
 ## D8 - Merge Policy and Main-Branch Confirmation
 
@@ -128,17 +150,17 @@ Important governance note:
 | Gate | Status | Evidence |
 | --- | --- | --- |
 | CI workflow exists | `PASS` | Agent A report + PR check runs |
-| Required GitHub Actions checks green | `BLOCKED/PENDING` | Rollup is not stable yet after latest push; not green |
+| Required GitHub Actions checks green | `PASS` | PR #4 has two completed `SUCCESS` CI check runs |
 | Codecov project >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
 | Codecov patch >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
 | Codex threads dispositioned | `PASS` | Formal disposition replies posted |
 | Codex threads resolved | `PASS` | GraphQL `reviewThreads.isResolved=true` |
 | Local parity commands | `PASS` | All required commands succeeded |
-| PR open awaiting steward merge | `BLOCKED` | PR #4 open but conflicting and checks not complete |
+| PR open awaiting steward merge | `BLOCKED` | PR #4 open; Codecov evidence missing and no explicit merge authorization |
 | `main` untouched by Agent D | `PASS` | No `main` operations performed |
 
 ## Final Steward Outcome
 
-- Merge-ready decision for active PR `#4`: **Not merge-ready** (conflicts + pending checks + missing visible Codecov contexts).
+- Merge-ready decision for active PR `#4`: **Not merge-ready** (Codecov project/patch status evidence missing; merge authorization not provided).
 - Legacy note: PR `#3` was already merged before final steward gating window; Codex evidence is recorded there.
-- Recommended follow-up: resolve PR #4 conflicts, wait for completed checks, and enforce branch protection required checks on `develop` (CI + Codecov project + Codecov patch) before next cycle merge.
+- Recommended follow-up: ensure Codecov project/patch checks publish on PR #4 and then request explicit PM/operator merge authorization before squash merge.
