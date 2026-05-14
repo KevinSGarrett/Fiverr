@@ -16,6 +16,7 @@ from src.analysis.contracts import (
     GigQualityInput,
     IntentInput,
     IntentLabel,
+    IntentResult,
     KeywordClusterInput,
     ReviewAnalysisInput,
     SaturationInput,
@@ -344,7 +345,7 @@ def test_orchestrator_invalid_seller_input_fails_only_seller_stage() -> None:
     assert summary.status == AnalysisStatus.PARTIAL
 
 
-def test_orchestrator_status_failed_when_all_stages_fail() -> None:
+def test_orchestrator_status_success_when_intent_keyword_falls_back_to_source_id() -> None:
     summary = run_analysis_dry_run(
         {
             "run_id": "run-failed",
@@ -352,7 +353,227 @@ def test_orchestrator_status_failed_when_all_stages_fail() -> None:
             "intent": {"keyword_text": ""},
         }
     )
+    assert summary.status == AnalysisStatus.SUCCESS
+
+
+def _capture_intent_input_from_orchestrator(
+    monkeypatch: pytest.MonkeyPatch, payload: dict[str, object]
+) -> IntentInput:
+    captured: dict[str, IntentInput] = {}
+
+    def _fake_classify_intent(intent_input: IntentInput) -> IntentResult:
+        captured["intent_input"] = intent_input
+        return IntentResult(
+            source_id=intent_input.source_id,
+            keyword_text=intent_input.keyword_text,
+            label=IntentLabel.AMBIGUOUS,
+            confidence=0.35,
+            matched_rules=["test:captured"],
+            explanation="Captured intent payload for orchestrator tests.",
+            metadata=intent_input.metadata,
+        )
+
+    monkeypatch.setattr("src.analysis.orchestrator.classify_intent", _fake_classify_intent)
+    summary = run_analysis_dry_run(payload)
+    intent_stages = [stage for stage in summary.stages if stage.stage.value == "intent_classification"]
+    assert len(intent_stages) == 1
+    assert intent_stages[0].status == AnalysisStatus.SUCCESS
+    return captured["intent_input"]
+
+
+def test_orchestrator_intent_keyword_prefers_valid_intent_keyword_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-priority",
+            "source_id": "src-intent-priority",
+            "intent": {"keyword_text": "keep intent keyword"},
+            "keyword_text": "payload keyword",
+            "keywords": ["keyword list value"],
+        },
+    )
+    assert intent_input.keyword_text == "keep intent keyword"
+
+
+@pytest.mark.parametrize("nullish_keyword", [None, "", "   "])
+def test_orchestrator_intent_keyword_uses_payload_keyword_when_intent_keyword_is_nullish(
+    monkeypatch: pytest.MonkeyPatch, nullish_keyword: str | None
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-nullish",
+            "source_id": "src-intent-nullish",
+            "intent": {"keyword_text": nullish_keyword},
+            "keyword_text": "payload fallback keyword",
+        },
+    )
+    assert intent_input.keyword_text == "payload fallback keyword"
+    assert intent_input.keyword_text != "None"
+
+
+def test_orchestrator_intent_keyword_uses_payload_keyword_when_intent_keyword_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-missing",
+            "source_id": "src-intent-missing",
+            "intent": {"title_phrases": ["intent phrase"]},
+            "keyword_text": "payload fallback keyword",
+        },
+    )
+    assert intent_input.keyword_text == "payload fallback keyword"
+
+
+def test_orchestrator_intent_keyword_falls_back_to_first_non_empty_keyword(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-keywords",
+            "source_id": "src-intent-keywords",
+            "intent": {"keyword_text": None},
+            "keywords": [None, "   ", "first non-empty keyword", "second keyword"],
+        },
+    )
+    assert intent_input.keyword_text == "first non-empty keyword"
+
+
+def test_orchestrator_intent_keyword_falls_back_to_source_id_when_other_values_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-source",
+            "source_id": "src-intent-source",
+            "intent": {"keyword_text": None},
+            "keywords": [None, "   "],
+        },
+    )
+    assert intent_input.keyword_text == "src-intent-source"
+
+
+def test_orchestrator_intent_keyword_none_literal_is_not_generated_from_null(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-no-none-literal",
+            "source_id": "src-intent-no-none-literal",
+            "intent": {"keyword_text": None},
+            "keywords": [],
+        },
+    )
+    assert intent_input.keyword_text == "src-intent-no-none-literal"
+    assert intent_input.keyword_text != "None"
+
+
+def test_orchestrator_intent_keyword_literal_none_is_treated_as_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-literal-none",
+            "source_id": "src-intent-literal-none",
+            "intent": {"keyword_text": "None"},
+        },
+    )
+    assert intent_input.keyword_text == "src-intent-literal-none"
+
+
+def test_orchestrator_intent_keyword_literal_null_is_treated_as_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-literal-null",
+            "source_id": "src-intent-literal-null",
+            "intent": {"keyword_text": "null"},
+        },
+    )
+    assert intent_input.keyword_text == "src-intent-literal-null"
+
+
+def test_orchestrator_intent_title_phrases_survive_keyword_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-title-phrases",
+            "source_id": "src-intent-title-phrases",
+            "intent": {
+                "keyword_text": None,
+                "title_phrases": ["urgent order", "budget is 200 usd"],
+            },
+            "keyword_text": "payload fallback keyword",
+        },
+    )
+    assert intent_input.keyword_text == "payload fallback keyword"
+    assert intent_input.title_phrases == ["urgent order", "budget is 200 usd"]
+
+
+def test_orchestrator_intent_non_dict_section_uses_top_level_title_phrases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-non-dict",
+            "source_id": "src-intent-non-dict",
+            "intent": "invalid-intent-section",
+            "keyword_text": "payload keyword",
+            "title_phrases": ["top-level title phrase"],
+        },
+    )
+    assert intent_input.keyword_text == "payload keyword"
+    assert intent_input.title_phrases == ["top-level title phrase"]
+
+
+def test_orchestrator_intent_keyword_supports_non_string_keyword_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-non-string-keyword",
+            "source_id": "src-intent-non-string-keyword",
+            "intent": {"keyword_text": None},
+            "keywords": [12345],
+        },
+    )
+    assert intent_input.keyword_text == "12345"
+
+
+def test_orchestrator_intent_stage_validation_error_marks_stage_failed() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-intent-validation-error",
+            "source_id": "src-intent-validation-error",
+            "intent": {
+                "keyword_text": "valid keyword",
+                "title_phrases": "not-a-list",
+            },
+        }
+    )
     assert summary.status == AnalysisStatus.FAILED
+    intent_stage = next(stage for stage in summary.stages if stage.stage.value == "intent_classification")
+    assert intent_stage.status == AnalysisStatus.FAILED
+
+
+def test_orchestrator_status_failed_when_no_stages_execute() -> None:
+    summary = run_analysis_dry_run({"run_id": "run-no-stages", "source_id": "src-no-stages"})
+    assert summary.status == AnalysisStatus.FAILED
+    assert summary.stages == []
 
 
 def test_fixture_golden_seller_score_ordering() -> None:

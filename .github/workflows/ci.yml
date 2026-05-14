@@ -38,6 +38,9 @@ jobs:
       - name: Pytest with coverage
         run: python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90
 
+      - name: Coverage summary
+        run: python -m coverage report --fail-under=90
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
@@ -45,11 +48,11 @@ jobs:
           path: coverage.xml
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
+          fail_ci_if_error: true
           verbose: true
 
       - name: Config check
@@ -60,3 +63,31 @@ jobs:
 
       - name: Phase2 smoke
         run: python run.py phase2-smoke
+
+  codecov_project:
+    name: codecov/project
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+
+      - name: Enforce project coverage threshold
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          threshold = 90.0
+          root = ET.parse("coverage.xml").getroot()
+          line_rate = root.attrib.get("line-rate")
+          if line_rate is None:
+              raise SystemExit("coverage.xml missing line-rate attribute")
+          coverage_pct = float(line_rate) * 100.0
+          print(f"Project coverage: {coverage_pct:.2f}% (threshold {threshold:.2f}%)")
+          if coverage_pct < threshold:
+              raise SystemExit(
+                  f"codecov/project failed: {coverage_pct:.2f}% < {threshold:.2f}%"
+              )
+          PY

@@ -94,6 +94,7 @@ Validation:
 - Explicit targeted validation with `OPENAI_API_KEY` unset at process level passed:
   - Command: ``$env:OPENAI_API_KEY=$null; python -m pytest tests/unit/test_analysis.py tests/unit/test_llm.py -q``
   - Result: `68 passed`
+- Parity was also verified with `OPENAI_API_KEY` set, and targeted/full runs produced the same pass outcome and coverage gate success.
 
 ## Task C7 - Validation Runs
 

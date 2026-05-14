@@ -5,10 +5,21 @@
 Every pull request targeting `develop` must have:
 
 - GitHub Actions checks present and completed.
-- Codecov project coverage status present and >= 90%.
+- Local coverage parity gate passing at >= 90%.
 - Codecov patch coverage status present and >= 90%.
+- Codecov project coverage status present and >= 90%.
 
 Missing checks are blockers. Pending checks are blockers. Failing checks are blockers.
+
+A local coverage pass is necessary but not sufficient for merge readiness.
+
+## Coverage Signal Definitions
+
+- Local coverage gate: result of the local pytest coverage run with `--cov-fail-under=90`.
+- Codecov patch status: diff-focused check context (`codecov/patch`) that validates changed lines.
+- Codecov project status: repository/project-wide check context (`codecov/project`) that validates aggregate coverage posture.
+
+All three signals must align before declaring merge readiness.
 
 ## Required Local Parity Commands
 
@@ -21,7 +32,7 @@ python -m ruff check .
 python -m mypy src
 python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90
 python run.py config-check
-python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle005.db
+python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle006.db
 python run.py phase2-smoke
 ```
 
@@ -33,10 +44,18 @@ PR checks must show:
 
 - CI workflow run(s) posted by GitHub Actions.
 - Required CI jobs in `success` state.
-- Codecov project status check in `success` state at or above 90%.
+- Project coverage status check `codecov/project` in `success` state at or above 90%.
 - Codecov patch status check in `success` state at or above 90%.
 
-If Codecov statuses are absent, treat as blocked even when local coverage passes.
+If `codecov/project` is absent, treat as blocked even when local coverage passes.
+
+### `codecov/project` source of truth
+
+- Preferred source: native Codecov project check.
+- If Codecov does not emit project check despite successful upload, CI must emit a deterministic `codecov/project` check from `coverage.xml` with the same `>=90%` threshold.
+- This mirror check closes visibility gaps but does not relax the coverage requirement.
+
+If Codecov project status is missing, the PR remains blocked unless PM grants a documented temporary exception in cycle governance artifacts.
 
 ## Steward Verification Steps
 

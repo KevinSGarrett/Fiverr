@@ -31,6 +31,42 @@ from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
 
 
+def _non_empty_text_or_none(value: Any) -> str | None:
+    """Return text only when value is present and not blank."""
+    if value is None:
+        return None
+    text = value if isinstance(value, str) else str(value)
+    normalized = text.strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"none", "null"}:
+        return None
+    return text
+
+
+def _resolve_intent_keyword_text(payload: dict[str, Any], source_id: str) -> str:
+    """Resolve keyword text with explicit null/blank fallback handling."""
+    intent_section = payload.get("intent", {})
+    if isinstance(intent_section, dict):
+        intent_keyword = _non_empty_text_or_none(intent_section.get("keyword_text"))
+        if intent_keyword is not None:
+            return intent_keyword
+
+    payload_keyword = _non_empty_text_or_none(payload.get("keyword_text"))
+    if payload_keyword is not None:
+        return payload_keyword
+
+    keywords_section = payload.get("keywords")
+    if isinstance(keywords_section, list):
+        for keyword in keywords_section:
+            candidate = _non_empty_text_or_none(keyword)
+            if candidate is not None:
+                return candidate
+
+    # Preserve source_id fallback so intent classification still receives a stable key.
+    return source_id
+
+
 def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     """
     Execute local deterministic analysis stages.
@@ -39,7 +75,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     """
     started_at = datetime.now(UTC)
     run_id = str(payload.get("run_id", "analysis-dry-run"))
-    source_id = str(payload.get("source_id", "analysis-dry-run"))
+    source_id = _non_empty_text_or_none(payload.get("source_id")) or "analysis-dry-run"
 
     stages: list[AnalysisStageSummary] = []
     all_warnings: list[AnalysisWarning] = []
@@ -329,19 +365,11 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     if "intent" in payload or "keyword_text" in payload or "keywords" in payload:
         try:
             intent_section = payload.get("intent", {})
-            inferred_keyword = ""
-            keywords_section = payload.get("keywords")
-            if isinstance(keywords_section, list) and keywords_section:
-                inferred_keyword = str(keywords_section[0])
-            keyword_text: str
             if isinstance(intent_section, dict):
-                if "keyword_text" in intent_section:
-                    keyword_text = str(intent_section.get("keyword_text"))
-                else:
-                    keyword_text = str(payload.get("keyword_text") or inferred_keyword or source_id)
+                keyword_text = _resolve_intent_keyword_text(payload, source_id)
                 title_phrases = intent_section.get("title_phrases", [])
             else:
-                keyword_text = str(payload.get("keyword_text") or inferred_keyword or source_id)
+                keyword_text = _resolve_intent_keyword_text(payload, source_id)
                 title_phrases = payload.get("title_phrases", [])
             intent_input = IntentInput.model_validate(
                 {

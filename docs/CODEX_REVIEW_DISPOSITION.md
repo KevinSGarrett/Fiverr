@@ -4,6 +4,8 @@
 
 Codex comments are advisory guidance, not automatic merge blockers by themselves. Every Codex thread must still be reviewed, dispositioned with evidence, and either resolved or explicitly tracked as blocking work.
 
+Outdated thread state in GitHub is not a waiver. If a thread is marked outdated but the underlying issue still exists on the current target branch, treat it as an active blocker until fixed or explicitly deferred through approved governance policy.
+
 ## Mandatory Workflow
 
 1. Read every Codex thread on the PR.
@@ -52,6 +54,17 @@ Resolve thread after push/checks: <Yes|No>
 - `VALID_DEFERRED_NONBLOCKING` may be resolved only if PM/operator explicitly accepts deferment and a follow-up issue is recorded.
 - If account permissions prevent resolution, leave the thread open and record the exact blocker in the cycle report.
 
+## Outdated Thread Handling
+
+- Review outdated Codex threads with the same rigor as active threads.
+- Re-validate each finding against the current target branch head, not only the original PR snapshot.
+- If the defect is still present, disposition as valid and block merge readiness until remediation or approved blocker handling is recorded.
+- If the defect is no longer present, post evidence-backed disposition (`VALID_FIXED`, `NOT_APPLICABLE`, `FALSE_POSITIVE`, or `DUPLICATE`) for auditability.
+
+### Example: PR #4 carry-forward scenario
+
+PR #4 was merged while a Codex finding later proved to remain valid on `develop`. The follow-up cycle must still treat that finding as blocking until fixed and evidenced, even though the original thread appears outdated in the merged PR context.
+
 ## PR Blockers
 
 A PR is blocked when any of the following is true:
@@ -59,6 +72,7 @@ A PR is blocked when any of the following is true:
 - A Codex thread has no disposition reply.
 - A valid issue is not fixed and is marked `VALID_DEFERRED_BLOCKER`.
 - Evidence is missing for a `VALID_FIXED` claim.
+- An outdated Codex thread maps to a defect still present in the current target branch.
 - Required checks are missing, pending, or failing.
 
 ## Evidence Expectations

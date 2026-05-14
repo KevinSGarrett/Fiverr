@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 import run as run_module
+import src.orchestrator as orchestrator_module
 from click.testing import CliRunner
 from run import cli
 
@@ -153,6 +157,106 @@ def test_collection_dry_run_invalid_fixture_path_returns_nonzero() -> None:
         ],
     )
     assert result.exit_code != 0
+
+
+def test_collection_dry_run_fails_for_empty_seed_keywords(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "empty_seeds_fixture.json"
+    fixture_path.write_text(json.dumps({"seed_keywords": ["  ", ""]}), encoding="utf-8")
+    output_path = tmp_path / "checkpoint.json"
+    assert orchestrator_module.run_collection_dry_run(str(fixture_path), str(output_path), sample_size=10) == 2
+
+
+@pytest.mark.parametrize("sample_size", [0, -3])
+def test_collection_dry_run_non_positive_sample_sizes_use_safe_positive_candidate_cap(
+    sample_size: int,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_path = tmp_path / f"fixture_non_positive_{sample_size}.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "seed_keywords": ["logo design", "seo audit"],
+                "niche_metadata": {"modifiers": []},
+                "max_pages": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "checkpoint_non_positive.json"
+    captured: dict[str, Any] = {}
+
+    def _fake_run_collection_dry_run(seeds: list[str], **kwargs: Any) -> Any:
+        captured["seeds"] = seeds
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(
+            status="success",
+            records_seen=len(seeds),
+            records_written=len(seeds),
+            checkpoint_path=kwargs["checkpoint_path"],
+            errors=[],
+        )
+
+    monkeypatch.setattr(
+        orchestrator_module.importlib,
+        "import_module",
+        lambda _name: SimpleNamespace(run_collection_dry_run=_fake_run_collection_dry_run),
+    )
+
+    assert (
+        orchestrator_module.run_collection_dry_run(
+            str(fixture_path),
+            str(output_path),
+            sample_size=sample_size,
+        )
+        == 0
+    )
+    assert captured["seeds"] == ["logo design", "seo audit"]
+    assert captured["kwargs"]["max_candidates"] == 2
+    assert captured["kwargs"]["max_candidates"] > 0
+    assert captured["kwargs"]["niche_metadata"] == {"modifiers": []}
+
+
+def test_collection_dry_run_large_positive_sample_size_preserves_forwarded_cap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_path = tmp_path / "fixture_large_sample_size.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "seed_keywords": ["logo design", "seo audit"],
+                "niche_metadata": {"modifiers": []},
+                "max_pages": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "checkpoint_large_sample.json"
+    captured: dict[str, Any] = {}
+
+    def _fake_run_collection_dry_run(seeds: list[str], **kwargs: Any) -> Any:
+        captured["seeds"] = seeds
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(
+            status="success",
+            records_seen=len(seeds),
+            records_written=len(seeds),
+            checkpoint_path=kwargs["checkpoint_path"],
+            errors=[],
+        )
+
+    monkeypatch.setattr(
+        orchestrator_module.importlib,
+        "import_module",
+        lambda _name: SimpleNamespace(run_collection_dry_run=_fake_run_collection_dry_run),
+    )
+
+    assert orchestrator_module.run_collection_dry_run(str(fixture_path), str(output_path), sample_size=10_000) == 0
+    assert captured["seeds"] == ["logo design", "seo audit"]
+    assert captured["kwargs"]["max_candidates"] == 10_000
+    assert captured["kwargs"]["max_candidates"] > 0
+    assert captured["kwargs"]["niche_metadata"] == {"modifiers": []}
 
 
 def test_analysis_dry_run_invalid_fixture_path_returns_nonzero() -> None:
