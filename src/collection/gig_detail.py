@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from html.parser import HTMLParser
 from typing import Any
 
 from src.collection.selectors import get_selector
@@ -48,15 +49,41 @@ def _clean_text(value: str) -> str:
 
 
 def _extract_text(html: str, test_id: str) -> str | None:
-    pattern = re.compile(
-        fr"<[^>]*data-testid=['\"]{re.escape(test_id)}['\"][^>]*>(.*?)</[^>]+>",
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    match = pattern.search(html)
-    if not match:
-        return None
-    text = _clean_text(match.group(1))
-    return text or None
+    class _DataTestIdTextParser(HTMLParser):
+        def __init__(self, target_test_id: str) -> None:
+            super().__init__(convert_charrefs=True)
+            self._target_test_id = target_test_id
+            self._collect_depth = 0
+            self._chunks: list[str] = []
+            self.result: str | None = None
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            attrs_dict = dict(attrs)
+            if self.result is not None:
+                return
+            if self._collect_depth > 0:
+                self._collect_depth += 1
+                return
+            if attrs_dict.get("data-testid") == self._target_test_id:
+                self._collect_depth = 1
+
+        def handle_endtag(self, tag: str) -> None:
+            del tag
+            if self.result is not None or self._collect_depth == 0:
+                return
+            self._collect_depth -= 1
+            if self._collect_depth == 0:
+                cleaned = _clean_text("".join(self._chunks))
+                self.result = cleaned or None
+
+        def handle_data(self, data: str) -> None:
+            if self.result is None and self._collect_depth > 0:
+                self._chunks.append(data)
+
+    parser = _DataTestIdTextParser(test_id)
+    parser.feed(html)
+    parser.close()
+    return parser.result
 
 
 def _extract_first_by_tag(html: str, tag: str) -> str | None:

@@ -131,11 +131,12 @@ def run_collection_dry_run(
         return 2
 
     selected_seeds = trimmed_seeds[:sample_size] if sample_size > 0 else trimmed_seeds
+    max_candidates = sample_size if sample_size > 0 else max(1, len(selected_seeds))
     collection_module = importlib.import_module("src.collection.orchestrator")
     result = collection_module.run_collection_dry_run(
         selected_seeds,
         niche_metadata=payload.get("niche_metadata"),
-        max_candidates=sample_size,
+        max_candidates=max_candidates,
         max_pages=payload.get("max_pages", 1),
         checkpoint_path=Path(output_path),
         region=payload.get("region"),

@@ -213,6 +213,25 @@ def test_gig_detail_missing_optional_fields_creates_warnings_not_crash() -> None
     assert parsed.errors == []
 
 
+def test_gig_detail_nested_markup_preserves_full_description_text() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="gig-title">Nested Description Gig</h1>
+      <div data-testid="seller-name">Seller Name</div>
+      <div data-testid="gig-description">
+        <p>Alpha <strong>Beta</strong></p>
+        <p>Gamma</p>
+      </div>
+      <section data-testid="package-card">
+        <h3 data-testid="package-name">Basic</h3>
+        <span data-testid="package-price">$50</span>
+      </section>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.description == "Alpha Beta Gamma"
+
+
 def test_gig_detail_malformed_html_returns_controlled_warning_error() -> None:
     parsed = parse_gig_detail_from_html("not_html")
     assert parsed.title is None
