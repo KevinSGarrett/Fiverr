@@ -44,10 +44,16 @@ PR checks must show:
 
 - CI workflow run(s) posted by GitHub Actions.
 - Required CI jobs in `success` state.
-- Codecov project status check in `success` state at or above 90%.
+- Project coverage status check `codecov/project` in `success` state at or above 90%.
 - Codecov patch status check in `success` state at or above 90%.
 
-If Codecov statuses are absent, treat as blocked even when local coverage passes.
+If `codecov/project` is absent, treat as blocked even when local coverage passes.
+
+### `codecov/project` source of truth
+
+- Preferred source: native Codecov project check.
+- If Codecov does not emit project check despite successful upload, CI must emit a deterministic `codecov/project` check from `coverage.xml` with the same `>=90%` threshold.
+- This mirror check closes visibility gaps but does not relax the coverage requirement.
 
 If Codecov project status is missing, the PR remains blocked unless PM grants a documented temporary exception in cycle governance artifacts.
 
