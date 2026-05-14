@@ -48,7 +48,8 @@
   - `data/foundation_gate_cycle003.db`
 - Foundation gate command generated `data/foundation_gate_cycle004.db` as runtime output; this remains an ignored local artifact and is not part of tracked handoff content.
 
-## Recent commit list (head at report generation)
+## Recent commit list (final head)
+- `cb06ffc` docs(reporting): add cycle 004 dashboard reports and steward handoff [Agent D]
 - `3ffc721` feat(reporting): add cycle 004 phase2 dashboard report export scaffolds [Agent D]
 - `cbe910d` fix(analysis): tighten intent price and urgency heuristics [Agent C]
 - `95fd933` feat(analysis): add seller saturation review and intent analysis [Agent C]
