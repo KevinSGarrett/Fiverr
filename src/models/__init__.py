@@ -14,6 +14,11 @@ from src.models.base import (
 )
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
+from src.models.registry import (
+    get_missing_source_tables,
+    get_registered_model_classes,
+    get_registered_table_names,
+)
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
@@ -52,6 +57,9 @@ __all__ = [
     "Seller",
     "SoftStatusMixin",
     "TimestampMixin",
+    "get_missing_source_tables",
+    "get_registered_model_classes",
+    "get_registered_table_names",
     "naming_convention",
     "safe_json_default",
     "utc_now",

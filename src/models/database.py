@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src import models as _models  # noqa: F401 - ensures table modules are imported
 from src.models.base import Base
+from src.models.registry import get_registered_table_names
 
 DEFAULT_DATABASE_URL = "sqlite:///data/fiverr_research.db"
 
@@ -111,8 +112,9 @@ def list_tables(engine: Engine) -> list[str]:
     return sorted(inspect(engine).get_table_names())
 
 
-def verify_required_tables(engine: Engine, required_tables: list[str]) -> list[str]:
-    """Return missing tables from the required set."""
+def verify_required_tables(engine: Engine, required_tables: list[str] | None = None) -> list[str]:
+    """Return missing tables from the required or registered set."""
+    expected_tables = required_tables or get_registered_table_names()
     existing = set(list_tables(engine))
-    missing = sorted(set(required_tables) - existing)
+    missing = sorted(set(expected_tables) - existing)
     return missing

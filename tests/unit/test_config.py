@@ -34,6 +34,36 @@ def test_scoring_profile_weights_sum_to_one() -> None:
         assert abs(weights - 1.0) <= 0.001
 
 
+def test_invalid_weight_sum_fails_validation(tmp_path: Path) -> None:
+    source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+    source["scoring"]["profiles"]["default"]["demand"] = 0.7
+    invalid_path = tmp_path / "invalid_weight_sum.yaml"
+    invalid_path.write_text(yaml.safe_dump(source), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="weights must sum to 1.0"):
+        ConfigLoader(invalid_path).load()
+
+
+def test_duplicate_niche_id_fails_validation(tmp_path: Path) -> None:
+    source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+    source["niches"][1]["niche_id"] = source["niches"][0]["niche_id"]
+    invalid_path = tmp_path / "duplicate_niche_id.yaml"
+    invalid_path.write_text(yaml.safe_dump(source), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="Duplicate niche IDs"):
+        ConfigLoader(invalid_path).load()
+
+
+def test_missing_required_profile_fails_validation(tmp_path: Path) -> None:
+    source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+    source["scoring"]["profiles"].pop("trend_chaser")
+    invalid_path = tmp_path / "missing_profile.yaml"
+    invalid_path.write_text(yaml.safe_dump(source), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="Missing required scoring profile"):
+        ConfigLoader(invalid_path).load()
+
+
 def test_missing_niche_id_raises_validation_error(tmp_path: Path) -> None:
     source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
     source["niches"][0].pop("niche_id")
@@ -79,3 +109,13 @@ def test_niche_pricing_tiers_ascending() -> None:
 def test_discovery_skill_profile_has_primary_skills() -> None:
     config = ConfigLoader("config.yaml").load()
     assert config.discovery.skill_profile.primary_skills
+
+
+def test_empty_seed_keywords_fail_validation(tmp_path: Path) -> None:
+    source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+    source["niches"][0]["seed_keywords"] = []
+    invalid_path = tmp_path / "empty_seed_keywords.yaml"
+    invalid_path.write_text(yaml.safe_dump(source), encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="empty seed_keywords"):
+        ConfigLoader(invalid_path).load()
