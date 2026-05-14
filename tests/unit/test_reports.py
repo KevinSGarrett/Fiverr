@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from src.exports import (
+    ALLOWED_EXPORT_ROOTS,
     CHECKSUM_PLACEHOLDER,
     ExportFormat,
     ExportManifest,
@@ -14,15 +15,23 @@ from src.exports import (
 )
 from src.reports import (
     PENDING_PLACEHOLDER,
+    PHASE2_REQUIRED_SECTION_TITLES,
     AnalysisDryRunReport,
+    AnalysisMultiStageRunReport,
     CollectionDryRunReport,
+    CollectionFixtureRunReport,
     CycleValidationReport,
     FoundationGateReport,
+    GigDetailParserCoverageReport,
+    Phase2ReadinessReport,
     ReportSection,
     ReportSeverity,
     ReportTemplate,
     RunSummary,
+    SellerProfileParserCoverageReport,
     build_default_template,
+    build_phase2_readiness_report,
+    build_phase2_readiness_template,
     render_plain_text_summary,
 )
 
@@ -66,7 +75,28 @@ def test_export_manifest_is_serializable() -> None:
     assert serialized["source_cycle"] == "003"
     assert serialized["path"] == "exports/cycle003/validation.json"
     assert serialized["checksum"] == CHECKSUM_PLACEHOLDER
+    assert serialized["allow_pending_checksum"] is True
     assert serialized["included_sections"] == ["checks", "findings"]
+
+
+def test_export_manifest_rejects_disallowed_root_path() -> None:
+    with pytest.raises(ValueError, match="path root must be one of"):
+        ExportManifest(
+            artifact_type="cycle_validation",
+            format=ExportFormat.JSON,
+            source_cycle="004",
+            path="tmp/cycle004/validation.json",
+        )
+
+
+def test_export_manifest_rejects_traversal_path() -> None:
+    with pytest.raises(ValueError, match="parent directory traversal"):
+        ExportManifest(
+            artifact_type="cycle_validation",
+            format=ExportFormat.JSON,
+            source_cycle="004",
+            path="artifacts/../outside.json",
+        )
 
 
 def test_export_manifest_rejects_unsupported_format() -> None:
@@ -87,6 +117,17 @@ def test_export_manifest_rejects_invalid_checksum_placeholder() -> None:
             source_cycle="003",
             path="exports/cycle003/validation.md",
             checksum="pending",
+        )
+
+
+def test_export_manifest_requires_checksum_when_pending_not_allowed() -> None:
+    with pytest.raises(ValueError, match="checksum is required"):
+        ExportManifest(
+            artifact_type="dry_run_summary",
+            format=ExportFormat.JSON,
+            source_cycle="004",
+            path="artifacts/cycle004/dry_run_summary.json",
+            allow_pending_checksum=False,
         )
 
 
@@ -139,4 +180,100 @@ def test_structured_reports_render_pending_placeholders_when_optional_missing() 
     for report in reports:
         rendered = report.to_markdown()
         assert PENDING_PLACEHOLDER in rendered
+
+
+def test_phase2_readiness_report_renders_markdown_and_detects_missing_sections() -> None:
+    section = ReportSection(
+        title="Collection Fixture Run",
+        severity=ReportSeverity.INFO,
+        body="Fixture run completed for 25 records.",
+    )
+    report = Phase2ReadinessReport(
+        cycle_id="004",
+        run_id="phase2-001",
+        status="conditional",
+        checks={"pytest": "pass", "ruff": "pass"},
+        sections=(section,),
+        blockers=("Awaiting seller parser fixture delta.",),
+    )
+    rendered = report.to_markdown()
+    assert "Phase 2 PR Readiness Report" in rendered
+    assert "conditional" in rendered
+    assert "Collection Fixture Run" in rendered
+    assert "Gig Detail Parser Coverage" in report.missing_required_sections()
+
+
+def test_phase2_component_reports_render_and_serialize() -> None:
+    reports = [
+        CollectionFixtureRunReport(
+            cycle_id="004",
+            run_id="collect-fixture-1",
+            fixture_records_total=30,
+            fixture_records_processed=30,
+            severity="info",
+            notes=("Fixture queue was complete.",),
+        ),
+        GigDetailParserCoverageReport(
+            cycle_id="004",
+            coverage_percent=96.5,
+            parsed_count=58,
+            expected_count=60,
+            severity="warning",
+            notes=("2 records require parser fallback.",),
+        ),
+        SellerProfileParserCoverageReport(
+            cycle_id="004",
+            coverage_percent=98.0,
+            parsed_count=49,
+            expected_count=50,
+            severity="info",
+        ),
+        AnalysisMultiStageRunReport(
+            cycle_id="004",
+            run_id="analysis-stage-1",
+            stages_completed=("scoring", "ranking"),
+            stages_pending=("recommendations",),
+            severity=ReportSeverity.WARNING,
+            notes=("Recommendation stage still fixture-only.",),
+        ),
+    ]
+    for report in reports:
+        rendered = report.to_markdown()
+        serialized = report.to_dict()
+        assert "004" in rendered
+        assert isinstance(serialized, dict)
+        assert "report_type" in serialized
+
+
+def test_phase2_component_reports_reject_invalid_severity() -> None:
+    with pytest.raises(ValueError, match="severity must be one of"):
+        GigDetailParserCoverageReport(cycle_id="004", severity="urgent")  # type: ignore[arg-type]
+
+
+def test_phase2_readiness_template_contains_required_sections() -> None:
+    template = build_phase2_readiness_template()
+    section_titles = [section.title for section in template.sections]
+    assert section_titles == list(PHASE2_REQUIRED_SECTION_TITLES)
+
+
+def test_phase2_readiness_report_dict_is_json_serializable_shape() -> None:
+    report = build_phase2_readiness_report(cycle_id="004", run_id="phase2-pr")
+    serialized = report.to_dict()
+    assert serialized["report_type"] == "phase2_readiness"
+    assert serialized["cycle_id"] == "004"
+    assert serialized["run_id"] == "phase2-pr"
+    assert serialized["missing_sections"] == []
+    assert isinstance(serialized["sections"], list)
+
+
+def test_report_section_invalid_severity_fails_for_phase2_report() -> None:
+    with pytest.raises(ValueError, match="severity must be one of"):
+        Phase2ReadinessReport(
+            cycle_id="004",
+            sections=(ReportSection(title="Phase 2 PR Readiness", severity="urgent", body="invalid"),),  # type: ignore[arg-type]
+        )
+
+
+def test_allowed_export_roots_are_artifacts_and_exports() -> None:
+    assert ALLOWED_EXPORT_ROOTS == ("artifacts", "exports")
 

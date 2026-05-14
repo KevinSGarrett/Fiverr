@@ -10,7 +10,7 @@ from src.dashboard.navigation import (
 from src.dashboard.navigation import (
     get_available_pages as get_navigation_pages,
 )
-from src.dashboard.state import build_cycle003_status_state
+from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 
 
 def build_page_title() -> str:
@@ -26,6 +26,11 @@ def get_available_pages() -> list[DashboardPage]:
 def get_cycle003_status_state() -> dict[str, Any]:
     """Expose import-safe status sections for Foundation/Collection/Analysis dry runs."""
     return build_cycle003_status_state()
+
+
+def get_phase2_readiness_state() -> dict[str, Any]:
+    """Expose import-safe Phase 2 readiness placeholders."""
+    return build_phase2_readiness_state()
 
 
 def main() -> None:
@@ -46,4 +51,13 @@ def main() -> None:
         st.write(f"### {section['label']}")
         for metric in section["metrics"]:
             st.write(f"- {metric['name']}: {metric['value']}")
+
+    st.subheader("Cycle 004 Phase 2 Readiness (Preview)")
+    readiness_state = get_phase2_readiness_state()
+    st.write(f"- Collection Dry Run: {readiness_state['collection_dry_run']['status']}")
+    st.write(f"- Analysis Dry Run: {readiness_state['analysis_dry_run']['status']}")
+    st.write(
+        "- Fixture Coverage (gig detail parser): "
+        f"{readiness_state['fixture_coverage']['gig_detail_parser']}"
+    )
 

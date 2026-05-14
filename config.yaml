@@ -60,6 +60,25 @@ collection:
       max_requests_per_hour: 100
       human_events: false
 
+phase2_collection:
+  fixture_only_mode: true
+  dry_run_sample_limit: 25
+  dry_run_max_pages: 2
+  allow_live_connectors: false
+  connectors_enabled:
+    google_trends: false
+    reddit_api: false
+    external_marketplaces: false
+
+phase2_analysis:
+  min_confidence: 0.6
+  strong_confidence: 0.8
+  quality_score_min: 60
+  quality_score_strong: 80
+  max_keywords_per_run: 250
+  max_competitors_per_run: 100
+  max_text_chars: 12000
+
 scoring:
   active_profile: aggressive_new_seller
   thresholds:

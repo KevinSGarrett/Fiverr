@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.reports.templates import (
+    PHASE2_REQUIRED_SECTION_TITLES,
     REQUIRED_SECTION_TITLES,
     AnalysisDryRunReport,
     CollectionDryRunReport,
     CycleValidationReport,
     FoundationGateReport,
+    Phase2ReadinessReport,
     ReportSection,
     ReportSeverity,
     ReportTemplate,
@@ -86,3 +88,18 @@ def build_cycle003_report_bundle(cycle_id: str) -> dict[str, dict[str, object]]:
         "analysis_dry_run": analysis_report.to_dict(),
         "cycle_validation": validation_report.to_dict(),
     }
+
+
+def build_phase2_readiness_template() -> ReportTemplate:
+    """Build a required-section template for Cycle 004 Phase 2 reporting."""
+    sections = tuple(
+        ReportSection(title=title, severity=ReportSeverity.INFO, body="")
+        for title in PHASE2_REQUIRED_SECTION_TITLES
+    )
+    return ReportTemplate(name="phase2_pr_readiness", sections=sections)
+
+
+def build_phase2_readiness_report(cycle_id: str, *, run_id: str | None = None) -> Phase2ReadinessReport:
+    """Build a Phase 2 report with all required sections present as placeholders."""
+    template = build_phase2_readiness_template()
+    return Phase2ReadinessReport(cycle_id=cycle_id, run_id=run_id, sections=template.sections)

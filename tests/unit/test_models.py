@@ -24,6 +24,8 @@ from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
     get_registered_table_names,
+    get_registered_tables_by_domain,
+    verify_required_phase2_tables,
 )
 from src.models.runtime import RunLog
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
@@ -86,6 +88,33 @@ def test_missing_source_tables_registry_is_deterministic() -> None:
     assert missing
     assert len(missing) == 7
     assert all(not name.startswith("pending_source_table_") for name in missing)
+
+
+def test_phase2_required_tables_are_present_and_deterministic() -> None:
+    missing = verify_required_phase2_tables()
+    assert missing == []
+
+    simulated_missing = verify_required_phase2_tables(["analysis_runs", "analysis_results"])
+    assert simulated_missing == sorted(simulated_missing)
+    assert simulated_missing == [
+        "analysis_signal_records",
+        "competitor_snapshots",
+        "external_signals",
+        "gigs",
+        "keywords",
+        "search_results",
+        "sellers",
+    ]
+
+
+def test_registry_domain_classification_is_deterministic() -> None:
+    grouped = get_registered_tables_by_domain()
+    assert sorted(grouped) == ["analysis", "collection", "niche", "runtime", "scoring"]
+    assert grouped["analysis"] == sorted(grouped["analysis"])
+    assert "analysis_runs" in grouped["analysis"]
+    assert "competitor_snapshots" in grouped["analysis"]
+    assert "analysis_signal_records" in grouped["analysis"]
+    assert "keywords" in grouped["collection"]
 
 
 def test_create_all_builds_expanded_table_set(tmp_path: Path) -> None:

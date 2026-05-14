@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import ValidationError
 
 from src.config.models import (
@@ -15,6 +15,8 @@ from src.config.models import (
     AppConfig,
     CollectionConfig,
     NicheConfig,
+    Phase2AnalysisConfig,
+    Phase2CollectionConfig,
     ScoringProfileConfig,
 )
 
@@ -67,6 +69,12 @@ class ConfigLoader:
 
     def get_collection_config(self) -> CollectionConfig:
         return self._require_config().collection
+
+    def get_phase2_collection_config(self) -> Phase2CollectionConfig:
+        return self._require_config().phase2_collection
+
+    def get_phase2_analysis_config(self) -> Phase2AnalysisConfig:
+        return self._require_config().phase2_analysis
 
     def _require_config(self) -> AppConfig:
         if self._config is None:

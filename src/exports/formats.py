@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
+ALLOWED_EXPORT_ROOTS = ("artifacts", "exports")
 
 
 class ExportFormat(StrEnum):
@@ -45,11 +47,21 @@ def _validate_output_path(output_path: str) -> None:
         raise ValueError("output_path must be a non-empty path.")
 
     candidate = Path(output_path)
+    posix_candidate = PurePosixPath(output_path.replace("\\", "/"))
+    if posix_candidate.is_absolute():
+        raise ValueError("output_path must be a relative path.")
     if ".." in candidate.parts:
+        raise ValueError("output_path must not contain parent directory traversal ('..').")
+    if ".." in posix_candidate.parts:
         raise ValueError("output_path must not contain parent directory traversal ('..').")
 
     if candidate.name in {"", ".", ".."}:
         raise ValueError("output_path must point to a file path.")
+
+    root_dir = posix_candidate.parts[0] if posix_candidate.parts else ""
+    if root_dir not in ALLOWED_EXPORT_ROOTS:
+        allowed = ", ".join(ALLOWED_EXPORT_ROOTS)
+        raise ValueError(f"output_path root must be one of: {allowed}.")
 
 
 def validate_export_request(request: ExportRequest) -> ExportRequest:

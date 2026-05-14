@@ -10,6 +10,7 @@ env/
 
 # Python artifacts
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.egg-info/
 .python-version
@@ -29,6 +30,9 @@ data/exports/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+data/**/*.db
+data/**/*.sqlite
+data/**/*.sqlite3
 data/**/*.log
 logs/
 *.log
@@ -37,6 +41,9 @@ logs/
 playwright/.auth/
 storage_state.json
 *.session
+*.har
+*.trace
+*.webm
 
 # Build/distribution
 build/

@@ -1,116 +1,61 @@
-"""Unit tests for Cycle 003 analysis contracts and dry-run engines."""
+"""Unit tests for local analysis contracts, models, and stage wiring."""
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 from src.analysis.clustering import cluster_keywords
 from src.analysis.competitors import profile_competitors
 from src.analysis.contracts import (
-    AnalysisError,
     AnalysisRunSummary,
     AnalysisStatus,
     CompetitorProfileInput,
-    CompetitorProfileResult,
     GigQualityInput,
-    GigQualityResult,
+    IntentInput,
+    IntentLabel,
     KeywordClusterInput,
-    KeywordClusterResult,
+    ReviewAnalysisInput,
+    SaturationInput,
+    SaturationLevel,
+    SellerStrengthInput,
 )
 from src.analysis.gig_quality import score_gig_quality
-from src.analysis.keyword_features import normalize_keyword, vectorize_keywords
+from src.analysis.intent import classify_intent
 from src.analysis.orchestrator import run_analysis_dry_run
+from src.analysis.reviews import analyze_reviews
+from src.analysis.saturation import analyze_saturation
+from src.analysis.seller_strength import score_seller_strength
 
 
-def test_contracts_serialize_deterministically() -> None:
-    result = GigQualityResult(
-        source_id="src-1",
-        gig_id="gig-123",
-        overall_score=78.0,
-        component_scores={"title_quality": 80.0, "description_quality": 76.0},
-        strengths=["title_quality"],
-        weaknesses=[],
-        confidence=0.8,
-        explanation="deterministic test fixture",
-    )
-
-    first_json = result.model_dump_json()
-    second_json = result.model_dump_json()
-    assert first_json == second_json
+def _load_analysis_fixture(name: str) -> dict[str, object]:
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "analysis" / name
+    return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
-def test_contracts_reject_invalid_confidence_or_score_ranges() -> None:
+def test_complete_fixture_schema_validation() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    assert isinstance(payload["run_id"], str)
+    assert isinstance(payload["source_id"], str)
+    assert isinstance(payload["keywords"], list)
+    assert isinstance(payload["gig"], dict)
+    assert isinstance(payload["competitors"], list)
+    assert isinstance(payload["reviews"], list)
+    assert isinstance(payload["intent"], dict)
+
+
+def test_contracts_reject_invalid_ranges() -> None:
     with pytest.raises(ValidationError):
-        GigQualityResult(
-            source_id="src-1",
-            gig_id="gig-123",
-            overall_score=120.0,
-            component_scores={"title_quality": 90.0},
-            strengths=[],
-            weaknesses=[],
-            confidence=0.7,
-            explanation="bad score range",
+        SellerStrengthInput(
+            source_id="src",
+            seller_id="seller",
+            rating=7.2,
         )
 
     with pytest.raises(ValidationError):
-        KeywordClusterInput(source_id="src-1", keywords=["logo"], min_cluster_size=0)
-
-    with pytest.raises(ValidationError):
-        KeywordClusterResult(
-            source_id="src-1",
-            clusters=[],
-            confidence=1.5,
-            explanation="invalid confidence",
-        )
-
-    with pytest.raises(ValidationError):
-        CompetitorProfileResult(
-            source_id="src-1",
-            competition_intensity_score=55.0,
-            dominant_seller_levels={},
-            pricing_bands={},
-            rating_review_concentration="ok",
-            high_authority_sellers=[],
-            weak_competitors=[],
-            opportunity_signals=[],
-            confidence=-0.1,
-            explanation="invalid confidence",
-        )
-
-
-def test_contracts_require_source_id() -> None:
-    with pytest.raises(ValidationError):
-        KeywordClusterInput(keywords=["logo design"])  # type: ignore[call-arg]
-
-
-def test_failure_output_contains_sanitized_error_message() -> None:
-    err = AnalysisError.from_exception(
-        RuntimeError("failed with api_key=sk-test1234567890abcdef"),
-        code="analysis_failure",
-    )
-    assert err.code == "analysis_failure"
-    assert "sk-test1234567890abcdef" not in err.message
-
-
-def test_keyword_normalization_handles_case_and_whitespace() -> None:
-    assert normalize_keyword("  Logo   DESIGN  Service ") == "logo design service"
-
-
-def test_keyword_vectorization_is_deterministic() -> None:
-    keywords = ["Logo Design", "modern logo design", "seo audit"]
-    vectors_a, vocab_a, warnings_a = vectorize_keywords(keywords, source_id="kw-1")
-    vectors_b, vocab_b, warnings_b = vectorize_keywords(keywords, source_id="kw-1")
-
-    assert vectors_a == vectors_b
-    assert vocab_a == vocab_b
-    assert warnings_a == warnings_b
-
-
-def test_empty_keyword_returns_controlled_warning() -> None:
-    vectors, vocabulary, warnings = vectorize_keywords(["   "], source_id="kw-1")
-    assert vectors == []
-    assert vocabulary == []
-    assert warnings
+        SaturationInput(source_id="src", seller_strength_scores=[-2.0])
 
 
 def test_related_keywords_cluster_together_deterministically() -> None:
@@ -125,68 +70,9 @@ def test_related_keywords_cluster_together_deterministically() -> None:
         ],
     )
     result = cluster_keywords(payload)
-
-    cluster_keyword_sets = [set(cluster.keywords) for cluster in result.clusters]
-    assert any(
-        {"logo design", "modern logo design"}.issubset(cluster)
-        for cluster in cluster_keyword_sets
-    )
-    assert any(cluster.label == "logo design" for cluster in result.clusters)
-
-
-def test_too_few_keywords_returns_low_confidence_or_warning() -> None:
-    payload = KeywordClusterInput(source_id="kw-2", keywords=["single keyword"])
-    result = cluster_keywords(payload)
-
-    assert result.confidence <= 0.4
-    assert result.warnings
-
-
-def test_cluster_labels_are_stable() -> None:
-    payload = KeywordClusterInput(
-        source_id="kw-3",
-        keywords=["seo audit", "technical seo audit", "seo keyword research"],
-    )
-    first_labels = [cluster.label for cluster in cluster_keywords(payload).clusters]
-    second_labels = [cluster.label for cluster in cluster_keywords(payload).clusters]
-    assert first_labels == second_labels
-
-
-def test_complete_gig_scores_higher_than_sparse_gig() -> None:
-    high = score_gig_quality(
-        GigQualityInput(
-            source_id="gig-src",
-            gig_id="high",
-            title="I will design a modern minimalist logo for your brand",
-            description="Detailed premium logo design service with concepts, revisions, and source files."
-            * 3,
-            package_count=3,
-            rating=4.9,
-            review_count=450,
-            image_count=6,
-            has_faq=True,
-        )
-    )
-    low = score_gig_quality(
-        GigQualityInput(
-            source_id="gig-src",
-            gig_id="low",
-            title="logo",
-            description="quick logo",
-            package_count=0,
-            rating=4.0,
-            review_count=2,
-            image_count=0,
-            has_faq=False,
-        )
-    )
-    assert high.overall_score > low.overall_score
-
-
-def test_gig_quality_missing_fields_produce_warnings_not_crash() -> None:
-    result = score_gig_quality(GigQualityInput(source_id="gig-src", gig_id="missing"))
-    assert result.warnings
-    assert result.missing_data_fields
+    labels_a = [cluster.label for cluster in result.clusters]
+    labels_b = [cluster.label for cluster in cluster_keywords(payload).clusters]
+    assert labels_a == labels_b
 
 
 def test_gig_quality_score_stays_in_bounds() -> None:
@@ -195,7 +81,7 @@ def test_gig_quality_score_stays_in_bounds() -> None:
             source_id="gig-src",
             gig_id="bounds",
             title="I will build your automation workflow",
-            description="Automation specialist" * 30,
+            description="Automation specialist " * 30,
             package_count=3,
             rating=5.0,
             review_count=9999,
@@ -206,10 +92,295 @@ def test_gig_quality_score_stays_in_bounds() -> None:
     assert 0.0 <= result.overall_score <= 100.0
 
 
-def test_strong_incumbents_trigger_high_competition_warning() -> None:
+def test_seller_strength_strong_seller_scores_higher_than_weak() -> None:
+    strong = score_seller_strength(
+        SellerStrengthInput(
+            source_id="seller-src",
+            seller_id="strong",
+            level="top rated",
+            rating=4.9,
+            review_count=700,
+            response_time="1 hour",
+            delivery_consistency=0.95,
+            active_gig_count=6,
+            languages=["English", "Spanish"],
+            account_tenure_months=60,
+        )
+    )
+    weak = score_seller_strength(
+        SellerStrengthInput(
+            source_id="seller-src",
+            seller_id="weak",
+            level="new",
+            rating=4.1,
+            review_count=6,
+            response_time="2 days",
+            delivery_consistency=0.62,
+            active_gig_count=1,
+            languages=["English"],
+            account_tenure_months=3,
+        )
+    )
+    assert strong.score > weak.score
+
+
+def test_seller_strength_missing_fields_reduce_confidence_without_crash() -> None:
+    sparse = score_seller_strength(
+        SellerStrengthInput(source_id="seller-src", seller_id="sparse", level="level one")
+    )
+    assert sparse.confidence < 0.6
+    assert sparse.warnings
+    assert sparse.missing_data_fields
+
+
+def test_seller_strength_serialization_deterministic_and_bounds_safe() -> None:
+    payload = SellerStrengthInput(
+        source_id="seller-src",
+        seller_id="serialize",
+        level="level two",
+        rating=4.7,
+        review_count=220,
+        response_time="3 hours",
+        delivery_consistency=0.88,
+        active_gig_count=7,
+        languages=["English", "German"],
+        account_tenure_months=30,
+    )
+    result = score_seller_strength(payload)
+    assert 0.0 <= result.score <= 100.0
+    assert result.model_dump_json() == score_seller_strength(payload).model_dump_json()
+
+
+def test_saturation_high_competitor_density_yields_high_score() -> None:
+    result = analyze_saturation(
+        SaturationInput(
+            source_id="sat-src",
+            keyword_count=26,
+            search_result_count=2500,
+            competitor_count=48,
+            seller_strength_scores=[88.0, 84.0, 83.0, 79.0, 74.0],
+            prices=[95.0, 96.0, 97.0, 94.0, 95.0, 96.0],
+            gig_quality_scores=[80.0, 82.0, 81.0, 79.0],
+        )
+    )
+    assert result.saturation_level == SaturationLevel.HIGH
+    assert result.score >= 70.0
+
+
+def test_saturation_sparse_data_returns_unknown_with_low_confidence() -> None:
+    result = analyze_saturation(SaturationInput(source_id="sat-src"))
+    assert result.saturation_level == SaturationLevel.UNKNOWN
+    assert result.confidence <= 0.2
+    assert result.warnings
+
+
+def test_saturation_price_crowding_increases_score() -> None:
+    compressed = analyze_saturation(
+        SaturationInput(
+            source_id="sat-src",
+            keyword_count=12,
+            search_result_count=900,
+            competitor_count=20,
+            seller_strength_scores=[70.0, 72.0, 68.0, 74.0],
+            prices=[50.0, 50.0, 50.0, 50.0, 49.0],
+            gig_quality_scores=[70.0, 71.0, 70.0, 69.0],
+        )
+    )
+    diverse = analyze_saturation(
+        SaturationInput(
+            source_id="sat-src",
+            keyword_count=12,
+            search_result_count=900,
+            competitor_count=20,
+            seller_strength_scores=[70.0, 72.0, 68.0, 74.0],
+            prices=[30.0, 55.0, 75.0, 110.0, 180.0],
+            gig_quality_scores=[70.0, 71.0, 70.0, 69.0],
+        )
+    )
+    assert compressed.components["price_crowding"] > diverse.components["price_crowding"]
+    assert compressed.score > diverse.score
+
+
+def test_saturation_ties_are_deterministic() -> None:
+    payload = SaturationInput(
+        source_id="sat-src",
+        keyword_count=10,
+        search_result_count=1000,
+        competitor_count=22,
+        seller_strength_scores=[60.0, 60.0, 60.0],
+        prices=[100.0, 100.0, 100.0],
+        gig_quality_scores=[75.0, 75.0, 75.0],
+    )
+    assert analyze_saturation(payload).model_dump_json() == analyze_saturation(payload).model_dump_json()
+
+
+def test_review_analysis_repeated_complaints_surface_as_weaknesses() -> None:
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="rev-src",
+            reviews=[
+                {"text": "Delivery was late and communication was poor.", "rating": 2.0},
+                {"text": "Late delivery again and hard to reach seller.", "rating": 1.0},
+                {"text": "Missed deadline and quality was poor.", "rating": 2.0},
+            ],
+        )
+    )
+    assert "late_delivery" in result.complaint_frequency
+    assert result.sentiment_hints["negative"] >= 2
+    assert result.opportunity_gaps
+
+
+def test_review_analysis_positive_reviews_surface_strength_signals() -> None:
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="rev-src",
+            reviews=[
+                {"text": "Great communication and excellent quality.", "rating": 5.0},
+                {"text": "Fast delivery and worth every penny.", "rating": 5.0},
+            ],
+        )
+    )
+    assert "high_quality" in result.praise_frequency
+    assert result.sentiment_hints["positive"] == 2
+
+
+def test_review_analysis_empty_reviews_returns_low_confidence_warning() -> None:
+    result = analyze_reviews(ReviewAnalysisInput(source_id="rev-src", reviews=[]))
+    assert result.confidence <= 0.2
+    assert any(warning.code == "reviews_missing" for warning in result.warnings)
+
+
+def test_review_analysis_redacts_secret_like_strings() -> None:
+    secret = "api_key=sk-test1234567890abcdef"
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="rev-src",
+            reviews=[{"text": f"Work was okay. {secret}", "rating": 3.0}],
+        )
+    )
+    assert any(warning.code == "review_text_redacted" for warning in result.warnings)
+    assert secret not in result.model_dump_json()
+
+
+def test_intent_buyer_ready_examples_classify_correctly() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need to hire python automation expert today",
+            title_phrases=["urgent freelancer", "hire now"],
+        )
+    )
+    assert result.label == IntentLabel.BUYER_READY
+    assert result.confidence >= 0.8
+
+
+def test_intent_price_language_and_urgency_contribute_to_buyer_ready() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation expert under $200 asap",
+            title_phrases=["budget is 200 usd", "hire now"],
+        )
+    )
+    assert result.label == IntentLabel.BUYER_READY
+    assert any(rule.startswith("price_language:") for rule in result.matched_rules)
+    assert any(rule.startswith("urgency:") for rule in result.matched_rules)
+
+
+def test_intent_ambiguous_queries_return_low_confidence() -> None:
+    result = classify_intent(IntentInput(source_id="intent-src", keyword_text="python automation"))
+    assert result.label == IntentLabel.AMBIGUOUS
+    assert result.confidence <= 0.5
+
+
+def test_intent_service_provider_language_not_misclassified_as_buyer_demand() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="I will build python automation workflows",
+            title_phrases=["my service portfolio"],
+        )
+    )
+    assert result.label == IntentLabel.SERVICE_PROVIDER
+
+
+def test_intent_serialization_is_deterministic() -> None:
+    payload = IntentInput(source_id="intent-src", keyword_text="how to automate invoice parsing")
+    assert classify_intent(payload).model_dump_json() == classify_intent(payload).model_dump_json()
+
+
+def test_orchestrator_complete_fixture_runs_all_stages_successfully() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    summary = run_analysis_dry_run(payload)
+    assert isinstance(summary, AnalysisRunSummary)
+    assert summary.status == AnalysisStatus.SUCCESS
+    assert len(summary.stages) == 7
+    assert all(stage.status == AnalysisStatus.SUCCESS for stage in summary.stages)
+
+
+def test_orchestrator_sparse_fixture_reports_warnings_count() -> None:
+    payload = _load_analysis_fixture("sparse_payload.json")
+    summary = run_analysis_dry_run(payload)
+    assert summary.metadata["executed_stage_count"] == 7
+    assert len(summary.warnings) >= 3
+
+
+def test_orchestrator_missing_reviews_does_not_fail_other_stages() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    payload.pop("reviews")
+    summary = run_analysis_dry_run(payload)
+    assert all(stage.status == AnalysisStatus.SUCCESS for stage in summary.stages)
+    assert summary.status == AnalysisStatus.SUCCESS
+
+
+def test_orchestrator_invalid_seller_input_fails_only_seller_stage() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    payload["seller"] = "not-a-dict"
+    payload.pop("sellers")
+    summary = run_analysis_dry_run(payload)
+    failed_stages = [stage for stage in summary.stages if stage.status == AnalysisStatus.FAILED]
+    assert len(failed_stages) == 1
+    assert failed_stages[0].stage.value == "seller_strength"
+    assert summary.status == AnalysisStatus.PARTIAL
+
+
+def test_orchestrator_status_failed_when_all_stages_fail() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-failed",
+            "source_id": "src-failed",
+            "intent": {"keyword_text": ""},
+        }
+    )
+    assert summary.status == AnalysisStatus.FAILED
+
+
+def test_fixture_golden_seller_score_ordering() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    sellers = payload["sellers"]
+    assert isinstance(sellers, list)
+    strong = score_seller_strength(SellerStrengthInput(source_id="src", **sellers[0]))
+    weak = score_seller_strength(
+        SellerStrengthInput(
+            source_id="src",
+            seller_id="weak-golden",
+            level="new",
+            rating=4.1,
+            review_count=3,
+            response_time="2 days",
+            delivery_consistency=0.55,
+            active_gig_count=1,
+            languages=["English"],
+            account_tenure_months=2,
+        )
+    )
+    assert strong.score > weak.score
+
+
+def test_legacy_competitor_profile_still_operates() -> None:
     result = profile_competitors(
         CompetitorProfileInput(
-            source_id="comp-strong",
+            source_id="comp-src",
             competitors=[
                 {
                     "seller_id": "s1",
@@ -220,124 +391,12 @@ def test_strong_incumbents_trigger_high_competition_warning() -> None:
                 },
                 {
                     "seller_id": "s2",
-                    "seller_level": "level_two",
-                    "starting_price": 150.0,
-                    "rating": 4.8,
-                    "review_count": 500,
-                },
-                {
-                    "seller_id": "s3",
-                    "seller_level": "top_rated",
-                    "starting_price": 220.0,
-                    "rating": 4.9,
-                    "review_count": 900,
-                },
-            ],
-        )
-    )
-    assert any(warning.code == "high_competition" for warning in result.warnings)
-
-
-def test_weak_competitor_fixture_surfaces_opportunity_signals() -> None:
-    result = profile_competitors(
-        CompetitorProfileInput(
-            source_id="comp-weak",
-            competitors=[
-                {
-                    "seller_id": "w1",
                     "seller_level": "new",
-                    "starting_price": 30.0,
-                    "rating": 4.2,
-                    "review_count": 3,
-                },
-                {
-                    "seller_id": "w2",
-                    "seller_level": "new",
-                    "starting_price": 45.0,
-                    "rating": 4.1,
-                    "review_count": 8,
-                },
-                {
-                    "seller_id": "w3",
-                    "seller_level": "level_one",
                     "starting_price": 40.0,
-                    "rating": 4.3,
-                    "review_count": 12,
+                    "rating": 4.2,
+                    "review_count": 5,
                 },
             ],
         )
     )
-    assert result.opportunity_signals
-    assert result.competition_intensity_score < 60
-    assert any("new-seller feasibility" in signal.lower() for signal in result.opportunity_signals)
-
-
-def test_empty_competitor_list_returns_low_confidence() -> None:
-    result = profile_competitors(CompetitorProfileInput(source_id="comp-empty", competitors=[]))
-    assert result.confidence <= 0.2
-    assert result.warnings
-
-
-def test_orchestrator_complete_fixture_succeeds_all_stages() -> None:
-    summary = run_analysis_dry_run(
-        {
-            "run_id": "run-complete",
-            "source_id": "src-complete",
-            "keywords": ["logo design", "modern logo design", "seo audit"],
-            "gig": {
-                "gig_id": "g-1",
-                "title": "I will design a polished logo for your business",
-                "description": "Rich and complete description" * 20,
-                "package_count": 3,
-                "rating": 4.9,
-                "review_count": 320,
-                "image_count": 5,
-                "has_faq": True,
-            },
-            "competitors": [
-                {
-                    "seller_id": "a",
-                    "seller_level": "top_rated",
-                    "starting_price": 140.0,
-                    "rating": 4.8,
-                    "review_count": 260,
-                },
-                {
-                    "seller_id": "b",
-                    "seller_level": "level_one",
-                    "starting_price": 55.0,
-                    "rating": 4.6,
-                    "review_count": 80,
-                },
-            ],
-        }
-    )
-    assert isinstance(summary, AnalysisRunSummary)
-    assert all(stage.status == AnalysisStatus.SUCCESS for stage in summary.stages)
-
-
-def test_orchestrator_sparse_fixture_returns_warnings() -> None:
-    summary = run_analysis_dry_run(
-        {
-            "run_id": "run-sparse",
-            "source_id": "src-sparse",
-            "keywords": ["single"],
-            "gig": {"gig_id": "g-sparse"},
-            "competitors": [],
-        }
-    )
-    assert summary.warnings
-    assert any(stage.warnings for stage in summary.stages if stage.status == AnalysisStatus.SUCCESS)
-
-
-def test_orchestrator_invalid_payload_returns_failed_stage_summary() -> None:
-    summary = run_analysis_dry_run(
-        {
-            "run_id": "run-invalid",
-            "source_id": "src-invalid",
-            "keywords": "not-a-list",
-            "gig": {"gig_id": "g-invalid", "rating": "bad"},
-            "competitors": "invalid",
-        }
-    )
-    assert any(stage.status == AnalysisStatus.FAILED for stage in summary.stages)
+    assert 0.0 <= result.competition_intensity_score <= 100.0

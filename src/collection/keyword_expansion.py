@@ -37,7 +37,7 @@ def _iter_niche_modifiers(niche_metadata: Mapping[str, Any] | None) -> list[str]
 
     modifiers: list[str] = []
     raw_modifiers = niche_metadata.get("modifiers", [])
-    if isinstance(raw_modifiers, Sequence) and not isinstance(raw_modifiers, (str, bytes)):
+    if isinstance(raw_modifiers, Sequence) and not isinstance(raw_modifiers, (str | bytes)):
         for modifier in raw_modifiers:
             if isinstance(modifier, str):
                 normalized = normalize_keyword(modifier)

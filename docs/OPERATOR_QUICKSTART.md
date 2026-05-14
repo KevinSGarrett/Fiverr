@@ -1,7 +1,7 @@
 # Operator Quickstart (Cycle Branch Workflow)
 
 This quickstart is for PM/operator oversight in an agent-managed cycle branch flow.
-When GitHub auth is available, Cursor agents execute branch checks, push, and PR preparation.
+When GitHub auth is available, Cursor agents execute branch checks, push, and PR stewardship.
 
 ## 1) Confirm steward agent context
 
@@ -14,12 +14,12 @@ git log --oneline -8
 
 ## 2) Start/verify cycle branch from `develop`
 
-Replace `003` with the active cycle number.
+Replace `004` with the active cycle number.
 
 ```powershell
 git checkout develop
 git pull origin develop
-git checkout -b cycle/003/integration
+git checkout -b cycle/004/integration
 git status
 ```
 
@@ -50,11 +50,11 @@ python -m pytest -q
 git status
 ```
 
-## 5) Steward agent pushes branch and opens PR into `develop`
+## 5) Steward agent pushes branch and opens/updates PR into `develop`
 
 ```powershell
-git push -u origin cycle/003/integration
-gh pr create --base develop --head cycle/003/integration --title "Cycle 003 integration" --body "Cycle 003 integration branch with Agent A/B/C/D commits."
+git push -u origin cycle/004/integration
+gh pr create --base develop --head cycle/004/integration --title "Cycle 004 integration" --body "Cycle 004 integration branch with Agent A/B/C/D commits."
 ```
 
 ## 6) Branch protection reminder
@@ -64,3 +64,9 @@ gh pr create --base develop --head cycle/003/integration --title "Cycle 003 inte
 - Do not open cycle PRs to `main`.
 - `main` is release-only.
 - Human operator approves/reviews; agent steward executes git operations.
+
+## 7) Runtime artifact and zip hygiene
+
+- Runtime database files under `data/` are local artifacts and must stay out of handoff zip packages by default.
+- Only archive runtime DB files intentionally, and only outside the repository package output.
+- Before handoff, steward agent should verify ignored runtime DB files are not included in packaging commands.

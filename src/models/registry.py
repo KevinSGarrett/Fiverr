@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from src.models.analysis import AnalysisResult, AnalysisRun, DiscoveryHypothesis, PricingSnapshot
+from src.models.analysis import (
+    AnalysisResult,
+    AnalysisRun,
+    AnalysisSignalRecord,
+    CompetitorSnapshot,
+    DiscoveryHypothesis,
+    PricingSnapshot,
+)
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.runtime import (
@@ -28,6 +35,8 @@ REGISTERED_MODEL_CLASSES = (
     AnalysisResult,
     PricingSnapshot,
     DiscoveryHypothesis,
+    CompetitorSnapshot,
+    AnalysisSignalRecord,
     ScoreComponent,
     FinalScore,
     Recommendation,
@@ -46,6 +55,8 @@ SOURCE_REQUIRED_TABLE_NAMES = (
     "alert_events",
     "analysis_results",
     "analysis_runs",
+    "analysis_signal_records",
+    "competitor_snapshots",
     "collection_checkpoints",
     "collection_proxy_events",
     "collection_queue_items",
@@ -73,6 +84,40 @@ SOURCE_REQUIRED_TABLE_NAMES = (
     "external_signals",
 )
 
+PHASE2_REQUIRED_TABLE_NAMES = (
+    "analysis_runs",
+    "analysis_results",
+    "analysis_signal_records",
+    "competitor_snapshots",
+    "external_signals",
+    "gigs",
+    "keywords",
+    "search_results",
+    "sellers",
+)
+
+TABLE_DOMAIN_MAP = {
+    "collection": {
+        "keywords",
+        "search_results",
+        "gigs",
+        "sellers",
+        "reviews",
+        "external_signals",
+    },
+    "analysis": {
+        "analysis_runs",
+        "analysis_results",
+        "pricing_snapshots",
+        "discovery_hypotheses",
+        "competitor_snapshots",
+        "analysis_signal_records",
+    },
+    "scoring": {"score_components", "final_scores", "recommendations"},
+    "runtime": {"run_logs", "job_statuses", "alert_events", "export_artifacts", "llm_usage_logs", "llm_cache_records"},
+    "niche": {"niche_configs", "niches"},
+}
+
 
 def get_registered_model_classes() -> tuple[type[object], ...]:
     """Return currently implemented SQLAlchemy model classes."""
@@ -83,6 +128,23 @@ def get_registered_table_names() -> list[str]:
     """Return unique, sorted table names from registered model classes."""
     table_names = [str(model.__tablename__) for model in REGISTERED_MODEL_CLASSES]
     return sorted(set(table_names))
+
+
+def get_registered_tables_by_domain() -> dict[str, list[str]]:
+    """Return deterministic table grouping for collection/analysis/runtime domains."""
+    registered = set(get_registered_table_names())
+    classified: dict[str, list[str]] = {}
+    for domain in sorted(TABLE_DOMAIN_MAP):
+        domain_tables = sorted(registered.intersection(TABLE_DOMAIN_MAP[domain]))
+        classified[domain] = domain_tables
+    return classified
+
+
+def verify_required_phase2_tables(table_names: list[str] | None = None) -> list[str]:
+    """Return deterministic list of missing Phase 2 support tables."""
+    available = set(table_names if table_names is not None else get_registered_table_names())
+    required = set(PHASE2_REQUIRED_TABLE_NAMES)
+    return sorted(required - available)
 
 
 def get_missing_source_tables() -> list[str]:

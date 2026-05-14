@@ -1,6 +1,7 @@
 """Export package exports."""
 
 from src.exports.formats import (
+    ALLOWED_EXPORT_ROOTS,
     ExportFormat,
     ExportRequest,
     normalize_export_format,
@@ -20,6 +21,7 @@ from src.exports.placeholders import (
 
 __all__ = [
     "CSV_FORMAT",
+    "ALLOWED_EXPORT_ROOTS",
     "ExportFormat",
     "ExportManifest",
     "CHECKSUM_PLACEHOLDER",

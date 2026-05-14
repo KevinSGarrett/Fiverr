@@ -104,6 +104,47 @@ class CollectionConfig(BaseModel):
         return self
 
 
+class Phase2CollectionConfig(BaseModel):
+    fixture_only_mode: bool = True
+    dry_run_sample_limit: int = Field(default=25, ge=1)
+    dry_run_max_pages: int = Field(default=2, ge=1)
+    allow_live_connectors: bool = False
+    connectors_enabled: dict[str, bool] = Field(
+        default_factory=lambda: {
+            "google_trends": False,
+            "reddit_api": False,
+            "external_marketplaces": False,
+        }
+    )
+
+    @model_validator(mode="after")
+    def validate_live_connector_opt_in(self) -> Phase2CollectionConfig:
+        if not self.allow_live_connectors and any(self.connectors_enabled.values()):
+            raise ValueError(
+                "phase2_collection.connectors_enabled cannot enable live connectors unless "
+                "phase2_collection.allow_live_connectors is true."
+            )
+        return self
+
+
+class Phase2AnalysisConfig(BaseModel):
+    min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
+    strong_confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    quality_score_min: float = Field(default=60.0, ge=0.0, le=100.0)
+    quality_score_strong: float = Field(default=80.0, ge=0.0, le=100.0)
+    max_keywords_per_run: int = Field(default=250, ge=1)
+    max_competitors_per_run: int = Field(default=100, ge=1)
+    max_text_chars: int = Field(default=12000, ge=1)
+
+    @model_validator(mode="after")
+    def validate_threshold_ordering(self) -> Phase2AnalysisConfig:
+        if self.strong_confidence < self.min_confidence:
+            raise ValueError("phase2_analysis.strong_confidence must be >= min_confidence.")
+        if self.quality_score_strong < self.quality_score_min:
+            raise ValueError("phase2_analysis.quality_score_strong must be >= quality_score_min.")
+        return self
+
+
 class ScoringProfileConfig(BaseModel):
     demand: float = Field(default=0.2, ge=0.0, le=1.0)
     competition_inv: float = Field(default=0.2, ge=0.0, le=1.0)
@@ -239,6 +280,8 @@ class AppConfig(BaseModel):
     fiverr: FiverrConfig = Field(default_factory=FiverrConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     collection: CollectionConfig = Field(default_factory=CollectionConfig)
+    phase2_collection: Phase2CollectionConfig = Field(default_factory=Phase2CollectionConfig)
+    phase2_analysis: Phase2AnalysisConfig = Field(default_factory=Phase2AnalysisConfig)
     scoring: ScoringConfig
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     exports: ExportConfig = Field(default_factory=ExportConfig)

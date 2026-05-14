@@ -15,13 +15,18 @@ class QueueCheckpointError(RuntimeError):
     """Raised when queue checkpoint read/write operations fail safely."""
 
 
-def checkpoint_queue_state(queue: CollectionQueue, path: Path | str) -> Path:
+def checkpoint_queue_state(
+    queue: CollectionQueue,
+    path: Path | str,
+    *,
+    stage_summary: dict[str, object] | None = None,
+) -> Path:
     """Persist queue state atomically as deterministic JSON."""
 
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    payload = {
+    payload: dict[str, object] = {
         "schema_version": "1.0",
         "saved_at": datetime.now(UTC).isoformat(),
         "jobs": [
@@ -40,6 +45,8 @@ def checkpoint_queue_state(queue: CollectionQueue, path: Path | str) -> Path:
             for job in queue.jobs
         ],
     }
+    if stage_summary is not None:
+        payload["stage_summary"] = stage_summary
 
     temp_path = output_path.with_suffix(f"{output_path.suffix}.tmp.{uuid4().hex}")
     temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")

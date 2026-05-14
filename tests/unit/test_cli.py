@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import run as run_module
 from click.testing import CliRunner
 from run import cli
 
@@ -54,6 +56,9 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "foundation-gate" in result.output
     assert "export" in result.output
     assert "dashboard" in result.output
+    assert "collection-dry-run" in result.output
+    assert "analysis-dry-run" in result.output
+    assert "phase2-smoke" in result.output
 
 
 def test_foundation_gate_succeeds_with_temp_sqlite_db(tmp_path: Path) -> None:
@@ -135,3 +140,61 @@ def test_dashboard_stub_does_not_launch_streamlit() -> None:
     assert result.exit_code == 0
     assert "Epic 09" in result.output
     assert "streamlit" not in result.output.lower()
+
+
+def test_collection_dry_run_invalid_fixture_path_returns_nonzero() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "collection-dry-run",
+            "--fixture-path",
+            "tests/fixtures/collection/does_not_exist.json",
+        ],
+    )
+    assert result.exit_code != 0
+
+
+def test_analysis_dry_run_invalid_fixture_path_returns_nonzero() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "analysis-dry-run",
+            "--fixture-path",
+            "tests/fixtures/analysis/does_not_exist.json",
+        ],
+    )
+    assert result.exit_code != 0
+
+
+def test_collection_dry_run_can_be_monkeypatched_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fixture_path = tmp_path / "collection_fixture.json"
+    fixture_path.write_text('{"seed_keywords": ["ai agent", "mcp server"]}', encoding="utf-8")
+    output_path = tmp_path / "checkpoint.json"
+
+    monkeypatch.setattr(run_module, "run_collection_dry_run", lambda **_kwargs: 0)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "collection-dry-run",
+            "--fixture-path",
+            str(fixture_path),
+            "--output-path",
+            str(output_path),
+            "--sample-size",
+            "2",
+        ],
+    )
+    assert result.exit_code == 0
+
+
+def test_phase2_smoke_reports_collection_and_analysis() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["phase2-smoke", "--config-path", "config.yaml"])
+    assert result.exit_code == 0
+    assert "Phase2 smoke OK: collection package" in result.output
+    assert "Phase2 smoke OK: analysis package" in result.output

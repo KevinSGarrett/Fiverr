@@ -15,7 +15,7 @@ from src.models.database import (
     verify_required_tables,
 )
 from src.models.niche import NicheConfigRecord
-from src.models.registry import get_registered_table_names
+from src.models.registry import get_registered_table_names, verify_required_phase2_tables
 
 
 def test_initialize_database_creates_expected_tables(tmp_path: Path) -> None:
@@ -40,6 +40,13 @@ def test_initialize_database_creates_every_registered_table(tmp_path: Path) -> N
     db_path = tmp_path / "registered_tables.db"
     engine = initialize_database(database_url=f"sqlite:///{db_path.as_posix()}")
     missing = verify_required_tables(engine)
+    assert missing == []
+
+
+def test_initialize_database_satisfies_phase2_required_tables(tmp_path: Path) -> None:
+    db_path = tmp_path / "phase2_required.db"
+    engine = initialize_database(database_url=f"sqlite:///{db_path.as_posix()}")
+    missing = verify_required_phase2_tables(list_tables(engine))
     assert missing == []
 
 

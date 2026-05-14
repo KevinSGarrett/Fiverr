@@ -86,7 +86,10 @@ def test_repo_hygiene_detects_forbidden_and_runtime_files(
                 stdout="src/app.py\n__pycache__/bad.pyc\n.pytest_cache/state\n",
             )
         if command[1:] == ["ls-files", "--others", "--exclude-standard"]:
-            return _CompletedProcess(returncode=0, stdout="data/runtime.db\nnotes.txt\n")
+            return _CompletedProcess(
+                returncode=0,
+                stdout="data/runtime.db\ndata/nested/run.sqlite3\nplaywright/.auth/state.json\nnotes.txt\n",
+            )
         return _CompletedProcess(returncode=1, stdout="")
 
     monkeypatch.setattr("src.scripts.repo_hygiene.subprocess.run", fake_run)
@@ -96,6 +99,16 @@ def test_repo_hygiene_detects_forbidden_and_runtime_files(
     assert "__pycache__/bad.pyc" in paths
     assert ".pytest_cache/state" in paths
     assert "data/runtime.db" in paths
+    assert "data/nested/run.sqlite3" in paths
+    assert "playwright/.auth/state.json" in paths
+
+
+def test_gitattributes_contains_line_ending_rules() -> None:
+    content = Path(".gitattributes").read_text(encoding="utf-8")
+    assert "*.py text eol=lf" in content
+    assert "*.md text eol=lf" in content
+    assert "*.yaml text eol=lf" in content
+    assert "*.yml text eol=lf" in content
 
 
 def test_repo_hygiene_passes_clean_repository(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

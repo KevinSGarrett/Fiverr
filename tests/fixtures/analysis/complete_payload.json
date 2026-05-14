@@ -1,0 +1,127 @@
+{
+  "run_id": "run-complete-fixture",
+  "source_id": "src-complete-fixture",
+  "metadata": {
+    "fixture": "complete_payload"
+  },
+  "keywords": [
+    "hire python automation developer",
+    "python workflow automation service",
+    "api integration automation",
+    "zapier workflow setup",
+    "n8n automation expert"
+  ],
+  "min_cluster_size": 1,
+  "search_result_count": 1380,
+  "gig": {
+    "gig_id": "gig-complete-1",
+    "title": "I will build production python automation workflows for your operations",
+    "description": "Automation specialist with robust implementation playbooks, testing strategy, and post-delivery handoff." ,
+    "package_count": 3,
+    "rating": 4.9,
+    "review_count": 420,
+    "image_count": 7,
+    "has_faq": true
+  },
+  "competitors": [
+    {
+      "seller_id": "alpha",
+      "seller_level": "top rated",
+      "starting_price": 180.0,
+      "rating": 4.9,
+      "review_count": 810
+    },
+    {
+      "seller_id": "bravo",
+      "seller_level": "level two",
+      "starting_price": 160.0,
+      "rating": 4.8,
+      "review_count": 540
+    },
+    {
+      "seller_id": "charlie",
+      "seller_level": "level one",
+      "starting_price": 145.0,
+      "rating": 4.7,
+      "review_count": 210
+    }
+  ],
+  "sellers": [
+    {
+      "seller_id": "alpha",
+      "level": "top rated",
+      "rating": 4.9,
+      "review_count": 810,
+      "response_time": "1 hour",
+      "delivery_consistency": 0.94,
+      "active_gig_count": 6,
+      "languages": [
+        "English",
+        "Spanish"
+      ],
+      "account_tenure_months": 62
+    },
+    {
+      "seller_id": "bravo",
+      "level": "level two",
+      "rating": 4.8,
+      "review_count": 540,
+      "response_time": "2 hours",
+      "delivery_consistency": 0.9,
+      "active_gig_count": 8,
+      "languages": [
+        "English"
+      ],
+      "account_tenure_months": 41
+    },
+    {
+      "seller_id": "charlie",
+      "level": "level one",
+      "rating": 4.6,
+      "review_count": 210,
+      "response_time": "within a day",
+      "delivery_consistency": 0.82,
+      "active_gig_count": 9,
+      "languages": [
+        "English",
+        "German"
+      ],
+      "account_tenure_months": 28
+    }
+  ],
+  "prices": [
+    145.0,
+    150.0,
+    160.0,
+    170.0,
+    180.0,
+    190.0
+  ],
+  "gig_quality_scores": [
+    84.0,
+    86.0,
+    81.0,
+    83.5
+  ],
+  "reviews": [
+    {
+      "text": "Great communication and clean code. Delivered ahead of schedule.",
+      "rating": 5.0
+    },
+    {
+      "text": "Delivery was late and revisions took too long.",
+      "rating": 2.0
+    },
+    {
+      "text": "Excellent quality, but response lagged on one day.",
+      "rating": 4.0
+    }
+  ],
+  "intent": {
+    "keyword_text": "need to hire python automation expert today",
+    "title_phrases": [
+      "urgent workflow automation",
+      "hire freelancer now"
+    ]
+  }
+}

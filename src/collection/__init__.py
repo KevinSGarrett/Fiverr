@@ -1,11 +1,27 @@
 """Collection package interfaces and safety helpers."""
 
+from src.collection.autocomplete import (
+    AutocompleteFixtureError,
+    AutocompletePlan,
+    AutocompleteSuggestion,
+    load_autocomplete_fixture,
+)
 from src.collection.checkpoint import (
     QueueCheckpointError,
     checkpoint_queue_state,
     load_queue_checkpoint,
 )
+from src.collection.community_signals import CommunitySignal, load_community_signal_fixture
 from src.collection.contracts import CollectionError, CollectionStageResult, CollectionStageStatus
+from src.collection.external_signals import (
+    ExternalSignal,
+    LiveSignalConnectorDisabledError,
+    SignalFreshness,
+    SignalSource,
+    fetch_external_signals_live,
+    load_external_signal_fixture,
+)
+from src.collection.gig_detail import GigDetailParseResult, GigPackage, parse_gig_detail_from_html
 from src.collection.keyword_expansion import (
     ExpandedKeyword,
     KeywordExpansionResult,
@@ -28,6 +44,11 @@ from src.collection.selectors import (
     parse_search_result_cards_from_html,
     validate_selector_registry,
 )
+from src.collection.seller_profile import (
+    SellerProfileParseResult,
+    parse_seller_profile_from_html,
+    redact_sensitive_text,
+)
 from src.collection.session import (
     BrowserSessionConfig,
     ManagedBrowserSession,
@@ -39,6 +60,24 @@ __all__ = [
     "CollectionError",
     "CollectionStageResult",
     "CollectionStageStatus",
+    "AutocompleteFixtureError",
+    "AutocompleteSuggestion",
+    "AutocompletePlan",
+    "load_autocomplete_fixture",
+    "GigPackage",
+    "GigDetailParseResult",
+    "parse_gig_detail_from_html",
+    "SellerProfileParseResult",
+    "parse_seller_profile_from_html",
+    "redact_sensitive_text",
+    "ExternalSignal",
+    "SignalSource",
+    "SignalFreshness",
+    "load_external_signal_fixture",
+    "fetch_external_signals_live",
+    "LiveSignalConnectorDisabledError",
+    "CommunitySignal",
+    "load_community_signal_fixture",
     "PacingConfig",
     "PacingManager",
     "QueueJob",

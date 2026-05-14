@@ -1,0 +1,25 @@
+{
+  "run_id": "run-sparse-fixture",
+  "source_id": "src-sparse-fixture",
+  "metadata": {
+    "fixture": "sparse_payload"
+  },
+  "keywords": [
+    "automation"
+  ],
+  "gig": {
+    "gig_id": "gig-sparse-1"
+  },
+  "competitors": [],
+  "seller": {
+    "seller_id": "newbie",
+    "level": "new"
+  },
+  "reviews": [],
+  "intent": {
+    "keyword_text": "python automation guide",
+    "title_phrases": [
+      "how to automate tasks"
+    ]
+  }
+}

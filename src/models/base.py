@@ -27,7 +27,7 @@ def utc_now() -> datetime:
 
 def safe_json_default(value: Any) -> Any:
     """JSON serializer for common non-JSON-native values."""
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, (datetime | date)):
         return value.isoformat()
     if isinstance(value, Decimal):
         return float(value)

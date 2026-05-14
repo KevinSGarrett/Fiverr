@@ -1,0 +1,21 @@
+[
+  {
+    "keyword": "logo design",
+    "source_keyword": "logo design",
+    "mention_count": 31,
+    "sentiment_hint": "positive",
+    "sample_theme": "Clients ask for fast revisions and source files",
+    "source": "reddit_aggregate",
+    "captured_at": "2026-05-13T15:00:00Z",
+    "confidence": 0.82
+  },
+  {
+    "keyword": "brand identity",
+    "source_keyword": "logo design",
+    "mention_count": 18,
+    "sentiment_hint": "mixed",
+    "sample_theme": "Comparisons between single logo and full branding kits",
+    "source": "forum_aggregate",
+    "captured_at": "2026-05-11T10:30:00Z"
+  }
+]
