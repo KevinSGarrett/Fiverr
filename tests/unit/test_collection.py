@@ -22,6 +22,7 @@ from src.collection.external_signals import (
     load_external_signal_fixture,
 )
 from src.collection.gig_detail import parse_gig_detail_from_html
+from src.collection.html_text import extract_data_testid_text
 from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
@@ -232,6 +233,27 @@ def test_gig_detail_nested_markup_preserves_full_description_text() -> None:
     assert parsed.description == "Alpha Beta Gamma"
 
 
+def test_gig_detail_nested_inline_markup_preserves_full_description_text() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="gig-title">Nested Description Gig</h1>
+      <div data-testid="seller-name">Seller Name</div>
+      <div data-testid="gig-description"><span>Fast</span><strong> delivery</strong></div>
+      <section data-testid="package-card">
+        <h3 data-testid="package-name">Basic</h3>
+        <span data-testid="package-price">$50</span>
+      </section>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.description == "Fast delivery"
+
+
+def test_extract_data_testid_text_returns_none_when_testid_missing() -> None:
+    html = "<div data-testid='other-field'>value</div>"
+    assert extract_data_testid_text(html, "gig-description") is None
+
+
 def test_gig_detail_malformed_html_returns_controlled_warning_error() -> None:
     parsed = parse_gig_detail_from_html("not_html")
     assert parsed.title is None
@@ -275,6 +297,18 @@ def test_seller_profile_redacts_email_or_key_like_strings() -> None:
     assert parsed.username == "[redacted]"
     assert parsed.display_name == "[redacted]"
     assert any("redacted" in warning.lower() for warning in parsed.warnings)
+
+
+def test_seller_profile_nested_markup_preserves_display_name_text() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="seller-display-name"><span>Pixel</span><strong> Studio</strong></h1>
+      <div data-testid="seller-rating">4.8</div>
+      <div data-testid="seller-review-count">125 reviews</div>
+    </body></html>
+    """
+    parsed = parse_seller_profile_from_html(html)
+    assert parsed.display_name == "Pixel Studio"
 
 
 def test_autocomplete_deduplicates_and_preserves_seed_keyword() -> None:

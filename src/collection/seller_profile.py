@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-_TAG_RE = re.compile(r"<[^>]+>")
+from src.collection.html_text import clean_html_text, extract_data_testid_text
+
 _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", flags=re.IGNORECASE)
 _API_KEYISH_RE = re.compile(
     r"\b(?:sk|api|key|token)[-_]?[A-Za-z0-9]{10,}\b",
@@ -34,19 +35,11 @@ class SellerProfileParseResult:
 
 
 def _clean_text(value: str) -> str:
-    return " ".join(_TAG_RE.sub(" ", value).split())
+    return clean_html_text(value)
 
 
 def _extract_text(html: str, test_id: str) -> str | None:
-    pattern = re.compile(
-        fr"<[^>]*data-testid=['\"]{re.escape(test_id)}['\"][^>]*>(.*?)</[^>]+>",
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    match = pattern.search(html)
-    if not match:
-        return None
-    text = _clean_text(match.group(1))
-    return text or None
+    return extract_data_testid_text(html, test_id)
 
 
 def _extract_number(value: str | None) -> int | None:

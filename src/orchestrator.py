@@ -111,6 +111,27 @@ def _load_fixture_payload(fixture_path: str) -> dict[str, Any] | None:
     return payload
 
 
+def _resolve_collection_max_candidates(
+    *,
+    sample_size: int,
+    selected_seeds: list[str],
+    niche_metadata: Any,
+) -> int:
+    if sample_size > 0:
+        return sample_size
+
+    modifier_count = 0
+    if isinstance(niche_metadata, dict):
+        modifiers = niche_metadata.get("modifiers", [])
+        if isinstance(modifiers, list):
+            modifier_count = len([modifier for modifier in modifiers if isinstance(modifier, str) and modifier.strip()])
+
+    # Keep uncapped dry-run stable by ensuring a positive candidate ceiling that
+    # scales with fixture inputs while retaining deterministic behavior.
+    estimated_candidates = len(selected_seeds) * max(1, (modifier_count * 2) + 1)
+    return max(50, estimated_candidates)
+
+
 def run_collection_dry_run(
     fixture_path: str,
     output_path: str,
@@ -131,7 +152,11 @@ def run_collection_dry_run(
         return 2
 
     selected_seeds = trimmed_seeds[:sample_size] if sample_size > 0 else trimmed_seeds
-    max_candidates = sample_size if sample_size > 0 else max(1, len(selected_seeds))
+    max_candidates = _resolve_collection_max_candidates(
+        sample_size=sample_size,
+        selected_seeds=selected_seeds,
+        niche_metadata=payload.get("niche_metadata"),
+    )
     collection_module = importlib.import_module("src.collection.orchestrator")
     result = collection_module.run_collection_dry_run(
         selected_seeds,

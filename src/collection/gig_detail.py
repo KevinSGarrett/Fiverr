@@ -5,12 +5,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from html.parser import HTMLParser
 from typing import Any
 
+from src.collection.html_text import clean_html_text, extract_data_testid_text
 from src.collection.selectors import get_selector
 
-_TAG_RE = re.compile(r"<[^>]+>")
 _PRICE_RE = re.compile(r"([$\u20ac\u00a3])\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)")
 _DELIVERY_RE = re.compile(r"(\d{1,2})\s*day", flags=re.IGNORECASE)
 _REVIEW_RE = re.compile(r"([0-9][0-9,]*)")
@@ -45,45 +44,11 @@ class GigDetailParseResult:
 
 
 def _clean_text(value: str) -> str:
-    return " ".join(_TAG_RE.sub(" ", value).split())
+    return clean_html_text(value)
 
 
 def _extract_text(html: str, test_id: str) -> str | None:
-    class _DataTestIdTextParser(HTMLParser):
-        def __init__(self, target_test_id: str) -> None:
-            super().__init__(convert_charrefs=True)
-            self._target_test_id = target_test_id
-            self._collect_depth = 0
-            self._chunks: list[str] = []
-            self.result: str | None = None
-
-        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-            attrs_dict = dict(attrs)
-            if self.result is not None:
-                return
-            if self._collect_depth > 0:
-                self._collect_depth += 1
-                return
-            if attrs_dict.get("data-testid") == self._target_test_id:
-                self._collect_depth = 1
-
-        def handle_endtag(self, tag: str) -> None:
-            del tag
-            if self.result is not None or self._collect_depth == 0:
-                return
-            self._collect_depth -= 1
-            if self._collect_depth == 0:
-                cleaned = _clean_text("".join(self._chunks))
-                self.result = cleaned or None
-
-        def handle_data(self, data: str) -> None:
-            if self.result is None and self._collect_depth > 0:
-                self._chunks.append(data)
-
-    parser = _DataTestIdTextParser(test_id)
-    parser.feed(html)
-    parser.close()
-    return parser.result
+    return extract_data_testid_text(html, test_id)
 
 
 def _extract_first_by_tag(html: str, tag: str) -> str | None:
