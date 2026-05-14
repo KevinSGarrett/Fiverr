@@ -24,7 +24,7 @@
 
 ## Validation commands and results
 - `python -m pytest -q`
-  - Result: `189 passed`
+  - Result: `191 passed`
 - `python -m ruff check .`
   - Result: `All checks passed!`
 - `python -m mypy src`
@@ -46,9 +46,11 @@
   - `data/fiverr_research_cycle003.db`
   - `data/fiverr_research_cycle003_a.db`
   - `data/foundation_gate_cycle003.db`
-- Foundation gate command generated `data/foundation_gate_cycle004.db` as runtime output; this remains an ignored local artifact and is not part of tracked handoff content.
+- Foundation gate command generated `data/foundation_gate_cycle004.db` during validation and it was removed after verification; no runtime DB artifacts remain in the working tree.
 
 ## Recent commit list (final head)
+- `c80ce7b` feat(reporting): add explicit phase2 component report models [Agent D]
+- `8d79d87` docs(reporting): refresh cycle 004 agent d final commit list [Agent D]
 - `cb06ffc` docs(reporting): add cycle 004 dashboard reports and steward handoff [Agent D]
 - `3ffc721` feat(reporting): add cycle 004 phase2 dashboard report export scaffolds [Agent D]
 - `cbe910d` fix(analysis): tighten intent price and urgency heuristics [Agent C]
