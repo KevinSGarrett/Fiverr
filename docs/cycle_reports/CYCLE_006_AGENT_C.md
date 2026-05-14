@@ -32,10 +32,11 @@
 - Kept valid non-empty `intent.keyword_text` behavior intact (still highest priority and passed through unchanged).
 - Preserved `title_phrases` routing from `intent` section when present.
 
-### Product-rule note for literal `"None"`
+### Product-rule note for literal `"None"` / `"null"`
 
-- This fix sanitizes null-derived values (`None`, empty, whitespace) but does **not** rewrite arbitrary user-provided literal strings.
-- If a user intentionally provides `"None"` as text, it is preserved as user input rather than auto-sanitized.
+- Task C1 requirement is enforced literally: final keyword text cannot be `"None"`, `"null"`, or blank when `source_id` exists.
+- This implementation treats case-insensitive `"none"` / `"null"` keyword text as absent and continues fallback resolution.
+- Operationally, that means even user-provided literal `"None"`/`"null"` is sanitized to fallback candidates.
 
 ## Regression tests added
 
@@ -53,7 +54,7 @@ Added/updated tests in `tests/unit/test_analysis.py`:
   - `intent.keyword_text` null + `intent.title_phrases` present still forwards title phrases to classifier input.
 - `"None"` guard:
   - verifies `"None"` is not generated from Python `None`.
-  - verifies user-provided literal `"None"` is preserved by design.
+  - verifies literal `"None"` and `"null"` are treated as absent and resolve to fallback.
 - Coverage-adjacent orchestrator tests (Task C5):
   - non-dict intent section uses top-level `title_phrases`
   - non-string keyword entry coercion path

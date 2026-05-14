@@ -35,10 +35,13 @@ def _non_empty_text_or_none(value: Any) -> str | None:
     """Return text only when value is present and not blank."""
     if value is None:
         return None
-    if isinstance(value, str):
-        return value if value.strip() else None
-    text = str(value)
-    return text if text.strip() else None
+    text = value if isinstance(value, str) else str(value)
+    normalized = text.strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"none", "null"}:
+        return None
+    return text
 
 
 def _resolve_intent_keyword_text(payload: dict[str, Any], source_id: str) -> str:

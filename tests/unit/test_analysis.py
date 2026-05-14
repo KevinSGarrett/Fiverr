@@ -475,18 +475,32 @@ def test_orchestrator_intent_keyword_none_literal_is_not_generated_from_null(
     assert intent_input.keyword_text != "None"
 
 
-def test_orchestrator_intent_keyword_user_literal_none_is_preserved(
+def test_orchestrator_intent_keyword_literal_none_is_treated_as_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     intent_input = _capture_intent_input_from_orchestrator(
         monkeypatch,
         {
-            "run_id": "run-intent-user-literal-none",
-            "source_id": "src-intent-user-literal-none",
+            "run_id": "run-intent-literal-none",
+            "source_id": "src-intent-literal-none",
             "intent": {"keyword_text": "None"},
         },
     )
-    assert intent_input.keyword_text == "None"
+    assert intent_input.keyword_text == "src-intent-literal-none"
+
+
+def test_orchestrator_intent_keyword_literal_null_is_treated_as_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent_input = _capture_intent_input_from_orchestrator(
+        monkeypatch,
+        {
+            "run_id": "run-intent-literal-null",
+            "source_id": "src-intent-literal-null",
+            "intent": {"keyword_text": "null"},
+        },
+    )
+    assert intent_input.keyword_text == "src-intent-literal-null"
 
 
 def test_orchestrator_intent_title_phrases_survive_keyword_fallback(
