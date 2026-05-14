@@ -19,6 +19,7 @@ def test_dashboard_import_does_not_import_streamlit(monkeypatch) -> None:
     module = importlib.import_module("src.dashboard.app")
     assert module.build_page_title() == "Fiverr Research System Dashboard (Foundation Shell)"
     assert module.get_cycle003_status_state()["cycle"] == "003"
+    assert module.get_phase2_readiness_state()["cycle"] == "004"
 
 
 def test_get_available_pages_contains_expected_ids() -> None:
@@ -30,6 +31,9 @@ def test_get_available_pages_contains_expected_ids() -> None:
         "foundation_status",
         "collection_dry_run",
         "analysis_dry_run",
+        "phase2_readiness",
+        "phase2_reports",
+        "phase2_exports",
         "niches",
         "keywords",
         "collection_runs",
@@ -51,6 +55,9 @@ def test_non_overview_pages_are_marked_not_implemented() -> None:
             "analysis_dry_run",
         }:
             assert page.enabled is True
+        elif page.page_id in {"phase2_readiness", "phase2_reports", "phase2_exports"}:
+            assert page.enabled is False
+            assert page.status == "preview_cycle004"
         else:
             assert page.enabled is False
             assert page.status == "not_implemented"
@@ -86,4 +93,32 @@ def test_cycle003_state_marks_missing_metrics_as_pending() -> None:
 
     analysis_section = status_state["sections"][2]
     assert analysis_section["metrics"][0]["value"] == "pending"
+
+
+def test_phase2_state_serializes_with_pending_defaults() -> None:
+    state_module = importlib.import_module("src.dashboard.state")
+    status_state = state_module.build_phase2_readiness_state()
+    assert status_state["collection_dry_run"]["status"] == "pending"
+    assert status_state["analysis_dry_run"]["run_id"] == "pending"
+    assert status_state["fixture_coverage"]["gig_detail_parser"] == "pending"
+    assert status_state["gate_status"]["phase2_smoke"] == "pending"
+    assert status_state["pending_blockers"] == []
+
+
+def test_phase2_state_marks_missing_metrics_as_pending_placeholder() -> None:
+    state_module = importlib.import_module("src.dashboard.state")
+    status_state = state_module.build_phase2_readiness_state(
+        collection_metrics={"status": "pass", "run_id": None},
+        analysis_metrics={"status": None},
+        fixture_coverage={"gig_detail_parser": 88},
+        gate_status={"foundation_gate": "pass", "validation_bundle": None},
+        pending_blockers=("Waiting for artifact publish",),
+    )
+    assert status_state["collection_dry_run"]["status"] == "pass"
+    assert status_state["collection_dry_run"]["run_id"] == "pending"
+    assert status_state["analysis_dry_run"]["status"] == "pending"
+    assert status_state["fixture_coverage"]["gig_detail_parser"] == 88
+    assert status_state["fixture_coverage"]["seller_profile_parser"] == "pending"
+    assert status_state["gate_status"]["validation_bundle"] == "pending"
+    assert status_state["pending_blockers"] == ["Waiting for artifact publish"]
 

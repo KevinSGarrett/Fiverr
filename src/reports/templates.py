@@ -27,6 +27,14 @@ REQUIRED_SECTION_TITLES = (
     "Data Freshness",
 )
 
+PHASE2_REQUIRED_SECTION_TITLES = (
+    "Collection Fixture Run",
+    "Gig Detail Parser Coverage",
+    "Seller Profile Parser Coverage",
+    "Analysis Multi-Stage Run",
+    "Phase 2 PR Readiness",
+)
+
 PENDING_PLACEHOLDER = "Pending"
 
 
@@ -264,5 +272,65 @@ class CycleValidationReport:
             *_render_mapping_lines(self.checks),
             "## Findings",
             *_render_section_lines(self.findings),
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class Phase2ReadinessReport:
+    """Phase 2 readiness report used for PR summaries and handoff packets."""
+
+    cycle_id: str
+    run_id: str | None = None
+    status: str = "pending"
+    sections: tuple[ReportSection, ...] = ()
+    checks: Mapping[str, str | int | float | None] | None = None
+    blockers: tuple[str, ...] = ()
+
+    def missing_required_sections(self) -> tuple[str, ...]:
+        present = {section.title for section in self.sections}
+        return tuple(title for title in PHASE2_REQUIRED_SECTION_TITLES if title not in present)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "phase2_readiness",
+            "cycle_id": self.cycle_id,
+            "run_id": self.run_id,
+            "status": self.status,
+            "checks": dict(self.checks) if self.checks else {},
+            "blockers": list(self.blockers),
+            "missing_sections": list(self.missing_required_sections()),
+            "sections": [
+                {
+                    "title": section.title,
+                    "severity": normalize_report_severity(section.severity).value,
+                    "body": section.body,
+                }
+                for section in self.sections
+            ],
+        }
+
+    def to_markdown(self) -> str:
+        blocker_lines = [f"- {item}" for item in self.blockers]
+        if not blocker_lines:
+            blocker_lines = [f"- {PENDING_PLACEHOLDER}"]
+
+        missing_section_lines = [f"- {item}" for item in self.missing_required_sections()]
+        if not missing_section_lines:
+            missing_section_lines = ["- None"]
+
+        lines = [
+            "# Phase 2 PR Readiness Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Run ID: {self.run_id or PENDING_PLACEHOLDER}",
+            f"- Status: {self.status}",
+            "## Checks",
+            *_render_mapping_lines(self.checks),
+            "## Sections",
+            *_render_section_lines(self.sections),
+            "## Missing Required Sections",
+            *missing_section_lines,
+            "## Blockers",
+            *blocker_lines,
         ]
         return "\n".join(lines)

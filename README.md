@@ -105,6 +105,13 @@ python -m pytest tests/unit/test_dashboard.py tests/unit/test_reports.py tests/u
 - Pull requests target `develop`.
 - `main` is release-only and receives changes through release process only.
 - Do not push directly to `main`.
+- Steward agents should update an existing cycle PR instead of creating duplicates when one already exists.
+
+## Runtime Artifact Hygiene
+
+- Runtime database files (for example, `data/*.db`) are local execution artifacts and remain outside tracked handoff contents.
+- Do not include runtime DB files in repository handoff zip packages by default.
+- If archival is required, export DB artifacts intentionally to an external archive location instead of bundling them in repo package outputs.
 
 ## Known Current Limitations
 

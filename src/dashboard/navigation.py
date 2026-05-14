@@ -37,6 +37,24 @@ def get_available_pages() -> list[DashboardPage]:
             enabled=True,
             status="cycle003_shell",
         ),
+        DashboardPage(
+            page_id="phase2_readiness",
+            label="Phase 2 Readiness",
+            enabled=False,
+            status="preview_cycle004",
+        ),
+        DashboardPage(
+            page_id="phase2_reports",
+            label="Phase 2 Reports",
+            enabled=False,
+            status="preview_cycle004",
+        ),
+        DashboardPage(
+            page_id="phase2_exports",
+            label="Phase 2 Exports",
+            enabled=False,
+            status="preview_cycle004",
+        ),
         DashboardPage(page_id="niches", label="Niches", enabled=False, status="not_implemented"),
         DashboardPage(page_id="keywords", label="Keywords", enabled=False, status="not_implemented"),
         DashboardPage(

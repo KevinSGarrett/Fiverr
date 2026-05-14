@@ -115,3 +115,27 @@ def test_seed_data_guide_mentions_all_configured_niches() -> None:
     for niche_id in expected_niches:
         assert niche_id in content
 
+
+@pytest.mark.parametrize(
+    ("doc_path", "required_terms"),
+    [
+        (
+            "docs/OPERATOR_QUICKSTART.md",
+            ("do not push to `main`", "PR target for cycle branches is `develop`", "runtime database files"),
+        ),
+        (
+            "docs/CYCLE_BRANCH_CHECKLIST.md",
+            ("Never push to `main`", "base branch `develop`", "Runtime DB hygiene confirmed"),
+        ),
+        (
+            "README.md",
+            ("Do not push directly to `main`", "Pull requests target `develop`", "Runtime database files"),
+        ),
+    ],
+)
+def test_branch_policy_and_runtime_db_hygiene_docs_present(doc_path: str, required_terms: tuple[str, ...]) -> None:
+    content = Path(doc_path).read_text(encoding="utf-8")
+    lowered_content = content.lower()
+    for term in required_terms:
+        assert term.lower() in lowered_content
+
