@@ -47,20 +47,20 @@ class ProxyProvider:
             raise ProxyConfigurationError(
                 f"Proxy server missing for enabled proxy: {config.redact()}."
             )
+        if not (config.username_env_var and config.password_env_var):
+            raise ProxyConfigurationError(
+                "Enabled proxy requires username_env_var and password_env_var. "
+                f"Context={config.redact()}."
+            )
 
         proxy: dict[str, str] = {"server": config.server}
-        if config.username_env_var or config.password_env_var:
-            if not (config.username_env_var and config.password_env_var):
-                raise ProxyConfigurationError(
-                    f"Both username and password env vars are required: {config.redact()}."
-                )
-            username = self._env_provider(config.username_env_var)
-            password = self._env_provider(config.password_env_var)
-            if not username or not password:
-                raise ProxyConfigurationError(
-                    "Proxy credentials are missing in environment. "
-                    f"Context={config.redact()}."
-                )
-            proxy["username"] = username
-            proxy["password"] = password
+        username = self._env_provider(config.username_env_var)
+        password = self._env_provider(config.password_env_var)
+        if not username or not password:
+            raise ProxyConfigurationError(
+                "Proxy credentials are missing in environment. "
+                f"Context={config.redact()}."
+            )
+        proxy["username"] = username
+        proxy["password"] = password
         return proxy

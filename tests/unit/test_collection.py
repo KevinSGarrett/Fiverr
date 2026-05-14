@@ -346,6 +346,21 @@ def test_session_paths_under_repo_are_rejected_when_not_safe(tmp_path: Path) -> 
     assert manager.validate_session_state_file().valid is False
 
 
+def test_session_repo_path_rejected_by_default_repo_root() -> None:
+    repo_state = Path.cwd() / "tmp-test-session-state.json"
+    repo_state.write_text("{}", encoding="utf-8")
+    try:
+        manager = PlaywrightSessionManager(
+            SessionManagerConfig(
+                mode=BrowserMode.AUTHENTICATED_READ_ONLY,
+                session_file_path=repo_state,
+            )
+        )
+        assert manager.validate_session_state_file().valid is False
+    finally:
+        repo_state.unlink(missing_ok=True)
+
+
 def test_proxy_disabled_returns_none() -> None:
     provider = ProxyProvider()
     assert provider.build_proxy_settings(ProxyConfig(enabled=False)) is None
@@ -390,6 +405,13 @@ def test_proxy_missing_env_var_raises_safe_error() -> None:
     with pytest.raises(ProxyConfigurationError) as exc:
         provider.build_proxy_settings(config)
     assert "pass-a" not in str(exc.value)
+
+
+def test_proxy_enabled_requires_env_var_names() -> None:
+    provider = ProxyProvider(env_provider=lambda _key: "value")
+    config = ProxyConfig(enabled=True, server="http://proxy.test")
+    with pytest.raises(ProxyConfigurationError, match="requires username_env_var"):
+        provider.build_proxy_settings(config)
 
 
 def _success_stage(stage_name: str) -> CollectionStage:

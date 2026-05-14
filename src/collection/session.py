@@ -35,6 +35,7 @@ class PlaywrightSessionManager:
 
     def __init__(self, config: SessionManagerConfig) -> None:
         self.config = config
+        self._repo_root = (config.repo_root or Path.cwd()).resolve()
 
     def describe_required_manual_setup(self) -> str:
         if self.config.mode == BrowserMode.AUTHENTICATED_READ_ONLY:
@@ -100,16 +101,13 @@ class PlaywrightSessionManager:
         return options
 
     def _is_session_path_safe(self, path: Path) -> bool:
-        if self.config.repo_root is None:
-            return True
         try:
-            resolved_repo = self.config.repo_root.resolve()
             resolved_path = path.resolve()
         except OSError:
             return False
 
         try:
-            relative = resolved_path.relative_to(resolved_repo)
+            relative = resolved_path.relative_to(self._repo_root)
         except ValueError:
             return True
 
