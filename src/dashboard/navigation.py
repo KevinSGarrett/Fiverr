@@ -19,6 +19,24 @@ def get_available_pages() -> list[DashboardPage]:
     """Return foundation page metadata without launching any UI runtime."""
     return [
         DashboardPage(page_id="overview", label="Overview", enabled=True, status="foundation_shell"),
+        DashboardPage(
+            page_id="foundation_status",
+            label="Foundation Status",
+            enabled=True,
+            status="cycle003_shell",
+        ),
+        DashboardPage(
+            page_id="collection_dry_run",
+            label="Collection Dry Run",
+            enabled=True,
+            status="cycle003_shell",
+        ),
+        DashboardPage(
+            page_id="analysis_dry_run",
+            label="Analysis Dry Run",
+            enabled=True,
+            status="cycle003_shell",
+        ),
         DashboardPage(page_id="niches", label="Niches", enabled=False, status="not_implemented"),
         DashboardPage(page_id="keywords", label="Keywords", enabled=False, status="not_implemented"),
         DashboardPage(

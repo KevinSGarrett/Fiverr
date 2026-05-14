@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-REQUIRED_SEED_FIELDS = ["niche_id", "keywords"]
+REQUIRED_SEED_FIELDS = ["niche_id", "keywords", "source_lineage"]
 MIN_KEYWORDS = 6
 NICHE_ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
@@ -18,10 +18,11 @@ SEED_SHAPE_MESSAGE = (
 def get_seed_guidance_summary() -> str:
     """Return concise guidance for operator docs and onboarding flows."""
     return (
-        "Seed payloads must include niche_id and keywords. "
+        "Seed payloads must include niche_id, keywords, and source_lineage. "
         "niche_id uses lowercase letters, numbers, and underscores only. "
         "keywords must be non-empty strings with no case-insensitive duplicates. "
-        "Seed payloads should align with niche identifiers in config.yaml."
+        "config.yaml stores niche configuration, seed payloads preserve keyword lineage, "
+        "and the database stores imported records."
     )
 
 
@@ -34,6 +35,17 @@ def validate_seed_payload_shape(payload: Mapping[str, Any]) -> bool:
         raise ValueError(
             "niche_id must match ^[a-z0-9_]+$ (lowercase letters, numbers, underscores only)."
         )
+
+    source_lineage = payload.get("source_lineage")
+    if not isinstance(source_lineage, Mapping):
+        raise ValueError("Missing or invalid source_lineage mapping.")
+
+    source = source_lineage.get("source")
+    lineage_method = source_lineage.get("method")
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("source_lineage.source is required.")
+    if not isinstance(lineage_method, str) or not lineage_method.strip():
+        raise ValueError("source_lineage.method is required.")
 
     keywords = payload.get("keywords")
     if not isinstance(keywords, list):

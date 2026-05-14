@@ -9,6 +9,7 @@ XLSX_FORMAT = ExportFormat.XLSX.value
 JSON_FORMAT = ExportFormat.JSON.value
 HTML_FORMAT = ExportFormat.HTML.value
 PDF_FORMAT = ExportFormat.PDF.value
+MD_FORMAT = ExportFormat.MD.value
 
 SUPPORTED_EXPORT_FORMATS = frozenset({member.value for member in ExportFormat})
 

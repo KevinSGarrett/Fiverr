@@ -20,20 +20,28 @@ def test_valid_seed_payload_shape_passes() -> None:
             "SaaS planning",
             "feature prioritization",
         ],
+        "source_lineage": {"source": "config_seed", "method": "manual_curation"},
     }
-    assert REQUIRED_SEED_FIELDS == ["niche_id", "keywords"]
+    assert REQUIRED_SEED_FIELDS == ["niche_id", "keywords", "source_lineage"]
     assert MIN_KEYWORDS == 6
     assert validate_seed_payload_shape(payload) is True
 
 
 def test_missing_niche_id_fails_clearly() -> None:
-    payload = {"keywords": ["one", "two", "three", "four", "five", "six"]}
+    payload = {
+        "keywords": ["one", "two", "three", "four", "five", "six"],
+        "source_lineage": {"source": "test", "method": "manual"},
+    }
     with pytest.raises(ValueError, match="niche_id"):
         validate_seed_payload_shape(payload)
 
 
 def test_too_few_keywords_fails_clearly() -> None:
-    payload = {"niche_id": "sample", "keywords": ["one", "two", "three", "four", "five"]}
+    payload = {
+        "niche_id": "sample",
+        "keywords": ["one", "two", "three", "four", "five"],
+        "source_lineage": {"source": "test", "method": "manual"},
+    }
     with pytest.raises(ValueError, match="at least 6"):
         validate_seed_payload_shape(payload)
 
@@ -49,6 +57,7 @@ def test_duplicate_keywords_fail_validation() -> None:
             "feature prioritization consultant",
             "product strategy documentation",
         ],
+        "source_lineage": {"source": "config_seed", "method": "manual_curation"},
     }
     with pytest.raises(ValueError, match="Duplicate keywords"):
         validate_seed_payload_shape(payload)
@@ -58,8 +67,18 @@ def test_invalid_niche_id_characters_fail_validation() -> None:
     payload = {
         "niche_id": "PRD-AI-SAAS",
         "keywords": ["one", "two", "three", "four", "five", "six"],
+        "source_lineage": {"source": "config_seed", "method": "manual_curation"},
     }
     with pytest.raises(ValueError, match="niche_id must match"):
+        validate_seed_payload_shape(payload)
+
+
+def test_missing_source_lineage_fails_validation() -> None:
+    payload = {
+        "niche_id": "prd_ai_saas",
+        "keywords": ["one", "two", "three", "four", "five", "six"],
+    }
+    with pytest.raises(ValueError, match="source_lineage"):
         validate_seed_payload_shape(payload)
 
 
@@ -77,4 +96,22 @@ def test_seed_data_guide_yaml_examples_are_valid_if_pyyaml_available() -> None:
 
     loaded = [yaml.safe_load(block) for block in yaml_blocks]
     assert all(isinstance(item, dict) for item in loaded)
+
+
+def test_seed_data_guide_mentions_all_configured_niches() -> None:
+    doc_path = Path("docs/SEED_DATA_GUIDE.md")
+    content = doc_path.read_text(encoding="utf-8")
+    expected_niches = {
+        "prd_ai_saas",
+        "support_kb_readiness",
+        "gumloop_lindy_workflow",
+        "mcp_ai_agent",
+        "python_automation",
+        "ai_tool_llm_integration",
+        "ai_agent_development",
+        "workflow_automation",
+        "python_web_scraping",
+    }
+    for niche_id in expected_niches:
+        assert niche_id in content
 
