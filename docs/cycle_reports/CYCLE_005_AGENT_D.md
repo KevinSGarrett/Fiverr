@@ -173,16 +173,16 @@ Important governance note:
 | --- | --- | --- |
 | CI workflow exists | `PASS` | Agent A report + PR check runs |
 | Required GitHub Actions checks green | `PASS` | PR #4 has two completed `SUCCESS` CI check runs |
-| Codecov project >=90% shown on PR | `UNKNOWN` | Project context not shown in latest rollup snapshot |
+| Codecov project >=90% shown on PR | `BLOCKED/UNKNOWN` | Project context not shown in latest rollup snapshot |
 | Codecov patch >=90% shown on PR | `PASS` | `codecov/patch` reports `100.00%` vs `90%` target |
 | Codex threads dispositioned | `PASS` | Formal disposition replies posted |
 | Codex threads resolved | `PASS` | GraphQL `reviewThreads.isResolved=true` |
 | Local parity commands | `PASS` | All required commands succeeded |
-| PR open awaiting steward merge | `BLOCKED` | PR #4 open; explicit PM/operator merge authorization not provided |
+| PR open awaiting steward merge | `BLOCKED` | PR #4 open; Codecov project context missing and explicit PM/operator merge authorization not provided |
 | `main` untouched by Agent D | `PASS` | No `main` operations performed |
 
 ## Final Steward Outcome
 
-- Merge-ready decision for active PR `#4`: **Gate-complete but not merged** (checks pass; merge authorization not provided).
+- Merge-ready decision for active PR `#4`: **Not merge-ready yet** (Codecov project context still missing; merge authorization not provided).
 - Legacy note: PR `#3` was already merged before final steward gating window; Codex evidence is recorded there.
 - Recommended follow-up: request explicit PM/operator merge authorization; if approved, perform squash merge only.
