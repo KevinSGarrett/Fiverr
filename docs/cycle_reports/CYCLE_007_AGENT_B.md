@@ -14,6 +14,7 @@
 - `tests/unit/test_collection.py`
 - `tests/integration/test_collection_e2e.py`
 - `docs/collection_fixture_contract.md`
+- `docs/cycle_reports/CYCLE_007_AGENT_B.md`
 
 ## Commands Run
 
