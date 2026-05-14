@@ -74,3 +74,8 @@ def test_report_section_severity_is_constrained() -> None:
     section = ReportSection(title="Executive Summary", severity=ReportSeverity.INFO, body="ok")
     assert section.severity == ReportSeverity.INFO
 
+
+def test_report_section_rejects_invalid_severity_value() -> None:
+    with pytest.raises(ValueError, match="ReportSeverity"):
+        ReportSection(title="Executive Summary", severity="urgent", body="invalid")  # type: ignore[arg-type]
+

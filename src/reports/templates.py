@@ -34,6 +34,11 @@ class ReportSection:
     severity: ReportSeverity
     body: str = ""
 
+    def __post_init__(self) -> None:
+        """Ensure severity is constrained to the defined enum values."""
+        if not isinstance(self.severity, ReportSeverity):
+            raise ValueError("severity must be a ReportSeverity value.")
+
 
 @dataclass(frozen=True, slots=True)
 class ReportTemplate:
