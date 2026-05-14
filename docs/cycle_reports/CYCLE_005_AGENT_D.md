@@ -131,7 +131,7 @@ Observed on active PR `#4` (post-push for Agent D docs):
   - Check name: `Lint, Typecheck, Tests, and Gates`
 - Codecov status:
   - No explicit Codecov project/patch check context visible in rollup
-  - Commit status endpoint remains `pending` with `total_count: 0` statuses for head SHA `55bcc833addb3c65b42c98b50e4e875a90cd400c`
+  - Commit status endpoint remains `pending` with `total_count: 0` statuses for latest head SHA `0ce2a422080244d46c0785b236a4c06888897c4b`
   - Treated as `BLOCKED/UNKNOWN` for strict governance gate evidence
 
 ## D8 - Merge Policy and Main-Branch Confirmation
