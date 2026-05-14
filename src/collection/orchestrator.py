@@ -55,7 +55,6 @@ def run_collection_dry_run(
             max_pages=max_pages,
         )
         queue = enqueue_search_plan(plan)
-        saved_checkpoint = checkpoint_queue_state(queue, checkpoint_path)
 
         warnings = list(expanded.warnings) + list(plan.warnings)
         stage_counts: dict[str, int] = {
@@ -112,6 +111,13 @@ def run_collection_dry_run(
             for stage_name, count in stage_counts.items()
             if stage_name not in {"stage_1_keyword_expansion", "stage_2_search_plan", "stage_3_queue"}
         )
+        stage_summary: dict[str, object] = {
+            "stage_counts": stage_counts,
+            "stage_warnings": stage_warnings,
+            "mode": "dry_run_fixture_optional",
+        }
+        saved_checkpoint = checkpoint_queue_state(queue, checkpoint_path, stage_summary=stage_summary)
+
         return CollectionStageResult(
             stage_name="collection_dry_run",
             status=CollectionStageStatus.SUCCESS,

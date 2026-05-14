@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from src.collection.contracts import CollectionStageStatus
 from src.collection.orchestrator import run_collection_dry_run
 
@@ -34,6 +36,8 @@ def test_collection_dry_run_pipeline_creates_expected_artifacts(tmp_path) -> Non
     assert result.metadata["stage_counts"]["stage_6a_external_signals"] > 0
     assert result.metadata["stage_counts"]["stage_6b_community_signals"] > 0
     assert checkpoint_path.exists()
+    checkpoint_payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    assert checkpoint_payload["stage_summary"]["stage_counts"]["stage_4_gig_detail"] == 1
 
 
 def test_collection_dry_run_invalid_input_returns_failed_result(tmp_path) -> None:

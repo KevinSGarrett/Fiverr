@@ -168,6 +168,20 @@ def test_checkpoint_writes_valid_json_atomically(tmp_path: Path) -> None:
     assert payload["jobs"][0]["status"] == "pending"
 
 
+def test_checkpoint_can_include_stage_summary(tmp_path: Path) -> None:
+    expanded = expand_keywords(["logo design"], max_candidates=5).expanded_keywords
+    plan = build_search_plan(expanded, max_pages=1)
+    queue = enqueue_search_plan(plan)
+    checkpoint_path = tmp_path / "queue_with_summary.json"
+    saved_path = checkpoint_queue_state(
+        queue,
+        checkpoint_path,
+        stage_summary={"stage_counts": {"stage_4_gig_detail": 1}},
+    )
+    payload = json.loads(saved_path.read_text(encoding="utf-8"))
+    assert payload["stage_summary"]["stage_counts"]["stage_4_gig_detail"] == 1
+
+
 def test_corrupted_checkpoint_returns_controlled_error(tmp_path: Path) -> None:
     corrupted_path = tmp_path / "bad.json"
     corrupted_path.write_text("{bad-json", encoding="utf-8")
@@ -290,6 +304,26 @@ def test_external_signal_live_connector_disabled_by_default() -> None:
         fetch_external_signals_live()
 
 
+def test_external_signal_source_names_are_constrained(tmp_path: Path) -> None:
+    fixture = tmp_path / "bad_external_source.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "keyword": "logo design",
+                    "source_keyword": "logo design",
+                    "source": "unknown_source",
+                    "score": 50.0,
+                    "captured_at": "2026-05-13T12:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Unsupported signal source"):
+        load_external_signal_fixture(fixture)
+
+
 def test_community_signal_fixture_loads_and_preserves_lineage() -> None:
     records, warnings = load_community_signal_fixture("tests/fixtures/collection/community_signals.json")
     assert len(records) == 2
@@ -345,6 +379,13 @@ def test_community_signal_personal_data_like_fields_ignored(tmp_path: Path) -> N
 
 def test_seller_profile_parser_has_no_network_or_browser_imports() -> None:
     source = Path("src/collection/seller_profile.py").read_text(encoding="utf-8").lower()
+    assert "import requests" not in source
+    assert "import httpx" not in source
+    assert "playwright" not in source
+
+
+def test_orchestrator_has_no_network_or_browser_imports() -> None:
+    source = Path("src/collection/orchestrator.py").read_text(encoding="utf-8").lower()
     assert "import requests" not in source
     assert "import httpx" not in source
     assert "playwright" not in source

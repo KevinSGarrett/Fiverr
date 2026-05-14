@@ -30,6 +30,7 @@ Expanded Epic 02 Collection Engine with fixture-backed and dry-run-only Stage 2b
 - **B4 External Trend Signals**: Added `SignalSource`, `SignalFreshness`, `ExternalSignal` contract, fixture ingestion, freshness classification, and default-disabled live connector error.
 - **B5 Community Signals**: Added aggregate-only fixture ingestion with confidence defaulting, personal-data-like field rejection/ignoring warnings, lineage preservation, and PII-like sample-theme replacement.
 - **B6 Orchestrator Stage 4-6 Dry Run**: Extended dry-run orchestrator to optionally ingest all new fixture stages, report stage counts and stage warnings in metadata, and fail safely on missing fixture paths.
+- **B6 Checkpoint Stage Summary**: Added stage summary persistence into queue checkpoint payload (`stage_summary`) so artifact-level checkpoint data includes stage counts/warnings.
 
 ## Fixture Coverage Added
 
