@@ -105,11 +105,11 @@ Observed on active PR `#4` (post-push for Agent D docs):
 - PR state: `OPEN`
 - Base/head: `develop <- cycle/004/integration`
 - Mergeability snapshot: `CONFLICTING` / `mergeStateStatus=DIRTY`
-- `statusCheckRollup` at report capture time:
-  - `Lint, Typecheck, Tests, and Gates` (`IN_PROGRESS`)
+- `statusCheckRollup` at latest report capture time:
+  - Empty list (no check contexts currently attached to latest head)
 - Codecov status:
-  - Not yet visible in the check rollup at capture time
-  - Treated as pending/unknown until check contexts appear
+  - Not visible in the check rollup at capture time
+  - Treated as missing/unknown until check contexts appear
 
 ## D8 - Merge Policy and Main-Branch Confirmation
 
@@ -127,7 +127,7 @@ Important governance note:
 | Gate | Status | Evidence |
 | --- | --- | --- |
 | CI workflow exists | `PASS` | Agent A report + PR check runs |
-| Required GitHub Actions checks green | `BLOCKED/PENDING` | PR #4 check currently in progress |
+| Required GitHub Actions checks green | `BLOCKED/MISSING` | PR #4 latest `statusCheckRollup` is empty |
 | Codecov project >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
 | Codecov patch >=90% shown on PR | `BLOCKED/UNKNOWN` | No explicit Codecov status context observed on PR #4 |
 | Codex threads dispositioned | `PASS` | Formal disposition replies posted |
