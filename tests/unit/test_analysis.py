@@ -151,6 +151,26 @@ def test_seller_strength_serialization_deterministic_and_bounds_safe() -> None:
     assert result.model_dump_json() == score_seller_strength(payload).model_dump_json()
 
 
+def test_seller_strength_unknown_level_and_slow_response_reduce_components() -> None:
+    result = score_seller_strength(
+        SellerStrengthInput(
+            source_id="seller-src",
+            seller_id="unknown-level",
+            level="legendary",
+            rating=4.4,
+            review_count=50,
+            response_time="5 days",
+            delivery_consistency=0.7,
+            active_gig_count=20,
+            languages=["English"],
+            account_tenure_months=12,
+        )
+    )
+    assert result.components["level"] == 30.0
+    assert result.components["response_time"] == 20.0
+    assert result.components["active_gig_count"] == 50.0
+
+
 def test_saturation_high_competitor_density_yields_high_score() -> None:
     result = analyze_saturation(
         SaturationInput(
@@ -214,6 +234,22 @@ def test_saturation_ties_are_deterministic() -> None:
     assert analyze_saturation(payload).model_dump_json() == analyze_saturation(payload).model_dump_json()
 
 
+def test_saturation_zero_average_prices_use_fallback_crowding_score() -> None:
+    result = analyze_saturation(
+        SaturationInput(
+            source_id="sat-src",
+            keyword_count=8,
+            search_result_count=300,
+            competitor_count=10,
+            seller_strength_scores=[55.0, 61.0, 58.0],
+            prices=[0.0, 0.0, 0.0],
+            gig_quality_scores=[62.0, 61.0, 63.0],
+        )
+    )
+    assert result.components["price_crowding"] == 45.0
+    assert result.score >= 0.0
+
+
 def test_review_analysis_repeated_complaints_surface_as_weaknesses() -> None:
     result = analyze_reviews(
         ReviewAnalysisInput(
@@ -260,6 +296,22 @@ def test_review_analysis_redacts_secret_like_strings() -> None:
     )
     assert any(warning.code == "review_text_redacted" for warning in result.warnings)
     assert secret not in result.model_dump_json()
+
+
+def test_review_analysis_without_ratings_uses_text_sentiment_fallback() -> None:
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="rev-src",
+            reviews=[
+                {"text": "No response and late delivery."},
+                {"text": "Great communication and clean code."},
+            ],
+        )
+    )
+    assert any(warning.code == "review_rating_missing" for warning in result.warnings)
+    assert result.sentiment_hints["negative"] >= 1
+    assert result.sentiment_hints["positive"] >= 1
+    assert "review.rating" in result.missing_data_fields
 
 
 def test_intent_buyer_ready_examples_classify_correctly() -> None:
@@ -309,6 +361,18 @@ def test_intent_serialization_is_deterministic() -> None:
     assert classify_intent(payload).model_dump_json() == classify_intent(payload).model_dump_json()
 
 
+def test_intent_low_intent_examples_classify_correctly() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="free python automation template example",
+            title_phrases=["cheap sample workflow"],
+        )
+    )
+    assert result.label == IntentLabel.LOW_INTENT
+    assert any(rule.startswith("low_intent:") for rule in result.matched_rules)
+
+
 def test_orchestrator_complete_fixture_runs_all_stages_successfully() -> None:
     payload = _load_analysis_fixture("complete_payload.json")
     summary = run_analysis_dry_run(payload)
@@ -353,6 +417,70 @@ def test_orchestrator_status_failed_when_all_stages_fail() -> None:
         }
     )
     assert summary.status == AnalysisStatus.FAILED
+
+
+def test_orchestrator_stage_order_is_deterministic_for_complete_fixture() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    summary = run_analysis_dry_run(payload)
+    stage_order = [stage.stage.value for stage in summary.stages]
+    assert stage_order == [
+        "keyword_clustering",
+        "gig_quality",
+        "competitor_profile",
+        "seller_strength",
+        "saturation",
+        "review_analysis",
+        "intent_classification",
+    ]
+
+
+def test_orchestrator_sparse_payload_without_reviews_runs_remaining_stages() -> None:
+    payload = _load_analysis_fixture("sparse_payload.json")
+    payload.pop("reviews")
+    summary = run_analysis_dry_run(payload)
+    assert summary.status == AnalysisStatus.SUCCESS
+    assert summary.metadata["executed_stage_count"] == 6
+    assert all(stage.status == AnalysisStatus.SUCCESS for stage in summary.stages)
+    assert all(stage.stage.value != "review_analysis" for stage in summary.stages)
+
+
+def test_orchestrator_skips_invalid_additional_sellers_without_failing_stage() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    fixture_sellers = payload.get("sellers")
+    assert isinstance(fixture_sellers, list)
+    payload["sellers"] = [
+        fixture_sellers[0],
+        {
+            "seller_id": "broken-row",
+            "level": "level two",
+            "rating": 7.8,
+            "review_count": 20,
+        },
+    ]
+    summary = run_analysis_dry_run(payload)
+    seller_stage = next(stage for stage in summary.stages if stage.stage.value == "seller_strength")
+    assert seller_stage.status == AnalysisStatus.SUCCESS
+    assert seller_stage.metadata["evaluated_sellers"] == 1
+
+
+def test_orchestrator_non_dict_intent_uses_keyword_fallback() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    payload["intent"] = "not-a-dict"
+    payload["keyword_text"] = "hire automation expert now"
+    summary = run_analysis_dry_run(payload)
+    intent_stage = next(stage for stage in summary.stages if stage.stage.value == "intent_classification")
+    assert intent_stage.status == AnalysisStatus.SUCCESS
+    assert intent_stage.metadata["label"] in {"buyer_ready", "ambiguous"}
+
+
+def test_orchestrator_saturation_stage_fails_on_invalid_numeric_input() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    payload["search_result_count"] = "a lot"
+    summary = run_analysis_dry_run(payload)
+    saturation_stage = next(stage for stage in summary.stages if stage.stage.value == "saturation")
+    assert saturation_stage.status == AnalysisStatus.FAILED
+    assert saturation_stage.error is not None
+    assert summary.status == AnalysisStatus.PARTIAL
 
 
 def test_fixture_golden_seller_score_ordering() -> None:

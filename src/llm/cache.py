@@ -151,7 +151,13 @@ class LLMCache:
             if row is None:
                 return None
 
-            response_payload = json.loads(str(row[5]))
+            try:
+                response_payload = json.loads(str(row[5]))
+                created_at = datetime.fromisoformat(str(row[6]))
+                expires_at = datetime.fromisoformat(str(row[7]))
+            except (json.JSONDecodeError, TypeError, ValueError):
+                self.invalidate(key)
+                return None
             record = CacheRecord(
                 key=key,
                 model=str(row[0]),
@@ -160,8 +166,8 @@ class LLMCache:
                 prompt_hash=str(row[3]),
                 prompt_text=str(row[4]) if row[4] is not None else None,
                 response_payload=response_payload,
-                created_at=datetime.fromisoformat(str(row[6])),
-                expires_at=datetime.fromisoformat(str(row[7])),
+                created_at=created_at,
+                expires_at=expires_at,
                 cache_version=str(row[8]),
             ).to_dict()
             if self.is_expired(record):
