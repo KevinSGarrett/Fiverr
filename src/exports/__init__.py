@@ -16,6 +16,7 @@ from src.exports.placeholders import (
     PDF_FORMAT,
     SUPPORTED_EXPORT_FORMATS,
     XLSX_FORMAT,
+    build_governance_export_status_map,
     validate_export_format,
 )
 
@@ -32,6 +33,7 @@ __all__ = [
     "PDF_FORMAT",
     "SUPPORTED_EXPORT_FORMATS",
     "XLSX_FORMAT",
+    "build_governance_export_status_map",
     "normalize_export_format",
     "validate_export_format",
     "validate_export_request",

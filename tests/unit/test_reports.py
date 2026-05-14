@@ -9,11 +9,13 @@ from src.exports import (
     ExportFormat,
     ExportManifest,
     ExportRequest,
+    build_governance_export_status_map,
     normalize_export_format,
     validate_export_format,
     validate_export_request,
 )
 from src.reports import (
+    GOVERNANCE_REPORT_ORDER,
     PENDING_PLACEHOLDER,
     PHASE2_REQUIRED_SECTION_TITLES,
     AnalysisDryRunReport,
@@ -30,6 +32,7 @@ from src.reports import (
     RunSummary,
     SellerProfileParserCoverageReport,
     build_default_template,
+    build_governance_report_placeholders,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
     render_plain_text_summary,
@@ -276,4 +279,32 @@ def test_report_section_invalid_severity_fails_for_phase2_report() -> None:
 
 def test_allowed_export_roots_are_artifacts_and_exports() -> None:
     assert ALLOWED_EXPORT_ROOTS == ("artifacts", "exports")
+
+
+def test_governance_report_placeholders_have_stable_order_and_messages() -> None:
+    placeholders = build_governance_report_placeholders()
+    assert tuple(item.report_type for item in placeholders) == GOVERNANCE_REPORT_ORDER
+    assert placeholders[0].status == "pending"
+    assert "Local parity checks" in placeholders[0].message
+    assert "GitHub Actions workflow checks" in placeholders[1].message
+    assert "Codecov project status check" in placeholders[2].message
+    assert "Codecov patch status check" in placeholders[3].message
+    assert "Codex review-thread disposition" in placeholders[4].message
+
+
+def test_governance_export_status_map_uses_expected_keys() -> None:
+    status_map = build_governance_export_status_map(
+        local_parity="pass",
+        github_actions="pass",
+        codecov_project="pass",
+        codecov_patch="pass",
+        codex_disposition="valid_fixed",
+    )
+    assert status_map == {
+        "local_parity": "pass",
+        "github_actions": "pass",
+        "codecov_project": "pass",
+        "codecov_patch": "pass",
+        "codex_disposition": "valid_fixed",
+    }
 

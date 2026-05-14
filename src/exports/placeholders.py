@@ -20,3 +20,21 @@ def validate_export_format(format_name: str) -> bool:
     validate_export_request(request)
     return True
 
+
+def build_governance_export_status_map(
+    *,
+    local_parity: str = "pending",
+    github_actions: str = "pending",
+    codecov_project: str = "pending",
+    codecov_patch: str = "pending",
+    codex_disposition: str = "pending",
+) -> dict[str, str]:
+    """Return stable keys for governance status exports."""
+    return {
+        "local_parity": local_parity,
+        "github_actions": github_actions,
+        "codecov_project": codecov_project,
+        "codecov_patch": codecov_patch,
+        "codex_disposition": codex_disposition,
+    }
+
