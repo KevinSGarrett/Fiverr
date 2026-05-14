@@ -277,6 +277,172 @@ class CycleValidationReport:
 
 
 @dataclass(frozen=True, slots=True)
+class CollectionFixtureRunReport:
+    """Structured report for fixture-backed collection run coverage."""
+
+    cycle_id: str
+    run_id: str | None = None
+    fixture_records_total: int | None = None
+    fixture_records_processed: int | None = None
+    severity: ReportSeverity | str = ReportSeverity.INFO
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "severity", normalize_report_severity(self.severity))
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "collection_fixture_run",
+            "cycle_id": self.cycle_id,
+            "run_id": self.run_id,
+            "fixture_records_total": self.fixture_records_total,
+            "fixture_records_processed": self.fixture_records_processed,
+            "severity": normalize_report_severity(self.severity).value,
+            "notes": list(self.notes),
+        }
+
+    def to_markdown(self) -> str:
+        notes = [f"- {item}" for item in self.notes] if self.notes else [f"- {PENDING_PLACEHOLDER}"]
+        lines = [
+            "# Collection Fixture Run Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Run ID: {self.run_id or PENDING_PLACEHOLDER}",
+            "- Fixture Records Total: "
+            f"{self.fixture_records_total if self.fixture_records_total is not None else PENDING_PLACEHOLDER}",
+            "- Fixture Records Processed: "
+            f"{self.fixture_records_processed if self.fixture_records_processed is not None else PENDING_PLACEHOLDER}",
+            f"- Severity: {normalize_report_severity(self.severity).value}",
+            "## Notes",
+            *notes,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class GigDetailParserCoverageReport:
+    """Structured report for gig-detail parser fixture coverage."""
+
+    cycle_id: str
+    coverage_percent: float | None = None
+    parsed_count: int | None = None
+    expected_count: int | None = None
+    severity: ReportSeverity | str = ReportSeverity.INFO
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "severity", normalize_report_severity(self.severity))
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "gig_detail_parser_coverage",
+            "cycle_id": self.cycle_id,
+            "coverage_percent": self.coverage_percent,
+            "parsed_count": self.parsed_count,
+            "expected_count": self.expected_count,
+            "severity": normalize_report_severity(self.severity).value,
+            "notes": list(self.notes),
+        }
+
+    def to_markdown(self) -> str:
+        notes = [f"- {item}" for item in self.notes] if self.notes else [f"- {PENDING_PLACEHOLDER}"]
+        lines = [
+            "# Gig Detail Parser Coverage Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Coverage Percent: {self.coverage_percent if self.coverage_percent is not None else PENDING_PLACEHOLDER}",
+            f"- Parsed Count: {self.parsed_count if self.parsed_count is not None else PENDING_PLACEHOLDER}",
+            f"- Expected Count: {self.expected_count if self.expected_count is not None else PENDING_PLACEHOLDER}",
+            f"- Severity: {normalize_report_severity(self.severity).value}",
+            "## Notes",
+            *notes,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class SellerProfileParserCoverageReport:
+    """Structured report for seller-profile parser fixture coverage."""
+
+    cycle_id: str
+    coverage_percent: float | None = None
+    parsed_count: int | None = None
+    expected_count: int | None = None
+    severity: ReportSeverity | str = ReportSeverity.INFO
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "severity", normalize_report_severity(self.severity))
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "seller_profile_parser_coverage",
+            "cycle_id": self.cycle_id,
+            "coverage_percent": self.coverage_percent,
+            "parsed_count": self.parsed_count,
+            "expected_count": self.expected_count,
+            "severity": normalize_report_severity(self.severity).value,
+            "notes": list(self.notes),
+        }
+
+    def to_markdown(self) -> str:
+        notes = [f"- {item}" for item in self.notes] if self.notes else [f"- {PENDING_PLACEHOLDER}"]
+        lines = [
+            "# Seller Profile Parser Coverage Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Coverage Percent: {self.coverage_percent if self.coverage_percent is not None else PENDING_PLACEHOLDER}",
+            f"- Parsed Count: {self.parsed_count if self.parsed_count is not None else PENDING_PLACEHOLDER}",
+            f"- Expected Count: {self.expected_count if self.expected_count is not None else PENDING_PLACEHOLDER}",
+            f"- Severity: {normalize_report_severity(self.severity).value}",
+            "## Notes",
+            *notes,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisMultiStageRunReport:
+    """Structured report for multi-stage analysis dry-run readiness."""
+
+    cycle_id: str
+    run_id: str | None = None
+    stages_completed: tuple[str, ...] = ()
+    stages_pending: tuple[str, ...] = ()
+    severity: ReportSeverity | str = ReportSeverity.INFO
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "severity", normalize_report_severity(self.severity))
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "report_type": "analysis_multi_stage_run",
+            "cycle_id": self.cycle_id,
+            "run_id": self.run_id,
+            "stages_completed": list(self.stages_completed),
+            "stages_pending": list(self.stages_pending),
+            "severity": normalize_report_severity(self.severity).value,
+            "notes": list(self.notes),
+        }
+
+    def to_markdown(self) -> str:
+        completed = [f"- {item}" for item in self.stages_completed] if self.stages_completed else [f"- {PENDING_PLACEHOLDER}"]
+        pending = [f"- {item}" for item in self.stages_pending] if self.stages_pending else [f"- {PENDING_PLACEHOLDER}"]
+        notes = [f"- {item}" for item in self.notes] if self.notes else [f"- {PENDING_PLACEHOLDER}"]
+        lines = [
+            "# Analysis Multi-Stage Run Report",
+            f"- Cycle: {self.cycle_id}",
+            f"- Run ID: {self.run_id or PENDING_PLACEHOLDER}",
+            f"- Severity: {normalize_report_severity(self.severity).value}",
+            "## Stages Completed",
+            *completed,
+            "## Stages Pending",
+            *pending,
+            "## Notes",
+            *notes,
+        ]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
 class Phase2ReadinessReport:
     """Phase 2 readiness report used for PR summaries and handoff packets."""
 

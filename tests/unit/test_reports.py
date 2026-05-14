@@ -17,14 +17,18 @@ from src.reports import (
     PENDING_PLACEHOLDER,
     PHASE2_REQUIRED_SECTION_TITLES,
     AnalysisDryRunReport,
+    AnalysisMultiStageRunReport,
     CollectionDryRunReport,
+    CollectionFixtureRunReport,
     CycleValidationReport,
     FoundationGateReport,
+    GigDetailParserCoverageReport,
     Phase2ReadinessReport,
     ReportSection,
     ReportSeverity,
     ReportTemplate,
     RunSummary,
+    SellerProfileParserCoverageReport,
     build_default_template,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
@@ -197,6 +201,53 @@ def test_phase2_readiness_report_renders_markdown_and_detects_missing_sections()
     assert "conditional" in rendered
     assert "Collection Fixture Run" in rendered
     assert "Gig Detail Parser Coverage" in report.missing_required_sections()
+
+
+def test_phase2_component_reports_render_and_serialize() -> None:
+    reports = [
+        CollectionFixtureRunReport(
+            cycle_id="004",
+            run_id="collect-fixture-1",
+            fixture_records_total=30,
+            fixture_records_processed=30,
+            severity="info",
+            notes=("Fixture queue was complete.",),
+        ),
+        GigDetailParserCoverageReport(
+            cycle_id="004",
+            coverage_percent=96.5,
+            parsed_count=58,
+            expected_count=60,
+            severity="warning",
+            notes=("2 records require parser fallback.",),
+        ),
+        SellerProfileParserCoverageReport(
+            cycle_id="004",
+            coverage_percent=98.0,
+            parsed_count=49,
+            expected_count=50,
+            severity="info",
+        ),
+        AnalysisMultiStageRunReport(
+            cycle_id="004",
+            run_id="analysis-stage-1",
+            stages_completed=("scoring", "ranking"),
+            stages_pending=("recommendations",),
+            severity=ReportSeverity.WARNING,
+            notes=("Recommendation stage still fixture-only.",),
+        ),
+    ]
+    for report in reports:
+        rendered = report.to_markdown()
+        serialized = report.to_dict()
+        assert "004" in rendered
+        assert isinstance(serialized, dict)
+        assert "report_type" in serialized
+
+
+def test_phase2_component_reports_reject_invalid_severity() -> None:
+    with pytest.raises(ValueError, match="severity must be one of"):
+        GigDetailParserCoverageReport(cycle_id="004", severity="urgent")  # type: ignore[arg-type]
 
 
 def test_phase2_readiness_template_contains_required_sections() -> None:
