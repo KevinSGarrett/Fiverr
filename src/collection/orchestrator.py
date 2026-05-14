@@ -39,7 +39,7 @@ def run_collection_dry_run(
 
     started_at = datetime.now(UTC)
     try:
-        if not isinstance(seed_keywords, Sequence) or isinstance(seed_keywords, (str, bytes)):
+        if not isinstance(seed_keywords, Sequence) or isinstance(seed_keywords, (str | bytes)):
             raise ValueError("seed_keywords must be a sequence of strings.")
 
         expanded = expand_keywords(

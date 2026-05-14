@@ -239,17 +239,17 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     }
     if any(key in payload for key in saturation_trigger_keys):
         try:
-            prices = [float(price) for price in payload.get("prices", []) if isinstance(price, (int, float))]
+            prices = [float(price) for price in payload.get("prices", []) if isinstance(price, (int | float))]
             if not prices and isinstance(payload.get("competitors"), list):
                 prices = [
                     float(entry["starting_price"])
                     for entry in payload.get("competitors", [])
-                    if isinstance(entry, dict) and isinstance(entry.get("starting_price"), (int, float))
+                    if isinstance(entry, dict) and isinstance(entry.get("starting_price"), (int | float))
                 ]
             input_quality_scores = payload.get("gig_quality_scores", [])
             if isinstance(input_quality_scores, list):
                 gig_quality_scores.extend(
-                    [float(score) for score in input_quality_scores if isinstance(score, (int, float))]
+                    [float(score) for score in input_quality_scores if isinstance(score, (int | float))]
                 )
             saturation_input = SaturationInput.model_validate(
                 {

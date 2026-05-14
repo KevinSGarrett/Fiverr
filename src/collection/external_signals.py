@@ -80,7 +80,7 @@ def load_external_signal_fixture(
             raise ValueError(f"Invalid source at index {index}.")
         if not isinstance(captured_at_raw, str):
             raise ValueError(f"Invalid captured_at at index {index}.")
-        if not isinstance(score, (int, float)):
+        if not isinstance(score, (int | float)):
             raise ValueError(f"Invalid score at index {index}.")
 
         captured_at = datetime.fromisoformat(captured_at_raw.replace("Z", "+00:00")).astimezone(UTC)

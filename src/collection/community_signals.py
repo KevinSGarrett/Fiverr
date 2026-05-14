@@ -70,7 +70,7 @@ def load_community_signal_fixture(fixture_path: Path | str) -> tuple[list[Commun
             raise ValueError(f"Invalid source at index {index}.")
         if not isinstance(captured_at, str):
             raise ValueError(f"Invalid captured_at at index {index}.")
-        if not isinstance(confidence, (int, float)):
+        if not isinstance(confidence, (int | float)):
             confidence = 0.5
             warnings.append(f"Invalid confidence at index {index}; defaulted to 0.5.")
 
