@@ -4,14 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from src.collection.autocomplete import AutocompleteFixtureError, load_autocomplete_fixture
 from src.collection.checkpoint import (
     QueueCheckpointError,
     checkpoint_queue_state,
     load_queue_checkpoint,
 )
+from src.collection.community_signals import load_community_signal_fixture
+from src.collection.external_signals import (
+    LiveSignalConnectorDisabledError,
+    SignalFreshness,
+    fetch_external_signals_live,
+    load_external_signal_fixture,
+)
+from src.collection.gig_detail import parse_gig_detail_from_html
 from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
@@ -21,6 +31,7 @@ from src.collection.selectors import (
     parse_search_result_cards_from_html,
     validate_selector_registry,
 )
+from src.collection.seller_profile import parse_seller_profile_from_html
 from src.collection.session import (
     BrowserSessionConfig,
     ManagedBrowserSession,
@@ -170,3 +181,170 @@ def test_job_ordering_is_deterministic() -> None:
     queue = enqueue_search_plan(plan)
     ordered = [job.job_id for job in queue.jobs]
     assert ordered == sorted(ordered)
+
+
+def test_gig_detail_fixture_parses_expected_title_and_packages() -> None:
+    fixture = Path("tests/fixtures/collection/gig_detail.html").read_text(encoding="utf-8")
+    parsed = parse_gig_detail_from_html(fixture)
+    assert parsed.title == "I will design a premium logo identity kit"
+    assert [package.name for package in parsed.packages] == ["Basic", "Standard", "Premium"]
+    assert [package.price_cents for package in parsed.packages] == [5000, 12000, 25000]
+
+
+def test_gig_detail_missing_optional_fields_creates_warnings_not_crash() -> None:
+    html = "<html><body><h1 data-testid='gig-title'>Title Only</h1></body></html>"
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.title == "Title Only"
+    assert parsed.warnings
+    assert parsed.errors == []
+
+
+def test_gig_detail_malformed_html_returns_controlled_warning_error() -> None:
+    parsed = parse_gig_detail_from_html("not_html")
+    assert parsed.title is None
+    assert "malformed_html" in parsed.errors
+    assert any("malformed" in warning.lower() for warning in parsed.warnings)
+
+
+def test_seller_profile_fixture_parses_stable_fields() -> None:
+    fixture = Path("tests/fixtures/collection/seller_profile.html").read_text(encoding="utf-8")
+    parsed = parse_seller_profile_from_html(fixture)
+    assert parsed.username == "pixelcraftstudio"
+    assert parsed.display_name == "Pixel Craft Studio"
+    assert parsed.level == "Level Two Seller"
+    assert parsed.rating == 4.9
+    assert parsed.review_count == 320
+    assert parsed.languages == ["English", "Spanish"]
+
+
+def test_seller_profile_missing_rating_and_reviews_returns_warnings() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="seller-display-name">No Metrics Seller</h1>
+      <div data-testid="seller-country">United States</div>
+    </body></html>
+    """
+    parsed = parse_seller_profile_from_html(html)
+    assert parsed.rating is None
+    assert parsed.review_count is None
+    assert any("rating" in warning.lower() for warning in parsed.warnings)
+    assert any("review" in warning.lower() for warning in parsed.warnings)
+
+
+def test_seller_profile_redacts_email_or_key_like_strings() -> None:
+    html = """
+    <html><body>
+      <span data-testid="seller-username">demo@example.com</span>
+      <h1 data-testid="seller-display-name">api_sk1234567890</h1>
+    </body></html>
+    """
+    parsed = parse_seller_profile_from_html(html)
+    assert parsed.username == "[redacted]"
+    assert parsed.display_name == "[redacted]"
+    assert any("redacted" in warning.lower() for warning in parsed.warnings)
+
+
+def test_autocomplete_deduplicates_and_preserves_seed_keyword() -> None:
+    plan = load_autocomplete_fixture(
+        "tests/fixtures/collection/autocomplete_suggestions.json",
+        seed_keyword="Logo Design",
+    )
+    assert len(plan.suggestions) == 4
+    assert {suggestion.seed_keyword for suggestion in plan.suggestions} == {"logo design"}
+    assert plan.mode == "dry_run"
+
+
+def test_autocomplete_empty_fixture_creates_warning(tmp_path: Path) -> None:
+    fixture = tmp_path / "empty_autocomplete.json"
+    fixture.write_text('{"suggestions":[]}', encoding="utf-8")
+    plan = load_autocomplete_fixture(fixture, seed_keyword="logo design")
+    assert plan.suggestions == []
+    assert any("no suggestions" in warning.lower() for warning in plan.warnings)
+
+
+def test_autocomplete_invalid_json_raises_controlled_error(tmp_path: Path) -> None:
+    fixture = tmp_path / "bad_autocomplete.json"
+    fixture.write_text("{not-json", encoding="utf-8")
+    with pytest.raises(AutocompleteFixtureError):
+        load_autocomplete_fixture(fixture, seed_keyword="logo design")
+
+
+def test_external_signal_fixture_records_validate() -> None:
+    signals = load_external_signal_fixture("tests/fixtures/collection/external_signals.json")
+    assert len(signals) == 2
+    assert {signal.source.value for signal in signals} == {"google_trends", "exploding_topics"}
+
+
+def test_external_signal_marks_stale_record() -> None:
+    now = datetime(2026, 5, 14, tzinfo=UTC)
+    signals = load_external_signal_fixture(
+        "tests/fixtures/collection/external_signals.json",
+        stale_after_days=7,
+        now=now,
+    )
+    assert any(signal.freshness == SignalFreshness.STALE for signal in signals)
+
+
+def test_external_signal_live_connector_disabled_by_default() -> None:
+    with pytest.raises(LiveSignalConnectorDisabledError):
+        fetch_external_signals_live()
+
+
+def test_community_signal_fixture_loads_and_preserves_lineage() -> None:
+    records, warnings = load_community_signal_fixture("tests/fixtures/collection/community_signals.json")
+    assert len(records) == 2
+    assert {record.source_keyword for record in records} == {"logo design"}
+    assert warnings == []
+
+
+def test_community_signal_missing_confidence_defaults_safely(tmp_path: Path) -> None:
+    fixture = tmp_path / "community_missing_confidence.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "keyword": "logo design",
+                    "source_keyword": "logo design",
+                    "mention_count": 5,
+                    "sentiment_hint": "neutral",
+                    "sample_theme": "aggregate forum feedback",
+                    "source": "reddit_aggregate",
+                    "captured_at": "2026-05-14T00:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    records, _warnings = load_community_signal_fixture(fixture)
+    assert records[0].confidence == 0.5
+
+
+def test_community_signal_personal_data_like_fields_ignored(tmp_path: Path) -> None:
+    fixture = tmp_path / "community_personal_fields.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "keyword": "logo design",
+                    "source_keyword": "logo design",
+                    "mention_count": 10,
+                    "sentiment_hint": "mixed",
+                    "sample_theme": "Contact @username for details",
+                    "source": "reddit_aggregate",
+                    "captured_at": "2026-05-14T00:00:00Z",
+                    "username": "someone",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    records, warnings = load_community_signal_fixture(fixture)
+    assert records[0].sample_theme == "aggregate community discussion"
+    assert warnings
+
+
+def test_seller_profile_parser_has_no_network_or_browser_imports() -> None:
+    source = Path("src/collection/seller_profile.py").read_text(encoding="utf-8").lower()
+    assert "import requests" not in source
+    assert "import httpx" not in source
+    assert "playwright" not in source
