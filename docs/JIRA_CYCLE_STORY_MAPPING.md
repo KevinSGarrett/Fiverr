@@ -14,8 +14,8 @@ Every cycle must map changed files and executed agent tasks to Jira product stor
 
 Use these path rules to determine the product Epic/story mapping:
 
-- `src/collection/**` and collection tests/docs -> Epic 02
-- `src/analysis/**` and analysis tests -> Epic 03
+- `src/collection/**`, `tests/**` that validate collection behavior, and collection-specific docs -> Epic 02
+- `src/analysis/**` and `tests/**` that validate analysis behavior -> Epic 03
 - `src/scoring/**` -> Epic 04
 - `src/recommendations/**` -> Epic 05
 - `src/pricing/**` -> Epic 06

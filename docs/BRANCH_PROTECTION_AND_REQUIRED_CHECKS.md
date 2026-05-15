@@ -110,8 +110,8 @@ If `main` does not yet exist, create and protect it before first release cutover
 
 - Default branch is `develop`
 - PR targets `develop` for cycle integration work
-- PR body includes Jira mapping for changed files
-- Product-path changes are mapped to product-story Jira keys (governance-only mapping is insufficient)
+- Integration/GitHub Steward verified PR body includes Jira mapping for changed files
+- Integration/GitHub Steward verified product-path changes are mapped to product-story Jira keys (governance-only mapping is insufficient)
 - `CI / Lint, Typecheck, Tests, and Gates` is green
 - `codecov/project` is visible and green at >=90% (or PM-approved documented exception)
 - `codecov/patch` is visible and green at >=90%

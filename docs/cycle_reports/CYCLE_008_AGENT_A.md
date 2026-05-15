@@ -35,6 +35,39 @@ Observed evidence:
 - Baseline branch SHA:
   - `git rev-parse HEAD` -> `686c25ecdf995fc93118f98ae610649fc5ef51f3`
 
+Required command outputs (live evidence):
+
+```text
+$ git status --short --branch
+## cycle/008/integration...origin/cycle/008/integration
+```
+
+```text
+$ git log --oneline --decorate -12
+640b840 (HEAD -> cycle/008/integration, origin/cycle/008/integration) docs(jira): enforce cycle story mapping protocol [Agent A]
+686c25e (origin/develop, origin/HEAD, develop) feat(cycle-007): resume phase 2 after codex and coverage gate closure (#6)
+087d699 fix(cycle-006): close codex intent fallback and harden codecov project gate (#5)
+a7186c9 docs(governance): codex disposition and PR check protocol (#4)
+1cc2b90 feat(cycle-004): expand collection and analysis dry-run workflows (#3)
+539daf4 feat(cycle-003): advance foundation gate and start collection analysis dry runs (#2)
+7e3be60 feat(cycle-002): complete foundation database CLI and harden core service contracts (#1)
+fe7b90d (cycle/001/integration) docs(foundation): add onboarding docs and presentation scaffolds [Agent D]
+8d5bad8 feat(llm): add mocked client cache and renderer [Agent C]
+3e6f5d2 chore(collection): add safe collection scaffolding [Agent B]
+a185349 test(foundation): close remaining epic 01 config acceptance gaps
+5ff7af2 feat(foundation): scaffold config and model base [Agent A]
+```
+
+```text
+$ gh pr list --repo KevinSGarrett/Fiverr --state open
+(no rows returned)
+```
+
+```text
+$ gh repo view KevinSGarrett/Fiverr --json defaultBranchRef
+{"defaultBranchRef":{"name":"develop"}}
+```
+
 Baseline decision:
 
 - PASS. `cycle/008/integration` starts from latest `origin/develop`, PR #6 is merged, repository default branch is `develop`, and no open PRs currently exist.
@@ -154,6 +187,7 @@ Governance requirement reaffirmed:
 ### Branch SHA
 
 - Baseline SHA at branch creation: `686c25ecdf995fc93118f98ae610649fc5ef51f3`
+- Current Agent A branch head SHA: `640b84033099838684e4ec78b2c270fa0759e1cb`
 
 ### Blockers
 
