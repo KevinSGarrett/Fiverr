@@ -8,140 +8,150 @@ Target PR: [#10](https://github.com/KevinSGarrett/Fiverr/pull/10) (`cycle/012/in
 
 ## Summary
 
-- Executed PR #10 stewardship gates B01-B24 with source-traceable evidence capture.
-- Confirmed PR #10 is open, mergeable, non-draft, CI green, and has three unresolved Codex review threads that are merge blockers until fixed/dispositioned.
-- Verified branch-policy compliance (`cycle/012/integration` active; no `main` operations).
-- Implemented direct fixes for two unresolved Codex findings:
-  - Agent C template validation paths now reference existing source/test targets.
-  - Prompt template implementation-detail threshold now consistently requires `>=100 words`.
-- Confirmed P1 MASTER_INDEX finding is already addressed in tracked repo files (`PM_Pack/07_hydration/HYDRATION_HEADER.md`, `PM_Pack/07_hydration/STATE_SNAPSHOT.md`).
-- Identified unresolved local discrepancy set (`src/dashboard/app.py`, `src/orchestrator.py`, `tests/unit/test_dashboard.py`, `tests/unit/test_orchestrator_helpers.py`, plus report delta/untracked artifacts). These must be intentionally committed or intentionally discarded before PR merge authorization.
+- Completed Cycle 013 stewardship flow for PR #10 with traceable GitHub/Jira/local validation evidence.
+- Fixed remaining valid Codex findings in committed SHA `a849671677bfd0102faeb693f5118d61ecaf3d5f`.
+- Verified post-push live checks are green (`Lint, Typecheck, Tests, and Gates`, `codecov/project`, `codecov/patch`) and resolved all three Codex review threads.
+- Updated PR #10 body with a Cycle 013 addendum and posted Jira stewardship comments for governance keys and named product-story keys.
+- Preserved no-main policy; no `main` branch operations were performed.
+- PR remains blocked for final merge authorization because local discrepancy deltas still exist uncommitted in this workspace and explicit operator merge authorization was not provided.
 
 ## Jira Keys and AC/DoD Scope
 
 - Primary stewardship keys: `SCRUM-256`, `SCRUM-254`, `SCRUM-255`
-- Additional referenced keys: `SCRUM-253`, `SCRUM-250`
-- Product-story keys named by cycle policy (DoD caution applied, no Done claims): `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-226`, `SCRUM-227`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`
+- Additional governance keys touched in updates: `SCRUM-253`, `SCRUM-250`
+- Product-story keys updated per cycle requirement: `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-226`, `SCRUM-227`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`
 
-AC/DoD handling rule enforced in this cycle:
-- Planning and closure evidence anchored to Jira issue intent and merge-gate DoD requirements.
-- No product story marked Done from partial/template-only progress.
+AC/DoD enforcement:
+- Jira-first stewardship and merge-gate evidence was applied.
+- No product story was marked Done.
+- All product-story comments explicitly state Done is not allowed from this documentation/stewardship-only pass.
 
 ## B01-B24 Execution Log
 
 ### B01 PR #10 Live State (GitHub)
 
-Captured via `gh pr view` + GraphQL:
+At initial capture:
 - State: `OPEN`
 - Draft: `false`
 - Base/head: `develop` <- `cycle/012/integration`
-- Head SHA at initial inspection: `e0ae45ff59068622a74717feadf93ba247cbfda4`
+- Head SHA (pre-fix): `e0ae45ff59068622a74717feadf93ba247cbfda4`
 - Mergeable: `MERGEABLE`
 - Changed files: `24`
-- Reviews: Codex review present
-- Review threads: `3 unresolved` (`isResolved=false`)
-- Latest checks: `Lint, Typecheck, Tests, and Gates` success; `codecov/project` success; `codecov/patch` success
+- Review threads: `3 unresolved`
+- Checks: green at initial SHA
 
 ### B02 Branch Policy Verification
 
-- Current branch confirmed: `cycle/012/integration`
-- No `main` checkout, push, merge, or direct modification performed.
-- No `cycle/013/integration` branch created (correct, since PR #10 not merged during this report stage).
+- Active branch confirmed: `cycle/012/integration`
+- No `main` checkout/push/merge
+- No `cycle/013/integration` branch created (correct while PR #10 remains unmerged)
 
 ### B03-B04 Codex Thread Read + Hold Resolution
 
-Three unresolved threads classified:
-1. `PM_Pack/00_index/MASTER_INDEX.md` -> `VALID_ALREADY_COVERED`  
-   Reason: required hydration files now exist and are tracked in Git.
-2. `PM_Pack/09_templates/AGENT_PROMPT_C.md` -> `VALID_FIXED`  
-   Reason: updated invalid default paths/tests to existing repository paths.
-3. `PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` -> `VALID_FIXED`  
-   Reason: `>=50` mismatch corrected to `>=100` to match validation rules.
+Classifications:
+1. `PM_Pack/00_index/MASTER_INDEX.md` -> `VALID_ALREADY_COVERED`
+2. `PM_Pack/09_templates/AGENT_PROMPT_C.md` -> `VALID_FIXED`
+3. `PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` -> `VALID_FIXED`
 
-Resolution policy applied:
-- Threads remain unresolved until evidence commit/push/CI pass sequence is complete.
+Process rule enforced:
+- Did not resolve threads until fix commit was pushed and live CI/Codecov checks were successful.
 
 ### B05 Agent A MASTER_INDEX Required-File Check
 
-- Verified referenced files exist in repository and are tracked:
+- Verified both required files exist and are tracked:
   - `PM_Pack/07_hydration/HYDRATION_HEADER.md`
   - `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
-- Outcome: P1 file-existence blocker is remediated in source.
+- This closes the functional concern raised in the P1 MASTER_INDEX Codex thread.
 
 ### B06 Agent C Validation-Template Check
 
-- Verified Codex complaint was valid in baseline (`src/scoring/`, `tests/unit/test_scoring.py` did not exist).
-- Applied correction in `PM_Pack/09_templates/AGENT_PROMPT_C.md`.
+- Confirmed baseline complaint validity (`src/scoring/`, `tests/unit/test_scoring.py` absent).
+- Corrected defaults in `PM_Pack/09_templates/AGENT_PROMPT_C.md` to existing directories/tests.
 
 ### B07 Agent D Local-Code Reconciliation Check
 
-Current local discrepancy set (modified, uncommitted):
+Uncommitted local discrepancy set still present:
+- `docs/cycle_reports/CYCLE_012_AGENT_B.md`
 - `src/dashboard/app.py`
 - `src/orchestrator.py`
 - `tests/unit/test_dashboard.py`
 - `tests/unit/test_orchestrator_helpers.py`
-- `docs/cycle_reports/CYCLE_012_AGENT_B.md`
 
-Untracked artifacts:
+Additional untracked artifacts:
 - `PM_Pack_Cycle_012_READY.zip`
-- `coverage.xml` (generated by coverage run)
+- `coverage.xml`
 
-Stewardship status:
-- Inspected and documented.
-- Not silently ignored.
-- Must be intentionally committed or intentionally discarded with owner confirmation before merge authorization.
+Disposition:
+- Explicitly inspected and documented.
+- Not merged/discarded in this stewardship pass.
+- Merge authorization should remain blocked until explicit owner disposition (commit vs discard) is decided.
 
 ### B08 `.env` and Generated Artifact Hygiene
 
-- `git check-ignore .env` confirms `.env` is ignored.
-- `git status --short -- .env coverage.xml data .pytest_cache .ruff_cache` showed only `coverage.xml` as untracked in that set.
-- No evidence of `.env` staged/committed in this cycle.
+- `git check-ignore .env` returned `.env` (ignored)
+- `.env` was never printed, summarized, staged, or committed
+- `coverage.xml` detected as untracked artifact after tests and not staged in the fix commit
 
 ### B09-B10 Local Parity and Dependency Honesty
 
-Required validation block executed successfully in this environment (no missing dependency blocker observed):
+All required local commands executed successfully (no missing-dependency blocker):
 - `python -m ruff check .` -> pass
 - `python -m mypy src` -> pass
-- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> pass (93.12%)
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> pass (388 passed, 93.12%)
 - `python run.py config-check` -> pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle013.db` -> pass
 - `python run.py phase2-smoke` -> pass
 
 ### B11-B13 Push + CI/Codecov Re-check
 
-- Pending in this document revision until commit/push step is completed.
-- Existing remote PR checks were green before Cycle 013 doc/template fixes.
+- Committed scoped fixes/report on `cycle/012/integration`:
+  - Commit: `a849671677bfd0102faeb693f5118d61ecaf3d5f`
+- Pushed to origin without force:
+  - `e0ae45f..a849671  cycle/012/integration -> cycle/012/integration`
+- Re-checked live PR checks after push:
+  - `Lint, Typecheck, Tests, and Gates` -> success
+  - `codecov/project` -> success
+  - `codecov/patch` -> success
 
 ### B14-B17 Codex Disposition and Resolution Gating
 
-Prepared disposition content:
-- P1 MASTER_INDEX: fixed previously (tracked-file existence verified).
-- P1 Agent C validation commands: fixed in `PM_Pack/09_templates/AGENT_PROMPT_C.md`.
-- P2 threshold consistency: fixed in `PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` with `>=100` consistency.
-
-Thread resolution remains gated on:
-1. Evidence commit SHA
-2. Push to `cycle/012/integration`
-3. Successful live CI/Codecov on new SHA
+- Posted formal disposition replies on all three Codex threads, including file/commit/validation/Jira references.
+- Resolved all three review threads only after green live checks.
+- Final thread state: all `isResolved=true`.
 
 ### B18 PR Body Addendum
 
-- Pending update after push/CI and Codex-thread disposition publication.
+- Updated PR #10 body with a Cycle 013 addendum including:
+  - resolved Codex statuses
+  - fix commit SHA
+  - live check results
+  - local discrepancy status
+  - Agent A report artifact status
+  - no-main confirmation
 
 ### B19-B22 Merge and Branching Decision
 
-- Merge readiness is conditional; no merge action taken in this report stage.
-- No explicit operator authorization to merge was present at execution time.
-- No `cycle/013/integration` branch created (correct while PR remains open).
+- PR #10 status after stewardship: mergeable + green + Codex-resolved
+- Merge action: **not performed**
+- Reason:
+  1. explicit no-merge-without-authorization rule (B20)
+  2. local discrepancy disposition is still ambiguous in workspace state
+- `cycle/013/integration` was not created (correct because PR not merged in this pass)
 
 ### B23 Jira Stewardship Updates
 
-- Atlassian MCP connectivity validated and writable scopes detected.
-- Jira comment updates for required keys pending final commit SHA/CI evidence so comments include exact post-push references.
+Atlassian MCP:
+- Connectivity/writable scope verified via `getAccessibleAtlassianResources`.
+- Added stewardship comments with branch/PR/SHA/files/validation/Codex/AC/DoD/status/Done guidance to:
+  - `SCRUM-256`, `SCRUM-254`, `SCRUM-255`, `SCRUM-250`, `SCRUM-253`
+  - `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-226`, `SCRUM-227`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`
+
+Note:
+- One temporary connectivity test comment was posted to `SCRUM-256` (`10316`) before final structured comments and is superseded by formal update comments (`10319` and related entries).
 
 ### B24 Final Stewardship Report
 
-- This file is the required Cycle 013 Agent B report and is being iteratively updated as evidence is finalized.
+- This file is the completed Cycle 013 Agent B stewardship report.
 
 ## Files Changed by Agent B in This Execution
 
@@ -153,51 +163,73 @@ Thread resolution remains gated on:
 
 | Thread | Severity | Classification | Evidence |
 |---|---|---|---|
-| Include referenced mandatory pack files in repository | P1 | `VALID_ALREADY_COVERED` | `git ls-files PM_Pack/07_hydration/HYDRATION_HEADER.md PM_Pack/07_hydration/STATE_SNAPSHOT.md` |
-| Update Agent C validation commands to existing paths | P1 | `VALID_FIXED` | Updated `PM_Pack/09_templates/AGENT_PROMPT_C.md` validation commands/owned dirs |
-| Make prompt detail threshold consistent in template rules | P2 | `VALID_FIXED` | Updated `PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` implementation-detail floor to `>=100 words` |
+| Include referenced mandatory pack files in repository | P1 | `VALID_ALREADY_COVERED` | `git ls-files PM_Pack/07_hydration/HYDRATION_HEADER.md PM_Pack/07_hydration/STATE_SNAPSHOT.md` and thread reply |
+| Update Agent C validation commands to existing paths | P1 | `VALID_FIXED` | commit `a849671...` updates in `PM_Pack/09_templates/AGENT_PROMPT_C.md` |
+| Make prompt detail threshold consistent in template rules | P2 | `VALID_FIXED` | commit `a849671...` updates in `PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` |
 
 ## No-Main and No-Secret Confirmation
 
-- `main` was not checked out, modified, pushed, or merged.
-- `.env` content was not read, printed, summarized, staged, or committed.
-- Generated artifacts were inspected for hygiene; no secret file staging was performed.
+- No checkout/push/merge to `main`
+- No `.env` content exposed
+- `.env` and other sensitive/runtime artifacts were kept out of staged commit set
 
 ## Unresolved Risks / Blockers
 
-- Local discrepancy set in dashboard/orchestrator/tests/report remains uncommitted and not yet dispositioned by owner intent.
-- Codex review threads must remain unresolved until post-push CI/Codecov evidence is green on the corrective commit SHA.
-- Jira comments still require final SHA/check links once push/CI phase completes.
+- Local discrepancy set remains uncommitted and must be explicitly dispositioned before merge authorization.
+- Agent A report artifact expected in prior PR context (`docs/cycle_reports/CYCLE_012_AGENT_A.md`) is still absent.
+- Merge remains pending explicit PM/operator authorization.
 
 ## Command Log (Exact Commands + Result)
 
 1. `git rev-parse --is-inside-work-tree` -> success (`true`)
-2. `git status --short --branch` -> success (branch/status snapshot captured)
+2. `git status --short --branch` -> success
 3. `git branch --show-current` -> success (`cycle/012/integration`)
-4. `gh pr view 10 --repo KevinSGarrett/Fiverr --json number,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,reviewDecision,url,title,changedFiles,commits,statusCheckRollup` -> success (PR metadata/checks captured)
-5. `gh pr view 10 --repo KevinSGarrett/Fiverr --json reviews` -> success (review metadata captured)
-6. `gh api repos/KevinSGarrett/Fiverr/pulls/10/comments` -> success (review comments captured)
-7. `gh api graphql -f query="query { repository(owner:\"KevinSGarrett\", name:\"Fiverr\") { pullRequest(number:10) { reviewThreads(first:50) { nodes { isResolved isOutdated path line startLine comments(first:20) { nodes { id body url author { login } createdAt } } } } } } }"` -> failed (PowerShell quoting/parsing issue)
-8. `gh api graphql -f query='query { repository(owner:"KevinSGarrett", name:"Fiverr") { pullRequest(number:10) { reviewThreads(first:50) { nodes { isResolved isOutdated path line startLine comments(first:20) { nodes { id body url author { login } createdAt } } } } } } }'` -> failed (invalid literal parsing)
-9. `gh api graphql -F owner='KevinSGarrett' -F name='Fiverr' -F number=10 -f query='query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { pullRequest(number:$number) { reviewThreads(first:50) { nodes { isResolved isOutdated path line startLine comments(first:20) { nodes { id body url author { login } createdAt } } } } } } }'` -> success (thread resolution status captured)
-10. `ls "PM_Pack/07_hydration"` -> success (required hydration files present)
-11. `rg "src/scoring/|test_scoring.py|>=50 words|>=100 words" "PM_Pack/09_templates/AGENT_PROMPT_C.md" "PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md"` -> success (baseline defects confirmed)
-12. `rg "HYDRATION_HEADER.md|STATE_SNAPSHOT.md" "PM_Pack/00_index/MASTER_INDEX.md"` -> success (master index references confirmed)
-13. `git diff -- docs/cycle_reports/CYCLE_012_AGENT_B.md` -> success (local discrepancy evidence inspected)
-14. `git diff -- src/dashboard/app.py src/orchestrator.py tests/unit/test_dashboard.py tests/unit/test_orchestrator_helpers.py` -> success (local discrepancy evidence inspected)
-15. `git status --short -- .env coverage.xml data "*.db"` -> success (`coverage.xml` untracked shown)
-16. `ls src` -> success (source path inventory)
-17. `ls tests/unit` -> success (test path inventory)
-18. `git ls-files "PM_Pack/07_hydration/HYDRATION_HEADER.md" "PM_Pack/07_hydration/STATE_SNAPSHOT.md"` -> success (files tracked in Git)
-19. `git status --short -- .env coverage.xml data .pytest_cache .ruff_cache` -> success (artifact hygiene snapshot)
-20. `git check-ignore .env` -> success (`.env` ignored)
-21. `git branch --list main develop cycle/012/integration` -> success (`cycle/012/integration`, `develop` local branches listed)
+4. `gh pr view 10 --repo KevinSGarrett/Fiverr --json number,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,reviewDecision,url,title,changedFiles,commits,statusCheckRollup` -> success
+5. `gh pr view 10 --repo KevinSGarrett/Fiverr --json reviews` -> success
+6. `gh api repos/KevinSGarrett/Fiverr/pulls/10/comments` -> success
+7. `gh api graphql -f query="query { repository(owner:\"KevinSGarrett\", name:\"Fiverr\") { pullRequest(number:10) { reviewThreads(first:50) { nodes { isResolved isOutdated path line startLine comments(first:20) { nodes { id body url author { login } createdAt } } } } } } }"` -> failed (PowerShell quoting/parsing)
+8. `gh api graphql -f query='query { repository(owner:"KevinSGarrett", name:"Fiverr") { pullRequest(number:10) { reviewThreads(first:50) { nodes { isResolved isOutdated path line startLine comments(first:20) { nodes { id body url author { login } createdAt } } } } } } }'` -> failed (literal parsing)
+9. `gh api graphql -F owner='KevinSGarrett' -F name='Fiverr' -F number=10 -f query='query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { pullRequest(number:$number) { reviewThreads(first:50) { nodes { isResolved isOutdated path line startLine comments(first:20) { nodes { id body url author { login } createdAt } } } } } } }'` -> success
+10. `ls "PM_Pack/07_hydration"` -> success
+11. `rg "src/scoring/|test_scoring.py|>=50 words|>=100 words" "PM_Pack/09_templates/AGENT_PROMPT_C.md" "PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md"` -> success
+12. `rg "HYDRATION_HEADER.md|STATE_SNAPSHOT.md" "PM_Pack/00_index/MASTER_INDEX.md"` -> success
+13. `git diff -- docs/cycle_reports/CYCLE_012_AGENT_B.md` -> success
+14. `git diff -- src/dashboard/app.py src/orchestrator.py tests/unit/test_dashboard.py tests/unit/test_orchestrator_helpers.py` -> success
+15. `git status --short -- .env coverage.xml data "*.db"` -> success
+16. `ls src` -> success
+17. `ls tests/unit` -> success
+18. `git ls-files "PM_Pack/07_hydration/HYDRATION_HEADER.md" "PM_Pack/07_hydration/STATE_SNAPSHOT.md"` -> success
+19. `git status --short -- .env coverage.xml data .pytest_cache .ruff_cache` -> success
+20. `git check-ignore .env` -> success
+21. `git branch --list main develop cycle/012/integration` -> success
 22. `python -m ruff check .` -> success
 23. `python -m mypy src` -> success
-24. `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> success (388 passed, 93.12% coverage)
+24. `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> success
 25. `python run.py config-check` -> success
 26. `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle013.db` -> success
 27. `python run.py phase2-smoke` -> success
-28. `git diff -- PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` -> success (fix review)
-29. `gh pr view 10 --repo KevinSGarrett/Fiverr --json body` -> success (current PR body snapshot)
-30. Atlassian MCP `getAccessibleAtlassianResources` -> success (cloudId and scopes captured for pending Jira updates)
+28. `git diff -- PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md` -> success
+29. `gh pr view 10 --repo KevinSGarrett/Fiverr --json body` -> success
+30. `git add PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md PM_Pack/09_templates/AGENT_PROMPT_C.md docs/cycle_reports/CYCLE_013_AGENT_B.md && git status --short` -> failed (`&&` unsupported in current PowerShell session)
+31. `git add PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md PM_Pack/09_templates/AGENT_PROMPT_C.md docs/cycle_reports/CYCLE_013_AGENT_B.md; git status --short` -> success
+32. `$msg = @' ... '@; git commit -m $msg` -> success (commit `a849671...`)
+33. `git status --short --branch` -> success
+34. `git push origin cycle/012/integration` -> success
+35. `gh pr view 10 --repo KevinSGarrett/Fiverr --json headRefOid,statusCheckRollup,mergeable,reviewDecision,updatedAt` -> success (checks queued)
+36. `gh pr view 10 --repo KevinSGarrett/Fiverr --json statusCheckRollup,headRefOid,mergeable` -> success (in-progress then success across repeated polls)
+37. `gh pr view 10 --repo KevinSGarrett/Fiverr --json statusCheckRollup` -> success (`codecov/patch` success confirmed)
+38. `gh api graphql -F owner='KevinSGarrett' -F name='Fiverr' -F number=10 -f query='query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { pullRequest(number:$number) { reviewThreads(first:50) { nodes { id isResolved path comments(first:20) { nodes { id url } } } } } } }'` -> success
+39. `gh api repos/KevinSGarrett/Fiverr/pulls/10/comments/3249962419/replies -f body='...'` -> success
+40. `gh api repos/KevinSGarrett/Fiverr/pulls/10/comments/3249962421/replies -f body='...'` -> success
+41. `gh api repos/KevinSGarrett/Fiverr/pulls/10/comments/3249962425/replies -f body='...'` -> success
+42. `gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"PRRT_kwDOSbqwNc6CbyxA"}) { thread { id isResolved } } }'` -> failed (literal ID parsing)
+43. `gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"PRRT_kwDOSbqwNc6CbyxB"}) { thread { id isResolved } } }'` -> failed (literal ID parsing)
+44. `gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"PRRT_kwDOSbqwNc6CbyxE"}) { thread { id isResolved } } }'` -> failed (literal ID parsing)
+45. `gh api graphql -F threadId='PRRT_kwDOSbqwNc6CbyxA' -f query='mutation($threadId:ID!) { resolveReviewThread(input:{threadId:$threadId}) { thread { id isResolved } } }'` -> success
+46. `gh api graphql -F threadId='PRRT_kwDOSbqwNc6CbyxB' -f query='mutation($threadId:ID!) { resolveReviewThread(input:{threadId:$threadId}) { thread { id isResolved } } }'` -> success
+47. `gh api graphql -F threadId='PRRT_kwDOSbqwNc6CbyxE' -f query='mutation($threadId:ID!) { resolveReviewThread(input:{threadId:$threadId}) { thread { id isResolved } } }'` -> success
+48. `gh api graphql -F owner='KevinSGarrett' -F name='Fiverr' -F number=10 -f query='query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { pullRequest(number:$number) { reviewThreads(first:50) { nodes { isResolved path } } } } }'` -> success
+49. `$body = @' ... '@; gh pr edit 10 --repo KevinSGarrett/Fiverr --body $body` -> success
+50. MCP: `getAccessibleAtlassianResources` -> success
+51. MCP: `addCommentToJiraIssue` on `SCRUM-256` (test comment `10316`) -> success
+52. MCP: structured `addCommentToJiraIssue` updates on required keys (`SCRUM-256`, `SCRUM-254`, `SCRUM-255`, `SCRUM-250`, `SCRUM-253`, `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-226`, `SCRUM-227`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`) -> success
