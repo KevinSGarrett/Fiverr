@@ -1,0 +1,64 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# === Virtual Environments ===
+venv/
+.venv/
+env/
+
+# === Environment Variables ===
+.env
+.env.local
+.env.production
+.env.*.local
+
+# === Database ===
+*.db
+*.sqlite3
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Data (runtime, not committed) ===
+data/exports/
+data/screenshots/
+data/checkpoints/
+data/backups/
+data/browser_profile/
+
+# === Testing ===
+.coverage
+htmlcov/
+coverage.xml
+.pytest_cache/
+.mypy_cache/
+
+# === Playwright ===
+.playwright/
+
+# === Logs ===
+*.log
+logs/
+
+# === Misc ===
+*.bak
+*.tmp
+*.temp

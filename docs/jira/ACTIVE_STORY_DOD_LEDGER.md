@@ -38,6 +38,14 @@
   - Not advanced / remaining:
     - No additional product-code scope added by Agent D in this pass.
 
+- `SCRUM-255` (`In Review`)
+  - Advanced:
+    - Added formal disposition artifact at `docs/cycle_reports/CYCLE_012_AGENT_A.md` for previously missing Cycle 012 Agent A report.
+    - Documented recoverability search, replacement evidence set, and explicit follow-up requirements.
+  - Not advanced / remaining:
+    - Jira-side acceptance of the disposition must confirm whether any canonical original Agent A report source still needs reconstruction.
+    - Do not transition to Done until ticket AC/DoD acceptance is explicitly met and recorded.
+
 ## Product Stories (No Done transition in this pass)
 
 - `SCRUM-212` (`In Review`)

@@ -135,3 +135,18 @@ C:\Fiverr1\Project_Manager\
 - `01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_012.md` — Cycle 012 board-first and prompt-depth enforcement.
 - `10_cycle_log/CYCLE_011.md` — Cycle 011 PM response and agent prompts.
 - `CYCLE_011_PM_RESPONSE.md` — Copy of Cycle 011 PM response.
+
+## Cycle 013 additions
+
+- `PM_Pack/10_cycle_log/CYCLE_013_REVIEW_AND_HANDOFF.md` — Cycle 013 review of attached repo, PM Pack, GitHub PR #10, and Jira gate findings.
+- `PM_Pack/05_github_protocol/CODEX_PR10_GATE_CYCLE_013.md` — PR #10 Codex blocker gate and merge-readiness rule.
+- `PM_Pack/01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_013.md` — Cycle 013 corrective rule memory.
+- `PM_Pack/03_cursor_agent_system/CYCLE_013_AGENT_A_PROMPT.md` through `CYCLE_013_AGENT_D_PROMPT.md` — full next-cycle Cursor prompts.
+- `PM_Pack/10_cycle_log/CYCLE_013_PROTOCOL_MEMORY_NOTE.md` — mandatory protocol memory for PR #10 blocker closure, security hygiene, and handoff constraints.
+
+## Required-file consistency gate
+
+All paths listed in this index as mandatory pack files must be present in the repository and tracked in Git on the active integration branch. If a file is optional, historical, or attachment-only, label it explicitly as optional in this index and in `PM_Pack/00_index/FILE_REGISTRY.md`.
+
+Cycle 013 enforcement: `PM_Pack/07_hydration/HYDRATION_HEADER.md` and `PM_Pack/07_hydration/STATE_SNAPSHOT.md` are required and must remain cycle-current.
+

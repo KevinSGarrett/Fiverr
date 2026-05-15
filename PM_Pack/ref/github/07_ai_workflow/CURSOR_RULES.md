@@ -1,0 +1,122 @@
+# Cursor Rules Configuration
+# Fiverr Research System — .cursorrules File Design
+
+---
+
+## Purpose
+
+The `.cursorrules` file sits at the repo root and configures how all 4 Cursor AI agents behave when generating code. It enforces project standards, architecture decisions, and coding conventions so every agent produces consistent, spec-compliant code.
+
+---
+
+## .cursorrules File Content
+
+The following is the complete `.cursorrules` file to place at the repo root:
+
+```
+# Fiverr Research System — Cursor Agent Rules
+# All 4 agents must follow these rules when generating code.
+
+## Project Context
+- This is a Python 3.11 project: automated Fiverr niche research, analysis, scoring, and recommendation engine
+- Stack: Playwright, SQLAlchemy 2.0 (async not used — sync only), Pydantic v2, APScheduler, OpenAI SDK, Streamlit
+- Database: SQLite for dev, PostgreSQL for production (use SQLAlchemy ORM everywhere, no raw SQL)
+- All specs live in project-pack/ — always read the relevant spec before implementing
+
+## Code Style
+- Follow Ruff defaults: line length 120, double quotes, 4-space indent
+- All functions and methods must have type annotations (Mypy strict mode)
+- Use Pydantic v2 BaseModel for all data transfer objects and config models
+- Use SQLAlchemy 2.0 Mapped[] and mapped_column() syntax for ORM models
+- Imports: standard lib → third-party → local, sorted by isort rules
+- No wildcard imports (from x import *)
+- Prefer explicit over implicit
+
+## Architecture Rules
+- Source code lives in src/ — never create code files outside this directory
+- Every module must have an __init__.py with explicit exports
+- Models go in src/models/ — one model per file
+- Collection workflows go in src/collection/workflows/ — one workflow per file
+- Score calculators go in src/scoring/ — one score per file
+- LLM prompts go in src/llm/prompts/ as .j2 Jinja2 templates
+- Dashboard pages go in src/dashboard/pages/ — one page per file
+- Tests mirror src/ structure in tests/unit/
+
+## Database Rules
+- All models inherit from Base (src/models/base.py)
+- Use TimestampMixin for created_at/updated_at on every model
+- All model classes must define __tablename__
+- Use Mapped[Optional[type]] for nullable fields, Mapped[type] for required
+- Foreign keys use mapped_column(ForeignKey("table.id"))
+- Never use raw SQL — always use SQLAlchemy ORM queries
+- Session management: use context managers (with Session() as session:)
+
+## Error Handling
+- Never use bare except: — always catch specific exceptions
+- Log all exceptions with structured logging (src/utils/logging.py)
+- Collection workflows must implement retry logic with exponential backoff
+- LLM calls must handle rate limits, timeouts, and invalid responses
+
+## Testing Rules
+- Every new function needs at least one test
+- Test files named test_{module}.py in tests/unit/
+- Use pytest fixtures from tests/conftest.py
+- Mock external services (Playwright, OpenAI, HTTP requests)
+- Minimum 80% coverage on new code
+
+## Naming Conventions
+- Classes: PascalCase (DemandScoreCalculator, KeywordModel)
+- Functions/methods: snake_case (calculate_demand_score)
+- Constants: UPPER_SNAKE_CASE (MAX_RETRIES, DEFAULT_TIMEOUT)
+- Files: snake_case.py (demand_score.py, gig_detail.py)
+- Database tables: snake_case plural (keywords, gigs, sellers)
+
+## Git Conventions
+- Branch: {type}/{scope}/{description} (feature/epic01/S1.2-config-system)
+- Commit: type(scope): description (feat(scoring): add demand calculator)
+- PR: One story per PR, < 300 lines preferred, < 1000 hard limit
+- Always pull latest develop before creating a branch
+
+## What NOT To Do
+- Do NOT create new directories outside the established structure
+- Do NOT add dependencies without adding them to pyproject.toml
+- Do NOT hardcode API keys, secrets, or file paths
+- Do NOT use print() for logging — use the structured logger
+- Do NOT write synchronous HTTP calls in collection — use Playwright
+- Do NOT modify src/models/base.py or src/orchestrator.py without risk:critical label
+- Do NOT skip writing tests — every PR needs tests
+- Do NOT use datetime.now() — use src/utils/datetime.py helpers (timezone-aware)
+```
+
+---
+
+## How Agents Use .cursorrules
+
+### Cursor reads the file automatically
+When a Cursor agent opens the project, it loads `.cursorrules` from the repo root. This happens on every code generation, edit, and chat interaction within Cursor.
+
+### Agent-Specific Overrides
+If an agent needs different behavior for a specific task, they can include additional context in their Cursor chat prompt, but `.cursorrules` remains the baseline that all agents share.
+
+### Updating .cursorrules
+- Changes to `.cursorrules` are treated as `chore(repo): update cursor rules`
+- Risk level: `risk:medium` (affects all agent behavior)
+- Must be reviewed by human operator before merge
+- All agents must pull the updated rules after merge
+
+---
+
+## Rules Enforcement
+
+| Rule Category | Enforced By | Backup Enforcement |
+|---|---|---|
+| Code style | .cursorrules → Cursor | Ruff CI check |
+| Type annotations | .cursorrules → Cursor | Mypy CI check |
+| Architecture (file placement) | .cursorrules → Cursor | Code review |
+| Database patterns | .cursorrules → Cursor | Code review |
+| Error handling | .cursorrules → Cursor | Code review |
+| Testing | .cursorrules → Cursor | Pytest coverage gate |
+| Naming | .cursorrules → Cursor | Ruff naming rules |
+| Git conventions | .cursorrules → Cursor | PR checks CI |
+
+The `.cursorrules` file is the first line of defense. CI is the second. Human review is the third. Together they ensure no non-compliant code reaches the develop branch.

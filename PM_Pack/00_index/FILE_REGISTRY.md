@@ -129,3 +129,19 @@
 - `01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_012.md` — Cycle 012 board-first, AC/DoD-first, and prompt-depth enforcement.
 - `10_cycle_log/CYCLE_011.md` — Cycle 011 PM response and agent prompts.
 - `CYCLE_011_PM_RESPONSE.md` — Copy of Cycle 011 PM response.
+
+## Cycle 013 Required-File Metadata
+
+| Path | Cycle role | Read priority | Owner | Update trigger |
+|---|---|---|---|---|
+| 07_hydration/HYDRATION_HEADER.md | Fast startup context block for current cycle gate | first | PM / Agent A | PR gate status, blocker count, branch policy changes |
+| 07_hydration/STATE_SNAPSHOT.md | Full operating state for branch, Jira, and security | always | PM / Agent A | branch/PR/Jira/security changes |
+| 10_cycle_log/CYCLE_013_REVIEW_AND_HANDOFF.md | Baseline findings that define Cycle 013 corrective scope | high | PM | new blocker evidence or handoff updates |
+| 10_cycle_log/CYCLE_013_PM_RESPONSE.md | Canonical Cycle 013 assignment packet and governance constraints | high | PM | scope, tasking, or acceptance updates |
+| 10_cycle_log/CYCLE_013_PROTOCOL_MEMORY_NOTE.md | Persistent memory of Cycle 013 non-negotiables and local discrepancy handling | high | Agent A | Codex blocker disposition, security guardrail, or staging policy updates |
+| 05_github_protocol/CODEX_PR10_GATE_CYCLE_013.md | Merge gate criteria and Codex thread closure requirements | high | Agent B steward | Codex status or gate policy changes |
+| 01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_013.md | Cycle-specific corrective rules carried forward | medium | PM | new corrective rule adoption |
+| 03_cursor_agent_system/CYCLE_013_AGENT_A_PROMPT.md | Agent A execution prompt for Cycle 013 | on-demand | PM | task/validation/report scope changes |
+| 03_cursor_agent_system/CYCLE_013_AGENT_B_PROMPT.md | Agent B execution prompt for Cycle 013 | on-demand | PM | task/validation/report scope changes |
+| 03_cursor_agent_system/CYCLE_013_AGENT_C_PROMPT.md | Agent C execution prompt for Cycle 013 | on-demand | PM | task/validation/report scope changes |
+| 03_cursor_agent_system/CYCLE_013_AGENT_D_PROMPT.md | Agent D execution prompt for Cycle 013 | on-demand | PM | task/validation/report scope changes |

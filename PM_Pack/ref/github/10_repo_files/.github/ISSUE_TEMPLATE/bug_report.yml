@@ -1,0 +1,53 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["issue:bug", "priority:P3-medium"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the bug
+      placeholder: |
+        1. Run command X
+        2. Open page Y
+        3. See error Z
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Output
+      description: Paste relevant logs or error messages
+      render: shell
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical (blocks all work)
+        - High (blocks current task)
+        - Medium (workaround available)
+        - Low (cosmetic/minor)
+    validations:
+      required: true
+  - type: input
+    id: epic
+    attributes:
+      label: Related Epic
+      placeholder: "Epic 01, Epic 02, etc."
