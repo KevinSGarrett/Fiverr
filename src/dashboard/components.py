@@ -8,7 +8,7 @@ without changing business-oriented payload tests.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from src.dashboard.design import (
     SEVERITY_ICON_NAMES,
@@ -16,6 +16,7 @@ from src.dashboard.design import (
     STATE_ACCESSIBLE_LABELS,
     RunSeverity,
     confidence_to_text,
+    normalize_run_severity,
 )
 
 ComponentState = Literal["loading", "empty", "warning", "error", "blocked", "ready"]
@@ -181,9 +182,7 @@ def normalize_status_badge(status: str | None) -> str:
 
 
 def _normalize_severity(raw_severity: str) -> RunSeverity:
-    if raw_severity in SEVERITY_LABELS:
-        return cast(RunSeverity, raw_severity)
-    return "unknown"
+    return normalize_run_severity(raw_severity)
 
 
 def build_state_descriptor(
