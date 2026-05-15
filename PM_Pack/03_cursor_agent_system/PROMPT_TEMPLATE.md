@@ -38,6 +38,8 @@ AGENT {A|B|C|D} — CYCLE {NNN} PROMPT
 - **Implementation Details:**
   {Detailed description — class names, method signatures, field types,
   logic flow, edge cases, error handling. >=100 words per task.
+  This threshold is strict for every substantive task unless a
+  documented PROMPT-DETAIL WAIVER is included in the cycle plan.
   Be exhaustive — the agent should not need to guess anything.}
 - **Required Tests:**
   - tests/unit/test_{module}.py::test_{function_name}
@@ -53,11 +55,12 @@ AGENT {A|B|C|D} — CYCLE {NNN} PROMPT
 {REPEAT FOR EACH ADDITIONAL TASK — minimum 20 substantive tasks; target 24-32 tasks; maximum 40 tasks. Any exception requires BOTH a TASK-COUNT WAIVER and a PROMPT-DETAIL WAIVER in the cycle plan, including risk rationale and backfill plan.}
 
 ## VALIDATION STEPS (Run before declaring done)
-1. ruff check src/{your_directories}/ --output-format=text
-2. mypy src/{your_directories}/ --ignore-missing-imports
-3. pytest tests/unit/test_{your_modules}.py -v
-4. Verify all files exist at specified paths
-5. Verify all __init__.py files export new classes/functions
+1. Path preflight command proving each required file/directory exists (or is intentionally created by this cycle)
+2. ruff check {exact existing directories/files} --output-format=text
+3. mypy {exact existing directories/files} --ignore-missing-imports
+4. pytest {exact existing test files/node IDs} -v
+5. If any path is missing and not created by this cycle, use nearest existing suite with explicit rationale instead of blind-failing commands
+6. Verify all __init__.py files export new classes/functions when applicable
 
 ## FILES CREATED THIS CYCLE (Summary)
 | Action | File Path |
@@ -96,6 +99,17 @@ END OF AGENT {A|B|C|D} PROMPT
 | 13 | FILES CREATED THIS CYCLE table present | Missing = reject |
 | 14 | COMMIT INSTRUCTIONS present | Missing = reject |
 | 15 | Total prompt >=6,000 words and preferably 8,000-12,000 words | <6,000 words = reject unless both waivers are present |
+
+## Prompt Template Self-Check (Required)
+
+Before issuing any agent prompt, the PM must include and validate this checklist:
+
+- [ ] Substantive task count is 20-40 (target 24-32), or both waivers are explicitly documented.
+- [ ] Every substantive task contains at least 100 words of implementation detail, or a cycle-specific prompt-detail waiver is documented.
+- [ ] Each task lists exact Jira key(s), AC bullets, and DoD bullets.
+- [ ] Every referenced path exists in the current repository, or the task explicitly creates it this cycle.
+- [ ] Validation commands are exact and runnable against current repo layout; no guaranteed-fail mandatory path assumptions remain.
+- [ ] Obsolete path assumptions (for example future architecture paths not yet present) are either conditionalized or removed.
 
 
 ## Cycle 012 Corrective Addendum — Depth Standard

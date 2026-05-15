@@ -10,7 +10,7 @@
 - Primary:
 - Related:
 - Board audit artifacts:
-  - `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_012.md`
+  - `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_###.md` (replace with current cycle)
   - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 
 ## Changed Areas
@@ -19,7 +19,7 @@
 - [ ] `src/scripts`
 - [ ] `src/collection`
 - [ ] `src/analysis`
-- [ ] `src/reporting`
+- [ ] `src/reports`
 - [ ] `docs`
 - [ ] `.github`
 - [ ] Other:
@@ -66,6 +66,7 @@ Paste exact command outputs (or links) for all applicable checks:
 - Cycle PR target branch: `develop`
 - Head branch format: `cycle/###/integration`
 - Direct pushes to `main`: forbidden
+- Explicit no-main confirmation (paste evidence command): `git branch --show-current` + PR base branch screenshot/link
 
 ## Merge Readiness Checklist
 

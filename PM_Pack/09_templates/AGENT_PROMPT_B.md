@@ -26,9 +26,12 @@ Jira access: You are allowed to use the connected Jira board when this prompt ex
 {PM fills in 20-40 substantive tasks per PROMPT_TEMPLATE.md; target 24-32}
 
 ## VALIDATION STEPS
-1. ruff check src/collection/ --output-format=text
-2. mypy src/collection/ --ignore-missing-imports
-3. pytest tests/unit/test_collection.py -v
+0. Path preflight (required): confirm all referenced source/test paths exist before validation, and explain whether any missing path is created by this cycle.
+1. Default validation:
+   - ruff check src/collection --output-format=text
+   - mypy src/collection --ignore-missing-imports
+   - pytest tests/unit/test_collection.py tests/unit/test_collection_pacing.py tests/integration/test_collection_e2e.py -v
+2. If a referenced path is missing and not created by this cycle, use the nearest existing collection suite and document the fallback rationale instead of running guaranteed-fail commands.
 
 ## FILES CREATED THIS CYCLE
 | Action | File Path |

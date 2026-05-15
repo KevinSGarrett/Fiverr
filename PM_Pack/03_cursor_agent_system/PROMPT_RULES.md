@@ -10,8 +10,8 @@ Version: Cycle 012 governance correction
 |---|---:|---:|---:|
 | Total word count per agent prompt | 6,000 | 8,000-12,000 | No hard cap if organized |
 | Substantive tasks per prompt | 20 | 24-32 | 40 |
-| Words per substantive task | 150 | 250-500 | No hard cap |
-| Tests/validation expectations per task | 2 | 3-6 | As needed |
+| Words per substantive task | 100 | 250-500 | No hard cap |
+| Tests/validation expectations per task | 3 | 3-6 | As needed |
 | Jira keys per task | 1 | 1-3 | As needed |
 | AC/DoD references per task | 1 | 1-3 | As needed |
 | Files listed | Every file touched | Every file touched | Required |
@@ -33,6 +33,7 @@ A prompt is rejected if:
 9. it instructs the agent to push to main;
 10. it relies on vague instructions such as "continue", "as needed", or "same as before";
 11. it plans from Git/PR deltas before Jira board issue selection.
+12. it uses mandatory validation commands that point to paths not present in the current repository without a task-creation or fallback rule.
 
 ## Required Cursor-Agent Jira Statement
 
@@ -52,6 +53,7 @@ Before release, every prompt must explicitly include:
 6. final report file path;
 7. stop conditions;
 8. branch and PR target expectations (`develop` target only).
+9. path-existence preflight and task-aware fallback for missing directories/tests.
 
 ## Prompt Rejection Checklist (Shallow Prompt Gate)
 
