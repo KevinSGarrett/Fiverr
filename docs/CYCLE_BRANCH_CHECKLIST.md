@@ -11,6 +11,8 @@ Use this checklist every cycle to prevent branch/push/PR ambiguity.
       `git push -u origin cycle/004/integration`
 - [ ] Steward agent opened/updated a PR with base branch `develop`.
 - [ ] PR head branch is `cycle/003/integration`.
+- [ ] PR body includes a Jira mapping section that maps changed files to exact Jira stories.
+- [ ] If product files changed, mapping includes product-story keys (not governance-only keys).
 - [ ] Explicit policy check: **Never push to `main`.**
 - [ ] Explicit policy check: **Never open direct PRs to `main`.**
 - [ ] Human role remains approval and oversight; execution stays agent-managed when authenticated.
