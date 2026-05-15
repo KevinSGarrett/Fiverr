@@ -40,6 +40,7 @@
 - `git status --short --branch` -> branch confirmed as `cycle/010/integration`.
 - `git log --oneline --decorate -12` -> contains `feat(cycle-008)... (#7)` commit on `develop` lineage.
 - `test -f docs/cycle_reports/CYCLE_009_AGENT_D.md` equivalent check showed file missing on `develop`; report restored from `cycle/009/integration`.
+- `test -f docs/cycle_reports/CYCLE_010_AGENT_A.md` equivalent check -> report file exists.
 
 ## Validation commands and results
 
@@ -70,11 +71,16 @@
 - `SCRUM-235` comment id `10134` (coverage/test evidence, partial scope)
 - `SCRUM-237` comment id `10133` (phase2 smoke metadata contract)
 - `SCRUM-139` comment id `10135` (utility governance helper evidence)
+- `SCRUM-231` comment id `10139` (transition-to-In-Progress evidence)
+- `SCRUM-235` comment id `10138` (transition-to-In-Progress evidence)
+- `SCRUM-237` comment id `10137` (transition-to-In-Progress evidence)
 
 ### Status transitions executed
 
-- No Jira transitions were executed in this cycle update.
-- Rationale: avoid over-closing broad product stories while work remains partial and unmerged.
+- `SCRUM-231` -> `In Progress`
+- `SCRUM-235` -> `In Progress`
+- `SCRUM-237` -> `In Progress`
+- Rationale: these tickets were directly touched by implementation/test updates this cycle and should not remain `To Do`; none were moved to `Done`.
 
 ## Foundation/Integration status reconciliation
 
@@ -87,9 +93,9 @@
 | SCRUM-138 | In Progress | In Progress | Not directly closed by this cycle. |
 | SCRUM-139 | In Progress | In Progress | Utility helper advanced; broader story remains open. |
 | SCRUM-140 | In Progress | In Progress | Not directly closed by this cycle. |
-| SCRUM-231 | To Do | To Do (or In Progress when implementation starts) | Only metadata contract scaffolding done; not full end-to-end integration. |
-| SCRUM-235 | To Do | To Do | Coverage evidence improved but full story implementation not complete. |
-| SCRUM-237 | To Do | To Do | Added smoke metadata contract, but full logging/monitoring story not implemented. |
+| SCRUM-231 | In Progress | In Progress | Metadata contract scaffolding started this cycle; full end-to-end integration remains pending. |
+| SCRUM-235 | In Progress | In Progress | Coverage/parity work actively advanced; full story implementation remains pending. |
+| SCRUM-237 | In Progress | In Progress | Smoke metadata contract implemented; broader logging/monitoring delivery remains open. |
 | SCRUM-250 | In Progress | In Progress | Governance and mapping updates implemented on branch, pending merge. |
 | SCRUM-252 | In Review | In Review | Branch work aligns with prompt; retain review state until steward validates and merges. |
 
