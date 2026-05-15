@@ -6,8 +6,10 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
+from src.collection.contracts import validate_collection_stage_summary
 from src.collection.queue import CollectionQueue
 
 
@@ -59,8 +61,33 @@ def load_queue_checkpoint(path: Path | str) -> dict[str, object]:
 
     checkpoint_path = Path(path)
     try:
-        return json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise QueueCheckpointError(
             f"Checkpoint at '{checkpoint_path}' is corrupted: {exc.msg}."
         ) from exc
+    if not isinstance(payload, dict):
+        raise QueueCheckpointError(
+            f"Checkpoint at '{checkpoint_path}' must be a JSON object payload."
+        )
+    return payload
+
+
+def load_checkpoint_stage_summary(path: Path | str) -> dict[str, Any]:
+    """Load and validate stage summary from checkpoint payload."""
+
+    payload = load_queue_checkpoint(path)
+    raw_summary = payload.get("stage_summary")
+    if not isinstance(raw_summary, dict):
+        raise QueueCheckpointError(f"Checkpoint at '{Path(path)}' does not include a stage_summary mapping.")
+    validate_collection_stage_summary(raw_summary)
+    return raw_summary
+
+
+def load_checkpoint_stage_summary_or_fallback(path: Path | str) -> dict[str, Any] | None:
+    """Return validated stage summary, or None when checkpoint is unavailable/corrupted."""
+
+    try:
+        return load_checkpoint_stage_summary(path)
+    except (FileNotFoundError, QueueCheckpointError, ValueError):
+        return None

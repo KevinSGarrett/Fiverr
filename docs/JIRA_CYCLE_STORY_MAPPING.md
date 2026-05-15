@@ -10,6 +10,27 @@ Every cycle must map changed files and executed agent tasks to Jira product stor
 - Governance-only keys (for example PM/Jira/admin tasks) are not sufficient when product files changed.
 - A PR is not merge-ready if mapping includes only governance keys while product paths changed.
 
+## Cursor-agent Jira authority and evidence rule
+
+- Cursor-agent Jira access is read/write/edit when the active cycle prompt explicitly assigns Jira duties.
+- Allowed Jira operations include:
+  - reading issue descriptions/status and transition options,
+  - posting cycle evidence comments,
+  - moving issues to `In Progress` or `In Review` when prompt scope and validation evidence justify it,
+  - creating bug tickets from Codex findings,
+  - maintaining changed-file-to-Jira mapping tables in reports and PR bodies.
+- Disallowed Jira operations include:
+  - marking broad product stories `Done` for partial scaffold or governance-only work,
+  - closing governance tasks before implementation merges into `develop`,
+  - posting ambiguous updates without cycle, branch, changed-file, and validation evidence.
+- Every Jira cycle comment must include:
+  - cycle id,
+  - agent name,
+  - branch,
+  - changed files,
+  - validation evidence,
+  - partial/full Definition of Done status.
+
 ## Path-to-Epic Mapping Rules
 
 Use these path rules to determine the product Epic/story mapping:

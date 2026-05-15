@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from src.scripts.repo_hygiene import find_hygiene_issues
+from src.utils.governance import normalize_gate_evidence, serialize_gate_evidence
 from src.utils.json import safe_json_loads
 from src.utils.logging import RedactingFilter
 from src.utils.paths import ensure_dir
@@ -68,6 +69,45 @@ def test_retry_stops_after_max_attempts() -> None:
 def test_safe_json_loads_raises_clear_error() -> None:
     with pytest.raises(ValueError, match="Malformed JSON"):
         safe_json_loads("{bad json")
+
+
+def test_normalize_gate_evidence_rejects_missing_jira_keys() -> None:
+    with pytest.raises(ValueError, match="jira_keys is required"):
+        normalize_gate_evidence(
+            {
+                "jira_keys": [],
+                "branch": "cycle/010/integration",
+            }
+        )
+
+
+def test_normalize_gate_evidence_rejects_invalid_status_strings() -> None:
+    with pytest.raises(ValueError, match="Invalid ci_status"):
+        normalize_gate_evidence(
+            {
+                "jira_keys": ["SCRUM-250"],
+                "branch": "cycle/010/integration",
+                "ci_status": "green",
+            }
+        )
+
+
+def test_serialize_gate_evidence_returns_safe_stable_json() -> None:
+    payload = serialize_gate_evidence(
+        {
+            "jira_keys": ["scrum-252", "SCRUM-250"],
+            "branch": "cycle/010/integration",
+            "pr_number": 10,
+            "ci_status": "pass",
+            "codecov_status": "pass",
+            "codex_status": "valid_fixed",
+            "dod_status": "full",
+        }
+    )
+
+    assert payload.startswith("{")
+    assert '"jira_keys": ["SCRUM-250", "SCRUM-252"]' in payload
+    assert '"branch": "cycle/010/integration"' in payload
 
 
 @dataclass

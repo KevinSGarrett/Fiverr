@@ -49,6 +49,8 @@ def _clean_text(value: str) -> str:
 
 
 def _extract_text(html: str, test_id: str) -> str | None:
+    # Intentional boundary: we deterministically keep the first matching data-testid node.
+    # This avoids over-parsing unstable duplicate markup in fixture HTML snapshots.
     class _DataTestIdTextParser(HTMLParser):
         def __init__(self, target_test_id: str) -> None:
             super().__init__(convert_charrefs=True)

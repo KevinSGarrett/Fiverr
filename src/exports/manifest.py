@@ -31,6 +31,10 @@ class ExportManifest:
     codecov_project_status: str = "pending"
     codecov_patch_status: str = "pending"
     coverage_percent: float | None = None
+    cursor_jira_operations_performed: bool = False
+    agent_task_count: int = 10
+    jira_mapping_complete: bool = True
+    task_count_waiver: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "format", normalize_export_format(self.format))
@@ -65,6 +69,10 @@ class ExportManifest:
             codecov_project_status=self.codecov_project_status,
             codecov_patch_status=self.codecov_patch_status,
             coverage_percent=self.coverage_percent,
+            cursor_jira_operations_performed=self.cursor_jira_operations_performed,
+            agent_task_count=self.agent_task_count,
+            jira_mapping_complete=self.jira_mapping_complete,
+            task_count_waiver=self.task_count_waiver,
         )
         normalized_jira_keys = cast(list[str], normalized_metadata["jira_keys"])
         object.__setattr__(self, "jira_keys", tuple(normalized_jira_keys))
@@ -73,6 +81,14 @@ class ExportManifest:
         object.__setattr__(self, "codecov_project_status", normalized_metadata["codecov_project_status"])
         object.__setattr__(self, "codecov_patch_status", normalized_metadata["codecov_patch_status"])
         object.__setattr__(self, "coverage_percent", normalized_metadata["coverage_percent"])
+        object.__setattr__(
+            self,
+            "cursor_jira_operations_performed",
+            normalized_metadata["cursor_jira_operations_performed"],
+        )
+        object.__setattr__(self, "agent_task_count", normalized_metadata["agent_task_count"])
+        object.__setattr__(self, "jira_mapping_complete", normalized_metadata["jira_mapping_complete"])
+        object.__setattr__(self, "task_count_waiver", normalized_metadata["task_count_waiver"])
 
     def to_dict(self) -> dict[str, object]:
         """Return a plain-structure dictionary for serialization."""
@@ -91,4 +107,8 @@ class ExportManifest:
             "codecov_project_status": self.codecov_project_status,
             "codecov_patch_status": self.codecov_patch_status,
             "coverage_percent": self.coverage_percent,
+            "cursor_jira_operations_performed": self.cursor_jira_operations_performed,
+            "agent_task_count": self.agent_task_count,
+            "jira_mapping_complete": self.jira_mapping_complete,
+            "task_count_waiver": self.task_count_waiver,
         }

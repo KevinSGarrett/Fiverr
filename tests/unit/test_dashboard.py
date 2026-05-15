@@ -160,6 +160,119 @@ def test_governance_presentation_state_marks_missing_status_as_unknown_warning()
     assert row_by_category["merge_readiness"]["severity"] == "warning"
 
 
+def test_governance_presentation_state_handles_warning_and_error_severities() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    rows = app_module.build_governance_presentation_state(
+        local_parity="pass",
+        github_actions="warning",
+        codecov_project="fail",
+        codecov_patch="pending",
+    )
+    row_by_category = {row["category"]: row for row in rows}
+    assert row_by_category["local_parity"]["severity"] == "ok"
+    assert row_by_category["github_actions"]["severity"] == "warning"
+    assert row_by_category["codecov_project"]["severity"] == "error"
+    assert row_by_category["codecov_patch"]["severity"] == "warning"
+
+
+def test_governance_page_ready_state_uses_deterministic_order() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    page_state = app_module.build_governance_page_ready_state(
+        jira_mapping="in_review",
+        codex_disposition="pass",
+        github_actions="pass",
+        codecov_project="warning",
+        codecov_patch="pass",
+        local_parity="pass",
+        merge_readiness="pending",
+    )
+    assert [row["category"] for row in page_state["categories"]] == [
+        "jira_mapping",
+        "codex_disposition",
+        "github_actions",
+        "codecov_project",
+        "codecov_patch",
+        "local_parity",
+        "merge_readiness",
+    ]
+    assert page_state["summary"]["warning"] == 3
+
+
+def test_governance_page_ready_state_includes_local_parity_in_severity_totals() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    page_state = app_module.build_governance_page_ready_state(
+        jira_mapping="pass",
+        codex_disposition="pass",
+        github_actions="pass",
+        codecov_project="pass",
+        codecov_patch="pass",
+        local_parity="fail",
+        merge_readiness="pass",
+    )
+    assert any(row["category"] == "local_parity" for row in page_state["categories"])
+    assert page_state["summary"]["error"] == 1
+
+
+def test_query_active_story_groups_uses_report_and_manifest_evidence() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    story_groups = app_module.query_active_story_groups(
+        report_rows=[
+            {
+                "story_group": "dashboard",
+                "jira_keys": ["SCRUM-212", "SCRUM-213"],
+                "status": "in_progress",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+            }
+        ],
+        manifest_rows=[
+            {
+                "story_group": "exports",
+                "jira_keys": ["SCRUM-226"],
+                "status": "in_review",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+            }
+        ],
+    )
+    assert [item["story_group"] for item in story_groups] == ["dashboard", "exports"]
+    assert story_groups[0]["sources"] == ["report"]
+    assert story_groups[1]["sources"] == ["manifest"]
+
+
+def test_opportunities_keywords_and_run_history_descriptors_support_empty_state() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    opportunities = app_module.get_opportunities_page_descriptor()
+    keywords = app_module.get_keywords_page_descriptor()
+    run_history = app_module.get_run_history_page_descriptor()
+    assert opportunities["empty_state"] is True
+    assert "confidence" in opportunities["table_columns"]
+    assert keywords["columns"] == [
+        "keyword",
+        "niche",
+        "cluster",
+        "score",
+        "confidence",
+        "freshness_status",
+    ]
+    assert run_history["columns"][0] == "run_id"
+    assert run_history["empty_state"] is True
+
+
+def test_alert_readiness_placeholders_normalize_unknown_severity_and_missing_jira_keys() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    alerts = app_module.build_alert_readiness_placeholders(
+        [
+            {"severity": "warning", "source": "governance", "jira_key": "SCRUM-228", "message": "Needs review"},
+            {"severity": "critical", "source": "ci", "jira_key": "", "message": "Unknown severity"},
+        ]
+    )
+    assert alerts[0]["severity"] == "warning"
+    assert alerts[0]["jira_key"] == "SCRUM-228"
+    assert alerts[1]["severity"] == "unknown"
+    assert alerts[1]["jira_key"] == "UNMAPPED"
+
+
 def test_main_renders_governance_and_readiness_sections_without_real_streamlit(
     monkeypatch,
 ) -> None:

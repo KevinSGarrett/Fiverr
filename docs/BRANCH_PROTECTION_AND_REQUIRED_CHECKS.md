@@ -6,6 +6,12 @@
 - Cycle work must happen on `cycle/###/integration` branches and merge into `develop`.
 - `main` is release-only and must not receive direct cycle merges or direct pushes.
 
+## Cycle planning throughput guardrail
+
+- Standard cycle prompts should contain **10-20 substantive tasks per Cursor agent**.
+- Preferred assignment density is **12-16 tasks**.
+- Use fewer tasks only for hotfix or narrow repair cycles with an explicit written `TASK-COUNT WAIVER`.
+
 ## Set and verify default branch
 
 1. Verify current default branch:

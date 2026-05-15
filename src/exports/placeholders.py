@@ -59,6 +59,10 @@ def build_governance_manifest_metadata(
     codecov_project_status: str = "pending",
     codecov_patch_status: str = "pending",
     coverage_percent: float | None = None,
+    cursor_jira_operations_performed: bool = False,
+    agent_task_count: int = 10,
+    jira_mapping_complete: bool = True,
+    task_count_waiver: str | None = None,
 ) -> dict[str, object]:
     """Validate and normalize governance evidence metadata for export manifests."""
     normalized_jira_keys = sorted({key.strip() for key in jira_keys if key.strip()})
@@ -84,6 +88,15 @@ def build_governance_manifest_metadata(
 
     if coverage_percent is not None and (coverage_percent < 0 or coverage_percent > 100):
         raise ValueError("coverage_percent must be between 0 and 100.")
+    normalized_waiver = (task_count_waiver or "").strip()
+    if normalized_waiver and _looks_secret_like(normalized_waiver):
+        raise ValueError("task_count_waiver must not contain secret-like values.")
+    if agent_task_count < 0:
+        raise ValueError("agent_task_count must be zero or greater.")
+    if not jira_mapping_complete and not normalized_waiver:
+        raise ValueError("task_count_waiver is required when jira_mapping_complete is False.")
+    if agent_task_count == 0 and not normalized_waiver:
+        raise ValueError("task_count_waiver is required when agent_task_count is zero.")
 
     return {
         "jira_keys": normalized_jira_keys,
@@ -92,5 +105,9 @@ def build_governance_manifest_metadata(
         "codecov_project_status": project_status,
         "codecov_patch_status": patch_status,
         "coverage_percent": coverage_percent,
+        "cursor_jira_operations_performed": cursor_jira_operations_performed,
+        "agent_task_count": agent_task_count,
+        "jira_mapping_complete": jira_mapping_complete,
+        "task_count_waiver": normalized_waiver,
     }
 

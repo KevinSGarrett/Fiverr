@@ -39,6 +39,12 @@ from src.reports import (
     build_phase2_readiness_template,
     render_plain_text_summary,
 )
+from src.reports.placeholders import (
+    ACTIVE_STORY_STATUSES,
+    JIRA_MAPPING_TYPES,
+    JIRA_UPDATED_BY_VALUES,
+    build_active_story_groups,
+)
 
 
 def test_run_summary_with_minimal_data_validates() -> None:
@@ -322,27 +328,41 @@ def test_build_jira_mapping_table_renders_dict_and_markdown() -> None:
         [
             {
                 "changed_file_group": "src/dashboard/",
+                "mapping_type": "product",
                 "jira_keys": ("SCRUM-212", "SCRUM-213"),
                 "status": "in_progress",
                 "dod_status": "partial",
+                "agent": "D",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+                "pull_request": "pending",
+                "jira_updated_by": "cursor_agent",
             },
             {
                 "changed_file_group": "docs/governance/",
+                "mapping_type": "governance",
                 "jira_keys": (),
                 "status": "done",
                 "dod_status": "not_applicable",
+                "agent": "D",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+                "pull_request": "pending",
+                "jira_updated_by": "pm",
                 "not_applicable_reason": "No product behavior change",
             },
         ]
     )
-    assert rows[0]["jira_keys"] == ["SCRUM-212", "SCRUM-213"]
-    assert rows[1]["not_applicable_reason"] == "No product behavior change"
+    assert rows[0]["mapping_type"] == "governance"
+    assert rows[0]["not_applicable_reason"] == "No product behavior change"
+    assert rows[1]["jira_keys"] == ["SCRUM-212", "SCRUM-213"]
 
     rendered = build_jira_mapping_table(rows, output_format="markdown")
-    assert "| Changed File Group | Jira Keys | Status | DOD Status | Not Applicable Reason |" in rendered
+    assert "| Mapping Type | Changed File Group | Jira Keys | Status | DOD Status | Agent | Cycle | Branch | PR | Jira Updated By | Not Applicable Reason |" in rendered
     assert "src/dashboard/" in rendered
     assert "SCRUM-212, SCRUM-213" in rendered
     assert "No product behavior change" in rendered
+    assert "cursor_agent" in rendered
 
 
 def test_build_jira_mapping_table_rejects_missing_jira_keys_without_not_applicable_reason() -> None:
@@ -351,12 +371,83 @@ def test_build_jira_mapping_table_rejects_missing_jira_keys_without_not_applicab
             [
                 {
                     "changed_file_group": "src/reports/",
+                    "mapping_type": "governance",
                     "jira_keys": (),
                     "status": "in_progress",
                     "dod_status": "partial",
+                    "agent": "D",
+                    "cycle": "010",
+                    "branch": "cycle/010/integration",
+                    "pull_request": "pending",
+                    "jira_updated_by": "cursor_agent",
                 }
             ]
         )
+
+
+def test_build_jira_mapping_table_rejects_duplicate_jira_keys_across_rows() -> None:
+    with pytest.raises(ValueError, match="duplicate key across rows"):
+        build_jira_mapping_table(
+            [
+                {
+                    "changed_file_group": "src/dashboard/",
+                    "mapping_type": "product",
+                    "jira_keys": ("SCRUM-213",),
+                    "status": "in_progress",
+                    "dod_status": "partial",
+                    "agent": "D",
+                    "cycle": "010",
+                    "branch": "cycle/010/integration",
+                    "pull_request": "pending",
+                    "jira_updated_by": "cursor_agent",
+                },
+                {
+                    "changed_file_group": "src/reports/",
+                    "mapping_type": "governance",
+                    "jira_keys": ("SCRUM-213",),
+                    "status": "in_progress",
+                    "dod_status": "partial",
+                    "agent": "D",
+                    "cycle": "010",
+                    "branch": "cycle/010/integration",
+                    "pull_request": "pending",
+                    "jira_updated_by": "cursor_agent",
+                },
+            ]
+        )
+
+
+def test_build_jira_mapping_table_accepts_mixed_governance_and_product_mappings() -> None:
+    rows = build_jira_mapping_table(
+        [
+            {
+                "changed_file_group": "src/reports/",
+                "mapping_type": "governance",
+                "jira_keys": ("SCRUM-250", "SCRUM-252"),
+                "status": "in_progress",
+                "dod_status": "partial",
+                "agent": "D",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+                "pull_request": "pending",
+                "jira_updated_by": "pm_and_cursor_agent",
+            },
+            {
+                "changed_file_group": "src/dashboard/",
+                "mapping_type": "product",
+                "jira_keys": ("SCRUM-212",),
+                "status": "in_progress",
+                "dod_status": "partial",
+                "agent": "D",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+                "pull_request": "pending",
+                "jira_updated_by": "cursor_agent",
+            },
+        ]
+    )
+    assert rows[0]["mapping_type"] == "governance"
+    assert rows[1]["mapping_type"] == "product"
 
 
 def test_build_governance_manifest_metadata_validates_shape_and_values() -> None:
@@ -367,6 +458,9 @@ def test_build_governance_manifest_metadata_validates_shape_and_values() -> None
         codecov_project_status="pass",
         codecov_patch_status="warning",
         coverage_percent=92.4,
+        cursor_jira_operations_performed=True,
+        agent_task_count=11,
+        jira_mapping_complete=True,
     )
     assert metadata == {
         "jira_keys": ["SCRUM-212", "SCRUM-250"],
@@ -375,6 +469,10 @@ def test_build_governance_manifest_metadata_validates_shape_and_values() -> None
         "codecov_project_status": "pass",
         "codecov_patch_status": "warning",
         "coverage_percent": 92.4,
+        "cursor_jira_operations_performed": True,
+        "agent_task_count": 11,
+        "jira_mapping_complete": True,
+        "task_count_waiver": "",
     }
 
 
@@ -395,6 +493,9 @@ def test_export_manifest_includes_governance_metadata_fields() -> None:
         codecov_project_status="pass",
         codecov_patch_status="pass",
         coverage_percent=95.5,
+        cursor_jira_operations_performed=True,
+        agent_task_count=11,
+        jira_mapping_complete=True,
     )
     serialized = manifest.to_dict()
     assert serialized["jira_keys"] == ["SCRUM-212", "SCRUM-250"]
@@ -403,6 +504,10 @@ def test_export_manifest_includes_governance_metadata_fields() -> None:
     assert serialized["codecov_project_status"] == "pass"
     assert serialized["codecov_patch_status"] == "pass"
     assert serialized["coverage_percent"] == 95.5
+    assert serialized["cursor_jira_operations_performed"] is True
+    assert serialized["agent_task_count"] == 11
+    assert serialized["jira_mapping_complete"] is True
+    assert serialized["task_count_waiver"] == ""
 
 
 def test_export_manifest_rejects_out_of_range_coverage_percent() -> None:
@@ -414,4 +519,55 @@ def test_export_manifest_rejects_out_of_range_coverage_percent() -> None:
             path="exports/cycle008/validation.json",
             coverage_percent=120.0,
         )
+
+
+def test_governance_manifest_metadata_rejects_incomplete_cycle_governance_fields() -> None:
+    with pytest.raises(ValueError, match="task_count_waiver is required when jira_mapping_complete is False"):
+        build_governance_manifest_metadata(
+            jira_keys=("SCRUM-252",),
+            jira_mapping_complete=False,
+            agent_task_count=11,
+        )
+
+
+def test_active_story_groups_placeholder_filters_and_groups_deterministically() -> None:
+    rows = build_active_story_groups(
+        [
+            {
+                "story_group": "dashboard",
+                "jira_keys": ("SCRUM-212", "SCRUM-213"),
+                "status": "in_progress",
+                "source": "report",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+            },
+            {
+                "story_group": "dashboard",
+                "jira_keys": ("SCRUM-213", "SCRUM-228"),
+                "status": "in_review",
+                "source": "manifest",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+            },
+            {
+                "story_group": "exports",
+                "jira_keys": ("SCRUM-226",),
+                "status": "done",
+                "source": "report",
+                "cycle": "010",
+                "branch": "cycle/010/integration",
+            },
+        ]
+    )
+    assert len(rows) == 1
+    assert rows[0]["story_group"] == "dashboard"
+    assert rows[0]["jira_keys"] == ["SCRUM-212", "SCRUM-213", "SCRUM-228"]
+    assert rows[0]["sources"] == ["manifest", "report"]
+
+
+def test_report_placeholder_exports_include_new_mapping_constants() -> None:
+    assert "governance" in JIRA_MAPPING_TYPES
+    assert "product" in JIRA_MAPPING_TYPES
+    assert "cursor_agent" in JIRA_UPDATED_BY_VALUES
+    assert "in_review" in ACTIVE_STORY_STATUSES
 
