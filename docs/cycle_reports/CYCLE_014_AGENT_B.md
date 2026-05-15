@@ -145,4 +145,3 @@ Agent B implementation commit: `34ca314`.
   - `src/dashboard/pages.py`
 - Preserve import-safe boundary (no Streamlit imports at module import time outside explicit runtime entry functions).
 - Do not mark dashboard stories Done until source DoD evidence includes final UI and smoke acceptance criteria.
-
