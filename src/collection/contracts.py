@@ -7,14 +7,41 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 REQUIRED_COLLECTION_SUMMARY_STAGES: tuple[str, ...] = (
     "stage_1_keyword_expansion",
     "stage_2b_autocomplete",
     "stage_2_search_plan",
+    "stage_3_queue",
     "stage_4_gig_detail",
     "stage_5_seller_profile",
+    "stage_6a_external_signals",
+    "stage_7_checkpoint_metadata",
+    "stage_8_pacing_decisions",
+)
+
+STABLE_COLLECTION_STAGE_NAMES: tuple[str, ...] = (
+    "stage_1_keyword_expansion",
+    "stage_2b_autocomplete",
+    "stage_2_search_plan",
+    "stage_3_queue",
+    "stage_4_gig_detail",
+    "stage_5_seller_profile",
+    "stage_6a_external_signals",
+    "stage_6b_community_signals",
+    "stage_7_checkpoint_metadata",
+    "stage_8_pacing_decisions",
+)
+
+RECORDS_SEEN_STAGE_NAMES: tuple[str, ...] = ("stage_1_keyword_expansion",)
+RECORDS_WRITTEN_STAGE_NAMES: tuple[str, ...] = (
+    "stage_2b_autocomplete",
+    "stage_3_queue",
+    "stage_4_gig_detail",
+    "stage_5_seller_profile",
+    "stage_6a_external_signals",
+    "stage_6b_community_signals",
     "stage_7_checkpoint_metadata",
     "stage_8_pacing_decisions",
 )
@@ -61,6 +88,18 @@ class CollectionStageResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class CollectionCheckpointEvidence(BaseModel):
+    """Serializable checkpoint and pacing evidence for downstream reporting."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    checkpoint_path: str
+    pacing_decisions: dict[str, Any] = Field(default_factory=dict)
+    cooldown_applied: bool = False
+    retry_count: int = Field(default=0, ge=0)
+    fixture_mode: bool = True
+
+
 def validate_collection_stage_summary(summary: dict[str, Any]) -> None:
     """Validate required dry-run stage representation in one summary payload."""
 
@@ -87,3 +126,67 @@ def validate_collection_stage_summary(summary: dict[str, Any]) -> None:
             + ", ".join(sorted(invalid_stage_counts))
             + "."
         )
+
+    unknown_stages = [
+        stage_name for stage_name in stage_counts if stage_name not in STABLE_COLLECTION_STAGE_NAMES
+    ]
+    if unknown_stages:
+        raise ValueError(
+            "Collection stage summary has unstable stage names: "
+            + ", ".join(sorted(unknown_stages))
+            + "."
+        )
+
+    stage_names = summary.get("stage_names")
+    if stage_names is not None:
+        if not isinstance(stage_names, list) or any(not isinstance(name, str) for name in stage_names):
+            raise ValueError("Collection stage summary 'stage_names' must be a list of strings.")
+        if stage_names != list(stage_counts.keys()):
+            raise ValueError("Collection stage summary 'stage_names' must match stage_counts key order.")
+
+    records_seen = summary.get("records_seen")
+    if records_seen is not None:
+        if not isinstance(records_seen, int) or records_seen < 0:
+            raise ValueError("Collection stage summary 'records_seen' must be a non-negative integer.")
+        expected_records_seen = sum(stage_counts.get(stage_name, 0) for stage_name in RECORDS_SEEN_STAGE_NAMES)
+        if records_seen != expected_records_seen:
+            raise ValueError(
+                "Collection stage summary records_seen mismatch: "
+                f"expected {expected_records_seen}, found {records_seen}."
+            )
+
+    records_written = summary.get("records_written")
+    if records_written is not None:
+        if not isinstance(records_written, int) or records_written < 0:
+            raise ValueError("Collection stage summary 'records_written' must be a non-negative integer.")
+        expected_records_written = sum(
+            stage_counts.get(stage_name, 0) for stage_name in RECORDS_WRITTEN_STAGE_NAMES
+        )
+        if records_written != expected_records_written:
+            raise ValueError(
+                "Collection stage summary records_written mismatch: "
+                f"expected {expected_records_written}, found {records_written}."
+            )
+
+    warning_count = summary.get("warning_count")
+    warnings = summary.get("warnings")
+    if warning_count is not None or warnings is not None:
+        if not isinstance(warnings, list) or any(not isinstance(warning, str) for warning in warnings):
+            raise ValueError("Collection stage summary 'warnings' must be a list of strings.")
+        if not isinstance(warning_count, int) or warning_count < 0:
+            raise ValueError("Collection stage summary 'warning_count' must be a non-negative integer.")
+        if warning_count != len(warnings):
+            raise ValueError(
+                "Collection stage summary warning_count mismatch: "
+                f"expected {len(warnings)}, found {warning_count}."
+            )
+
+    failed = summary.get("failed")
+    error_code = summary.get("error_code")
+    if failed is not None and not isinstance(failed, bool):
+        raise ValueError("Collection stage summary 'failed' must be a boolean when provided.")
+    if failed:
+        if not isinstance(error_code, str) or not error_code.strip():
+            raise ValueError("Failed collection stage summaries must include a non-empty 'error_code'.")
+    elif error_code is not None:
+        raise ValueError("Collection stage summary must not include 'error_code' unless failed is true.")

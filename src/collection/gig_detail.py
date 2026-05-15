@@ -80,6 +80,13 @@ def _extract_text(html: str, test_id: str) -> str | None:
             if self.result is None and self._collect_depth > 0:
                 self._chunks.append(data)
 
+        def close(self) -> None:
+            # Recover text from malformed HTML when target node never closes.
+            if self.result is None and self._collect_depth > 0:
+                cleaned = _clean_text("".join(self._chunks))
+                self.result = cleaned or None
+            super().close()
+
     parser = _DataTestIdTextParser(test_id)
     parser.feed(html)
     parser.close()

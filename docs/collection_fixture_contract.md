@@ -29,6 +29,22 @@ This contract defines the fixture schema and safety rules for `src/collection` d
 - `external_signal_fixture_path` JSON array of aggregate external signal records.
 - `community_signal_fixture_path` JSON array of aggregate community signal records.
 
+## Stage-to-Jira Fixture Mapping
+
+- `stage_1_keyword_expansion` -> derived from local seed keywords (`SCRUM-156` smoke harness baseline).
+- `stage_2_search_plan` -> deterministic local search plan placeholder (`SCRUM-156`).
+- `stage_3_queue` -> deterministic search-result queue placeholder (`SCRUM-156`).
+- `stage_2b_autocomplete` -> `autocomplete_fixture_path` local JSON fixture (`SCRUM-156`).
+- `stage_4_gig_detail` -> `gig_detail_fixture_path` local HTML parser boundaries (`SCRUM-149`).
+- `stage_5_seller_profile` -> `seller_profile_fixture_path` local HTML fixture (`SCRUM-156`).
+- `stage_6a_external_signals` -> `external_signal_fixture_path` local JSON placeholder (`SCRUM-156`).
+- `stage_6b_community_signals` -> `community_signal_fixture_path` local JSON placeholder (`SCRUM-156`).
+- `stage_7_checkpoint_metadata` and `stage_8_pacing_decisions` -> checkpoint/pacing evidence contract (`SCRUM-154`).
+
+## Progress Boundaries
+
+This collection implementation is fixture-backed partial progress only. It is not full live Fiverr collection completion, and it intentionally excludes browser login, account/session artifacts, and network scraping.
+
 ## Missing-Data Behavior (Allowed and Expected)
 
 - Missing optional fixture paths may fail with a controlled `fixture_unavailable` error.

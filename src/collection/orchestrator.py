@@ -11,6 +11,7 @@ from src.collection.autocomplete import AutocompleteFixtureError, load_autocompl
 from src.collection.checkpoint import checkpoint_queue_state
 from src.collection.community_signals import load_community_signal_fixture
 from src.collection.contracts import (
+    CollectionCheckpointEvidence,
     CollectionError,
     CollectionStageResult,
     CollectionStageStatus,
@@ -106,6 +107,20 @@ def run_collection_dry_run(
             "stage_8_pacing_decisions": 0,
         }
         stage_warnings: dict[str, list[str]] = {}
+        fixture_sources: dict[str, str] = {
+            "stage_1_keyword_expansion": "derived_seed_keywords",
+            "stage_2_search_plan": "derived_search_plan",
+            "stage_3_queue": "derived_queue_plan",
+            "stage_2b_autocomplete": str(autocomplete_fixture_path) if autocomplete_fixture_path else "placeholder",
+            "stage_4_gig_detail": str(gig_detail_fixture_path) if gig_detail_fixture_path else "placeholder",
+            "stage_5_seller_profile": str(seller_profile_fixture_path) if seller_profile_fixture_path else "placeholder",
+            "stage_6a_external_signals": (
+                str(external_signal_fixture_path) if external_signal_fixture_path else "placeholder"
+            ),
+            "stage_6b_community_signals": (
+                str(community_signal_fixture_path) if community_signal_fixture_path else "placeholder"
+            ),
+        }
         pacing_decisions = {
             "queue_mode": "deterministic_fixture",
             "per_page_limit": max_pages,
@@ -160,7 +175,9 @@ def run_collection_dry_run(
 
         stage_summary: dict[str, object] = {
             "stage_counts": stage_counts,
+            "stage_names": list(stage_counts.keys()),
             "stage_warnings": stage_warnings,
+            "fixture_sources": fixture_sources,
             "checkpoint_metadata": {
                 "schema_version": "1.0",
                 "job_count": len(queue.jobs),
@@ -171,18 +188,40 @@ def run_collection_dry_run(
         }
         stage_counts["stage_7_checkpoint_metadata"] = 1
         stage_counts["stage_8_pacing_decisions"] = 1
-        records_written = len(queue.jobs) + sum(
-            count
-            for stage_name, count in stage_counts.items()
-            if stage_name not in {"stage_1_keyword_expansion", "stage_2_search_plan", "stage_3_queue"}
+        records_seen = len(expanded.expanded_keywords)
+        records_written = (
+            stage_counts["stage_2b_autocomplete"]
+            + stage_counts["stage_3_queue"]
+            + stage_counts["stage_4_gig_detail"]
+            + stage_counts["stage_5_seller_profile"]
+            + stage_counts["stage_6a_external_signals"]
+            + stage_counts["stage_6b_community_signals"]
+            + stage_counts["stage_7_checkpoint_metadata"]
+            + stage_counts["stage_8_pacing_decisions"]
         )
+        checkpoint_evidence = CollectionCheckpointEvidence(
+            checkpoint_path=str(checkpoint_path),
+            pacing_decisions=pacing_decisions,
+            cooldown_applied=False,
+            retry_count=0,
+            fixture_mode=True,
+        )
+        stage_summary["records_seen"] = records_seen
+        stage_summary["records_written"] = records_written
+        stage_summary["warnings"] = list(warnings)
+        stage_summary["warning_count"] = len(warnings)
+        stage_summary["failed"] = False
+        stage_summary["checkpoint_evidence"] = checkpoint_evidence.model_dump()
         validate_collection_stage_summary(stage_summary)
         saved_checkpoint = checkpoint_queue_state(queue, checkpoint_path, stage_summary=stage_summary)
+        persisted_checkpoint_evidence = checkpoint_evidence.model_copy(
+            update={"checkpoint_path": str(saved_checkpoint)}
+        )
 
         return CollectionStageResult(
             stage_name="collection_dry_run",
             status=CollectionStageStatus.SUCCESS,
-            records_seen=len(expanded.expanded_keywords),
+            records_seen=records_seen,
             records_written=records_written,
             warnings=warnings,
             checkpoint_path=saved_checkpoint,
@@ -194,7 +233,9 @@ def run_collection_dry_run(
                 "queue_jobs_count": len(queue.jobs),
                 "stage_counts": stage_counts,
                 "stage_warnings": stage_warnings,
+                "fixture_sources": fixture_sources,
                 "max_pages": max_pages,
+                "checkpoint_evidence": persisted_checkpoint_evidence.model_dump(),
             },
         )
     except (FileNotFoundError, AutocompleteFixtureError) as exc:
@@ -209,6 +250,12 @@ def run_collection_dry_run(
                     message=str(exc),
                 )
             ],
+            metadata={
+                "stage_summary": {
+                    "failed": True,
+                    "error_code": "fixture_unavailable",
+                }
+            },
         )
     except Exception as exc:
         return CollectionStageResult(
@@ -222,4 +269,10 @@ def run_collection_dry_run(
                     message=str(exc),
                 )
             ],
+            metadata={
+                "stage_summary": {
+                    "failed": True,
+                    "error_code": "dry_run_failed",
+                }
+            },
         )
