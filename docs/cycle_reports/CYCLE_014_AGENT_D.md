@@ -19,9 +19,9 @@ Product-facing increments:
 | Branch | `cycle/014/integration` |
 | Head SHA at start of Agent D pass | `cb77842` |
 | Current target branch | `develop` |
-| PR URL | Pending until push + PR create step |
+| PR URL | `https://github.com/KevinSGarrett/Fiverr/pull/11` |
 | Protected branch operations | No `main` branch operations executed |
-| Agent D commit hash | `4356d9e` |
+| Agent D commit hashes | `4356d9e`, `b77699c` |
 
 ## Jira Keys Touched
 
@@ -111,11 +111,11 @@ Product-facing increments:
 - Modified files: `.gitignore`, export/dashboard/report/test/ledger/report files listed above
 - Generated artifact observed: `coverage.xml` (now ignored via `.gitignore`)
 
-### After Commit
+### After Commit / Push
 
 `git status --short --branch`:
 
-- `## cycle/014/integration...origin/cycle/014/integration [ahead 13]`
+- `## cycle/014/integration...origin/cycle/014/integration`
 
 ## Jira Comments / Transitions Performed
 
@@ -140,9 +140,9 @@ No transitions to `Done` were executed; recommendations remain conservative.
 
 | Item | Status |
 | --- | --- |
-| Existing `cycle/014/integration -> develop` PR | Not found yet (must create after push) |
-| Codex review thread disposition | Pending PR creation and review-thread query |
-| Codecov project/patch check disposition | Pending PR/check creation on pushed head |
+| Existing `cycle/014/integration -> develop` PR | Open: `https://github.com/KevinSGarrett/Fiverr/pull/11` |
+| Codex review thread disposition | `gh api graphql ... reviewThreads` returned no active review threads (`nodes=[]`) at check time |
+| CI / Codecov project/patch disposition | `gh pr checks 11` currently shows workflow checks as `pending`; codecov statuses are not yet posted while workflow is running |
 
 ## Risks
 
