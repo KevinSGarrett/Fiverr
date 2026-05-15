@@ -84,6 +84,8 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | Command | Result |
 | --- | --- |
 | `python -m pytest tests/unit/test_analysis.py -q` | `98 passed` |
+| `python -m pytest -q tests/unit/test_orchestrator_helpers.py` | `13 passed` |
+| `python -m pytest -q tests/unit/test_dashboard_queries.py` | `6 passed` |
 | `python -m ruff check src/analysis tests/unit/test_analysis.py tests/fixtures/analysis` | pass |
 | `python -m mypy src/analysis` | pass |
 | `python -m ruff check .` | pass |
@@ -92,6 +94,7 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | `python run.py config-check` | pass |
 | `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db` | pass |
 | `python run.py phase2-smoke` | pass |
+| `Test-Path docs/cycle_reports/CYCLE_014_AGENT_C.md` / `src/analysis/contracts.py` / `tests/fixtures/analysis/factories.py` | all `True` |
 
 ## Coverage
 
@@ -135,3 +138,10 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 - Keep `dashboard_handoff_contract` keys stable while dashboard pages/query layer integrate final rendering logic.
 - Use `tests/fixtures/analysis/factories.py` for deterministic sparse/empty/missing-case coverage in future analysis changes.
 - Keep all analysis stories in `In Progress`/`In Review` until source DoD is fully met end-to-end.
+
+## Completion Audit Against Agent C Prompt
+
+| Prompt Task | Status | Evidence |
+| --- | --- | --- |
+| `C01` - `C21` implementation and required validations/comments/report/commit | Completed for Agent C deliverables | Analysis modules/tests/contracts/fixtures updated; Jira comments posted on all touched issues; full validation block plus targeted tests passed; scoped commits recorded. |
+| Source-story DoD at Jira story level for `SCRUM-157` - `SCRUM-164`, `SCRUM-231`, `SCRUM-235`, `SCRUM-237` | Not 100% closed | Jira definitions explicitly include broader end-to-end requirements (full integration/persistence/UI/taxonomy closure) beyond this bounded Agent C implementation pass. |
