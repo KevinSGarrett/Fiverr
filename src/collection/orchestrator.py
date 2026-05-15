@@ -91,6 +91,7 @@ def run_collection_dry_run(
 
     started_at = datetime.now(UTC)
     run_id = f"dryrun-{uuid4().hex[:12]}"
+    current_stage_name = "stage_1_keyword_expansion"
     try:
         if not isinstance(seed_keywords, Sequence) or isinstance(seed_keywords, (str | bytes)):
             raise ValueError("seed_keywords must be a sequence of strings.")
@@ -174,6 +175,7 @@ def run_collection_dry_run(
             stage_warnings.setdefault("stage_7_checkpoint_metadata", []).append(warning)
 
         if autocomplete_fixture_path:
+            current_stage_name = "stage_2b_autocomplete"
             autocomplete_plan = load_autocomplete_fixture(
                 autocomplete_fixture_path,
                 seed_keyword=expanded.expanded_keywords[0].source_seed if expanded.expanded_keywords else "seed",
@@ -205,6 +207,7 @@ def run_collection_dry_run(
             warnings.append(skip_reason)
 
         if gig_detail_fixture_path:
+            current_stage_name = "stage_4_gig_detail"
             gig_detail_html = Path(gig_detail_fixture_path).read_text(encoding="utf-8")
             gig_detail = parse_gig_detail_from_html(gig_detail_html)
             stage_counts["stage_4_gig_detail"] = 1 if gig_detail.title else 0
@@ -225,6 +228,7 @@ def run_collection_dry_run(
             warnings.append(skip_reason)
 
         if seller_profile_fixture_path:
+            current_stage_name = "stage_5_seller_profile"
             seller_profile_html = Path(seller_profile_fixture_path).read_text(encoding="utf-8")
             seller_profile = parse_seller_profile_from_html(seller_profile_html)
             stage_counts["stage_5_seller_profile"] = 1 if seller_profile.display_name or seller_profile.username else 0
@@ -235,8 +239,16 @@ def run_collection_dry_run(
                 "records_seen": 1,
                 "records_written": stage_counts["stage_5_seller_profile"],
             }
+            if stage_counts["stage_5_seller_profile"] == 0:
+                warning = (
+                    "Seller profile fixture did not include seller identity detail; "
+                    "Stage 5 readiness is blocked until fixture coverage improves."
+                )
+                stage_metrics["stage_5_seller_profile"]["readiness_status"] = "blocked"
+                stage_warnings.setdefault("stage_5_seller_profile", []).append(warning)
+                warnings.append(warning)
             if seller_profile.warnings:
-                stage_warnings["stage_5_seller_profile"] = list(seller_profile.warnings)
+                stage_warnings.setdefault("stage_5_seller_profile", []).extend(seller_profile.warnings)
                 warnings.extend(seller_profile.warnings)
         else:
             skip_reason = (
@@ -253,6 +265,7 @@ def run_collection_dry_run(
             warnings.append(skip_reason)
 
         if external_signal_fixture_path:
+            current_stage_name = "stage_6a_external_signals"
             external_signals = load_external_signal_fixture(external_signal_fixture_path)
             stage_counts["stage_6a_external_signals"] = len(external_signals)
             stage_statuses["stage_6a_external_signals"] = CollectionStageStatus.SUCCESS.value
@@ -278,6 +291,7 @@ def run_collection_dry_run(
             warnings.append(skip_reason)
 
         if community_signal_fixture_path:
+            current_stage_name = "stage_6b_community_signals"
             community_signals, community_warnings = load_community_signal_fixture(community_signal_fixture_path)
             stage_counts["stage_6b_community_signals"] = len(community_signals)
             stage_statuses["stage_6b_community_signals"] = CollectionStageStatus.SUCCESS.value
@@ -321,6 +335,7 @@ def run_collection_dry_run(
             and (stage_counts["stage_6a_external_signals"] > 0 or stage_counts["stage_6b_community_signals"] > 0)
         )
         if has_required_lineage:
+            current_stage_name = "stage_9_auto_promotion_decision"
             stage_counts["stage_9_auto_promotion_decision"] = 1
             stage_statuses["stage_9_auto_promotion_decision"] = CollectionStageStatus.SUCCESS.value
             stage_metrics["stage_9_auto_promotion_decision"] = {
@@ -450,6 +465,7 @@ def run_collection_dry_run(
             },
         )
     except (FileNotFoundError, AutocompleteFixtureError) as exc:
+        failed_stage_id = _build_resumable_stage_id(run_id, current_stage_name, 0)
         return CollectionStageResult(
             stage_name="collection_dry_run",
             status=CollectionStageStatus.FAILED,
@@ -465,10 +481,23 @@ def run_collection_dry_run(
                 "stage_summary": {
                     "failed": True,
                     "error_code": "fixture_unavailable",
+                    "failed_stage_names": [current_stage_name],
+                    "stage_execution": [
+                        {
+                            "stage_name": current_stage_name,
+                            "execution_index": 1,
+                            "status": CollectionStageStatus.FAILED.value,
+                            "failure_code": "fixture_unavailable",
+                            "started_at": started_at.isoformat(),
+                            "finished_at": datetime.now(UTC).isoformat(),
+                            "resumable_stage_id": failed_stage_id,
+                        }
+                    ],
                 }
             },
         )
     except Exception as exc:
+        failed_stage_id = _build_resumable_stage_id(run_id, current_stage_name, 0)
         return CollectionStageResult(
             stage_name="collection_dry_run",
             status=CollectionStageStatus.FAILED,
@@ -484,6 +513,18 @@ def run_collection_dry_run(
                 "stage_summary": {
                     "failed": True,
                     "error_code": "dry_run_failed",
+                    "failed_stage_names": [current_stage_name],
+                    "stage_execution": [
+                        {
+                            "stage_name": current_stage_name,
+                            "execution_index": 1,
+                            "status": CollectionStageStatus.FAILED.value,
+                            "failure_code": "dry_run_failed",
+                            "started_at": started_at.isoformat(),
+                            "finished_at": datetime.now(UTC).isoformat(),
+                            "resumable_stage_id": failed_stage_id,
+                        }
+                    ],
                 }
             },
         )

@@ -1165,3 +1165,21 @@ def test_collection_dry_run_empty_signal_fixtures_warn_instead_of_fabricating_re
     assert result.metadata["stage_counts"]["stage_6b_community_signals"] == 0
     assert any("External signal fixture returned zero records." == warning for warning in result.warnings)
     assert any("Community signal fixture returned zero records." == warning for warning in result.warnings)
+
+
+def test_collection_dry_run_seller_placeholder_marks_blocked_when_fixture_lacks_identity(tmp_path: Path) -> None:
+    weak_seller_fixture = tmp_path / "seller_weak.html"
+    weak_seller_fixture.write_text(
+        "<html><body><div data-testid='seller-country'>United States</div></body></html>",
+        encoding="utf-8",
+    )
+    result = run_collection_dry_run(
+        ["logo design"],
+        checkpoint_path=tmp_path / "seller-blocked-checkpoint.json",
+        seller_profile_fixture_path=weak_seller_fixture,
+    )
+    assert str(result.status).endswith("success")
+    assert result.metadata["stage_counts"]["stage_5_seller_profile"] == 0
+    seller_metrics = result.metadata["stage_metrics"]["stage_5_seller_profile"]
+    assert seller_metrics["readiness_status"] == "blocked"
+    assert any("stage 5 readiness is blocked" in warning.lower() for warning in result.warnings)

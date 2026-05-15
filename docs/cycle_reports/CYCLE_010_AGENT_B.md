@@ -11,14 +11,14 @@
 
 | Task | Jira | Status | Notes |
 | --- | --- | --- | --- |
-| B1 - Advance S2.14 stage orchestration metadata | SCRUM-154 | Completed (partial-story) | Added deterministic `stage_execution` lifecycle metadata, skipped/failed lists, resumable stage identity, and execution-order contract support. |
+| B1 - Advance S2.14 stage orchestration metadata | SCRUM-154 | Completed (task scope 100%) | Added deterministic `stage_execution` lifecycle metadata, skipped/failed lists, resumable stage identity, execution-order contract support, and explicit failed-stage metadata for controlled failure paths. |
 | B2 - Checkpoint/resume regression coverage | SCRUM-154, SCRUM-156 | Completed (partial-story) | Added checkpoint stage-summary validation/load helpers and tests for sorted-key JSON survival, resume identity mapping, and corrupted fallback. |
-| B3 - Fixture-backed E2E smoke strengthening | SCRUM-156 | Completed (partial-story) | Expanded smoke to assert implemented vs safe-skip stage behavior (keyword, queue/search, gig detail, seller placeholder, external/community placeholders). |
+| B3 - Fixture-backed E2E smoke strengthening | SCRUM-156 | Completed (task scope 100%) | Expanded smoke to assert implemented vs safe-skip stage behavior (keyword, search-result fixture ingestion, queue/search, gig detail, seller placeholder, external/community placeholders). |
 | B4 - Gig-detail extraction boundaries | SCRUM-149 | Completed (partial-story) | Added parser boundary note + tests for missing `data-testid`, repeated ids, malformed fragments, whitespace-only content, and safe fallback. |
-| B5 - Seller-profile placeholder boundary | SCRUM-150, SCRUM-154 | Completed (partial-story) | Added explicit Stage 5 placeholder accounting with readiness status, records_seen/written, and skip warnings when fixture absent. |
-| B6 - External-signal placeholder boundary | SCRUM-151, SCRUM-152, SCRUM-154 | Completed (partial-story) | Added explicit Stage 6a/6b safe skip behavior with zero counts and warnings instead of false success. |
-| B7 - Autocomplete stage accounting | SCRUM-153, SCRUM-154 | Completed (partial-story) | Added deterministic Stage 2b accounting with dedupe metadata (`raw`, `deduplicated`, removed). |
-| B8 - Auto-promotion dry-run placeholder | SCRUM-155, SCRUM-154 | Completed (partial-story) | Added deterministic Stage 9 readiness placeholder with criteria evaluated, decision status, and lineage fields. |
+| B5 - Seller-profile placeholder boundary | SCRUM-150, SCRUM-154 | Completed (task scope 100%) | Added explicit Stage 5 placeholder accounting with readiness status (`implemented`/`skipped`/`blocked`), records_seen/written, and warnings for missing fixture data and weak fixture detail. |
+| B6 - External-signal placeholder boundary | SCRUM-151, SCRUM-152, SCRUM-154 | Completed (task scope 100%) | Added explicit Stage 6a/6b safe skip behavior with zero counts and warnings instead of false success, with blocked readiness for empty fixture payloads. |
+| B7 - Autocomplete stage accounting | SCRUM-153, SCRUM-154 | Completed (task scope 100%) | Added deterministic Stage 2b accounting with fixture-backed output/safe skip behavior and dedupe metadata (`raw`, `deduplicated`, removed). |
+| B8 - Auto-promotion dry-run placeholder | SCRUM-155, SCRUM-154 | Completed (task scope 100%) | Added deterministic Stage 9 readiness placeholder with criteria evaluated, decision status, lineage fields, and explicit implemented/skipped/blocked signaling. |
 | B9 - Direct Jira operations | SCRUM-149..156 | Completed | Read all mapped issues, transitioned applicable To Do tickets to In Progress, and added evidence comments to touched tickets. |
 | B10 - Full collection validation + report | SCRUM-154, SCRUM-156 | Completed | Ran required lint/type/test commands and documented outputs, limitations, and recommendations here. |
 
@@ -35,7 +35,7 @@
 
 ## Validation Commands and Results
 
-- `python -m pytest tests/unit/test_collection.py tests/integration/test_collection_e2e.py -q` -> **pass** (`80 passed`)
+- `python -m pytest tests/unit/test_collection.py tests/integration/test_collection_e2e.py -q` -> **pass** (`81 passed`)
 - `python -m mypy src/collection` -> **pass** (`Success: no issues found in 19 source files`)
 - `python -m ruff check src/collection tests/unit/test_collection.py tests/integration/test_collection_e2e.py` -> **pass**
 
@@ -66,6 +66,17 @@ Cloud/site: `kevinsgarrett.atlassian.net` (`eae77257-a572-4e19-b746-8b184ba2d01f
   - SCRUM-156
 
 Each comment includes: cycle, agent, branch, changed files, validation evidence, and partial/full DOD status.
+
+### Follow-up closure comments
+
+- Added additional Cycle 010 closure comments after final gap pass to:
+  - SCRUM-150
+  - SCRUM-151
+  - SCRUM-152
+  - SCRUM-153
+  - SCRUM-154
+  - SCRUM-155
+  - SCRUM-156
 
 ## Limitations / Known Gaps
 

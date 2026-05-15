@@ -8,6 +8,7 @@ from pathlib import Path
 from src.collection.checkpoint import load_checkpoint_stage_summary_or_fallback
 from src.collection.contracts import CollectionStageStatus
 from src.collection.orchestrator import run_collection_dry_run
+from src.collection.selectors import parse_search_result_cards_from_html
 
 
 def test_collection_dry_run_pipeline_creates_expected_artifacts(tmp_path) -> None:
@@ -50,6 +51,10 @@ def test_collection_dry_run_invalid_input_returns_failed_result(tmp_path) -> Non
     )
     assert result.status == CollectionStageStatus.FAILED
     assert result.errors
+    stage_summary = result.metadata["stage_summary"]
+    assert stage_summary["failed"] is True
+    assert stage_summary["failed_stage_names"]
+    assert stage_summary["stage_execution"][0]["status"] == CollectionStageStatus.FAILED.value
 
 
 def test_collection_dry_run_missing_fixture_path_returns_failed_without_traceback(tmp_path) -> None:
@@ -136,6 +141,10 @@ def test_collection_fixture_dry_run_smoke_is_deterministic_and_local_only(tmp_pa
     assert "session_token" not in checkpoint_text
     leftover_db_files = [path for path in tmp_path.rglob("*") if path.suffix in {".db", ".sqlite", ".sqlite3"}]
     assert leftover_db_files == []
+    search_results_html = Path("tests/fixtures/collection/search_results.html").read_text(encoding="utf-8")
+    parsed_cards = parse_search_result_cards_from_html(search_results_html)
+    assert len(parsed_cards) >= 2
+    assert all(card.url.startswith("/services/") for card in parsed_cards)
 
 
 def test_collection_fixture_dry_run_smoke_distinguishes_safe_skips(tmp_path: Path) -> None:
