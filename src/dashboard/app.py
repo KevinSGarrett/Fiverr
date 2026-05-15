@@ -13,6 +13,66 @@ from src.dashboard.navigation import (
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 from src.reports import build_governance_report_placeholders
 
+GOVERNANCE_STATUS_ORDER = (
+    "local_parity",
+    "github_actions",
+    "codecov_project",
+    "codecov_patch",
+    "codex_disposition",
+    "jira_mapping",
+    "merge_readiness",
+)
+
+_GOVERNANCE_STATUS_MESSAGES = {
+    "local_parity": "Local parity checks (ruff, mypy, pytest coverage gate, config-check, foundation-gate, phase2-smoke).",
+    "github_actions": "GitHub Actions workflow checks for the PR head commit.",
+    "codecov_project": "Codecov project status check for repository-wide coverage.",
+    "codecov_patch": "Codecov patch status check for diff coverage.",
+    "codex_disposition": "Codex review-thread disposition and resolution state.",
+    "jira_mapping": "Jira governance and product-story mapping completeness for changed file groups.",
+    "merge_readiness": "Branch policy and merge-readiness confirmation from latest validation and review state.",
+}
+
+
+def _normalize_governance_status(raw_status: str | None) -> tuple[str, str]:
+    if raw_status is None or not raw_status.strip():
+        return ("unknown", "warning")
+    return (raw_status.strip(), "ok")
+
+
+def build_governance_presentation_state(
+    *,
+    local_parity: str | None = None,
+    github_actions: str | None = None,
+    codecov_project: str | None = None,
+    codecov_patch: str | None = None,
+    codex_disposition: str | None = None,
+    jira_mapping: str | None = None,
+    merge_readiness: str | None = None,
+) -> list[dict[str, str]]:
+    """Return import-safe governance presentation data for dashboard rendering."""
+    statuses = {
+        "local_parity": local_parity,
+        "github_actions": github_actions,
+        "codecov_project": codecov_project,
+        "codecov_patch": codecov_patch,
+        "codex_disposition": codex_disposition,
+        "jira_mapping": jira_mapping,
+        "merge_readiness": merge_readiness,
+    }
+    rows: list[dict[str, str]] = []
+    for category in GOVERNANCE_STATUS_ORDER:
+        normalized_status, severity = _normalize_governance_status(statuses[category])
+        rows.append(
+            {
+                "category": category,
+                "status": normalized_status,
+                "severity": severity,
+                "message": _GOVERNANCE_STATUS_MESSAGES[category],
+            }
+        )
+    return rows
+
 
 def build_page_title() -> str:
     """Return a stable dashboard title for the foundation shell."""
@@ -36,13 +96,21 @@ def get_phase2_readiness_state() -> dict[str, Any]:
 
 def get_governance_status_state() -> list[dict[str, str]]:
     """Expose gate-level governance statuses for operator visibility."""
+    report_checks = {item.report_type: item.status for item in build_governance_report_placeholders()}
     return [
         {
-            "check": item.report_type,
-            "status": item.status,
-            "message": item.message,
+            "check": row["category"],
+            "status": row["status"],
+            "severity": row["severity"],
+            "message": row["message"],
         }
-        for item in build_governance_report_placeholders()
+        for row in build_governance_presentation_state(
+            local_parity=report_checks.get("local_parity"),
+            github_actions=report_checks.get("github_actions"),
+            codecov_project=report_checks.get("codecov_project"),
+            codecov_patch=report_checks.get("codecov_patch"),
+            codex_disposition=report_checks.get("codex_disposition"),
+        )
     ]
 
 

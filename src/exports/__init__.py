@@ -17,6 +17,7 @@ from src.exports.placeholders import (
     SUPPORTED_EXPORT_FORMATS,
     XLSX_FORMAT,
     build_governance_export_status_map,
+    build_governance_manifest_metadata,
     validate_export_format,
 )
 
@@ -34,6 +35,7 @@ __all__ = [
     "SUPPORTED_EXPORT_FORMATS",
     "XLSX_FORMAT",
     "build_governance_export_status_map",
+    "build_governance_manifest_metadata",
     "normalize_export_format",
     "validate_export_format",
     "validate_export_request",

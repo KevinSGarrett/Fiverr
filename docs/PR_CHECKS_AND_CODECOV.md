@@ -8,6 +8,8 @@ Every pull request targeting `develop` must have:
 - Local coverage parity gate passing at >= 90%.
 - Codecov patch coverage status present and >= 90%.
 - Codecov project coverage status present and >= 90%.
+- Integration/GitHub Steward verification that PR body has a Jira mapping section for changed files.
+- Integration/GitHub Steward verification that product-file changes map to product-story Jira keys (governance-only keys are insufficient).
 
 Missing checks are blockers. Pending checks are blockers. Failing checks are blockers.
 
@@ -84,5 +86,7 @@ A PR is merge-ready only when all are true:
 - All required GitHub checks are green.
 - Codecov project >= 90%.
 - Codecov patch >= 90%.
+- Integration/GitHub Steward has verified Jira mapping section covers all changed paths.
+- Integration/GitHub Steward has verified that product files changed include product stories alongside governance keys.
 - PR targets `develop`.
 - `main` remains untouched by cycle work.

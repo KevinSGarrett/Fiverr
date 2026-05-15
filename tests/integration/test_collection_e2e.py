@@ -86,18 +86,46 @@ def test_collection_fixture_dry_run_smoke_is_deterministic_and_local_only(tmp_pa
     assert result_a.status == CollectionStageStatus.SUCCESS
     assert result_b.status == CollectionStageStatus.SUCCESS
     assert result_a.warnings == result_b.warnings
-    assert result_a.metadata["stage_counts"]["stage_2_search_plan"] > 0
-    assert result_a.metadata["stage_counts"]["stage_3_queue"] > 0
-    assert result_a.metadata["stage_counts"]["stage_7_checkpoint_metadata"] == 1
-    assert result_a.metadata["stage_counts"]["stage_8_pacing_decisions"] == 1
+    stage_counts = result_a.metadata["stage_counts"]
+    required_smoke_stages = {
+        "stage_1_keyword_expansion",
+        "stage_2_search_plan",
+        "stage_3_queue",
+        "stage_4_gig_detail",
+        "stage_5_seller_profile",
+        "stage_6a_external_signals",
+    }
+    assert required_smoke_stages.issubset(stage_counts)
+    assert stage_counts["stage_1_keyword_expansion"] > 0
+    assert stage_counts["stage_2_search_plan"] > 0
+    assert stage_counts["stage_3_queue"] > 0
+    assert stage_counts["stage_4_gig_detail"] == 1
+    assert stage_counts["stage_5_seller_profile"] == 1
+    assert stage_counts["stage_6a_external_signals"] > 0
+    assert stage_counts["stage_7_checkpoint_metadata"] == 1
+    assert stage_counts["stage_8_pacing_decisions"] == 1
+
+    fixture_sources = result_a.metadata["fixture_sources"]
+    assert fixture_sources["stage_1_keyword_expansion"] == "derived_seed_keywords"
+    assert fixture_sources["stage_2_search_plan"] == "derived_search_plan"
+    assert fixture_sources["stage_3_queue"] == "derived_queue_plan"
+    assert fixture_sources["stage_4_gig_detail"].startswith("tests/fixtures/collection/")
+    assert fixture_sources["stage_5_seller_profile"].startswith("tests/fixtures/collection/")
+    assert fixture_sources["stage_6a_external_signals"].startswith("tests/fixtures/collection/")
 
     checkpoint_payload = json.loads(checkpoint_a.read_text(encoding="utf-8"))
     stage_summary = checkpoint_payload["stage_summary"]
     assert stage_summary["stage_counts"]
     assert stage_summary["checkpoint_metadata"]["schema_version"] == "1.0"
     assert stage_summary["pacing_decisions"]["queue_mode"] == "deterministic_fixture"
+    assert stage_summary["fixture_sources"]["stage_4_gig_detail"].startswith("tests/fixtures/collection/")
+    assert stage_summary["fixture_sources"]["stage_6a_external_signals"].startswith("tests/fixtures/collection/")
 
-    assert "playwright" not in checkpoint_a.read_text(encoding="utf-8").lower()
-    assert "storage_state" not in checkpoint_a.read_text(encoding="utf-8").lower()
+    checkpoint_text = checkpoint_a.read_text(encoding="utf-8").lower()
+    assert "playwright" not in checkpoint_text
+    assert "storage_state" not in checkpoint_text
+    assert "requests" not in checkpoint_text
+    assert "httpx" not in checkpoint_text
+    assert "session_token" not in checkpoint_text
     leftover_db_files = [path for path in tmp_path.rglob("*") if path.suffix in {".db", ".sqlite", ".sqlite3"}]
     assert leftover_db_files == []

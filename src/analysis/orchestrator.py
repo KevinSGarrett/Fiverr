@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -29,6 +30,76 @@ from src.analysis.intent import classify_intent
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
+
+STAGE_EXECUTION_ORDER: tuple[AnalysisTaskType, ...] = (
+    AnalysisTaskType.KEYWORD_CLUSTERING,
+    AnalysisTaskType.GIG_QUALITY,
+    AnalysisTaskType.COMPETITOR_PROFILE,
+    AnalysisTaskType.SELLER_STRENGTH,
+    AnalysisTaskType.SATURATION,
+    AnalysisTaskType.REVIEW_ANALYSIS,
+    AnalysisTaskType.INTENT_CLASSIFICATION,
+)
+
+_INTENT_SELECTION_CONFIDENCE: dict[str, float] = {
+    "explicit_intent_keyword": 1.0,
+    "top_level_keyword_text": 0.9,
+    "keywords_first_entry": 0.8,
+    "source_id_fallback": 0.6,
+}
+
+
+@dataclass(frozen=True)
+class _IntentKeywordSelection:
+    keyword_text: str
+    selection_reason: str
+    selection_confidence: float
+
+
+@dataclass(frozen=True)
+class _AnalysisRunContract:
+    stage_order: list[str]
+    successful_stages: list[str]
+    failed_stages: list[str]
+    skipped_stages: list[str]
+    warning_count: int
+    missing_field_count: int
+    scoring_readiness: dict[str, Any]
+
+    @classmethod
+    def from_stages(
+        cls,
+        stages: list[AnalysisStageSummary],
+        payload: dict[str, Any],
+        *,
+        warning_count: int,
+    ) -> _AnalysisRunContract:
+        stage_by_type = {stage.stage: stage for stage in stages}
+        successful_stages: list[str] = []
+        failed_stages: list[str] = []
+        skipped_stages: list[str] = []
+        missing_field_count = 0
+        for stage_type in STAGE_EXECUTION_ORDER:
+            stage_summary = stage_by_type.get(stage_type)
+            if stage_summary is None:
+                skipped_stages.append(stage_type.value)
+                continue
+            if stage_summary.status == AnalysisStatus.SUCCESS:
+                successful_stages.append(stage_type.value)
+            elif stage_summary.status == AnalysisStatus.FAILED:
+                failed_stages.append(stage_type.value)
+            missing_fields = stage_summary.metadata.get("missing_field_count", 0)
+            if isinstance(missing_fields, int) and missing_fields >= 0:
+                missing_field_count += missing_fields
+        return cls(
+            stage_order=[stage_type.value for stage_type in STAGE_EXECUTION_ORDER],
+            successful_stages=successful_stages,
+            failed_stages=failed_stages,
+            skipped_stages=skipped_stages,
+            warning_count=warning_count,
+            missing_field_count=missing_field_count,
+            scoring_readiness=summarize_scoring_readiness(stages, payload),
+        )
 
 
 def _stage_metadata(
@@ -112,27 +183,140 @@ def _non_empty_text_or_none(value: Any) -> str | None:
     return text
 
 
-def _resolve_intent_keyword_text(payload: dict[str, Any], source_id: str) -> str:
+def _resolve_intent_keyword_selection(
+    payload: dict[str, Any], source_id: str
+) -> _IntentKeywordSelection:
     """Resolve keyword text with explicit null/blank fallback handling."""
     intent_section = payload.get("intent", {})
     if isinstance(intent_section, dict):
         intent_keyword = _non_empty_text_or_none(intent_section.get("keyword_text"))
         if intent_keyword is not None:
-            return intent_keyword
+            return _IntentKeywordSelection(
+                keyword_text=intent_keyword,
+                selection_reason="explicit_intent_keyword",
+                selection_confidence=_INTENT_SELECTION_CONFIDENCE["explicit_intent_keyword"],
+            )
 
     payload_keyword = _non_empty_text_or_none(payload.get("keyword_text"))
     if payload_keyword is not None:
-        return payload_keyword
+        return _IntentKeywordSelection(
+            keyword_text=payload_keyword,
+            selection_reason="top_level_keyword_text",
+            selection_confidence=_INTENT_SELECTION_CONFIDENCE["top_level_keyword_text"],
+        )
 
     keywords_section = payload.get("keywords")
     if isinstance(keywords_section, list):
         for keyword in keywords_section:
             candidate = _non_empty_text_or_none(keyword)
             if candidate is not None:
-                return candidate
+                return _IntentKeywordSelection(
+                    keyword_text=candidate,
+                    selection_reason="keywords_first_entry",
+                    selection_confidence=_INTENT_SELECTION_CONFIDENCE["keywords_first_entry"],
+                )
 
     # Preserve source_id fallback so intent classification still receives a stable key.
-    return source_id
+    return _IntentKeywordSelection(
+        keyword_text=source_id,
+        selection_reason="source_id_fallback",
+        selection_confidence=_INTENT_SELECTION_CONFIDENCE["source_id_fallback"],
+    )
+
+
+def _normalize_collection_evidence(
+    evidence_input: Any, *, source_id: str
+) -> tuple[dict[str, Any] | None, list[AnalysisWarning]]:
+    """Normalize optional upstream collection evidence with warning-safe fallback."""
+    if evidence_input is None:
+        return None, []
+
+    if not isinstance(evidence_input, dict):
+        return None, [
+            AnalysisWarning(
+                code="collection_evidence_invalid",
+                message="collection_evidence must be a dictionary when provided.",
+                source_id=source_id,
+                metadata={"reason": "invalid_type", "type": type(evidence_input).__name__},
+            )
+        ]
+
+    warnings: list[AnalysisWarning] = []
+    normalized: dict[str, Any] = {
+        "source_stage_names": [],
+        "fixture_mode": None,
+        "records_seen": 0,
+        "records_written": 0,
+        "warnings": [],
+        "warning_count": 0,
+    }
+
+    source_stages = evidence_input.get("source_stage_names", [])
+    if isinstance(source_stages, list):
+        normalized["source_stage_names"] = [
+            stage_name.strip()
+            for stage_name in source_stages
+            if isinstance(stage_name, str) and stage_name.strip()
+        ]
+    else:
+        warnings.append(
+            AnalysisWarning(
+                code="collection_evidence_invalid",
+                message="collection_evidence.source_stage_names must be a list.",
+                source_id=source_id,
+                metadata={"reason": "source_stage_names_not_list"},
+            )
+        )
+
+    fixture_mode = evidence_input.get("fixture_mode")
+    if fixture_mode is None or isinstance(fixture_mode, bool | str):
+        normalized["fixture_mode"] = fixture_mode
+    else:
+        warnings.append(
+            AnalysisWarning(
+                code="collection_evidence_invalid",
+                message="collection_evidence.fixture_mode must be bool or string.",
+                source_id=source_id,
+                metadata={"reason": "fixture_mode_invalid_type"},
+            )
+        )
+
+    for field_name in ("records_seen", "records_written"):
+        raw_value = evidence_input.get(field_name, 0)
+        if isinstance(raw_value, int) and raw_value >= 0:
+            normalized[field_name] = raw_value
+        else:
+            warnings.append(
+                AnalysisWarning(
+                    code="collection_evidence_invalid",
+                    message=f"collection_evidence.{field_name} must be a non-negative integer.",
+                    source_id=source_id,
+                    metadata={"reason": f"{field_name}_invalid"},
+                )
+            )
+
+    evidence_warnings = evidence_input.get("warnings", [])
+    if isinstance(evidence_warnings, list):
+        normalized_warnings = [
+            warning_value.strip()
+            for warning_value in evidence_warnings
+            if isinstance(warning_value, str) and warning_value.strip()
+        ]
+        normalized["warnings"] = normalized_warnings
+        normalized["warning_count"] = len(normalized_warnings)
+    elif isinstance(evidence_warnings, int) and evidence_warnings >= 0:
+        normalized["warning_count"] = evidence_warnings
+    else:
+        warnings.append(
+            AnalysisWarning(
+                code="collection_evidence_invalid",
+                message="collection_evidence.warnings must be a list or non-negative integer.",
+                source_id=source_id,
+                metadata={"reason": "warnings_invalid_type"},
+            )
+        )
+
+    return normalized, warnings
 
 
 def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
@@ -170,6 +354,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
 
     metadata = payload.get("metadata", {})
     metadata_dict = metadata if isinstance(metadata, dict) else {}
+    collection_evidence, collection_evidence_warnings = _normalize_collection_evidence(
+        payload.get("collection_evidence"),
+        source_id=source_id,
+    )
     seller_strength_scores: list[float] = []
     gig_quality_scores: list[float] = []
 
@@ -471,18 +659,24 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     if "intent" in payload or "keyword_text" in payload or "keywords" in payload:
         try:
             intent_section = payload.get("intent", {})
+            intent_selection = _resolve_intent_keyword_selection(payload, source_id)
+            intent_metadata = {
+                **metadata_dict,
+                "intent_keyword_selection_reason": intent_selection.selection_reason,
+                "intent_keyword_selection_confidence": intent_selection.selection_confidence,
+            }
             if isinstance(intent_section, dict):
-                keyword_text = _resolve_intent_keyword_text(payload, source_id)
+                keyword_text = intent_selection.keyword_text
                 title_phrases = intent_section.get("title_phrases", [])
             else:
-                keyword_text = _resolve_intent_keyword_text(payload, source_id)
+                keyword_text = intent_selection.keyword_text
                 title_phrases = payload.get("title_phrases", [])
             intent_input = IntentInput.model_validate(
                 {
                     "source_id": source_id,
                     "keyword_text": keyword_text,
                     "title_phrases": title_phrases,
-                    "metadata": metadata_dict,
+                    "metadata": intent_metadata,
                 }
             )
             intent_result = classify_intent(intent_input)
@@ -499,6 +693,8 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         missing_field_count=0,
                         label=intent_result.label.value,
                         matched_rule_count=len(intent_result.matched_rules),
+                        intent_keyword_selection_reason=intent_selection.selection_reason,
+                        intent_keyword_selection_confidence=intent_selection.selection_confidence,
                     ),
                 )
             )
@@ -521,6 +717,31 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     else:
         run_status = AnalysisStatus.FAILED
 
+    if collection_evidence_warnings:
+        all_warnings.extend(collection_evidence_warnings)
+
+    run_contract = _AnalysisRunContract.from_stages(
+        stages=stages,
+        payload=payload,
+        warning_count=len(all_warnings),
+    )
+
+    run_metadata: dict[str, Any] = {
+        "executed_stage_count": len(stages),
+        "success_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.SUCCESS),
+        "failed_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.FAILED),
+        "stage_order": run_contract.stage_order,
+        "successful_stages": run_contract.successful_stages,
+        "failed_stages": run_contract.failed_stages,
+        "skipped_stages": run_contract.skipped_stages,
+        "warning_count": run_contract.warning_count,
+        "missing_field_count": run_contract.missing_field_count,
+        "scoring_readiness": run_contract.scoring_readiness,
+        **metadata_dict,
+    }
+    if collection_evidence is not None:
+        run_metadata["collection_evidence"] = collection_evidence
+
     finished_at = datetime.now(UTC)
     return AnalysisRunSummary(
         run_id=run_id,
@@ -530,11 +751,5 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         status=run_status,
         stages=stages,
         warnings=all_warnings,
-        metadata={
-            "executed_stage_count": len(stages),
-            "success_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.SUCCESS),
-            "failed_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.FAILED),
-            "scoring_readiness": summarize_scoring_readiness(stages, payload),
-            **metadata_dict,
-        },
+        metadata=run_metadata,
     )

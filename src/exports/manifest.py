@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
+from typing import cast
 
 from src.exports.formats import ALLOWED_EXPORT_ROOTS, ExportFormat, normalize_export_format
+from src.exports.placeholders import build_governance_manifest_metadata
 
 CHECKSUM_PLACEHOLDER = "pending:sha256"
 
@@ -23,6 +25,12 @@ class ExportManifest:
     generated_at: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
     checksum: str = CHECKSUM_PLACEHOLDER
     allow_pending_checksum: bool = True
+    jira_keys: tuple[str, ...] = ()
+    github_pr_number: int | None = None
+    codex_threads_resolved: int = 0
+    codecov_project_status: str = "pending"
+    codecov_patch_status: str = "pending"
+    coverage_percent: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "format", normalize_export_format(self.format))
@@ -50,6 +58,22 @@ class ExportManifest:
         if self.checksum.startswith("sha256:") and len(self.checksum) <= len("sha256:"):
             raise ValueError("checksum digest is missing after 'sha256:'.")
 
+        normalized_metadata = build_governance_manifest_metadata(
+            jira_keys=self.jira_keys,
+            github_pr_number=self.github_pr_number,
+            codex_threads_resolved=self.codex_threads_resolved,
+            codecov_project_status=self.codecov_project_status,
+            codecov_patch_status=self.codecov_patch_status,
+            coverage_percent=self.coverage_percent,
+        )
+        normalized_jira_keys = cast(list[str], normalized_metadata["jira_keys"])
+        object.__setattr__(self, "jira_keys", tuple(normalized_jira_keys))
+        object.__setattr__(self, "github_pr_number", normalized_metadata["github_pr_number"])
+        object.__setattr__(self, "codex_threads_resolved", normalized_metadata["codex_threads_resolved"])
+        object.__setattr__(self, "codecov_project_status", normalized_metadata["codecov_project_status"])
+        object.__setattr__(self, "codecov_patch_status", normalized_metadata["codecov_patch_status"])
+        object.__setattr__(self, "coverage_percent", normalized_metadata["coverage_percent"])
+
     def to_dict(self) -> dict[str, object]:
         """Return a plain-structure dictionary for serialization."""
         return {
@@ -61,4 +85,10 @@ class ExportManifest:
             "checksum": self.checksum,
             "allow_pending_checksum": self.allow_pending_checksum,
             "included_sections": list(self.included_sections),
+            "jira_keys": list(self.jira_keys),
+            "github_pr_number": self.github_pr_number,
+            "codex_threads_resolved": self.codex_threads_resolved,
+            "codecov_project_status": self.codecov_project_status,
+            "codecov_patch_status": self.codecov_patch_status,
+            "coverage_percent": self.coverage_percent,
         }

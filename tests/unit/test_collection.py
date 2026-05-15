@@ -15,7 +15,7 @@ from src.collection.checkpoint import (
     load_queue_checkpoint,
 )
 from src.collection.community_signals import load_community_signal_fixture
-from src.collection.contracts import validate_collection_stage_summary
+from src.collection.contracts import CollectionCheckpointEvidence, validate_collection_stage_summary
 from src.collection.external_signals import (
     LiveSignalConnectorDisabledError,
     SignalFreshness,
@@ -341,6 +341,59 @@ def test_gig_detail_nested_markup_preserves_full_description_text() -> None:
     assert parsed.description == "Alpha Beta Gamma"
 
 
+def test_gig_detail_duplicate_data_testid_values_prefer_first_match() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="gig-title">Primary Title</h1>
+      <h1 data-testid="gig-title">Secondary Title</h1>
+      <div data-testid="seller-name">First Seller</div>
+      <div data-testid="seller-name">Second Seller</div>
+      <div data-testid="gig-description">Description body.</div>
+      <section data-testid="package-card">
+        <h3 data-testid="package-name">Basic</h3>
+        <span data-testid="package-price">$10</span>
+      </section>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.title == "Primary Title"
+    assert parsed.seller_name == "First Seller"
+
+
+def test_gig_detail_empty_data_testid_nodes_yield_warning_not_exception() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="gig-title">Empty Description Gig</h1>
+      <div data-testid="seller-name">Seller Name</div>
+      <div data-testid="gig-description"><span>   </span></div>
+      <section data-testid="package-card">
+        <h3 data-testid="package-name">Basic</h3>
+        <span data-testid="package-price">$20</span>
+      </section>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.description is None
+    assert any("description was not found" in warning.lower() for warning in parsed.warnings)
+
+
+def test_gig_detail_malformed_but_recoverable_nested_markup_keeps_text() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="gig-title">Malformed Gig</h1>
+      <div data-testid="seller-name">Seller Name</div>
+      <div data-testid="gig-description"><div>Alpha <span>Beta <strong>Gamma</strong></span>
+      <section data-testid="package-card">
+        <h3 data-testid="package-name">Basic</h3>
+        <span data-testid="package-price">$30</span>
+      </section>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.description is not None
+    assert "Alpha Beta Gamma" in parsed.description
+
+
 def test_extract_data_testid_text_returns_nested_text_without_truncation() -> None:
     html = """
     <div data-testid="target">
@@ -605,6 +658,271 @@ def test_collection_stage_summary_validator_rejects_missing_required_stage() -> 
                 }
             }
         )
+
+
+def test_collection_stage_summary_validator_accepts_consistent_invariants() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 3,
+            "stage_2b_autocomplete": 2,
+            "stage_2_search_plan": 2,
+            "stage_3_queue": 2,
+            "stage_4_gig_detail": 1,
+            "stage_5_seller_profile": 1,
+            "stage_6a_external_signals": 1,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": [
+            "stage_1_keyword_expansion",
+            "stage_2b_autocomplete",
+            "stage_2_search_plan",
+            "stage_3_queue",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_7_checkpoint_metadata",
+            "stage_8_pacing_decisions",
+        ],
+        "records_seen": 3,
+        "records_written": 9,
+        "warnings": ["fixture warning"],
+        "warning_count": 1,
+        "failed": False,
+    }
+    validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_allows_stage_names_when_stage_count_keys_reordered() -> None:
+    stage_names = [
+        "stage_1_keyword_expansion",
+        "stage_2b_autocomplete",
+        "stage_2_search_plan",
+        "stage_3_queue",
+        "stage_4_gig_detail",
+        "stage_5_seller_profile",
+        "stage_6a_external_signals",
+        "stage_6b_community_signals",
+        "stage_7_checkpoint_metadata",
+        "stage_8_pacing_decisions",
+    ]
+    stage_counts = {stage_name: index for index, stage_name in enumerate(sorted(stage_names), start=1)}
+    summary = json.loads(json.dumps({"stage_names": stage_names, "stage_counts": stage_counts}, sort_keys=True))
+    validate_collection_stage_summary(summary)
+
+
+@pytest.mark.parametrize(
+    ("stage_names", "error_match"),
+    [
+        (
+            [
+                "stage_1_keyword_expansion",
+                "stage_2b_autocomplete",
+                "stage_2_search_plan",
+                "stage_3_queue",
+                "stage_4_gig_detail",
+                "stage_6a_external_signals",
+                "stage_7_checkpoint_metadata",
+                "stage_8_pacing_decisions",
+            ],
+            "must match stage_counts stage keys",
+        ),
+        (
+            [
+                "stage_1_keyword_expansion",
+                "stage_2b_autocomplete",
+                "stage_2_search_plan",
+                "stage_3_queue",
+                "stage_4_gig_detail",
+                "stage_5_seller_profile",
+                "stage_6a_external_signals",
+                "stage_6b_community_signals",
+                "stage_7_checkpoint_metadata",
+                "stage_8_pacing_decisions",
+            ],
+            "must match stage_counts stage keys",
+        ),
+    ],
+)
+def test_collection_stage_summary_validator_rejects_missing_or_extra_stage_names(
+    stage_names: list[str], error_match: str
+) -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 1,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 1,
+            "stage_5_seller_profile": 1,
+            "stage_6a_external_signals": 1,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": stage_names,
+    }
+    with pytest.raises(ValueError, match=error_match):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_rejects_duplicate_stage_names() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": [
+            "stage_1_keyword_expansion",
+            "stage_2b_autocomplete",
+            "stage_2_search_plan",
+            "stage_3_queue",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_7_checkpoint_metadata",
+            "stage_8_pacing_decisions",
+        ],
+    }
+    with pytest.raises(ValueError, match="duplicate stages"):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_rejects_unknown_stage_name() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": [
+            "stage_1_keyword_expansion",
+            "stage_2b_autocomplete",
+            "stage_2_search_plan",
+            "stage_3_queue",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_7_checkpoint_metadata",
+            "stage_8_pacing_decisions",
+            "stage_9_unknown",
+        ],
+    }
+    with pytest.raises(ValueError, match="unstable stage names"):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_rejects_records_written_undercount() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 3,
+            "stage_2b_autocomplete": 2,
+            "stage_2_search_plan": 2,
+            "stage_3_queue": 2,
+            "stage_4_gig_detail": 1,
+            "stage_5_seller_profile": 1,
+            "stage_6a_external_signals": 1,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "records_seen": 3,
+        "records_written": 8,
+        "warnings": [],
+        "warning_count": 0,
+        "failed": False,
+    }
+    with pytest.raises(ValueError, match="records_written mismatch"):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_rejects_warning_count_mismatch() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "records_seen": 1,
+        "records_written": 3,
+        "warnings": ["a", "b"],
+        "warning_count": 1,
+        "failed": False,
+    }
+    with pytest.raises(ValueError, match="warning_count mismatch"):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_requires_error_code_for_failed_stage() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "records_seen": 1,
+        "records_written": 3,
+        "warnings": [],
+        "warning_count": 0,
+        "failed": True,
+    }
+    with pytest.raises(ValueError, match="error_code"):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_checkpoint_evidence_serializes_without_sensitive_fields() -> None:
+    evidence = CollectionCheckpointEvidence(
+        checkpoint_path="artifacts/collection/queue_checkpoint.json",
+        pacing_decisions={"queue_mode": "deterministic_fixture", "per_page_limit": 2},
+        cooldown_applied=True,
+        retry_count=1,
+        fixture_mode=True,
+    )
+    payload = evidence.model_dump()
+    assert payload == {
+        "checkpoint_path": "artifacts/collection/queue_checkpoint.json",
+        "pacing_decisions": {"queue_mode": "deterministic_fixture", "per_page_limit": 2},
+        "cooldown_applied": True,
+        "retry_count": 1,
+        "fixture_mode": True,
+    }
+    serialized = json.dumps(payload).lower()
+    assert "cookie" not in serialized
+    assert "session" not in serialized
+    assert "storage_state" not in serialized
 
 
 def test_collection_dry_run_non_positive_max_candidates_uses_safe_bounded_path(tmp_path: Path) -> None:

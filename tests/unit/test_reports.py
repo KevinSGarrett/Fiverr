@@ -10,6 +10,7 @@ from src.exports import (
     ExportManifest,
     ExportRequest,
     build_governance_export_status_map,
+    build_governance_manifest_metadata,
     normalize_export_format,
     validate_export_format,
     validate_export_request,
@@ -33,6 +34,7 @@ from src.reports import (
     SellerProfileParserCoverageReport,
     build_default_template,
     build_governance_report_placeholders,
+    build_jira_mapping_table,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
     render_plain_text_summary,
@@ -80,6 +82,12 @@ def test_export_manifest_is_serializable() -> None:
     assert serialized["checksum"] == CHECKSUM_PLACEHOLDER
     assert serialized["allow_pending_checksum"] is True
     assert serialized["included_sections"] == ["checks", "findings"]
+    assert serialized["jira_keys"] == []
+    assert serialized["github_pr_number"] is None
+    assert serialized["codex_threads_resolved"] == 0
+    assert serialized["codecov_project_status"] == "pending"
+    assert serialized["codecov_patch_status"] == "pending"
+    assert serialized["coverage_percent"] is None
 
 
 def test_export_manifest_rejects_disallowed_root_path() -> None:
@@ -307,4 +315,103 @@ def test_governance_export_status_map_uses_expected_keys() -> None:
         "codecov_patch": "pass",
         "codex_disposition": "valid_fixed",
     }
+
+
+def test_build_jira_mapping_table_renders_dict_and_markdown() -> None:
+    rows = build_jira_mapping_table(
+        [
+            {
+                "changed_file_group": "src/dashboard/",
+                "jira_keys": ("SCRUM-212", "SCRUM-213"),
+                "status": "in_progress",
+                "dod_status": "partial",
+            },
+            {
+                "changed_file_group": "docs/governance/",
+                "jira_keys": (),
+                "status": "done",
+                "dod_status": "not_applicable",
+                "not_applicable_reason": "No product behavior change",
+            },
+        ]
+    )
+    assert rows[0]["jira_keys"] == ["SCRUM-212", "SCRUM-213"]
+    assert rows[1]["not_applicable_reason"] == "No product behavior change"
+
+    rendered = build_jira_mapping_table(rows, output_format="markdown")
+    assert "| Changed File Group | Jira Keys | Status | DOD Status | Not Applicable Reason |" in rendered
+    assert "src/dashboard/" in rendered
+    assert "SCRUM-212, SCRUM-213" in rendered
+    assert "No product behavior change" in rendered
+
+
+def test_build_jira_mapping_table_rejects_missing_jira_keys_without_not_applicable_reason() -> None:
+    with pytest.raises(ValueError, match="jira_keys are required"):
+        build_jira_mapping_table(
+            [
+                {
+                    "changed_file_group": "src/reports/",
+                    "jira_keys": (),
+                    "status": "in_progress",
+                    "dod_status": "partial",
+                }
+            ]
+        )
+
+
+def test_build_governance_manifest_metadata_validates_shape_and_values() -> None:
+    metadata = build_governance_manifest_metadata(
+        jira_keys=("SCRUM-250", "SCRUM-212"),
+        github_pr_number=7,
+        codex_threads_resolved=3,
+        codecov_project_status="pass",
+        codecov_patch_status="warning",
+        coverage_percent=92.4,
+    )
+    assert metadata == {
+        "jira_keys": ["SCRUM-212", "SCRUM-250"],
+        "github_pr_number": 7,
+        "codex_threads_resolved": 3,
+        "codecov_project_status": "pass",
+        "codecov_patch_status": "warning",
+        "coverage_percent": 92.4,
+    }
+
+
+def test_build_governance_manifest_metadata_rejects_secret_like_values() -> None:
+    with pytest.raises(ValueError, match="secret-like values"):
+        build_governance_manifest_metadata(jira_keys=("ghp_abc123",))
+
+
+def test_export_manifest_includes_governance_metadata_fields() -> None:
+    manifest = ExportManifest(
+        artifact_type="cycle_validation",
+        format=ExportFormat.JSON,
+        source_cycle="008",
+        path="exports/cycle008/validation.json",
+        jira_keys=("SCRUM-250", "SCRUM-212"),
+        github_pr_number=8,
+        codex_threads_resolved=2,
+        codecov_project_status="pass",
+        codecov_patch_status="pass",
+        coverage_percent=95.5,
+    )
+    serialized = manifest.to_dict()
+    assert serialized["jira_keys"] == ["SCRUM-212", "SCRUM-250"]
+    assert serialized["github_pr_number"] == 8
+    assert serialized["codex_threads_resolved"] == 2
+    assert serialized["codecov_project_status"] == "pass"
+    assert serialized["codecov_patch_status"] == "pass"
+    assert serialized["coverage_percent"] == 95.5
+
+
+def test_export_manifest_rejects_out_of_range_coverage_percent() -> None:
+    with pytest.raises(ValueError, match="coverage_percent must be between 0 and 100"):
+        ExportManifest(
+            artifact_type="cycle_validation",
+            format=ExportFormat.JSON,
+            source_cycle="008",
+            path="exports/cycle008/validation.json",
+            coverage_percent=120.0,
+        )
 
