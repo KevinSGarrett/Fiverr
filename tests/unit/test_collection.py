@@ -695,6 +695,142 @@ def test_collection_stage_summary_validator_accepts_consistent_invariants() -> N
     validate_collection_stage_summary(summary)
 
 
+def test_collection_stage_summary_validator_allows_stage_names_when_stage_count_keys_reordered() -> None:
+    stage_names = [
+        "stage_1_keyword_expansion",
+        "stage_2b_autocomplete",
+        "stage_2_search_plan",
+        "stage_3_queue",
+        "stage_4_gig_detail",
+        "stage_5_seller_profile",
+        "stage_6a_external_signals",
+        "stage_6b_community_signals",
+        "stage_7_checkpoint_metadata",
+        "stage_8_pacing_decisions",
+    ]
+    stage_counts = {stage_name: index for index, stage_name in enumerate(sorted(stage_names), start=1)}
+    summary = json.loads(json.dumps({"stage_names": stage_names, "stage_counts": stage_counts}, sort_keys=True))
+    validate_collection_stage_summary(summary)
+
+
+@pytest.mark.parametrize(
+    ("stage_names", "error_match"),
+    [
+        (
+            [
+                "stage_1_keyword_expansion",
+                "stage_2b_autocomplete",
+                "stage_2_search_plan",
+                "stage_3_queue",
+                "stage_4_gig_detail",
+                "stage_6a_external_signals",
+                "stage_7_checkpoint_metadata",
+                "stage_8_pacing_decisions",
+            ],
+            "must match stage_counts stage keys",
+        ),
+        (
+            [
+                "stage_1_keyword_expansion",
+                "stage_2b_autocomplete",
+                "stage_2_search_plan",
+                "stage_3_queue",
+                "stage_4_gig_detail",
+                "stage_5_seller_profile",
+                "stage_6a_external_signals",
+                "stage_6b_community_signals",
+                "stage_7_checkpoint_metadata",
+                "stage_8_pacing_decisions",
+            ],
+            "must match stage_counts stage keys",
+        ),
+    ],
+)
+def test_collection_stage_summary_validator_rejects_missing_or_extra_stage_names(
+    stage_names: list[str], error_match: str
+) -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 1,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 1,
+            "stage_5_seller_profile": 1,
+            "stage_6a_external_signals": 1,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": stage_names,
+    }
+    with pytest.raises(ValueError, match=error_match):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_rejects_duplicate_stage_names() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": [
+            "stage_1_keyword_expansion",
+            "stage_2b_autocomplete",
+            "stage_2_search_plan",
+            "stage_3_queue",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_7_checkpoint_metadata",
+            "stage_8_pacing_decisions",
+        ],
+    }
+    with pytest.raises(ValueError, match="duplicate stages"):
+        validate_collection_stage_summary(summary)
+
+
+def test_collection_stage_summary_validator_rejects_unknown_stage_name() -> None:
+    summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+        },
+        "stage_names": [
+            "stage_1_keyword_expansion",
+            "stage_2b_autocomplete",
+            "stage_2_search_plan",
+            "stage_3_queue",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_7_checkpoint_metadata",
+            "stage_8_pacing_decisions",
+            "stage_9_unknown",
+        ],
+    }
+    with pytest.raises(ValueError, match="unstable stage names"):
+        validate_collection_stage_summary(summary)
+
+
 def test_collection_stage_summary_validator_rejects_records_written_undercount() -> None:
     summary = {
         "stage_counts": {

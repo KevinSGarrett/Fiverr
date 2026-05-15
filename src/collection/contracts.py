@@ -141,8 +141,37 @@ def validate_collection_stage_summary(summary: dict[str, Any]) -> None:
     if stage_names is not None:
         if not isinstance(stage_names, list) or any(not isinstance(name, str) for name in stage_names):
             raise ValueError("Collection stage summary 'stage_names' must be a list of strings.")
-        if stage_names != list(stage_counts.keys()):
-            raise ValueError("Collection stage summary 'stage_names' must match stage_counts key order.")
+        duplicate_stage_names = sorted({name for name in stage_names if stage_names.count(name) > 1})
+        if duplicate_stage_names:
+            raise ValueError(
+                "Collection stage summary 'stage_names' contains duplicate stages: "
+                + ", ".join(duplicate_stage_names)
+                + "."
+            )
+        unknown_stage_names = sorted(
+            stage_name for stage_name in stage_names if stage_name not in STABLE_COLLECTION_STAGE_NAMES
+        )
+        if unknown_stage_names:
+            raise ValueError(
+                "Collection stage summary 'stage_names' has unstable stage names: "
+                + ", ".join(unknown_stage_names)
+                + "."
+            )
+        stage_name_set = set(stage_names)
+        stage_count_key_set = set(stage_counts.keys())
+        if stage_name_set != stage_count_key_set:
+            missing_stage_names = sorted(stage_count_key_set - stage_name_set)
+            extra_stage_names = sorted(stage_name_set - stage_count_key_set)
+            mismatch_messages: list[str] = []
+            if missing_stage_names:
+                mismatch_messages.append("missing: " + ", ".join(missing_stage_names))
+            if extra_stage_names:
+                mismatch_messages.append("extra: " + ", ".join(extra_stage_names))
+            raise ValueError(
+                "Collection stage summary 'stage_names' must match stage_counts stage keys (unordered); "
+                + "; ".join(mismatch_messages)
+                + "."
+            )
 
     records_seen = summary.get("records_seen")
     if records_seen is not None:

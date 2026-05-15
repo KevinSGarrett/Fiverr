@@ -20,6 +20,8 @@ This contract defines the fixture schema and safety rules for `src/collection` d
   - `stage_5_seller_profile`
   - `stage_7_checkpoint_metadata`
   - `stage_8_pacing_decisions`
+  - `stage_names` represents stage execution order and must contain the same stage keys as `stage_counts`.
+  - `stage_counts` key ordering is not authoritative and may be reordered by JSON serialization.
 
 ## Optional Fixture Inputs
 
