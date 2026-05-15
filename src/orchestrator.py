@@ -94,10 +94,23 @@ def run_export_stub(export_format: str, input_path: str) -> int:
 
 def run_dashboard_stub(mode: str) -> int:
     normalized = mode.strip().lower() or "local"
+    dashboard_module = importlib.import_module("src.dashboard.app")
+    app_entry_smoke = dashboard_module.build_app_entry_smoke_state()
+    registration = app_entry_smoke["page_registration"]
+    startup = app_entry_smoke["startup"]
     print(
         f"Dashboard command accepted in '{normalized}' mode. "
         "Interactive dashboard runtime is scheduled for Epic 09."
     )
+    print(f"Dashboard app-entry module: {app_entry_smoke['entry']['entry_module']}")
+    print(f"Dashboard registration status: {registration['status']}")
+    print(f"Dashboard startup status: {startup['status']}")
+    if registration["missing_pages"]:
+        missing = ", ".join(registration["missing_pages"])
+        print(f"Dashboard app-entry missing registered pages: {missing}")
+        return 1
+    if startup["safe_empty_state"]:
+        print("Dashboard app-entry running in safe empty-state mode.")
     return 0
 
 

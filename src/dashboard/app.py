@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from src.dashboard.navigation import (
@@ -243,6 +244,104 @@ def get_app_entry_descriptor(*, branch: str | None = None, cycle: str | None = N
     }
 
 
+def _normalize_required_page_ids(page_ids: list[str]) -> list[str]:
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for page_id in page_ids:
+        if page_id in seen:
+            continue
+        seen.add(page_id)
+        normalized.append(page_id)
+    return normalized
+
+
+def build_app_startup_diagnostics(
+    *,
+    config_path: str = "config.yaml",
+    data_dir: str = "data",
+) -> dict[str, Any]:
+    """Return deterministic startup diagnostics for app-entry smoke checks."""
+    resolved_config = Path(config_path)
+    resolved_data_dir = Path(data_dir)
+    data_entries = sorted(item.name for item in resolved_data_dir.iterdir()) if resolved_data_dir.exists() else []
+    config_exists = resolved_config.is_file()
+    data_dir_exists = resolved_data_dir.is_dir()
+    has_data_entries = len(data_entries) > 0
+    safe_empty_state = not has_data_entries
+
+    checks = [
+        {
+            "name": "config_file",
+            "path": str(resolved_config),
+            "status": "ready" if config_exists else "warning",
+            "message": (
+                "Config file is available for dashboard startup."
+                if config_exists
+                else "Config file is missing; dashboard uses safe placeholder state."
+            ),
+        },
+        {
+            "name": "data_directory",
+            "path": str(resolved_data_dir),
+            "status": "ready" if data_dir_exists else "warning",
+            "message": (
+                "Data directory is available for dashboard data hydration."
+                if data_dir_exists
+                else "Data directory is missing; dashboard remains in empty-state mode."
+            ),
+        },
+        {
+            "name": "data_entries",
+            "path": str(resolved_data_dir),
+            "status": "ready" if has_data_entries else "warning",
+            "message": (
+                f"Found {len(data_entries)} data entries for dashboard hydration."
+                if has_data_entries
+                else "No data entries found; dashboard renders safe empty-state diagnostics."
+            ),
+        },
+    ]
+    warning_count = sum(1 for check in checks if check["status"] == "warning")
+    return {
+        "config_path": str(resolved_config),
+        "data_dir": str(resolved_data_dir),
+        "checks": checks,
+        "warning_count": warning_count,
+        "status": "warning" if warning_count else "ready",
+        "safe_empty_state": safe_empty_state,
+        "data_entries": data_entries,
+    }
+
+
+def build_app_entry_smoke_state(
+    *,
+    branch: str | None = None,
+    cycle: str | None = None,
+    config_path: str = "config.yaml",
+    data_dir: str = "data",
+) -> dict[str, Any]:
+    """Return app-entry smoke state for startup behavior and page registration."""
+    pages = get_available_pages()
+    required_page_ids = _normalize_required_page_ids([page.page_id for page in pages])
+    registered_page_ids = _normalize_required_page_ids([page.page_id for page in get_navigation_pages()])
+    missing_pages = [page_id for page_id in required_page_ids if page_id not in registered_page_ids]
+    startup = build_app_startup_diagnostics(config_path=config_path, data_dir=data_dir)
+    registration_status = "blocked" if missing_pages else "ready"
+    status = "blocked" if missing_pages else startup["status"]
+    return {
+        "entry": get_app_entry_descriptor(branch=branch, cycle=cycle),
+        "page_registration": {
+            "required_page_ids": required_page_ids,
+            "registered_page_ids": registered_page_ids,
+            "missing_pages": missing_pages,
+            "status": registration_status,
+        },
+        "startup": startup,
+        "status": status,
+        "safe_empty_state": startup["safe_empty_state"],
+    }
+
+
 def build_alert_readiness_placeholders(
     alerts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, str]]:
@@ -382,4 +481,12 @@ def main() -> None:
     for check in get_governance_status_state():
         st.write(f"- {check['check']}: {check['status']}")
         st.caption(check["message"])
+
+    st.subheader("App Entry Startup Diagnostics")
+    app_entry_state = build_app_entry_smoke_state()
+    st.write(f"- Entry module: {app_entry_state['entry']['entry_module']}")
+    st.write(f"- Registration status: {app_entry_state['page_registration']['status']}")
+    st.write(f"- Startup status: {app_entry_state['startup']['status']}")
+    if app_entry_state["safe_empty_state"]:
+        st.caption("Safe empty-state mode is active while data artifacts are unavailable.")
 

@@ -334,6 +334,40 @@ def test_export_system_and_app_entry_descriptors_use_stable_shapes() -> None:
     }
 
 
+def test_app_startup_diagnostics_handles_missing_config_and_data(tmp_path) -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_startup_diagnostics(
+        config_path=str(tmp_path / "missing-config.yaml"),
+        data_dir=str(tmp_path / "missing-data"),
+    )
+    assert diagnostics["status"] == "warning"
+    assert diagnostics["safe_empty_state"] is True
+    assert diagnostics["warning_count"] == 3
+    assert diagnostics["data_entries"] == []
+
+
+def test_app_entry_smoke_state_registers_all_required_pages(tmp_path) -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("niches: []\n", encoding="utf-8")
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "fiverr_research.db").write_text("placeholder", encoding="utf-8")
+
+    smoke_state = app_module.build_app_entry_smoke_state(
+        branch="cycle/012/integration",
+        cycle="012",
+        config_path=str(config_path),
+        data_dir=str(data_dir),
+    )
+    registration = smoke_state["page_registration"]
+    assert registration["status"] == "ready"
+    assert registration["missing_pages"] == []
+    assert smoke_state["status"] == "ready"
+    assert smoke_state["safe_empty_state"] is False
+    assert smoke_state["entry"]["branch"] == "cycle/012/integration"
+
+
 def test_alert_readiness_placeholders_normalize_unknown_severity_and_missing_jira_keys() -> None:
     app_module = importlib.import_module("src.dashboard.app")
     alerts = app_module.build_alert_readiness_placeholders(
@@ -392,6 +426,8 @@ def test_main_renders_governance_and_readiness_sections_without_real_streamlit(
 
     assert fake_streamlit.title_calls == ["Fiverr Research System Dashboard (Foundation Shell)"]
     assert "Cycle 007 Governance and Readiness" in fake_streamlit.subheader_calls
+    assert "App Entry Startup Diagnostics" in fake_streamlit.subheader_calls
     assert any("codecov_project: pending" in line for line in fake_streamlit.write_calls)
     assert any("codex_disposition: pending" in line for line in fake_streamlit.write_calls)
+    assert any("Entry module: src.dashboard.app:main" in line for line in fake_streamlit.write_calls)
 

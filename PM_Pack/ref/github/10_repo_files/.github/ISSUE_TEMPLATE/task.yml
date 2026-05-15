@@ -1,0 +1,58 @@
+name: Implementation Task
+description: A specific implementation task from a story or epic
+title: "[Task]: "
+labels: ["issue:task", "priority:P3-medium"]
+body:
+  - type: input
+    id: story
+    attributes:
+      label: Parent Story
+      description: Which story does this task belong to?
+      placeholder: "S1.2 — Config System"
+    validations:
+      required: true
+  - type: input
+    id: epic
+    attributes:
+      label: Parent Epic
+      placeholder: "Epic 01 — Foundation"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What exactly needs to be implemented?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know this task is done?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical Notes
+      description: Files to create/modify, dependencies, spec references
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Assigned Agent
+      options:
+        - "Agent 1 — Infrastructure"
+        - "Agent 2 — Collection"
+        - "Agent 3 — Analysis/Scoring"
+        - "Agent 4 — Dashboard/UX"
+    validations:
+      required: true
+  - type: input
+    id: spec_ref
+    attributes:
+      label: Spec Reference
+      placeholder: "project-pack/05_scoring/DEMAND_SCORE.md"

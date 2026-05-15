@@ -1,0 +1,65 @@
+{
+  "cycle": "013",
+  "created_date": "2026-05-15",
+  "source_repo_zip": "/mnt/data/Fiverr_012.zip",
+  "source_pm_pack_zip": "/mnt/data/PM_Pack_Cycle_012_READY(1).zip",
+  "primary_pr": 10,
+  "primary_jira": "SCRUM-256",
+  "tasks_total": 96,
+  "agents": {
+    "A": {
+      "tasks": 24,
+      "title": "PM Pack Required-File Reconciliation and Agent A Artifact Recovery",
+      "primary_jira": [
+        "SCRUM-256",
+        "SCRUM-255",
+        "SCRUM-254",
+        "SCRUM-250",
+        "SCRUM-252"
+      ]
+    },
+    "B": {
+      "tasks": 24,
+      "title": "GitHub PR #10 Stewardship, Codex Disposition, and Merge Gate",
+      "primary_jira": [
+        "SCRUM-256",
+        "SCRUM-253",
+        "SCRUM-254",
+        "SCRUM-250",
+        "SCRUM-255"
+      ]
+    },
+    "C": {
+      "tasks": 24,
+      "title": "Prompt Template, Agent C Validation Path, and PM Pack Consistency Hardening",
+      "primary_jira": [
+        "SCRUM-256",
+        "SCRUM-254",
+        "SCRUM-252",
+        "SCRUM-246"
+      ]
+    },
+    "D": {
+      "tasks": 24,
+      "title": "Jira AC/DoD Ledger, Local App-Entry Reconciliation, and Product Story Status Stewardship",
+      "primary_jira": [
+        "SCRUM-256",
+        "SCRUM-255",
+        "SCRUM-228",
+        "SCRUM-212",
+        "SCRUM-213",
+        "SCRUM-214",
+        "SCRUM-215",
+        "SCRUM-219",
+        "SCRUM-225",
+        "SCRUM-226",
+        "SCRUM-227",
+        "SCRUM-231",
+        "SCRUM-235"
+      ]
+    }
+  },
+  "open_codex_threads": 3,
+  "ci_status_at_review": "green",
+  "codecov_project_status_at_review": "green"
+}
