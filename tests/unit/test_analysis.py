@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import cast
 
@@ -32,6 +33,16 @@ from src.analysis.orchestrator import run_analysis_dry_run, summarize_scoring_re
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
+
+EXPECTED_STAGE_ORDER = [
+    AnalysisTaskType.KEYWORD_CLUSTERING.value,
+    AnalysisTaskType.GIG_QUALITY.value,
+    AnalysisTaskType.COMPETITOR_PROFILE.value,
+    AnalysisTaskType.SELLER_STRENGTH.value,
+    AnalysisTaskType.SATURATION.value,
+    AnalysisTaskType.REVIEW_ANALYSIS.value,
+    AnalysisTaskType.INTENT_CLASSIFICATION.value,
+]
 
 
 def _load_analysis_fixture(name: str) -> dict[str, object]:
@@ -384,6 +395,59 @@ def _capture_intent_input_from_orchestrator(
     return captured["intent_input"]
 
 
+def _capture_intent_context_from_orchestrator(
+    monkeypatch: pytest.MonkeyPatch, payload: dict[str, object]
+) -> tuple[IntentInput, AnalysisStageSummary]:
+    captured: dict[str, IntentInput] = {}
+
+    def _fake_classify_intent(intent_input: IntentInput) -> IntentResult:
+        captured["intent_input"] = intent_input
+        return IntentResult(
+            source_id=intent_input.source_id,
+            keyword_text=intent_input.keyword_text,
+            label=IntentLabel.AMBIGUOUS,
+            confidence=0.35,
+            matched_rules=["test:captured"],
+            explanation="Captured intent payload for orchestrator tests.",
+            metadata=intent_input.metadata,
+        )
+
+    monkeypatch.setattr("src.analysis.orchestrator.classify_intent", _fake_classify_intent)
+    summary = run_analysis_dry_run(payload)
+    intent_stage = next(stage for stage in summary.stages if stage.stage == AnalysisTaskType.INTENT_CLASSIFICATION)
+    assert intent_stage.status == AnalysisStatus.SUCCESS
+    return captured["intent_input"], intent_stage
+
+
+def test_orchestrator_stage_order_metadata_is_deterministic() -> None:
+    payload = _load_analysis_fixture("complete_payload.json")
+    summary = run_analysis_dry_run(payload)
+    assert summary.metadata["stage_order"] == EXPECTED_STAGE_ORDER
+    assert [stage.stage.value for stage in summary.stages] == EXPECTED_STAGE_ORDER
+    assert summary.metadata["skipped_stages"] == []
+
+
+def test_orchestrator_records_skipped_stages_when_inputs_are_absent() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-skipped-stage-metadata",
+            "source_id": "src-skipped-stage-metadata",
+            "intent": {"keyword_text": "need python automation help"},
+        }
+    )
+    assert summary.status == AnalysisStatus.SUCCESS
+    assert summary.metadata["successful_stages"] == [AnalysisTaskType.INTENT_CLASSIFICATION.value]
+    assert summary.metadata["failed_stages"] == []
+    assert summary.metadata["skipped_stages"] == [
+        AnalysisTaskType.KEYWORD_CLUSTERING.value,
+        AnalysisTaskType.GIG_QUALITY.value,
+        AnalysisTaskType.COMPETITOR_PROFILE.value,
+        AnalysisTaskType.SELLER_STRENGTH.value,
+        AnalysisTaskType.SATURATION.value,
+        AnalysisTaskType.REVIEW_ANALYSIS.value,
+    ]
+
+
 def test_orchestrator_intent_keyword_prefers_valid_intent_keyword_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -590,6 +654,75 @@ def test_orchestrator_intent_keyword_supports_non_string_keyword_entries(
     assert intent_input.keyword_text == "12345"
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_keyword", "expected_reason", "expected_confidence"),
+    [
+        (
+            {
+                "run_id": "run-intent-selection-explicit",
+                "source_id": "src-intent-selection-explicit",
+                "intent": {"keyword_text": "explicit keyword"},
+                "keyword_text": "payload keyword",
+                "keywords": ["keywords entry"],
+            },
+            "explicit keyword",
+            "explicit_intent_keyword",
+            1.0,
+        ),
+        (
+            {
+                "run_id": "run-intent-selection-top-level",
+                "source_id": "src-intent-selection-top-level",
+                "intent": {"keyword_text": "None"},
+                "keyword_text": "payload keyword",
+                "keywords": ["keywords entry"],
+            },
+            "payload keyword",
+            "top_level_keyword_text",
+            0.9,
+        ),
+        (
+            {
+                "run_id": "run-intent-selection-keywords",
+                "source_id": "src-intent-selection-keywords",
+                "intent": {"keyword_text": "   "},
+                "keyword_text": "null",
+                "keywords": ["   ", "keywords entry", None],
+            },
+            "keywords entry",
+            "keywords_first_entry",
+            0.8,
+        ),
+        (
+            {
+                "run_id": "run-intent-selection-source-id",
+                "source_id": "src-intent-selection-source-id",
+                "intent": {"keyword_text": None},
+                "keyword_text": "None",
+                "keywords": ["   ", "null"],
+            },
+            "src-intent-selection-source-id",
+            "source_id_fallback",
+            0.6,
+        ),
+    ],
+)
+def test_orchestrator_intent_selection_reason_and_confidence_are_recorded(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict[str, object],
+    expected_keyword: str,
+    expected_reason: str,
+    expected_confidence: float,
+) -> None:
+    intent_input, intent_stage = _capture_intent_context_from_orchestrator(monkeypatch, payload)
+    assert intent_input.keyword_text == expected_keyword
+    assert intent_input.metadata["intent_keyword_selection_reason"] == expected_reason
+    assert intent_input.metadata["intent_keyword_selection_confidence"] == expected_confidence
+    assert intent_stage.metadata["intent_keyword_selection_reason"] == expected_reason
+    assert intent_stage.metadata["intent_keyword_selection_confidence"] == expected_confidence
+    assert intent_input.keyword_text not in {"None", "null"}
+
+
 def test_orchestrator_intent_stage_validation_error_marks_stage_failed() -> None:
     summary = run_analysis_dry_run(
         {
@@ -632,6 +765,10 @@ def test_orchestrator_invalid_seller_stage_preserves_failure_metadata_and_runs_o
     assert seller_stage.metadata["error_code"] == "seller_strength_stage_failed"
     assert seller_stage.metadata["failed"] is True
     assert intent_stage.status == AnalysisStatus.SUCCESS
+    assert summary.metadata["failed_stages"] == [AnalysisTaskType.SELLER_STRENGTH.value]
+    assert AnalysisTaskType.INTENT_CLASSIFICATION.value in summary.metadata["successful_stages"]
+    assert AnalysisTaskType.SELLER_STRENGTH.value not in summary.metadata["successful_stages"]
+    assert AnalysisTaskType.SELLER_STRENGTH.value in summary.metadata["stage_order"]
 
 
 def test_orchestrator_invalid_payload_type_is_fundamentally_invalid() -> None:
@@ -667,6 +804,121 @@ def test_orchestrator_scoring_readiness_is_complete_for_full_fixture() -> None:
     assert readiness["gig_quality"] is True
     assert readiness["available_count"] == 7
     assert readiness["total_expected"] == 7
+
+
+def test_orchestrator_collection_evidence_metadata_is_captured() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-collection-evidence",
+            "source_id": "src-collection-evidence",
+            "intent": {"keyword_text": "need python automation support"},
+            "collection_evidence": {
+                "source_stage_names": ["keyword_collection", "seller_collection"],
+                "fixture_mode": True,
+                "records_seen": 42,
+                "records_written": 38,
+                "warnings": ["missing optional competitor row"],
+            },
+        }
+    )
+    evidence = summary.metadata["collection_evidence"]
+    assert evidence["source_stage_names"] == ["keyword_collection", "seller_collection"]
+    assert evidence["fixture_mode"] is True
+    assert evidence["records_seen"] == 42
+    assert evidence["records_written"] == 38
+    assert evidence["warnings"] == ["missing optional competitor row"]
+    assert evidence["warning_count"] == 1
+
+
+def test_orchestrator_collection_evidence_malformed_payload_degrades_with_warning() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-collection-evidence-malformed",
+            "source_id": "src-collection-evidence-malformed",
+            "intent": {"keyword_text": "need python automation support"},
+            "collection_evidence": {
+                "source_stage_names": "not-a-list",
+                "fixture_mode": {"invalid": "type"},
+                "records_seen": -1,
+                "records_written": "3",
+                "warnings": {"invalid": "type"},
+            },
+        }
+    )
+    assert any(warning.code == "collection_evidence_invalid" for warning in summary.warnings)
+    evidence = summary.metadata["collection_evidence"]
+    assert evidence["source_stage_names"] == []
+    assert evidence["records_seen"] == 0
+    assert evidence["records_written"] == 0
+    assert evidence["warnings"] == []
+
+
+def test_orchestrator_collection_evidence_uses_duck_typing_without_collection_imports() -> None:
+    loaded_before = set(sys.modules.keys())
+    _ = run_analysis_dry_run(
+        {
+            "run_id": "run-collection-evidence-duck-typing",
+            "source_id": "src-collection-evidence-duck-typing",
+            "intent": {"keyword_text": "need python automation support"},
+            "collection_evidence": {"source_stage_names": ["keyword_collection"]},
+        }
+    )
+    loaded_during_run = set(sys.modules.keys()) - loaded_before
+    assert not any(module_name.startswith("src.collection") for module_name in loaded_during_run)
+
+
+def test_scoring_readiness_false_when_intent_stage_fails() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-readiness-intent-failed",
+            "source_id": "src-readiness-intent-failed",
+            "intent": {"keyword_text": "valid keyword", "title_phrases": "invalid-type"},
+        }
+    )
+    readiness = summary.metadata["scoring_readiness"]
+    assert readiness["intent_signals"] is False
+    assert readiness["demand_inputs"] is False
+
+
+def test_scoring_readiness_false_when_keyword_stage_fails_without_intent_success() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-readiness-keyword-failed",
+            "source_id": "src-readiness-keyword-failed",
+            "keywords": "invalid-keyword-list",
+            "intent": {"keyword_text": None, "title_phrases": "invalid-type"},
+        }
+    )
+    readiness = summary.metadata["scoring_readiness"]
+    assert readiness["demand_inputs"] is False
+    assert readiness["intent_signals"] is False
+
+
+def test_scoring_readiness_stays_true_when_intent_succeeds_despite_keyword_stage_failure() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-readiness-intent-success-keyword-failed",
+            "source_id": "src-readiness-intent-success-keyword-failed",
+            "keywords": "invalid-keyword-list",
+            "intent": {"keyword_text": "need python automation support"},
+        }
+    )
+    readiness = summary.metadata["scoring_readiness"]
+    assert readiness["intent_signals"] is True
+    assert readiness["demand_inputs"] is True
+
+
+def test_scoring_readiness_sparse_payload_remains_false() -> None:
+    summary = run_analysis_dry_run({"run_id": "run-readiness-sparse", "source_id": "src-readiness-sparse"})
+    readiness = summary.metadata["scoring_readiness"]
+    assert readiness["available_count"] == 0
+    assert readiness["demand_inputs"] is False
+    assert readiness["competition_inputs"] is False
+    assert readiness["saturation_inputs"] is False
+    assert readiness["review_signals"] is False
+    assert readiness["intent_signals"] is False
+    assert readiness["seller_strength"] is False
+    assert readiness["gig_quality"] is False
 
 
 def test_scoring_readiness_helper_handles_sparse_and_complete_stage_sets() -> None:
