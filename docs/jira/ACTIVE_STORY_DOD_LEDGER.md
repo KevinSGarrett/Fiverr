@@ -57,6 +57,10 @@
   - `python -m pytest -q tests/unit/test_orchestrator.py`
   - `python run.py config-check`
   - `python run.py phase2-smoke`
+- Continuation pass evidence (Agent B runtime activation):
+  - Enabled product pages in `src/dashboard/navigation.py` (`opportunities`, `keywords`, `run_history`) and updated app runtime render summaries in `src/dashboard/app.py`.
+  - Updated `tests/unit/test_dashboard.py` expectations for activated product pages and `main()` product payload smoke output.
+  - Re-ran full validation block successfully (`coverage 93.18%`).
 - Merge-gate governance checks:
   - `git status --short --branch`
   - `git fetch origin`

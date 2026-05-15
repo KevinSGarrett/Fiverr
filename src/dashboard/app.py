@@ -265,9 +265,10 @@ def build_page_registry() -> list[dict[str, Any]]:
         "phase2_readiness": ("phase2_readiness",),
         "phase2_reports": ("query_layer", "run_history"),
         "phase2_exports": ("export_system",),
+        "opportunities": ("opportunities", "source_freshness_summary"),
         "niches": ("opportunities", "source_freshness_summary"),
         "keywords": ("keywords", "source_freshness_summary"),
-        "collection_runs": ("run_history",),
+        "run_history": ("run_history",),
         "scores": ("opportunities",),
         "recommendations": ("opportunities", "keywords"),
         "reports": ("query_layer", "governance_status"),
@@ -603,4 +604,16 @@ def main() -> None:
     st.write(f"- Startup status: {app_entry_state['startup']['status']}")
     if app_entry_state["safe_empty_state"]:
         st.caption("Safe empty-state mode is active while data artifacts are unavailable.")
+
+    st.subheader("Cycle 014 Product Page Payloads")
+    product_payloads = get_product_page_payloads()
+    st.write(f"- Registry state: {product_payloads['registry_state']['state']}")
+    st.caption(product_payloads["registry_state"]["message"])
+    for page_id in ("opportunities", "keywords", "run_history"):
+        payload = product_payloads[page_id]
+        st.write(f"### {payload['title']}")
+        st.write(f"- State: {payload['state']['state']}")
+        st.write(f"- Rows: {len(payload['table']['rows'])}")
+        if payload["table"]["warning_rows"]:
+            st.write(f"- Warning: {payload['table']['warning_rows'][0]['message']}")
 

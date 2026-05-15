@@ -50,9 +50,10 @@ def test_get_available_pages_contains_expected_ids() -> None:
         "phase2_readiness",
         "phase2_reports",
         "phase2_exports",
-        "niches",
+        "opportunities",
         "keywords",
-        "collection_runs",
+        "run_history",
+        "niches",
         "scores",
         "recommendations",
         "reports",
@@ -69,6 +70,9 @@ def test_non_overview_pages_are_marked_not_implemented() -> None:
             "foundation_status",
             "collection_dry_run",
             "analysis_dry_run",
+            "opportunities",
+            "keywords",
+            "run_history",
         }:
             assert page.enabled is True
         elif page.page_id in {"phase2_readiness", "phase2_reports", "phase2_exports"}:
@@ -374,8 +378,9 @@ def test_page_registry_contains_required_contracts_and_disabled_reasons() -> Non
     registry = app_module.get_page_registry()
     registry_by_id = {row["page_id"]: row for row in registry}
     assert registry_by_id["overview"]["required_contracts"] == ["governance_status", "app_readiness"]
-    assert registry_by_id["keywords"]["status"] == "disabled"
-    assert "not implemented" in registry_by_id["keywords"]["disabled_reason"]
+    assert registry_by_id["keywords"]["status"] == "ready"
+    assert registry_by_id["keywords"]["disabled_reason"] is None
+    assert registry_by_id["run_history"]["required_contracts"] == ["run_history"]
 
 
 def test_compute_page_readiness_returns_next_actions_for_blocked_pages() -> None:
@@ -452,9 +457,11 @@ def test_main_renders_governance_and_readiness_sections_without_real_streamlit(
     assert fake_streamlit.title_calls == ["Fiverr Research System Dashboard (Foundation Shell)"]
     assert "Cycle 007 Governance and Readiness" in fake_streamlit.subheader_calls
     assert "App Entry Startup Diagnostics" in fake_streamlit.subheader_calls
+    assert "Cycle 014 Product Page Payloads" in fake_streamlit.subheader_calls
     assert any("codecov_project: pending" in line for line in fake_streamlit.write_calls)
     assert any("codex_disposition: pending" in line for line in fake_streamlit.write_calls)
     assert any("Entry module: src.dashboard.app:main" in line for line in fake_streamlit.write_calls)
+    assert any("Registry state: empty" in line for line in fake_streamlit.write_calls)
 
 
 def test_dashboard_design_tokens_and_confidence_rules_are_stable() -> None:
