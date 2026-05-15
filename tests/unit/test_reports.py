@@ -16,10 +16,7 @@ from src.exports import (
     validate_export_request,
 )
 from src.reports import (
-    ACTIVE_STORY_STATUSES,
     GOVERNANCE_REPORT_ORDER,
-    JIRA_MAPPING_TYPES,
-    JIRA_UPDATED_BY_VALUES,
     PENDING_PLACEHOLDER,
     PHASE2_REQUIRED_SECTION_TITLES,
     AnalysisDryRunReport,
@@ -35,13 +32,18 @@ from src.reports import (
     ReportTemplate,
     RunSummary,
     SellerProfileParserCoverageReport,
-    build_active_story_groups,
     build_default_template,
     build_governance_report_placeholders,
     build_jira_mapping_table,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
     render_plain_text_summary,
+)
+from src.reports.placeholders import (
+    ACTIVE_STORY_STATUSES,
+    JIRA_MAPPING_TYPES,
+    JIRA_UPDATED_BY_VALUES,
+    build_active_story_groups,
 )
 
 

@@ -1,12 +1,8 @@
 """Reporting package exports."""
 
 from src.reports.placeholders import (
-    ACTIVE_STORY_STATUSES,
     GOVERNANCE_REPORT_ORDER,
-    JIRA_MAPPING_TYPES,
-    JIRA_UPDATED_BY_VALUES,
     ReportPlaceholder,
-    build_active_story_groups,
     build_governance_report_placeholders,
     build_jira_mapping_table,
 )
@@ -53,16 +49,12 @@ __all__ = [
     "CycleValidationReport",
     "Phase2ReadinessReport",
     "GOVERNANCE_REPORT_ORDER",
-    "JIRA_MAPPING_TYPES",
-    "JIRA_UPDATED_BY_VALUES",
-    "ACTIVE_STORY_STATUSES",
     "ReportPlaceholder",
     "ReportSection",
     "ReportSeverity",
     "ReportTemplate",
     "RunSummary",
     "build_jira_mapping_table",
-    "build_active_story_groups",
     "build_governance_report_placeholders",
     "build_cycle003_report_bundle",
     "build_default_template",

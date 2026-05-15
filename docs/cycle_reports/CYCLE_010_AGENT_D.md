@@ -24,7 +24,6 @@
 ## Changed Files
 - `src/dashboard/app.py`
 - `src/reports/placeholders.py`
-- `src/reports/__init__.py`
 - `src/exports/manifest.py`
 - `src/exports/placeholders.py`
 - `tests/unit/test_dashboard.py`
@@ -72,7 +71,7 @@ Each comment includes: Cycle number, agent, branch, changed files, validation ev
 | Changed file group | Jira keys | Mapping type | DOD status |
 | --- | --- | --- | --- |
 | `src/dashboard/app.py`, `tests/unit/test_dashboard.py` | `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-227`, `SCRUM-228` | Product + Governance | Partial |
-| `src/reports/placeholders.py`, `src/reports/__init__.py`, `tests/unit/test_reports.py` | `SCRUM-213`, `SCRUM-225`, `SCRUM-228`, `SCRUM-250`, `SCRUM-252` | Product + Governance | Partial |
+| `src/reports/placeholders.py`, `tests/unit/test_reports.py` | `SCRUM-213`, `SCRUM-225`, `SCRUM-228`, `SCRUM-250`, `SCRUM-252` | Product + Governance | Partial |
 | `src/exports/manifest.py`, `src/exports/placeholders.py`, `tests/unit/test_reports.py` | `SCRUM-226`, `SCRUM-250`, `SCRUM-252` | Product + Governance | Partial |
 | `docs/cycle_reports/CYCLE_010_AGENT_D.md` | `SCRUM-250`, `SCRUM-252` | Governance | Partial |
 

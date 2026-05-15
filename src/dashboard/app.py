@@ -11,7 +11,8 @@ from src.dashboard.navigation import (
     get_available_pages as get_navigation_pages,
 )
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
-from src.reports import build_active_story_groups, build_governance_report_placeholders
+from src.reports import build_governance_report_placeholders
+from src.reports.placeholders import build_active_story_groups
 
 GOVERNANCE_STATUS_ORDER = (
     "local_parity",
