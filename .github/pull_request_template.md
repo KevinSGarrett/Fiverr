@@ -9,6 +9,9 @@
 
 - Primary:
 - Related:
+- Board audit artifacts:
+  - `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_012.md`
+  - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 
 ## Changed Areas
 
@@ -32,6 +35,14 @@ Paste exact command outputs (or links) for all applicable checks:
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_ci.db`
 - `python run.py phase2-smoke`
 
+## Board-First Jira Audit Summary
+
+- Issue-type and status summary for all touched keys:
+- Active stories touched this PR:
+- AC/DoD bullets advanced:
+- AC/DoD bullets not advanced (and why):
+- Missing AC/DoD coverage follow-ups created:
+
 ## Codecov Status
 
 - Project coverage (target >=90%):
@@ -43,6 +54,12 @@ Paste exact command outputs (or links) for all applicable checks:
 |Thread/Comment|File|Disposition|Fix Commit/Test|Resolution Status|
 |---|---|---|---|---|
 |||||Open/Resolved|
+
+## Local-Discrepancy Reconciliation
+
+- Compare local archive vs PR head performed: Yes/No
+- Reconciliation result (committed vs intentionally excluded):
+- Evidence comment link:
 
 ## Branch Policy
 
@@ -59,4 +76,6 @@ Paste exact command outputs (or links) for all applicable checks:
 - [ ] Codecov patch coverage is >=90%.
 - [ ] PR targets `develop` for cycle integration work.
 - [ ] No direct push to `main` was used.
+- [ ] Board-first Jira audit summary is complete.
+- [ ] AC/DoD progress for all touched keys is included.
 - [ ] No runtime artifacts (db/cache/temp reports) are included.
