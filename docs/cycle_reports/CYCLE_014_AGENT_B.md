@@ -4,7 +4,7 @@
 
 Agent B delivered dashboard product payload contracts for opportunities, keywords, and run history with reusable component/data-contract layers, deterministic fixture-backed tests, import-safe app registry integration, Jira evidence comments, and AC/DoD ledger updates. Work focused on SCRUM-212/213/214/215/219 with supporting dependency and validation stories.
 
-Agent B implementation commits: `34ca314`, `4bd4e55`, `df0f262`.
+Agent B implementation commits: `34ca314`, `4bd4e55`, `df0f262`, `1c10cc8`.
 
 ## Branch and Revision
 
@@ -63,6 +63,23 @@ Agent B implementation commits: `34ca314`, `4bd4e55`, `df0f262`.
 - Added product page payload registry integration in app boundary while preserving safe import behavior and no Streamlit import at module import time.
 - Added deterministic fixture factories and expanded dashboard unit tests for cards/tables/states/page payloads/severity mapping/registry behavior.
 
+## Page Payload Examples
+
+| Page | Example Contract Fields |
+| --- | --- |
+| Opportunities | `state`, `filters`, `sort`, `metric_cards`, `ranking_cards`, `table.columns`, `table.rows`, `table.warning_rows`, `source`, `freshness`, `next_actions` |
+| Keywords | `state`, `metric_cards`, `status_cards`, `table.columns` (includes `confidence_text`), `table.rows[].cluster`, `table.warning_rows` (cluster fallback), `source`, `freshness` |
+| Run History | `state`, `metric_cards`, `status_cards`, `table.columns` (includes `severity`), `table.rows[].stage_names`, `table.rows[].failure_summary`, `table.rows[].next_action`, `source`, `freshness` |
+
+Representative fixture-backed example values:
+
+- Opportunities row:
+  - `{"id": "opp-logo-1", "opportunity": "Minimalist Logo Packages", "niche": "logo-design", "score": 91.2, "confidence": 0.88, "status": "strong_go", "keyword_links": ["kw-logo-design", "kw-brand-kit"]}`
+- Keywords row:
+  - `{"id": "kw-ats-resume", "keyword": "ats resume writing", "cluster": null, "score": 71.0, "confidence": 0.62, "opportunity_ids": ["opp-resume-1"]}`
+- Run history row:
+  - `{"run_id": "run-014-001", "status": "pass", "stages": [{"name": "collection"}, {"name": "analysis"}, {"name": "reporting"}], "duration_seconds": 742, "warning_count": 1}`
+
 ## Validation Evidence
 
 | Command | Result |
@@ -109,7 +126,7 @@ Agent B implementation commits: `34ca314`, `4bd4e55`, `df0f262`.
 ### After Commit
 
 - `git status --short --branch` after commit:
-  - `## cycle/014/integration...origin/cycle/014/integration [ahead 3]`
+  - `## cycle/014/integration...origin/cycle/014/integration [ahead 4]`
 
 ## Jira Comments / Transitions Performed
 
