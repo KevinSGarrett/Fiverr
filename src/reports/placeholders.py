@@ -23,6 +23,10 @@ GOVERNANCE_REPORT_ORDER = (
     "codex_disposition",
 )
 
+JIRA_MAPPING_TYPES = frozenset({"governance", "product"})
+JIRA_UPDATED_BY_VALUES = frozenset({"pm", "cursor_agent", "pm_and_cursor_agent", "unknown"})
+ACTIVE_STORY_STATUSES = frozenset({"in_progress", "in_review", "blocked"})
+
 
 def build_governance_report_placeholders(
     *,
@@ -60,15 +64,26 @@ def build_jira_mapping_table(
 ) -> list[dict[str, Any]] | str:
     """Build deterministic Jira mapping rows for governance and product stories."""
     normalized_rows: list[dict[str, Any]] = []
+    seen_jira_keys: set[str] = set()
     for raw_row in rows:
         changed_file_group = str(raw_row.get("changed_file_group", "")).strip()
         jira_keys = raw_row.get("jira_keys")
+        mapping_type = str(raw_row.get("mapping_type", "governance")).strip().lower() or "governance"
         status = str(raw_row.get("status", "pending")).strip() or "pending"
         dod_status = str(raw_row.get("dod_status", "pending")).strip() or "pending"
+        agent = str(raw_row.get("agent", "unknown")).strip() or "unknown"
+        cycle = str(raw_row.get("cycle", "unknown")).strip() or "unknown"
+        branch = str(raw_row.get("branch", "unknown")).strip() or "unknown"
+        pull_request = str(raw_row.get("pull_request", "pending")).strip() or "pending"
+        jira_updated_by = str(raw_row.get("jira_updated_by", "unknown")).strip().lower() or "unknown"
         not_applicable_reason = str(raw_row.get("not_applicable_reason", "")).strip()
 
         if not changed_file_group:
             raise ValueError("changed_file_group is required for Jira mapping rows.")
+        if mapping_type not in JIRA_MAPPING_TYPES:
+            raise ValueError("mapping_type must be 'governance' or 'product'.")
+        if jira_updated_by not in JIRA_UPDATED_BY_VALUES:
+            raise ValueError("jira_updated_by must be pm, cursor_agent, pm_and_cursor_agent, or unknown.")
 
         normalized_keys: list[str] = []
         if jira_keys is None:
@@ -77,19 +92,32 @@ def build_jira_mapping_table(
             normalized_keys = [jira_keys.strip()] if jira_keys.strip() else []
         else:
             normalized_keys = [str(key).strip() for key in jira_keys if str(key).strip()]
+        if len(set(normalized_keys)) != len(normalized_keys):
+            raise ValueError("jira_keys contains duplicates inside a mapping row.")
 
         if not normalized_keys and not not_applicable_reason:
             raise ValueError("jira_keys are required unless not_applicable_reason is provided.")
+        for key in normalized_keys:
+            if key in seen_jira_keys:
+                raise ValueError(f"jira_keys contains duplicate key across rows: {key}")
+            seen_jira_keys.add(key)
 
         normalized_rows.append(
             {
                 "changed_file_group": changed_file_group,
+                "mapping_type": mapping_type,
                 "jira_keys": normalized_keys,
                 "status": status,
                 "dod_status": dod_status,
+                "agent": agent,
+                "cycle": cycle,
+                "branch": branch,
+                "pull_request": pull_request,
+                "jira_updated_by": jira_updated_by,
                 "not_applicable_reason": not_applicable_reason,
             }
         )
+    normalized_rows.sort(key=lambda row: (row["mapping_type"], row["changed_file_group"], row["agent"]))
 
     if output_format == "dict":
         return normalized_rows
@@ -97,15 +125,67 @@ def build_jira_mapping_table(
         raise ValueError("output_format must be 'dict' or 'markdown'.")
 
     header = (
-        "| Changed File Group | Jira Keys | Status | DOD Status | Not Applicable Reason |\n"
-        "| --- | --- | --- | --- | --- |"
+        "| Mapping Type | Changed File Group | Jira Keys | Status | DOD Status | Agent | Cycle | Branch | PR | Jira Updated By | Not Applicable Reason |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     body_lines = []
     for row in normalized_rows:
         jira_keys = ", ".join(row["jira_keys"]) if row["jira_keys"] else "-"
         not_applicable_reason = row["not_applicable_reason"] or "-"
         body_lines.append(
-            f"| {row['changed_file_group']} | {jira_keys} | {row['status']} | {row['dod_status']} | {not_applicable_reason} |"
+            f"| {row['mapping_type']} | {row['changed_file_group']} | {jira_keys} | {row['status']} | {row['dod_status']} | {row['agent']} | {row['cycle']} | {row['branch']} | {row['pull_request']} | {row['jira_updated_by']} | {not_applicable_reason} |"
         )
     return "\n".join([header, *body_lines])
+
+
+def build_active_story_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group active Jira-mapped stories from report/manifest evidence."""
+    grouped: dict[str, dict[str, Any]] = {}
+    for raw_row in rows:
+        status = str(raw_row.get("status", "")).strip().lower()
+        if status not in ACTIVE_STORY_STATUSES:
+            continue
+        story_group = str(raw_row.get("story_group") or raw_row.get("changed_file_group", "")).strip()
+        if not story_group:
+            continue
+        jira_keys_value = raw_row.get("jira_keys")
+        if isinstance(jira_keys_value, str):
+            jira_keys = [jira_keys_value.strip()] if jira_keys_value.strip() else []
+        else:
+            jira_keys = [str(key).strip() for key in jira_keys_value or [] if str(key).strip()]
+        source = str(raw_row.get("source", "report")).strip() or "report"
+        cycle = str(raw_row.get("cycle", "unknown")).strip() or "unknown"
+        branch = str(raw_row.get("branch", "unknown")).strip() or "unknown"
+
+        group = grouped.setdefault(
+            story_group,
+            {
+                "story_group": story_group,
+                "jira_keys": set(),
+                "statuses": set(),
+                "sources": set(),
+                "cycles": set(),
+                "branches": set(),
+            },
+        )
+        group["jira_keys"].update(jira_keys)
+        group["statuses"].add(status)
+        group["sources"].add(source)
+        group["cycles"].add(cycle)
+        group["branches"].add(branch)
+
+    normalized_groups: list[dict[str, Any]] = []
+    for story_group in sorted(grouped):
+        group = grouped[story_group]
+        normalized_groups.append(
+            {
+                "story_group": story_group,
+                "jira_keys": sorted(group["jira_keys"]),
+                "statuses": sorted(group["statuses"]),
+                "sources": sorted(group["sources"]),
+                "cycles": sorted(group["cycles"]),
+                "branches": sorted(group["branches"]),
+            }
+        )
+    return normalized_groups
 
