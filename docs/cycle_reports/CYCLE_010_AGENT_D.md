@@ -18,7 +18,7 @@
 | D7 | Complete (partial DOD) | Added Run History page placeholder descriptor with run and validation metadata fields and safe missing-data behavior. |
 | D8 | Complete (partial DOD) | Added alert-system readiness placeholder contract with severity/source/jira/message/resolution fields and unknown severity normalization. |
 | D9 | Complete | Performed direct Jira operations (read, comment, and status transitions where advanced by code). |
-| D10 | Blocked / pending | Final push + PR stewardship depends on Agents A/B/C completion and full-cycle validation run after integration is complete. |
+| D10 | In progress / dependency blocked | Full local validation bundle executed and passing; final push/PR/Codex-disposition finalization still depends on integration timing and steward handoff point. |
 | D11 | Complete (this report) | Final Cycle 010 report recorded with validation evidence, Jira log, blockers, and next transitions. |
 
 ## Changed Files
@@ -75,18 +75,29 @@ Each comment includes: Cycle number, agent, branch, changed files, validation ev
   - Covered by combined run, passed.
 - `python -m pytest tests/unit/test_reports.py -q`
   - Covered by combined run, passed.
+- `python -m ruff check .`
+  - Result: pass (after import-order fix in `tests/unit/test_reports.py`)
+- `python -m mypy src`
+  - Result: `Success: no issues found in 77 source files`
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
+  - Result: `366 passed`, coverage `93.08%` (gate `>=90%` passed)
+- `python run.py config-check`
+  - Result: pass
+- `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle010.db`
+  - Result: pass
+- `python run.py phase2-smoke`
+  - Result: pass
 
 ## Local Validation Summary
 - Owned-unit tests: pass
 - Import-safety for dashboard module: preserved (tests verify no Streamlit import side effects during module import)
 - Deterministic ordering / placeholder behavior / governance metadata validation: covered by unit tests
-- Full-cycle validation bundle from D10 not yet executed in final steward mode because integration from Agents A/B/C is not yet complete.
+- Full local validation bundle required in D10: pass (`ruff`, `mypy`, full `pytest` coverage gate, `config-check`, `foundation-gate`, `phase2-smoke`).
 
 ## Blockers
 - D10 final steward execution is pending upstream integration state:
-  - Need all Agent A/B/C commits landed on `cycle/010/integration`.
-  - Need final integrated validation run (`ruff`, `mypy`, full `pytest` with coverage gate, `config-check`, `foundation-gate`, `phase2-smoke`) after all code is present.
-  - Push/PR/Codecov/Codex disposition should be performed after that integrated validation point.
+  - Need confirmation this is the final steward push point for `cycle/010/integration` (to avoid racing additional incoming changes).
+  - Need final push + PR creation + post-push Codecov/Codex checks and thread disposition before closure.
 
 ## Partial vs Full DOD Assessment
 - Full DOD achieved: D9, D11 (reporting/Jira operations within assigned scope)
