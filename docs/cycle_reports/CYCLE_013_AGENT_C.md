@@ -4,6 +4,8 @@
 
 Cycle 013 Agent C corrective work updated PM Pack prompt governance so mandatory validation commands are valid for the current repository layout, scoring-only commands are conditional, and prompt detail thresholds are uniformly enforced at 100+ words per substantive task. This work addresses the two Codex blocker themes called out for PR #10: invalid mandatory Agent C validation paths and prompt-threshold inconsistency.
 
+Commit produced: `8f68d2a` on `cycle/012/integration`.
+
 ## Jira Keys and Source Traceability
 
 - Primary keys from assignment packet: `SCRUM-256`, `SCRUM-254`, `SCRUM-252`, `SCRUM-246`.
@@ -44,12 +46,12 @@ No source code modules under `src/` were changed.
 
 ### Disposition Draft — Invalid Agent C Validation Paths (P1)
 
-Implemented fix on branch `cycle/012/integration` in commit `<COMMIT_SHA_AFTER_PUSH>`.  
+Implemented fix on branch `cycle/012/integration` in commit `<COMMIT_SHA_AFTER_PUSH>` (local commit `8f68d2a`).  
 Updated `PM_Pack/09_templates/AGENT_PROMPT_C.md` to remove mandatory guaranteed-fail validation assumptions (`src/scoring`, `tests/unit/test_scoring.py`) from default execution paths. Added required path preflight, explicit fallback behavior to nearest existing suites, and conditional scoring validation that only runs when scoring-related paths exist or are created by the assigned Jira-scoped tasks. Verified current repo state confirms scoring paths are absent and that default validation commands now target existing analysis/orchestration files.
 
 ### Disposition Draft — Prompt Detail Threshold Mismatch (P2)
 
-Implemented fix on branch `cycle/012/integration` in commit `<COMMIT_SHA_AFTER_PUSH>`.  
+Implemented fix on branch `cycle/012/integration` in commit `<COMMIT_SHA_AFTER_PUSH>` (local commit `8f68d2a`).  
 Updated prompt-governance files so one strict per-task threshold is active: substantive tasks require at least 100 words of implementation detail unless a documented prompt-detail waiver exists. `PROMPT_TEMPLATE.md` now includes explicit strict-threshold wording and a required prompt self-check checklist. `PROMPT_RULES.md` and Cycle 013 corrective rules were aligned to remove contradictory minimums and to preserve the 6,000-word per-agent prompt floor with waiver protocol.
 
 ## Validation Commands and Results (Exact Command Text)
@@ -119,3 +121,31 @@ Updated prompt-governance files so one strict per-task threshold is active: subs
 1. Historical/reference PM Pack files intentionally still mention `src/scoring`, older task-volume language, and old examples; these are not active template standards but still appear in search output.
 2. `PM_Pack/03_cursor_agent_system/AGENT_ROSTER.md` still reflects future scoring/pricing/discovery ownership and `test_scoring.py` naming, which may confuse operators if treated as current-path authority.
 3. PR #10 remains blocked until unresolved Codex threads receive final disposition comments and are resolved by steward workflow.
+
+## Final Handoff Gate (`C24`)
+
+- Active prompt-template standards checked: pass for `AGENT_PROMPT_A.md` through `AGENT_PROMPT_D.md`, `PROMPT_TEMPLATE.md`, `PROMPT_RULES.md`, and `TASK_SIZING.md`.
+- Invalid mandatory validation path assumptions: removed from defaults; future scoring paths are conditionalized.
+- Lower threshold language in active standards: removed as active rule and retained only where explicitly historical/superseded context is stated.
+
+## Additional Command Ledger (Complete Session Appendix)
+
+Below are additional exact commands run during this task that are not duplicate entries of the validation block above:
+
+- `ls` (workspace discovery; found repo nested at `c:\Fiverr\Fiverr`)
+- `git status --short --branch` run in `c:\Fiverr` (expected failure: not a git repo)
+- `python -c "import os; from pathlib import Path; root=Path('src'); out=[] ..."` run in `c:\Fiverr` (empty output because command was run outside repo root)
+- `python -c "import os; from pathlib import Path; root=Path('tests'); out=[] ..."` run in `c:\Fiverr` (empty output because command was run outside repo root)
+- `git status --short` (staging review before report authoring)
+- `ls docs` (pre-create check for `docs/cycle_reports`)
+- `git show --name-only --oneline --no-patch HEAD; git diff --name-only HEAD~1..HEAD` (post-commit file evidence)
+- `rg -n "src/scoring|test_scoring\.py|50 words|5-8|10-16" PM_Pack` (broad PM Pack regression scan, includes historical/reference hits)
+- `rg -n "Words per substantive task|6000|6,000|20-40|24-32" PM_Pack/03_cursor_agent_system PM_Pack/09_templates` (active-standard consistency check)
+- `rg -n "Path preflight|Conditional scoring validation|nearest existing suite|guaranteed-fail" PM_Pack/09_templates/AGENT_PROMPT_*.md` (failed on Windows glob expansion syntax; rerun with explicit file list)
+- `rg -n "Path preflight|Conditional scoring validation|nearest existing suite|guaranteed-fail" PM_Pack/09_templates/AGENT_PROMPT_A.md PM_Pack/09_templates/AGENT_PROMPT_B.md PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/09_templates/AGENT_PROMPT_D.md` (pass)
+- `python -c "from pathlib import Path; targets=['src/analysis','src/llm','src/reports','src/utils','src/scoring','src/pricing','src/discovery','tests/unit/test_analysis.py','tests/unit/test_llm.py','tests/unit/test_reports.py','tests/unit/test_orchestrator.py','tests/unit/test_scoring.py']; print('\n'.join(f'{p}: {'EXISTS' if Path(p).exists() else 'MISSING'}' for p in targets))"` (preflight command smoke-tested successfully)
+- `git add ... && git status --short` (failed because `&&` is not a valid separator in this PowerShell environment)
+- `git add ...; git status --short` (successful selective staging)
+- `git commit -m "$(cat <<'EOF' ... EOF )"` (failed; shell heredoc syntax not supported in this PowerShell environment)
+- `bash -lc 'git commit -m "$(cat <<'"'"'EOF'"'"' ... EOF )"'` (failed; `bash` not available in environment)
+- `$msg = @" ... "@; git commit -m $msg` (successful commit path used in this environment)
