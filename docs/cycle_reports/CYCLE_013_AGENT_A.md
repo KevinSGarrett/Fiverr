@@ -4,6 +4,8 @@
 
 Cycle 013 Agent A executed a blocker-first PM Pack reconciliation pass on `cycle/012/integration` (PR #10 still open). The P1 required-file consistency issue was addressed by staging the missing PM Pack files that were present locally but not tracked, rewriting stale hydration state, adding Cycle 013 protocol memory, and delivering a formal disposition artifact for missing `CYCLE_012_AGENT_A.md`.
 
+Committed Agent A reconciliation SHA: `f75d602`.
+
 No product code was changed by Agent A in this pass. This report is documentation/governance scope only.
 
 ## Jira Keys and AC/DoD Traceability
@@ -102,6 +104,10 @@ All shell commands executed in this run:
 25. `gh api graphql -f query='query { repository(owner:\"KevinSGarrett\", name:\"Fiverr\") { pullRequest(number: 10) { reviewThreads(first: 100) { nodes { isResolved comments(first: 10) { nodes { author { login } body path } } } } } } }'` -> failed (GraphQL argument parsing error).
 26. `git add PM_Pack/07_hydration/STATE_SNAPSHOT.md docs/cycle_reports/CYCLE_013_AGENT_A.md` -> staged post-lint fixes.
 27. `git status --short` -> final staged/unstaged state confirmed.
+28. `git commit -m @'docs(pm-pack): restore required file consistency [Agent A]'@` -> pass, commit `f75d602`.
+29. `git status --short` -> confirmed only unrelated local code deltas and untracked runtime/archive artifacts remain.
+30. `git log --oneline --decorate -n 3` -> verified new commit at branch head.
+31. `git ls-files PM_Pack/07_hydration/HYDRATION_HEADER.md PM_Pack/07_hydration/STATE_SNAPSHOT.md PM_Pack/10_cycle_log/CYCLE_013_PROTOCOL_MEMORY_NOTE.md docs/cycle_reports/CYCLE_012_AGENT_A.md docs/cycle_reports/CYCLE_013_AGENT_A.md` -> pass, required reconciliation files tracked.
 
 Additional non-shell validation performed:
 
