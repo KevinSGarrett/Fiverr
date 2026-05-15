@@ -455,11 +455,24 @@ def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_corrupted_pa
     assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
 
 
+def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_non_object_json(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "array_checkpoint.json"
+    checkpoint_path.write_text("[]", encoding="utf-8")
+    assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
+
+
 def test_corrupted_checkpoint_returns_controlled_error(tmp_path: Path) -> None:
     corrupted_path = tmp_path / "bad.json"
     corrupted_path.write_text("{bad-json", encoding="utf-8")
     with pytest.raises(QueueCheckpointError):
         load_queue_checkpoint(corrupted_path)
+
+
+def test_non_object_checkpoint_returns_controlled_error(tmp_path: Path) -> None:
+    non_object_path = tmp_path / "non_object.json"
+    non_object_path.write_text('"text"', encoding="utf-8")
+    with pytest.raises(QueueCheckpointError, match="must be a JSON object payload"):
+        load_queue_checkpoint(non_object_path)
 
 
 def test_job_ordering_is_deterministic() -> None:

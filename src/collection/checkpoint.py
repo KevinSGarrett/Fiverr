@@ -61,11 +61,16 @@ def load_queue_checkpoint(path: Path | str) -> dict[str, object]:
 
     checkpoint_path = Path(path)
     try:
-        return json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise QueueCheckpointError(
             f"Checkpoint at '{checkpoint_path}' is corrupted: {exc.msg}."
         ) from exc
+    if not isinstance(payload, dict):
+        raise QueueCheckpointError(
+            f"Checkpoint at '{checkpoint_path}' must be a JSON object payload."
+        )
+    return payload
 
 
 def load_checkpoint_stage_summary(path: Path | str) -> dict[str, Any]:

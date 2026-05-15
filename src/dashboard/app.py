@@ -40,6 +40,7 @@ GOVERNANCE_PAGE_CATEGORY_ORDER = (
     "github_actions",
     "codecov_project",
     "codecov_patch",
+    "local_parity",
     "merge_readiness",
 )
 

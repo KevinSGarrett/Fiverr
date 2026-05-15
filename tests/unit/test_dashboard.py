@@ -183,6 +183,7 @@ def test_governance_page_ready_state_uses_deterministic_order() -> None:
         github_actions="pass",
         codecov_project="warning",
         codecov_patch="pass",
+        local_parity="pass",
         merge_readiness="pending",
     )
     assert [row["category"] for row in page_state["categories"]] == [
@@ -191,9 +192,25 @@ def test_governance_page_ready_state_uses_deterministic_order() -> None:
         "github_actions",
         "codecov_project",
         "codecov_patch",
+        "local_parity",
         "merge_readiness",
     ]
     assert page_state["summary"]["warning"] == 3
+
+
+def test_governance_page_ready_state_includes_local_parity_in_severity_totals() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    page_state = app_module.build_governance_page_ready_state(
+        jira_mapping="pass",
+        codex_disposition="pass",
+        github_actions="pass",
+        codecov_project="pass",
+        codecov_patch="pass",
+        local_parity="fail",
+        merge_readiness="pass",
+    )
+    assert any(row["category"] == "local_parity" for row in page_state["categories"])
+    assert page_state["summary"]["error"] == 1
 
 
 def test_query_active_story_groups_uses_report_and_manifest_evidence() -> None:
