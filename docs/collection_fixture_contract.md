@@ -20,8 +20,10 @@ This contract defines the fixture schema and safety rules for `src/collection` d
   - `stage_5_seller_profile`
   - `stage_7_checkpoint_metadata`
   - `stage_8_pacing_decisions`
+  - `stage_9_auto_promotion_decision`
   - `stage_names` represents stage execution order and must contain the same stage keys as `stage_counts`.
   - `stage_counts` key ordering is not authoritative and may be reordered by JSON serialization.
+  - `stage_execution` is the canonical ordered lifecycle log for deterministic stage start/end, skip/fail evidence, and resumable stage IDs.
 
 ## Optional Fixture Inputs
 
@@ -42,6 +44,7 @@ This contract defines the fixture schema and safety rules for `src/collection` d
 - `stage_6a_external_signals` -> `external_signal_fixture_path` local JSON placeholder (`SCRUM-156`).
 - `stage_6b_community_signals` -> `community_signal_fixture_path` local JSON placeholder (`SCRUM-156`).
 - `stage_7_checkpoint_metadata` and `stage_8_pacing_decisions` -> checkpoint/pacing evidence contract (`SCRUM-154`).
+- `stage_9_auto_promotion_decision` -> deterministic dry-run readiness placeholder for promotion criteria/lineage (`SCRUM-155`).
 
 ## Progress Boundaries
 
@@ -52,6 +55,8 @@ This collection implementation is fixture-backed partial progress only. It is no
 - Missing optional fixture paths may fail with a controlled `fixture_unavailable` error.
 - Empty optional fixture payloads must **not** fabricate records.
 - Empty signal arrays must emit deterministic warnings and keep stage counts at `0`.
+- Missing seller/signal fixtures must be represented as explicit skipped execution entries with skip reasons.
+- Auto-promotion readiness may be `implemented`, `skipped`, or `blocked`, and must stay fixture-only.
 - Malformed HTML must return parsed objects with warnings/errors instead of raising uncontrolled exceptions.
 - Non-positive candidate caps must be normalized to a safe positive deterministic cap and emit a warning.
 

@@ -12,6 +12,8 @@ from src.collection.autocomplete import AutocompleteFixtureError, load_autocompl
 from src.collection.checkpoint import (
     QueueCheckpointError,
     checkpoint_queue_state,
+    load_checkpoint_stage_summary,
+    load_checkpoint_stage_summary_or_fallback,
     load_queue_checkpoint,
 )
 from src.collection.community_signals import load_community_signal_fixture
@@ -291,6 +293,168 @@ def test_checkpoint_can_include_stage_summary(tmp_path: Path) -> None:
     assert payload["stage_summary"]["stage_counts"]["stage_4_gig_detail"] == 1
 
 
+def test_checkpoint_stage_summary_round_trip_remains_valid_when_keys_sorted(tmp_path: Path) -> None:
+    expanded = expand_keywords(["logo design"], max_candidates=5).expanded_keywords
+    plan = build_search_plan(expanded, max_pages=1)
+    queue = enqueue_search_plan(plan)
+    checkpoint_path = tmp_path / "queue_with_stage_summary.json"
+    stage_summary = {
+        "stage_counts": {
+            "stage_1_keyword_expansion": 1,
+            "stage_2b_autocomplete": 0,
+            "stage_2_search_plan": 1,
+            "stage_3_queue": 1,
+            "stage_4_gig_detail": 0,
+            "stage_5_seller_profile": 0,
+            "stage_6a_external_signals": 0,
+            "stage_6b_community_signals": 0,
+            "stage_7_checkpoint_metadata": 1,
+            "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
+        },
+        "stage_names": [
+            "stage_1_keyword_expansion",
+            "stage_2b_autocomplete",
+            "stage_2_search_plan",
+            "stage_3_queue",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_7_checkpoint_metadata",
+            "stage_8_pacing_decisions",
+            "stage_9_auto_promotion_decision",
+        ],
+        "stage_execution": [
+            {
+                "stage_name": "stage_1_keyword_expansion",
+                "execution_index": 1,
+                "status": "success",
+                "started_at": "2026-05-14T00:00:00+00:00",
+                "finished_at": "2026-05-14T00:00:00.001000+00:00",
+                "resumable_stage_id": "dryrun-demo:01:stage_1_keyword_expansion",
+            },
+            {
+                "stage_name": "stage_2b_autocomplete",
+                "execution_index": 2,
+                "status": "skipped",
+                "skip_reason": "fixture missing",
+                "started_at": "2026-05-14T00:00:00.002000+00:00",
+                "finished_at": "2026-05-14T00:00:00.003000+00:00",
+                "resumable_stage_id": "dryrun-demo:02:stage_2b_autocomplete",
+            },
+            {
+                "stage_name": "stage_2_search_plan",
+                "execution_index": 3,
+                "status": "success",
+                "started_at": "2026-05-14T00:00:00.004000+00:00",
+                "finished_at": "2026-05-14T00:00:00.005000+00:00",
+                "resumable_stage_id": "dryrun-demo:03:stage_2_search_plan",
+            },
+            {
+                "stage_name": "stage_3_queue",
+                "execution_index": 4,
+                "status": "success",
+                "started_at": "2026-05-14T00:00:00.006000+00:00",
+                "finished_at": "2026-05-14T00:00:00.007000+00:00",
+                "resumable_stage_id": "dryrun-demo:04:stage_3_queue",
+            },
+            {
+                "stage_name": "stage_4_gig_detail",
+                "execution_index": 5,
+                "status": "skipped",
+                "skip_reason": "fixture missing",
+                "started_at": "2026-05-14T00:00:00.008000+00:00",
+                "finished_at": "2026-05-14T00:00:00.009000+00:00",
+                "resumable_stage_id": "dryrun-demo:05:stage_4_gig_detail",
+            },
+            {
+                "stage_name": "stage_5_seller_profile",
+                "execution_index": 6,
+                "status": "skipped",
+                "skip_reason": "fixture missing",
+                "started_at": "2026-05-14T00:00:00.010000+00:00",
+                "finished_at": "2026-05-14T00:00:00.011000+00:00",
+                "resumable_stage_id": "dryrun-demo:06:stage_5_seller_profile",
+            },
+            {
+                "stage_name": "stage_6a_external_signals",
+                "execution_index": 7,
+                "status": "skipped",
+                "skip_reason": "fixture missing",
+                "started_at": "2026-05-14T00:00:00.012000+00:00",
+                "finished_at": "2026-05-14T00:00:00.013000+00:00",
+                "resumable_stage_id": "dryrun-demo:07:stage_6a_external_signals",
+            },
+            {
+                "stage_name": "stage_6b_community_signals",
+                "execution_index": 8,
+                "status": "skipped",
+                "skip_reason": "fixture missing",
+                "started_at": "2026-05-14T00:00:00.014000+00:00",
+                "finished_at": "2026-05-14T00:00:00.015000+00:00",
+                "resumable_stage_id": "dryrun-demo:08:stage_6b_community_signals",
+            },
+            {
+                "stage_name": "stage_7_checkpoint_metadata",
+                "execution_index": 9,
+                "status": "success",
+                "started_at": "2026-05-14T00:00:00.016000+00:00",
+                "finished_at": "2026-05-14T00:00:00.017000+00:00",
+                "resumable_stage_id": "dryrun-demo:09:stage_7_checkpoint_metadata",
+            },
+            {
+                "stage_name": "stage_8_pacing_decisions",
+                "execution_index": 10,
+                "status": "success",
+                "started_at": "2026-05-14T00:00:00.018000+00:00",
+                "finished_at": "2026-05-14T00:00:00.019000+00:00",
+                "resumable_stage_id": "dryrun-demo:10:stage_8_pacing_decisions",
+            },
+            {
+                "stage_name": "stage_9_auto_promotion_decision",
+                "execution_index": 11,
+                "status": "skipped",
+                "skip_reason": "fixture missing",
+                "started_at": "2026-05-14T00:00:00.020000+00:00",
+                "finished_at": "2026-05-14T00:00:00.021000+00:00",
+                "resumable_stage_id": "dryrun-demo:11:stage_9_auto_promotion_decision",
+            },
+        ],
+        "skipped_stage_names": [
+            "stage_2b_autocomplete",
+            "stage_4_gig_detail",
+            "stage_5_seller_profile",
+            "stage_6a_external_signals",
+            "stage_6b_community_signals",
+            "stage_9_auto_promotion_decision",
+        ],
+        "failed_stage_names": [],
+        "resumable_stage_identity": {
+            "run_id": "dryrun-demo",
+            "last_completed_stage_id": "dryrun-demo:11:stage_9_auto_promotion_decision",
+        },
+        "records_seen": 1,
+        "records_written": 3,
+        "warnings": [],
+        "warning_count": 0,
+        "failed": False,
+    }
+    checkpoint_queue_state(queue, checkpoint_path, stage_summary=stage_summary)
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    payload["stage_summary"] = json.loads(json.dumps(payload["stage_summary"], sort_keys=True))
+    checkpoint_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    loaded_summary = load_checkpoint_stage_summary(checkpoint_path)
+    assert loaded_summary["stage_names"][0] == "stage_1_keyword_expansion"
+    assert loaded_summary["stage_execution"][0]["stage_name"] == "stage_1_keyword_expansion"
+
+
+def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_corrupted_payload(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "corrupted_checkpoint.json"
+    checkpoint_path.write_text("{bad-json", encoding="utf-8")
+    assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
+
+
 def test_corrupted_checkpoint_returns_controlled_error(tmp_path: Path) -> None:
     corrupted_path = tmp_path / "bad.json"
     corrupted_path.write_text("{bad-json", encoding="utf-8")
@@ -320,6 +484,14 @@ def test_gig_detail_missing_optional_fields_creates_warnings_not_crash() -> None
     assert parsed.title == "Title Only"
     assert parsed.warnings
     assert parsed.errors == []
+
+
+def test_gig_detail_missing_data_testid_falls_back_to_plain_h1() -> None:
+    html = "<html><body><h1>Fallback Gig Title</h1><p>No data-testid attributes.</p></body></html>"
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.title == "Fallback Gig Title"
+    assert parsed.seller_name is None
+    assert any("seller name was not found" in warning.lower() for warning in parsed.warnings)
 
 
 def test_gig_detail_nested_markup_preserves_full_description_text() -> None:
@@ -392,6 +564,21 @@ def test_gig_detail_malformed_but_recoverable_nested_markup_keeps_text() -> None
     parsed = parse_gig_detail_from_html(html)
     assert parsed.description is not None
     assert "Alpha Beta Gamma" in parsed.description
+
+
+def test_gig_detail_malformed_package_fragment_defaults_to_unnamed_package() -> None:
+    html = """
+    <html><body>
+      <h1 data-testid="gig-title">Malformed Package Gig</h1>
+      <div data-testid="seller-name">Seller Name</div>
+      <section data-testid="package-card">
+        <span data-testid="package-price">$75</span>
+      </section>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.packages
+    assert parsed.packages[0].name == "Unnamed package"
 
 
 def test_extract_data_testid_text_returns_nested_text_without_truncation() -> None:
@@ -673,6 +860,7 @@ def test_collection_stage_summary_validator_accepts_consistent_invariants() -> N
             "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "stage_names": [
             "stage_1_keyword_expansion",
@@ -685,6 +873,7 @@ def test_collection_stage_summary_validator_accepts_consistent_invariants() -> N
             "stage_6b_community_signals",
             "stage_7_checkpoint_metadata",
             "stage_8_pacing_decisions",
+            "stage_9_auto_promotion_decision",
         ],
         "records_seen": 3,
         "records_written": 9,
@@ -707,6 +896,7 @@ def test_collection_stage_summary_validator_allows_stage_names_when_stage_count_
         "stage_6b_community_signals",
         "stage_7_checkpoint_metadata",
         "stage_8_pacing_decisions",
+        "stage_9_auto_promotion_decision",
     ]
     stage_counts = {stage_name: index for index, stage_name in enumerate(sorted(stage_names), start=1)}
     summary = json.loads(json.dumps({"stage_names": stage_names, "stage_counts": stage_counts}, sort_keys=True))
@@ -729,21 +919,6 @@ def test_collection_stage_summary_validator_allows_stage_names_when_stage_count_
             ],
             "must match stage_counts stage keys",
         ),
-        (
-            [
-                "stage_1_keyword_expansion",
-                "stage_2b_autocomplete",
-                "stage_2_search_plan",
-                "stage_3_queue",
-                "stage_4_gig_detail",
-                "stage_5_seller_profile",
-                "stage_6a_external_signals",
-                "stage_6b_community_signals",
-                "stage_7_checkpoint_metadata",
-                "stage_8_pacing_decisions",
-            ],
-            "must match stage_counts stage keys",
-        ),
     ],
 )
 def test_collection_stage_summary_validator_rejects_missing_or_extra_stage_names(
@@ -758,8 +933,10 @@ def test_collection_stage_summary_validator_rejects_missing_or_extra_stage_names
             "stage_4_gig_detail": 1,
             "stage_5_seller_profile": 1,
             "stage_6a_external_signals": 1,
+            "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "stage_names": stage_names,
     }
@@ -780,6 +957,7 @@ def test_collection_stage_summary_validator_rejects_duplicate_stage_names() -> N
             "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "stage_names": [
             "stage_1_keyword_expansion",
@@ -793,6 +971,7 @@ def test_collection_stage_summary_validator_rejects_duplicate_stage_names() -> N
             "stage_6b_community_signals",
             "stage_7_checkpoint_metadata",
             "stage_8_pacing_decisions",
+            "stage_9_auto_promotion_decision",
         ],
     }
     with pytest.raises(ValueError, match="duplicate stages"):
@@ -812,6 +991,7 @@ def test_collection_stage_summary_validator_rejects_unknown_stage_name() -> None
             "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "stage_names": [
             "stage_1_keyword_expansion",
@@ -844,6 +1024,7 @@ def test_collection_stage_summary_validator_rejects_records_written_undercount()
             "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "records_seen": 3,
         "records_written": 8,
@@ -868,6 +1049,7 @@ def test_collection_stage_summary_validator_rejects_warning_count_mismatch() -> 
             "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "records_seen": 1,
         "records_written": 3,
@@ -892,6 +1074,7 @@ def test_collection_stage_summary_validator_requires_error_code_for_failed_stage
             "stage_6b_community_signals": 0,
             "stage_7_checkpoint_metadata": 1,
             "stage_8_pacing_decisions": 1,
+            "stage_9_auto_promotion_decision": 0,
         },
         "records_seen": 1,
         "records_written": 3,

@@ -17,8 +17,10 @@ REQUIRED_COLLECTION_SUMMARY_STAGES: tuple[str, ...] = (
     "stage_4_gig_detail",
     "stage_5_seller_profile",
     "stage_6a_external_signals",
+    "stage_6b_community_signals",
     "stage_7_checkpoint_metadata",
     "stage_8_pacing_decisions",
+    "stage_9_auto_promotion_decision",
 )
 
 STABLE_COLLECTION_STAGE_NAMES: tuple[str, ...] = (
@@ -32,6 +34,7 @@ STABLE_COLLECTION_STAGE_NAMES: tuple[str, ...] = (
     "stage_6b_community_signals",
     "stage_7_checkpoint_metadata",
     "stage_8_pacing_decisions",
+    "stage_9_auto_promotion_decision",
 )
 
 RECORDS_SEEN_STAGE_NAMES: tuple[str, ...] = ("stage_1_keyword_expansion",)
@@ -44,6 +47,7 @@ RECORDS_WRITTEN_STAGE_NAMES: tuple[str, ...] = (
     "stage_6b_community_signals",
     "stage_7_checkpoint_metadata",
     "stage_8_pacing_decisions",
+    "stage_9_auto_promotion_decision",
 )
 
 
@@ -172,6 +176,114 @@ def validate_collection_stage_summary(summary: dict[str, Any]) -> None:
                 + "; ".join(mismatch_messages)
                 + "."
             )
+
+    stage_execution = summary.get("stage_execution")
+    if stage_execution is not None:
+        if not isinstance(stage_execution, list):
+            raise ValueError("Collection stage summary 'stage_execution' must be a list when provided.")
+        if not stage_execution:
+            raise ValueError("Collection stage summary 'stage_execution' must not be empty when provided.")
+        execution_stage_names: list[str] = []
+        execution_indices: list[int] = []
+        failed_stage_names_from_execution: list[str] = []
+        skipped_stage_names_from_execution: list[str] = []
+        for entry in stage_execution:
+            if not isinstance(entry, dict):
+                raise ValueError("Collection stage summary 'stage_execution' entries must be mappings.")
+            stage_name = entry.get("stage_name")
+            if not isinstance(stage_name, str) or stage_name not in STABLE_COLLECTION_STAGE_NAMES:
+                raise ValueError(
+                    "Collection stage summary 'stage_execution' has unstable stage_name values."
+                )
+            execution_stage_names.append(stage_name)
+
+            execution_index = entry.get("execution_index")
+            if not isinstance(execution_index, int) or execution_index < 1:
+                raise ValueError(
+                    "Collection stage summary 'stage_execution' requires positive integer execution_index."
+                )
+            execution_indices.append(execution_index)
+
+            status = entry.get("status")
+            if not isinstance(status, str) or status not in {member.value for member in CollectionStageStatus}:
+                raise ValueError("Collection stage summary 'stage_execution' has invalid status values.")
+            if status == CollectionStageStatus.FAILED.value:
+                failed_stage_names_from_execution.append(stage_name)
+                failure_code = entry.get("failure_code")
+                if not isinstance(failure_code, str) or not failure_code.strip():
+                    raise ValueError(
+                        "Failed stage_execution entries must include a non-empty failure_code."
+                    )
+            if status == CollectionStageStatus.SKIPPED.value:
+                skipped_stage_names_from_execution.append(stage_name)
+                skip_reason = entry.get("skip_reason")
+                if not isinstance(skip_reason, str) or not skip_reason.strip():
+                    raise ValueError(
+                        "Skipped stage_execution entries must include a non-empty skip_reason."
+                    )
+
+            started_at = entry.get("started_at")
+            finished_at = entry.get("finished_at")
+            if not isinstance(started_at, str) or not started_at.strip():
+                raise ValueError("Each stage_execution entry must include a non-empty started_at string.")
+            if not isinstance(finished_at, str) or not finished_at.strip():
+                raise ValueError("Each stage_execution entry must include a non-empty finished_at string.")
+
+            resumable_stage_id = entry.get("resumable_stage_id")
+            if not isinstance(resumable_stage_id, str) or not resumable_stage_id.strip():
+                raise ValueError(
+                    "Each stage_execution entry must include a non-empty resumable_stage_id string."
+                )
+
+        if sorted(execution_indices) != list(range(1, len(stage_execution) + 1)):
+            raise ValueError("Collection stage summary 'stage_execution' indices must be contiguous from 1.")
+        if len(set(execution_stage_names)) != len(execution_stage_names):
+            raise ValueError("Collection stage summary 'stage_execution' stage names must not repeat.")
+        if stage_names is not None and execution_stage_names != stage_names:
+            raise ValueError(
+                "Collection stage summary 'stage_execution' order must match stage_names execution order."
+            )
+
+        skipped_stage_names = summary.get("skipped_stage_names")
+        if skipped_stage_names is not None:
+            if not isinstance(skipped_stage_names, list) or any(
+                not isinstance(stage_name, str) for stage_name in skipped_stage_names
+            ):
+                raise ValueError(
+                    "Collection stage summary 'skipped_stage_names' must be a list of strings."
+                )
+            if sorted(skipped_stage_names) != sorted(skipped_stage_names_from_execution):
+                raise ValueError(
+                    "Collection stage summary 'skipped_stage_names' must match skipped stage_execution entries."
+                )
+
+        failed_stage_names = summary.get("failed_stage_names")
+        if failed_stage_names is not None:
+            if not isinstance(failed_stage_names, list) or any(
+                not isinstance(stage_name, str) for stage_name in failed_stage_names
+            ):
+                raise ValueError(
+                    "Collection stage summary 'failed_stage_names' must be a list of strings."
+                )
+            if sorted(failed_stage_names) != sorted(failed_stage_names_from_execution):
+                raise ValueError(
+                    "Collection stage summary 'failed_stage_names' must match failed stage_execution entries."
+                )
+
+        resumable_stage_identity = summary.get("resumable_stage_identity")
+        if resumable_stage_identity is not None:
+            if not isinstance(resumable_stage_identity, dict):
+                raise ValueError(
+                    "Collection stage summary 'resumable_stage_identity' must be an object when provided."
+                )
+            run_id = resumable_stage_identity.get("run_id")
+            if not isinstance(run_id, str) or not run_id.strip():
+                raise ValueError("resumable_stage_identity.run_id must be a non-empty string.")
+            last_completed_stage_id = resumable_stage_identity.get("last_completed_stage_id")
+            if not isinstance(last_completed_stage_id, str) or not last_completed_stage_id.strip():
+                raise ValueError(
+                    "resumable_stage_identity.last_completed_stage_id must be a non-empty string."
+                )
 
     records_seen = summary.get("records_seen")
     if records_seen is not None:
