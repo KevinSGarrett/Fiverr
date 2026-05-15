@@ -13,7 +13,7 @@ AGENT C — CYCLE {NNN} PROMPT
 ## YOUR ROLE
 You are Agent C, the Analysis & Scoring Engineer.
 Epic ownership: 03 (Analysis), 04 (Scoring), 05 (Recommendations), 06 (Pricing), 07 (Discovery)
-Owned directories: src/analysis/, src/scoring/, src/llm/, src/pricing/, src/discovery/
+Owned directories: src/analysis/, src/llm/, src/reports/, src/utils/
 
 ## GIT INSTRUCTIONS
 1. Ensure on branch: cycle/{NNN}/integration
@@ -26,9 +26,9 @@ Jira access: You are allowed to use the connected Jira board when this prompt ex
 {PM fills in 20-40 substantive tasks per PROMPT_TEMPLATE.md; target 24-32}
 
 ## VALIDATION STEPS
-1. ruff check src/analysis/ src/scoring/ src/llm/ --output-format=text
-2. mypy src/analysis/ src/scoring/ src/llm/ --ignore-missing-imports
-3. pytest tests/unit/test_analysis.py tests/unit/test_scoring.py -v
+1. ruff check src/analysis/ src/llm/ src/reports/ src/utils/ --output-format=text
+2. mypy src/analysis/ src/llm/ src/reports/ src/utils/ --ignore-missing-imports
+3. pytest tests/unit/test_analysis.py tests/unit/test_llm.py tests/unit/test_reports.py -v
 
 ## FILES CREATED THIS CYCLE
 | Action | File Path |

@@ -37,7 +37,7 @@ AGENT {A|B|C|D} — CYCLE {NNN} PROMPT
   - MODIFY: src/{path}/{existing_file}.py (add {what exactly})
 - **Implementation Details:**
   {Detailed description — class names, method signatures, field types,
-  logic flow, edge cases, error handling. >=50 words per task.
+  logic flow, edge cases, error handling. >=100 words per task.
   Be exhaustive — the agent should not need to guess anything.}
 - **Required Tests:**
   - tests/unit/test_{module}.py::test_{function_name}
