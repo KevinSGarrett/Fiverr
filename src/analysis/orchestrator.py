@@ -48,6 +48,32 @@ _INTENT_SELECTION_CONFIDENCE: dict[str, float] = {
     "source_id_fallback": 0.6,
 }
 
+_PLACEHOLDER_STATUS_ORDER: tuple[str, ...] = ("blocked", "empty", "sparse", "ready")
+
+_SCORING_CONTRACT_FIELDS: dict[str, tuple[str, ...]] = {
+    "demand_scoring": (
+        "intent.selected_keyword",
+        "intent.selection_reason",
+        "keyword_clustering.cluster_count",
+        "keyword_clustering.top_cluster_labels",
+    ),
+    "competition_scoring": (
+        "competitor_profile.competitor_count",
+        "competitor_profile.missing_seller_context_count",
+        "gig_quality.completeness_ratio",
+    ),
+    "opportunity_scoring": (
+        "saturation.signal_counts",
+        "review_analysis.status",
+        "seller_strength.readiness_status",
+    ),
+    "confidence_scoring": (
+        "run.warning_count",
+        "run.missing_field_count",
+        "stage_contracts.*.status",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class _IntentKeywordSelection:
@@ -98,7 +124,12 @@ class _AnalysisRunContract:
             skipped_stages=skipped_stages,
             warning_count=warning_count,
             missing_field_count=missing_field_count,
-            scoring_readiness=summarize_scoring_readiness(stages, payload),
+            scoring_readiness=summarize_scoring_readiness(
+                stages,
+                payload,
+                warning_count=warning_count,
+                missing_field_count=missing_field_count,
+            ),
         )
 
 
@@ -146,7 +177,11 @@ def _failed_stage_summary(
 
 
 def summarize_scoring_readiness(
-    stages: list[AnalysisStageSummary], payload: dict[str, Any] | None = None
+    stages: list[AnalysisStageSummary],
+    payload: dict[str, Any] | None = None,
+    *,
+    warning_count: int = 0,
+    missing_field_count: int = 0,
 ) -> dict[str, Any]:
     """Summarize which analysis outputs are available for downstream scoring."""
     successful_stages = {
@@ -167,7 +202,313 @@ def summarize_scoring_readiness(
     }
     readiness["available_count"] = sum(1 for value in readiness.values() if bool(value))
     readiness["total_expected"] = 7
+    readiness["contracts"] = _SCORING_CONTRACT_FIELDS
+    readiness["contract_signal_counts"] = {
+        "warning_count": warning_count,
+        "missing_field_count": missing_field_count,
+    }
     return readiness
+
+
+def _placeholder_status(*, signal_count: int, minimum_ready_signals: int = 1) -> str:
+    """Map signal counts to deterministic placeholder readiness buckets."""
+    if signal_count <= 0:
+        return "empty"
+    if signal_count < minimum_ready_signals:
+        return "sparse"
+    return "ready"
+
+
+def _placeholder_summary(
+    *,
+    stage: str,
+    status: str,
+    explanation: str,
+    source_availability: dict[str, bool],
+    warning_count: int,
+    missing_fields: list[str],
+    future_contract_fields: list[str],
+    **extra: Any,
+) -> dict[str, Any]:
+    """Produce stable stage-level readiness metadata for downstream integration."""
+    normalized_status = status if status in _PLACEHOLDER_STATUS_ORDER else "blocked"
+    summary: dict[str, Any] = {
+        "stage": stage,
+        "status": normalized_status,
+        "stage_status": normalized_status,
+        "source_availability": source_availability,
+        "warning_count": warning_count,
+        "missing_field_count": len(missing_fields),
+        "missing_fields": missing_fields,
+        "explanation": explanation,
+        "future_contract_fields": future_contract_fields,
+    }
+    if extra:
+        summary.update(extra)
+    return summary
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _compute_intent_selection_contract(
+    payload: dict[str, Any], source_id: str, selection: _IntentKeywordSelection
+) -> dict[str, Any]:
+    """Expose deterministic intent keyword selection contract for future scoring stages."""
+    missing_input_warnings: list[str] = []
+    intent_section = payload.get("intent")
+    intent_keyword_present = isinstance(intent_section, dict) and (
+        _non_empty_text_or_none(intent_section.get("keyword_text")) is not None
+    )
+    payload_keyword_present = _non_empty_text_or_none(payload.get("keyword_text")) is not None
+    keyword_array_present = any(
+        _non_empty_text_or_none(keyword) is not None for keyword in _as_list(payload.get("keywords"))
+    )
+
+    if not intent_keyword_present:
+        missing_input_warnings.append("intent.keyword_text_missing")
+    if not payload_keyword_present:
+        missing_input_warnings.append("keyword_text_missing")
+    if not keyword_array_present:
+        missing_input_warnings.append("keywords_array_missing")
+    if selection.selection_reason == "source_id_fallback":
+        missing_input_warnings.append("source_id_fallback_used")
+    if (
+        not intent_keyword_present
+        and not payload_keyword_present
+        and not keyword_array_present
+        and _non_empty_text_or_none(source_id) is not None
+    ):
+        missing_input_warnings.append("all_keyword_sources_missing")
+
+    confidence_bucket = (
+        "high"
+        if selection.selection_confidence >= 0.9
+        else "medium"
+        if selection.selection_confidence >= 0.75
+        else "low"
+    )
+    return {
+        "selected_keyword": selection.keyword_text,
+        "selection_reason": selection.selection_reason,
+        "selection_confidence": selection.selection_confidence,
+        "confidence_bucket": confidence_bucket,
+        "missing_input_warnings": missing_input_warnings,
+    }
+
+
+def _keyword_clustering_placeholder_summary(
+    *, keyword_result_count: int, warning_count: int, missing_fields: list[str]
+) -> dict[str, Any]:
+    status = _placeholder_status(signal_count=keyword_result_count, minimum_ready_signals=2)
+    if keyword_result_count == 0 and missing_fields:
+        status = "empty"
+    explanation = (
+        "Keyword clustering placeholder indicates sparse or missing source keywords."
+        if status != "ready"
+        else "Keyword clustering placeholder is ready for downstream scoring contracts."
+    )
+    return _placeholder_summary(
+        stage=AnalysisTaskType.KEYWORD_CLUSTERING.value,
+        status=status,
+        explanation=explanation,
+        source_availability={"keywords": keyword_result_count > 0},
+        warning_count=warning_count,
+        missing_fields=missing_fields,
+        future_contract_fields=[
+            "cluster_id",
+            "label",
+            "member_count",
+            "confidence",
+            "source_keywords",
+        ],
+        cluster_count=keyword_result_count,
+    )
+
+
+def _gig_quality_placeholder_summary(
+    *, gig_data: Any, warning_count: int
+) -> dict[str, Any]:
+    gig = _as_dict(gig_data)
+    title_present = _non_empty_text_or_none(gig.get("title")) is not None
+    description_present = _non_empty_text_or_none(gig.get("description")) is not None
+    package_count = gig.get("package_count")
+    packages_present = isinstance(package_count, int) and package_count > 0
+    completeness = sum([title_present, description_present, packages_present]) / 3.0
+    missing_fields = [
+        field_name
+        for field_name, present in (
+            ("title", title_present),
+            ("description", description_present),
+            ("package_count", packages_present),
+        )
+        if not present
+    ]
+    status = _placeholder_status(signal_count=sum([title_present, description_present, packages_present]), minimum_ready_signals=3)
+    if not isinstance(gig_data, dict) and gig_data is not None:
+        status = "blocked"
+        missing_fields.append("gig_fixture_malformed")
+    return _placeholder_summary(
+        stage=AnalysisTaskType.GIG_QUALITY.value,
+        status=status,
+        explanation=(
+            "Gig fixture malformed; quality scoring readiness is blocked."
+            if status == "blocked"
+            else "Gig quality placeholder summarizes deterministic completeness only."
+        ),
+        source_availability={
+            "gig": isinstance(gig_data, dict),
+            "title": title_present,
+            "description": description_present,
+            "package_count": packages_present,
+        },
+        warning_count=warning_count,
+        missing_fields=missing_fields,
+        future_contract_fields=[
+            "title_completeness",
+            "description_completeness",
+            "package_completeness",
+            "quality_rubric_ready",
+        ],
+        completeness_ratio=round(completeness, 3),
+    )
+
+
+def _competitor_placeholder_summary(
+    *, competitor_rows: Any, warning_count: int, missing_fields: list[str]
+) -> dict[str, Any]:
+    competitors = [entry for entry in _as_list(competitor_rows) if isinstance(entry, dict)]
+    missing_seller_context_count = 0
+    weakness_signal_available = False
+    for row in competitors:
+        if not _non_empty_text_or_none(row.get("seller_level")):
+            missing_seller_context_count += 1
+        rating = row.get("rating")
+        review_count = row.get("review_count")
+        if isinstance(rating, (int | float)) and rating <= 4.3 and isinstance(review_count, int) and review_count <= 30:
+            weakness_signal_available = True
+    status = _placeholder_status(signal_count=len(competitors), minimum_ready_signals=3)
+    return _placeholder_summary(
+        stage=AnalysisTaskType.COMPETITOR_PROFILE.value,
+        status=status,
+        explanation=(
+            "Competitor profiling placeholder is sparse; upstream seller context is limited."
+            if status != "ready"
+            else "Competitor profiling placeholder is ready for deterministic competition signals."
+        ),
+        source_availability={
+            "competitors": bool(competitors),
+            "seller_context": missing_seller_context_count < len(competitors) if competitors else False,
+            "weakness_signals": weakness_signal_available,
+        },
+        warning_count=warning_count,
+        missing_fields=missing_fields,
+        future_contract_fields=[
+            "competitor_count",
+            "missing_seller_context_count",
+            "weakness_signal_available",
+        ],
+        competitor_count=len(competitors),
+        missing_seller_context_count=missing_seller_context_count,
+        weakness_signal_available=weakness_signal_available,
+    )
+
+
+def _seller_strength_placeholder_summary(*, seller_source: Any, warning_count: int) -> dict[str, Any]:
+    seller = _as_dict(seller_source)
+    required_fields = ("seller_id", "level", "rating", "review_count", "response_time")
+    available_fields = [field_name for field_name in required_fields if seller.get(field_name) is not None]
+    missing_fields = [field_name for field_name in required_fields if field_name not in available_fields]
+    status = _placeholder_status(signal_count=len(available_fields), minimum_ready_signals=4)
+    if not isinstance(seller_source, dict) and seller_source is not None:
+        status = "blocked"
+        missing_fields.append("seller_fixture_malformed")
+    return _placeholder_summary(
+        stage=AnalysisTaskType.SELLER_STRENGTH.value,
+        status=status,
+        explanation=(
+            "Seller strength scoring is blocked until required seller profile fields are available."
+            if status in {"blocked", "empty"}
+            else "Seller strength placeholder reflects deterministic profile-field readiness."
+        ),
+        source_availability={field_name: field_name in available_fields for field_name in required_fields},
+        warning_count=warning_count,
+        missing_fields=missing_fields,
+        future_contract_fields=["available_fields", "missing_fields", "downstream_status"],
+        available_fields=available_fields,
+        downstream_status="ready_for_scoring" if status == "ready" else "blocked_for_scoring",
+    )
+
+
+def _saturation_placeholder_summary(
+    *, keyword_count: int, competitor_count: int, gig_quality_count: int, warning_count: int
+) -> dict[str, Any]:
+    populated_signal_count = sum(1 for value in (keyword_count, competitor_count, gig_quality_count) if value > 0)
+    if competitor_count == 0:
+        status = "blocked"
+        explanation = "Saturation readiness is blocked because competitor fixtures are unavailable."
+    elif competitor_count == 1:
+        status = "sparse"
+        explanation = "Saturation readiness is sparse with only one competitor fixture."
+    else:
+        status = _placeholder_status(signal_count=populated_signal_count, minimum_ready_signals=3)
+        explanation = (
+            "Saturation readiness is ready with keyword, competitor, and quality signals."
+            if status == "ready"
+            else "Saturation readiness is sparse due to incomplete signal coverage."
+        )
+    missing_fields: list[str] = []
+    if keyword_count <= 0:
+        missing_fields.append("keyword_count")
+    if competitor_count <= 0:
+        missing_fields.append("competitor_count")
+    if gig_quality_count <= 0:
+        missing_fields.append("gig_quality_scores")
+    return _placeholder_summary(
+        stage=AnalysisTaskType.SATURATION.value,
+        status=status,
+        explanation=explanation,
+        source_availability={
+            "keywords": keyword_count > 0,
+            "competitors": competitor_count > 0,
+            "gig_quality_scores": gig_quality_count > 0,
+        },
+        warning_count=warning_count,
+        missing_fields=missing_fields,
+        future_contract_fields=["keyword_count", "competitor_count", "gig_quality_scores", "signal_counts"],
+        signal_counts={
+            "keyword_count": keyword_count,
+            "competitor_count": competitor_count,
+            "gig_quality_count": gig_quality_count,
+        },
+    )
+
+
+def _review_placeholder_summary(*, review_count: int, warning_count: int, missing_fields: list[str]) -> dict[str, Any]:
+    if review_count <= 0:
+        status = "empty"
+        explanation = "Review analysis readiness is empty because no review fixtures were provided."
+    elif review_count < 3:
+        status = "sparse"
+        explanation = "Review analysis readiness is sparse with limited review snippets."
+    else:
+        status = "ready"
+        explanation = "Review analysis readiness is usable for deterministic theme extraction."
+    return _placeholder_summary(
+        stage=AnalysisTaskType.REVIEW_ANALYSIS.value,
+        status=status,
+        explanation=explanation,
+        source_availability={"reviews": review_count > 0, "review_snippets": review_count >= 3},
+        warning_count=warning_count,
+        missing_fields=missing_fields,
+        future_contract_fields=["review_count", "warning_count", "theme_count"],
+        review_count=review_count,
+    )
 
 
 def _non_empty_text_or_none(value: Any) -> str | None:
@@ -372,6 +713,11 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 }
             )
             keyword_result = cluster_keywords(keyword_input)
+            keyword_placeholder = _keyword_clustering_placeholder_summary(
+                keyword_result_count=len(keyword_result.clusters),
+                warning_count=len(keyword_result.warnings),
+                missing_fields=list(keyword_result.missing_data_fields),
+            )
             stages.append(
                 AnalysisStageSummary(
                     stage=AnalysisTaskType.KEYWORD_CLUSTERING,
@@ -384,6 +730,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         warning_count=len(keyword_result.warnings),
                         missing_field_count=len(keyword_result.missing_data_fields),
                         cluster_count=len(keyword_result.clusters),
+                        stage_status=keyword_placeholder["status"],
+                        source_availability=keyword_placeholder["source_availability"],
+                        explanation=keyword_placeholder["explanation"],
+                        readiness_contract=keyword_placeholder,
                     ),
                 )
             )
@@ -400,39 +750,81 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
 
     if "gig" in payload:
         try:
-            gig_input = GigQualityInput.model_validate(
-                {
-                    "source_id": source_id,
-                    "gig_id": payload.get("gig", {}).get("gig_id", "dry-run-gig"),
-                    "title": payload.get("gig", {}).get("title"),
-                    "description": payload.get("gig", {}).get("description"),
-                    "package_count": payload.get("gig", {}).get("package_count"),
-                    "rating": payload.get("gig", {}).get("rating"),
-                    "review_count": payload.get("gig", {}).get("review_count"),
-                    "image_count": payload.get("gig", {}).get("image_count"),
-                    "has_faq": payload.get("gig", {}).get("has_faq"),
-                    "metadata": metadata_dict,
-                }
-            )
-            gig_result = score_gig_quality(gig_input)
-            gig_quality_scores.append(gig_result.overall_score)
-            stages.append(
-                AnalysisStageSummary(
-                    stage=AnalysisTaskType.GIG_QUALITY,
-                    status=AnalysisStatus.SUCCESS,
-                    warnings=gig_result.warnings,
-                    result_type="gig_quality",
-                    metadata=_stage_metadata(
-                        source_id,
-                        result_count=1,
-                        warning_count=len(gig_result.warnings),
-                        missing_field_count=len(gig_result.missing_data_fields),
-                        strength_count=len(gig_result.strengths),
-                        weakness_count=len(gig_result.weaknesses),
-                    ),
+            gig_payload = payload.get("gig")
+            if not isinstance(gig_payload, dict):
+                gig_placeholder = _gig_quality_placeholder_summary(
+                    gig_data=gig_payload,
+                    warning_count=1,
                 )
-            )
-            all_warnings.extend(gig_result.warnings)
+                malformed_warning = AnalysisWarning(
+                    code="gig_fixture_malformed",
+                    message="gig payload must be a dictionary for rubric scoring.",
+                    source_id=source_id,
+                    missing_data_fields=["gig"],
+                )
+                stages.append(
+                    AnalysisStageSummary(
+                        stage=AnalysisTaskType.GIG_QUALITY,
+                        status=AnalysisStatus.SUCCESS,
+                        warnings=[malformed_warning],
+                        result_type="gig_quality",
+                        metadata=_stage_metadata(
+                            source_id,
+                            result_count=0,
+                            warning_count=1,
+                            missing_field_count=len(gig_placeholder["missing_fields"]),
+                            strength_count=0,
+                            weakness_count=0,
+                            stage_status=gig_placeholder["status"],
+                            source_availability=gig_placeholder["source_availability"],
+                            explanation=gig_placeholder["explanation"],
+                            readiness_contract=gig_placeholder,
+                        ),
+                    )
+                )
+                all_warnings.append(malformed_warning)
+            else:
+                gig_input = GigQualityInput.model_validate(
+                    {
+                        "source_id": source_id,
+                        "gig_id": gig_payload.get("gig_id", "dry-run-gig"),
+                        "title": gig_payload.get("title"),
+                        "description": gig_payload.get("description"),
+                        "package_count": gig_payload.get("package_count"),
+                        "rating": gig_payload.get("rating"),
+                        "review_count": gig_payload.get("review_count"),
+                        "image_count": gig_payload.get("image_count"),
+                        "has_faq": gig_payload.get("has_faq"),
+                        "metadata": metadata_dict,
+                    }
+                )
+                gig_result = score_gig_quality(gig_input)
+                gig_quality_scores.append(gig_result.overall_score)
+                gig_placeholder = _gig_quality_placeholder_summary(
+                    gig_data=gig_payload,
+                    warning_count=len(gig_result.warnings),
+                )
+                stages.append(
+                    AnalysisStageSummary(
+                        stage=AnalysisTaskType.GIG_QUALITY,
+                        status=AnalysisStatus.SUCCESS,
+                        warnings=gig_result.warnings,
+                        result_type="gig_quality",
+                        metadata=_stage_metadata(
+                            source_id,
+                            result_count=1,
+                            warning_count=len(gig_result.warnings),
+                            missing_field_count=len(gig_result.missing_data_fields),
+                            strength_count=len(gig_result.strengths),
+                            weakness_count=len(gig_result.weaknesses),
+                            stage_status=gig_placeholder["status"],
+                            source_availability=gig_placeholder["source_availability"],
+                            explanation=gig_placeholder["explanation"],
+                            readiness_contract=gig_placeholder,
+                        ),
+                    )
+                )
+                all_warnings.extend(gig_result.warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
                 _failed_stage_summary(
@@ -445,14 +837,22 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
 
     if "competitors" in payload:
         try:
+            competitors_payload = payload.get("competitors")
+            if not isinstance(competitors_payload, list):
+                raise ValueError("competitors must be a list.")
             competitor_input = CompetitorProfileInput.model_validate(
                 {
                     "source_id": source_id,
-                    "competitors": payload.get("competitors", []),
+                    "competitors": competitors_payload,
                     "metadata": metadata_dict,
                 }
             )
             competitor_result = profile_competitors(competitor_input)
+            competitor_placeholder = _competitor_placeholder_summary(
+                competitor_rows=competitors_payload,
+                warning_count=len(competitor_result.warnings),
+                missing_fields=list(competitor_result.missing_data_fields),
+            )
             stages.append(
                 AnalysisStageSummary(
                     stage=AnalysisTaskType.COMPETITOR_PROFILE,
@@ -466,6 +866,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         missing_field_count=len(competitor_result.missing_data_fields),
                         competitor_count=len(competitor_input.competitors),
                         high_authority_count=len(competitor_result.high_authority_sellers),
+                        stage_status=competitor_placeholder["status"],
+                        source_availability=competitor_placeholder["source_availability"],
+                        explanation=competitor_placeholder["explanation"],
+                        readiness_contract=competitor_placeholder,
                     ),
                 )
             )
@@ -487,6 +891,8 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 seller_source = seller_rows[0]
             else:
                 seller_source = payload.get("seller", {})
+            if not isinstance(seller_source, dict):
+                raise ValueError("seller must be a dictionary.")
             seller_input = SellerStrengthInput.model_validate(
                 {
                     "source_id": source_id,
@@ -525,6 +931,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         seller_strength_scores.append(score_seller_strength(additional_input).score)
                     except ValidationError:
                         continue
+            seller_placeholder = _seller_strength_placeholder_summary(
+                seller_source=seller_source,
+                warning_count=len(seller_result.warnings),
+            )
             stages.append(
                 AnalysisStageSummary(
                     stage=AnalysisTaskType.SELLER_STRENGTH,
@@ -538,6 +948,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         missing_field_count=len(seller_result.missing_data_fields),
                         evaluated_sellers=len(seller_strength_scores),
                         component_count=len(seller_result.components),
+                        stage_status=seller_placeholder["status"],
+                        source_availability=seller_placeholder["source_availability"],
+                        explanation=seller_placeholder["explanation"],
+                        readiness_contract=seller_placeholder,
                     ),
                 )
             )
@@ -592,6 +1006,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 }
             )
             saturation_result = analyze_saturation(saturation_input)
+            saturation_placeholder = _saturation_placeholder_summary(
+                keyword_count=(
+                    len(payload.get("keywords", []))
+                    if isinstance(payload.get("keywords"), list)
+                    else 0
+                ),
+                competitor_count=(
+                    len(payload.get("competitors", []))
+                    if isinstance(payload.get("competitors"), list)
+                    else 0
+                ),
+                gig_quality_count=len(gig_quality_scores),
+                warning_count=len(saturation_result.warnings),
+            )
             stages.append(
                 AnalysisStageSummary(
                     stage=AnalysisTaskType.SATURATION,
@@ -605,6 +1033,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         missing_field_count=len(saturation_result.missing_data_fields),
                         saturation_level=saturation_result.saturation_level.value,
                         component_count=len(saturation_result.components),
+                        stage_status=saturation_placeholder["status"],
+                        source_availability=saturation_placeholder["source_availability"],
+                        explanation=saturation_placeholder["explanation"],
+                        readiness_contract=saturation_placeholder,
                     ),
                 )
             )
@@ -621,14 +1053,22 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
 
     if "reviews" in payload:
         try:
+            reviews_payload = payload.get("reviews")
+            if not isinstance(reviews_payload, list):
+                raise ValueError("reviews must be a list.")
             review_input = ReviewAnalysisInput.model_validate(
                 {
                     "source_id": source_id,
-                    "reviews": payload.get("reviews", []),
+                    "reviews": reviews_payload,
                     "metadata": metadata_dict,
                 }
             )
             review_result = analyze_reviews(review_input)
+            review_placeholder = _review_placeholder_summary(
+                review_count=len(reviews_payload),
+                warning_count=len(review_result.warnings),
+                missing_fields=list(review_result.missing_data_fields),
+            )
             stages.append(
                 AnalysisStageSummary(
                     stage=AnalysisTaskType.REVIEW_ANALYSIS,
@@ -642,6 +1082,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         missing_field_count=len(review_result.missing_data_fields),
                         theme_count=len(review_result.themes),
                         complaint_theme_count=len(review_result.complaint_frequency),
+                        stage_status=review_placeholder["status"],
+                        source_availability=review_placeholder["source_availability"],
+                        explanation=review_placeholder["explanation"],
+                        readiness_contract=review_placeholder,
                     ),
                 )
             )
@@ -660,10 +1104,16 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         try:
             intent_section = payload.get("intent", {})
             intent_selection = _resolve_intent_keyword_selection(payload, source_id)
+            intent_selection_contract = _compute_intent_selection_contract(
+                payload,
+                source_id,
+                intent_selection,
+            )
             intent_metadata = {
                 **metadata_dict,
                 "intent_keyword_selection_reason": intent_selection.selection_reason,
                 "intent_keyword_selection_confidence": intent_selection.selection_confidence,
+                "intent_selection_contract": intent_selection_contract,
             }
             if isinstance(intent_section, dict):
                 keyword_text = intent_selection.keyword_text
@@ -690,11 +1140,32 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         source_id,
                         result_count=len(intent_result.matched_rules),
                         warning_count=len(intent_result.warnings),
-                        missing_field_count=0,
+                        missing_field_count=len(intent_selection_contract["missing_input_warnings"]),
                         label=intent_result.label.value,
                         matched_rule_count=len(intent_result.matched_rules),
                         intent_keyword_selection_reason=intent_selection.selection_reason,
                         intent_keyword_selection_confidence=intent_selection.selection_confidence,
+                        intent_selection_contract=intent_selection_contract,
+                        stage_status=(
+                            "ready"
+                            if intent_selection_contract["selection_reason"] == "explicit_intent_keyword"
+                            else "sparse"
+                            if intent_selection_contract["selection_reason"] != "source_id_fallback"
+                            else "blocked"
+                        ),
+                        source_availability={
+                            "intent_keyword": "intent.keyword_text_missing"
+                            not in intent_selection_contract["missing_input_warnings"],
+                            "payload_keyword": "keyword_text_missing"
+                            not in intent_selection_contract["missing_input_warnings"],
+                            "keywords_array": "keywords_array_missing"
+                            not in intent_selection_contract["missing_input_warnings"],
+                        },
+                        explanation=(
+                            "Intent selection used source_id fallback; intent scoring remains blocked."
+                            if intent_selection_contract["selection_reason"] == "source_id_fallback"
+                            else "Intent selection contract captured deterministic fallback behavior."
+                        ),
                     ),
                 )
             )
@@ -737,6 +1208,10 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         "warning_count": run_contract.warning_count,
         "missing_field_count": run_contract.missing_field_count,
         "scoring_readiness": run_contract.scoring_readiness,
+        "stage_contracts": {
+            stage.stage.value: stage.metadata.get("readiness_contract", {})
+            for stage in stages
+        },
         **metadata_dict,
     }
     if collection_evidence is not None:

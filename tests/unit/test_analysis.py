@@ -1019,3 +1019,255 @@ def test_legacy_competitor_profile_still_operates() -> None:
         )
     )
     assert 0.0 <= result.competition_intensity_score <= 100.0
+
+
+def _stage_by_type(summary: AnalysisRunSummary, stage_type: AnalysisTaskType) -> AnalysisStageSummary:
+    return next(stage for stage in summary.stages if stage.stage == stage_type)
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_keyword", "expected_reason", "expected_bucket"),
+    [
+        (
+            {
+                "run_id": "run-intent-contract-explicit",
+                "source_id": "src-intent-contract-explicit",
+                "intent": {"keyword_text": "explicit intent keyword"},
+                "keyword_text": "payload keyword",
+                "keywords": ["keyword fallback"],
+            },
+            "explicit intent keyword",
+            "explicit_intent_keyword",
+            "high",
+        ),
+        (
+            {
+                "run_id": "run-intent-contract-payload",
+                "source_id": "src-intent-contract-payload",
+                "intent": {"keyword_text": None},
+                "keyword_text": "payload keyword",
+            },
+            "payload keyword",
+            "top_level_keyword_text",
+            "high",
+        ),
+        (
+            {
+                "run_id": "run-intent-contract-keyword-list",
+                "source_id": "src-intent-contract-keyword-list",
+                "intent": {"keyword_text": ""},
+                "keywords": ["list keyword"],
+            },
+            "list keyword",
+            "keywords_first_entry",
+            "medium",
+        ),
+        (
+            {
+                "run_id": "run-intent-contract-source",
+                "source_id": "src-intent-contract-source",
+                "intent": {"keyword_text": ""},
+                "keywords": ["", "null"],
+            },
+            "src-intent-contract-source",
+            "source_id_fallback",
+            "low",
+        ),
+    ],
+)
+def test_orchestrator_intent_selection_contract_tracks_keyword_boundaries(
+    payload: dict[str, object],
+    expected_keyword: str,
+    expected_reason: str,
+    expected_bucket: str,
+) -> None:
+    summary = run_analysis_dry_run(payload)
+    intent_stage = _stage_by_type(summary, AnalysisTaskType.INTENT_CLASSIFICATION)
+    contract = intent_stage.metadata["intent_selection_contract"]
+    assert contract["selected_keyword"] == expected_keyword
+    assert contract["selection_reason"] == expected_reason
+    assert contract["confidence_bucket"] == expected_bucket
+
+
+def test_orchestrator_intent_selection_contract_reports_missing_all_sources() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-intent-contract-missing-all",
+            "source_id": "src-intent-contract-missing-all",
+            "intent": {},
+        }
+    )
+    intent_stage = _stage_by_type(summary, AnalysisTaskType.INTENT_CLASSIFICATION)
+    contract = intent_stage.metadata["intent_selection_contract"]
+    assert contract["selection_reason"] == "source_id_fallback"
+    assert "all_keyword_sources_missing" in contract["missing_input_warnings"]
+
+
+def test_orchestrator_keyword_placeholder_contract_degrades_safely_for_sparse_input() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-keyword-placeholder-sparse",
+            "source_id": "src-keyword-placeholder-sparse",
+            "keywords": [],
+        }
+    )
+    keyword_stage = _stage_by_type(summary, AnalysisTaskType.KEYWORD_CLUSTERING)
+    contract = keyword_stage.metadata["readiness_contract"]
+    assert contract["status"] in {"empty", "sparse"}
+    assert contract["future_contract_fields"] == [
+        "cluster_id",
+        "label",
+        "member_count",
+        "confidence",
+        "source_keywords",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("gig_payload", "expected_status"),
+    [
+        (
+            {
+                "gig_id": "gig-ready",
+                "title": "I will design a professional logo",
+                "description": "Experienced designer with premium package options.",
+                "package_count": 3,
+            },
+            "ready",
+        ),
+        (
+            {
+                "gig_id": "gig-sparse",
+                "title": "I will design a logo",
+            },
+            "sparse",
+        ),
+        (
+            {
+                "gig_id": "gig-empty",
+            },
+            "empty",
+        ),
+        (
+            "malformed-gig",
+            "blocked",
+        ),
+    ],
+)
+def test_orchestrator_gig_quality_placeholder_contract_handles_fixture_shapes(
+    gig_payload: dict[str, object] | str,
+    expected_status: str,
+) -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-gig-placeholder",
+            "source_id": "src-gig-placeholder",
+            "gig": gig_payload,
+        }
+    )
+    gig_stage = _stage_by_type(summary, AnalysisTaskType.GIG_QUALITY)
+    contract = gig_stage.metadata["readiness_contract"]
+    assert contract["status"] == expected_status
+
+
+def test_orchestrator_competitor_placeholder_avoids_fabricated_weakness_signals() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-competitor-placeholder-missing",
+            "source_id": "src-competitor-placeholder-missing",
+            "competitors": [{"seller_id": "c1"}],
+        }
+    )
+    competitor_stage = _stage_by_type(summary, AnalysisTaskType.COMPETITOR_PROFILE)
+    contract = competitor_stage.metadata["readiness_contract"]
+    assert contract["status"] == "sparse"
+    assert contract["weakness_signal_available"] is False
+
+
+def test_orchestrator_seller_strength_placeholder_reports_blocked_when_fields_missing() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-seller-placeholder-sparse",
+            "source_id": "src-seller-placeholder-sparse",
+            "seller": {"seller_id": "seller-1"},
+        }
+    )
+    seller_stage = _stage_by_type(summary, AnalysisTaskType.SELLER_STRENGTH)
+    contract = seller_stage.metadata["readiness_contract"]
+    assert contract["status"] in {"empty", "sparse"}
+    assert contract["downstream_status"] == "blocked_for_scoring"
+
+
+@pytest.mark.parametrize(
+    ("competitors", "expected_status"),
+    [
+        ([], "blocked"),
+        ([{"seller_id": "c1", "seller_level": "new", "rating": 4.2, "review_count": 8}], "sparse"),
+        (
+            [
+                {"seller_id": "c1", "seller_level": "level_two", "rating": 4.7, "review_count": 120},
+                {"seller_id": "c2", "seller_level": "top_rated", "rating": 4.9, "review_count": 500},
+                {"seller_id": "c3", "seller_level": "level_one", "rating": 4.5, "review_count": 70},
+            ],
+            "ready",
+        ),
+    ],
+)
+def test_orchestrator_saturation_placeholder_contract_uses_competitor_signal_counts(
+    competitors: list[dict[str, object]],
+    expected_status: str,
+) -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-saturation-placeholder",
+            "source_id": "src-saturation-placeholder",
+            "keywords": ["python automation"],
+            "gig_quality_scores": [72.0],
+            "competitors": competitors,
+        }
+    )
+    saturation_stage = _stage_by_type(summary, AnalysisTaskType.SATURATION)
+    contract = saturation_stage.metadata["readiness_contract"]
+    assert contract["status"] == expected_status
+
+
+@pytest.mark.parametrize(
+    ("reviews", "expected_status"),
+    [
+        ([], "empty"),
+        ([{"text": "Good work", "rating": 4.0}], "sparse"),
+        (
+            [
+                {"text": "Fast delivery and strong communication", "rating": 5.0},
+                {"text": "Great quality and quick turnaround", "rating": 5.0},
+                {"text": "Excellent work and polite seller", "rating": 5.0},
+            ],
+            "ready",
+        ),
+    ],
+)
+def test_orchestrator_review_placeholder_contract_distinguishes_fixture_readiness(
+    reviews: list[dict[str, object]],
+    expected_status: str,
+) -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-review-placeholder",
+            "source_id": "src-review-placeholder",
+            "reviews": reviews,
+        }
+    )
+    review_stage = _stage_by_type(summary, AnalysisTaskType.REVIEW_ANALYSIS)
+    contract = review_stage.metadata["readiness_contract"]
+    assert contract["status"] == expected_status
+    assert "warning_count" in contract
+
+
+def test_orchestrator_scoring_readiness_exposes_future_contract_mapping() -> None:
+    summary = run_analysis_dry_run(_load_analysis_fixture("complete_payload.json"))
+    readiness = summary.metadata["scoring_readiness"]
+    contracts = readiness["contracts"]
+    assert "demand_scoring" in contracts
+    assert "competition_scoring" in contracts
+    assert "opportunity_scoring" in contracts
+    assert "confidence_scoring" in contracts
