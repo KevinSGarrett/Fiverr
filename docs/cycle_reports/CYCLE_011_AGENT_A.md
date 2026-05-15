@@ -66,6 +66,14 @@
 - Ancestry check passed: `origin/develop` is ancestor of `HEAD`.
 - Branch published: `origin/cycle/011/integration`.
 
+## Agent handoff (B/C/D)
+
+- Handoff branch for next work slice: `cycle/011/integration`.
+- Agent B focus: collection checkpoint/resume and collection-stage follow-on tasks from merged `develop`.
+- Agent C focus: analysis and scoring follow-on tasks now that PR #8 gate is closed.
+- Agent D focus: dashboard/reporting integration continuation on top of merged governance parity fix.
+- Gate prerequisites confirmed for all handoff work: Codex blockers closed, CI/Codecov green, and local parity recorded.
+
 ## Jira operations performed
 
 Cloud/site:
