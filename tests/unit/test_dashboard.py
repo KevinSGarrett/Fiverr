@@ -209,8 +209,29 @@ def test_governance_page_ready_state_includes_local_parity_in_severity_totals() 
         local_parity="fail",
         merge_readiness="pass",
     )
-    assert any(row["category"] == "local_parity" for row in page_state["categories"])
+    local_parity_row = next(row for row in page_state["categories"] if row["category"] == "local_parity")
+    assert local_parity_row["status"] == "fail"
+    assert local_parity_row["severity"] == "error"
     assert page_state["summary"]["error"] == 1
+    assert page_state["readiness_severity"] == "error"
+
+
+def test_governance_page_ready_state_treats_missing_local_parity_as_warning() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    page_state = app_module.build_governance_page_ready_state(
+        jira_mapping="pass",
+        codex_disposition="pass",
+        github_actions="pass",
+        codecov_project="pass",
+        codecov_patch="pass",
+        local_parity=None,
+        merge_readiness="pass",
+    )
+    local_parity_row = next(row for row in page_state["categories"] if row["category"] == "local_parity")
+    assert local_parity_row["status"] == "unknown"
+    assert local_parity_row["severity"] == "warning"
+    assert page_state["summary"] == {"ok": 6, "warning": 1, "error": 0}
+    assert page_state["readiness_severity"] == "warning"
 
 
 def test_query_active_story_groups_uses_report_and_manifest_evidence() -> None:
@@ -259,6 +280,60 @@ def test_opportunities_keywords_and_run_history_descriptors_support_empty_state(
     assert run_history["empty_state"] is True
 
 
+def test_query_layer_descriptor_normalizes_rows_from_report_and_manifest_sources() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    descriptor = app_module.get_query_layer_descriptor(
+        report_rows=[
+            {
+                "story_group": "dashboard",
+                "jira_keys": ["SCRUM-214"],
+                "status": "in_progress",
+                "cycle": "011",
+                "branch": "cycle/011/integration",
+            }
+        ],
+        manifest_rows=[
+            {
+                "story_group": "exports",
+                "jira_keys": ["SCRUM-226"],
+                "status": "in_review",
+                "cycle": "011",
+                "branch": "cycle/011/integration",
+            }
+        ],
+    )
+    assert descriptor["page_id"] == "query_layer"
+    assert descriptor["empty_state"] is False
+    assert [row["story_group"] for row in descriptor["rows"]] == ["dashboard", "exports"]
+    assert descriptor["columns"] == ["story_group", "jira_keys", "statuses", "sources", "cycles", "branches"]
+
+
+def test_export_system_and_app_entry_descriptors_use_stable_shapes() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    export_descriptor = app_module.get_export_system_descriptor(
+        [
+            {
+                "artifact_type": "cycle_validation",
+                "format": "json",
+                "path": "exports/cycle011/validation.json",
+                "jira_keys": ["SCRUM-226"],
+            }
+        ]
+    )
+    app_entry_descriptor = app_module.get_app_entry_descriptor(branch="cycle/011/integration", cycle="011")
+    assert export_descriptor["page_id"] == "export_system"
+    assert export_descriptor["empty_state"] is False
+    assert "github_pr_number" in export_descriptor["columns"]
+    assert app_entry_descriptor == {
+        "page_id": "app_entry",
+        "title": "Dashboard App Entry",
+        "entry_module": "src.dashboard.app:main",
+        "branch": "cycle/011/integration",
+        "cycle": "011",
+        "status": "placeholder",
+    }
+
+
 def test_alert_readiness_placeholders_normalize_unknown_severity_and_missing_jira_keys() -> None:
     app_module = importlib.import_module("src.dashboard.app")
     alerts = app_module.build_alert_readiness_placeholders(
@@ -271,6 +346,21 @@ def test_alert_readiness_placeholders_normalize_unknown_severity_and_missing_jir
     assert alerts[0]["jira_key"] == "SCRUM-228"
     assert alerts[1]["severity"] == "unknown"
     assert alerts[1]["jira_key"] == "UNMAPPED"
+
+
+def test_alert_system_descriptor_aggregates_normalized_alert_severity_totals() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    descriptor = app_module.get_alert_system_descriptor(
+        [
+            {"severity": "warning", "source": "governance", "jira_key": "SCRUM-227", "message": "Review needed"},
+            {"severity": "error", "source": "pipeline", "jira_key": "SCRUM-228", "message": "Gate failed"},
+            {"severity": "critical", "source": "unknown", "jira_key": "", "message": "Unmapped severity"},
+        ]
+    )
+    assert descriptor["page_id"] == "alert_system"
+    assert descriptor["summary"] == {"warning": 1, "error": 1, "governance": 0, "unknown": 1}
+    assert descriptor["rows"][2]["jira_key"] == "UNMAPPED"
+    assert descriptor["empty_state"] is False
 
 
 def test_main_renders_governance_and_readiness_sections_without_real_streamlit(

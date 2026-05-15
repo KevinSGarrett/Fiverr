@@ -126,14 +126,17 @@ def build_governance_page_ready_state(
         )
     }
     ordered_rows = [rows_by_category[category] for category in GOVERNANCE_PAGE_CATEGORY_ORDER]
+    summary = {
+        "ok": sum(1 for row in ordered_rows if row["severity"] == "ok"),
+        "warning": sum(1 for row in ordered_rows if row["severity"] == "warning"),
+        "error": sum(1 for row in ordered_rows if row["severity"] == "error"),
+    }
+    readiness_severity = "error" if summary["error"] else ("warning" if summary["warning"] else "ok")
     return {
         "component": "governance_status",
         "categories": ordered_rows,
-        "summary": {
-            "ok": sum(1 for row in ordered_rows if row["severity"] == "ok"),
-            "warning": sum(1 for row in ordered_rows if row["severity"] == "warning"),
-            "error": sum(1 for row in ordered_rows if row["severity"] == "error"),
-        },
+        "summary": summary,
+        "readiness_severity": readiness_severity,
         "empty_state": all(row["status"] == "unknown" for row in ordered_rows),
     }
 
@@ -190,6 +193,56 @@ def get_run_history_page_descriptor(
     }
 
 
+def get_query_layer_descriptor(
+    *,
+    report_rows: list[dict[str, Any]] | None = None,
+    manifest_rows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return deterministic query-layer placeholder metadata for active story evidence."""
+    story_groups = query_active_story_groups(report_rows=report_rows, manifest_rows=manifest_rows)
+    return {
+        "page_id": "query_layer",
+        "title": "Active Story Query Layer",
+        "columns": ["story_group", "jira_keys", "statuses", "sources", "cycles", "branches"],
+        "rows": story_groups,
+        "empty_state": len(story_groups) == 0,
+    }
+
+
+def get_export_system_descriptor(
+    exports: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return deterministic placeholder metadata for export governance tracking."""
+    normalized_rows = list(exports or [])
+    return {
+        "page_id": "export_system",
+        "title": "Export System",
+        "columns": [
+            "artifact_type",
+            "format",
+            "path",
+            "jira_keys",
+            "github_pr_number",
+            "codecov_project_status",
+            "codecov_patch_status",
+        ],
+        "rows": normalized_rows,
+        "empty_state": len(normalized_rows) == 0,
+    }
+
+
+def get_app_entry_descriptor(*, branch: str | None = None, cycle: str | None = None) -> dict[str, str]:
+    """Return deterministic app-entry placeholder metadata for stewardship visibility."""
+    return {
+        "page_id": "app_entry",
+        "title": "Dashboard App Entry",
+        "entry_module": "src.dashboard.app:main",
+        "branch": (branch or "unknown").strip() or "unknown",
+        "cycle": (cycle or "unknown").strip() or "unknown",
+        "status": "placeholder",
+    }
+
+
 def build_alert_readiness_placeholders(
     alerts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, str]]:
@@ -209,6 +262,24 @@ def build_alert_readiness_placeholders(
             }
         )
     return normalized_alerts
+
+
+def get_alert_system_descriptor(alerts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Return deterministic placeholder metadata for alert-system readiness."""
+    normalized_alerts = build_alert_readiness_placeholders(alerts)
+    return {
+        "page_id": "alert_system",
+        "title": "Alert System",
+        "columns": ["severity", "source", "jira_key", "message", "resolution_status"],
+        "rows": normalized_alerts,
+        "summary": {
+            "warning": sum(1 for alert in normalized_alerts if alert["severity"] == "warning"),
+            "error": sum(1 for alert in normalized_alerts if alert["severity"] == "error"),
+            "governance": sum(1 for alert in normalized_alerts if alert["severity"] == "governance"),
+            "unknown": sum(1 for alert in normalized_alerts if alert["severity"] == "unknown"),
+        },
+        "empty_state": len(normalized_alerts) == 0,
+    }
 
 
 def query_active_story_groups(

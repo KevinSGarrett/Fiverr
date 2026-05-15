@@ -455,10 +455,92 @@ def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_corrupted_pa
     assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
 
 
+def test_load_checkpoint_stage_summary_or_fallback_returns_summary_for_valid_object_payload(
+    tmp_path: Path,
+) -> None:
+    checkpoint_path = tmp_path / "object_checkpoint.json"
+    checkpoint_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "jobs": [],
+                "stage_summary": {
+                    "stage_counts": {
+                        "stage_1_keyword_expansion": 1,
+                        "stage_2b_autocomplete": 0,
+                        "stage_2_search_plan": 1,
+                        "stage_3_queue": 1,
+                        "stage_4_gig_detail": 0,
+                        "stage_5_seller_profile": 0,
+                        "stage_6a_external_signals": 0,
+                        "stage_6b_community_signals": 0,
+                        "stage_7_checkpoint_metadata": 1,
+                        "stage_8_pacing_decisions": 1,
+                        "stage_9_auto_promotion_decision": 0,
+                    },
+                    "stage_names": [
+                        "stage_1_keyword_expansion",
+                        "stage_2b_autocomplete",
+                        "stage_2_search_plan",
+                        "stage_3_queue",
+                        "stage_4_gig_detail",
+                        "stage_5_seller_profile",
+                        "stage_6a_external_signals",
+                        "stage_6b_community_signals",
+                        "stage_7_checkpoint_metadata",
+                        "stage_8_pacing_decisions",
+                        "stage_9_auto_promotion_decision",
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    stage_summary = load_checkpoint_stage_summary_or_fallback(checkpoint_path)
+    assert stage_summary is not None
+    assert stage_summary["stage_counts"]["stage_3_queue"] == 1
+
+
 def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_non_object_json(tmp_path: Path) -> None:
     checkpoint_path = tmp_path / "array_checkpoint.json"
     checkpoint_path.write_text("[]", encoding="utf-8")
     assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
+
+
+@pytest.mark.parametrize(
+    "checkpoint_payload",
+    [
+        "[]",
+        '"fixture-string"',
+        "null",
+        "42",
+        "true",
+    ],
+)
+def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_all_valid_non_object_json_payloads(
+    tmp_path: Path, checkpoint_payload: str
+) -> None:
+    checkpoint_path = tmp_path / "non_object_checkpoint.json"
+    checkpoint_path.write_text(checkpoint_payload, encoding="utf-8")
+    assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
+
+
+def test_load_checkpoint_stage_summary_or_fallback_returns_none_for_missing_file(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing_checkpoint.json"
+    assert load_checkpoint_stage_summary_or_fallback(missing_path) is None
+
+
+def test_load_checkpoint_stage_summary_or_fallback_returns_none_when_stage_summary_is_missing(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "checkpoint_without_stage_summary.json"
+    checkpoint_path.write_text('{"schema_version":"1.0","jobs":[]}', encoding="utf-8")
+    assert load_checkpoint_stage_summary_or_fallback(checkpoint_path) is None
+
+
+def test_load_checkpoint_stage_summary_requires_stage_summary_mapping(tmp_path: Path) -> None:
+    checkpoint_path = tmp_path / "checkpoint_without_stage_summary.json"
+    checkpoint_path.write_text('{"schema_version":"1.0","jobs":[]}', encoding="utf-8")
+    with pytest.raises(QueueCheckpointError, match="does not include a stage_summary mapping"):
+        load_checkpoint_stage_summary(checkpoint_path)
 
 
 def test_corrupted_checkpoint_returns_controlled_error(tmp_path: Path) -> None:

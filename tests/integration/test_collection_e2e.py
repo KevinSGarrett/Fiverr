@@ -195,3 +195,9 @@ def test_collection_dry_run_resume_identity_uses_previous_checkpoint_stage_ids(t
     stage_execution = resumed_summary["stage_execution"]
     assert any("resumed_from_stage_id" in entry for entry in stage_execution)
     assert resumed_summary["resumable_stage_identity"]["resume_checkpoint_path"] == str(paused_checkpoint)
+    assert resumed_summary["checkpoint_metadata"]["checkpoint_requested"] == str(resumed_checkpoint)
+    assert resumed_summary["checkpoint_metadata"]["schema_version"] == "1.0"
+    assert resumed_summary["fixture_sources"]["stage_4_gig_detail"].startswith("tests/fixtures/collection/")
+    assert resumed_summary["fixture_sources"]["stage_5_seller_profile"].startswith("tests/fixtures/collection/")
+    assert resumed_summary["fixture_sources"]["stage_6a_external_signals"].startswith("tests/fixtures/collection/")
+    assert resumed_summary["fixture_sources"]["stage_6b_community_signals"].startswith("tests/fixtures/collection/")

@@ -53,12 +53,22 @@ This collection implementation is fixture-backed partial progress only. It is no
 ## Missing-Data Behavior (Allowed and Expected)
 
 - Missing optional fixture paths may fail with a controlled `fixture_unavailable` error.
+- Missing checkpoint files must return fallback `None` when loaded through safe resume helpers.
+- Invalid/corrupted checkpoint JSON must return fallback `None` through safe resume helpers.
+- Checkpoint payloads that decode as valid non-object JSON (`[]`, `null`, string, number, boolean) must be treated as invalid checkpoint envelopes and return fallback `None` through safe resume helpers.
+- Missing or non-mapping `stage_summary` content in an otherwise valid checkpoint payload must return fallback `None` through safe resume helpers.
 - Empty optional fixture payloads must **not** fabricate records.
 - Empty signal arrays must emit deterministic warnings and keep stage counts at `0`.
 - Missing seller/signal fixtures must be represented as explicit skipped execution entries with skip reasons.
 - Auto-promotion readiness may be `implemented`, `skipped`, or `blocked`, and must stay fixture-only.
 - Malformed HTML must return parsed objects with warnings/errors instead of raising uncontrolled exceptions.
 - Non-positive candidate caps must be normalized to a safe positive deterministic cap and emit a warning.
+
+## Safe Resume Expectations
+
+- Resume loading must never raise uncontrolled exceptions for missing, corrupt, or schema-invalid checkpoints.
+- `resumable_stage_identity.resume_checkpoint_path` should reflect the provided resume source path when resume is requested.
+- Resume-enabled checkpoints should preserve deterministic fixture stage identity (`fixture_sources`) for all fixture-backed stages.
 
 ## Forbidden Live Behaviors
 
