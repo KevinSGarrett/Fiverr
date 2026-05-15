@@ -21,7 +21,7 @@ Product-facing increments:
 | Current target branch | `develop` |
 | PR URL | `https://github.com/KevinSGarrett/Fiverr/pull/11` |
 | Protected branch operations | No `main` branch operations executed |
-| Agent D commit hashes | `4356d9e`, `b77699c` |
+| Agent D commit hashes | `4356d9e`, `b77699c`, `92888b2` |
 
 ## Jira Keys Touched
 
@@ -57,7 +57,7 @@ Product-facing increments:
 | `SCRUM-241` | Final post-push hygiene and PR check reconciliation still pending. |
 | `SCRUM-258` | Final closeout requires commit, push, PR creation/update, and check/thread disposition capture. |
 | `SCRUM-214` / `SCRUM-215` / `SCRUM-219` / `SCRUM-225` | Dependency-only compatibility evidence does not satisfy full dashboard story DoD. |
-| `SCRUM-250` | Final PR body AC/DoD mapping table still pending PR creation/update step. |
+| `SCRUM-250` | PR body mapping table exists; final acceptance still depends on cycle closeout review and merge readiness. |
 
 ## File Inventory
 
@@ -146,15 +146,12 @@ No transitions to `Done` were executed; recommendations remain conservative.
 
 ## Risks
 
-- Final steward requirements (`D15`, `D16`, `D17`, `D20`) cannot be closed until a PR exists for `cycle/014/integration`.
+- PR exists and evidence is posted, but CI/Codecov statuses are still pending and must complete before final closeout.
 - Story-level DoD for export/alert/integration remains broader than this deterministic contract increment.
 - Coverage gate is passing, but lower-coverage utility/collection modules remain outside this scoped pass.
 
 ## Next-Agent / Final Steward Handoff Notes
 
-- Commit only intended export/alert/report/ledger/report updates; keep generated artifacts out of Git.
-- Push `cycle/014/integration`, create/update one PR to `develop`, and include Jira AC/DoD mapping table in PR body.
-- After PR exists, capture:
-  - `gh pr checks` status including Codecov project/patch
-  - review thread status (including Codex threads) and dispositions
-  - final PR URL + check summary in this report.
+- Monitor PR #11 checks until workflow + Codecov statuses settle, then update Jira `SCRUM-258` with final disposition.
+- If any review threads appear, handle them in-cycle on PR #11 and document dispositions in this report and Jira.
+- Maintain conservative story statuses (no `Done`) unless full source DoD is explicitly satisfied.
