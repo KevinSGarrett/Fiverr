@@ -31,9 +31,13 @@ from src.analysis.contracts import (
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
 from src.analysis.orchestrator import run_analysis_dry_run, summarize_scoring_readiness
+from src.analysis.persistence import persist_analysis_run_summary
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
+from src.models.analysis import AnalysisResult, AnalysisRun
+from src.models.database import build_engine, create_session_factory
+from src.models.runtime import RunLog
 from tests.fixtures.analysis.factories import (
     make_complete_market_payload,
     make_empty_upstream_payload,
@@ -1381,6 +1385,19 @@ def test_intent_valid_mock_label_is_accepted_for_deterministic_path() -> None:
     assert result.downstream_readiness["status"] == "partial"
 
 
+def test_intent_nullish_keyword_degrades_to_unknown_low_confidence() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="null",
+            title_phrases=[],
+        )
+    )
+    assert result.label == IntentLabel.UNKNOWN
+    assert result.confidence <= 0.2
+    assert any(warning.code == "intent_keyword_nullish" for warning in result.warnings)
+
+
 def test_analysis_results_include_shared_envelope_fields_and_persistence_dict() -> None:
     payload = make_complete_market_payload()
     summary = run_analysis_dry_run(payload)
@@ -1410,6 +1427,23 @@ def test_analysis_results_include_shared_envelope_fields_and_persistence_dict() 
     assert "source_context" in persisted
     assert "evidence" in persisted
     assert "downstream_readiness" in persisted
+
+
+def test_analysis_run_summary_can_be_persisted_to_database(tmp_path: Path) -> None:
+    payload = make_complete_market_payload()
+    summary = run_analysis_dry_run(payload)
+    db_path = tmp_path / "analysis_persist.sqlite3"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    persisted = persist_analysis_run_summary(summary, database_url=db_url)
+    assert persisted["persisted_stage_count"] == len(summary.stages)
+    assert persisted["persisted_log_count"] == len(summary.stages) + 1
+
+    engine = build_engine(db_url)
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        assert session.query(AnalysisRun).count() == 1
+        assert session.query(AnalysisResult).count() == len(summary.stages)
+        assert session.query(RunLog).count() == len(summary.stages) + 1
 
 
 def test_orchestrator_stage_log_summary_and_dashboard_handoff_contract_present() -> None:

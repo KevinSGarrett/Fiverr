@@ -210,6 +210,7 @@ def run_analysis_dry_run(
     fixture_path: str,
     output_path: str,
     sample_size: int,
+    database_url: str | None = None,
 ) -> int:
     payload = _load_fixture_payload(fixture_path)
     if payload is None:
@@ -227,12 +228,30 @@ def run_analysis_dry_run(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
 
+    persistence_details: dict[str, Any] | None = None
+    if database_url:
+        persistence_module = importlib.import_module("src.analysis.persistence")
+        persistence_details = persistence_module.persist_analysis_run_summary(
+            result,
+            database_url=database_url,
+            mode="analysis-dry-run",
+        )
+
     status = str(result.status).lower()
     if status.endswith("failed"):
         print(f"Analysis dry-run failed. Output written to {output}")
         return 1
 
-    print(f"Analysis dry-run OK: status={result.status}, stages={len(result.stages)}, output={output}")
+    persisted_suffix = ""
+    if persistence_details is not None:
+        persisted_suffix = (
+            f", persisted_run_id={persistence_details['run_table_id']},"
+            f" persisted_stage_count={persistence_details['persisted_stage_count']}"
+        )
+    print(
+        f"Analysis dry-run OK: status={result.status}, stages={len(result.stages)}, output={output}"
+        f"{persisted_suffix}"
+    )
     return 0
 
 

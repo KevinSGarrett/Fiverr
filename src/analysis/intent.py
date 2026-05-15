@@ -178,7 +178,11 @@ def classify_intent(payload: IntentInput) -> IntentResult:
     research_signal = len(research_hits)
     low_signal = len(low_hits)
 
-    if provider_signal >= 2 and buyer_signal == 0:
+    if keyword_text == "unknown":
+        label = IntentLabel.UNKNOWN
+        confidence = 0.2
+        lexical_matched_rules.append("unknown:missing_keyword_context")
+    elif provider_signal >= 2 and buyer_signal == 0:
         label = IntentLabel.SERVICE_PROVIDER
         confidence = 0.82
     elif buyer_signal >= 3 and provider_signal == 0:
@@ -212,8 +216,8 @@ def classify_intent(payload: IntentInput) -> IntentResult:
     readiness_reasons: list[str] = []
     if warnings:
         readiness_reasons.append("input_warnings_present")
-    if label == IntentLabel.AMBIGUOUS and confidence <= 0.4:
-        readiness_reasons.append("low_signal_ambiguous")
+    if label in {IntentLabel.AMBIGUOUS, IntentLabel.UNKNOWN} and confidence <= 0.4:
+        readiness_reasons.append("low_signal_or_unknown")
     return IntentResult(
         source_id=payload.source_id,
         keyword_text=keyword_text,

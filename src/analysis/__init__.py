@@ -44,9 +44,12 @@ from src.analysis.keyword_features import (
     vectorize_keywords,
 )
 from src.analysis.orchestrator import run_analysis_dry_run
+from src.analysis.persistence import persist_analysis_run_summary
+from src.analysis.quality import score_gig_quality as score_gig_quality_contract
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
+from src.analysis.sellers import score_seller_strength as score_seller_strength_contract
 
 __all__ = [
     "AnalysisError",
@@ -79,12 +82,15 @@ __all__ = [
     "normalize_keyword",
     "profile_competitors",
     "run_analysis_dry_run",
+    "persist_analysis_run_summary",
     "SaturationInput",
     "SaturationLevel",
     "SaturationResult",
     "SellerStrengthInput",
     "SellerStrengthResult",
     "score_gig_quality",
+    "score_gig_quality_contract",
+    "score_seller_strength_contract",
     "score_seller_strength",
     "analyze_saturation",
     "analyze_reviews",

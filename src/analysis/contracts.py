@@ -364,6 +364,7 @@ class IntentLabel(StrEnum):
     LOW_INTENT = "low_intent"
     SERVICE_PROVIDER = "service_provider"
     AMBIGUOUS = "ambiguous"
+    UNKNOWN = "unknown"
 
 
 class IntentInput(AnalysisPersistenceModel):

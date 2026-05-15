@@ -197,6 +197,50 @@ def test_run_analysis_dry_run_truncates_fixture_lists_and_writes_output(
     assert output.exists()
 
 
+def test_run_analysis_dry_run_persists_when_database_url_is_provided(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = tmp_path / "analysis_fixture_persist.json"
+    fixture.write_text(json.dumps({"keywords": ["a", "b"], "competitors": []}), encoding="utf-8")
+    output = tmp_path / "analysis_output_persist.json"
+
+    class _FakeResult:
+        status = "success"
+        stages = ["stage_1"]
+
+        @staticmethod
+        def model_dump_json(indent: int = 2) -> str:
+            del indent
+            return '{"status":"success"}'
+
+    def _fake_import_module(module_name: str) -> Any:
+        if module_name == "src.analysis.orchestrator":
+            return SimpleNamespace(run_analysis_dry_run=lambda _payload: _FakeResult())
+        if module_name == "src.analysis.persistence":
+            return SimpleNamespace(
+                persist_analysis_run_summary=lambda *_args, **_kwargs: {
+                    "run_table_id": 7,
+                    "persisted_stage_count": 1,
+                    "persisted_log_count": 2,
+                }
+            )
+        raise AssertionError(f"Unexpected module import: {module_name}")
+
+    monkeypatch.setattr(orchestrator.importlib, "import_module", _fake_import_module)
+
+    assert (
+        orchestrator.run_analysis_dry_run(
+            str(fixture),
+            str(output),
+            sample_size=2,
+            database_url="sqlite:///tmp/test.sqlite3",
+        )
+        == 0
+    )
+    assert output.exists()
+
+
 def test_run_phase2_smoke_returns_failure_when_module_import_errors(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

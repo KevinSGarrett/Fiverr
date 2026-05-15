@@ -140,13 +140,24 @@ def collection_dry_run_command(fixture_path: str, output_path: str, sample_size:
     help="Output summary JSON path.",
 )
 @click.option("--sample-size", default=25, show_default=True, type=int, help="Max fixture records to use.")
-def analysis_dry_run_command(fixture_path: str, output_path: str, sample_size: int) -> None:
+@click.option(
+    "--database-url",
+    default=None,
+    help="Optional database URL to persist analysis run and stage outputs.",
+)
+def analysis_dry_run_command(
+    fixture_path: str,
+    output_path: str,
+    sample_size: int,
+    database_url: str | None,
+) -> None:
     """Run local analysis dry-run from fixture payload."""
     raise SystemExit(
         run_analysis_dry_run(
             fixture_path=normalize_cli_config_path(fixture_path),
             output_path=normalize_cli_config_path(output_path),
             sample_size=sample_size,
+            database_url=database_url,
         )
     )
 

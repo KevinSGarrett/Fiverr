@@ -4,6 +4,8 @@
 
 Agent C delivered deterministic analysis-contract and orchestration upgrades for Cycle 014 across clustering, gig quality, competitor profiling, seller strength, saturation, reviews, and intent classification. The work consolidated shared output schema fields, added sparse-data-safe readiness metadata, hardened malformed intent handling, introduced stage log/timing summaries, and expanded fixture-backed unit coverage.
 
+Continuation pass: added analysis run persistence wiring to local database models, explicit `unknown` intent fallback for malformed/nullish keyword context, and compatibility modules matching prompt-referenced paths (`src/analysis/quality.py`, `src/analysis/sellers.py`).
+
 ## Branch / Head
 
 | Item | Value |
@@ -11,6 +13,7 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | Branch | `cycle/014/integration` |
 | Head SHA at start of Agent C pass | `df894e6f91e642f1bca2d2d61bb4630294e17196` |
 | Implementation commit hash | `72d78f146c77433ba8f85b781f810fe5757d5a30` |
+| Continuation commits | `1cf78c05c37493b84a77bcfa509b221e88336730`, `9dc98e761795c4bc4cb7cae30dbc42d196cd74ff`, `TBD (current pass)` |
 
 ## Jira Keys Touched
 
@@ -27,8 +30,8 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | `SCRUM-161` | Saturation output now includes unified readiness envelope and evidence metadata without external dependencies. |
 | `SCRUM-162` | Review analysis output now includes standardized envelope metadata and deterministic sparse-review handling. |
 | `SCRUM-163` | Malformed/nullish/mock out-of-taxonomy intent values now degrade safely with warnings and low-confidence fallback behavior. |
-| `SCRUM-164` | Stage wiring now emits readiness status/reasons, stage timing/log summaries, and dashboard alignment contract fields. |
-| `SCRUM-231` | Sparse upstream compatibility advanced via deterministic handling for missing seller/review payloads and safe stage contracts. |
+| `SCRUM-164` | Stage wiring now emits readiness status/reasons, stage timing/log summaries, dashboard alignment contract fields, and optional DB-backed run/stage persistence through CLI orchestration. |
+| `SCRUM-231` | Sparse upstream compatibility advanced via deterministic handling for missing seller/review payloads and safe stage contracts; analysis dry-run now supports persistence-backed integration output. |
 | `SCRUM-235` | Added deterministic analysis fixture factories and high-value branch-coverage tests for envelope/readiness/logging/malformed-output paths. |
 | `SCRUM-237` | Added run-level `stage_log_summary` with stage/status/readiness/warning/error/timing fields. |
 | `SCRUM-225` / `SCRUM-214` / `SCRUM-215` / `SCRUM-219` | Added analysis-to-dashboard handoff contract fields for opportunity cards, keyword table, and run history alignment. |
@@ -39,8 +42,8 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | Jira Key | Remaining gaps |
 | --- | --- |
 | `SCRUM-157` - `SCRUM-164` | Full Epic 03 story closure still requires complete end-to-end integration proof and final PM/steward validation; no Done transitions performed. |
-| `SCRUM-163` | Full taxonomy-complete intent scope remains open; this pass advanced malformed/fallback safety only. |
-| `SCRUM-231` | Full pipeline persistence/integration wiring remains open outside this bounded pass. |
+| `SCRUM-163` | Full source taxonomy sign-off remains dependent on PM acceptance of current categories + `unknown` fallback behavior. |
+| `SCRUM-231` | Full pipeline (non-dry-run production mode) integration remains broader than this pass; dry-run integration + persistence path is now wired. |
 | `SCRUM-235` | Coverage guard is green, but story remains open until final cycle closure artifacts are completed. |
 | `SCRUM-237` | Logging summary contracts advanced; full operational logging stack scope remains open. |
 | `SCRUM-225` / `SCRUM-214` / `SCRUM-215` / `SCRUM-219` | Dependency alignment advanced; full dashboard story DoD remains owned by dashboard integration completion. |
@@ -50,9 +53,11 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | Type | Paths |
 | --- | --- |
 | Analysis code | `src/analysis/contracts.py`, `src/analysis/orchestrator.py`, `src/analysis/intent.py`, `src/analysis/clustering.py`, `src/analysis/gig_quality.py`, `src/analysis/competitors.py`, `src/analysis/seller_strength.py`, `src/analysis/saturation.py`, `src/analysis/reviews.py`, `src/analysis/__init__.py` |
+| Additional analysis code | `src/analysis/persistence.py`, `src/analysis/quality.py`, `src/analysis/sellers.py` |
 | Tests | `tests/unit/test_analysis.py` |
 | Fixtures | `tests/fixtures/analysis/factories.py`, `tests/fixtures/analysis/__init__.py`, `tests/fixtures/__init__.py` |
 | Governance docs | `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`, `docs/cycle_reports/CYCLE_014_AGENT_C.md` |
+| CLI wiring | `src/orchestrator.py`, `run.py` |
 
 ## Implementation Details
 
@@ -73,17 +78,24 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
   - run-level `dashboard_handoff_contract`
   - explicit mock-label pass-through from payload intent metadata
 - Added fixture factories for complete/sparse/missing cases in `tests/fixtures/analysis/factories.py`.
+- Added local persistence helper `persist_analysis_run_summary` in `src/analysis/persistence.py` writing to `analysis_runs`, `analysis_results`, and `run_logs`.
+- Added CLI support to persist analysis dry-run outputs via `run.py analysis-dry-run --database-url ...`.
+- Added compatibility modules `src/analysis/quality.py` and `src/analysis/sellers.py` to align with prompt-referenced paths.
 - Added tests validating:
   - fixture factories
   - malformed intent handling
   - shared envelope serialization
   - stage log summary and dashboard handoff contract shape
+  - persistence write-path into SQLAlchemy models
+  - `unknown` intent fallback for nullish keyword context
 
 ## Tests Run
 
 | Command | Result |
 | --- | --- |
 | `python -m pytest tests/unit/test_analysis.py -q` | `98 passed` |
+| `python -m pytest tests/unit/test_analysis.py -q` (continuation) | `100 passed` |
+| `python -m pytest tests/unit/test_orchestrator_helpers.py -q` (continuation) | `14 passed` |
 | `python -m pytest -q tests/unit/test_orchestrator_helpers.py` | `13 passed` |
 | `python -m pytest -q tests/unit/test_dashboard_queries.py` | `6 passed` |
 | `python -m ruff check src/analysis tests/unit/test_analysis.py tests/fixtures/analysis` | pass |
@@ -91,6 +103,7 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | `python -m ruff check .` | pass |
 | `python -m mypy src` | pass |
 | `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` | pass, coverage `93.25%` |
+| `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` (continuation) | pass, coverage `93.34%` |
 | `python run.py config-check` | pass |
 | `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db` | pass |
 | `python run.py phase2-smoke` | pass |
@@ -118,6 +131,8 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | --- | --- |
 | Commit hash | `72d78f146c77433ba8f85b781f810fe5757d5a30` |
 | Commit scope | Analysis code, analysis tests/fixtures, Jira ledger, Agent C report |
+| Continuation commit hash | `TBD (current pass)` |
+| Continuation scope | Analysis persistence wiring, intent unknown fallback, CLI persistence option, compatibility modules, additional tests |
 
 ## Jira Comments / Transitions
 
@@ -144,4 +159,4 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | Prompt Task | Status | Evidence |
 | --- | --- | --- |
 | `C01` - `C21` implementation and required validations/comments/report/commit | Completed for Agent C deliverables | Analysis modules/tests/contracts/fixtures updated; Jira comments posted on all touched issues; full validation block plus targeted tests passed; scoped commits recorded. |
-| Source-story DoD at Jira story level for `SCRUM-157` - `SCRUM-164`, `SCRUM-231`, `SCRUM-235`, `SCRUM-237` | Not 100% closed | Jira definitions explicitly include broader end-to-end requirements (full integration/persistence/UI/taxonomy closure) beyond this bounded Agent C implementation pass. |
+| Source-story DoD at Jira story level for `SCRUM-157` - `SCRUM-164`, `SCRUM-231`, `SCRUM-235`, `SCRUM-237` | Still pending final steward closure | Additional persistence and taxonomy hardening implemented; remaining closure depends on project-level acceptance criteria across other epics/agents and formal Jira transitions. |
