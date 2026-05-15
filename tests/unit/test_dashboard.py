@@ -28,6 +28,8 @@ def test_dashboard_import_does_not_import_streamlit(monkeypatch) -> None:
         "codecov_project",
         "codecov_patch",
         "codex_disposition",
+        "jira_mapping",
+        "merge_readiness",
     ]
 
 
@@ -141,6 +143,21 @@ def test_governance_status_messages_distinguish_check_sources() -> None:
     assert "Codecov project status check" in check_messages["codecov_project"]
     assert "Codecov patch status check" in check_messages["codecov_patch"]
     assert "Codex review-thread disposition" in check_messages["codex_disposition"]
+    assert "Jira governance and product-story mapping" in check_messages["jira_mapping"]
+    assert "Branch policy and merge-readiness confirmation" in check_messages["merge_readiness"]
+
+
+def test_governance_presentation_state_marks_missing_status_as_unknown_warning() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    rows = app_module.build_governance_presentation_state(local_parity="pass", jira_mapping="")
+    row_by_category = {row["category"]: row for row in rows}
+
+    assert row_by_category["local_parity"]["status"] == "pass"
+    assert row_by_category["local_parity"]["severity"] == "ok"
+    assert row_by_category["jira_mapping"]["status"] == "unknown"
+    assert row_by_category["jira_mapping"]["severity"] == "warning"
+    assert row_by_category["merge_readiness"]["status"] == "unknown"
+    assert row_by_category["merge_readiness"]["severity"] == "warning"
 
 
 def test_main_renders_governance_and_readiness_sections_without_real_streamlit(

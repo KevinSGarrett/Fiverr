@@ -4,6 +4,7 @@ from src.reports.placeholders import (
     GOVERNANCE_REPORT_ORDER,
     ReportPlaceholder,
     build_governance_report_placeholders,
+    build_jira_mapping_table,
 )
 from src.reports.run_summary import (
     RunSummary,
@@ -53,6 +54,7 @@ __all__ = [
     "ReportSeverity",
     "ReportTemplate",
     "RunSummary",
+    "build_jira_mapping_table",
     "build_governance_report_placeholders",
     "build_cycle003_report_bundle",
     "build_default_template",
