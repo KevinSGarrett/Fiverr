@@ -28,7 +28,27 @@ def test_run_export_stub_accepts_supported_format(capsys: pytest.CaptureFixture[
 
 def test_run_dashboard_stub_normalizes_mode(capsys: pytest.CaptureFixture[str]) -> None:
     assert orchestrator.run_dashboard_stub("  LOCAL  ") == 0
-    assert "local" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "local" in output
+    assert "Dashboard app-entry module" in output
+    assert "Dashboard startup status" in output
+
+
+def test_run_dashboard_stub_returns_error_when_pages_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeDashboardModule:
+        @staticmethod
+        def build_app_entry_smoke_state() -> dict[str, Any]:
+            return {
+                "entry": {"entry_module": "src.dashboard.app:main"},
+                "page_registration": {
+                    "status": "blocked",
+                    "missing_pages": ["overview"],
+                },
+                "startup": {"status": "ready", "safe_empty_state": False},
+            }
+
+    monkeypatch.setattr(orchestrator.importlib, "import_module", lambda _name: _FakeDashboardModule())
+    assert orchestrator.run_dashboard_stub("preview") == 1
 
 
 def test_load_fixture_payload_handles_missing_invalid_and_nondict(

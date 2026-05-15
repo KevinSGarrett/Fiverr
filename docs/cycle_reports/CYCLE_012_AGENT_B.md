@@ -222,3 +222,37 @@ Executed commands (chronological, grouped):
 - No command checked out `main`.
 - No command pushed `main`.
 - Merge target used was `develop`.
+
+## Follow-up Execution Pass (SCRUM-228 App Entry)
+
+Date: Cycle 012 follow-up after PR #9 merge.
+
+### Additional Files Updated
+
+- `src/dashboard/app.py`
+- `src/orchestrator.py`
+- `tests/unit/test_dashboard.py`
+- `tests/unit/test_orchestrator_helpers.py`
+
+### What Was Added
+
+- Deterministic app-entry startup diagnostics (`config_path`, `data_dir`, safe empty-state behavior, warning aggregation).
+- App-entry smoke state with required-page registration checks and explicit blocked/ready status.
+- Dashboard shell rendering now surfaces app-entry diagnostic data.
+- `run.py dashboard` path (via `run_dashboard_stub`) now emits app-entry registration/startup evidence and returns non-zero when required pages are missing.
+- Regression tests for startup diagnostics, safe empty-state handling, registration completeness, and dashboard smoke command behavior.
+
+### Follow-up Validation Commands
+
+- `python -m pytest -q tests/unit/test_dashboard.py tests/unit/test_orchestrator_helpers.py`
+- `python -m pytest -q tests/unit/test_cli.py -k dashboard`
+- `python -m ruff check src/dashboard/app.py src/orchestrator.py tests/unit/test_dashboard.py tests/unit/test_orchestrator_helpers.py`
+- `python -m mypy src/dashboard src/orchestrator.py`
+- `python run.py dashboard --mode local`
+- `python run.py phase2-smoke`
+
+### Jira Action Evidence (Follow-up Pass)
+
+- `SCRUM-228` comment added: id `10287`.
+- AC movement: app-entry startup diagnostics and smoke coverage advanced.
+- Remaining before full story Done: source-complete Streamlit launch/routing/performance telemetry scope still needs closure evidence.
