@@ -57,6 +57,33 @@ codecov/project pass 4s https://github.com/KevinSGarrett/Fiverr/actions/runs/258
 ```
 
 ```text
+$ gh pr view 7 --repo KevinSGarrett/Fiverr --comments
+author: codecov
+association: none
+edited: false
+status: none
+--
+## [Codecov](https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/7?dropdown=coverage&src=pr&el=h1&utm_medium=referral&utm_source=github&utm_content=comment&utm_campaign=pr+comments&utm_term=KevinSGarrett) Report
+:x: Patch coverage is `90.79498%` with `22 lines` in your changes missing coverage. Please review.
+...
+author: chatgpt-codex-connector
+association: none
+edited: false
+status: commented
+--
+### 💡 Codex Review
+Here are some automated review suggestions for this pull request.
+...
+author: KevinSGarrett
+association: owner
+edited: false
+status: none
+--
+PM Cycle 009 gate note: PR #7 must not merge yet. CI and the local `codecov/project` job are green, but there is one unresolved Codex P2 review thread in `src/collection/contracts.py` about validating `stage_names` against dictionary key order after JSON checkpoint persistence with sorted keys. This appears legitimate and must be fixed or formally dispositioned before merge. Cycle 009 will start by assigning this to the Collection/Integration agents, adding a round-trip regression test, replying to the Codex thread, resolving it only after checks pass, and then merging only if all required gates remain green.
+--
+```
+
+```text
 $ gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{isResolved path comments(first:20){nodes{author{login} body}}}}}}}' -F owner=KevinSGarrett -F name=Fiverr -F number=7
 {"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"isResolved":false,"path":"src/collection/contracts.py","comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Stop validating stage_names against dict key order**\n\n`validate_collection_stage_summary` now requires `stage_names == list(stage_counts.keys())`, but `checkpoint_queue_state` persists JSON with `sort_keys=True` (in `src/collection/checkpoint.py`), which reorders nested `stage_counts` keys on disk. After a normal save/load round trip, the same summary content can fail validation purely due to key ordering, so downstream consumers cannot reliably re-validate checkpoint artifacts even when counts are correct.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
 ```
