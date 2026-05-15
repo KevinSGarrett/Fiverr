@@ -16,6 +16,7 @@
 | `SCRUM-225` | In Review | `src/dashboard/contracts.py`, `src/dashboard/queries.py`, `src/dashboard/query_layer.py`, `tests/unit/test_dashboard_queries.py` | Added typed query contracts, reusable query-layer boundary, sparse-data warnings/empty states, source+freshness metadata, filters/sorts, and pagination/truncation behavior with deterministic tests and docstrings. | Full product/story closure still needs integration into final dashboard pages and broader story acceptance evidence. | `python -m pytest -q tests/unit/test_dashboard_queries.py`; `python -m ruff check ...`; `python -m mypy src/dashboard src/orchestrator.py`. | `cycle/014/integration` | Keep `In Review`; do not transition to Done. |
 | `SCRUM-228` | In Review | `src/dashboard/app.py`, `tests/unit/test_dashboard.py` | Hardened app entry with deterministic page registry, required-contract mapping, startup diagnostics, readiness severity helper, and import-safe app entry smoke output. | Full app runtime wiring and complete page implementation remain pending. | `python -m pytest -q tests/unit/test_dashboard.py`; `python -m ruff check ...`; `python -m mypy src/dashboard src/orchestrator.py`. | `cycle/014/integration` | Keep `In Review`; do not transition to Done. |
 | `SCRUM-231` | In Progress | `src/orchestrator.py`, `tests/unit/test_orchestrator_helpers.py` | Added orchestrator dashboard-readiness handoff contract (stage status, warnings, blocked pages, next actions) and phase2-smoke metadata requirements for dashboard handoff fields. | Full end-to-end phase wiring and integration story closure remain open. | `python -m pytest -q tests/unit/test_orchestrator_helpers.py`; `python -m ruff check ...`; `python -m mypy src/dashboard src/orchestrator.py`. | `cycle/014/integration` | Keep `In Progress`; do not transition to Done. |
+| `SCRUM-237` | In Progress | `src/dashboard/app.py`, `src/orchestrator.py`, `tests/unit/test_dashboard.py`, `tests/unit/test_orchestrator_helpers.py` | Startup diagnostics and readiness handoff contracts now expose warning counts, blocked pages, stage status, and next-action hints for monitoring-oriented visibility in smoke runs. | Full logging/monitoring pipeline implementation remains open beyond deterministic helper contracts. | `python -m pytest -q tests/unit/test_dashboard_queries.py tests/unit/test_dashboard.py tests/unit/test_orchestrator_helpers.py`; `python -m pytest -q tests/unit/test_orchestrator.py`; `python run.py phase2-smoke`; `python -m ruff check ...`; `python -m mypy ...`. | `cycle/014/integration` | Keep `In Progress`; do not transition to Done. |
 | `SCRUM-235` | In Progress | `tests/unit/test_dashboard_queries.py`, `tests/unit/test_dashboard.py`, `tests/unit/test_orchestrator_helpers.py` | Expanded deterministic unit coverage for query contracts, sparse-data behavior, app readiness, and orchestrator handoff logic. | Broader repository-wide coverage evidence and closure workflow still required by story scope. | `python -m pytest -q tests/unit/test_dashboard_queries.py tests/unit/test_dashboard.py tests/unit/test_orchestrator_helpers.py`. | `cycle/014/integration` | Keep `In Progress`; do not transition to Done. |
 | `SCRUM-214` | In Review | `src/dashboard/queries.py`, `tests/unit/test_dashboard_queries.py` | Opportunities query supports reusable status/niche/confidence filtering and score sorting descriptors with pagination and deterministic warning behavior. | Full opportunities page UI + acceptance artifacts remain open. | Targeted dashboard query tests and static checks above. | `cycle/014/integration` | Keep `In Review`; no Done recommendation. |
 | `SCRUM-215` | In Review | `src/dashboard/queries.py`, `tests/unit/test_dashboard_queries.py` | Keywords query now returns standardized payloads with source/freshness metadata and sparse-data empty-state warnings. | Full keyword page UX story closure remains open. | Targeted dashboard query tests and static checks above. | `cycle/014/integration` | Keep `In Review`; no Done recommendation. |
@@ -35,6 +36,15 @@
   - `python -m pytest -q tests/unit/test_orchestrator.py`
   - `python run.py config-check`
   - `python run.py phase2-smoke`
+- Merge-gate governance checks:
+  - `git status --short --branch`
+  - `git fetch origin`
+  - `git checkout develop`
+  - `git pull`
+  - `git checkout cycle/014/integration`
+  - `git merge-base --is-ancestor origin/develop HEAD`
+  - `gh pr checks 10`
+  - `gh api graphql ... pullRequest(number:10) ... reviewThreads ... isResolved`
 
 ## Security and Branch Safety Evidence (Cycle 014)
 
