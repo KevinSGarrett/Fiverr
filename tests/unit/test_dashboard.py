@@ -8,6 +8,11 @@ import sys
 from dataclasses import asdict
 
 
+def _dashboard_fixture_run() -> dict[str, object]:
+    fixtures_module = importlib.import_module("tests.fixtures.dashboard.factories")
+    return fixtures_module.build_dashboard_fixture_run()
+
+
 def test_dashboard_import_does_not_import_streamlit(monkeypatch) -> None:
     original_import = builtins.__import__
 
@@ -266,18 +271,11 @@ def test_opportunities_keywords_and_run_history_descriptors_support_empty_state(
     opportunities = app_module.get_opportunities_page_descriptor()
     keywords = app_module.get_keywords_page_descriptor()
     run_history = app_module.get_run_history_page_descriptor()
-    assert opportunities["empty_state"] is True
-    assert "confidence" in opportunities["table_columns"]
-    assert keywords["columns"] == [
-        "keyword",
-        "niche",
-        "cluster",
-        "score",
-        "confidence",
-        "freshness_status",
-    ]
-    assert run_history["columns"][0] == "run_id"
-    assert run_history["empty_state"] is True
+    assert opportunities["state"]["state"] == "empty"
+    assert "confidence" in opportunities["table"]["columns"]
+    assert "confidence_text" in keywords["table"]["columns"]
+    assert run_history["table"]["columns"][0] == "run_id"
+    assert run_history["state"]["state"] == "empty"
 
 
 def test_query_layer_descriptor_normalizes_rows_from_report_and_manifest_sources() -> None:
@@ -457,4 +455,131 @@ def test_main_renders_governance_and_readiness_sections_without_real_streamlit(
     assert any("codecov_project: pending" in line for line in fake_streamlit.write_calls)
     assert any("codex_disposition: pending" in line for line in fake_streamlit.write_calls)
     assert any("Entry module: src.dashboard.app:main" in line for line in fake_streamlit.write_calls)
+
+
+def test_dashboard_design_tokens_and_confidence_rules_are_stable() -> None:
+    design_module = importlib.import_module("src.dashboard.design")
+    assert design_module.SEVERITY_LABELS["warning"] == "Warning"
+    assert design_module.SEVERITY_ICON_NAMES["blocked"] == "slash-circle"
+    assert design_module.confidence_to_text(0.81) == "High"
+    assert design_module.confidence_to_text(None) == "Unknown"
+
+
+def test_component_state_and_table_contracts_support_warning_rows() -> None:
+    components_module = importlib.import_module("src.dashboard.components")
+    state = components_module.build_state_descriptor(
+        state="warning",
+        message="Partial payload available",
+        warnings=["Missing cluster metadata"],
+    )
+    table = components_module.build_table_descriptor(
+        table_id="test",
+        columns=["a", "b"],
+        rows=[],
+        sort_key="a",
+        warnings=["No rows available"],
+    )
+    assert state["state"] == "warning"
+    assert state["accessible_label"] == "Dashboard page has partial data warnings"
+    assert table["empty_state"] is True
+    assert table["warning_rows"][0]["message"] == "No rows available"
+
+
+def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> None:
+    opportunities_module = importlib.import_module("src.dashboard.opportunities")
+    fixture = _dashboard_fixture_run()
+    payload = opportunities_module.build_opportunities_payload(
+        records=fixture["opportunities"],
+        filters={"niche": "logo-design", "score_min": 80},
+        sort={"field": "score", "descending": True},
+    )
+    assert payload["state"]["state"] == "ready"
+    assert payload["table"]["rows"][0]["niche"] == "logo-design"
+    assert payload["ranking_cards"][0]["keyword_links"] == ["kw-logo-design", "kw-brand-kit"]
+
+
+def test_opportunities_payload_empty_state_explains_missing_upstream_data() -> None:
+    opportunities_module = importlib.import_module("src.dashboard.opportunities")
+    payload = opportunities_module.build_opportunities_payload(records=None)
+    assert payload["state"]["state"] == "empty"
+    assert "deterministic empty records" in payload["table"]["warning_rows"][0]["message"]
+
+
+def test_keywords_payload_surfaces_cluster_gaps_and_confidence_text() -> None:
+    keywords_module = importlib.import_module("src.dashboard.keywords")
+    fixture = _dashboard_fixture_run()
+    payload = keywords_module.build_keywords_payload(records=fixture["keywords"])
+    rows = payload["table"]["rows"]
+    assert any(row["cluster"] == "not available yet" for row in rows)
+    assert any(row["confidence_text"] == "High" for row in rows)
+    assert any("SCRUM-157" in row["message"] for row in payload["table"]["warning_rows"])
+
+
+def test_keywords_payload_sorting_and_filtering_are_supported() -> None:
+    keywords_module = importlib.import_module("src.dashboard.keywords")
+    fixture = _dashboard_fixture_run()
+    payload = keywords_module.build_keywords_payload(
+        records=fixture["keywords"],
+        filters={"niche": "logo-design", "score_min": 80},
+        sort={"field": "score", "descending": True},
+    )
+    assert payload["table"]["rows"] == [
+        payload["table"]["rows"][0]
+    ]
+    assert payload["table"]["rows"][0]["keyword"] == "logo design package"
+
+
+def test_run_history_payload_includes_severity_mapping_and_stage_details() -> None:
+    run_history_module = importlib.import_module("src.dashboard.run_history")
+    fixture = _dashboard_fixture_run()
+    payload = run_history_module.build_run_history_payload(records=fixture["run_history"])
+    first_row = payload["table"]["rows"][0]
+    assert first_row["run_id"] == "run-014-001"
+    assert first_row["severity"] == "ok"
+    assert first_row["stage_names"] == ["collection", "analysis", "reporting"]
+    assert payload["status_cards"][0]["severity_label"] in {"Pass", "Warning", "Unknown"}
+
+
+def test_run_history_severity_mapping_handles_all_required_statuses() -> None:
+    run_history_module = importlib.import_module("src.dashboard.run_history")
+    mapping_expectations = {
+        "pass": "ok",
+        "warning": "warning",
+        "failed": "error",
+        "blocked": "blocked",
+        "unknown": "unknown",
+        "skipped": "skipped",
+        "unexpected": "unknown",
+    }
+    for status, expected in mapping_expectations.items():
+        assert run_history_module.map_run_status_to_severity(status) == expected
+
+
+def test_page_registry_integration_exposes_product_payload_builders() -> None:
+    pages_module = importlib.import_module("src.dashboard.pages")
+    builders = pages_module.get_dashboard_page_payload_builders()
+    assert set(builders.keys()) == {"opportunities", "keywords", "run_history"}
+
+
+def test_app_product_page_registry_returns_safe_empty_state_summary() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    payloads = app_module.get_product_page_payloads()
+    assert payloads["registry_state"]["state"] == "empty"
+    assert payloads["opportunities"]["state"]["state"] == "empty"
+    assert payloads["keywords"]["state"]["state"] == "empty"
+    assert payloads["run_history"]["state"]["state"] == "empty"
+
+
+def test_app_product_page_registry_returns_ready_state_for_fixture_data() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=fixture["run_history"],
+    )
+    assert payloads["registry_state"]["state"] == "ready"
+    assert payloads["opportunities"]["table"]["rows"]
+    assert payloads["keywords"]["table"]["rows"]
+    assert payloads["run_history"]["table"]["rows"]
 

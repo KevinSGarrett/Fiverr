@@ -6,12 +6,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.dashboard.components import build_state_descriptor
+from src.dashboard.keywords import build_keywords_payload
 from src.dashboard.navigation import (
     DashboardPage,
 )
 from src.dashboard.navigation import (
     get_available_pages as get_navigation_pages,
 )
+from src.dashboard.opportunities import build_opportunities_payload
+from src.dashboard.pages import build_registered_page_payloads
+from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 from src.reports import build_governance_report_placeholders
 from src.reports.placeholders import build_active_story_groups
@@ -171,53 +176,22 @@ def build_governance_page_ready_state(
 def get_opportunities_page_descriptor(
     opportunities: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return deterministic placeholder metadata for the Opportunities page."""
-    normalized_rows = list(opportunities or [])
-    return {
-        "page_id": "opportunities",
-        "title": "Top Opportunities",
-        "cards": ["top_opportunity", "runner_up", "watchlist"],
-        "table_columns": ["opportunity", "niche", "score", "confidence", "status"],
-        "rows": normalized_rows,
-        "empty_state": len(normalized_rows) == 0,
-    }
+    """Return opportunities page descriptor using reusable payload contracts."""
+    return build_opportunities_payload(records=opportunities)
 
 
 def get_keywords_page_descriptor(
     keywords: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return deterministic placeholder metadata for the Keywords page."""
-    normalized_rows = list(keywords or [])
-    return {
-        "page_id": "keywords",
-        "title": "Keyword Cluster Health",
-        "columns": ["keyword", "niche", "cluster", "score", "confidence", "freshness_status"],
-        "rows": normalized_rows,
-        "empty_state": len(normalized_rows) == 0,
-    }
+    """Return keywords page descriptor using reusable payload contracts."""
+    return build_keywords_payload(records=keywords)
 
 
 def get_run_history_page_descriptor(
     runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return deterministic placeholder metadata for Run History."""
-    normalized_rows = list(runs or [])
-    return {
-        "page_id": "run_history",
-        "title": "Run History",
-        "columns": [
-            "run_id",
-            "branch",
-            "pull_request",
-            "status",
-            "stages",
-            "warning_count",
-            "duration",
-            "validation_status",
-        ],
-        "rows": normalized_rows,
-        "empty_state": len(normalized_rows) == 0,
-    }
+    """Return run history descriptor using reusable payload contracts."""
+    return build_run_history_payload(records=runs)
 
 
 def get_query_layer_descriptor(
@@ -517,6 +491,32 @@ def get_available_pages() -> list[DashboardPage]:
 def get_page_registry() -> list[dict[str, Any]]:
     """Expose deterministic app-entry page registry metadata."""
     return build_page_registry()
+
+
+def get_product_page_payloads(
+    *,
+    opportunities_records: list[dict[str, Any]] | None = None,
+    keywords_records: list[dict[str, Any]] | None = None,
+    run_history_records: list[dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Expose product page payload builders via one import-safe registry call."""
+    payloads = build_registered_page_payloads(
+        opportunities_records=opportunities_records,
+        keywords_records=keywords_records,
+        run_history_records=run_history_records,
+    )
+    if all(payload["state"]["state"] == "empty" for payload in payloads.values()):
+        payloads["registry_state"] = build_state_descriptor(
+            state="empty",
+            message="All product pages are in safe empty-state mode pending data hydration.",
+            warnings=["No records were supplied for opportunities, keywords, or run history."],
+        )
+    else:
+        payloads["registry_state"] = build_state_descriptor(
+            state="ready",
+            message="Product page payloads are registered and available.",
+        )
+    return payloads
 
 
 def get_cycle003_status_state() -> dict[str, Any]:
