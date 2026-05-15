@@ -10,7 +10,7 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | --- | --- |
 | Branch | `cycle/014/integration` |
 | Head SHA at start of Agent C pass | `df894e6f91e642f1bca2d2d61bb4630294e17196` |
-| Implementation commit hash | `TBD (filled after commit)` |
+| Implementation commit hash | `72d78f146c77433ba8f85b781f810fe5757d5a30` |
 
 ## Jira Keys Touched
 
@@ -107,13 +107,13 @@ Agent C delivered deterministic analysis-contract and orchestration upgrades for
 | Point-in-time | Status |
 | --- | --- |
 | Before Agent C commit | Modified analysis modules/tests/ledger + new fixture factory files |
-| After Agent C commit | `TBD (filled after commit)` |
+| After Agent C commit | Clean working tree (`git status --short` produced no changed files) |
 
 ## Commit
 
 | Item | Value |
 | --- | --- |
-| Commit hash | `TBD (filled after commit)` |
+| Commit hash | `72d78f146c77433ba8f85b781f810fe5757d5a30` |
 | Commit scope | Analysis code, analysis tests/fixtures, Jira ledger, Agent C report |
 
 ## Jira Comments / Transitions
