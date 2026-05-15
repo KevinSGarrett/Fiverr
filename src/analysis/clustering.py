@@ -5,6 +5,8 @@ from __future__ import annotations
 from itertools import combinations
 
 from src.analysis.contracts import (
+    AnalysisEvidence,
+    AnalysisReadinessStatus,
     AnalysisWarning,
     ClusterEntry,
     KeywordClusterInput,
@@ -101,6 +103,17 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
             missing_data_fields=["keywords"],
             warnings=warnings,
             metadata=payload.metadata,
+            status=AnalysisReadinessStatus.SKIPPED,
+            source_context={"keyword_count": 0, "min_cluster_size": payload.min_cluster_size},
+            evidence=[
+                AnalysisEvidence(
+                    code="keyword_count",
+                    message="No usable keywords were available for clustering.",
+                    metric=0.0,
+                    source_ref="keywords",
+                )
+            ],
+            downstream_readiness={"status": "blocked", "reasons": ["keywords_missing"]},
         )
 
     token_sets = [_token_set(keyword) for keyword in keywords]
@@ -131,6 +144,17 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
             missing_data_fields=[],
             warnings=warnings,
             metadata=payload.metadata,
+            status=AnalysisReadinessStatus.PARTIAL,
+            source_context={"keyword_count": len(keywords), "min_cluster_size": payload.min_cluster_size},
+            evidence=[
+                AnalysisEvidence(
+                    code="fallback_single_cluster",
+                    message="Single fallback cluster created from sparse keyword set.",
+                    metric=float(len(keywords)),
+                    source_ref="keywords",
+                )
+            ],
+            downstream_readiness={"status": "partial", "reasons": ["too_few_keywords"]},
         )
 
     adjacency = _build_adjacency(token_sets)
@@ -176,4 +200,19 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         missing_data_fields=[],
         warnings=warnings,
         metadata=payload.metadata,
+        status=AnalysisReadinessStatus.READY if clusters else AnalysisReadinessStatus.BLOCKED,
+        source_context={"keyword_count": len(keywords), "min_cluster_size": payload.min_cluster_size},
+        evidence=[
+            AnalysisEvidence(
+                code="cluster_count",
+                message="Deterministic lexical clustering completed.",
+                metric=float(len(clusters)),
+                source_ref="keywords",
+                metadata={"keyword_count": len(keywords)},
+            )
+        ],
+        downstream_readiness={
+            "status": "ready" if clusters else "blocked",
+            "reasons": [] if clusters else ["min_cluster_size_filter"],
+        },
     )
