@@ -366,6 +366,33 @@ def test_app_entry_smoke_state_registers_all_required_pages(tmp_path) -> None:
     assert smoke_state["status"] == "ready"
     assert smoke_state["safe_empty_state"] is False
     assert smoke_state["entry"]["branch"] == "cycle/012/integration"
+    assert smoke_state["page_registry"]
+    assert smoke_state["readiness"]["severity"] == "ready"
+    assert smoke_state["readiness"]["blocked_pages"] == []
+
+
+def test_page_registry_contains_required_contracts_and_disabled_reasons() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    registry = app_module.get_page_registry()
+    registry_by_id = {row["page_id"]: row for row in registry}
+    assert registry_by_id["overview"]["required_contracts"] == ["governance_status", "app_readiness"]
+    assert registry_by_id["keywords"]["status"] == "disabled"
+    assert "not implemented" in registry_by_id["keywords"]["disabled_reason"]
+
+
+def test_compute_page_readiness_returns_next_actions_for_blocked_pages() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    readiness = app_module.compute_page_readiness(
+        page_registry=[
+            {"page_id": "overview", "status": "ready"},
+            {"page_id": "reports", "status": "blocked"},
+        ],
+        startup={"status": "warning", "warning_count": 1},
+        orchestrator_handoff={"stage_status": "warning"},
+    )
+    assert readiness["severity"] == "blocked"
+    assert readiness["blocked_pages"] == ["reports"]
+    assert any("phase2-smoke" in action for action in readiness["next_actions"])
 
 
 def test_alert_readiness_placeholders_normalize_unknown_severity_and_missing_jira_keys() -> None:

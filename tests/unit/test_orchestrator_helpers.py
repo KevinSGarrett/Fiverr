@@ -32,6 +32,7 @@ def test_run_dashboard_stub_normalizes_mode(capsys: pytest.CaptureFixture[str]) 
     assert "local" in output
     assert "Dashboard app-entry module" in output
     assert "Dashboard startup status" in output
+    assert "Dashboard readiness stage status" in output
 
 
 def test_run_dashboard_stub_returns_error_when_pages_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,10 +46,30 @@ def test_run_dashboard_stub_returns_error_when_pages_missing(monkeypatch: pytest
                     "missing_pages": ["overview"],
                 },
                 "startup": {"status": "ready", "safe_empty_state": False},
+                "readiness": {"severity": "blocked", "blocked_pages": ["overview"]},
             }
 
     monkeypatch.setattr(orchestrator.importlib, "import_module", lambda _name: _FakeDashboardModule())
     assert orchestrator.run_dashboard_stub("preview") == 1
+
+
+def test_build_dashboard_readiness_handoff_uses_smoke_state_payload() -> None:
+    handoff = orchestrator.build_dashboard_readiness_handoff(
+        {
+            "status": "warning",
+            "startup": {"status": "warning", "warning_count": 2},
+            "page_registration": {"status": "ready", "missing_pages": []},
+            "readiness": {
+                "severity": "warning",
+                "blocked_pages": [],
+                "next_actions": ["Run phase2-smoke"],
+            },
+        }
+    )
+    assert handoff["phase"] == "dashboard-readiness"
+    assert handoff["stage_status"] == "warning"
+    assert handoff["warning_count"] == 2
+    assert handoff["next_actions"] == ["Run phase2-smoke"]
 
 
 def test_load_fixture_payload_handles_missing_invalid_and_nondict(
@@ -197,6 +218,12 @@ def test_run_phase2_smoke_returns_failure_when_module_import_errors(
 
     assert orchestrator.run_phase2_smoke(config_path="config.yaml") == 1
     assert "Phase2 smoke failed" in capsys.readouterr().out
+
+
+def test_phase2_smoke_metadata_includes_dashboard_handoff_requirements() -> None:
+    metadata = orchestrator.build_phase2_smoke_metadata()
+    assert metadata["dashboard_handoff_required"] is True
+    assert "stage_status" in metadata["dashboard_handoff_fields"]
 
 
 def test_run_pipeline_initializes_database_and_prints_mode(

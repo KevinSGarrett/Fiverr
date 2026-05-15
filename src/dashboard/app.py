@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,31 @@ _STATUS_TO_SEVERITY = {
     "blocked": "error",
 }
 _ALERT_SEVERITIES = frozenset({"warning", "error", "governance"})
+_READINESS_SEVERITY_ORDER = {"ok": 0, "ready": 0, "warning": 1, "error": 2, "blocked": 3}
+
+
+@dataclass(frozen=True, slots=True)
+class PageRegistryEntry:
+    """Deterministic app-entry page registry contract."""
+
+    page_id: str
+    label: str
+    order: int
+    status: str
+    enabled: bool
+    required_contracts: tuple[str, ...]
+    disabled_reason: str | None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "page_id": self.page_id,
+            "label": self.label,
+            "order": self.order,
+            "status": self.status,
+            "enabled": self.enabled,
+            "required_contracts": list(self.required_contracts),
+            "disabled_reason": self.disabled_reason,
+        }
 
 
 def _normalize_governance_status(raw_status: str | None) -> tuple[str, str]:
@@ -255,6 +281,79 @@ def _normalize_required_page_ids(page_ids: list[str]) -> list[str]:
     return normalized
 
 
+def build_page_registry() -> list[dict[str, Any]]:
+    """Return deterministic page registry with contract + disabled metadata."""
+    contract_map: dict[str, tuple[str, ...]] = {
+        "overview": ("governance_status", "app_readiness"),
+        "foundation_status": ("cycle003_state",),
+        "collection_dry_run": ("cycle003_state",),
+        "analysis_dry_run": ("cycle003_state",),
+        "phase2_readiness": ("phase2_readiness",),
+        "phase2_reports": ("query_layer", "run_history"),
+        "phase2_exports": ("export_system",),
+        "niches": ("opportunities", "source_freshness_summary"),
+        "keywords": ("keywords", "source_freshness_summary"),
+        "collection_runs": ("run_history",),
+        "scores": ("opportunities",),
+        "recommendations": ("opportunities", "keywords"),
+        "reports": ("query_layer", "governance_status"),
+        "settings": ("app_readiness",),
+    }
+    registry: list[PageRegistryEntry] = []
+    for order, page in enumerate(get_navigation_pages()):
+        disabled_reason = None
+        if not page.enabled:
+            disabled_reason = (
+                "Feature is preview-only for cycle 004."
+                if page.status == "preview_cycle004"
+                else "Feature is not implemented yet."
+            )
+        registry.append(
+            PageRegistryEntry(
+                page_id=page.page_id,
+                label=page.label,
+                order=order,
+                status="ready" if page.enabled else "disabled",
+                enabled=page.enabled,
+                required_contracts=contract_map.get(page.page_id, ("app_readiness",)),
+                disabled_reason=disabled_reason,
+            )
+        )
+    return [entry.as_dict() for entry in registry]
+
+
+def compute_page_readiness(
+    *,
+    page_registry: list[dict[str, Any]],
+    startup: dict[str, Any],
+    orchestrator_handoff: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compute readiness severity and next actions from registry + startup evidence."""
+    blocked_pages = [row["page_id"] for row in page_registry if row.get("status") == "blocked"]
+    startup_status = str(startup.get("status", "warning")).strip().lower() or "warning"
+    orchestrator_status = str((orchestrator_handoff or {}).get("stage_status", "ready")).strip().lower()
+    statuses = [startup_status, orchestrator_status]
+    if blocked_pages:
+        statuses.append("blocked")
+    severity = max(statuses, key=lambda status: _READINESS_SEVERITY_ORDER.get(status, 1))
+    next_actions: list[str] = []
+    if blocked_pages:
+        next_actions.append("Implement blocked dashboard pages or mark explicit non-goals for this cycle.")
+    if startup_status != "ready":
+        next_actions.append("Provide config/data fixtures so app startup diagnostics can become ready.")
+    if orchestrator_status in {"warning", "error", "blocked"}:
+        next_actions.append("Run phase2-smoke and publish orchestrator readiness handoff evidence.")
+    if not next_actions:
+        next_actions.append("Readiness checks are healthy; continue with page-level product work.")
+    return {
+        "severity": severity,
+        "blocked_pages": blocked_pages,
+        "startup_status": startup_status,
+        "orchestrator_status": orchestrator_status,
+        "next_actions": next_actions,
+    }
+
+
 def build_app_startup_diagnostics(
     *,
     config_path: str = "config.yaml",
@@ -321,15 +420,24 @@ def build_app_entry_smoke_state(
     data_dir: str = "data",
 ) -> dict[str, Any]:
     """Return app-entry smoke state for startup behavior and page registration."""
-    pages = get_available_pages()
-    required_page_ids = _normalize_required_page_ids([page.page_id for page in pages])
+    page_registry = build_page_registry()
+    required_page_ids = _normalize_required_page_ids([row["page_id"] for row in page_registry])
     registered_page_ids = _normalize_required_page_ids([page.page_id for page in get_navigation_pages()])
     missing_pages = [page_id for page_id in required_page_ids if page_id not in registered_page_ids]
     startup = build_app_startup_diagnostics(config_path=config_path, data_dir=data_dir)
+    if missing_pages:
+        page_registry = [
+            row
+            if row["page_id"] not in missing_pages
+            else {**row, "status": "blocked", "disabled_reason": "Page missing from registration surface."}
+            for row in page_registry
+        ]
+    readiness = compute_page_readiness(page_registry=page_registry, startup=startup)
     registration_status = "blocked" if missing_pages else "ready"
-    status = "blocked" if missing_pages else startup["status"]
+    status = "blocked" if missing_pages else readiness["severity"]
     return {
         "entry": get_app_entry_descriptor(branch=branch, cycle=cycle),
+        "page_registry": page_registry,
         "page_registration": {
             "required_page_ids": required_page_ids,
             "registered_page_ids": registered_page_ids,
@@ -337,6 +445,7 @@ def build_app_entry_smoke_state(
             "status": registration_status,
         },
         "startup": startup,
+        "readiness": readiness,
         "status": status,
         "safe_empty_state": startup["safe_empty_state"],
     }
@@ -403,6 +512,11 @@ def build_page_title() -> str:
 def get_available_pages() -> list[DashboardPage]:
     """Expose dashboard page metadata for callers and tests."""
     return get_navigation_pages()
+
+
+def get_page_registry() -> list[dict[str, Any]]:
+    """Expose deterministic app-entry page registry metadata."""
+    return build_page_registry()
 
 
 def get_cycle003_status_state() -> dict[str, Any]:
