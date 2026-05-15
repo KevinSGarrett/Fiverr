@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.dashboard.alerts import build_dashboard_alerts
 from src.dashboard.components import build_state_descriptor
 from src.dashboard.keywords import build_keywords_payload
 from src.dashboard.navigation import (
@@ -64,7 +65,6 @@ _STATUS_TO_SEVERITY = {
     "error": "error",
     "blocked": "error",
 }
-_ALERT_SEVERITIES = frozenset({"warning", "error", "governance"})
 _READINESS_SEVERITY_ORDER = {"ok": 0, "ready": 0, "warning": 1, "error": 2, "blocked": 3}
 
 
@@ -430,37 +430,50 @@ def build_alert_readiness_placeholders(
     alerts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, str]]:
     """Normalize alert placeholders without requiring a runtime alerting system."""
-    normalized_alerts: list[dict[str, str]] = []
-    for raw_alert in alerts or []:
-        raw_severity = str(raw_alert.get("severity", "warning")).strip().lower() or "warning"
-        severity = raw_severity if raw_severity in _ALERT_SEVERITIES else "unknown"
-        jira_key = str(raw_alert.get("jira_key", "")).strip() or "UNMAPPED"
-        normalized_alerts.append(
-            {
-                "severity": severity,
-                "source": str(raw_alert.get("source", "dashboard")).strip() or "dashboard",
-                "jira_key": jira_key,
-                "message": str(raw_alert.get("message", "pending")).strip() or "pending",
-                "resolution_status": str(raw_alert.get("resolution_status", "open")).strip() or "open",
-            }
-        )
-    return normalized_alerts
+    normalized_alerts = build_dashboard_alerts(opportunities=alerts or [])
+    return [
+        {
+            "id": str(alert["id"]),
+            "type": str(alert["type"]),
+            "severity": str(alert["severity"]),
+            "title": str(alert["title"]),
+            "source": str(alert["source_context"].get("source", "dashboard")),
+            "jira_key": str(alert["jira_key"]),
+            "message": str(alert["explanation"]),
+            "recommended_action": str(alert["recommended_action"]),
+            "dismissible": "true" if bool(alert["dismissible"]) else "false",
+            "resolution_status": "dismissible" if bool(alert["dismissible"]) else "action_required",
+        }
+        for alert in normalized_alerts
+    ]
 
 
 def get_alert_system_descriptor(alerts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Return deterministic placeholder metadata for alert-system readiness."""
     normalized_alerts = build_alert_readiness_placeholders(alerts)
+    severity_counts = {
+        "info": sum(1 for alert in normalized_alerts if alert["severity"] == "info"),
+        "warning": sum(1 for alert in normalized_alerts if alert["severity"] == "warning"),
+        "error": sum(1 for alert in normalized_alerts if alert["severity"] in {"error", "critical"}),
+        "unknown": sum(1 for alert in normalized_alerts if alert["severity"] not in {"info", "warning", "error", "critical"}),
+    }
     return {
         "page_id": "alert_system",
         "title": "Alert System",
-        "columns": ["severity", "source", "jira_key", "message", "resolution_status"],
+        "columns": [
+            "id",
+            "type",
+            "severity",
+            "title",
+            "source",
+            "jira_key",
+            "message",
+            "recommended_action",
+            "dismissible",
+            "resolution_status",
+        ],
         "rows": normalized_alerts,
-        "summary": {
-            "warning": sum(1 for alert in normalized_alerts if alert["severity"] == "warning"),
-            "error": sum(1 for alert in normalized_alerts if alert["severity"] == "error"),
-            "governance": sum(1 for alert in normalized_alerts if alert["severity"] == "governance"),
-            "unknown": sum(1 for alert in normalized_alerts if alert["severity"] == "unknown"),
-        },
+        "summary": severity_counts,
         "empty_state": len(normalized_alerts) == 0,
     }
 

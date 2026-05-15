@@ -26,6 +26,14 @@ GOVERNANCE_REPORT_ORDER = (
 JIRA_MAPPING_TYPES = frozenset({"governance", "product"})
 JIRA_UPDATED_BY_VALUES = frozenset({"pm", "cursor_agent", "pm_and_cursor_agent", "unknown"})
 ACTIVE_STORY_STATUSES = frozenset({"in_progress", "in_review", "blocked"})
+DEFAULT_VALIDATION_COMMANDS = (
+    "python -m ruff check .",
+    "python -m mypy src",
+    "python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90",
+    "python run.py config-check",
+    "python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db",
+    "python run.py phase2-smoke",
+)
 
 
 def build_governance_report_placeholders(
@@ -188,4 +196,42 @@ def build_active_story_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]
             }
         )
     return normalized_groups
+
+
+def build_integration_evidence_summary(
+    *,
+    validation_commands: tuple[str, ...] = DEFAULT_VALIDATION_COMMANDS,
+    stage_status: dict[str, str] | None = None,
+    codex_status: str = "pending",
+    codecov_project_status: str = "pending",
+    codecov_patch_status: str = "pending",
+    jira_progress: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build one deterministic summary covering validation, checks, and Jira progress."""
+    normalized_stages = dict(stage_status or {})
+    normalized_jira_rows = []
+    for row in jira_progress or []:
+        normalized_jira_rows.append(
+            {
+                "jira_key": str(row.get("jira_key", "")).strip(),
+                "ac_advanced": str(row.get("ac_advanced", "")).strip(),
+                "dod_remaining": str(row.get("dod_remaining", "")).strip(),
+                "status_recommendation": str(row.get("status_recommendation", "in_progress")).strip(),
+            }
+        )
+    return {
+        "validation_commands": list(validation_commands),
+        "stage_status": normalized_stages,
+        "codex_status": codex_status.strip().lower() or "pending",
+        "codecov": {
+            "project": codecov_project_status.strip().lower() or "pending",
+            "patch": codecov_patch_status.strip().lower() or "pending",
+        },
+        "jira_progress": normalized_jira_rows,
+        "summary": {
+            "validation_count": len(validation_commands),
+            "stages_reported": len(normalized_stages),
+            "jira_rows": len(normalized_jira_rows),
+        },
+    }
 

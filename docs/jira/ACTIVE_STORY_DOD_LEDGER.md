@@ -58,6 +58,20 @@
 | `SCRUM-225` / `SCRUM-214` / `SCRUM-215` / `SCRUM-219` | In Progress | `src/analysis/orchestrator.py`, `tests/unit/test_analysis.py` | Added `dashboard_handoff_contract` alignment payload covering opportunity-card, keyword-table, and run-history analysis readiness fields for downstream query/page consumers. | Full dashboard story DoD closure remains owned by final integrated dashboard rendering and PM acceptance checks. | `python -m pytest tests/unit/test_analysis.py -q`; full validation block pass. | `cycle/014/integration` | Keep as dependent `In Progress`; do not mark Done from analysis-only changes. |
 | `SCRUM-258` | In Progress | `docs/cycle_reports/CYCLE_014_AGENT_C.md`, this ledger | Prompt-path drift controlled by using existing file paths only; agent report and DoD ledger updated with concrete command evidence and remaining-gap notes. | Final governance closeout remains pending end-of-cycle steward reconciliation. | Report existence + full validation block evidence recorded. | `cycle/014/integration` | Keep `In Progress` until cycle closeout. |
 
+## Cycle 014 Rows (Agent D)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 014) | DoD Remaining / Gaps | Tests / Validation | PR/Branch | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-226` | In Review | `src/exports/csv_export.py`, `src/exports/json_export.py`, `src/exports/markdown_export.py`, `src/exports/manifest.py`, `src/exports/__init__.py`, `tests/unit/test_reports.py` | Added deterministic CSV/JSON/Markdown export helpers with schema/version metadata, checksum, record counts, sparse-data warnings, safe relative paths, and test coverage for empty/non-empty payloads. | Story-level DoD still requires full live export orchestration across all production formats (xlsx/pdf/live-run wiring) before Done. | `python -m pytest -q tests/unit/test_reports.py`; full validation block pass (`coverage 93.20%`). | `cycle/014/integration` | Keep `In Review`; do not transition to Done. |
+| `SCRUM-227` | In Review | `src/dashboard/alerts.py`, `src/dashboard/app.py`, `tests/unit/test_dashboard.py` | Implemented stable alert contract (`id/type/severity/title/explanation/source_context/recommended_action/jira_key/dismissible`) and deterministic opportunity/run/source/risk rule generation with fixture-backed tests. | Full story DoD requires broader runtime alert lifecycle (persist/resolve/display across complete app workflow) before Done. | `python -m pytest -q tests/unit/test_dashboard.py`; full validation block pass. | `cycle/014/integration` | Keep `In Review`; no Done recommendation. |
+| `SCRUM-231` | In Progress | `src/reports/placeholders.py`, `src/reports/__init__.py`, report/ledger evidence | Added deterministic integration evidence summary helper combining validation commands, stage status, Codex/Codecov statuses, and Jira progress rows for final integration reporting. | Full end-to-end integration story remains broader than reporting helper scope; final orchestration closure still pending. | `python -m pytest -q tests/unit/test_reports.py`; full validation block pass. | `cycle/014/integration` | Keep `In Progress`. |
+| `SCRUM-235` | In Progress | `tests/unit/test_reports.py`, `tests/unit/test_dashboard.py`, full coverage output | Coverage-expanded export/alert/integration tests added; full repo gate remains green above threshold. | Full story closure still depends on final PR/CI coverage evidence and steward sign-off. | `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` (`93.20%`, pass). | `cycle/014/integration` | Keep `In Progress`. |
+| `SCRUM-237` | In Progress | `src/dashboard/alerts.py`, `tests/unit/test_dashboard.py`, `python run.py phase2-smoke` output | Added deterministic run-status alert rules (failed stage, warning-heavy run, missing run evidence, stale phase2 smoke). | Full logging/monitoring implementation still extends beyond this contract-level increment. | `python -m pytest -q tests/unit/test_dashboard.py`; `python run.py phase2-smoke`; full validation block pass. | `cycle/014/integration` | Keep `In Progress`. |
+| `SCRUM-241` | In Progress | export path guards, sparse-data checks, `git status` hygiene evidence | Export and alert helpers use safe relative paths, deterministic sparse-data handling, no secrets, and no machine-dependent outputs; artifact hygiene reviewed before commit staging. | Story DoD still requires final steward sweep across all generated artifacts/PR checks before Done. | `git status --short --branch`; full validation block pass; no secrets introduced in touched files. | `cycle/014/integration` | Keep `In Progress`. |
+| `SCRUM-258` | In Progress | this ledger, `docs/cycle_reports/CYCLE_014_AGENT_D.md` (to be added), PR/Jira stewardship evidence | Agent D product implementation + validation evidence now captured with AC/DoD mapping and conservative status recommendations. | Final cycle closure still requires PR/Jira update pass and Codex/codecov disposition confirmation after push. | Targeted + full validation evidence captured; final PR/Jira actions remain in-progress. | `cycle/014/integration` | Keep `In Progress` until final steward closeout. |
+| `SCRUM-214` / `SCRUM-215` / `SCRUM-219` / `SCRUM-225` | In Review | export helpers consume generic dashboard/query payload shapes without Streamlit/runtime coupling | Export-to-dashboard compatibility advanced: exports accept fixture-backed payload dictionaries from opportunities/keywords/run-history/query-layer contracts. | Full story DoD for each source dashboard page remains open and owned by broader UI/integration acceptance. | `python -m pytest -q tests/unit/test_reports.py tests/unit/test_dashboard.py`; full validation block pass. | `cycle/014/integration` | Keep `In Review`; no Done transitions from compatibility-only evidence. |
+| `SCRUM-250` | In Progress | ledger and final PR table planning evidence | Prepared schema for AC/DoD mapping rows (Jira key/files/advanced gaps/validation) for final steward PR body update. | Final PR body update still pending branch push and PR edit step. | Validation unaffected; to be completed in PR update action. | `cycle/014/integration` | Keep `In Progress`. |
+
 ## Cycle 014 Validation Evidence
 
 - Targeted app-entry commands:
@@ -104,6 +118,17 @@
   - `python -m ruff check src/analysis src/orchestrator.py run.py tests/unit/test_analysis.py tests/unit/test_orchestrator_helpers.py` (`pass`)
   - `python -m mypy src/analysis src/orchestrator.py` (`pass`)
   - Full validation block rerun (`coverage 93.34%`)
+- Agent D targeted validation:
+  - `python -m pytest -q tests/unit/test_reports.py tests/unit/test_dashboard.py` (`87 passed`)
+  - `python -m ruff check src/exports src/dashboard/alerts.py src/dashboard/app.py src/reports/placeholders.py tests/unit/test_reports.py tests/unit/test_dashboard.py` (`pass`)
+  - `python -m mypy src` (`pass`)
+- Agent D full validation block:
+  - `python -m ruff check .` (`pass`)
+  - `python -m mypy src` (`pass`)
+  - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` (`426 passed`, coverage `93.20%`)
+  - `python run.py config-check` (`pass`)
+  - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db` (`pass`)
+  - `python run.py phase2-smoke` (`pass`)
 
 ## Security and Branch Safety Evidence (Cycle 014)
 

@@ -398,33 +398,61 @@ def test_compute_page_readiness_returns_next_actions_for_blocked_pages() -> None
     assert any("phase2-smoke" in action for action in readiness["next_actions"])
 
 
-def test_alert_readiness_placeholders_normalize_unknown_severity_and_missing_jira_keys() -> None:
+def test_alert_readiness_placeholders_map_to_stable_contract_fields() -> None:
     app_module = importlib.import_module("src.dashboard.app")
     alerts = app_module.build_alert_readiness_placeholders(
         [
-            {"severity": "warning", "source": "governance", "jira_key": "SCRUM-228", "message": "Needs review"},
-            {"severity": "critical", "source": "ci", "jira_key": "", "message": "Unknown severity"},
+            {"id": "opp-1", "opportunity": "Logo design", "score": 92, "confidence": 0.87},
+            {"id": "opp-2", "opportunity": "Resume writing", "score": 72, "confidence": 0.5},
         ]
     )
-    assert alerts[0]["severity"] == "warning"
-    assert alerts[0]["jira_key"] == "SCRUM-228"
-    assert alerts[1]["severity"] == "unknown"
-    assert alerts[1]["jira_key"] == "UNMAPPED"
+    assert alerts[0]["id"] == "opportunity-high-potential-opp-1"
+    assert alerts[0]["type"] == "high_potential_opportunity"
+    assert alerts[0]["severity"] == "info"
+    assert alerts[0]["jira_key"] == "SCRUM-214"
+    assert alerts[1]["id"] == "opportunity-low-confidence-opp-2"
+    assert alerts[1]["severity"] == "warning"
+    assert alerts[1]["resolution_status"] == "action_required"
 
 
 def test_alert_system_descriptor_aggregates_normalized_alert_severity_totals() -> None:
     app_module = importlib.import_module("src.dashboard.app")
     descriptor = app_module.get_alert_system_descriptor(
         [
-            {"severity": "warning", "source": "governance", "jira_key": "SCRUM-227", "message": "Review needed"},
-            {"severity": "error", "source": "pipeline", "jira_key": "SCRUM-228", "message": "Gate failed"},
-            {"severity": "critical", "source": "unknown", "jira_key": "", "message": "Unmapped severity"},
+            {"id": "opp-1", "opportunity": "Logo design", "score": 92, "confidence": 0.87},
+            {"id": "opp-2", "opportunity": "Resume writing", "score": 72, "confidence": 0.5},
+            {"id": "opp-3", "opportunity": "No score opportunity", "confidence": 0.7},
         ]
     )
     assert descriptor["page_id"] == "alert_system"
-    assert descriptor["summary"] == {"warning": 1, "error": 1, "governance": 0, "unknown": 1}
-    assert descriptor["rows"][2]["jira_key"] == "UNMAPPED"
+    assert descriptor["summary"] == {"info": 1, "warning": 2, "error": 1, "unknown": 0}
+    assert descriptor["rows"][2]["jira_key"] == "SCRUM-227"
     assert descriptor["empty_state"] is False
+
+
+def test_alert_rules_generate_opportunity_and_run_alerts() -> None:
+    alerts_module = importlib.import_module("src.dashboard.alerts")
+    alerts = alerts_module.build_dashboard_alerts(
+        opportunities=[
+            {"id": "opp-1", "opportunity": "Logo design", "score": 91, "confidence": 0.86},
+            {"id": "opp-2", "opportunity": "Resume", "score": 74, "confidence": 0.54},
+            {"id": "opp-3", "opportunity": "No score", "confidence": 0.6},
+        ],
+        run_history=[
+            {"run_id": "run-1", "status": "failed", "warning_count": 5, "stages": [{"name": "analysis"}]},
+            {"run_id": "run-2", "status": "pass", "warning_count": 0, "stages": [{"name": "reporting"}]},
+        ],
+        source_freshness=[{"source_name": "opportunities", "freshness_status": "stale"}],
+        phase2_smoke={"status": "pass", "age_hours": 30},
+    )
+    alert_types = {row["type"] for row in alerts}
+    assert "high_potential_opportunity" in alert_types
+    assert "low_confidence_opportunity" in alert_types
+    assert "missing_score_evidence" in alert_types
+    assert "failed_stage" in alert_types
+    assert "warning_heavy_run" in alert_types
+    assert "stale_source_warning" in alert_types
+    assert "stale_phase2_smoke" in alert_types
 
 
 def test_main_renders_governance_and_readiness_sections_without_real_streamlit(
