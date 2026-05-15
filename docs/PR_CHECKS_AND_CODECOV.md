@@ -15,6 +15,13 @@ Missing checks are blockers. Pending checks are blockers. Failing checks are blo
 
 A local coverage pass is necessary but not sufficient for merge readiness.
 
+## Cycle prompt task-volume policy
+
+- Normal Cursor cycle prompts should assign **10-20 substantive tasks** per agent.
+- Preferred planning range is **12-16 tasks** per agent.
+- Smaller cycles are allowed only for hotfix/repair-only scopes with a written `TASK-COUNT WAIVER`.
+- Task count should span implementation, tests, documentation, Jira operations, validation, and cycle reporting.
+
 ## Cycle 007 opening-gate audit note
 
 - PR #5 (`fix(cycle-006): close codex intent fallback and harden codecov project gate`) passed:
@@ -50,6 +57,12 @@ python run.py phase2-smoke
 ```
 
 The parity run is incomplete if any command is skipped.
+
+Clean local artifacts created during parity validation before handoff:
+
+- `coverage.xml`
+- temporary gate databases under `data/*.db`
+- temporary smoke or dry-run artifacts created only for validation
 
 ## GitHub Check Requirements
 

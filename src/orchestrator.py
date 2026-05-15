@@ -33,6 +33,12 @@ STAGE_AVAILABILITY = {
     "resume": "Resume mode placeholder is active; checkpoint resume flow is pending.",
 }
 
+PHASE2_EXPECTED_GATES = (
+    "CI / Lint, Typecheck, Tests, and Gates",
+    "codecov/project",
+    "codecov/patch",
+)
+
 
 def run_init_db(database_url: str | None = None) -> int:
     return init_db_script_main(database_url=database_url)
@@ -189,6 +195,9 @@ def run_analysis_dry_run(
 
 
 def run_phase2_smoke(config_path: str = "config.yaml") -> int:
+    metadata = build_phase2_smoke_metadata()
+    print(f"Phase2 smoke metadata: {json.dumps(metadata, sort_keys=True)}")
+
     checks: list[tuple[str, str]] = [
         ("collection package", "src.collection"),
         ("analysis package", "src.analysis"),
@@ -209,6 +218,16 @@ def run_phase2_smoke(config_path: str = "config.yaml") -> int:
             print(f"- {failure}")
         return 1
     return 0
+
+
+def build_phase2_smoke_metadata() -> dict[str, Any]:
+    """Return a deterministic governance contract for integration handoff."""
+    return {
+        "phase": "phase2-smoke",
+        "expected_gates": list(PHASE2_EXPECTED_GATES),
+        "jira_mapping_required": True,
+        "codex_disposition_required": True,
+    }
 
 
 def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str | None = None) -> int:
