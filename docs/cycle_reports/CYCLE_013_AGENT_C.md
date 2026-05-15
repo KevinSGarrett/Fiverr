@@ -6,6 +6,33 @@ Cycle 013 Agent C corrective work updated PM Pack prompt governance so mandatory
 
 Commit produced: `8f68d2a` on `cycle/012/integration`.
 
+## C01-C24 Completion Status
+
+- C01: Complete. Attempted exact required `find` commands, documented environment incompatibility, and executed equivalent deterministic fallback listings.
+- C02: Complete. Reviewed `PM_Pack/09_templates/AGENT_PROMPT_C.md` and identified invalid mandatory scoring-path assumptions.
+- C03: Complete. Replaced invalid mandatory paths with task-aware conditional validation.
+- C04: Complete. Added mandatory path-existence preflight and fallback logic to Agent C template.
+- C05: Complete. Default Agent C validation now targets existing analysis/orchestration paths and existing tests.
+- C06: Complete. Searched `PROMPT_TEMPLATE.md` for threshold language and verified active standard consistency.
+- C07: Complete. Enforced strict 100-word minimum per substantive task with waiver exception language.
+- C08: Complete. Updated `PROMPT_RULES.md` to align with 100-word and 6,000-word standards.
+- C09: Complete. Verified `TASK_SIZING.md` active standard remains 20/24-32/40 and old limits are historical only.
+- C10: Complete. Checked `AGENT_PROMPT_A.md` through `AGENT_PROMPT_D.md` and confirmed no active outdated limits.
+- C11: Complete. Added exact command validation blocks plus path-existence fallback wording in active templates.
+- C12: Complete. Added Cycle 013 corrective note requiring current-repo validation against actual layout.
+- C13: Not applicable (condition not met). No prompt/validation guidance files were added or renamed.
+- C14: Complete. Added required prompt-template self-check section in `PROMPT_TEMPLATE.md`.
+- C15: Complete. Ran PM Pack regression scans for specified terms; active standard files are clean or conditionalized.
+- C16: Complete. Reviewed and updated `.github/pull_request_template.md` for Codex/CI/Codecov/Jira/no-main consistency.
+- C17: Complete (no-op coordination outcome). No hydration/state references were introduced, so no Agent A file-tracking dependency was created.
+- C18: Complete. Added Agent B disposition evidence bullets and formal disposition drafts in this report.
+- C19: Complete. Ran local Ruff and Mypy validations (plus full requested validation block).
+- C20: Complete. No fake scoring modules/tests were created.
+- C21: Complete. Committed prompt/template/report changes with scoped staging.
+- C22: Complete. Created and updated `docs/cycle_reports/CYCLE_013_AGENT_C.md` with required evidence sections.
+- C23: Complete. Included two formal Codex reply drafts with SHA placeholder.
+- C24: Complete. Final gate section confirms active standards, invalid-path removal, and threshold consistency.
+
 ## Jira Keys and Source Traceability
 
 - Primary keys from assignment packet: `SCRUM-256`, `SCRUM-254`, `SCRUM-252`, `SCRUM-246`.
@@ -60,10 +87,18 @@ Updated prompt-governance files so one strict per-task threshold is active: subs
 
 - `git status --short --branch`  
   - Result: on `cycle/012/integration` tracking `origin/cycle/012/integration`; untracked local artifacts present (`PM_Pack_Cycle_012_READY.zip`, `coverage.xml`).
-- `python -c "import os; from pathlib import Path; root=Path('src'); out=[] ..."`  
+- `python -c "import os; from pathlib import Path; root=Path('src'); out=[]\nif root.exists():\n for d,dirs,files in os.walk(root):\n  rel=Path(d).as_posix(); depth=0 if rel=='src' else rel.count('/')\n  if depth<=2: out.append(rel)\nfor x in sorted(set(out)): print(x)"`  
   - Result: listed current `src` directories (no `src/scoring`).
-- `python -c "import os; from pathlib import Path; root=Path('tests'); out=[] ..."`  
+- `python -c "import os; from pathlib import Path; root=Path('tests'); out=[]\nif root.exists():\n for d,dirs,files in os.walk(root):\n  for f in files:\n   rel=(Path(d)/f).as_posix()\n   if rel.count('/')<=3: out.append(rel)\nfor x in sorted(out)[:200]: print(x)"`  
   - Result: listed current `tests` files up to depth 3 (no `tests/unit/test_scoring.py`).
+- `find src -maxdepth 2 -type d | sort`  
+  - Result: failed in this PowerShell environment (`FIND: Parameter format not correct`).
+- `find tests -maxdepth 3 -type f | sort | head -200`  
+  - Result: failed in this PowerShell environment because `head` is unavailable.
+- `python -c "import os; from pathlib import Path; root=Path('src'); out=[]\nfor d,dirs,files in os.walk(root):\n rel=Path(d).as_posix(); depth=0 if rel=='src' else rel.count('/')\n if depth<=2: out.append(rel)\nfor x in sorted(set(out)): print(x)"`  
+  - Result: fallback deterministic listing succeeded.
+- `python -c "import os; from pathlib import Path; root=Path('tests'); out=[]\nfor d,dirs,files in os.walk(root):\n for f in files:\n  rel=(Path(d)/f).as_posix()\n  if rel.count('/')<=3: out.append(rel)\nfor x in sorted(out)[:200]: print(x)"`  
+  - Result: fallback deterministic listing succeeded.
 - `python -c "from pathlib import Path; print('src/scoring exists:', Path('src/scoring').exists()); print('tests/unit/test_scoring.py exists:', Path('tests/unit/test_scoring.py').exists())"`  
   - Result: both reported `False`.
 
@@ -71,8 +106,12 @@ Updated prompt-governance files so one strict per-task threshold is active: subs
 
 - `rg -n "src/scoring|test_scoring\.py|50 words|5-8|10-16" PM_Pack`  
   - Result: matches remain in historical logs/reference files and conditional/historical contexts; active templates/rules were corrected.
+- `rg -n "50 words|100 words|implementation detail|validation" PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md`  
+  - Result: confirmed active threshold language is 100-word standard.
 - `rg -n "Words per substantive task|6000|6,000|20-40|24-32" PM_Pack/03_cursor_agent_system PM_Pack/09_templates`  
   - Result: active governance files now align to `>=100` words, 20-40 tasks, and >=6,000 words.
+- `rg -n "5-8|10-16|10-20|50 words|100 words|20-40|24-32" PM_Pack/09_templates/AGENT_PROMPT_A.md PM_Pack/09_templates/AGENT_PROMPT_B.md PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/09_templates/AGENT_PROMPT_D.md`  
+  - Result: active template limits align to Cycle 013 standards; no outdated active limit text found.
 - `rg -n "Path preflight|Conditional scoring validation|nearest existing suite|guaranteed-fail" PM_Pack/09_templates/AGENT_PROMPT_A.md PM_Pack/09_templates/AGENT_PROMPT_B.md PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/09_templates/AGENT_PROMPT_D.md`  
   - Result: all agent templates contain explicit path-preflight/fallback language; Agent C includes conditional scoring validation.
 
@@ -134,8 +173,8 @@ Below are additional exact commands run during this task that are not duplicate 
 
 - `ls` (workspace discovery; found repo nested at `c:\Fiverr\Fiverr`)
 - `git status --short --branch` run in `c:\Fiverr` (expected failure: not a git repo)
-- `python -c "import os; from pathlib import Path; root=Path('src'); out=[] ..."` run in `c:\Fiverr` (empty output because command was run outside repo root)
-- `python -c "import os; from pathlib import Path; root=Path('tests'); out=[] ..."` run in `c:\Fiverr` (empty output because command was run outside repo root)
+- `python -c "import os; from pathlib import Path; root=Path('src'); out=[]\nif root.exists():\n for d,dirs,files in os.walk(root):\n  rel=Path(d).as_posix(); depth=0 if rel=='src' else rel.count('/')\n  if depth<=2: out.append(rel)\nfor x in sorted(set(out)): print(x)"` run in `c:\Fiverr` (empty output because command was run outside repo root)
+- `python -c "import os; from pathlib import Path; root=Path('tests'); out=[]\nif root.exists():\n for d,dirs,files in os.walk(root):\n  for f in files:\n   rel=(Path(d)/f).as_posix()\n   if rel.count('/')<=3: out.append(rel)\nfor x in sorted(out)[:200]: print(x)"` run in `c:\Fiverr` (empty output because command was run outside repo root)
 - `git status --short` (staging review before report authoring)
 - `ls docs` (pre-create check for `docs/cycle_reports`)
 - `git show --name-only --oneline --no-patch HEAD; git diff --name-only HEAD~1..HEAD` (post-commit file evidence)
@@ -144,8 +183,8 @@ Below are additional exact commands run during this task that are not duplicate 
 - `rg -n "Path preflight|Conditional scoring validation|nearest existing suite|guaranteed-fail" PM_Pack/09_templates/AGENT_PROMPT_*.md` (failed on Windows glob expansion syntax; rerun with explicit file list)
 - `rg -n "Path preflight|Conditional scoring validation|nearest existing suite|guaranteed-fail" PM_Pack/09_templates/AGENT_PROMPT_A.md PM_Pack/09_templates/AGENT_PROMPT_B.md PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/09_templates/AGENT_PROMPT_D.md` (pass)
 - `python -c "from pathlib import Path; targets=['src/analysis','src/llm','src/reports','src/utils','src/scoring','src/pricing','src/discovery','tests/unit/test_analysis.py','tests/unit/test_llm.py','tests/unit/test_reports.py','tests/unit/test_orchestrator.py','tests/unit/test_scoring.py']; print('\n'.join(f'{p}: {'EXISTS' if Path(p).exists() else 'MISSING'}' for p in targets))"` (preflight command smoke-tested successfully)
-- `git add ... && git status --short` (failed because `&&` is not a valid separator in this PowerShell environment)
-- `git add ...; git status --short` (successful selective staging)
-- `git commit -m "$(cat <<'EOF' ... EOF )"` (failed; shell heredoc syntax not supported in this PowerShell environment)
-- `bash -lc 'git commit -m "$(cat <<'"'"'EOF'"'"' ... EOF )"'` (failed; `bash` not available in environment)
-- `$msg = @" ... "@; git commit -m $msg` (successful commit path used in this environment)
+- `git add .github/pull_request_template.md PM_Pack/01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_013.md PM_Pack/03_cursor_agent_system/PROMPT_RULES.md PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md PM_Pack/09_templates/AGENT_PROMPT_A.md PM_Pack/09_templates/AGENT_PROMPT_B.md PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/09_templates/AGENT_PROMPT_D.md docs/cycle_reports/CYCLE_013_AGENT_C.md && git status --short` (failed because `&&` is not a valid separator in this PowerShell environment)
+- `git add .github/pull_request_template.md PM_Pack/01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_013.md PM_Pack/03_cursor_agent_system/PROMPT_RULES.md PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md PM_Pack/09_templates/AGENT_PROMPT_A.md PM_Pack/09_templates/AGENT_PROMPT_B.md PM_Pack/09_templates/AGENT_PROMPT_C.md PM_Pack/09_templates/AGENT_PROMPT_D.md docs/cycle_reports/CYCLE_013_AGENT_C.md; git status --short` (successful selective staging)
+- `git commit -m "$(cat <<'EOF'\ndocs(pm-pack): fix prompt validation paths and detail thresholds [Agent C]\n\nEOF\n)"` (failed; shell heredoc syntax not supported in this PowerShell environment)
+- `bash -lc 'git commit -m "$(cat <<'"'"'EOF'"'"'\ndocs(pm-pack): fix prompt validation paths and detail thresholds [Agent C]\n\nEOF\n)"'` (failed; `bash` not available in environment)
+- `$msg = @"\ndocs(pm-pack): fix prompt validation paths and detail thresholds [Agent C]\n\n"@; git commit -m $msg` (successful commit path used in this environment)
