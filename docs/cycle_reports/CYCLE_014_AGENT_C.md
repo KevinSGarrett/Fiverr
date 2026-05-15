@@ -13,7 +13,7 @@ Continuation pass: added analysis run persistence wiring to local database model
 | Branch | `cycle/014/integration` |
 | Head SHA at start of Agent C pass | `df894e6f91e642f1bca2d2d61bb4630294e17196` |
 | Implementation commit hash | `72d78f146c77433ba8f85b781f810fe5757d5a30` |
-| Continuation commits | `1cf78c05c37493b84a77bcfa509b221e88336730`, `9dc98e761795c4bc4cb7cae30dbc42d196cd74ff`, `TBD (current pass)` |
+| Continuation commits | `1cf78c05c37493b84a77bcfa509b221e88336730`, `9dc98e761795c4bc4cb7cae30dbc42d196cd74ff`, `2b8adff022e1d462e292ed218fa14f8f45bea827` |
 
 ## Jira Keys Touched
 
@@ -131,7 +131,7 @@ Continuation pass: added analysis run persistence wiring to local database model
 | --- | --- |
 | Commit hash | `72d78f146c77433ba8f85b781f810fe5757d5a30` |
 | Commit scope | Analysis code, analysis tests/fixtures, Jira ledger, Agent C report |
-| Continuation commit hash | `TBD (current pass)` |
+| Continuation commit hash | `2b8adff022e1d462e292ed218fa14f8f45bea827` |
 | Continuation scope | Analysis persistence wiring, intent unknown fallback, CLI persistence option, compatibility modules, additional tests |
 
 ## Jira Comments / Transitions
