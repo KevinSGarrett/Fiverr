@@ -894,7 +894,7 @@ def test_scoring_readiness_false_when_keyword_stage_fails_without_intent_success
     assert readiness["intent_signals"] is False
 
 
-def test_scoring_readiness_stays_true_when_intent_succeeds_despite_keyword_stage_failure() -> None:
+def test_scoring_readiness_blocks_demand_when_keyword_stage_fails_even_if_intent_succeeds() -> None:
     summary = run_analysis_dry_run(
         {
             "run_id": "run-readiness-intent-success-keyword-failed",
@@ -905,7 +905,7 @@ def test_scoring_readiness_stays_true_when_intent_succeeds_despite_keyword_stage
     )
     readiness = summary.metadata["scoring_readiness"]
     assert readiness["intent_signals"] is True
-    assert readiness["demand_inputs"] is True
+    assert readiness["demand_inputs"] is False
 
 
 def test_scoring_readiness_sparse_payload_remains_false() -> None:
@@ -1113,7 +1113,8 @@ def test_orchestrator_keyword_placeholder_contract_degrades_safely_for_sparse_in
     )
     keyword_stage = _stage_by_type(summary, AnalysisTaskType.KEYWORD_CLUSTERING)
     contract = keyword_stage.metadata["readiness_contract"]
-    assert contract["status"] in {"empty", "sparse"}
+    assert contract["status"] == "empty"
+    assert contract["downstream_scoring_status"] == "blocked_for_demand_scoring"
     assert contract["future_contract_fields"] == [
         "cluster_id",
         "label",
@@ -1121,6 +1122,31 @@ def test_orchestrator_keyword_placeholder_contract_degrades_safely_for_sparse_in
         "confidence",
         "source_keywords",
     ]
+
+
+@pytest.mark.parametrize(
+    ("keywords", "expected_status", "expected_downstream"),
+    [
+        (["python"], "sparse", "blocked_for_demand_scoring"),
+        (["python automation", "workflow automation"], "ready", "ready_for_demand_scoring"),
+    ],
+)
+def test_orchestrator_keyword_placeholder_contract_distinguishes_sparse_and_ready(
+    keywords: list[str],
+    expected_status: str,
+    expected_downstream: str,
+) -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-keyword-placeholder-statuses",
+            "source_id": "src-keyword-placeholder-statuses",
+            "keywords": keywords,
+        }
+    )
+    keyword_stage = _stage_by_type(summary, AnalysisTaskType.KEYWORD_CLUSTERING)
+    contract = keyword_stage.metadata["readiness_contract"]
+    assert contract["status"] == expected_status
+    assert contract["downstream_scoring_status"] == expected_downstream
 
 
 @pytest.mark.parametrize(
@@ -1132,6 +1158,8 @@ def test_orchestrator_keyword_placeholder_contract_degrades_safely_for_sparse_in
                 "title": "I will design a professional logo",
                 "description": "Experienced designer with premium package options.",
                 "package_count": 3,
+                "rating": 4.9,
+                "review_count": 120,
             },
             "ready",
         ),
@@ -1196,6 +1224,7 @@ def test_orchestrator_seller_strength_placeholder_reports_blocked_when_fields_mi
     contract = seller_stage.metadata["readiness_contract"]
     assert contract["status"] in {"empty", "sparse"}
     assert contract["downstream_status"] == "blocked_for_scoring"
+    assert contract["readiness_state"] in {"missing_seller_data", "sparse_profile_signals"}
 
 
 @pytest.mark.parametrize(
@@ -1263,6 +1292,22 @@ def test_orchestrator_review_placeholder_contract_distinguishes_fixture_readines
     assert "warning_count" in contract
 
 
+def test_orchestrator_review_placeholder_contract_blocks_unsupported_review_payload() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-review-placeholder-unsupported",
+            "source_id": "src-review-placeholder-unsupported",
+            "reviews": "not-a-list",
+        }
+    )
+    review_stage = _stage_by_type(summary, AnalysisTaskType.REVIEW_ANALYSIS)
+    contract = review_stage.metadata["readiness_contract"]
+    assert review_stage.status == AnalysisStatus.SUCCESS
+    assert contract["status"] == "blocked"
+    assert contract["source_availability"]["supported_review_payload"] is False
+    assert any(warning.code == "reviews_fixture_unsupported" for warning in summary.warnings)
+
+
 def test_orchestrator_scoring_readiness_exposes_future_contract_mapping() -> None:
     summary = run_analysis_dry_run(_load_analysis_fixture("complete_payload.json"))
     readiness = summary.metadata["scoring_readiness"]
@@ -1271,3 +1316,11 @@ def test_orchestrator_scoring_readiness_exposes_future_contract_mapping() -> Non
     assert "competition_scoring" in contracts
     assert "opportunity_scoring" in contracts
     assert "confidence_scoring" in contracts
+    interfaces = readiness["interfaces"]
+    assert "demand_scoring" in interfaces
+    assert "competition_scoring" in interfaces
+    assert "opportunity_scoring" in interfaces
+    assert "confidence_scoring" in interfaces
+    assert "conversion_intent_scoring" in interfaces
+    assert "trend_scoring" in interfaces
+    assert readiness["interface_statuses"]["confidence_scoring"] in {"ready", "sparse", "blocked", "empty"}
