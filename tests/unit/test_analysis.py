@@ -135,6 +135,24 @@ def test_gig_quality_score_stays_in_bounds() -> None:
     assert 0.0 <= result.overall_score <= 100.0
 
 
+def test_gig_quality_contract_exposes_reasons_missing_inputs_and_readiness() -> None:
+    result = score_gig_quality(
+        GigQualityInput(
+            source_id="gig-src",
+            gig_id="shape-check",
+            title="I will build automation",
+            description=None,
+            package_count=None,
+            rating=4.8,
+            review_count=None,
+        )
+    )
+    assert "social_proof" in result.component_scores
+    assert isinstance(result.explanation, str) and result.explanation
+    assert set(result.missing_data_fields) >= {"description", "package_count", "review_count"}
+    assert "status" in result.downstream_readiness
+
+
 def test_orchestrator_gig_quality_malformed_numeric_values_degrade_without_stage_failure() -> None:
     summary = run_analysis_dry_run(
         {
@@ -372,6 +390,23 @@ def test_review_analysis_empty_reviews_returns_low_confidence_warning() -> None:
     result = analyze_reviews(ReviewAnalysisInput(source_id="rev-src", reviews=[]))
     assert result.confidence <= 0.2
     assert any(warning.code == "reviews_missing" for warning in result.warnings)
+
+
+def test_review_analysis_mixed_sentiment_contract_shape_is_stable() -> None:
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="rev-shape",
+            reviews=[
+                {"text": "Great communication and quality.", "rating": 5.0},
+                {"text": "Late delivery and poor updates.", "rating": 2.0},
+                {"text": "Okay overall, could improve speed.", "rating": 3.0},
+            ],
+        )
+    )
+    assert set(result.sentiment_hints.keys()) == {"positive", "negative", "neutral"}
+    assert isinstance(result.explanation, str) and result.explanation
+    assert "status" in result.downstream_readiness
+    assert isinstance(result.source_context.get("review_count"), int)
 
 
 def test_review_analysis_redacts_secret_like_strings() -> None:
@@ -1129,6 +1164,45 @@ def test_legacy_competitor_profile_still_operates() -> None:
     assert 0.0 <= result.competition_intensity_score <= 100.0
 
 
+def test_competitor_profile_contract_exposes_strength_weakness_feasibility_and_readiness() -> None:
+    result = profile_competitors(
+        CompetitorProfileInput(
+            source_id="comp-shape",
+            competitors=[
+                {
+                    "seller_id": "strong-1",
+                    "seller_level": "top rated",
+                    "starting_price": 180.0,
+                    "rating": 4.9,
+                    "review_count": 600,
+                    "active_gig_count": 9,
+                },
+                {
+                    "seller_id": "weak-1",
+                    "seller_level": "new",
+                    "starting_price": 35.0,
+                    "rating": 4.1,
+                    "review_count": 8,
+                    "active_gig_count": 1,
+                },
+                {
+                    "seller_id": "mid-1",
+                    "seller_level": "level one",
+                    "starting_price": 70.0,
+                    "rating": 4.6,
+                    "review_count": 90,
+                    "active_gig_count": 3,
+                },
+            ],
+        )
+    )
+    assert "strong-1" in result.high_authority_sellers
+    assert "weak-1" in result.weak_competitors
+    assert result.opportunity_signals
+    assert "status" in result.downstream_readiness
+    assert result.evidence
+
+
 def _stage_by_type(summary: AnalysisRunSummary, stage_type: AnalysisTaskType) -> AnalysisStageSummary:
     return next(stage for stage in summary.stages if stage.stage == stage_type)
 
@@ -1413,6 +1487,23 @@ def test_orchestrator_review_placeholder_contract_blocks_unsupported_review_payl
     assert review_stage.status == AnalysisStatus.SUCCESS
     assert contract["status"] == "blocked"
     assert contract["source_availability"]["supported_review_payload"] is False
+    assert any(warning.code == "reviews_fixture_unsupported" for warning in summary.warnings)
+
+
+def test_orchestrator_stage_summary_can_expose_skip_warn_fail_in_one_run() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-stage-status-mix",
+            "source_id": "src-stage-status-mix",
+            "reviews": "invalid-review-payload",
+            "seller": "invalid-seller-payload",
+            "intent": {"keyword_text": "need automation support"},
+        }
+    )
+    assert summary.metadata["failed_stages"] == [AnalysisTaskType.SELLER_STRENGTH.value]
+    assert AnalysisTaskType.INTENT_CLASSIFICATION.value in summary.metadata["successful_stages"]
+    assert AnalysisTaskType.REVIEW_ANALYSIS.value in summary.metadata["successful_stages"]
+    assert AnalysisTaskType.KEYWORD_CLUSTERING.value in summary.metadata["skipped_stages"]
     assert any(warning.code == "reviews_fixture_unsupported" for warning in summary.warnings)
 
 
