@@ -292,18 +292,22 @@ def _build_stage_run_summary(stages: list[AnalysisStageSummary]) -> list[dict[st
             if isinstance(contract, dict) and isinstance(contract.get("future_contract_fields"), list)
             else []
         )
+        output_keys = sorted(str(key) for key in outputs_emitted if str(key).strip())
         if stage.status == AnalysisStatus.SUCCESS:
-            stage_run_status = "completed" if not stage.warnings else "warned"
+            stage_run_status = "completed" if not stage.warnings else "warning"
         elif stage.status == AnalysisStatus.FAILED:
-            stage_run_status = "failed"
+            stage_run_status = "blocked"
         else:
             stage_run_status = "skipped"
         summary_rows.append(
             {
                 "stage": stage.stage.value,
                 "status": stage_run_status,
+                "started": True,
                 "inputs_consumed": inputs_consumed,
+                "input_availability": source_availability if isinstance(source_availability, dict) else {},
                 "outputs_emitted": outputs_emitted,
+                "output_keys": output_keys,
                 "warning_count": len(stage.warnings),
             }
         )

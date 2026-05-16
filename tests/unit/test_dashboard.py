@@ -730,6 +730,28 @@ def test_keywords_payload_sparse_rows_include_freshness_warnings() -> None:
     assert any("Freshness status is unknown" in row["message"] for row in payload["table"]["warning_rows"])
 
 
+def test_keywords_payload_accepts_structured_cluster_contract_rows() -> None:
+    keywords_module = importlib.import_module("src.dashboard.keywords")
+    payload = keywords_module.build_keywords_payload(
+        records=[
+            {
+                "keyword": "python automation",
+                "cluster": {"cluster_id": "cluster_01", "label": "python automation"},
+                "score": 84.0,
+                "confidence": 0.83,
+            },
+            {
+                "keyword": "seo audit",
+                "cluster": {"cluster_id": "cluster_02"},
+                "score": 70.0,
+                "confidence": 0.61,
+            },
+        ]
+    )
+    assert payload["table"]["rows"][0]["cluster"] == "python automation"
+    assert payload["table"]["rows"][1]["cluster"] == "cluster_02"
+
+
 def test_run_history_payload_includes_severity_mapping_and_stage_details() -> None:
     run_history_module = importlib.import_module("src.dashboard.run_history")
     fixture = _dashboard_fixture_run()

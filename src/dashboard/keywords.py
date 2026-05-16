@@ -189,7 +189,11 @@ def _normalize_keyword_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[d
     rows: list[dict[str, Any]] = []
     warnings: list[str] = []
     for index, record in enumerate(records, start=1):
-        cluster = str(record.get("cluster") or "").strip() or "not available yet"
+        cluster = _resolve_cluster_name(record.get("cluster"))
+        if cluster == "not available yet" and record.get("cluster") not in (None, "", "not available yet"):
+            warnings.append(
+                f"Keyword row {index} has malformed cluster payload; normalized to 'not available yet'."
+            )
         confidence = _to_float(record.get("confidence"))
         score = _to_float(record.get("score"))
         if score is None:
@@ -218,6 +222,20 @@ def _normalize_keyword_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[d
             }
         )
     return rows, warnings
+
+
+def _resolve_cluster_name(value: Any) -> str:
+    if isinstance(value, str):
+        normalized = value.strip()
+        return normalized or "not available yet"
+    if isinstance(value, dict):
+        label = str(value.get("label", "")).strip()
+        if label:
+            return label
+        cluster_id = str(value.get("cluster_id", "")).strip()
+        if cluster_id:
+            return cluster_id
+    return "not available yet"
 
 
 def _build_cluster_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:

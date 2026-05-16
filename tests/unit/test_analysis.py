@@ -33,6 +33,7 @@ from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
 from src.analysis.orchestrator import run_analysis_dry_run, summarize_scoring_readiness
 from src.analysis.persistence import persist_analysis_run_summary
+from src.analysis.registry import build_analysis_output_registry
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
@@ -1884,3 +1885,83 @@ def test_analysis_integrity_validator_emits_expected_warning_taxonomy() -> None:
     assert "analysis_invalid_confidence" in warning_codes
     assert "analysis_source_metadata_missing" in warning_codes
     assert "analysis_source_metadata_stale" in warning_codes
+
+
+def test_gig_quality_high_low_and_zero_data_cases_remain_deterministic() -> None:
+    high = score_gig_quality(
+        GigQualityInput(
+            source_id="gig-high",
+            gig_id="high",
+            title="I will deliver enterprise-grade automation workflow architecture",
+            description="Detailed delivery plan and robust implementation evidence." * 10,
+            package_count=3,
+            rating=4.9,
+            review_count=400,
+            image_count=6,
+            has_faq=True,
+        )
+    )
+    low = score_gig_quality(
+        GigQualityInput(
+            source_id="gig-low",
+            gig_id="low",
+            title="x",
+            description="short",
+            package_count=0,
+            rating=2.5,
+            review_count=0,
+            image_count=0,
+            has_faq=False,
+        )
+    )
+    zero = score_gig_quality(
+        GigQualityInput(source_id="gig-zero", gig_id="zero")
+    )
+    assert high.overall_score > low.overall_score > zero.overall_score
+    assert 0.0 <= high.normalized_score <= 1.0
+    assert 0.0 <= low.normalized_score <= 1.0
+    assert 0.0 <= zero.normalized_score <= 1.0
+
+
+def test_competitor_profile_handles_empty_and_malformed_rows_explicitly() -> None:
+    empty = profile_competitors(CompetitorProfileInput(source_id="comp-empty", competitors=[]))
+    assert empty.status == AnalysisReadinessStatus.SKIPPED
+    assert any(warning.code == "no_competitors" for warning in empty.warnings)
+
+    malformed_summary = run_analysis_dry_run(
+        {
+            "run_id": "run-comp-malformed",
+            "source_id": "src-comp-malformed",
+            "competitors": [{"seller_level": "new", "rating": 4.2}],
+        }
+    )
+    competitor_stage = _stage_by_type(malformed_summary, AnalysisTaskType.COMPETITOR_PROFILE)
+    assert competitor_stage.status == AnalysisStatus.FAILED
+
+
+def test_stage_run_summary_includes_output_keys_and_blocked_status_labels() -> None:
+    summary = run_analysis_dry_run(_load_analysis_fixture("sparse_payload.json"))
+    stage_rows = summary.metadata["stage_run_summary"]
+    assert isinstance(stage_rows, list)
+    assert stage_rows
+    assert {
+        "stage",
+        "status",
+        "started",
+        "inputs_consumed",
+        "input_availability",
+        "outputs_emitted",
+        "output_keys",
+        "warning_count",
+    } <= set(stage_rows[0].keys())
+    assert all(row["status"] in {"completed", "warning", "blocked", "skipped"} for row in stage_rows)
+
+
+def test_analysis_output_registry_documents_extended_contract_fields() -> None:
+    rows = build_analysis_output_registry()
+    by_stage = {row["stage"]: row for row in rows}
+    assert "criteria" in by_stage[AnalysisTaskType.GIG_QUALITY.value]["optional_fields"]
+    assert "competitor_records" in by_stage[AnalysisTaskType.COMPETITOR_PROFILE.value]["optional_fields"]
+    assert "authority_indicators" in by_stage[AnalysisTaskType.SELLER_STRENGTH.value]["optional_fields"]
+    assert "thresholds" in by_stage[AnalysisTaskType.SATURATION.value]["optional_fields"]
+    assert "pain_points" in by_stage[AnalysisTaskType.REVIEW_ANALYSIS.value]["optional_fields"]
