@@ -103,6 +103,10 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
     score = _bounded(sum(components[name] * weights[name] for name in components))
 
     available_signals = 6 - len(set(missing_data_fields))
+    completeness_ratio = round(available_signals / 6.0, 3)
+    completeness_status = (
+        "ready" if completeness_ratio >= 0.75 else "partial" if completeness_ratio >= 0.35 else "blocked"
+    )
     confidence = round(max(0.12, min(1.0, available_signals / 6.0)), 3)
 
     if available_signals <= 2:
@@ -179,6 +183,8 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
             "seller_strength_count": len(payload.seller_strength_scores),
             "price_count": len(payload.prices),
             "gig_quality_count": len(payload.gig_quality_scores),
+            "completeness_ratio": completeness_ratio,
+            "completeness_status": completeness_status,
         },
         confidence=confidence,
         components=components,
@@ -208,7 +214,12 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
             ),
         ],
         downstream_readiness={
-            "status": "ready" if confidence >= 0.75 else "partial",
+            "status": completeness_status,
             "reasons": [] if not missing_data_fields else ["missing_saturation_inputs"],
+            "completeness": {
+                "available_signal_count": available_signals,
+                "expected_signal_count": 6,
+                "completeness_ratio": completeness_ratio,
+            },
         },
     )

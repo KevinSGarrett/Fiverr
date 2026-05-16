@@ -314,6 +314,65 @@ def _build_stage_run_summary(stages: list[AnalysisStageSummary]) -> list[dict[st
     return summary_rows
 
 
+def _build_analysis_closure_matrix(stages: list[AnalysisStageSummary]) -> list[dict[str, Any]]:
+    """Return stage closure evidence rows used for Jira/report handoff."""
+    matrix: list[dict[str, Any]] = []
+    stage_lookup = {stage.stage: stage for stage in stages}
+    for stage_type in STAGE_EXECUTION_ORDER:
+        stage = stage_lookup.get(stage_type)
+        if stage is None:
+            matrix.append(
+                {
+                    "stage": stage_type.value,
+                    "executed": False,
+                    "status": "missing",
+                    "readiness_status": "blocked",
+                    "warning_count": 0,
+                    "missing_field_count": 0,
+                    "closure_ready": False,
+                    "scoring_ready": False,
+                }
+            )
+            continue
+        readiness_contract = stage.metadata.get("readiness_contract", {})
+        missing_fields = readiness_contract.get("missing_fields", []) if isinstance(readiness_contract, dict) else []
+        closure_ready = stage.status == AnalysisStatus.SUCCESS and not missing_fields
+        scoring_ready = _stage_contract_status(stage) == "ready"
+        matrix.append(
+            {
+                "stage": stage.stage.value,
+                "executed": True,
+                "status": stage.status.value,
+                "readiness_status": stage.readiness_status.value,
+                "warning_count": len(stage.warnings),
+                "missing_field_count": int(stage.metadata.get("missing_field_count", 0)),
+                "closure_ready": closure_ready,
+                "scoring_ready": scoring_ready,
+            }
+        )
+    return matrix
+
+
+def _build_scoring_readiness_handoff(readiness: dict[str, Any]) -> dict[str, Any]:
+    """Build non-implementation handoff for future scoring cycle owners."""
+    interfaces = readiness.get("interfaces", {})
+    blocked_or_sparse = [
+        interface_name
+        for interface_name, data in interfaces.items()
+        if isinstance(data, dict) and data.get("status") in {"blocked", "sparse", "empty"}
+    ]
+    return {
+        "implementation_status": "handoff_only",
+        "ready_for_scoring_epic": not blocked_or_sparse,
+        "blocked_or_sparse_interfaces": blocked_or_sparse,
+        "next_cycle_focus": (
+            "Implement scoring only after blocked/sparse interfaces reach ready."
+            if blocked_or_sparse
+            else "Scoring contracts are ready for implementation."
+        ),
+    }
+
+
 def _failed_stage_summary(
     *,
     stage: AnalysisTaskType,
@@ -1776,6 +1835,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         "stage_log_summary": [_stage_log_entry(stage) for stage in stages],
         "dashboard_handoff_contract": _build_dashboard_handoff_contract(stages),
         "stage_run_summary": _build_stage_run_summary(stages),
+        "analysis_closure_matrix": _build_analysis_closure_matrix(stages),
         "normalized_warnings": [_normalized_warning_dict(warning) for warning in all_warnings],
         "analysis_output_registry": build_analysis_output_registry(
             AnalysisRunSummary(
@@ -1791,6 +1851,9 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         ),
         **metadata_dict,
     }
+    run_metadata["scoring_readiness_handoff"] = _build_scoring_readiness_handoff(
+        run_metadata["scoring_readiness"]
+    )
     if collection_evidence is not None:
         run_metadata["collection_evidence"] = collection_evidence
 

@@ -1965,3 +1965,43 @@ def test_analysis_output_registry_documents_extended_contract_fields() -> None:
     assert "authority_indicators" in by_stage[AnalysisTaskType.SELLER_STRENGTH.value]["optional_fields"]
     assert "thresholds" in by_stage[AnalysisTaskType.SATURATION.value]["optional_fields"]
     assert "pain_points" in by_stage[AnalysisTaskType.REVIEW_ANALYSIS.value]["optional_fields"]
+
+
+def test_orchestrator_includes_analysis_closure_matrix_and_scoring_handoff() -> None:
+    summary = run_analysis_dry_run(_load_analysis_fixture("complete_payload.json"))
+    closure_matrix = summary.metadata["analysis_closure_matrix"]
+    assert isinstance(closure_matrix, list)
+    assert len(closure_matrix) == len(EXPECTED_STAGE_ORDER)
+    assert {"stage", "executed", "status", "closure_ready", "scoring_ready"} <= set(closure_matrix[0].keys())
+
+    scoring_handoff = summary.metadata["scoring_readiness_handoff"]
+    assert scoring_handoff["implementation_status"] == "handoff_only"
+    assert "blocked_or_sparse_interfaces" in scoring_handoff
+    assert "next_cycle_focus" in scoring_handoff
+
+
+def test_analysis_outputs_include_completeness_contracts() -> None:
+    gig = score_gig_quality(
+        GigQualityInput(source_id="gig-src", gig_id="gig-1", title="I will do work")
+    )
+    competitor = profile_competitors(
+        CompetitorProfileInput(
+            source_id="comp-src",
+            competitors=[{"seller_id": "c1", "seller_level": "new", "rating": 4.2, "review_count": 5}],
+        )
+    )
+    saturation = analyze_saturation(SaturationInput(source_id="sat-src", competitor_count=1))
+    review = analyze_reviews(
+        ReviewAnalysisInput(source_id="rev-src", reviews=[{"text": "Great communication", "rating": 5.0}])
+    )
+    intent = classify_intent(IntentInput(source_id="intent-src", keyword_text="null"))
+
+    assert "completeness" in gig.downstream_readiness
+    assert "completeness_ratio" in gig.source_context
+    assert "completeness" in competitor.downstream_readiness
+    assert "completeness_ratio" in competitor.source_context
+    assert "completeness" in saturation.downstream_readiness
+    assert "completeness_ratio" in saturation.source_context
+    assert "completeness" in review.downstream_readiness
+    assert "completeness_ratio" in review.source_context
+    assert "completeness" in intent.downstream_readiness

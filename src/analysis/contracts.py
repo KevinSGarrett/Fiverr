@@ -444,6 +444,7 @@ class IntentResult(AnalysisResultEnvelope):
     rationale: str = Field(default="")
     warning_codes: list[str] = Field(default_factory=list)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
+    missing_data_fields: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
