@@ -4,7 +4,7 @@
 
 - Agent: A
 - Branch: `cycle/018/integration`
-- Final local commit SHA: `ca4047922df96b01f0a16f8395ec2f6427d5e41f`
+- Final local commit SHA: `b4a4bf85933909d8b1118f00faf86292636815a3`
 - Working root: `C:\Fiverr\Fiverr`
 - Source PR gate: [PR #14](https://github.com/KevinSGarrett/Fiverr/pull/14)
 - Jira keys touched: `SCRUM-262`, `SCRUM-261`, `SCRUM-260`, `SCRUM-231`, `SCRUM-232`, `SCRUM-236`, `SCRUM-239`, `SCRUM-241`
@@ -34,6 +34,23 @@ Observed state:
 - Worktree list contains only canonical root path (no unauthorized worktrees).
 - Dirty tree exists (expected during active implementation and with pre-existing PM files).
 
+Preflight output excerpt:
+
+```text
+=== Execution Context ===
+Location: C:\Fiverr\Fiverr
+Git root: C:/Fiverr/Fiverr
+Branch: cycle/018/integration
+...
+=== Integration Run Context ===
+{
+  "status": "warning",
+  "root_lock": "ready",
+  "worktree_control": "ready"
+}
+Preflight root-lock/worktree check: PASS
+```
+
 ## Product/Runtime Changes
 
 - `scripts/preflight.ps1`
@@ -52,6 +69,18 @@ Observed state:
   - Updated `tests/unit/test_reports.py`, `tests/unit/test_dashboard.py`, `tests/unit/test_dashboard_queries.py` for new runtime/readiness contracts and status rollups.
 - Jira ledger
   - Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with Cycle 018 Agent A AC/DoD progress rows for touched stories.
+
+Committed files:
+
+- `scripts/preflight.ps1`
+- `src/reports/placeholders.py`
+- `src/dashboard/app.py`
+- `src/dashboard/queries.py`
+- `tests/unit/test_reports.py`
+- `tests/unit/test_dashboard.py`
+- `tests/unit/test_dashboard_queries.py`
+- `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
+- `docs/cycle_reports/CYCLE_018_AGENT_A.md`
 
 ## Validation
 
@@ -90,6 +119,7 @@ Required validation block:
 ## Handoff to Agents B/C/D
 
 - Branch handoff target: `cycle/018/integration`.
+- Tracked working tree is clean on this branch; only pre-existing untracked PM pack files remain outside Agent A scoped commits.
 - Runtime baseline contracts are in place for downstream integration/runtime work:
   - preflight run-context modeling,
   - data-integrity readiness states,
