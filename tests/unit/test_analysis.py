@@ -100,6 +100,22 @@ def test_related_keywords_cluster_together_deterministically() -> None:
     labels_a = [cluster.label for cluster in result.clusters]
     labels_b = [cluster.label for cluster in cluster_keywords(payload).clusters]
     assert labels_a == labels_b
+    assert result.cluster_metrics["keyword_count"] == 5.0
+    assert result.cluster_metrics["cluster_count"] >= 1.0
+
+
+def test_keyword_clustering_tracks_unclustered_keywords_for_strict_thresholds() -> None:
+    result = cluster_keywords(
+        KeywordClusterInput(
+            source_id="kw-unclustered",
+            keywords=["logo design", "modern logo design", "seo audit"],
+            min_cluster_size=2,
+        )
+    )
+    assert result.clusters
+    assert result.unclustered_keywords == ["seo audit"]
+    assert any(warning.code == "partial_clustering" for warning in result.warnings)
+    assert result.cluster_metrics["unclustered_count"] == 1.0
 
 
 def test_gig_quality_score_stays_in_bounds() -> None:
@@ -117,6 +133,45 @@ def test_gig_quality_score_stays_in_bounds() -> None:
         )
     )
     assert 0.0 <= result.overall_score <= 100.0
+
+
+def test_gig_quality_contract_exposes_reasons_missing_inputs_and_readiness() -> None:
+    result = score_gig_quality(
+        GigQualityInput(
+            source_id="gig-src",
+            gig_id="shape-check",
+            title="I will build automation",
+            description=None,
+            package_count=None,
+            rating=4.8,
+            review_count=None,
+        )
+    )
+    assert "social_proof" in result.component_scores
+    assert isinstance(result.explanation, str) and result.explanation
+    assert set(result.missing_data_fields) >= {"description", "package_count", "review_count"}
+    assert "status" in result.downstream_readiness
+
+
+def test_orchestrator_gig_quality_malformed_numeric_values_degrade_without_stage_failure() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-gig-malformed-numerics",
+            "source_id": "src-gig-malformed-numerics",
+            "gig": {
+                "gig_id": "gig-malformed-numerics",
+                "title": "I will automate your workflow",
+                "description": "Deterministic gig payload",
+                "package_count": "three",
+                "rating": "five",
+                "review_count": "100 reviews",
+                "image_count": "many",
+            },
+        }
+    )
+    gig_stage = _stage_by_type(summary, AnalysisTaskType.GIG_QUALITY)
+    assert gig_stage.status == AnalysisStatus.SUCCESS
+    assert any(warning.code == "gig_numeric_field_invalid" for warning in gig_stage.warnings)
 
 
 def test_seller_strength_strong_seller_scores_higher_than_weak() -> None:
@@ -160,6 +215,27 @@ def test_seller_strength_missing_fields_reduce_confidence_without_crash() -> Non
     assert sparse.missing_data_fields
 
 
+def test_seller_strength_accepts_mixed_type_numeric_values() -> None:
+    result = score_seller_strength(
+        SellerStrengthInput.model_validate(
+            {
+                "source_id": "seller-src",
+                "seller_id": "mixed-types",
+                "level": "level two",
+                "rating": "4.8",
+                "review_count": "150",
+                "response_time": "2 hours",
+                "delivery_consistency": "0.9",
+                "active_gig_count": "5",
+                "languages": ["English"],
+                "account_tenure_months": "24",
+            }
+        )
+    )
+    assert result.score >= 0.0
+    assert result.components["rating"] >= 90.0
+
+
 def test_seller_strength_serialization_deterministic_and_bounds_safe() -> None:
     payload = SellerStrengthInput(
         source_id="seller-src",
@@ -199,6 +275,45 @@ def test_saturation_sparse_data_returns_unknown_with_low_confidence() -> None:
     assert result.saturation_level == SaturationLevel.UNKNOWN
     assert result.confidence <= 0.2
     assert result.warnings
+
+
+def test_saturation_threshold_boundaries_are_deterministic() -> None:
+    low = analyze_saturation(
+        SaturationInput(
+            source_id="sat-low",
+            keyword_count=4,
+            search_result_count=180,
+            competitor_count=3,
+            seller_strength_scores=[30.0, 35.0],
+            prices=[20.0, 100.0, 230.0],
+            gig_quality_scores=[20.0, 40.0],
+        )
+    )
+    medium = analyze_saturation(
+        SaturationInput(
+            source_id="sat-medium",
+            keyword_count=12,
+            search_result_count=700,
+            competitor_count=14,
+            seller_strength_scores=[55.0, 58.0, 60.0, 63.0],
+            prices=[50.0, 60.0, 70.0, 80.0],
+            gig_quality_scores=[55.0, 60.0, 58.0, 59.0],
+        )
+    )
+    high = analyze_saturation(
+        SaturationInput(
+            source_id="sat-high",
+            keyword_count=24,
+            search_result_count=2200,
+            competitor_count=40,
+            seller_strength_scores=[80.0, 82.0, 85.0, 88.0],
+            prices=[99.0, 100.0, 101.0, 99.5],
+            gig_quality_scores=[79.0, 80.0, 81.0, 80.0],
+        )
+    )
+    assert low.saturation_level == SaturationLevel.LOW
+    assert medium.saturation_level == SaturationLevel.MEDIUM
+    assert high.saturation_level == SaturationLevel.HIGH
 
 
 def test_saturation_price_crowding_increases_score() -> None:
@@ -275,6 +390,23 @@ def test_review_analysis_empty_reviews_returns_low_confidence_warning() -> None:
     result = analyze_reviews(ReviewAnalysisInput(source_id="rev-src", reviews=[]))
     assert result.confidence <= 0.2
     assert any(warning.code == "reviews_missing" for warning in result.warnings)
+
+
+def test_review_analysis_mixed_sentiment_contract_shape_is_stable() -> None:
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="rev-shape",
+            reviews=[
+                {"text": "Great communication and quality.", "rating": 5.0},
+                {"text": "Late delivery and poor updates.", "rating": 2.0},
+                {"text": "Okay overall, could improve speed.", "rating": 3.0},
+            ],
+        )
+    )
+    assert set(result.sentiment_hints.keys()) == {"positive", "negative", "neutral"}
+    assert isinstance(result.explanation, str) and result.explanation
+    assert "status" in result.downstream_readiness
+    assert isinstance(result.source_context.get("review_count"), int)
 
 
 def test_review_analysis_redacts_secret_like_strings() -> None:
@@ -934,11 +1066,11 @@ def test_scoring_readiness_sparse_payload_remains_false() -> None:
 
 
 def test_scoring_readiness_helper_handles_sparse_and_complete_stage_sets() -> None:
-    sparse_readiness = summarize_scoring_readiness([], {})
+    sparse_readiness = summarize_scoring_readiness([])
     assert sparse_readiness["available_count"] == 0
     assert sparse_readiness["demand_inputs"] is False
 
-    keyword_only_payload_readiness = summarize_scoring_readiness([], {"keywords": ["python automation"]})
+    keyword_only_payload_readiness = summarize_scoring_readiness([])
     assert keyword_only_payload_readiness["demand_inputs"] is False
 
     complete_readiness = summarize_scoring_readiness(
@@ -954,7 +1086,6 @@ def test_scoring_readiness_helper_handles_sparse_and_complete_stage_sets() -> No
                 AnalysisTaskType.INTENT_CLASSIFICATION,
             )
         ],
-        {"keywords": ["python automation"]},
     )
     assert complete_readiness["available_count"] == 7
     assert all(
@@ -1031,6 +1162,45 @@ def test_legacy_competitor_profile_still_operates() -> None:
         )
     )
     assert 0.0 <= result.competition_intensity_score <= 100.0
+
+
+def test_competitor_profile_contract_exposes_strength_weakness_feasibility_and_readiness() -> None:
+    result = profile_competitors(
+        CompetitorProfileInput(
+            source_id="comp-shape",
+            competitors=[
+                {
+                    "seller_id": "strong-1",
+                    "seller_level": "top rated",
+                    "starting_price": 180.0,
+                    "rating": 4.9,
+                    "review_count": 600,
+                    "active_gig_count": 9,
+                },
+                {
+                    "seller_id": "weak-1",
+                    "seller_level": "new",
+                    "starting_price": 35.0,
+                    "rating": 4.1,
+                    "review_count": 8,
+                    "active_gig_count": 1,
+                },
+                {
+                    "seller_id": "mid-1",
+                    "seller_level": "level one",
+                    "starting_price": 70.0,
+                    "rating": 4.6,
+                    "review_count": 90,
+                    "active_gig_count": 3,
+                },
+            ],
+        )
+    )
+    assert "strong-1" in result.high_authority_sellers
+    assert "weak-1" in result.weak_competitors
+    assert result.opportunity_signals
+    assert "status" in result.downstream_readiness
+    assert result.evidence
 
 
 def _stage_by_type(summary: AnalysisRunSummary, stage_type: AnalysisTaskType) -> AnalysisStageSummary:
@@ -1320,6 +1490,23 @@ def test_orchestrator_review_placeholder_contract_blocks_unsupported_review_payl
     assert any(warning.code == "reviews_fixture_unsupported" for warning in summary.warnings)
 
 
+def test_orchestrator_stage_summary_can_expose_skip_warn_fail_in_one_run() -> None:
+    summary = run_analysis_dry_run(
+        {
+            "run_id": "run-stage-status-mix",
+            "source_id": "src-stage-status-mix",
+            "reviews": "invalid-review-payload",
+            "seller": "invalid-seller-payload",
+            "intent": {"keyword_text": "need automation support"},
+        }
+    )
+    assert summary.metadata["failed_stages"] == [AnalysisTaskType.SELLER_STRENGTH.value]
+    assert AnalysisTaskType.INTENT_CLASSIFICATION.value in summary.metadata["successful_stages"]
+    assert AnalysisTaskType.REVIEW_ANALYSIS.value in summary.metadata["successful_stages"]
+    assert AnalysisTaskType.KEYWORD_CLUSTERING.value in summary.metadata["skipped_stages"]
+    assert any(warning.code == "reviews_fixture_unsupported" for warning in summary.warnings)
+
+
 def test_orchestrator_scoring_readiness_exposes_future_contract_mapping() -> None:
     summary = run_analysis_dry_run(_load_analysis_fixture("complete_payload.json"))
     readiness = summary.metadata["scoring_readiness"]
@@ -1383,6 +1570,62 @@ def test_intent_valid_mock_label_is_accepted_for_deterministic_path() -> None:
     assert result.label == IntentLabel.BUYER_READY
     assert result.status == AnalysisReadinessStatus.PARTIAL
     assert result.downstream_readiness["status"] == "partial"
+
+
+def test_intent_uses_structured_llm_like_response_when_valid() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation support",
+            metadata={
+                "llm_response": {
+                    "category": "buyer_ready",
+                    "confidence": 0.81,
+                    "explanation": "Strong transactional intent from explicit hire language.",
+                }
+            },
+        )
+    )
+    assert result.label == IntentLabel.BUYER_READY
+    assert result.confidence == 0.81
+    assert result.matched_rules == ["llm_contract:parsed_response"]
+
+
+def test_intent_malformed_llm_like_response_falls_back_with_warning() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation support",
+            metadata={"llm_response": {"category": "unknown-label", "confidence": "n/a"}},
+        )
+    )
+    assert any(warning.code == "intent_llm_response_malformed" for warning in result.warnings)
+    assert result.label in {
+        IntentLabel.BUYER_READY,
+        IntentLabel.RESEARCH_ONLY,
+        IntentLabel.LOW_INTENT,
+        IntentLabel.SERVICE_PROVIDER,
+        IntentLabel.AMBIGUOUS,
+        IntentLabel.UNKNOWN,
+    }
+
+
+def test_intent_llm_low_confidence_marks_partial_readiness() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation support",
+            metadata={
+                "llm_response": {
+                    "category": "buyer_ready",
+                    "confidence": 0.31,
+                    "explanation": "Low confidence sample output.",
+                }
+            },
+        )
+    )
+    assert result.status == AnalysisReadinessStatus.BLOCKED
+    assert any(warning.code == "intent_llm_low_confidence" for warning in result.warnings)
 
 
 def test_intent_nullish_keyword_degrades_to_unknown_low_confidence() -> None:

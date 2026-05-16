@@ -32,7 +32,7 @@ def build_registered_page_payloads(
 ) -> dict[str, dict[str, Any]]:
     """Build payloads for all registered product pages using deterministic defaults."""
     builders = get_dashboard_page_payload_builders()
-    return {
+    payloads = {
         "opportunities": builders["opportunities"](
             records=opportunities_records,
             filters=opportunities_filters,
@@ -46,4 +46,12 @@ def build_registered_page_payloads(
             filters=run_history_filters,
         ),
     }
+    for page_id, payload in payloads.items():
+        payload["payload_support"] = {
+            "implemented": True,
+            "query_contract": page_id,
+            "ui_runtime_ready": False,
+            "ui_gap": "Payload contracts are implemented; Streamlit page rendering remains pending.",
+        }
+    return payloads
 

@@ -111,6 +111,53 @@ class DashboardQueryLayer:
             freshness_metadata=freshness_metadata,
         )
 
+    def alert_summary(
+        self,
+        *,
+        records: list[dict[str, Any]] | None,
+        freshness: FreshnessMetadata | None = None,
+    ) -> QueryResult[dict[str, Any]]:
+        """Query alert-summary diagnostics for dashboard startup and health pages."""
+        return queries.query_alert_summary(
+            records=records,
+            source_context=self.default_source,
+            freshness=freshness,
+        )
+
+    def export_summary(
+        self,
+        *,
+        records: list[dict[str, Any]] | None,
+        filters: dict[str, Any] | None = None,
+        sort: dict[str, Any] | None = None,
+        limit: int = queries.DEFAULT_LIMIT,
+        offset: int = 0,
+        freshness: FreshnessMetadata | None = None,
+    ) -> QueryResult[dict[str, Any]]:
+        """Query export-manifest summaries for dashboard data consumers."""
+        return queries.query_export_summary(
+            records=records,
+            filters=filters,
+            sort=sort,
+            limit=limit,
+            offset=offset,
+            source_context=self.default_source,
+            freshness=freshness,
+        )
+
+    def integration_evidence(
+        self,
+        *,
+        evidence: dict[str, Any] | None,
+        freshness: FreshnessMetadata | None = None,
+    ) -> QueryResult[dict[str, Any]]:
+        """Query integration evidence rollups for app-entry and run-history pages."""
+        return queries.query_integration_evidence(
+            evidence=evidence,
+            source_context=self.default_source,
+            freshness=freshness,
+        )
+
     def filter_descriptors(self) -> tuple[FilterDescriptor, ...]:
         """Return reusable filter descriptors for all query consumers."""
         return queries.get_filter_descriptors()

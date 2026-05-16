@@ -8,10 +8,12 @@ from src.dashboard.components import (
     ComponentState,
     EvidenceCardPayload,
     StatusCardPayload,
+    build_empty_state_payload,
     build_metric_cards,
     build_ranking_cards,
     build_state_descriptor,
     build_table_descriptor,
+    get_status_semantics,
 )
 from src.dashboard.design import normalize_run_severity
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
@@ -28,7 +30,9 @@ def build_opportunities_payload(
     layer = query_layer or get_dashboard_query_layer()
     result = layer.opportunities(records=records, filters=filters, sort=sort)
     context = result.context.as_dict()
-    rows = list(result.records)
+    rows, row_warnings = _normalize_rows(result.records)
+    warnings = [warning["message"] for warning in context["warnings"]]
+    warnings.extend(row_warnings)
 
     ranking_cards = build_ranking_cards(rows[:3], title_field="opportunity")
     metrics = build_metric_cards(
@@ -39,6 +43,12 @@ def build_opportunities_payload(
                 "label": "Top Score",
                 "value": _format_score_for_metric(rows[0].get("score")) if rows else "0.0",
                 "status_badge": rows[0].get("status", "unknown") if rows else "unknown",
+            },
+            {
+                "card_id": "go_recommendations",
+                "label": "GO Recommendations",
+                "value": str(sum(1 for row in rows if row.get("go_decision") in {"GO", "Strong GO"})),
+                "status_badge": "go",
             },
         ]
     )
@@ -56,17 +66,43 @@ def build_opportunities_payload(
             title="Source and Freshness",
             source_name=context["source_context"]["source_name"],
             freshness_status=context["freshness"]["freshness_status"],
-            details=tuple(warning["message"] for warning in context["warnings"]),
+            details=tuple(warnings),
         ).as_dict()
+    ]
+    filter_descriptors = _build_filter_descriptors(
+        filters=context.get("applied_filters") or {},
+        source_descriptors=layer.filter_descriptors(),
+    )
+    drill_links = [
+        {
+            "label": "Open Opportunity Details",
+            "target": "opportunities/detail",
+        },
+        {
+            "label": "View Related Keywords",
+            "target": "keywords",
+        },
     ]
     table = build_table_descriptor(
         table_id="opportunities_table",
-        columns=["opportunity", "niche", "score", "confidence", "status", "keyword_links"],
+        columns=[
+            "opportunity",
+            "niche",
+            "score",
+            "confidence",
+            "confidence_text",
+            "go_decision",
+            "rank",
+            "status",
+            "keyword_links",
+        ],
         rows=rows,
         sort_key=context["applied_sort"].get("field", "score") if context["applied_sort"] else "score",
         sort_descending=context["applied_sort"].get("descending", True) if context["applied_sort"] else True,
         empty_message=context["empty_state_message"] or "No opportunities are currently available.",
-        warnings=[warning["message"] for warning in context["warnings"]],
+        warnings=warnings,
+        filter_descriptors=filter_descriptors,
+        drill_links=drill_links,
         source_name=context["source_context"]["source_name"],
         freshness_status=context["freshness"]["freshness_status"],
     )
@@ -74,12 +110,12 @@ def build_opportunities_payload(
     state_key: ComponentState = "ready"
     if context["empty_state"]:
         state_key = "empty"
-    elif context["status"] == "warning":
+    elif context["status"] == "warning" or warnings:
         state_key = "warning"
     state = build_state_descriptor(
         state=state_key,
         message=context["empty_state_message"] or "Opportunities payload ready.",
-        warnings=[warning["message"] for warning in context["warnings"]],
+        warnings=warnings,
         source_name=context["source_context"]["source_name"],
         freshness_status=context["freshness"]["freshness_status"],
     )
@@ -95,6 +131,13 @@ def build_opportunities_payload(
         "ranking_cards": ranking_cards,
         "evidence_cards": evidence_cards,
         "table": table,
+        "empty_state": build_empty_state_payload(
+            title="No opportunities available"
+            if context["empty_state"]
+            else "Opportunities ready",
+            message=context["empty_state_message"] or "Opportunities payload is ready for rendering.",
+            next_steps=list(context.get("next_actions") or []),
+        ),
         "source": context["source_context"],
         "freshness": context["freshness"],
         "pagination": context["pagination"],
@@ -109,4 +152,62 @@ def _format_score_for_metric(value: Any) -> str:
         return f"{float(value):.1f}"
     except (TypeError, ValueError):
         return "0.0"
+
+
+def _normalize_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[dict[str, Any]], list[str]]:
+    normalized: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for index, row in enumerate(records, start=1):
+        score = _to_float(row.get("score"))
+        confidence = _to_float(row.get("confidence"))
+        if score is None:
+            warnings.append(f"Opportunity row {index} is missing score; defaulted to 0.0.")
+            score = 0.0
+        if confidence is None:
+            warnings.append(f"Opportunity row {index} is missing confidence; defaulted to 0.0.")
+            confidence = 0.0
+        semantics = get_status_semantics(str(row.get("status", "unknown")))
+        normalized.append(
+            {
+                "id": str(row.get("id", f"opportunity-{index}")),
+                "opportunity": str(row.get("opportunity", "Unknown Opportunity")),
+                "niche": str(row.get("niche", "unknown")),
+                "score": score,
+                "confidence": confidence,
+                "confidence_text": "High" if confidence >= 0.75 else ("Medium" if confidence >= 0.5 else "Low"),
+                "go_decision": row.get("go_decision") or semantics["status_label"],
+                "rank": index,
+                "status": str(row.get("status", "unknown")),
+                "status_severity": semantics["severity"],
+                "keyword_links": [str(link) for link in row.get("keyword_links", [])],
+            }
+        )
+    return normalized, warnings
+
+
+def _build_filter_descriptors(
+    *,
+    filters: dict[str, Any],
+    source_descriptors: tuple[Any, ...],
+) -> list[dict[str, str]]:
+    descriptor_map = {descriptor.key: descriptor for descriptor in source_descriptors}
+    rows: list[dict[str, str]] = []
+    for key, value in filters.items():
+        descriptor = descriptor_map.get(key)
+        rows.append(
+            {
+                "key": key,
+                "label": descriptor.label if descriptor else key.replace("_", " ").title(),
+                "value": str(value),
+                "description": descriptor.description if descriptor else "Temporary page-level adapter descriptor.",
+            }
+        )
+    return rows
+
+
+def _to_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 

@@ -128,6 +128,8 @@ class KeywordClusterResult(AnalysisResultEnvelope):
 
     source_id: str = Field(min_length=1)
     clusters: list[ClusterEntry] = Field(default_factory=list)
+    unclustered_keywords: list[str] = Field(default_factory=list)
+    cluster_metrics: dict[str, float] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)

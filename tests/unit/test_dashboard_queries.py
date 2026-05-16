@@ -109,3 +109,52 @@ def test_query_sort_handles_mixed_numeric_and_string_values_without_type_errors(
     )
     assert [row["opportunity"] for row in result.records[:2]] == ["A", "B"]
     assert result.context.status == "ok"
+
+
+def test_alert_summary_query_returns_counts_and_sparse_warning() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.alert_summary(records=None)
+    assert result.query_name == "alert_summary"
+    assert result.records[0]["record_count"] == 0
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert {"missing_alert_records", "empty_alert_records"} <= warning_codes
+
+
+def test_export_summary_query_sorts_by_generated_at_descending() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.export_summary(
+        records=[
+            {"artifact_type": "run_summary", "generated_at": "2026-05-15T17:00:00Z", "score": 1},
+            {"artifact_type": "cycle_validation", "generated_at": "2026-05-15T18:00:00Z", "score": 1},
+        ],
+    )
+    assert [row["artifact_type"] for row in result.records] == ["cycle_validation", "run_summary"]
+    assert result.context.status == "ok"
+
+
+def test_integration_evidence_query_uses_deterministic_default_summary_when_missing() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.integration_evidence(evidence=None)
+    assert result.query_name == "integration_evidence"
+    assert result.records[0]["validation_count"] > 0
+    assert result.context.status == "warning"
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "missing_integration_evidence" in warning_codes
+
+
+def test_integration_evidence_query_handles_malformed_stage_and_jira_shapes() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.integration_evidence(
+        evidence={
+            "stage_status": "pass",
+            "jira_progress": {"jira_key": "SCRUM-1"},
+            "codex_status": "clean",
+        }
+    )
+    assert result.query_name == "integration_evidence"
+    assert result.records[0]["stage_status"] == {}
+    assert result.records[0]["jira_progress"] == []
+    assert result.context.status == "warning"
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "invalid_integration_stage_status" in warning_codes
+    assert "invalid_integration_jira_progress" in warning_codes

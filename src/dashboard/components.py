@@ -53,6 +53,7 @@ class MetricCardPayload:
     value: str
     hint: str = ""
     status_badge: str = "Unknown"
+    status_severity: RunSeverity = "unknown"
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -62,6 +63,8 @@ class MetricCardPayload:
             "value": self.value,
             "hint": self.hint,
             "status_badge": self.status_badge,
+            "status_severity": self.status_severity,
+            "status_accessible_label": SEVERITY_LABELS[self.status_severity],
         }
 
 
@@ -83,6 +86,7 @@ class StatusCardPayload:
             "severity": severity,
             "severity_label": SEVERITY_LABELS[severity],
             "icon_name": SEVERITY_ICON_NAMES[severity],
+            "accessibility_text": f"{self.label}: {SEVERITY_LABELS[severity]}",
             "message": self.message,
         }
 
@@ -147,6 +151,8 @@ class TableDescriptor:
     sort_descending: bool = True
     empty_message: str = "No rows available."
     warning_rows: tuple[dict[str, str], ...] = ()
+    filter_descriptors: tuple[dict[str, str], ...] = ()
+    drill_links: tuple[dict[str, str], ...] = ()
     source_name: str = "fixture"
     freshness_status: str = "unknown"
 
@@ -159,8 +165,26 @@ class TableDescriptor:
             "empty_state": len(self.rows) == 0,
             "empty_message": self.empty_message,
             "warning_rows": list(self.warning_rows),
+            "filter_descriptors": list(self.filter_descriptors),
+            "drill_links": list(self.drill_links),
             "source_name": self.source_name,
             "freshness_status": self.freshness_status,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class EmptyStatePayload:
+    """Reusable empty/incomplete payload descriptor."""
+
+    title: str
+    message: str
+    next_steps: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "title": self.title,
+            "message": self.message,
+            "next_steps": list(self.next_steps),
         }
 
 
@@ -171,6 +195,7 @@ def normalize_status_badge(status: str | None) -> str:
         "strong_go": "Strong GO",
         "go": "GO",
         "conditional_go": "Conditional GO",
+        "no_go": "NO-GO",
         "monitor": "Monitor",
         "caution": "Caution",
         "pass": "Pass",
@@ -183,6 +208,46 @@ def normalize_status_badge(status: str | None) -> str:
 
 def _normalize_severity(raw_severity: str) -> RunSeverity:
     return normalize_run_severity(raw_severity)
+
+
+def get_status_semantics(status: str | None) -> dict[str, str]:
+    """Return stable status/severity semantics without visual-token coupling."""
+    normalized = (status or "").strip().lower()
+    category_map = {
+        "strong_go": "go",
+        "go": "go",
+        "conditional_go": "monitor",
+        "monitor": "monitor",
+        "caution": "monitor",
+        "warning": "monitor",
+        "no_go": "no_go",
+        "blocked": "blocked",
+        "failed": "no_go",
+        "pass": "go",
+    }
+    severity_map: dict[str, RunSeverity] = {
+        "strong_go": "ok",
+        "go": "ok",
+        "conditional_go": "warning",
+        "monitor": "warning",
+        "caution": "warning",
+        "warning": "warning",
+        "no_go": "error",
+        "blocked": "blocked",
+        "failed": "error",
+        "pass": "ok",
+    }
+    severity = severity_map.get(normalized, "unknown")
+    return {
+        "status_key": normalized or "unknown",
+        "status_label": normalize_status_badge(normalized),
+        "severity": severity,
+        "severity_label": SEVERITY_LABELS[severity],
+        "category": category_map.get(normalized, "unknown"),
+        "accessibility_text": (
+            f"Status {normalize_status_badge(normalized)} with {SEVERITY_LABELS[severity]} severity"
+        ),
+    }
 
 
 def build_state_descriptor(
@@ -207,13 +272,15 @@ def build_metric_cards(metrics: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Build reusable metric cards from row dictionaries."""
     cards: list[dict[str, str]] = []
     for row in metrics:
+        semantics = get_status_semantics(str(row.get("status_badge", "unknown")))
         cards.append(
             MetricCardPayload(
                 card_id=str(row.get("card_id", row.get("label", "metric"))),
                 label=str(row.get("label", "Metric")),
                 value=str(row.get("value", "0")),
                 hint=str(row.get("hint", "")),
-                status_badge=normalize_status_badge(str(row.get("status_badge", "unknown"))),
+                status_badge=semantics["status_label"],
+                status_severity=semantics["severity"],  # type: ignore[arg-type]
             ).as_dict()
         )
     return cards
@@ -228,6 +295,8 @@ def build_table_descriptor(
     sort_descending: bool = True,
     empty_message: str = "No rows available.",
     warnings: list[str] | None = None,
+    filter_descriptors: list[dict[str, str]] | None = None,
+    drill_links: list[dict[str, str]] | None = None,
     source_name: str = "fixture",
     freshness_status: str = "unknown",
 ) -> dict[str, Any]:
@@ -241,8 +310,24 @@ def build_table_descriptor(
         sort_descending=sort_descending,
         empty_message=empty_message,
         warning_rows=warning_rows,
+        filter_descriptors=tuple(filter_descriptors or ()),
+        drill_links=tuple(drill_links or ()),
         source_name=source_name,
         freshness_status=freshness_status,
+    ).as_dict()
+
+
+def build_empty_state_payload(
+    *,
+    title: str,
+    message: str,
+    next_steps: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    """Build deterministic empty/incomplete state payload."""
+    return EmptyStatePayload(
+        title=title,
+        message=message,
+        next_steps=tuple(next_steps or ()),
     ).as_dict()
 
 

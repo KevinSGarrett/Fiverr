@@ -371,6 +371,30 @@ def test_app_entry_smoke_state_registers_all_required_pages(tmp_path) -> None:
     assert smoke_state["page_registry"]
     assert smoke_state["readiness"]["severity"] == "ready"
     assert smoke_state["readiness"]["blocked_pages"] == []
+    assert smoke_state["query_diagnostics"]["status"] == "warning"
+    assert smoke_state["query_diagnostics"]["categories"]["app_readiness"] == "ok"
+
+
+def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "warning", "warning_count": 2},
+        orchestrator_handoff={"stage_status": "warning", "next_actions": ["Run phase2-smoke"]},
+        alert_records=fixture["alerts"],
+        export_records=fixture["exports"],
+        integration_evidence=fixture["integration_evidence"],
+    )
+    assert diagnostics["categories"] == {
+        "app_readiness": "ok",
+        "alerts": "ok",
+        "exports": "ok",
+        "integration_evidence": "ok",
+    }
+    assert diagnostics["status"] == "ready"
+    assert diagnostics["blocking_categories"] == []
+    assert diagnostics["results"]["integration_evidence"]["records"][0]["stage_status"]["analysis"] == "warning"
 
 
 def test_page_registry_contains_required_contracts_and_disabled_reasons() -> None:
@@ -520,6 +544,15 @@ def test_component_state_and_table_contracts_support_warning_rows() -> None:
     assert table["warning_rows"][0]["message"] == "No rows available"
 
 
+def test_component_status_semantics_are_accessible_and_stable() -> None:
+    components_module = importlib.import_module("src.dashboard.components")
+    semantics = components_module.get_status_semantics("no_go")
+    assert semantics["status_label"] == "NO-GO"
+    assert semantics["severity"] == "error"
+    assert semantics["category"] == "no_go"
+    assert "severity" in semantics["accessibility_text"]
+
+
 def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> None:
     opportunities_module = importlib.import_module("src.dashboard.opportunities")
     fixture = _dashboard_fixture_run()
@@ -531,6 +564,8 @@ def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> No
     assert payload["state"]["state"] == "ready"
     assert payload["table"]["rows"][0]["niche"] == "logo-design"
     assert payload["ranking_cards"][0]["keyword_links"] == ["kw-logo-design", "kw-brand-kit"]
+    assert payload["table"]["rows"][0]["go_decision"] == "Strong GO"
+    assert payload["table"]["filter_descriptors"][0]["key"] == "niche"
 
 
 def test_opportunities_payload_coerces_string_top_score_for_metric_card() -> None:
@@ -543,6 +578,20 @@ def test_opportunities_payload_coerces_string_top_score_for_metric_card() -> Non
         sort={"field": "score", "descending": True},
     )
     assert payload["metric_cards"][1]["value"] == "91.2"
+
+
+def test_opportunities_payload_sparse_fields_degrade_safely() -> None:
+    opportunities_module = importlib.import_module("src.dashboard.opportunities")
+    payload = opportunities_module.build_opportunities_payload(
+        records=[
+            {"id": "opp-1", "opportunity": "Logo", "niche": "logo", "status": "go"},
+            {"id": "opp-2", "opportunity": "Resume", "score": "bad", "confidence": None, "status": "no_go"},
+        ],
+    )
+    assert payload["state"]["state"] == "warning"
+    assert payload["table"]["rows"][0]["score"] == 0.0
+    assert payload["table"]["rows"][0]["confidence"] == 0.0
+    assert any("missing score" in row["message"] for row in payload["table"]["warning_rows"])
 
 
 def test_opportunities_payload_empty_state_explains_missing_upstream_data() -> None:
@@ -560,6 +609,8 @@ def test_keywords_payload_surfaces_cluster_gaps_and_confidence_text() -> None:
     assert any(row["cluster"] == "not available yet" for row in rows)
     assert any(row["confidence_text"] == "High" for row in rows)
     assert any("SCRUM-157" in row["message"] for row in payload["table"]["warning_rows"])
+    assert payload["cluster_summary"]["incomplete_analysis"] is True
+    assert payload["cluster_summary"]["unclustered_count"] >= 1
 
 
 def test_keywords_payload_sorting_and_filtering_are_supported() -> None:
@@ -574,6 +625,20 @@ def test_keywords_payload_sorting_and_filtering_are_supported() -> None:
         payload["table"]["rows"][0]
     ]
     assert payload["table"]["rows"][0]["keyword"] == "logo design package"
+    assert payload["table"]["filter_descriptors"][0]["key"] == "niche"
+
+
+def test_keywords_payload_sparse_rows_include_freshness_warnings() -> None:
+    keywords_module = importlib.import_module("src.dashboard.keywords")
+    payload = keywords_module.build_keywords_payload(
+        records=[
+            {"keyword": "logo design", "cluster": "", "score": None, "confidence": "bad"},
+        ],
+    )
+    assert payload["state"]["state"] == "warning"
+    assert payload["table"]["rows"][0]["score"] == 0.0
+    assert payload["table"]["rows"][0]["cluster"] == "not available yet"
+    assert any("Freshness status is unknown" in row["message"] for row in payload["table"]["warning_rows"])
 
 
 def test_run_history_payload_includes_severity_mapping_and_stage_details() -> None:
@@ -584,7 +649,22 @@ def test_run_history_payload_includes_severity_mapping_and_stage_details() -> No
     assert first_row["run_id"] == "run-014-001"
     assert first_row["severity"] == "ok"
     assert first_row["stage_names"] == ["collection", "analysis", "reporting"]
+    assert first_row["stage_chips"][0]["name"] == "collection"
     assert payload["status_cards"][0]["severity_label"] in {"Pass", "Warning", "Unknown"}
+
+
+def test_run_history_payload_handles_malformed_runs_with_warnings() -> None:
+    run_history_module = importlib.import_module("src.dashboard.run_history")
+    payload = run_history_module.build_run_history_payload(
+        records=[
+            {"status": "warning", "stages": [], "warning_count": "3"},
+        ]
+    )
+    row = payload["table"]["rows"][0]
+    assert row["run_id"].startswith("missing-run-id-")
+    assert row["stage_names"] == ["unknown"]
+    assert row["warning_count"] == 3
+    assert any("missing run_id" in item["message"] for item in payload["table"]["warning_rows"])
 
 
 def test_alert_rules_emit_missing_run_structure_when_run_id_absent() -> None:
@@ -623,6 +703,7 @@ def test_app_product_page_registry_returns_safe_empty_state_summary() -> None:
     app_module = importlib.import_module("src.dashboard.app")
     payloads = app_module.get_product_page_payloads()
     assert payloads["registry_state"]["state"] == "empty"
+    assert payloads["registry_metadata"]["ui_runtime_pending"] is True
     assert payloads["opportunities"]["state"]["state"] == "empty"
     assert payloads["keywords"]["state"]["state"] == "empty"
     assert payloads["run_history"]["state"]["state"] == "empty"
@@ -637,6 +718,7 @@ def test_app_product_page_registry_returns_ready_state_for_fixture_data() -> Non
         run_history_records=fixture["run_history"],
     )
     assert payloads["registry_state"]["state"] == "ready"
+    assert payloads["opportunities"]["payload_support"]["implemented"] is True
     assert payloads["opportunities"]["table"]["rows"]
     assert payloads["keywords"]["table"]["rows"]
     assert payloads["run_history"]["table"]["rows"]

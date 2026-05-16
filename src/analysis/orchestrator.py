@@ -132,7 +132,6 @@ class _AnalysisRunContract:
     def from_stages(
         cls,
         stages: list[AnalysisStageSummary],
-        payload: dict[str, Any],
         *,
         warning_count: int,
     ) -> _AnalysisRunContract:
@@ -162,7 +161,6 @@ class _AnalysisRunContract:
             missing_field_count=missing_field_count,
             scoring_readiness=summarize_scoring_readiness(
                 stages,
-                payload,
                 warning_count=warning_count,
                 missing_field_count=missing_field_count,
             ),
@@ -294,7 +292,6 @@ def _failed_stage_summary(
 
 def summarize_scoring_readiness(
     stages: list[AnalysisStageSummary],
-    payload: dict[str, Any] | None = None,
     *,
     warning_count: int = 0,
     missing_field_count: int = 0,
@@ -470,6 +467,68 @@ def _as_dict(value: Any) -> dict[str, Any]:
 
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
+
+
+def _coerce_int(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            return int(float(normalized))
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_float(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            return float(normalized)
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_gig_input_fields(
+    gig_payload: dict[str, Any], *, source_id: str
+) -> tuple[dict[str, Any], list[AnalysisWarning]]:
+    warnings: list[AnalysisWarning] = []
+    normalized = dict(gig_payload)
+    numeric_fields: dict[str, str] = {
+        "package_count": "int",
+        "review_count": "int",
+        "image_count": "int",
+        "rating": "float",
+    }
+    for field_name, field_type in numeric_fields.items():
+        raw_value = gig_payload.get(field_name)
+        coerced_value = _coerce_int(raw_value) if field_type == "int" else _coerce_float(raw_value)
+        if raw_value is not None and coerced_value is None:
+            warnings.append(
+                AnalysisWarning(
+                    code="gig_numeric_field_invalid",
+                    message=f"gig.{field_name} was malformed and replaced with null-safe fallback.",
+                    source_id=source_id,
+                    missing_data_fields=[field_name],
+                    metadata={"field": field_name, "raw_value": str(raw_value)},
+                )
+            )
+        normalized[field_name] = coerced_value
+    return normalized, warnings
 
 
 def _compute_intent_selection_contract(
@@ -1066,7 +1125,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 "failed_stage_count": 0,
                 "invalid_input": True,
                 "invalid_input_type": type(payload).__name__,
-                "scoring_readiness": summarize_scoring_readiness([], {}),
+                "scoring_readiness": summarize_scoring_readiness([]),
             },
         )
 
@@ -1116,6 +1175,9 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                             warning_count=len(keyword_result.warnings),
                             missing_field_count=len(keyword_result.missing_data_fields),
                             cluster_count=len(keyword_result.clusters),
+                            unclustered_count=len(keyword_result.unclustered_keywords),
+                            cluster_metrics=keyword_result.cluster_metrics,
+                            top_cluster_labels=[cluster.label for cluster in keyword_result.clusters[:3]],
                             stage_status=keyword_placeholder["status"],
                             source_availability=keyword_placeholder["source_availability"],
                             explanation=keyword_placeholder["explanation"],
@@ -1176,37 +1238,42 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 )
                 all_warnings.append(malformed_warning)
             else:
+                normalized_gig_payload, gig_input_warnings = _coerce_gig_input_fields(
+                    gig_payload,
+                    source_id=source_id,
+                )
                 gig_input = GigQualityInput.model_validate(
                     {
                         "source_id": source_id,
-                        "gig_id": gig_payload.get("gig_id", "dry-run-gig"),
-                        "title": gig_payload.get("title"),
-                        "description": gig_payload.get("description"),
-                        "package_count": gig_payload.get("package_count"),
-                        "rating": gig_payload.get("rating"),
-                        "review_count": gig_payload.get("review_count"),
-                        "image_count": gig_payload.get("image_count"),
-                        "has_faq": gig_payload.get("has_faq"),
+                        "gig_id": normalized_gig_payload.get("gig_id", "dry-run-gig"),
+                        "title": normalized_gig_payload.get("title"),
+                        "description": normalized_gig_payload.get("description"),
+                        "package_count": normalized_gig_payload.get("package_count"),
+                        "rating": normalized_gig_payload.get("rating"),
+                        "review_count": normalized_gig_payload.get("review_count"),
+                        "image_count": normalized_gig_payload.get("image_count"),
+                        "has_faq": normalized_gig_payload.get("has_faq"),
                         "metadata": metadata_dict,
                     }
                 )
                 gig_result = score_gig_quality(gig_input)
+                gig_stage_warnings = [*gig_result.warnings, *gig_input_warnings]
                 gig_quality_scores.append(gig_result.overall_score)
                 gig_placeholder = _gig_quality_placeholder_summary(
-                    gig_data=gig_payload,
-                    warning_count=len(gig_result.warnings),
+                    gig_data=normalized_gig_payload,
+                    warning_count=len(gig_stage_warnings),
                 )
                 stages.append(
                     AnalysisStageSummary(
                         stage=AnalysisTaskType.GIG_QUALITY,
                         status=AnalysisStatus.SUCCESS,
-                        warnings=gig_result.warnings,
+                        warnings=gig_stage_warnings,
                         result_type="gig_quality",
                         metadata=_with_stage_timing(
                             _stage_metadata(
                                 source_id,
                                 result_count=1,
-                                warning_count=len(gig_result.warnings),
+                                warning_count=len(gig_stage_warnings),
                                 missing_field_count=len(gig_result.missing_data_fields),
                                 strength_count=len(gig_result.strengths),
                                 weakness_count=len(gig_result.weaknesses),
@@ -1219,7 +1286,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         ),
                     )
                 )
-                all_warnings.extend(gig_result.warnings)
+                all_warnings.extend(gig_stage_warnings)
         except (ValidationError, ValueError) as exc:
             stages.append(
                 _failed_stage_summary(
@@ -1633,7 +1700,6 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
 
     run_contract = _AnalysisRunContract.from_stages(
         stages=stages,
-        payload=payload,
         warning_count=len(all_warnings),
     )
 
