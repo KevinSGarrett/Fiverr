@@ -7,6 +7,7 @@ from itertools import combinations
 from src.analysis.contracts import (
     AnalysisEvidence,
     AnalysisReadinessStatus,
+    AnalysisTaskType,
     AnalysisWarning,
     ClusterEntry,
     KeywordClusterInput,
@@ -92,6 +93,9 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
                 code="insufficient_keywords",
                 message="No non-empty keywords were provided for clustering.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.KEYWORD_CLUSTERING,
+                remediation="Provide at least one non-empty keyword.",
                 missing_data_fields=["keywords"],
             )
         )
@@ -104,6 +108,7 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
             explanation="Clustering skipped because there were no usable keywords.",
             missing_data_fields=["keywords"],
             warnings=warnings,
+            source_metadata={"stage": "keyword_clustering", "freshness": "runtime"},
             metadata=payload.metadata,
             status=AnalysisReadinessStatus.SKIPPED,
             source_context={"keyword_count": 0, "min_cluster_size": payload.min_cluster_size},
@@ -126,6 +131,9 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
                 code="too_few_keywords",
                 message="Low keyword count reduced clustering quality.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.KEYWORD_CLUSTERING,
+                remediation="Provide at least three keywords for higher confidence clusters.",
                 missing_data_fields=["keywords"],
                 metadata={"keyword_count": len(keywords)},
             )
@@ -137,6 +145,8 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
             size=len(keywords),
             cohesion_score=0.35,
             explanation="Fallback single-cluster output for small keyword set.",
+            keyword_count=len(keywords),
+            representative_terms=sorted({token for keyword in keywords for token in _token_set(keyword)})[:3],
         )
         return KeywordClusterResult(
             source_id=payload.source_id,
@@ -151,6 +161,7 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
             explanation="Generated a fallback cluster because keyword count was too low.",
             missing_data_fields=[],
             warnings=warnings,
+            source_metadata={"stage": "keyword_clustering", "freshness": "runtime"},
             metadata=payload.metadata,
             status=AnalysisReadinessStatus.PARTIAL,
             source_context={"keyword_count": len(keywords), "min_cluster_size": payload.min_cluster_size},
@@ -188,6 +199,10 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
                 size=len(component),
                 cohesion_score=cohesion,
                 explanation=f"Grouped by token overlap around '{label}'.",
+                keyword_count=len(component),
+                representative_terms=sorted({token for keyword in cluster_keywords_list for token in _token_set(keyword)})[
+                    :3
+                ],
             )
         )
 
@@ -197,6 +212,9 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
                 code="min_cluster_size_filter",
                 message="No clusters met min_cluster_size threshold.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.KEYWORD_CLUSTERING,
+                remediation="Reduce min_cluster_size or increase keyword coverage.",
                 metadata={"min_cluster_size": payload.min_cluster_size},
             )
         )
@@ -225,6 +243,7 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         explanation="Deterministic clustering completed using lexical token overlap.",
         missing_data_fields=[],
         warnings=warnings,
+        source_metadata={"stage": "keyword_clustering", "freshness": "runtime"},
         metadata=payload.metadata,
         status=AnalysisReadinessStatus.READY if clusters else AnalysisReadinessStatus.BLOCKED,
         source_context={"keyword_count": len(keywords), "min_cluster_size": payload.min_cluster_size},

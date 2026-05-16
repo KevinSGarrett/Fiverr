@@ -4,9 +4,11 @@ from src.reports.placeholders import (
     DEFAULT_VALIDATION_COMMANDS,
     GOVERNANCE_REPORT_ORDER,
     ReportPlaceholder,
+    build_analysis_summary_rows,
     build_governance_report_placeholders,
     build_integration_evidence_summary,
     build_jira_mapping_table,
+    build_runtime_diagnostics_markdown_table,
 )
 from src.reports.run_summary import (
     RunSummary,
@@ -57,8 +59,10 @@ __all__ = [
     "ReportTemplate",
     "RunSummary",
     "build_jira_mapping_table",
+    "build_analysis_summary_rows",
     "build_governance_report_placeholders",
     "build_integration_evidence_summary",
+    "build_runtime_diagnostics_markdown_table",
     "DEFAULT_VALIDATION_COMMANDS",
     "build_cycle003_report_bundle",
     "build_default_template",

@@ -1,0 +1,17 @@
+{
+  "run_id": "run-malformed",
+  "source_id": "src-malformed",
+  "keywords": "not-a-list",
+  "gig": "bad-gig-shape",
+  "competitors": [
+    {
+      "seller_id": "c1",
+      "starting_price": "high"
+    }
+  ],
+  "seller": "bad-seller-shape",
+  "reviews": "not-a-list",
+  "intent": {
+    "keyword_text": null
+  }
+}

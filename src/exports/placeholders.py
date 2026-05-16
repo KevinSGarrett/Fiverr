@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from src.exports.formats import ExportFormat, ExportRequest, validate_export_request
+from src.reports.placeholders import build_analysis_summary_rows
 
 CSV_FORMAT = ExportFormat.CSV.value
 XLSX_FORMAT = ExportFormat.XLSX.value
@@ -109,5 +110,17 @@ def build_governance_manifest_metadata(
         "agent_task_count": agent_task_count,
         "jira_mapping_complete": jira_mapping_complete,
         "task_count_waiver": normalized_waiver,
+    }
+
+
+def build_analysis_export_summary(
+    stage_outputs: list[dict[str, object]],
+) -> dict[str, object]:
+    """Build export-safe analysis summary rows and warning diagnostics."""
+    rows, warnings = build_analysis_summary_rows(stage_outputs)
+    return {
+        "row_count": len(rows),
+        "rows": rows,
+        "warnings": warnings,
     }
 

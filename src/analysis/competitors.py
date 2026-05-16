@@ -8,6 +8,7 @@ from statistics import median
 from src.analysis.contracts import (
     AnalysisEvidence,
     AnalysisReadinessStatus,
+    AnalysisTaskType,
     AnalysisWarning,
     CompetitorProfileInput,
     CompetitorProfileResult,
@@ -33,6 +34,9 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
                 code="no_competitors",
                 message="No competitors were provided for profile analysis.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.COMPETITOR_PROFILE,
+                remediation="Collect at least one competitor listing before profiling.",
                 missing_data_fields=["competitors"],
             )
         )
@@ -45,6 +49,10 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
             high_authority_sellers=[],
             weak_competitors=[],
             opportunity_signals=["Very sparse competitor landscape."],
+            strengths=[],
+            weaknesses=["competitor_data_missing"],
+            seller_indicators={"competitor_count": 0, "high_authority_ratio": 0.0},
+            market_positioning="insufficient_data",
             confidence=0.2,
             explanation="Insufficient competitor data for reliable market profile.",
             missing_data_fields=["competitors"],
@@ -122,6 +130,9 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
                 code="high_competition",
                 message="Strong incumbent concentration detected in market snapshot.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.COMPETITOR_PROFILE,
+                remediation="Prioritize micro-niches or stronger differentiation signals.",
                 metadata={"strong_ratio": round(strong_ratio, 3)},
             )
         )
@@ -148,6 +159,28 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
         ),
     )
 
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    if strong_ratio >= 0.35:
+        weaknesses.append("high_authority_incumbents")
+    if weak_ratio >= 0.4:
+        strengths.append("weak_competitor_coverage")
+    if new_seller_ratio >= 0.3:
+        strengths.append("new_seller_entry_feasibility")
+    if not strengths:
+        strengths.append("balanced_competitor_mix")
+    if not weaknesses:
+        weaknesses.append("no_clear_competitor_weakness")
+
+    if median_price >= 120:
+        market_positioning = "premium_skewed"
+    elif median_price >= 60:
+        market_positioning = "mid_market"
+    elif median_price > 0:
+        market_positioning = "price_competitive"
+    else:
+        market_positioning = "unknown"
+
     return CompetitorProfileResult(
         source_id=payload.source_id,
         competition_intensity_score=competition_intensity_score,
@@ -157,6 +190,15 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
         high_authority_sellers=sorted(high_authority),
         weak_competitors=sorted(set(weak_competitors)),
         opportunity_signals=opportunity_signals,
+        strengths=strengths,
+        weaknesses=weaknesses,
+        seller_indicators={
+            "competitor_count": len(competitors),
+            "high_authority_ratio": round(strong_ratio, 3),
+            "weak_competitor_ratio": round(weak_ratio, 3),
+            "new_seller_ratio": round(new_seller_ratio, 3),
+        },
+        market_positioning=market_positioning,
         confidence=confidence,
         explanation="Profile derived from local seller level, pricing, rating, and review heuristics.",
         missing_data_fields=missing_data_fields,

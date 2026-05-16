@@ -9,6 +9,7 @@ from src.exports import (
     ExportFormat,
     ExportManifest,
     ExportRequest,
+    build_analysis_export_summary,
     build_csv_export,
     build_governance_export_status_map,
     build_governance_manifest_metadata,
@@ -42,6 +43,7 @@ from src.reports import (
     build_jira_mapping_table,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
+    build_runtime_diagnostics_markdown_table,
     render_plain_text_summary,
 )
 from src.reports.placeholders import (
@@ -49,6 +51,7 @@ from src.reports.placeholders import (
     JIRA_MAPPING_TYPES,
     JIRA_UPDATED_BY_VALUES,
     build_active_story_groups,
+    build_analysis_summary_rows,
 )
 
 
@@ -679,4 +682,70 @@ def test_integration_evidence_summary_contains_validation_and_jira_progress_rows
     assert summary["codecov"] == {"project": "pass", "patch": "warning"}
     assert summary["jira_progress"][0]["jira_key"] == "SCRUM-226"
     assert summary["summary"]["validation_count"] == len(DEFAULT_VALIDATION_COMMANDS)
+
+
+def test_runtime_diagnostics_markdown_table_renders_categories() -> None:
+    rendered = build_runtime_diagnostics_markdown_table(
+        diagnostics={
+            "categories": {
+                "app_readiness": "ok",
+                "alerts": "warning",
+                "integration_evidence": "error",
+            },
+            "warning_categories": ["alerts"],
+            "blocking_categories": ["integration_evidence"],
+        }
+    )
+    assert "| Diagnostic | Status | Severity | Notes |" in rendered
+    assert "| app_readiness | ok | ok | ready |" in rendered
+    assert "| alerts | warning | warning | review recommended |" in rendered
+    assert "| integration_evidence | error | error | blocking |" in rendered
+
+
+def test_build_analysis_summary_rows_clamps_invalid_fields_and_skips_duplicates() -> None:
+    rows, warnings = build_analysis_summary_rows(
+        [
+            {
+                "id": "gig-1",
+                "stage": "gig_quality",
+                "status": "completed",
+                "score": 130,
+                "confidence": -0.2,
+                "warning_count": 1,
+                "source_id": "run-1",
+            },
+            {
+                "id": "gig-1",
+                "stage": "gig_quality",
+                "status": "completed",
+                "score": 80,
+                "confidence": 0.8,
+            },
+        ]
+    )
+    assert len(rows) == 1
+    assert rows[0]["score"] == 100.0
+    assert rows[0]["confidence"] == 0.0
+    assert any(item["code"] == "duplicate_identifier" for item in warnings)
+    assert any(item["code"] == "score_clamped" for item in warnings)
+    assert any(item["code"] == "confidence_clamped" for item in warnings)
+
+
+def test_build_analysis_export_summary_returns_rows_and_warnings() -> None:
+    summary = build_analysis_export_summary(
+        [
+            {
+                "id": "sat-1",
+                "stage": "saturation",
+                "status": "completed",
+                "score": 71.2,
+                "confidence": 0.81,
+                "warning_count": 0,
+                "source_id": "run-2",
+            }
+        ]
+    )
+    assert summary["row_count"] == 1
+    assert len(summary["rows"]) == 1
+    assert summary["warnings"] == []
 

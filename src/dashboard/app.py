@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.config import ConfigLoader
 from src.dashboard.alerts import build_dashboard_alerts
 from src.dashboard.components import build_state_descriptor
 from src.dashboard.keywords import build_keywords_payload
@@ -377,6 +378,15 @@ def build_app_startup_diagnostics(
         },
     ]
     warning_count = sum(1 for check in checks if check["status"] == "warning")
+    config_visibility = build_niche_config_visibility_summary(config_path=config_path)
+    first_run_readiness = build_first_run_readiness_summary(
+        config_path=config_path,
+        data_dir=data_dir,
+    )
+    if config_visibility["status"] != "ready":
+        warning_count += 1
+    if first_run_readiness["status"] != "ready":
+        warning_count += 1
     return {
         "config_path": str(resolved_config),
         "data_dir": str(resolved_data_dir),
@@ -385,6 +395,85 @@ def build_app_startup_diagnostics(
         "status": "warning" if warning_count else "ready",
         "safe_empty_state": safe_empty_state,
         "data_entries": data_entries,
+        "config_visibility": config_visibility,
+        "first_run_readiness": first_run_readiness,
+    }
+
+
+def build_niche_config_visibility_summary(*, config_path: str = "config.yaml") -> dict[str, Any]:
+    """Return import-safe niche configuration readiness for all nine niches."""
+    try:
+        config = ConfigLoader(config_path).load()
+    except Exception as exc:  # pragma: no cover - exercised via unit tests
+        return {
+            "status": "warning",
+            "expected_niches": 9,
+            "loaded_niches": 0,
+            "scoring_profiles": [],
+            "warnings": [f"Unable to load config: {exc}"],
+            "niches": [],
+        }
+    niche_rows = [
+        {
+            "niche_id": niche.niche_id,
+            "name": niche.name,
+            "depth": niche.depth,
+            "seed_keywords_count": len(niche.seed_keywords),
+            "has_required_fields": bool(niche.niche_id and niche.name and niche.category_path),
+        }
+        for niche in config.niches
+    ]
+    warnings: list[str] = []
+    if len(config.niches) != 9:
+        warnings.append("Config does not expose exactly nine niches.")
+    if any(not row["has_required_fields"] for row in niche_rows):
+        warnings.append("One or more niches are missing required fields.")
+    return {
+        "status": "warning" if warnings else "ready",
+        "expected_niches": 9,
+        "loaded_niches": len(config.niches),
+        "scoring_profiles": sorted(config.scoring.profiles.keys()),
+        "warnings": warnings,
+        "niches": niche_rows,
+    }
+
+
+def build_first_run_readiness_summary(
+    *,
+    config_path: str = "config.yaml",
+    data_dir: str = "data",
+) -> dict[str, Any]:
+    """Return deterministic first-run readiness summary from local prerequisites."""
+    fixture_paths = [
+        "tests/fixtures/dashboard/factories.py",
+        "tests/fixtures/analysis/factories.py",
+    ]
+    required_outputs = [
+        "artifacts",
+        "exports",
+        "docs/cycle_reports",
+    ]
+    missing_outputs = [path for path in required_outputs if not Path(path).exists()]
+    prerequisites = {
+        "config_exists": Path(config_path).is_file(),
+        "data_dir_exists": Path(data_dir).is_dir(),
+        "fixture_files_available": all(Path(path).is_file() for path in fixture_paths),
+    }
+    known_blockers = []
+    if missing_outputs:
+        known_blockers.append("Missing output directories for reviewable first-run artifacts.")
+    if not prerequisites["fixture_files_available"]:
+        known_blockers.append("Fixture files required for controlled first-run validation are missing.")
+    if not prerequisites["config_exists"]:
+        known_blockers.append("Configuration file is missing for first-run readiness.")
+    return {
+        "status": "warning" if known_blockers else "ready",
+        "prerequisites": prerequisites,
+        "expected_stages": ["collection", "analysis", "reporting", "validation"],
+        "fixture_paths": fixture_paths,
+        "required_outputs": required_outputs,
+        "missing_outputs": missing_outputs,
+        "known_blockers": known_blockers,
     }
 
 
@@ -456,6 +545,7 @@ def build_app_entry_query_diagnostics(
     alert_records: list[dict[str, Any]] | None = None,
     export_records: list[dict[str, Any]] | None = None,
     integration_evidence: dict[str, Any] | None = None,
+    analysis_output_records: list[dict[str, Any]] | None = None,
     query_layer: DashboardQueryLayer | None = None,
 ) -> dict[str, Any]:
     """Build query-layer diagnostics consumed by app-entry and startup checks."""
@@ -468,11 +558,13 @@ def build_app_entry_query_diagnostics(
     alerts = layer.alert_summary(records=alert_records)
     exports = layer.export_summary(records=export_records, sort={"field": "generated_at", "descending": True})
     evidence = layer.integration_evidence(evidence=integration_evidence)
+    analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
     categories = {
         "app_readiness": app_readiness.context.status,
         "alerts": alerts.context.status,
         "exports": exports.context.status,
         "integration_evidence": evidence.context.status,
+        "analysis_output_contract": analysis_contract.context.status,
     }
     blocking_categories = [
         category for category, status in categories.items() if status in {"error"}
@@ -491,6 +583,7 @@ def build_app_entry_query_diagnostics(
             "alerts": alerts.as_dict(),
             "exports": exports.as_dict(),
             "integration_evidence": evidence.as_dict(),
+            "analysis_output_contract": analysis_contract.as_dict(),
         },
     }
 

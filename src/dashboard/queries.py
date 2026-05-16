@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from src.dashboard.contracts import (
+    EmptyStateContract,
     FilterDescriptor,
     FreshnessMetadata,
     PaginationMetadata,
@@ -97,6 +98,34 @@ _SORT_DESCRIPTORS = (
         default_descending=True,
         description="Sort by run identifier.",
     ),
+)
+
+_VALID_STATUS_VALUES = frozenset(
+    {
+        "ready",
+        "warning",
+        "blocked",
+        "strong_go",
+        "conditional_go",
+        "monitor",
+        "caution",
+        "go",
+        "no_go",
+        "pass",
+        "failed",
+        "in_progress",
+        "in_review",
+        "done",
+        "unknown",
+    }
+)
+
+_EXPECTED_ANALYSIS_FIELDS = (
+    "keyword",
+    "score",
+    "confidence",
+    "niche",
+    "status",
 )
 
 
@@ -514,6 +543,85 @@ def query_integration_evidence(
     )
 
 
+def query_analysis_output_contract(
+    *,
+    records: list[dict[str, Any]] | None,
+    expected_fields: tuple[str, ...] = _EXPECTED_ANALYSIS_FIELDS,
+    source_context: SourceContext | None = None,
+    freshness: FreshnessMetadata | None = None,
+) -> QueryResult[dict[str, Any]]:
+    """Return analysis-output contract readiness for dashboard query consumers."""
+    warnings: list[QueryWarning] = []
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
+    if records is None:
+        warnings.append(
+            QueryWarning(
+                code="missing_analysis_records",
+                message="Analysis output records were not provided; contract readiness is degraded.",
+                field="analysis_records",
+            )
+        )
+    elif len(normalized_records) != len(records):
+        warnings.append(
+            QueryWarning(
+                code="invalid_analysis_record_shape",
+                message="Non-object analysis rows were ignored.",
+                field="analysis_records",
+            )
+        )
+
+    missing_field_counts: dict[str, int] = {field: 0 for field in expected_fields}
+    for row in normalized_records:
+        for field in expected_fields:
+            if row.get(field) in (None, ""):
+                missing_field_counts[field] += 1
+    missing_fields = [field for field, count in missing_field_counts.items() if count > 0]
+    if missing_fields:
+        warnings.append(
+            QueryWarning(
+                code="analysis_missing_expected_fields",
+                message="Analysis outputs are missing one or more expected dashboard fields.",
+                field="analysis_output",
+            )
+        )
+
+    readiness_status: Literal["ok", "warning", "error"] = "warning" if warnings else "ok"
+    record = {
+        "expected_fields": list(expected_fields),
+        "record_count": len(normalized_records),
+        "missing_fields": missing_fields,
+        "missing_field_counts": missing_field_counts,
+        "status": readiness_status,
+    }
+    context = QueryContext(
+        status=readiness_status,
+        empty_state=len(normalized_records) == 0,
+        empty_state_message=(
+            "Analysis output contract is empty; dashboard should remain in safe fallback mode."
+            if len(normalized_records) == 0
+            else ""
+        ),
+        warnings=tuple(warnings),
+        source_context=source_context or _DEFAULT_SOURCE,
+        freshness=freshness or FreshnessMetadata(),
+        pagination=PaginationMetadata(
+            limit=1,
+            offset=0,
+            total_count=1,
+            returned_count=1,
+            truncated=False,
+        ),
+        applied_filters={},
+        applied_sort={"field": "keyword", "descending": False},
+    )
+    return QueryResult(
+        query_name="analysis_output_contract",
+        records=(record,),
+        total_count=1,
+        context=context,
+    )
+
+
 def _query_records(
     *,
     query_name: str,
@@ -527,7 +635,7 @@ def _query_records(
     default_empty_message: str,
 ) -> QueryResult[dict[str, Any]]:
     warnings: list[QueryWarning] = []
-    normalized_records = list(records or [])
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
     active_filters = dict(filters or {})
     active_sort = dict(sort or {})
 
@@ -538,6 +646,16 @@ def _query_records(
                 message="Upstream data set is missing; returning deterministic empty records.",
             )
         )
+    elif len(normalized_records) != len(records):
+        warnings.append(
+            QueryWarning(
+                code="invalid_record_shape",
+                message="Non-object rows were dropped from query payload.",
+                field="records",
+            )
+        )
+
+    warnings.extend(_validate_data_integrity(normalized_records))
 
     filtered = _apply_filters(normalized_records, active_filters)
     sorted_records = _apply_sort(filtered, active_sort)
@@ -569,6 +687,12 @@ def _query_records(
         )
         if empty_state
         else (),
+        empty_state_contract=_build_empty_state_contract(
+            query_name=query_name,
+            default_empty_message=default_empty_message,
+        )
+        if empty_state
+        else None,
     )
     return QueryResult(
         query_name=query_name,
@@ -655,8 +779,24 @@ def _normalize_pagination_inputs(
     offset: int,
     warnings: list[QueryWarning],
 ) -> tuple[int, int]:
-    normalized_limit = limit
-    normalized_offset = offset
+    normalized_limit, limit_warning = _coerce_int(limit, default=DEFAULT_LIMIT)
+    normalized_offset, offset_warning = _coerce_int(offset)
+    if limit_warning:
+        warnings.append(
+            QueryWarning(
+                code="invalid_limit_type",
+                message="Non-integer limit was coerced to default.",
+                field="limit",
+            )
+        )
+    if offset_warning:
+        warnings.append(
+            QueryWarning(
+                code="invalid_offset_type",
+                message="Non-integer offset was coerced to 0.",
+                field="offset",
+            )
+        )
     if normalized_limit < 0:
         warnings.append(
             QueryWarning(
@@ -685,6 +825,120 @@ def _normalize_pagination_inputs(
         )
         normalized_offset = 0
     return (normalized_limit, normalized_offset)
+
+
+def _validate_data_integrity(records: list[dict[str, Any]]) -> list[QueryWarning]:
+    warnings: list[QueryWarning] = []
+    seen_ids: set[str] = set()
+    seen_ranks: set[int] = set()
+    for row in records:
+        row_id = str(row.get("id", row.get("run_id", ""))).strip()
+        if row_id:
+            if row_id in seen_ids:
+                warnings.append(
+                    QueryWarning(
+                        code="duplicate_record_id",
+                        message="Duplicate record identifier detected.",
+                        field="id",
+                    )
+                )
+            seen_ids.add(row_id)
+        score_value = row.get("score")
+        numeric_score = _to_float(score_value)
+        if score_value is not None and numeric_score is None:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_score",
+                    message="One or more score values are non-numeric and will be treated as 0.",
+                    field="score",
+                )
+            )
+        confidence_value = row.get("confidence")
+        confidence_score = _to_float(confidence_value)
+        if confidence_value is not None and confidence_score is None:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_confidence",
+                    message="One or more confidence values are non-numeric and will be treated as 0.",
+                    field="confidence",
+                )
+            )
+        rank_value, rank_warning = _coerce_optional_int(row.get("rank"))
+        if rank_warning:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_rank",
+                    message="One or more rank values are invalid and ignored.",
+                    field="rank",
+                )
+            )
+        if rank_value is not None:
+            if rank_value in seen_ranks:
+                warnings.append(
+                    QueryWarning(
+                        code="duplicate_rank",
+                        message="Duplicate rank values detected; ordering remains deterministic.",
+                        field="rank",
+                    )
+                )
+            seen_ranks.add(rank_value)
+        normalized_status = _normalize_optional_string(row.get("status"))
+        if normalized_status and normalized_status not in _VALID_STATUS_VALUES:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_status_category",
+                    message="Unexpected status category detected in query payload.",
+                    field="status",
+                )
+            )
+    deduped: dict[tuple[str, str | None], QueryWarning] = {}
+    for warning in warnings:
+        deduped[(warning.code, warning.field)] = warning
+    return list(deduped.values())
+
+
+def _build_empty_state_contract(*, query_name: str, default_empty_message: str) -> EmptyStateContract:
+    return EmptyStateContract(
+        title=f"{query_name.replace('_', ' ').title()} Empty State",
+        explanation=default_empty_message,
+        remediation="Run fixture-backed collection/analysis inputs and refresh query consumers.",
+        severity="warning",
+        source="dashboard.query_layer",
+    )
+
+
+def _coerce_int(value: Any, *, default: int = 0) -> tuple[int, bool]:
+    if isinstance(value, bool):
+        return (1 if value else 0, True)
+    if isinstance(value, int):
+        return (value, False)
+    if value is None:
+        return (default, False)
+    try:
+        return (int(value), True)
+    except (TypeError, ValueError):
+        return (default, True)
+
+
+def _coerce_optional_int(value: Any) -> tuple[int | None, bool]:
+    if value is None:
+        return (None, False)
+    if isinstance(value, bool):
+        return (None, True)
+    if isinstance(value, int):
+        return (value, False)
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return (None, True)
+        try:
+            return (int(trimmed), False)
+        except ValueError:
+            return (None, True)
+    try:
+        return (int(value), False)
+    except (TypeError, ValueError):
+        return (None, True)
 
 
 def _normalize_optional_string(value: Any) -> str | None:

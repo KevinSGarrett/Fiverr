@@ -61,6 +61,36 @@ def test_query_layer_coerces_negative_limit_and_offset() -> None:
     assert {"invalid_limit", "invalid_offset"} <= warning_codes
 
 
+def test_query_layer_coerces_non_integer_limit_and_offset_inputs() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.run_history(
+        records=[{"run_id": "run-001", "score": 1.0}],
+        limit="5",  # type: ignore[arg-type]
+        offset="2",  # type: ignore[arg-type]
+    )
+    assert result.context.pagination is not None
+    assert result.context.pagination.limit == 5
+    assert result.context.pagination.offset == 2
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert {"invalid_limit_type", "invalid_offset_type"} <= warning_codes
+
+
+def test_query_layer_coerces_invalid_limit_to_default_page_size() -> None:
+    layer = get_dashboard_query_layer()
+    records = [{"run_id": f"run-{index}", "score": index} for index in range(30)]
+    result = layer.run_history(
+        records=records,
+        limit="bad-limit",  # type: ignore[arg-type]
+        offset=0,
+    )
+    assert result.context.pagination is not None
+    assert result.context.pagination.limit == 25
+    assert result.context.pagination.returned_count == 25
+    assert result.context.pagination.truncated is True
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "invalid_limit_type" in warning_codes
+
+
 def test_query_layer_preserves_source_and_freshness_traceability() -> None:
     layer = get_dashboard_query_layer()
     summary = layer.source_freshness_summary(
@@ -108,7 +138,7 @@ def test_query_sort_handles_mixed_numeric_and_string_values_without_type_errors(
         sort={"field": "score", "descending": True},
     )
     assert [row["opportunity"] for row in result.records[:2]] == ["A", "B"]
-    assert result.context.status == "ok"
+    assert result.context.status == "warning"
 
 
 def test_alert_summary_query_returns_counts_and_sparse_warning() -> None:
@@ -158,3 +188,53 @@ def test_integration_evidence_query_handles_malformed_stage_and_jira_shapes() ->
     warning_codes = {warning.code for warning in result.context.warnings}
     assert "invalid_integration_stage_status" in warning_codes
     assert "invalid_integration_jira_progress" in warning_codes
+
+
+def test_analysis_output_contract_reports_missing_expected_fields() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.analysis_output_contract(
+        records=[
+            {"keyword": "logo design", "score": 85, "confidence": 0.8, "niche": "logo"},
+            {"keyword": "resume writing", "score": 75, "status": "ready"},
+        ]
+    )
+    assert result.query_name == "analysis_output_contract"
+    assert result.records[0]["record_count"] == 2
+    assert "status" in result.records[0]["missing_fields"]
+    assert "confidence" in result.records[0]["missing_fields"]
+    assert result.context.status == "warning"
+
+
+def test_query_layer_adds_data_integrity_warnings_and_empty_state_contract() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.opportunities(
+        records=[
+            {"id": "dup", "rank": 1, "status": "ready", "score": "bad", "confidence": 0.8},
+            {"id": "dup", "rank": 1, "status": "mystery", "score": 80, "confidence": "bad"},
+            "not-a-row",  # type: ignore[list-item]
+        ]
+    )
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "invalid_record_shape" in warning_codes
+    assert "duplicate_record_id" in warning_codes
+    assert "duplicate_rank" in warning_codes
+    assert "invalid_status_category" in warning_codes
+    assert "invalid_score" in warning_codes
+    assert "invalid_confidence" in warning_codes
+
+    empty_result = layer.keywords(records=None)
+    assert empty_result.context.empty_state_contract is not None
+    assert empty_result.context.empty_state_contract.source == "dashboard.query_layer"
+
+
+def test_invalid_rank_values_do_not_trigger_duplicate_rank_warning() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.opportunities(
+        records=[
+            {"id": "a", "rank": "bad-rank", "score": 10},
+            {"id": "b", "rank": "still-bad", "score": 9},
+        ]
+    )
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "invalid_rank" in warning_codes
+    assert "duplicate_rank" not in warning_codes

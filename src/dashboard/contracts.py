@@ -127,6 +127,26 @@ class SortDescriptor:
 
 
 @dataclass(frozen=True, slots=True)
+class EmptyStateContract:
+    """Consistent empty-state payload for runtime page consumers."""
+
+    title: str
+    explanation: str
+    remediation: str
+    severity: Literal["info", "warning", "error"] = "warning"
+    source: str = "query_layer"
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "title": self.title,
+            "explanation": self.explanation,
+            "remediation": self.remediation,
+            "severity": self.severity,
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class QueryContext:
     """Operational metadata returned with every query."""
 
@@ -142,6 +162,7 @@ class QueryContext:
     applied_filters: dict[str, Any] = field(default_factory=dict)
     applied_sort: dict[str, Any] = field(default_factory=dict)
     next_actions: tuple[str, ...] = ()
+    empty_state_contract: EmptyStateContract | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -155,6 +176,9 @@ class QueryContext:
             "applied_filters": self.applied_filters,
             "applied_sort": self.applied_sort,
             "next_actions": list(self.next_actions),
+            "empty_state_contract": (
+                self.empty_state_contract.as_dict() if self.empty_state_contract else None
+            ),
         }
 
 

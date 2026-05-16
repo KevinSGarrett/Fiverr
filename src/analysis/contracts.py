@@ -95,6 +95,10 @@ class AnalysisWarning(AnalysisPersistenceModel):
     code: str = Field(min_length=1)
     message: str = Field(min_length=1)
     source_id: str = Field(min_length=1)
+    severity: Literal["info", "warning", "error"] = "warning"
+    affected_field: str | None = None
+    source_stage: AnalysisTaskType | None = None
+    remediation: str | None = None
     missing_data_fields: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -110,6 +114,8 @@ class ClusterEntry(AnalysisPersistenceModel):
     size: int = Field(ge=1)
     cohesion_score: float = Field(ge=0.0, le=1.0)
     explanation: str = Field(min_length=1)
+    keyword_count: int = Field(default=0, ge=0)
+    representative_terms: list[str] = Field(default_factory=list)
 
 
 class KeywordClusterInput(AnalysisPersistenceModel):
@@ -134,6 +140,7 @@ class KeywordClusterResult(AnalysisResultEnvelope):
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
+    source_metadata: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -163,6 +170,9 @@ class GigQualityResult(AnalysisResultEnvelope):
     component_scores: dict[str, float] = Field(default_factory=dict)
     strengths: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)
+    quality_score: float = Field(default=0.0, ge=0.0, le=100.0)
+    rubric_components: dict[str, float] = Field(default_factory=dict)
+    source_references: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)
@@ -214,6 +224,10 @@ class CompetitorProfileResult(AnalysisResultEnvelope):
     high_authority_sellers: list[str] = Field(default_factory=list)
     weak_competitors: list[str] = Field(default_factory=list)
     opportunity_signals: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
+    seller_indicators: dict[str, Any] = Field(default_factory=dict)
+    market_positioning: str = Field(default="unknown")
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)
@@ -245,8 +259,12 @@ class SellerStrengthResult(AnalysisResultEnvelope):
     source_id: str = Field(min_length=1)
     seller_id: str = Field(min_length=1)
     score: float = Field(ge=0.0, le=100.0)
+    authority_score: float = Field(default=0.0, ge=0.0, le=100.0)
     confidence: float = Field(ge=0.0, le=1.0)
     components: dict[str, float] = Field(default_factory=dict)
+    reliability_signals: dict[str, float] = Field(default_factory=dict)
+    experience_indicators: dict[str, Any] = Field(default_factory=dict)
+    weakness_markers: list[str] = Field(default_factory=list)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)
@@ -305,6 +323,12 @@ class SaturationResult(AnalysisResultEnvelope):
     source_id: str = Field(min_length=1)
     saturation_level: SaturationLevel
     score: float = Field(ge=0.0, le=100.0)
+    saturation_score: float = Field(default=0.0, ge=0.0, le=100.0)
+    supply_depth: float = Field(default=0.0, ge=0.0, le=100.0)
+    demand_proxy: float = Field(default=0.0, ge=0.0, le=100.0)
+    threshold_band: str = Field(default="unknown", min_length=1)
+    rationale: str = Field(default="")
+    source_context: dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
     components: dict[str, float] = Field(default_factory=dict)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
@@ -348,8 +372,13 @@ class ReviewAnalysisResult(AnalysisResultEnvelope):
     source_id: str = Field(min_length=1)
     themes: dict[str, int] = Field(default_factory=dict)
     sentiment_hints: dict[str, int] = Field(default_factory=dict)
+    sentiment_band: str = Field(default="unknown")
     complaint_frequency: dict[str, int] = Field(default_factory=dict)
     praise_frequency: dict[str, int] = Field(default_factory=dict)
+    theme_list: list[dict[str, Any]] = Field(default_factory=list)
+    weakness_signals: list[str] = Field(default_factory=list)
+    positive_signals: list[str] = Field(default_factory=list)
+    sample_count: int = Field(default=0, ge=0)
     opportunity_gaps: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     warnings: list[AnalysisWarning] = Field(default_factory=list)

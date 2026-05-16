@@ -158,6 +158,19 @@ class DashboardQueryLayer:
             freshness=freshness,
         )
 
+    def analysis_output_contract(
+        self,
+        *,
+        records: list[dict[str, Any]] | None,
+        freshness: FreshnessMetadata | None = None,
+    ) -> QueryResult[dict[str, Any]]:
+        """Validate analysis-output contract assumptions for dashboard consumers."""
+        return queries.query_analysis_output_contract(
+            records=records,
+            source_context=self.default_source,
+            freshness=freshness,
+        )
+
     def filter_descriptors(self) -> tuple[FilterDescriptor, ...]:
         """Return reusable filter descriptors for all query consumers."""
         return queries.get_filter_descriptors()

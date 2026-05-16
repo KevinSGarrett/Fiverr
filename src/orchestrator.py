@@ -67,6 +67,28 @@ def build_dashboard_readiness_handoff(
     }
 
 
+def build_first_run_readiness_handoff(
+    app_entry_smoke: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return first-run readiness handoff contract from app-entry diagnostics."""
+    smoke_state = dict(app_entry_smoke or {})
+    startup = dict(smoke_state.get("startup", {}))
+    first_run = dict(startup.get("first_run_readiness", {}))
+    known_blockers = list(first_run.get("known_blockers", []))
+    prerequisites = dict(first_run.get("prerequisites", {}))
+    stage_status = str(first_run.get("status", "warning")).strip().lower() or "warning"
+    return {
+        "phase": "first-run-readiness",
+        "stage_status": stage_status,
+        "expected_stages": list(first_run.get("expected_stages", [])),
+        "fixture_paths": list(first_run.get("fixture_paths", [])),
+        "required_outputs": list(first_run.get("required_outputs", [])),
+        "missing_outputs": list(first_run.get("missing_outputs", [])),
+        "known_blockers": known_blockers,
+        "prerequisites": prerequisites,
+    }
+
+
 def run_init_db(database_url: str | None = None) -> int:
     return init_db_script_main(database_url=database_url)
 
@@ -126,6 +148,7 @@ def run_dashboard_stub(mode: str) -> int:
     registration = app_entry_smoke["page_registration"]
     startup = app_entry_smoke["startup"]
     handoff = build_dashboard_readiness_handoff(app_entry_smoke)
+    first_run_handoff = build_first_run_readiness_handoff(app_entry_smoke)
     print(
         f"Dashboard command accepted in '{normalized}' mode. "
         "Interactive dashboard runtime is scheduled for Epic 09."
@@ -134,6 +157,7 @@ def run_dashboard_stub(mode: str) -> int:
     print(f"Dashboard registration status: {registration['status']}")
     print(f"Dashboard startup status: {startup['status']}")
     print(f"Dashboard readiness stage status: {handoff['stage_status']}")
+    print(f"First-run readiness stage status: {first_run_handoff['stage_status']}")
     if registration["missing_pages"]:
         missing = ", ".join(registration["missing_pages"])
         print(f"Dashboard app-entry missing registered pages: {missing}")

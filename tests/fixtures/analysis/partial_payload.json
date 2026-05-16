@@ -1,0 +1,27 @@
+{
+  "run_id": "run-partial",
+  "source_id": "src-partial",
+  "keywords": [
+    "python automation",
+    "workflow automation"
+  ],
+  "gig": {
+    "gig_id": "gig-partial",
+    "title": "I will automate tasks"
+  },
+  "competitors": [
+    {
+      "seller_id": "c1",
+      "seller_level": "new"
+    }
+  ],
+  "reviews": [
+    {
+      "text": "Fast delivery",
+      "rating": 5
+    }
+  ],
+  "intent": {
+    "keyword_text": "need automation help"
+  }
+}

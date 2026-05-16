@@ -7,6 +7,7 @@ from statistics import mean, pstdev
 from src.analysis.contracts import (
     AnalysisEvidence,
     AnalysisReadinessStatus,
+    AnalysisTaskType,
     AnalysisWarning,
     SaturationInput,
     SaturationLevel,
@@ -119,9 +120,28 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
                 code="saturation_missing_fields",
                 message="Saturation used fallback values for missing market inputs.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.SATURATION,
+                remediation="Populate missing keyword, competitor, seller, price, and quality signals.",
                 missing_data_fields=sorted(set(missing_data_fields)),
             )
         )
+
+    if score >= 70.0:
+        threshold_band = "high"
+    elif score >= 45.0:
+        threshold_band = "medium"
+    elif available_signals <= 2:
+        threshold_band = "unknown"
+    else:
+        threshold_band = "low"
+
+    supply_depth = _bounded((competitor_density * 0.6) + (components["seller_strength_concentration"] * 0.4))
+    demand_proxy = _bounded((keyword_density * 0.55) + (search_density * 0.45))
+    rationale = (
+        f"Threshold band '{threshold_band}' is based on saturation_score={score}, "
+        f"supply_depth={supply_depth}, demand_proxy={demand_proxy}."
+    )
 
     explanation = (
         "Saturation score combines density, incumbent concentration, price crowding, and "
@@ -131,6 +151,19 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
         source_id=payload.source_id,
         saturation_level=saturation_level,
         score=score,
+        saturation_score=score,
+        supply_depth=supply_depth,
+        demand_proxy=demand_proxy,
+        threshold_band=threshold_band,
+        rationale=rationale,
+        source_context={
+            "keyword_count": payload.keyword_count,
+            "search_result_count": payload.search_result_count,
+            "competitor_count": payload.competitor_count,
+            "seller_strength_count": len(payload.seller_strength_scores),
+            "price_count": len(payload.prices),
+            "gig_quality_count": len(payload.gig_quality_scores),
+        },
         confidence=confidence,
         components=components,
         warnings=warnings,
@@ -144,11 +177,6 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
             if confidence >= 0.35
             else AnalysisReadinessStatus.BLOCKED
         ),
-        source_context={
-            "keyword_count": payload.keyword_count,
-            "search_result_count": payload.search_result_count,
-            "competitor_count": payload.competitor_count,
-        },
         evidence=[
             AnalysisEvidence(
                 code="saturation_score",
