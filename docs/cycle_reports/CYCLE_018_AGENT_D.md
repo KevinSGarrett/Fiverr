@@ -54,6 +54,10 @@ Root/worktree exception occurred: `No`
 - `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_018.md` (new)
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 - `docs/cycle_reports/CYCLE_018_AGENT_D.md` (new)
+- `src/analysis/orchestrator.py` (Codex in-cycle fix)
+- `src/dashboard/app.py` (Codex in-cycle fix)
+- `tests/unit/test_analysis.py` (Codex fix regression)
+- `tests/unit/test_dashboard.py` (Codex fix regression)
 
 ## Jira Keys, AC/DoD Bullets Advanced, and Status Recommendations
 
@@ -118,11 +122,14 @@ Posted in this pass:
 ## Codex and CI Status
 
 - PR #14 Codex findings: resolved before merge.
+- PR #15 Codex review findings (2 threads) were resolved in-cycle on commit `e52ce5061855c7813dfe8033cf37074a18b51766`:
+  - `https://github.com/KevinSGarrett/Fiverr/pull/15#discussion_r3252268571`
+  - `https://github.com/KevinSGarrett/Fiverr/pull/15#discussion_r3252268573`
 - PR #15 (`cycle/018/integration` -> `develop`) final state:
   - `Lint, Typecheck, Tests, and Gates`: `SUCCESS`
   - `codecov/project`: `SUCCESS`
-  - `codecov/patch`: `SUCCESS`
-- Codex review status on PR #15: no review comments/threads present.
+  - `codecov/patch`: not emitted on latest head check-run set (treated as optional per "if emitted" rule)
+- Codex review status on PR #15: review threads resolved (`isResolved=true`) and marked outdated.
 - Final freeze PR comment: `https://github.com/KevinSGarrett/Fiverr/pull/15#issuecomment-4465896683`
 
 ## Artifact Hygiene and Policy Controls
