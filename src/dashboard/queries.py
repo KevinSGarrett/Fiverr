@@ -18,6 +18,7 @@ from src.dashboard.contracts import (
     SortDescriptor,
     SourceContext,
 )
+from src.reports import build_integration_evidence_summary
 
 DEFAULT_LIMIT = 25
 MAX_LIMIT = 250
@@ -323,6 +324,152 @@ def query_source_freshness_summary(
         records=tuple(rows),
         total_count=len(rows),
         context=query_context,
+    )
+
+
+def query_alert_summary(
+    *,
+    records: list[dict[str, Any]] | None,
+    source_context: SourceContext | None = None,
+    freshness: FreshnessMetadata | None = None,
+) -> QueryResult[dict[str, Any]]:
+    """Return alert summary rows for dashboard diagnostics and readiness pages."""
+    warnings: list[QueryWarning] = []
+    normalized_records = list(records or [])
+    if records is None:
+        warnings.append(
+            QueryWarning(
+                code="missing_alert_records",
+                message="Alert records were not provided; returning deterministic empty summary.",
+            )
+        )
+    if not normalized_records:
+        warnings.append(
+            QueryWarning(
+                code="empty_alert_records",
+                message="No alert records available; alert summary defaults to safe empty state.",
+            )
+        )
+    severity_counts: dict[str, int] = {"info": 0, "warning": 0, "error": 0, "unknown": 0}
+    for row in normalized_records:
+        severity = _normalize_optional_string(row.get("severity")) or "unknown"
+        if severity not in {"info", "warning", "error", "critical"}:
+            severity_counts["unknown"] += 1
+            continue
+        if severity == "critical":
+            severity_counts["error"] += 1
+            continue
+        severity_counts[severity] += 1
+    summary_row = {
+        "source": (source_context or _DEFAULT_SOURCE).source_name,
+        "generated_at": (freshness or FreshnessMetadata()).generated_at,
+        "record_count": len(normalized_records),
+        "severity_counts": severity_counts,
+    }
+    context = QueryContext(
+        status="warning" if warnings else "ok",
+        empty_state=len(normalized_records) == 0,
+        empty_state_message="No alert records available." if not normalized_records else "",
+        warnings=tuple(warnings),
+        source_context=source_context or _DEFAULT_SOURCE,
+        freshness=freshness or FreshnessMetadata(),
+        pagination=PaginationMetadata(
+            limit=1,
+            offset=0,
+            total_count=1,
+            returned_count=1,
+            truncated=False,
+        ),
+        applied_filters={},
+        applied_sort={"field": "severity", "descending": True},
+    )
+    return QueryResult(
+        query_name="alert_summary",
+        records=(summary_row,),
+        total_count=1,
+        context=context,
+    )
+
+
+def query_export_summary(
+    *,
+    records: list[dict[str, Any]] | None,
+    filters: dict[str, Any] | None = None,
+    sort: dict[str, Any] | None = None,
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+    source_context: SourceContext | None = None,
+    freshness: FreshnessMetadata | None = None,
+) -> QueryResult[dict[str, Any]]:
+    """Return export-manifest summaries with deterministic sparse-data behavior."""
+    return _query_records(
+        query_name="export_summary",
+        records=records,
+        filters=filters,
+        sort=sort or {"field": "generated_at", "descending": True},
+        limit=limit,
+        offset=offset,
+        source_context=source_context,
+        freshness=freshness,
+        default_empty_message="No export manifests are available yet.",
+    )
+
+
+def query_integration_evidence(
+    *,
+    evidence: dict[str, Any] | None,
+    source_context: SourceContext | None = None,
+    freshness: FreshnessMetadata | None = None,
+) -> QueryResult[dict[str, Any]]:
+    """Return integration evidence payload consumable by dashboard/query surfaces."""
+    warnings: list[QueryWarning] = []
+    if evidence is None:
+        warnings.append(
+            QueryWarning(
+                code="missing_integration_evidence",
+                message="Integration evidence was not provided; using default deterministic summary.",
+            )
+        )
+    normalized_evidence = build_integration_evidence_summary(
+        stage_status=dict((evidence or {}).get("stage_status", {})),
+        codex_status=str((evidence or {}).get("codex_status", "pending")),
+        codecov_project_status=str((evidence or {}).get("codecov_project_status", "pending")),
+        codecov_patch_status=str((evidence or {}).get("codecov_patch_status", "pending")),
+        jira_progress=list((evidence or {}).get("jira_progress", [])),
+    )
+    generated_at = str((evidence or {}).get("generated_at", "")).strip() or None
+    payload = {
+        "source": (source_context or _DEFAULT_SOURCE).source_name,
+        "generated_at": generated_at,
+        "record_count": normalized_evidence["summary"]["jira_rows"],
+        "validation_count": normalized_evidence["summary"]["validation_count"],
+        "stage_status": normalized_evidence["stage_status"],
+        "codex_status": normalized_evidence["codex_status"],
+        "codecov": normalized_evidence["codecov"],
+        "jira_progress": normalized_evidence["jira_progress"],
+    }
+    context = QueryContext(
+        status="warning" if warnings else "ok",
+        empty_state=False,
+        empty_state_message="Integration evidence summary is available.",
+        warnings=tuple(warnings),
+        source_context=source_context or _DEFAULT_SOURCE,
+        freshness=freshness or FreshnessMetadata(generated_at=generated_at),
+        pagination=PaginationMetadata(
+            limit=1,
+            offset=0,
+            total_count=1,
+            returned_count=1,
+            truncated=False,
+        ),
+        applied_filters={},
+        applied_sort={"field": "generated_at", "descending": True},
+    )
+    return QueryResult(
+        query_name="integration_evidence",
+        records=(payload,),
+        total_count=1,
+        context=context,
     )
 
 

@@ -371,6 +371,30 @@ def test_app_entry_smoke_state_registers_all_required_pages(tmp_path) -> None:
     assert smoke_state["page_registry"]
     assert smoke_state["readiness"]["severity"] == "ready"
     assert smoke_state["readiness"]["blocked_pages"] == []
+    assert smoke_state["query_diagnostics"]["status"] == "warning"
+    assert smoke_state["query_diagnostics"]["categories"]["app_readiness"] == "ok"
+
+
+def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "warning", "warning_count": 2},
+        orchestrator_handoff={"stage_status": "warning", "next_actions": ["Run phase2-smoke"]},
+        alert_records=fixture["alerts"],
+        export_records=fixture["exports"],
+        integration_evidence=fixture["integration_evidence"],
+    )
+    assert diagnostics["categories"] == {
+        "app_readiness": "ok",
+        "alerts": "ok",
+        "exports": "ok",
+        "integration_evidence": "ok",
+    }
+    assert diagnostics["status"] == "ready"
+    assert diagnostics["blocking_categories"] == []
+    assert diagnostics["results"]["integration_evidence"]["records"][0]["stage_status"]["analysis"] == "warning"
 
 
 def test_page_registry_contains_required_contracts_and_disabled_reasons() -> None:

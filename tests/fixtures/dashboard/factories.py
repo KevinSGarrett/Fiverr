@@ -86,5 +86,40 @@ def build_dashboard_fixture_run() -> dict[str, Any]:
                 "next_action": "Re-run analysis after fixture refresh.",
             },
         ],
+        "alerts": [
+            {"id": "alert-001", "type": "warning_heavy_run", "severity": "warning"},
+            {"id": "alert-002", "type": "failed_stage", "severity": "error"},
+        ],
+        "exports": [
+            {
+                "artifact_type": "cycle_validation",
+                "format": "json",
+                "path": "exports/cycle014/validation.json",
+                "generated_at": "2026-05-15T18:00:00Z",
+                "status": "ready",
+            },
+            {
+                "artifact_type": "run_summary",
+                "format": "md",
+                "path": "exports/cycle014/run_summary.md",
+                "generated_at": "2026-05-15T17:00:00Z",
+                "status": "ready",
+            },
+        ],
+        "integration_evidence": {
+            "generated_at": "2026-05-15T18:30:00Z",
+            "stage_status": {"collection": "pass", "analysis": "warning"},
+            "codex_status": "resolved",
+            "codecov_project_status": "pass",
+            "codecov_patch_status": "pass",
+            "jira_progress": [
+                {
+                    "jira_key": "SCRUM-225",
+                    "ac_advanced": "Query layer payload contracts expanded.",
+                    "dod_remaining": "Final UI wiring pending.",
+                    "status_recommendation": "in_progress",
+                }
+            ],
+        },
     }
 

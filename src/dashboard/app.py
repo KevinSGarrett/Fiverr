@@ -17,6 +17,7 @@ from src.dashboard.navigation import (
 )
 from src.dashboard.opportunities import build_opportunities_payload
 from src.dashboard.pages import build_registered_page_payloads
+from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 from src.reports import build_governance_report_placeholders
@@ -393,6 +394,11 @@ def build_app_entry_smoke_state(
     cycle: str | None = None,
     config_path: str = "config.yaml",
     data_dir: str = "data",
+    orchestrator_handoff: dict[str, Any] | None = None,
+    alert_records: list[dict[str, Any]] | None = None,
+    export_records: list[dict[str, Any]] | None = None,
+    integration_evidence: dict[str, Any] | None = None,
+    query_layer: DashboardQueryLayer | None = None,
 ) -> dict[str, Any]:
     """Return app-entry smoke state for startup behavior and page registration."""
     page_registry = build_page_registry()
@@ -408,6 +414,21 @@ def build_app_entry_smoke_state(
             for row in page_registry
         ]
     readiness = compute_page_readiness(page_registry=page_registry, startup=startup)
+    effective_handoff = dict(orchestrator_handoff or {})
+    if not effective_handoff:
+        effective_handoff = {
+            "stage_status": readiness["severity"],
+            "next_actions": readiness["next_actions"],
+        }
+    query_diagnostics = build_app_entry_query_diagnostics(
+        page_registry=page_registry,
+        startup=startup,
+        orchestrator_handoff=effective_handoff,
+        alert_records=alert_records,
+        export_records=export_records,
+        integration_evidence=integration_evidence,
+        query_layer=query_layer,
+    )
     registration_status = "blocked" if missing_pages else "ready"
     status = "blocked" if missing_pages else readiness["severity"]
     return {
@@ -421,8 +442,56 @@ def build_app_entry_smoke_state(
         },
         "startup": startup,
         "readiness": readiness,
+        "query_diagnostics": query_diagnostics,
         "status": status,
         "safe_empty_state": startup["safe_empty_state"],
+    }
+
+
+def build_app_entry_query_diagnostics(
+    *,
+    page_registry: list[dict[str, Any]],
+    startup: dict[str, Any],
+    orchestrator_handoff: dict[str, Any] | None = None,
+    alert_records: list[dict[str, Any]] | None = None,
+    export_records: list[dict[str, Any]] | None = None,
+    integration_evidence: dict[str, Any] | None = None,
+    query_layer: DashboardQueryLayer | None = None,
+) -> dict[str, Any]:
+    """Build query-layer diagnostics consumed by app-entry and startup checks."""
+    layer = query_layer or get_dashboard_query_layer()
+    app_readiness = layer.app_readiness(
+        page_registry=page_registry,
+        startup_diagnostics=startup,
+        orchestrator_handoff=orchestrator_handoff,
+    )
+    alerts = layer.alert_summary(records=alert_records)
+    exports = layer.export_summary(records=export_records, sort={"field": "generated_at", "descending": True})
+    evidence = layer.integration_evidence(evidence=integration_evidence)
+    categories = {
+        "app_readiness": app_readiness.context.status,
+        "alerts": alerts.context.status,
+        "exports": exports.context.status,
+        "integration_evidence": evidence.context.status,
+    }
+    blocking_categories = [
+        category for category, status in categories.items() if status in {"error"}
+    ]
+    warning_categories = [
+        category for category, status in categories.items() if status in {"warning"}
+    ]
+    status = "error" if blocking_categories else ("warning" if warning_categories else "ready")
+    return {
+        "status": status,
+        "categories": categories,
+        "warning_categories": warning_categories,
+        "blocking_categories": blocking_categories,
+        "results": {
+            "app_readiness": app_readiness.as_dict(),
+            "alerts": alerts.as_dict(),
+            "exports": exports.as_dict(),
+            "integration_evidence": evidence.as_dict(),
+        },
     }
 
 
@@ -615,6 +684,7 @@ def main() -> None:
     st.write(f"- Entry module: {app_entry_state['entry']['entry_module']}")
     st.write(f"- Registration status: {app_entry_state['page_registration']['status']}")
     st.write(f"- Startup status: {app_entry_state['startup']['status']}")
+    st.write(f"- Query diagnostics status: {app_entry_state['query_diagnostics']['status']}")
     if app_entry_state["safe_empty_state"]:
         st.caption("Safe empty-state mode is active while data artifacts are unavailable.")
 
