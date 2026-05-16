@@ -810,6 +810,13 @@ def get_product_page_payloads(
             message="Product payloads are available with sparse-data warnings.",
             warnings=acceptance_rollup["reasons"],
         )
+    elif acceptance_rollup["status"] == "unknown":
+        # Unknown acceptance means one or more pages are unresolved; do not over-report readiness.
+        payloads["registry_state"] = build_state_descriptor(
+            state="warning",
+            message="Product payload acceptance is unresolved for at least one page.",
+            warnings=acceptance_rollup["reasons"] or ["One or more product pages reported unknown acceptance status."],
+        )
     else:
         payloads["registry_state"] = build_state_descriptor(
             state="ready",

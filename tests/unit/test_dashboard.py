@@ -7,6 +7,8 @@ import importlib
 import sys
 from dataclasses import asdict
 
+import pytest
+
 
 def _dashboard_fixture_run() -> dict[str, object]:
     fixtures_module = importlib.import_module("tests.fixtures.dashboard.factories")
@@ -884,6 +886,37 @@ def test_dashboard_cross_page_acceptance_rollup_tracks_warning_states() -> None:
     assert payloads["acceptance_rollup"]["status"] in {"ready", "warning"}
     assert payloads["docs_snippet"]["status_rollup"] == payloads["acceptance_rollup"]["status"]
     assert len(payloads["acceptance_rollup"]["pages"]) == 3
+
+
+def test_app_product_registry_does_not_mark_unknown_acceptance_as_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    stub_payloads = {
+        "opportunities": {
+            "state": {"state": "ready"},
+            "payload_support": {"implemented": True},
+            "acceptance_status": {"status": "ready", "warning_count": 0, "blocker_count": 0, "reasons": []},
+        },
+        "keywords": {
+            "state": {"state": "warning"},
+            "payload_support": {"implemented": True},
+            "acceptance_status": {
+                "status": "unknown",
+                "warning_count": 1,
+                "blocker_count": 0,
+                "reasons": ["keywords acceptance unresolved"],
+            },
+        },
+        "run_history": {
+            "state": {"state": "ready"},
+            "payload_support": {"implemented": True},
+            "acceptance_status": {"status": "ready", "warning_count": 0, "blocker_count": 0, "reasons": []},
+        },
+    }
+    monkeypatch.setattr(app_module, "build_registered_page_payloads", lambda **_: stub_payloads)
+    payloads = app_module.get_product_page_payloads()
+    assert payloads["acceptance_rollup"]["status"] == "unknown"
+    assert payloads["registry_state"]["state"] == "warning"
+    assert "unresolved" in payloads["registry_state"]["message"].lower()
 
 
 def test_runtime_guard_15_handles_non_list_query_records_without_crash() -> None:
