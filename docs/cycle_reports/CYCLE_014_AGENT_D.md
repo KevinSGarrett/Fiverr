@@ -21,7 +21,7 @@ Product-facing increments:
 | Current target branch | `develop` |
 | PR URL | `https://github.com/KevinSGarrett/Fiverr/pull/11` |
 | Protected branch operations | No `main` branch operations executed |
-| Agent D commit hashes | `4356d9e`, `b77699c`, `92888b2` |
+| Agent D commit hashes | `4356d9e`, `b77699c`, `92888b2`, `6726de4`, `b5e2bac`, `58cd8b7` |
 
 ## Jira Keys Touched
 
@@ -52,10 +52,10 @@ Product-facing increments:
 | `SCRUM-226` | Story-level DoD still requires broader production export orchestration (`xlsx`, `pdf`, and full run wiring). |
 | `SCRUM-227` | Full operational alert lifecycle (persist, resolve transitions, complete UI workflow) remains open. |
 | `SCRUM-231` | Full end-to-end integration closure remains broader than the reporting helper increment. |
-| `SCRUM-235` | Final closure still requires steward confirmation of PR checks and final merged-cycle evidence. |
+| `SCRUM-235` | Final story closure still requires merged-cycle acceptance evidence beyond this agent pass. |
 | `SCRUM-237` | Full logging/monitoring stack work remains broader than current contract/rules scope. |
-| `SCRUM-241` | Final post-push hygiene and PR check reconciliation still pending. |
-| `SCRUM-258` | Final closeout requires commit, push, PR creation/update, and check/thread disposition capture. |
+| `SCRUM-241` | Story-level security/hygiene closure remains broader than scoped export-path + artifact-ignore increment. |
+| `SCRUM-258` | Final cycle closure still depends on merge approval/merge execution after this steward pass. |
 | `SCRUM-214` / `SCRUM-215` / `SCRUM-219` / `SCRUM-225` | Dependency-only compatibility evidence does not satisfy full dashboard story DoD. |
 | `SCRUM-250` | PR body mapping table exists; final acceptance still depends on cycle closeout review and merge readiness. |
 
@@ -74,7 +74,8 @@ Product-facing increments:
 | `src/reports/placeholders.py` | Added integration evidence summary helper and validation command defaults. |
 | `src/reports/__init__.py` | Exported integration evidence summary API. |
 | `tests/unit/test_reports.py` | Added export-helper, manifest enrichment, sparse-data, and integration-summary tests. |
-| `tests/unit/test_dashboard.py` | Added alert contract/rule tests and updated alert descriptor expectations. |
+| `tests/unit/test_dashboard.py` | Added alert contract/rule tests, score-coercion regression test, and missing-run-structure regression test. |
+| `tests/unit/test_dashboard_queries.py` | Added mixed-type sort regression test for deterministic query behavior. |
 | `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` | Added Agent D cycle rows and validation evidence entries. |
 | `docs/cycle_reports/CYCLE_014_AGENT_D.md` | Added Agent D steward report. |
 
@@ -91,13 +92,20 @@ Product-facing increments:
 | `python run.py config-check` | Pass |
 | `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db` | Pass |
 | `python run.py phase2-smoke` | Pass |
+| `python -m pytest -q tests/unit/test_dashboard_queries.py tests/unit/test_dashboard.py` | Pass (`46 passed`) |
+| `python -m ruff check .` | Pass (post-review-fix rerun) |
+| `python -m mypy src` | Pass (post-review-fix rerun) |
+| `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` | Pass (`429 passed`, coverage `93.30%`) |
+| `python run.py config-check` | Pass (post-review-fix rerun) |
+| `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db` | Pass (post-review-fix rerun) |
+| `python run.py phase2-smoke` | Pass (post-review-fix rerun) |
 
 ## Coverage Gap Reporting (`SCRUM-235`)
 
 | Metric | Value |
 | --- | --- |
 | Coverage gate | `>= 90%` |
-| Observed total | `93.20%` |
+| Observed total | `93.30%` |
 | Gate result | Pass |
 | Noted large gap areas (from term-missing output) | `src/collection/safety.py`, `src/utils/logging.py`, `src/collection/playwright_check.py` still have lower relative coverage |
 
@@ -121,18 +129,18 @@ Product-facing increments:
 
 | Jira Key | Action | Comment ID |
 | --- | --- | --- |
-| `SCRUM-226` | Added evidence comment | `10417` |
-| `SCRUM-227` | Added evidence comment | `10416` |
-| `SCRUM-231` | Added evidence comment | `10414` |
-| `SCRUM-235` | Added evidence comment | `10411` |
-| `SCRUM-237` | Added evidence comment | `10415` |
-| `SCRUM-241` | Added evidence comment | `10419` |
-| `SCRUM-258` | Added evidence comment | `10421` |
+| `SCRUM-226` | Added evidence comment (final stewardship update) | `10436` |
+| `SCRUM-227` | Added evidence comment (final stewardship update) | `10431` |
+| `SCRUM-231` | Added evidence comment (final stewardship update) | `10435` |
+| `SCRUM-235` | Added evidence comment (final stewardship update) | `10429` |
+| `SCRUM-237` | Added evidence comment (final stewardship update) | `10430` |
+| `SCRUM-241` | Added evidence comment (final stewardship update) | `10432` |
+| `SCRUM-258` | Added evidence comment (final stewardship update) | `10433` |
 | `SCRUM-214` | Added dependency compatibility comment | `10412` |
 | `SCRUM-215` | Added dependency compatibility comment | `10418` |
 | `SCRUM-219` | Added dependency compatibility comment | `10420` |
 | `SCRUM-225` | Added dependency compatibility comment | `10413` |
-| `SCRUM-250` | Added mapping/support comment | `10410` |
+| `SCRUM-250` | Added mapping/support comment (final stewardship update) | `10434` |
 
 No transitions to `Done` were executed; recommendations remain conservative.
 
@@ -141,17 +149,17 @@ No transitions to `Done` were executed; recommendations remain conservative.
 | Item | Status |
 | --- | --- |
 | Existing `cycle/014/integration -> develop` PR | Open: `https://github.com/KevinSGarrett/Fiverr/pull/11` |
-| Codex review thread disposition | `gh api graphql ... reviewThreads` returned no active review threads (`nodes=[]`) at check time |
-| CI / Codecov project/patch disposition | `gh pr checks 11` currently shows workflow checks as `pending`; codecov statuses are not yet posted while workflow is running |
+| Codex review thread disposition | Three active threads were fixed in commit `58cd8b7`, replied with evidence, and resolved (`isResolved=true` for all thread IDs). |
+| CI / Codecov project/patch disposition | `gh pr checks 11` now shows `Lint, Typecheck, Tests, and Gates` = pass and `codecov/project` = pass (push + pull_request runs). `codecov/patch` is not emitted by the repository check suite and is documented as unavailable. |
 
 ## Risks
 
-- PR exists and evidence is posted, but CI/Codecov statuses are still pending and must complete before final closeout.
+- PR exists with green CI + `codecov/project`; `codecov/patch` status is absent from configured checks and remains a governance follow-up item.
 - Story-level DoD for export/alert/integration remains broader than this deterministic contract increment.
 - Coverage gate is passing, but lower-coverage utility/collection modules remain outside this scoped pass.
 
 ## Next-Agent / Final Steward Handoff Notes
 
-- Monitor PR #11 checks until workflow + Codecov statuses settle, then update Jira `SCRUM-258` with final disposition.
-- If any review threads appear, handle them in-cycle on PR #11 and document dispositions in this report and Jira.
+- PR #11 checks and Codex thread dispositions are complete for this cycle pass; keep monitoring only for any newly posted reviewer feedback.
+- Keep Jira `SCRUM-258` / `SCRUM-235` comments synchronized with latest commit/check outcomes and Codecov scope note (`project` present, `patch` unavailable).
 - Maintain conservative story statuses (no `Done`) unless full source DoD is explicitly satisfied.
