@@ -37,6 +37,7 @@ from src.reports import (
     ReportTemplate,
     RunSummary,
     SellerProfileParserCoverageReport,
+    build_data_integrity_summary,
     build_default_template,
     build_governance_report_placeholders,
     build_integration_evidence_summary,
@@ -44,6 +45,7 @@ from src.reports import (
     build_phase2_readiness_report,
     build_phase2_readiness_template,
     build_runtime_diagnostics_markdown_table,
+    build_runtime_diagnostics_section,
     render_plain_text_summary,
 )
 from src.reports.placeholders import (
@@ -700,6 +702,41 @@ def test_runtime_diagnostics_markdown_table_renders_categories() -> None:
     assert "| app_readiness | ok | ok | ready |" in rendered
     assert "| alerts | warning | warning | review recommended |" in rendered
     assert "| integration_evidence | error | error | blocking |" in rendered
+
+
+def test_runtime_diagnostics_section_contains_operator_context() -> None:
+    section = build_runtime_diagnostics_section(
+        diagnostics={
+            "status": "warning",
+            "categories": {"app_readiness": "ok", "data_integrity": "warning"},
+            "warning_categories": ["data_integrity"],
+            "blocking_categories": [],
+            "payload_availability": {"app_readiness": {"availability": "available"}},
+            "warning_codes": {"data_integrity": ["duplicate_record_id"]},
+        },
+        stage="app_entry",
+        run_id="phase2-017-smoke",
+        completion_state="warning",
+    )
+    assert section["stage"] == "app_entry"
+    assert section["run_id"] == "phase2-017-smoke"
+    assert section["status"] == "warning"
+    assert section["warning_count"] == 1
+    assert section["warning_codes"]["data_integrity"] == ["duplicate_record_id"]
+    assert "| app_readiness | ok | ok | ready |" in section["markdown_table"]
+
+
+def test_data_integrity_summary_detects_malformed_and_mismatched_rows() -> None:
+    summary = build_data_integrity_summary(
+        records=[
+            {"id": "dup", "rank": "bad", "score": "bad", "source_name": "a", "source_key": "b", "evidence": "oops"},
+            {"id": "dup"},
+            {"run_id": ""},
+        ]
+    )
+    assert summary["status"] == "warning"
+    warning_codes = {item["code"] for item in summary["warnings"]}
+    assert {"invalid_rank", "invalid_score", "mismatched_source_key", "malformed_evidence", "duplicate_id", "missing_id"} <= warning_codes
 
 
 def test_build_analysis_summary_rows_clamps_invalid_fields_and_skips_duplicates() -> None:

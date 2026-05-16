@@ -394,10 +394,48 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
         "exports": "ok",
         "integration_evidence": "ok",
         "analysis_output_contract": "warning",
+        "data_integrity": "ok",
     }
     assert diagnostics["status"] == "warning"
     assert diagnostics["blocking_categories"] == []
     assert diagnostics["results"]["integration_evidence"]["records"][0]["stage_status"]["analysis"] == "warning"
+    assert diagnostics["payload_availability"]["analysis_output_contract"]["availability"] == "sparse"
+    assert diagnostics["warning_codes"]["analysis_output_contract"] == [
+        "missing_analysis_records",
+    ]
+
+
+def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable_codes() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "ready", "warning_count": 0},
+        analysis_output_records=[
+            {"id": "dup", "score": "bad", "rank": "bad-rank", "evidence": "bad-shape"},
+            {"id": "dup", "score": 80},
+        ],
+    )
+    assert diagnostics["categories"]["data_integrity"] == "warning"
+    assert "duplicate_record_id" in diagnostics["data_integrity"]["warning_codes"]
+    assert "invalid_rank" in diagnostics["data_integrity"]["warning_codes"]
+    assert "invalid_score" in diagnostics["data_integrity"]["warning_codes"]
+    assert "malformed_evidence" in diagnostics["data_integrity"]["warning_codes"]
+
+
+def test_app_entry_query_diagnostics_payload_availability_includes_source_and_warning_codes() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "ready", "warning_count": 0},
+        export_records=fixture["exports"],
+        analysis_output_records=[],
+    )
+    exports = diagnostics["payload_availability"]["exports"]
+    assert exports["availability"] == "available"
+    assert exports["freshness_status"] == "unknown"
+    assert exports["warning_codes"] == []
+    assert exports["source"]["source_name"] == "fixture"
 
 
 def test_niche_config_visibility_summary_reports_nine_niches() -> None:

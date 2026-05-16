@@ -263,6 +263,82 @@ def build_runtime_diagnostics_markdown_table(
     return "\n".join(rows)
 
 
+def build_runtime_diagnostics_section(
+    *,
+    diagnostics: dict[str, Any],
+    stage: str = "app_entry",
+    run_id: str | None = None,
+    completion_state: str = "in_progress",
+) -> dict[str, Any]:
+    """Build a concise operator-facing diagnostics section for reports and Jira evidence."""
+    categories = diagnostics.get("categories", {})
+    warning_categories = diagnostics.get("warning_categories", [])
+    blocking_categories = diagnostics.get("blocking_categories", [])
+    payload_availability = diagnostics.get("payload_availability", {})
+    warning_codes = diagnostics.get("warning_codes", {})
+    status = str(diagnostics.get("status", "warning")).strip().lower() or "warning"
+    return {
+        "stage": stage,
+        "run_id": run_id or "unknown",
+        "status": status,
+        "completion_state": completion_state,
+        "category_count": len(categories),
+        "warning_count": len(warning_categories),
+        "error_count": len(blocking_categories),
+        "categories": categories,
+        "warning_categories": sorted(str(item) for item in warning_categories),
+        "blocking_categories": sorted(str(item) for item in blocking_categories),
+        "payload_availability": payload_availability,
+        "warning_codes": warning_codes,
+        "markdown_table": build_runtime_diagnostics_markdown_table(diagnostics=diagnostics),
+    }
+
+
+def build_data_integrity_summary(
+    *,
+    records: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Return warning-first integrity summary for dashboard-facing records."""
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
+    warnings: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    seen_sources: set[str] = set()
+    for index, row in enumerate(normalized_records, start=1):
+        row_id = str(row.get("id", row.get("run_id", ""))).strip()
+        if not row_id:
+            warnings.append({"code": "missing_id", "message": f"Row {index} is missing id/run_id."})
+        elif row_id in seen_ids:
+            warnings.append({"code": "duplicate_id", "message": f"Duplicate id '{row_id}' detected."})
+        seen_ids.add(row_id)
+        rank = row.get("rank")
+        if rank is not None and not isinstance(rank, int):
+            warnings.append({"code": "invalid_rank", "message": f"Row {index} rank is not an integer."})
+        score = row.get("score")
+        if score is not None and not isinstance(score, int | float):
+            warnings.append({"code": "invalid_score", "message": f"Row {index} score is not numeric."})
+        source_name = str(row.get("source_name", "")).strip()
+        source_key = str(row.get("source_key", "")).strip()
+        if source_name and source_key and source_name != source_key:
+            warnings.append(
+                {
+                    "code": "mismatched_source_key",
+                    "message": f"Row {index} has mismatched source_name/source_key values.",
+                }
+            )
+        if source_name:
+            seen_sources.add(source_name)
+        evidence = row.get("evidence")
+        if evidence is not None and not isinstance(evidence, list | dict):
+            warnings.append({"code": "malformed_evidence", "message": f"Row {index} evidence is malformed."})
+    deduped_warnings = list({(item["code"], item["message"]): item for item in warnings}.values())
+    return {
+        "status": "warning" if deduped_warnings else "ready",
+        "record_count": len(normalized_records),
+        "source_count": len(seen_sources),
+        "warnings": deduped_warnings,
+    }
+
+
 def _to_float_or_none(value: Any) -> float | None:
     if isinstance(value, int | float):
         return float(value)

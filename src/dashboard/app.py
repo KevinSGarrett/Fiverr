@@ -18,6 +18,7 @@ from src.dashboard.navigation import (
 )
 from src.dashboard.opportunities import build_opportunities_payload
 from src.dashboard.pages import build_registered_page_payloads
+from src.dashboard.queries import summarize_data_integrity_records
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
@@ -559,13 +560,23 @@ def build_app_entry_query_diagnostics(
     exports = layer.export_summary(records=export_records, sort={"field": "generated_at", "descending": True})
     evidence = layer.integration_evidence(evidence=integration_evidence)
     analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
+    integrity_summary = summarize_data_integrity_records(records=analysis_output_records)
+    query_results = {
+        "app_readiness": app_readiness.as_dict(),
+        "alerts": alerts.as_dict(),
+        "exports": exports.as_dict(),
+        "integration_evidence": evidence.as_dict(),
+        "analysis_output_contract": analysis_contract.as_dict(),
+    }
     categories = {
         "app_readiness": app_readiness.context.status,
         "alerts": alerts.context.status,
         "exports": exports.context.status,
         "integration_evidence": evidence.context.status,
         "analysis_output_contract": analysis_contract.context.status,
+        "data_integrity": integrity_summary["status"],
     }
+    payload_availability = _build_query_payload_availability(query_results)
     blocking_categories = [
         category for category, status in categories.items() if status in {"error"}
     ]
@@ -576,16 +587,53 @@ def build_app_entry_query_diagnostics(
     return {
         "status": status,
         "categories": categories,
+        "payload_availability": payload_availability,
+        "warning_codes": {
+            category: payload["warning_codes"] for category, payload in payload_availability.items()
+        },
         "warning_categories": warning_categories,
         "blocking_categories": blocking_categories,
-        "results": {
-            "app_readiness": app_readiness.as_dict(),
-            "alerts": alerts.as_dict(),
-            "exports": exports.as_dict(),
-            "integration_evidence": evidence.as_dict(),
-            "analysis_output_contract": analysis_contract.as_dict(),
-        },
+        "results": query_results,
+        "data_integrity": integrity_summary,
     }
+
+
+def _build_query_payload_availability(
+    query_results: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Summarize available/stale/sparse/missing states for query-layer payloads."""
+    summary: dict[str, dict[str, Any]] = {}
+    for category, payload in query_results.items():
+        context = payload.get("context", {})
+        freshness = context.get("freshness", {})
+        warning_rows = context.get("warnings", [])
+        warning_codes = sorted(
+            {
+                str(row.get("code", "")).strip()
+                for row in warning_rows
+                if isinstance(row, dict) and str(row.get("code", "")).strip()
+            }
+        )
+        empty_state = bool(context.get("empty_state", False))
+        records = payload.get("records")
+        has_records = isinstance(records, list) and len(records) > 0
+        if not has_records and empty_state:
+            availability = "missing"
+        elif empty_state or warning_codes:
+            availability = "sparse"
+        else:
+            availability = "available"
+        freshness_status = str(freshness.get("freshness_status", "unknown")).strip().lower() or "unknown"
+        if freshness_status == "stale":
+            availability = "stale"
+        summary[category] = {
+            "availability": availability,
+            "freshness_status": freshness_status,
+            "generated_at": freshness.get("generated_at"),
+            "warning_codes": warning_codes,
+            "source": context.get("source_context", {}),
+        }
+    return summary
 
 
 def build_alert_readiness_placeholders(
