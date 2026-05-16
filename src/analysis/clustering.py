@@ -98,6 +98,8 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         return KeywordClusterResult(
             source_id=payload.source_id,
             clusters=[],
+            unclustered_keywords=[],
+            cluster_metrics={"keyword_count": 0.0, "cluster_count": 0.0, "unclustered_count": 0.0},
             confidence=0.0,
             explanation="Clustering skipped because there were no usable keywords.",
             missing_data_fields=["keywords"],
@@ -139,6 +141,12 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         return KeywordClusterResult(
             source_id=payload.source_id,
             clusters=[entry],
+            unclustered_keywords=[],
+            cluster_metrics={
+                "keyword_count": float(len(keywords)),
+                "cluster_count": 1.0,
+                "unclustered_count": 0.0,
+            },
             confidence=0.35,
             explanation="Generated a fallback cluster because keyword count was too low.",
             missing_data_fields=[],
@@ -164,11 +172,13 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         key=lambda component: (-len(component), _cluster_label([keywords[i] for i in component])),
     )
     clusters: list[ClusterEntry] = []
+    unclustered_keywords: list[str] = []
     for index, component in enumerate(components, start=1):
         cluster_keywords_list = sorted(keywords[i] for i in component)
         label = _cluster_label(cluster_keywords_list)
         cohesion = _cohesion_score(component, token_sets)
         if len(component) < payload.min_cluster_size:
+            unclustered_keywords.extend(cluster_keywords_list)
             continue
         clusters.append(
             ClusterEntry(
@@ -190,11 +200,27 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
                 metadata={"min_cluster_size": payload.min_cluster_size},
             )
         )
+    elif unclustered_keywords:
+        warnings.append(
+            AnalysisWarning(
+                code="partial_clustering",
+                message="Some keywords did not meet clustering threshold and remain unclustered.",
+                source_id=payload.source_id,
+                missing_data_fields=["unclustered_keywords"],
+                metadata={"unclustered_count": len(unclustered_keywords)},
+            )
+        )
 
     confidence = round(sum(cluster.cohesion_score for cluster in clusters) / len(clusters), 4) if clusters else 0.2
     return KeywordClusterResult(
         source_id=payload.source_id,
         clusters=clusters,
+        unclustered_keywords=sorted(unclustered_keywords),
+        cluster_metrics={
+            "keyword_count": float(len(keywords)),
+            "cluster_count": float(len(clusters)),
+            "unclustered_count": float(len(unclustered_keywords)),
+        },
         confidence=confidence,
         explanation="Deterministic clustering completed using lexical token overlap.",
         missing_data_fields=[],

@@ -75,6 +75,22 @@ _SERVICE_VERBS = {
 }
 
 
+def _coerce_confidence(value: object) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            return float(normalized)
+        except ValueError:
+            return None
+    return None
+
+
 def _normalize_mock_label(value: object) -> IntentLabel | None:
     if not isinstance(value, str):
         return None
@@ -113,6 +129,60 @@ def classify_intent(payload: IntentInput) -> IntentResult:
                 message="Mock intent label was malformed or out of taxonomy; fallback intent applied.",
                 source_id=payload.source_id,
                 metadata={"raw_mock_label": metadata.get("mock_label")},
+            )
+        )
+
+    llm_response = metadata.get("llm_response")
+    if llm_response is not None:
+        parsed_from_llm = _parse_llm_like_intent_response(
+            llm_response,
+            source_id=payload.source_id,
+        )
+        if parsed_from_llm is not None:
+            label, confidence, explanation, llm_warnings = parsed_from_llm
+            warnings.extend(llm_warnings)
+            matched_rules = ["llm_contract:parsed_response"]
+            readiness_status = (
+                AnalysisReadinessStatus.READY
+                if confidence >= 0.75
+                else AnalysisReadinessStatus.PARTIAL
+                if confidence >= 0.45
+                else AnalysisReadinessStatus.BLOCKED
+            )
+            return IntentResult(
+                source_id=payload.source_id,
+                keyword_text=keyword_text,
+                label=label,
+                confidence=confidence,
+                matched_rules=matched_rules,
+                explanation=explanation,
+                warnings=warnings,
+                metadata=metadata,
+                status=readiness_status,
+                source_context={
+                    "keyword_text": keyword_text,
+                    "title_phrase_count": len(payload.title_phrases),
+                    "llm_response_used": True,
+                },
+                evidence=[
+                    AnalysisEvidence(
+                        code="llm_intent_confidence",
+                        message="Structured llm-like intent response confidence.",
+                        metric=confidence,
+                        source_ref="intent.metadata.llm_response",
+                    )
+                ],
+                downstream_readiness={
+                    "status": readiness_status.value,
+                    "reasons": [] if confidence >= 0.45 else ["llm_low_confidence"],
+                },
+            )
+        warnings.append(
+            AnalysisWarning(
+                code="intent_llm_response_malformed",
+                message="Malformed llm-like response ignored; lexical fallback used.",
+                source_id=payload.source_id,
+                metadata={"raw_type": type(llm_response).__name__},
             )
         )
 
@@ -248,3 +318,31 @@ def classify_intent(payload: IntentInput) -> IntentResult:
             "reasons": readiness_reasons,
         },
     )
+
+
+def _parse_llm_like_intent_response(
+    response: object, *, source_id: str
+) -> tuple[IntentLabel, float, str, list[AnalysisWarning]] | None:
+    if not isinstance(response, dict):
+        return None
+    raw_label = response.get("category")
+    label = _normalize_mock_label(raw_label)
+    confidence = _coerce_confidence(response.get("confidence"))
+    explanation_raw = response.get("explanation")
+    explanation = explanation_raw.strip() if isinstance(explanation_raw, str) else ""
+    if label is None or confidence is None:
+        return None
+    confidence = max(0.0, min(1.0, round(confidence, 3)))
+    warnings: list[AnalysisWarning] = []
+    if confidence < 0.45:
+        warnings.append(
+            AnalysisWarning(
+                code="intent_llm_low_confidence",
+                message="llm-like response confidence is low; downstream should treat as partial.",
+                source_id=source_id,
+                metadata={"confidence": confidence},
+            )
+        )
+    if not explanation:
+        explanation = "Intent label came from structured llm-like response metadata."
+    return label, confidence, explanation, warnings
