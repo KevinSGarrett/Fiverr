@@ -156,6 +156,7 @@ Comment result summary:
   - `SCRUM-231` (`10595`), `SCRUM-232` (`10597`), `SCRUM-235` (`10596`), `SCRUM-236` (`10591`), `SCRUM-237` (`10592`), `SCRUM-239` (`10594`), `SCRUM-241` (`10593`)
   - `SCRUM-157` (`10600`), `SCRUM-158` (`10599`), `SCRUM-159` (`10604`), `SCRUM-160` (`10598`), `SCRUM-161` (`10605`), `SCRUM-162` (`10603`), `SCRUM-163` (`10602`), `SCRUM-164` (`10601`)
   - `SCRUM-260` (`10589`)
+- Final metadata-freeze sync comments were posted after the Codex fix push (IDs `10606` through `10626` across touched keys, including `SCRUM-260`).
 
 ## Task 9 + 10: PR Body Update and Same-Cycle Codex Stewardship
 
@@ -167,7 +168,7 @@ PR stewardship state:
 Codex stewardship:
 
 - Review threads were checked at final freeze.
-- Same-cycle requirement enforced: no Codex review thread is currently open on PR #14; no unresolved Codex blocker in this steward pass.
+- Same-cycle requirement enforced: the Codex thread (`PRRT_kwDOSbqwNc6Chrch`) was fixed, replied-to with evidence, and resolved in-cycle.
 
 ## Task 11: Full Validation Block Final Run
 
@@ -186,7 +187,7 @@ Results:
 
 - `python -m ruff check .` -> `pass` (`All checks passed!`)
 - `python -m mypy src` -> `pass` (`Success: no issues found in 94 source files`)
-- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `pass` (`495 passed`, total coverage `93.71%`)
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `pass` (`496 passed`, total coverage `93.71%`)
 - `python run.py config-check` -> `pass` (`Config OK: niches=9`)
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle017.db` -> `pass` (`config_load`, `database_registry`, `smoke_imports`, `repo_hygiene`)
 - `python run.py phase2-smoke` -> `pass` (`Phase2 smoke OK` for collection, analysis, config models)
@@ -234,8 +235,8 @@ Current evidence result:
 - Final local head SHA evidence: `git rev-parse HEAD`
 - Final pushed head SHA evidence: `git rev-parse origin/cycle/017/integration`
 - PR: `https://github.com/KevinSGarrett/Fiverr/pull/14`
-- PR checks (final): `Lint, Typecheck, Tests, and Gates` pass; `codecov/project` pass (duplicate successful runs present)
-- Codex thread state: `No open Codex review thread observed on PR #14`
+- PR checks (final): `Lint, Typecheck, Tests, and Gates` pass; `codecov/project` pass; `codecov/patch` pass
+- Codex thread state: `Resolved in-cycle (PRRT_kwDOSbqwNc6Chrch)`
 - Worktree usage: `No`
 - Directory exception: `No`
 - Path/worktree exception approved: `No`
@@ -244,6 +245,8 @@ Current evidence result:
 
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 - `docs/cycle_reports/CYCLE_017_AGENT_D.md`
+- `src/dashboard/app.py`
+- `tests/unit/test_dashboard.py`
 
 ## Jira Mapping and Status Recommendation
 
