@@ -151,8 +151,8 @@ Full required validation block:
 ## 13) Branch / SHA State
 
 - Working branch: `cycle/017/integration`
-- Final local commit SHA (post-commit): `TBD`
-- Final pushed head SHA (post-push): `TBD`
+- Final local commit SHA (post-commit): `3e6c6effbb3e25b55cfa9bde83c6d6d8d55bf360`
+- Final pushed head SHA (post-push): `3e6c6effbb3e25b55cfa9bde83c6d6d8d55bf360`
 
 ## 14) Worktree / Directory Policy
 
