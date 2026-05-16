@@ -5,7 +5,7 @@
 - **Agent**: D (Final Integration / PR Stewardship)
 - **Branch**: `cycle/015/integration`
 - **Branch head SHA at steward start**: `b95bb7354660fc1b63471835da59263796d3321b`
-- **Branch head SHA at steward handoff**: `298715fce30ecf53ce5b932cad8f24f064838f80`
+- **Branch head SHA at steward handoff**: `e507e5ff50798c5deace8d9e8450da3503776b8d`
 - **PR #11 gate state**: merged into `develop` (`89041b01dcc48931f8336cfcdf61e6b683b13b86`) with green CI + Codecov and resolved review threads
 - **Cycle 015 PR URL**: `https://github.com/KevinSGarrett/Fiverr/pull/12`
 - **Exact Jira keys in this pass**: `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-226`, `SCRUM-227`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`, `SCRUM-237`, `SCRUM-241`, `SCRUM-258`, `SCRUM-259`
@@ -24,8 +24,8 @@
 - Conflict marker scan: `rg "^(<<<<<<<|>>>>>>>)" src tests docs PM_Pack` returned no matches.
 - Final status commands:
   - `git status --short --branch` -> `## cycle/015/integration...origin/cycle/015/integration`
-  - `git log --oneline -10` captured expected integration chain ending at `298715f docs(cycle-015): update final PR and Jira evidence [Agent D]`
-  - `git rev-parse HEAD` -> `298715fce30ecf53ce5b932cad8f24f064838f80`
+  - `git log --oneline -10` captured expected integration chain ending at `e507e5f fix(dashboard): harden integration evidence coercion [Agent D]`
+  - `git rev-parse HEAD` -> `e507e5ff50798c5deace8d9e8450da3503776b8d`
 
 ## Exact Files Changed In This Steward Pass
 
@@ -81,6 +81,30 @@
 | `python run.py phase2-smoke` | pass |
 | `python -m pytest -q tests/unit/test_dashboard.py tests/unit/test_dashboard_queries.py tests/unit/test_analysis.py tests/unit/test_reports.py` | pass (`215 passed`) |
 
+## Codex Disposition Table
+
+| Thread / Source | Finding | Disposition | Evidence / Validation | Resolution State |
+| --- | --- | --- | --- | --- |
+| PR #12 thread `PRRT_kwDOSbqwNc6Cg4Pe` (Codex bot) | `query_integration_evidence` could crash on malformed `stage_status` / `jira_progress` payload shapes | **Valid, fixed in-cycle** | Commit `e507e5f`; targeted rerun `python -m pytest -q tests/unit/test_dashboard_queries.py` (`11 passed`); full gate rerun (`449 passed`, `93.46%`, all required commands pass) | Replied with evidence and resolved (`isResolved=true`) |
+
+## Jira Evidence Table
+
+| Jira Key | Operation | Evidence |
+| --- | --- | --- |
+| `SCRUM-259` | Final stewardship + Codex closure comments | Comments `10477`, `10490` |
+| `SCRUM-258` | Governance sync + same-cycle Codex closure confirmation | Comments `10481`, `10491` |
+| `SCRUM-214` | Product progress/gaps/status recommendation comment | Comment `10479` |
+| `SCRUM-215` | Product progress/gaps/status recommendation comment | Comment `10480` |
+| `SCRUM-219` | Product progress/gaps/status recommendation comment | Comment `10478` |
+| `SCRUM-225` | Product progress/gaps/status recommendation comment | Comment `10483` |
+| `SCRUM-226` | Export continuity evidence comment | Comment `10484` |
+| `SCRUM-227` | Alert continuity evidence comment | Comment `10486` |
+| `SCRUM-228` | App-entry/query diagnostics evidence comment | Comment `10482` |
+| `SCRUM-231` | Integration-evidence readiness comment | Comment `10485` |
+| `SCRUM-235` | Full validation/coverage evidence comment | Comment `10487` |
+| `SCRUM-237` | Monitoring/logging continuity comment | Comment `10488` |
+| `SCRUM-241` | Security/data-hygiene confirmation comment | Comment `10489` |
+
 ## Codex / PR Status
 
 - PR #11 (Cycle 014 gate PR): merged and no longer actionable for this cycle.
@@ -119,6 +143,12 @@
 
 - Verified execution followed non-bare implementation-contract prompts in practice (A/B/C reports include mapped AC/DoD + validation + evidence).
 - In-repo Cycle 015 prompt files were not found during steward audit; formal waiver/evidence source is required for strict in-repo proof of `20+ tasks` and `>6000 words` per agent.
+
+### Prompt-Quality Formal Waiver (Task 15)
+
+| Requirement | Status | Evidence | Next Safest Action |
+| --- | --- | --- | --- |
+| Confirm Cycle 015 prompt files contain `20+ tasks` and `>6000 words` per agent | **Conditionally waived** (source unavailable in repo) | Repo scan found no Cycle 015 prompt artifacts under versioned paths; execution artifacts (agent reports + Jira + PR) show implementation-contract behavior in practice | Keep waiver active unless canonical prompt artifacts are committed; if provided, rerun word/task count audit and replace waiver with measured evidence |
 
 ## Risks
 
