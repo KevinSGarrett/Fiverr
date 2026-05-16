@@ -232,8 +232,8 @@ Current evidence result:
 ## Final Evidence Freeze
 
 - Final branch: `cycle/017/integration`
-- Final local head SHA: `8f0b5191cc8da1bd9bc21fe1ba583ea82a9821f9`
-- Final pushed head SHA: `8f0b5191cc8da1bd9bc21fe1ba583ea82a9821f9`
+- Final local head SHA evidence: `git rev-parse HEAD`
+- Final pushed head SHA evidence: `git rev-parse origin/cycle/017/integration`
 - PR: `https://github.com/KevinSGarrett/Fiverr/pull/14`
 - PR checks (final): `Lint, Typecheck, Tests, and Gates` pass; `codecov/project` pass; `codecov/patch` pass
 - Codex thread state: `Resolved in-cycle (PRRT_kwDOSbqwNc6Chrch)`
