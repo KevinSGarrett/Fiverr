@@ -739,6 +739,54 @@ def test_ac_dod_progress_markdown_table_renders_sorted_rows() -> None:
     assert rendered.index("SCRUM-231") < rendered.index("SCRUM-241")
 
 
+def test_board_reconciliation_entries_rejects_invalid_rows() -> None:
+    with pytest.raises(ValueError, match="jira_key is required"):
+        build_board_reconciliation_entries([{"status": "done"}])
+    with pytest.raises(ValueError, match="canonical_scope must be"):
+        build_board_reconciliation_entries(
+            [
+                {
+                    "jira_key": "SCRUM-231",
+                    "status": "in_review",
+                    "canonical_scope": "invalid_scope",
+                }
+            ]
+        )
+
+
+def test_board_reconciliation_entries_marks_future_scope_touch_as_blocked() -> None:
+    entries = build_board_reconciliation_entries(
+        [
+            {
+                "jira_key": "SCRUM-240",
+                "status": "to_do",
+                "touched": True,
+                "canonical_scope": "future_scope",
+            }
+        ]
+    )
+    assert entries[0]["recommended_status"] == "blocked_future_scope"
+    assert entries[0]["exclusion_reason"] == "future_scope_touched"
+
+
+def test_ac_dod_progress_markdown_table_handles_empty_and_invalid_rows() -> None:
+    rendered = build_ac_dod_progress_markdown_table([])
+    assert "No AC/DoD updates recorded." in rendered
+
+    with pytest.raises(ValueError, match="jira_key is required"):
+        build_ac_dod_progress_markdown_table(
+            [{"ac_dod_progress": "x", "remaining_gap": "y", "status_recommendation": "In Progress"}]
+        )
+    with pytest.raises(ValueError, match="ac_dod_progress is required"):
+        build_ac_dod_progress_markdown_table(
+            [{"jira_key": "SCRUM-231", "remaining_gap": "y", "status_recommendation": "In Progress"}]
+        )
+    with pytest.raises(ValueError, match="remaining_gap is required"):
+        build_ac_dod_progress_markdown_table(
+            [{"jira_key": "SCRUM-231", "ac_dod_progress": "x", "status_recommendation": "In Progress"}]
+        )
+
+
 def test_integration_evidence_summary_contains_validation_and_jira_progress_rows() -> None:
     summary = build_integration_evidence_summary(
         stage_status={"collection": "pass", "analysis": "warning"},
