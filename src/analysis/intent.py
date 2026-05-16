@@ -5,6 +5,7 @@ from __future__ import annotations
 from src.analysis.contracts import (
     AnalysisEvidence,
     AnalysisReadinessStatus,
+    AnalysisTaskType,
     AnalysisWarning,
     IntentInput,
     IntentLabel,
@@ -288,6 +289,18 @@ def classify_intent(payload: IntentInput) -> IntentResult:
         readiness_reasons.append("input_warnings_present")
     if label in {IntentLabel.AMBIGUOUS, IntentLabel.UNKNOWN} and confidence <= 0.4:
         readiness_reasons.append("low_signal_or_unknown")
+    if confidence <= 0.45 or label == IntentLabel.AMBIGUOUS:
+        warnings.append(
+            AnalysisWarning(
+                code="intent_low_confidence",
+                message="Intent confidence is low; fallback-safe dashboard label should be used.",
+                source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.INTENT_CLASSIFICATION,
+                affected_field="intent.label",
+                remediation="Provide clearer transactional or research intent phrases.",
+            )
+        )
     return IntentResult(
         source_id=payload.source_id,
         keyword_text=keyword_text,

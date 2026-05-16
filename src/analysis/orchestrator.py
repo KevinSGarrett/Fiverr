@@ -28,6 +28,7 @@ from src.analysis.contracts import (
 )
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
+from src.analysis.registry import build_analysis_output_registry
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
@@ -257,6 +258,56 @@ def _build_dashboard_handoff_contract(stages: list[AnalysisStageSummary]) -> dic
             "warning_count": sum(len(stage.warnings) for stage in stages),
         },
     }
+
+
+def _normalized_warning_dict(warning: AnalysisWarning) -> dict[str, Any]:
+    affected_field = warning.affected_field
+    if affected_field is None and warning.missing_data_fields:
+        affected_field = warning.missing_data_fields[0]
+    source_stage = warning.source_stage.value if warning.source_stage is not None else "analysis"
+    remediation = warning.remediation or "Inspect source data quality and rerun analysis."
+    return {
+        "code": warning.code,
+        "severity": warning.severity,
+        "message": warning.message,
+        "affected_field": affected_field,
+        "source_stage": source_stage,
+        "remediation": remediation,
+        "source_id": warning.source_id,
+    }
+
+
+def _build_stage_run_summary(stages: list[AnalysisStageSummary]) -> list[dict[str, Any]]:
+    summary_rows: list[dict[str, Any]] = []
+    for stage in stages:
+        contract = stage.metadata.get("readiness_contract", {})
+        source_availability = contract.get("source_availability", {})
+        inputs_consumed = (
+            sorted([name for name, present in source_availability.items() if bool(present)])
+            if isinstance(source_availability, dict)
+            else []
+        )
+        outputs_emitted = (
+            contract.get("future_contract_fields", [])
+            if isinstance(contract, dict) and isinstance(contract.get("future_contract_fields"), list)
+            else []
+        )
+        if stage.status == AnalysisStatus.SUCCESS:
+            stage_run_status = "completed" if not stage.warnings else "warned"
+        elif stage.status == AnalysisStatus.FAILED:
+            stage_run_status = "failed"
+        else:
+            stage_run_status = "skipped"
+        summary_rows.append(
+            {
+                "stage": stage.stage.value,
+                "status": stage_run_status,
+                "inputs_consumed": inputs_consumed,
+                "outputs_emitted": outputs_emitted,
+                "warning_count": len(stage.warnings),
+            }
+        )
+    return summary_rows
 
 
 def _failed_stage_summary(
@@ -1720,6 +1771,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         },
         "stage_log_summary": [_stage_log_entry(stage) for stage in stages],
         "dashboard_handoff_contract": _build_dashboard_handoff_contract(stages),
+        "stage_run_summary": _build_stage_run_summary(stages),
+        "normalized_warnings": [_normalized_warning_dict(warning) for warning in all_warnings],
+        "analysis_output_registry": build_analysis_output_registry(
+            AnalysisRunSummary(
+                run_id=run_id,
+                source_id=source_id,
+                started_at=started_at,
+                finished_at=datetime.now(UTC),
+                status=run_status,
+                stages=stages,
+                warnings=all_warnings,
+                metadata={},
+            )
+        ),
         **metadata_dict,
     }
     if collection_evidence is not None:

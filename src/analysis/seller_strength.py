@@ -7,6 +7,7 @@ import re
 from src.analysis.contracts import (
     AnalysisEvidence,
     AnalysisReadinessStatus,
+    AnalysisTaskType,
     AnalysisWarning,
     SellerStrengthInput,
     SellerStrengthResult,
@@ -150,10 +151,28 @@ def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:
                 code="seller_strength_missing_fields",
                 message="Seller strength used fallback values for missing fields.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.SELLER_STRENGTH,
+                remediation="Populate missing seller profile fields to increase strength confidence.",
                 missing_data_fields=sorted(missing_data_fields),
                 metadata={"seller_id": payload.seller_id},
             )
         )
+
+    reliability_signals = {
+        "response_time": round(response_time_score, 2),
+        "delivery_consistency": round(delivery_score, 2),
+        "rating": round(rating_score, 2),
+    }
+    experience_indicators = {
+        "level": level,
+        "review_count": payload.review_count or 0,
+        "active_gig_count": payload.active_gig_count or 0,
+        "account_tenure_months": payload.account_tenure_months or 0,
+    }
+    weakness_markers = sorted(
+        set(missing_data_fields + [name for name, value in components.items() if value < 45.0])
+    )
 
     explanation = (
         "Seller strength combines level, social proof, responsiveness, delivery reliability, "
@@ -163,8 +182,12 @@ def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:
         source_id=payload.source_id,
         seller_id=payload.seller_id,
         score=score,
+        authority_score=round((components["level"] * 0.45) + (components["review_count"] * 0.55), 2),
         confidence=confidence,
         components=components,
+        reliability_signals=reliability_signals,
+        experience_indicators=experience_indicators,
+        weakness_markers=weakness_markers,
         warnings=warnings,
         explanation=explanation,
         missing_data_fields=sorted(missing_data_fields),

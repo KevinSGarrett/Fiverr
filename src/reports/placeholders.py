@@ -262,3 +262,81 @@ def build_runtime_diagnostics_markdown_table(
         rows.append("| diagnostics | unknown | warning | no categories were provided |")
     return "\n".join(rows)
 
+
+def _to_float_or_none(value: Any) -> float | None:
+    if isinstance(value, int | float):
+        return float(value)
+    return None
+
+
+def _sanitize_confidence(value: Any) -> float:
+    parsed = _to_float_or_none(value)
+    if parsed is None:
+        return 0.0
+    return max(0.0, min(1.0, round(parsed, 3)))
+
+
+def _sanitize_score(value: Any) -> float:
+    parsed = _to_float_or_none(value)
+    if parsed is None:
+        return 0.0
+    return max(0.0, min(100.0, round(parsed, 2)))
+
+
+def build_analysis_summary_rows(
+    stage_outputs: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Build compact, safe analysis summary rows for reports/exports."""
+    rows: list[dict[str, Any]] = []
+    warnings: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+
+    for index, output in enumerate(stage_outputs, start=1):
+        stage = str(output.get("stage", "unknown")).strip() or "unknown"
+        row_id = str(output.get("id", f"{stage}:{index}")).strip() or f"{stage}:{index}"
+        if row_id in seen_ids:
+            warnings.append(
+                {
+                    "code": "duplicate_identifier",
+                    "message": f"Duplicate analysis summary row id '{row_id}' was skipped.",
+                }
+            )
+            continue
+        seen_ids.add(row_id)
+
+        confidence_raw = output.get("confidence")
+        confidence = _sanitize_confidence(confidence_raw)
+        if confidence_raw is not None and confidence != confidence_raw:
+            warnings.append(
+                {
+                    "code": "confidence_clamped",
+                    "message": f"Confidence out of range for '{row_id}' was clamped.",
+                }
+            )
+
+        score_raw = output.get("score")
+        score = _sanitize_score(score_raw)
+        if score_raw is not None and score != score_raw:
+            warnings.append(
+                {
+                    "code": "score_clamped",
+                    "message": f"Score out of range for '{row_id}' was clamped.",
+                }
+            )
+
+        rows.append(
+            {
+                "id": row_id,
+                "stage": stage,
+                "status": str(output.get("status", "unknown")).strip() or "unknown",
+                "score": score,
+                "confidence": confidence,
+                "warning_count": int(output.get("warning_count", 0))
+                if isinstance(output.get("warning_count"), int)
+                else 0,
+                "source_id": str(output.get("source_id", "analysis-dry-run")).strip() or "analysis-dry-run",
+            }
+        )
+
+    return rows, warnings
+

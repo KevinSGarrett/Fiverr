@@ -7,6 +7,7 @@ from collections import Counter
 from src.analysis.contracts import (
     AnalysisEvidence,
     AnalysisReadinessStatus,
+    AnalysisTaskType,
     AnalysisWarning,
     ReviewAnalysisInput,
     ReviewAnalysisResult,
@@ -48,6 +49,9 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
                 code="reviews_missing",
                 message="No review snippets were provided for analysis.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.REVIEW_ANALYSIS,
+                remediation="Provide at least one sanitized review snippet.",
                 missing_data_fields=["reviews"],
             )
         )
@@ -55,8 +59,13 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
             source_id=payload.source_id,
             themes={},
             sentiment_hints={"positive": 0, "negative": 0, "neutral": 0},
+            sentiment_band="unknown",
             complaint_frequency={},
             praise_frequency={},
+            theme_list=[],
+            weakness_signals=[],
+            positive_signals=[],
+            sample_count=0,
             opportunity_gaps=[],
             confidence=0.1,
             warnings=warnings,
@@ -140,6 +149,9 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
                 code="review_text_redacted",
                 message="Sensitive-looking strings were redacted before theme aggregation.",
                 source_id=payload.source_id,
+                severity="info",
+                source_stage=AnalysisTaskType.REVIEW_ANALYSIS,
+                remediation="Review redaction-safe snippets if additional context is required.",
             )
         )
     if all(review.rating is None for review in payload.reviews):
@@ -149,9 +161,26 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
                 code="review_rating_missing",
                 message="Review ratings were missing; sentiment relied on text-only heuristics.",
                 source_id=payload.source_id,
+                severity="warning",
+                source_stage=AnalysisTaskType.REVIEW_ANALYSIS,
+                remediation="Include rating values in upstream review fixtures.",
                 missing_data_fields=["review.rating"],
             )
         )
+
+    negative_count = sentiment_counter.get("negative", 0)
+    positive_count = sentiment_counter.get("positive", 0)
+    if negative_count >= positive_count + 2:
+        sentiment_band = "negative"
+    elif positive_count >= negative_count + 2:
+        sentiment_band = "positive"
+    else:
+        sentiment_band = "mixed"
+
+    theme_list = [
+        {"theme": theme, "count": count, "signal": "weakness"}
+        for theme, count in top_complaints
+    ] + [{"theme": theme, "count": count, "signal": "positive"} for theme, count in top_praise]
 
     explanation = (
         "Review analysis aggregates complaint and praise themes from sanitized snippets to "
@@ -161,12 +190,17 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
         source_id=payload.source_id,
         themes=dict(sorted(themes.items())),
         sentiment_hints={
-            "positive": sentiment_counter.get("positive", 0),
-            "negative": sentiment_counter.get("negative", 0),
+            "positive": positive_count,
+            "negative": negative_count,
             "neutral": sentiment_counter.get("neutral", 0),
         },
+        sentiment_band=sentiment_band,
         complaint_frequency=dict(top_complaints),
         praise_frequency=dict(top_praise),
+        theme_list=theme_list,
+        weakness_signals=[theme for theme, _count in top_complaints],
+        positive_signals=[theme for theme, _count in top_praise],
+        sample_count=len(payload.reviews),
         opportunity_gaps=opportunity_gaps,
         confidence=confidence,
         warnings=warnings,

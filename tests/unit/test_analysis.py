@@ -73,6 +73,18 @@ def test_complete_fixture_schema_validation() -> None:
     assert isinstance(payload["intent"], dict)
 
 
+def test_sparse_data_fixture_matrix_empty_partial_malformed_complete() -> None:
+    empty_summary = run_analysis_dry_run(_load_analysis_fixture("empty_payload.json"))
+    partial_summary = run_analysis_dry_run(_load_analysis_fixture("partial_payload.json"))
+    malformed_summary = run_analysis_dry_run(_load_analysis_fixture("malformed_payload.json"))
+    complete_summary = run_analysis_dry_run(_load_analysis_fixture("complete_payload.json"))
+
+    assert empty_summary.status in {AnalysisStatus.SUCCESS, AnalysisStatus.PARTIAL}
+    assert partial_summary.status == AnalysisStatus.SUCCESS
+    assert malformed_summary.status in {AnalysisStatus.PARTIAL, AnalysisStatus.FAILED}
+    assert complete_summary.status == AnalysisStatus.SUCCESS
+
+
 def test_contracts_reject_invalid_ranges() -> None:
     with pytest.raises(ValidationError):
         SellerStrengthInput(
@@ -1100,6 +1112,141 @@ def test_scoring_readiness_helper_handles_sparse_and_complete_stage_sets() -> No
             "gig_quality",
         )
     )
+
+
+def test_keyword_cluster_contract_exposes_dashboard_fields() -> None:
+    result = cluster_keywords(
+        KeywordClusterInput(
+            source_id="kw-contract",
+            keywords=["python automation", "automation workflow", "seo audit"],
+        )
+    )
+    assert result.source_metadata["stage"] == "keyword_clustering"
+    assert result.clusters
+    first_cluster = result.clusters[0]
+    assert first_cluster.keyword_count >= 1
+    assert isinstance(first_cluster.representative_terms, list)
+
+
+def test_gig_quality_contract_exposes_quality_score_and_rubric_components() -> None:
+    result = score_gig_quality(
+        GigQualityInput(
+            source_id="gig-contract",
+            gig_id="gig-1",
+            title="I will build python automation",
+            description="Automation specialist with robust delivery process." * 4,
+            package_count=3,
+            rating=4.9,
+            review_count=110,
+            image_count=5,
+            has_faq=True,
+        )
+    )
+    assert result.quality_score == result.overall_score
+    assert result.rubric_components == result.component_scores
+    assert result.source_references == ["gig:gig-1"]
+
+
+def test_competitor_profile_contract_exposes_positioning_and_indicators() -> None:
+    result = profile_competitors(
+        CompetitorProfileInput(
+            source_id="comp-contract",
+            competitors=[
+                {
+                    "seller_id": "c1",
+                    "seller_level": "top_rated",
+                    "starting_price": 160.0,
+                    "rating": 4.9,
+                    "review_count": 500,
+                },
+                {
+                    "seller_id": "c2",
+                    "seller_level": "new",
+                    "starting_price": 50.0,
+                    "rating": 4.2,
+                    "review_count": 14,
+                },
+            ],
+        )
+    )
+    assert result.market_positioning in {"premium_skewed", "mid_market", "price_competitive", "unknown"}
+    assert "competitor_count" in result.seller_indicators
+    assert result.strengths
+    assert result.weaknesses
+
+
+def test_seller_strength_contract_exposes_authority_and_reliability_fields() -> None:
+    result = score_seller_strength(
+        SellerStrengthInput(
+            source_id="seller-contract",
+            seller_id="seller-1",
+            level="top rated",
+            rating=4.8,
+            review_count=300,
+            response_time="2 hours",
+            delivery_consistency=0.9,
+            active_gig_count=5,
+            languages=["English"],
+            account_tenure_months=36,
+        )
+    )
+    assert 0.0 <= result.authority_score <= 100.0
+    assert "response_time" in result.reliability_signals
+    assert "level" in result.experience_indicators
+    assert isinstance(result.weakness_markers, list)
+
+
+def test_saturation_contract_exposes_threshold_and_context_fields() -> None:
+    result = analyze_saturation(
+        SaturationInput(
+            source_id="sat-contract",
+            keyword_count=20,
+            search_result_count=1200,
+            competitor_count=18,
+            seller_strength_scores=[80.0, 78.0, 74.0],
+            prices=[80.0, 85.0, 83.0],
+            gig_quality_scores=[75.0, 78.0, 77.0],
+        )
+    )
+    assert result.saturation_score == result.score
+    assert result.threshold_band in {"high", "medium", "low", "unknown"}
+    assert "keyword_count" in result.source_context
+    assert result.rationale
+
+
+def test_review_contract_exposes_sentiment_band_and_theme_lists() -> None:
+    result = analyze_reviews(
+        ReviewAnalysisInput(
+            source_id="review-contract",
+            reviews=[
+                {"text": "Great communication and quality delivery.", "rating": 5.0},
+                {"text": "Fast delivery and great quality.", "rating": 5.0},
+                {"text": "Late delivery but good quality.", "rating": 3.0},
+            ],
+        )
+    )
+    assert result.sentiment_band in {"positive", "negative", "mixed", "unknown"}
+    assert result.sample_count == 3
+    assert isinstance(result.theme_list, list)
+    assert isinstance(result.positive_signals, list)
+    assert isinstance(result.weakness_signals, list)
+
+
+def test_orchestrator_exposes_normalized_warnings_stage_summary_and_output_registry() -> None:
+    summary = run_analysis_dry_run(_load_analysis_fixture("sparse_payload.json"))
+    assert "normalized_warnings" in summary.metadata
+    assert "stage_run_summary" in summary.metadata
+    assert "analysis_output_registry" in summary.metadata
+    normalized_warnings = summary.metadata["normalized_warnings"]
+    if normalized_warnings:
+        warning = normalized_warnings[0]
+        assert {"code", "severity", "message", "affected_field", "source_stage", "remediation"} <= set(
+            warning.keys()
+        )
+    stage_rows = summary.metadata["stage_run_summary"]
+    assert isinstance(stage_rows, list)
+    if stage_rows:
+        assert {"stage", "status", "inputs_consumed", "outputs_emitted", "warning_count"} <= set(stage_rows[0].keys())
 
 
 def test_orchestrator_dry_run_does_not_require_openai_api_key(

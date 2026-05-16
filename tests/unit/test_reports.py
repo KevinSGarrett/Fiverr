@@ -10,6 +10,7 @@ from src.exports import (
     ExportManifest,
     ExportRequest,
     build_csv_export,
+    build_analysis_export_summary,
     build_governance_export_status_map,
     build_governance_manifest_metadata,
     build_json_export,
@@ -50,6 +51,7 @@ from src.reports.placeholders import (
     JIRA_MAPPING_TYPES,
     JIRA_UPDATED_BY_VALUES,
     build_active_story_groups,
+    build_analysis_summary_rows,
 )
 
 
@@ -698,4 +700,52 @@ def test_runtime_diagnostics_markdown_table_renders_categories() -> None:
     assert "| app_readiness | ok | ok | ready |" in rendered
     assert "| alerts | warning | warning | review recommended |" in rendered
     assert "| integration_evidence | error | error | blocking |" in rendered
+
+
+def test_build_analysis_summary_rows_clamps_invalid_fields_and_skips_duplicates() -> None:
+    rows, warnings = build_analysis_summary_rows(
+        [
+            {
+                "id": "gig-1",
+                "stage": "gig_quality",
+                "status": "completed",
+                "score": 130,
+                "confidence": -0.2,
+                "warning_count": 1,
+                "source_id": "run-1",
+            },
+            {
+                "id": "gig-1",
+                "stage": "gig_quality",
+                "status": "completed",
+                "score": 80,
+                "confidence": 0.8,
+            },
+        ]
+    )
+    assert len(rows) == 1
+    assert rows[0]["score"] == 100.0
+    assert rows[0]["confidence"] == 0.0
+    assert any(item["code"] == "duplicate_identifier" for item in warnings)
+    assert any(item["code"] == "score_clamped" for item in warnings)
+    assert any(item["code"] == "confidence_clamped" for item in warnings)
+
+
+def test_build_analysis_export_summary_returns_rows_and_warnings() -> None:
+    summary = build_analysis_export_summary(
+        [
+            {
+                "id": "sat-1",
+                "stage": "saturation",
+                "status": "completed",
+                "score": 71.2,
+                "confidence": 0.81,
+                "warning_count": 0,
+                "source_id": "run-2",
+            }
+        ]
+    )
+    assert summary["row_count"] == 1
+    assert len(summary["rows"]) == 1
+    assert summary["warnings"] == []
 
