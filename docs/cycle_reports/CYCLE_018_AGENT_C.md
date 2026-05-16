@@ -107,7 +107,7 @@ Required validation block:
 
 ## Commit/Head Evidence
 
-- Final local SHA after commit: `recorded in final handoff message from git rev-parse HEAD`
+- Scoped analysis closure commit SHA: `0b72c103c18ba5d46624cfb6d7388989430bcf24`
 - Final branch at handoff: `cycle/018/integration`
 
 ## Risks / Blockers
