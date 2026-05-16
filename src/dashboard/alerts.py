@@ -143,7 +143,9 @@ def _build_run_alerts(run_history: list[dict[str, Any]], *, phase2_smoke: dict[s
 
     alerts: list[DashboardAlert] = []
     for row in run_history:
-        run_id = str(row.get("run_id", "unknown")).strip() or "unknown"
+        raw_run_id = row.get("run_id")
+        run_id = str(raw_run_id).strip() if raw_run_id is not None else ""
+        display_run_id = run_id or "unknown"
         status = str(row.get("status", "unknown")).strip().lower() or "unknown"
         warning_count = int(_to_float(row.get("warning_count")) or 0)
         stages = row.get("stages")
@@ -151,12 +153,12 @@ def _build_run_alerts(run_history: list[dict[str, Any]], *, phase2_smoke: dict[s
         if status in {"failed", "fail", "error", "blocked"}:
             alerts.append(
                 DashboardAlert(
-                    id=f"run-failed-stage-{run_id}",
+                    id=f"run-failed-stage-{display_run_id}",
                     type="failed_stage",
                     severity="critical",
-                    title=f"Run Failure: {run_id}",
+                    title=f"Run Failure: {display_run_id}",
                     explanation=f"Run reported status '{status}', indicating at least one failed stage.",
-                    source_context={"source": "run_history", "run_id": run_id},
+                    source_context={"source": "run_history", "run_id": display_run_id},
                     recommended_action="Inspect run logs and re-run failed stages with fixture-safe inputs.",
                     jira_key="SCRUM-219",
                     dismissible=False,
@@ -165,12 +167,12 @@ def _build_run_alerts(run_history: list[dict[str, Any]], *, phase2_smoke: dict[s
         if warning_count >= 3:
             alerts.append(
                 DashboardAlert(
-                    id=f"run-warning-heavy-{run_id}",
+                    id=f"run-warning-heavy-{display_run_id}",
                     type="warning_heavy_run",
                     severity="warning",
-                    title=f"Warning-Heavy Run: {run_id}",
+                    title=f"Warning-Heavy Run: {display_run_id}",
                     explanation=f"Run produced {warning_count} warnings and needs QA review.",
-                    source_context={"source": "run_history", "run_id": run_id},
+                    source_context={"source": "run_history", "run_id": display_run_id},
                     recommended_action="Review warnings and confirm no hidden blocking conditions remain.",
                     jira_key="SCRUM-237",
                     dismissible=True,
@@ -179,7 +181,7 @@ def _build_run_alerts(run_history: list[dict[str, Any]], *, phase2_smoke: dict[s
         if not run_id or not isinstance(stages, list) or len(stages) == 0:
             alerts.append(
                 DashboardAlert(
-                    id=f"run-missing-structure-{run_id or 'unknown'}",
+                    id=f"run-missing-structure-{display_run_id}",
                     type="missing_run_structure",
                     severity="error",
                     title="Run Record Missing Evidence Fields",

@@ -533,6 +533,18 @@ def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> No
     assert payload["ranking_cards"][0]["keyword_links"] == ["kw-logo-design", "kw-brand-kit"]
 
 
+def test_opportunities_payload_coerces_string_top_score_for_metric_card() -> None:
+    opportunities_module = importlib.import_module("src.dashboard.opportunities")
+    payload = opportunities_module.build_opportunities_payload(
+        records=[
+            {"id": "opp-1", "opportunity": "Logo", "score": "91.25", "status": "strong_go", "niche": "logo-design"},
+            {"id": "opp-2", "opportunity": "Resume", "score": 80, "status": "conditional_go", "niche": "career-services"},
+        ],
+        sort={"field": "score", "descending": True},
+    )
+    assert payload["metric_cards"][1]["value"] == "91.2"
+
+
 def test_opportunities_payload_empty_state_explains_missing_upstream_data() -> None:
     opportunities_module = importlib.import_module("src.dashboard.opportunities")
     payload = opportunities_module.build_opportunities_payload(records=None)
@@ -573,6 +585,17 @@ def test_run_history_payload_includes_severity_mapping_and_stage_details() -> No
     assert first_row["severity"] == "ok"
     assert first_row["stage_names"] == ["collection", "analysis", "reporting"]
     assert payload["status_cards"][0]["severity_label"] in {"Pass", "Warning", "Unknown"}
+
+
+def test_alert_rules_emit_missing_run_structure_when_run_id_absent() -> None:
+    alerts_module = importlib.import_module("src.dashboard.alerts")
+    alerts = alerts_module.build_dashboard_alerts(
+        run_history=[
+            {"status": "pass", "warning_count": 0, "stages": [{"name": "analysis"}]},
+        ]
+    )
+    alert_types = {row["type"] for row in alerts}
+    assert "missing_run_structure" in alert_types
 
 
 def test_run_history_severity_mapping_handles_all_required_statuses() -> None:

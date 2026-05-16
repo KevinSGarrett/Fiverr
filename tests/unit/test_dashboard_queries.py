@@ -94,3 +94,18 @@ def test_app_readiness_query_returns_blocked_page_warning() -> None:
     assert result.context.status == "warning"
     assert result.records[0]["blocked_pages"] == ["keywords"]
     assert "Run phase2-smoke" in result.records[0]["next_actions"]
+
+
+def test_query_sort_handles_mixed_numeric_and_string_values_without_type_errors() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.opportunities(
+        records=[
+            {"opportunity": "A", "score": 88},
+            {"opportunity": "B", "score": "87.5"},
+            {"opportunity": "C", "score": "unknown"},
+            {"opportunity": "D", "score": None},
+        ],
+        sort={"field": "score", "descending": True},
+    )
+    assert [row["opportunity"] for row in result.records[:2]] == ["A", "B"]
+    assert result.context.status == "ok"

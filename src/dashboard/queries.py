@@ -423,11 +423,22 @@ def _apply_sort(records: list[dict[str, Any]], sort: dict[str, Any]) -> list[dic
         )
     field = _normalize_optional_string(sort.get("field")) or "score"
     descending = bool(sort.get("descending", True))
-    return sorted(
-        records,
-        key=lambda row: _sortable_value(row.get(field)),
-        reverse=descending,
-    )
+    numeric_rows: list[tuple[float, dict[str, Any]]] = []
+    textual_rows: list[dict[str, Any]] = []
+    missing_rows: list[dict[str, Any]] = []
+    for row in records:
+        raw_value = row.get(field)
+        numeric_value = _to_float(raw_value)
+        if numeric_value is not None:
+            numeric_rows.append((numeric_value, row))
+            continue
+        if raw_value is None:
+            missing_rows.append(row)
+            continue
+        textual_rows.append(row)
+    numeric_sorted = [row for _, row in sorted(numeric_rows, key=lambda item: item[0], reverse=descending)]
+    textual_sorted = sorted(textual_rows, key=lambda row: str(row.get(field)).lower(), reverse=descending)
+    return [*numeric_sorted, *textual_sorted, *missing_rows]
 
 
 def _slice_records(
@@ -513,9 +524,3 @@ def _to_float_value(value: Any) -> float:
     return converted
 
 
-def _sortable_value(value: Any) -> tuple[int, Any]:
-    if value is None:
-        return (1, "")
-    if isinstance(value, int | float):
-        return (0, float(value))
-    return (0, str(value).lower())

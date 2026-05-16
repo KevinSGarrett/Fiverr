@@ -37,7 +37,7 @@ def build_opportunities_payload(
             {
                 "card_id": "top_score",
                 "label": "Top Score",
-                "value": f"{rows[0].get('score', 0):.1f}" if rows else "0.0",
+                "value": _format_score_for_metric(rows[0].get("score")) if rows else "0.0",
                 "status_badge": rows[0].get("status", "unknown") if rows else "unknown",
             },
         ]
@@ -100,4 +100,13 @@ def build_opportunities_payload(
         "pagination": context["pagination"],
         "next_actions": context["next_actions"],
     }
+
+
+def _format_score_for_metric(value: Any) -> str:
+    if value is None:
+        return "0.0"
+    try:
+        return f"{float(value):.1f}"
+    except (TypeError, ValueError):
+        return "0.0"
 
