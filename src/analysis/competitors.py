@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections import Counter
 from statistics import median
 
-from src.analysis.contracts import AnalysisWarning, CompetitorProfileInput, CompetitorProfileResult
+from src.analysis.contracts import (
+    AnalysisEvidence,
+    AnalysisReadinessStatus,
+    AnalysisWarning,
+    CompetitorProfileInput,
+    CompetitorProfileResult,
+)
 
 
 def _band_for_price(price: float) -> str:
@@ -44,6 +50,17 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
             missing_data_fields=["competitors"],
             warnings=warnings,
             metadata=payload.metadata,
+            status=AnalysisReadinessStatus.SKIPPED,
+            source_context={"competitor_count": 0},
+            evidence=[
+                AnalysisEvidence(
+                    code="competitor_count",
+                    message="No competitor rows were available for profiling.",
+                    metric=0.0,
+                    source_ref="competitors",
+                )
+            ],
+            downstream_readiness={"status": "blocked", "reasons": ["competitors_missing"]},
         )
 
     level_counter = Counter((entry.seller_level or "unknown").lower() for entry in competitors)
@@ -145,4 +162,33 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
         missing_data_fields=missing_data_fields,
         warnings=warnings,
         metadata=payload.metadata,
+        status=(
+            AnalysisReadinessStatus.READY
+            if len(competitors) >= 3
+            else AnalysisReadinessStatus.PARTIAL
+        ),
+        source_context={
+            "competitor_count": len(competitors),
+            "has_rating_signals": bool(ratings),
+            "has_review_signals": bool(reviews),
+            "has_price_signals": bool(prices),
+        },
+        evidence=[
+            AnalysisEvidence(
+                code="competition_intensity_score",
+                message="Deterministic competition intensity from seller, rating, and review signals.",
+                metric=competition_intensity_score,
+                source_ref="competitors",
+            ),
+            AnalysisEvidence(
+                code="high_authority_ratio",
+                message="Ratio of high-authority sellers in competitor sample.",
+                metric=round(strong_ratio, 3),
+                source_ref="competitors",
+            ),
+        ],
+        downstream_readiness={
+            "status": "ready" if len(competitors) >= 3 else "partial",
+            "reasons": [] if len(competitors) >= 3 else ["limited_competitor_sample"],
+        },
     )

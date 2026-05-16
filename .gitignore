@@ -20,6 +20,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .coverage
+coverage.xml
 htmlcov/
 
 # Runtime and generated data
@@ -36,6 +37,7 @@ data/**/*.sqlite3
 data/**/*.log
 logs/
 *.log
+PM_Pack*.zip
 
 # Browser/session files
 playwright/.auth/

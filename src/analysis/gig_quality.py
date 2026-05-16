@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from src.analysis.contracts import AnalysisWarning, GigQualityInput, GigQualityResult
+from src.analysis.contracts import (
+    AnalysisEvidence,
+    AnalysisReadinessStatus,
+    AnalysisWarning,
+    GigQualityInput,
+    GigQualityResult,
+)
 
 ScoreFn = Callable[[GigQualityInput], float]
 
@@ -151,4 +157,34 @@ def score_gig_quality(payload: GigQualityInput) -> GigQualityResult:
         missing_data_fields=missing_data_fields,
         warnings=warnings,
         metadata=payload.metadata,
+        status=(
+            AnalysisReadinessStatus.READY
+            if completeness_ratio >= 0.85
+            else AnalysisReadinessStatus.PARTIAL
+            if completeness_ratio >= 0.45
+            else AnalysisReadinessStatus.BLOCKED
+        ),
+        source_context={
+            "gig_id": payload.gig_id,
+            "provided_fields": 7 - len(missing_data_fields),
+            "expected_fields": 7,
+        },
+        evidence=[
+            AnalysisEvidence(
+                code="overall_score",
+                message="Weighted deterministic rubric score for gig quality.",
+                metric=overall_score,
+                source_ref=payload.gig_id,
+            ),
+            AnalysisEvidence(
+                code="completeness_ratio",
+                message="Completeness of required quality rubric fields.",
+                metric=round(completeness_ratio, 3),
+                source_ref="gig",
+            ),
+        ],
+        downstream_readiness={
+            "status": "ready" if completeness_ratio >= 0.85 else "partial",
+            "reasons": [] if not missing_data_fields else ["missing_rubric_fields"],
+        },
     )

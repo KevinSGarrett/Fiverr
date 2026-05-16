@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from src.analysis.clustering import cluster_keywords
 from src.analysis.competitors import profile_competitors
 from src.analysis.contracts import (
+    AnalysisReadinessStatus,
     AnalysisRunSummary,
     AnalysisStageSummary,
     AnalysisStatus,
@@ -30,9 +31,20 @@ from src.analysis.contracts import (
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
 from src.analysis.orchestrator import run_analysis_dry_run, summarize_scoring_readiness
+from src.analysis.persistence import persist_analysis_run_summary
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import score_seller_strength
+from src.models.analysis import AnalysisResult, AnalysisRun
+from src.models.database import build_engine, create_session_factory
+from src.models.runtime import RunLog
+from tests.fixtures.analysis.factories import (
+    make_complete_market_payload,
+    make_empty_upstream_payload,
+    make_missing_reviews_payload,
+    make_missing_seller_payload,
+    make_sparse_gig_only_payload,
+)
 
 EXPECTED_STAGE_ORDER = [
     AnalysisTaskType.KEYWORD_CLUSTERING.value,
@@ -1324,3 +1336,122 @@ def test_orchestrator_scoring_readiness_exposes_future_contract_mapping() -> Non
     assert "conversion_intent_scoring" in interfaces
     assert "trend_scoring" in interfaces
     assert readiness["interface_statuses"]["confidence_scoring"] in {"ready", "sparse", "blocked", "empty"}
+
+
+def test_fixture_factories_provide_required_analysis_shapes() -> None:
+    complete_payload = make_complete_market_payload()
+    assert complete_payload["keywords"]
+    assert complete_payload["competitors"]
+    assert complete_payload["reviews"]
+
+    sparse_payload = make_sparse_gig_only_payload()
+    assert sparse_payload["gig"]["gig_id"] == "gig-factory-sparse"
+
+    missing_seller_payload = make_missing_seller_payload()
+    assert "seller" not in missing_seller_payload
+    assert "sellers" not in missing_seller_payload
+
+    missing_reviews_payload = make_missing_reviews_payload()
+    assert "reviews" not in missing_reviews_payload
+
+    empty_payload = make_empty_upstream_payload()
+    assert sorted(empty_payload.keys()) == ["run_id", "source_id"]
+
+
+def test_intent_invalid_mock_label_degrades_with_warning() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation support",
+            metadata={"mock_label": "out_of_taxonomy"},
+        )
+    )
+    assert result.label == IntentLabel.AMBIGUOUS
+    assert result.warnings
+    assert any(warning.code == "intent_mock_label_invalid" for warning in result.warnings)
+    assert result.status in {AnalysisReadinessStatus.PARTIAL, AnalysisReadinessStatus.BLOCKED}
+
+
+def test_intent_valid_mock_label_is_accepted_for_deterministic_path() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="need automation support",
+            metadata={"mock_label": "buyer_ready"},
+        )
+    )
+    assert result.label == IntentLabel.BUYER_READY
+    assert result.status == AnalysisReadinessStatus.PARTIAL
+    assert result.downstream_readiness["status"] == "partial"
+
+
+def test_intent_nullish_keyword_degrades_to_unknown_low_confidence() -> None:
+    result = classify_intent(
+        IntentInput(
+            source_id="intent-src",
+            keyword_text="null",
+            title_phrases=[],
+        )
+    )
+    assert result.label == IntentLabel.UNKNOWN
+    assert result.confidence <= 0.2
+    assert any(warning.code == "intent_keyword_nullish" for warning in result.warnings)
+
+
+def test_analysis_results_include_shared_envelope_fields_and_persistence_dict() -> None:
+    payload = make_complete_market_payload()
+    summary = run_analysis_dry_run(payload)
+    intent_stage = _stage_by_type(summary, AnalysisTaskType.INTENT_CLASSIFICATION)
+    assert intent_stage.readiness_status in {
+        AnalysisReadinessStatus.READY,
+        AnalysisReadinessStatus.PARTIAL,
+        AnalysisReadinessStatus.BLOCKED,
+        AnalysisReadinessStatus.SKIPPED,
+    }
+
+    quality = score_gig_quality(
+        GigQualityInput(
+            source_id="gig-src",
+            gig_id="serialize-gig",
+            title="I will build python automation",
+            description="Deterministic quality contract payload." * 10,
+            package_count=2,
+            rating=4.8,
+            review_count=35,
+            image_count=3,
+            has_faq=True,
+        )
+    )
+    persisted = quality.to_persistence_dict()
+    assert "status" in persisted
+    assert "source_context" in persisted
+    assert "evidence" in persisted
+    assert "downstream_readiness" in persisted
+
+
+def test_analysis_run_summary_can_be_persisted_to_database(tmp_path: Path) -> None:
+    payload = make_complete_market_payload()
+    summary = run_analysis_dry_run(payload)
+    db_path = tmp_path / "analysis_persist.sqlite3"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    persisted = persist_analysis_run_summary(summary, database_url=db_url)
+    assert persisted["persisted_stage_count"] == len(summary.stages)
+    assert persisted["persisted_log_count"] == len(summary.stages) + 1
+
+    engine = build_engine(db_url)
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        assert session.query(AnalysisRun).count() == 1
+        assert session.query(AnalysisResult).count() == len(summary.stages)
+        assert session.query(RunLog).count() == len(summary.stages) + 1
+
+
+def test_orchestrator_stage_log_summary_and_dashboard_handoff_contract_present() -> None:
+    summary = run_analysis_dry_run(make_complete_market_payload())
+    stage_logs = summary.metadata["stage_log_summary"]
+    assert len(stage_logs) == len(summary.stages)
+    assert all("duration_ms" in log_row for log_row in stage_logs)
+    dashboard_contract = summary.metadata["dashboard_handoff_contract"]
+    assert "opportunity_cards" in dashboard_contract
+    assert "keyword_table" in dashboard_contract
+    assert "run_history" in dashboard_contract

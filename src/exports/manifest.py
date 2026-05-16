@@ -21,10 +21,16 @@ class ExportManifest:
     format: ExportFormat | str
     source_cycle: str
     path: str
+    schema_version: str = "1.0"
+    record_count: int = 0
     included_sections: tuple[str, ...] = ()
     generated_at: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
     checksum: str = CHECKSUM_PLACEHOLDER
     allow_pending_checksum: bool = True
+    source_context: dict[str, object] = field(default_factory=dict)
+    sparse_data: bool = False
+    sparse_data_behavior: str = "include_metadata_and_warnings"
+    warnings: tuple[str, ...] = ()
     jira_keys: tuple[str, ...] = ()
     github_pr_number: int | None = None
     codex_threads_resolved: int = 0
@@ -45,6 +51,10 @@ class ExportManifest:
             raise ValueError("source_cycle is required.")
         if not self.path.strip():
             raise ValueError("path is required.")
+        if not self.schema_version.strip():
+            raise ValueError("schema_version is required.")
+        if self.record_count < 0:
+            raise ValueError("record_count must be zero or greater.")
         normalized_path = PurePosixPath(self.path.replace("\\", "/"))
         if normalized_path.is_absolute():
             raise ValueError("path must be relative to the repository artifact directories.")
@@ -61,6 +71,8 @@ class ExportManifest:
             raise ValueError("checksum must be 'pending:sha256' or prefixed with 'sha256:'.")
         if self.checksum.startswith("sha256:") and len(self.checksum) <= len("sha256:"):
             raise ValueError("checksum digest is missing after 'sha256:'.")
+        if ".." in self.sparse_data_behavior:
+            raise ValueError("sparse_data_behavior must not contain path traversal tokens.")
 
         normalized_metadata = build_governance_manifest_metadata(
             jira_keys=self.jira_keys,
@@ -98,8 +110,14 @@ class ExportManifest:
             "source_cycle": self.source_cycle,
             "generated_at": self.generated_at,
             "path": self.path,
+            "schema_version": self.schema_version,
+            "record_count": self.record_count,
             "checksum": self.checksum,
             "allow_pending_checksum": self.allow_pending_checksum,
+            "source_context": dict(self.source_context),
+            "sparse_data": self.sparse_data,
+            "sparse_data_behavior": self.sparse_data_behavior,
+            "warnings": list(self.warnings),
             "included_sections": list(self.included_sections),
             "jira_keys": list(self.jira_keys),
             "github_pr_number": self.github_pr_number,

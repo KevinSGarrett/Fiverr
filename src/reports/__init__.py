@@ -1,9 +1,11 @@
 """Reporting package exports."""
 
 from src.reports.placeholders import (
+    DEFAULT_VALIDATION_COMMANDS,
     GOVERNANCE_REPORT_ORDER,
     ReportPlaceholder,
     build_governance_report_placeholders,
+    build_integration_evidence_summary,
     build_jira_mapping_table,
 )
 from src.reports.run_summary import (
@@ -56,6 +58,8 @@ __all__ = [
     "RunSummary",
     "build_jira_mapping_table",
     "build_governance_report_placeholders",
+    "build_integration_evidence_summary",
+    "DEFAULT_VALIDATION_COMMANDS",
     "build_cycle003_report_bundle",
     "build_default_template",
     "build_phase2_readiness_template",

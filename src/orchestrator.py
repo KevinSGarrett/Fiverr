@@ -40,6 +40,33 @@ PHASE2_EXPECTED_GATES = (
 )
 
 
+def build_dashboard_readiness_handoff(
+    app_entry_smoke: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return dashboard readiness handoff contract for orchestration/reporting."""
+    smoke_state = dict(app_entry_smoke or {})
+    startup = dict(smoke_state.get("startup", {}))
+    readiness = dict(smoke_state.get("readiness", {}))
+    registration = dict(smoke_state.get("page_registration", {}))
+    blocked_pages = list(readiness.get("blocked_pages", []))
+    if not blocked_pages:
+        blocked_pages = list(registration.get("missing_pages", []))
+    warning_count = int(startup.get("warning_count", 0))
+    next_actions = list(readiness.get("next_actions", []))
+    if not next_actions:
+        next_actions.append("Run dashboard smoke checks and publish readiness evidence.")
+    stage_status = str(readiness.get("severity", smoke_state.get("status", "warning")))
+    return {
+        "phase": "dashboard-readiness",
+        "stage_status": stage_status,
+        "startup_status": startup.get("status", "warning"),
+        "warning_count": warning_count,
+        "blocked_pages": blocked_pages,
+        "registration_status": registration.get("status", "blocked"),
+        "next_actions": next_actions,
+    }
+
+
 def run_init_db(database_url: str | None = None) -> int:
     return init_db_script_main(database_url=database_url)
 
@@ -98,6 +125,7 @@ def run_dashboard_stub(mode: str) -> int:
     app_entry_smoke = dashboard_module.build_app_entry_smoke_state()
     registration = app_entry_smoke["page_registration"]
     startup = app_entry_smoke["startup"]
+    handoff = build_dashboard_readiness_handoff(app_entry_smoke)
     print(
         f"Dashboard command accepted in '{normalized}' mode. "
         "Interactive dashboard runtime is scheduled for Epic 09."
@@ -105,6 +133,7 @@ def run_dashboard_stub(mode: str) -> int:
     print(f"Dashboard app-entry module: {app_entry_smoke['entry']['entry_module']}")
     print(f"Dashboard registration status: {registration['status']}")
     print(f"Dashboard startup status: {startup['status']}")
+    print(f"Dashboard readiness stage status: {handoff['stage_status']}")
     if registration["missing_pages"]:
         missing = ", ".join(registration["missing_pages"])
         print(f"Dashboard app-entry missing registered pages: {missing}")
@@ -181,6 +210,7 @@ def run_analysis_dry_run(
     fixture_path: str,
     output_path: str,
     sample_size: int,
+    database_url: str | None = None,
 ) -> int:
     payload = _load_fixture_payload(fixture_path)
     if payload is None:
@@ -198,12 +228,30 @@ def run_analysis_dry_run(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(result.model_dump_json(indent=2), encoding="utf-8")
 
+    persistence_details: dict[str, Any] | None = None
+    if database_url:
+        persistence_module = importlib.import_module("src.analysis.persistence")
+        persistence_details = persistence_module.persist_analysis_run_summary(
+            result,
+            database_url=database_url,
+            mode="analysis-dry-run",
+        )
+
     status = str(result.status).lower()
     if status.endswith("failed"):
         print(f"Analysis dry-run failed. Output written to {output}")
         return 1
 
-    print(f"Analysis dry-run OK: status={result.status}, stages={len(result.stages)}, output={output}")
+    persisted_suffix = ""
+    if persistence_details is not None:
+        persisted_suffix = (
+            f", persisted_run_id={persistence_details['run_table_id']},"
+            f" persisted_stage_count={persistence_details['persisted_stage_count']}"
+        )
+    print(
+        f"Analysis dry-run OK: status={result.status}, stages={len(result.stages)}, output={output}"
+        f"{persisted_suffix}"
+    )
     return 0
 
 
@@ -240,6 +288,14 @@ def build_phase2_smoke_metadata() -> dict[str, Any]:
         "expected_gates": list(PHASE2_EXPECTED_GATES),
         "jira_mapping_required": True,
         "codex_disposition_required": True,
+        "dashboard_handoff_required": True,
+        "dashboard_handoff_fields": [
+            "stage_status",
+            "startup_status",
+            "warning_count",
+            "blocked_pages",
+            "next_actions",
+        ],
     }
 
 

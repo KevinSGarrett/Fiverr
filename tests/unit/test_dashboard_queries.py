@@ -1,0 +1,111 @@
+"""Unit tests for dashboard query-layer contracts and sparse-data behavior."""
+
+from __future__ import annotations
+
+from src.dashboard.contracts import FreshnessMetadata, SourceContext
+from src.dashboard.query_layer import get_dashboard_query_layer
+
+
+def test_query_layer_exposes_filter_and_sort_descriptors() -> None:
+    layer = get_dashboard_query_layer()
+    filter_keys = [descriptor.key for descriptor in layer.filter_descriptors()]
+    sort_keys = [descriptor.key for descriptor in layer.sort_descriptors()]
+    assert {"status", "niche", "confidence_min", "score_min", "limit", "offset"} <= set(filter_keys)
+    assert {"score", "confidence", "generated_at", "run_id"} <= set(sort_keys)
+
+
+def test_opportunity_query_applies_filters_sort_and_pagination() -> None:
+    layer = get_dashboard_query_layer()
+    records = [
+        {"opportunity": "A", "status": "ready", "niche": "seo", "score": 88, "confidence": 0.9},
+        {"opportunity": "B", "status": "ready", "niche": "seo", "score": 81, "confidence": 0.6},
+        {"opportunity": "C", "status": "blocked", "niche": "design", "score": 95, "confidence": 0.4},
+    ]
+    result = layer.opportunities(
+        records=records,
+        filters={"status": "ready", "niche": "seo", "confidence_min": 0.7},
+        sort={"field": "score", "descending": True},
+        limit=1,
+        offset=0,
+        freshness=FreshnessMetadata(freshness_status="fresh", generated_at="2026-05-15T17:45:00Z"),
+    )
+    assert result.total_count == 1
+    assert len(result.records) == 1
+    assert result.records[0]["opportunity"] == "A"
+    assert result.context.pagination is not None
+    assert result.context.pagination.truncated is False
+    assert result.context.freshness.freshness_status == "fresh"
+
+
+def test_query_layer_sparse_data_returns_warning_instead_of_exception() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.keywords(records=None, limit=25, offset=0)
+    assert result.records == ()
+    assert result.context.status == "warning"
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert {"missing_records", "empty_result"} <= warning_codes
+    assert result.context.empty_state is True
+
+
+def test_query_layer_coerces_negative_limit_and_offset() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.run_history(
+        records=[{"run_id": "run-001", "score": 1.0}],
+        limit=-5,
+        offset=-1,
+    )
+    assert result.context.pagination is not None
+    assert result.context.pagination.limit == 0
+    assert result.context.pagination.offset == 0
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert {"invalid_limit", "invalid_offset"} <= warning_codes
+
+
+def test_query_layer_preserves_source_and_freshness_traceability() -> None:
+    layer = get_dashboard_query_layer()
+    summary = layer.source_freshness_summary(
+        source_contexts=[
+            SourceContext(
+                source_name="fiverr_snapshot",
+                source_type="fixture",
+                generated_at="2026-05-15T16:00:00Z",
+                confidence_source="analysis_model_v2",
+            )
+        ],
+        freshness_metadata=[FreshnessMetadata(freshness_status="stale", generated_at="2026-05-14T20:00:00Z")],
+    )
+    assert summary.total_count == 1
+    row = summary.records[0]
+    assert row["source_name"] == "fiverr_snapshot"
+    assert row["freshness_status"] == "stale"
+    assert row["confidence_source"] == "analysis_model_v2"
+
+
+def test_app_readiness_query_returns_blocked_page_warning() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.app_readiness(
+        page_registry=[
+            {"page_id": "overview", "status": "ready"},
+            {"page_id": "keywords", "status": "blocked"},
+        ],
+        startup_diagnostics={"status": "warning", "warning_count": 1},
+        orchestrator_handoff={"stage_status": "warning", "next_actions": ["Run phase2-smoke"]},
+    )
+    assert result.context.status == "warning"
+    assert result.records[0]["blocked_pages"] == ["keywords"]
+    assert "Run phase2-smoke" in result.records[0]["next_actions"]
+
+
+def test_query_sort_handles_mixed_numeric_and_string_values_without_type_errors() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.opportunities(
+        records=[
+            {"opportunity": "A", "score": 88},
+            {"opportunity": "B", "score": "87.5"},
+            {"opportunity": "C", "score": "unknown"},
+            {"opportunity": "D", "score": None},
+        ],
+        sort={"field": "score", "descending": True},
+    )
+    assert [row["opportunity"] for row in result.records[:2]] == ["A", "B"]
+    assert result.context.status == "ok"

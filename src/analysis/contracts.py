@@ -33,7 +33,47 @@ class AnalysisStatus(StrEnum):
     FAILED = "failed"
 
 
-class AnalysisError(BaseModel):
+class AnalysisReadinessStatus(StrEnum):
+    """Downstream readiness status shared by analysis outputs."""
+
+    READY = "ready"
+    PARTIAL = "partial"
+    SKIPPED = "skipped"
+    BLOCKED = "blocked"
+
+
+class AnalysisEvidence(BaseModel):
+    """Source-traceable evidence row for persistence and dashboard consumption."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    source_ref: str | None = None
+    metric: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnalysisPersistenceModel(BaseModel):
+    """Base model providing a JSON-safe serialization helper."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    def to_persistence_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary for persistence layers."""
+        return self.model_dump(mode="json")
+
+
+class AnalysisResultEnvelope(AnalysisPersistenceModel):
+    """Shared output envelope for analysis contracts."""
+
+    status: AnalysisReadinessStatus = AnalysisReadinessStatus.READY
+    source_context: dict[str, Any] = Field(default_factory=dict)
+    evidence: list[AnalysisEvidence] = Field(default_factory=list)
+    downstream_readiness: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnalysisError(AnalysisPersistenceModel):
     """Sanitized error payload for analysis-facing boundaries."""
 
     model_config = ConfigDict(extra="forbid")
@@ -47,7 +87,7 @@ class AnalysisError(BaseModel):
         return cls(code=code, message=redact_sensitive_text(str(exc)))
 
 
-class AnalysisWarning(BaseModel):
+class AnalysisWarning(AnalysisPersistenceModel):
     """Non-fatal warning produced during analysis calculations."""
 
     model_config = ConfigDict(extra="forbid")
@@ -59,7 +99,7 @@ class AnalysisWarning(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class ClusterEntry(BaseModel):
+class ClusterEntry(AnalysisPersistenceModel):
     """Keyword cluster details for deterministic clustering output."""
 
     model_config = ConfigDict(extra="forbid")
@@ -72,7 +112,7 @@ class ClusterEntry(BaseModel):
     explanation: str = Field(min_length=1)
 
 
-class KeywordClusterInput(BaseModel):
+class KeywordClusterInput(AnalysisPersistenceModel):
     """Input contract for local keyword clustering."""
 
     model_config = ConfigDict(extra="forbid")
@@ -83,10 +123,8 @@ class KeywordClusterInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class KeywordClusterResult(BaseModel):
+class KeywordClusterResult(AnalysisResultEnvelope):
     """Output contract for keyword clustering stage."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     clusters: list[ClusterEntry] = Field(default_factory=list)
@@ -97,7 +135,7 @@ class KeywordClusterResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class GigQualityInput(BaseModel):
+class GigQualityInput(AnalysisPersistenceModel):
     """Input contract for deterministic gig quality scoring."""
 
     model_config = ConfigDict(extra="forbid")
@@ -114,10 +152,8 @@ class GigQualityInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class GigQualityResult(BaseModel):
+class GigQualityResult(AnalysisResultEnvelope):
     """Output contract for gig quality rubric scoring."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     gig_id: str = Field(min_length=1)
@@ -141,7 +177,7 @@ class GigQualityResult(BaseModel):
         return self
 
 
-class CompetitorListingInput(BaseModel):
+class CompetitorListingInput(AnalysisPersistenceModel):
     """Single competitor listing/seller observation."""
 
     model_config = ConfigDict(extra="forbid")
@@ -155,7 +191,7 @@ class CompetitorListingInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class CompetitorProfileInput(BaseModel):
+class CompetitorProfileInput(AnalysisPersistenceModel):
     """Input contract for competitor profile pre-model analysis."""
 
     model_config = ConfigDict(extra="forbid")
@@ -165,10 +201,8 @@ class CompetitorProfileInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class CompetitorProfileResult(BaseModel):
+class CompetitorProfileResult(AnalysisResultEnvelope):
     """Output contract for competitor profile stage."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     competition_intensity_score: float = Field(ge=0.0, le=100.0)
@@ -185,7 +219,7 @@ class CompetitorProfileResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class SellerStrengthInput(BaseModel):
+class SellerStrengthInput(AnalysisPersistenceModel):
     """Input contract for deterministic seller-strength scoring."""
 
     model_config = ConfigDict(extra="forbid")
@@ -203,10 +237,8 @@ class SellerStrengthInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class SellerStrengthResult(BaseModel):
+class SellerStrengthResult(AnalysisResultEnvelope):
     """Output contract for seller-strength scoring."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     seller_id: str = Field(min_length=1)
@@ -237,7 +269,7 @@ class SaturationLevel(StrEnum):
     UNKNOWN = "unknown"
 
 
-class SaturationInput(BaseModel):
+class SaturationInput(AnalysisPersistenceModel):
     """Input contract for deterministic saturation analysis."""
 
     model_config = ConfigDict(extra="forbid")
@@ -265,10 +297,8 @@ class SaturationInput(BaseModel):
         return self
 
 
-class SaturationResult(BaseModel):
+class SaturationResult(AnalysisResultEnvelope):
     """Output contract for deterministic saturation analysis."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     saturation_level: SaturationLevel
@@ -290,7 +320,7 @@ class SaturationResult(BaseModel):
         return self
 
 
-class ReviewSnippetInput(BaseModel):
+class ReviewSnippetInput(AnalysisPersistenceModel):
     """Sanitized review snippet payload."""
 
     model_config = ConfigDict(extra="forbid")
@@ -300,7 +330,7 @@ class ReviewSnippetInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class ReviewAnalysisInput(BaseModel):
+class ReviewAnalysisInput(AnalysisPersistenceModel):
     """Input contract for local review-theme analysis."""
 
     model_config = ConfigDict(extra="forbid")
@@ -310,10 +340,8 @@ class ReviewAnalysisInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class ReviewAnalysisResult(BaseModel):
+class ReviewAnalysisResult(AnalysisResultEnvelope):
     """Output contract for aggregate review analysis."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     themes: dict[str, int] = Field(default_factory=dict)
@@ -336,9 +364,10 @@ class IntentLabel(StrEnum):
     LOW_INTENT = "low_intent"
     SERVICE_PROVIDER = "service_provider"
     AMBIGUOUS = "ambiguous"
+    UNKNOWN = "unknown"
 
 
-class IntentInput(BaseModel):
+class IntentInput(AnalysisPersistenceModel):
     """Input contract for intent classification."""
 
     model_config = ConfigDict(extra="forbid")
@@ -349,10 +378,8 @@ class IntentInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class IntentResult(BaseModel):
+class IntentResult(AnalysisResultEnvelope):
     """Output contract for deterministic intent classification."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
     keyword_text: str = Field(min_length=1)
@@ -364,13 +391,15 @@ class IntentResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class AnalysisStageSummary(BaseModel):
+class AnalysisStageSummary(AnalysisPersistenceModel):
     """Summary for one stage run in an orchestrated dry-run."""
 
     model_config = ConfigDict(extra="forbid")
 
     stage: AnalysisTaskType
     status: AnalysisStatus
+    readiness_status: AnalysisReadinessStatus = AnalysisReadinessStatus.READY
+    readiness_reasons: list[str] = Field(default_factory=list)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
     error: AnalysisError | None = None
     result_type: (
@@ -389,7 +418,7 @@ class AnalysisStageSummary(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class AnalysisRunSummary(BaseModel):
+class AnalysisRunSummary(AnalysisPersistenceModel):
     """Dry-run orchestrator result spanning all analysis stages."""
 
     model_config = ConfigDict(extra="forbid")

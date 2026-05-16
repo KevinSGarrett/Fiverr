@@ -9,13 +9,17 @@ from src.exports import (
     ExportFormat,
     ExportManifest,
     ExportRequest,
+    build_csv_export,
     build_governance_export_status_map,
     build_governance_manifest_metadata,
+    build_json_export,
+    build_markdown_export,
     normalize_export_format,
     validate_export_format,
     validate_export_request,
 )
 from src.reports import (
+    DEFAULT_VALIDATION_COMMANDS,
     GOVERNANCE_REPORT_ORDER,
     PENDING_PLACEHOLDER,
     PHASE2_REQUIRED_SECTION_TITLES,
@@ -34,6 +38,7 @@ from src.reports import (
     SellerProfileParserCoverageReport,
     build_default_template,
     build_governance_report_placeholders,
+    build_integration_evidence_summary,
     build_jira_mapping_table,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
@@ -94,6 +99,9 @@ def test_export_manifest_is_serializable() -> None:
     assert serialized["codecov_project_status"] == "pending"
     assert serialized["codecov_patch_status"] == "pending"
     assert serialized["coverage_percent"] is None
+    assert serialized["schema_version"] == "1.0"
+    assert serialized["record_count"] == 0
+    assert serialized["sparse_data_behavior"] == "include_metadata_and_warnings"
 
 
 def test_export_manifest_rejects_disallowed_root_path() -> None:
@@ -521,6 +529,84 @@ def test_export_manifest_rejects_out_of_range_coverage_percent() -> None:
         )
 
 
+def test_export_manifest_rejects_negative_record_count() -> None:
+    with pytest.raises(ValueError, match="record_count must be zero or greater"):
+        ExportManifest(
+            artifact_type="cycle_validation",
+            format=ExportFormat.JSON,
+            source_cycle="008",
+            path="exports/cycle008/validation.json",
+            record_count=-1,
+        )
+
+
+def test_csv_export_helper_returns_deterministic_metadata_and_content() -> None:
+    result = build_csv_export(
+        export_name="opportunities",
+        records=[
+            {"keyword": "logo design", "score": 92.1, "status": "strong_go"},
+            {"keyword": "resume writing", "score": 79.0, "status": "conditional_go"},
+        ],
+    )
+    assert result["format"] == "csv"
+    assert result["schema_version"] == "1.0"
+    assert result["record_count"] == 2
+    assert result["path"] == "exports/cycle014/opportunities.csv"
+    assert result["checksum"].startswith("sha256:")
+    assert "keyword,score,status" in result["content"]
+    assert result["warnings"] == []
+
+
+def test_csv_export_helper_handles_sparse_data_with_headers_only() -> None:
+    result = build_csv_export(export_name="empty_export", records=[], columns=("keyword", "score"))
+    assert result["record_count"] == 0
+    assert result["sparse_data"] is True
+    assert "header-only output" in result["warnings"][0]
+    assert result["content"].strip() == "keyword,score"
+
+
+def test_json_export_helper_rejects_non_serializable_payload_values() -> None:
+    with pytest.raises(ValueError, match="non-serializable values"):
+        build_json_export(export_name="bad_json", payload={"invalid": {1, 2, 3}})
+
+
+def test_json_export_helper_includes_schema_checksum_and_sparse_state() -> None:
+    result = build_json_export(export_name="dashboard_payload", payload=None)
+    assert result["format"] == "json"
+    assert result["schema_version"] == "1.0"
+    assert result["record_count"] == 0
+    assert result["sparse_data"] is True
+    assert result["checksum"].startswith("sha256:")
+    assert result["path"] == "exports/cycle014/dashboard_payload.json"
+
+
+def test_markdown_export_helper_builds_summary_sections() -> None:
+    result = build_markdown_export(
+        export_name="opportunity_summary",
+        title="Opportunity Summary",
+        sections=[
+            {
+                "heading": "Top Opportunities",
+                "body": "Fixture-backed ranked opportunities for cycle 014.",
+                "items": ["logo design package", "ats resume writing"],
+            }
+        ],
+    )
+    assert result["format"] == "md"
+    assert result["record_count"] == 1
+    assert result["warnings"] == []
+    assert "## Top Opportunities" in result["content"]
+    assert "- logo design package" in result["content"]
+    assert result["checksum"].startswith("sha256:")
+
+
+def test_markdown_export_helper_uses_sparse_placeholder_section() -> None:
+    result = build_markdown_export(export_name="empty_markdown", title="Empty", sections=[])
+    assert result["sparse_data"] is True
+    assert "No Data Available" in result["content"]
+    assert result["warnings"]
+
+
 def test_governance_manifest_metadata_rejects_incomplete_cycle_governance_fields() -> None:
     with pytest.raises(ValueError, match="task_count_waiver is required when jira_mapping_complete is False"):
         build_governance_manifest_metadata(
@@ -570,4 +656,27 @@ def test_report_placeholder_exports_include_new_mapping_constants() -> None:
     assert "product" in JIRA_MAPPING_TYPES
     assert "cursor_agent" in JIRA_UPDATED_BY_VALUES
     assert "in_review" in ACTIVE_STORY_STATUSES
+
+
+def test_integration_evidence_summary_contains_validation_and_jira_progress_rows() -> None:
+    summary = build_integration_evidence_summary(
+        stage_status={"collection": "pass", "analysis": "warning"},
+        codex_status="resolved",
+        codecov_project_status="pass",
+        codecov_patch_status="warning",
+        jira_progress=[
+            {
+                "jira_key": "SCRUM-226",
+                "ac_advanced": "CSV/JSON/Markdown helper contracts added.",
+                "dod_remaining": "Full live export orchestration remains open.",
+                "status_recommendation": "in_review",
+            }
+        ],
+    )
+    assert summary["validation_commands"] == list(DEFAULT_VALIDATION_COMMANDS)
+    assert summary["stage_status"]["analysis"] == "warning"
+    assert summary["codex_status"] == "resolved"
+    assert summary["codecov"] == {"project": "pass", "patch": "warning"}
+    assert summary["jira_progress"][0]["jira_key"] == "SCRUM-226"
+    assert summary["summary"]["validation_count"] == len(DEFAULT_VALIDATION_COMMANDS)
 

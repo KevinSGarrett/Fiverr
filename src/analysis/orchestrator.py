@@ -12,6 +12,7 @@ from src.analysis.clustering import cluster_keywords
 from src.analysis.competitors import profile_competitors
 from src.analysis.contracts import (
     AnalysisError,
+    AnalysisReadinessStatus,
     AnalysisRunSummary,
     AnalysisStageSummary,
     AnalysisStatus,
@@ -186,6 +187,80 @@ def _stage_metadata(
     }
 
 
+def _with_stage_timing(metadata: dict[str, Any], *, started_at: datetime) -> dict[str, Any]:
+    finished_at = datetime.now(UTC)
+    duration_ms = max(0, int((finished_at - started_at).total_seconds() * 1000))
+    return {
+        **metadata,
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_ms": duration_ms,
+    }
+
+
+def _normalize_readiness_status(stage_status: str) -> AnalysisReadinessStatus:
+    if stage_status == "ready":
+        return AnalysisReadinessStatus.READY
+    if stage_status == "sparse":
+        return AnalysisReadinessStatus.PARTIAL
+    if stage_status == "empty":
+        return AnalysisReadinessStatus.SKIPPED
+    return AnalysisReadinessStatus.BLOCKED
+
+
+def _readiness_reasons(stage_contract: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    missing_fields = stage_contract.get("missing_fields")
+    if isinstance(missing_fields, list):
+        reasons.extend(str(field_name) for field_name in missing_fields if str(field_name))
+    blocking_reasons = stage_contract.get("blocking_reasons")
+    if isinstance(blocking_reasons, list):
+        reasons.extend(str(reason) for reason in blocking_reasons if str(reason))
+    return list(dict.fromkeys(reasons))
+
+
+def _stage_log_entry(stage: AnalysisStageSummary) -> dict[str, Any]:
+    error_code = stage.error.code if stage.error is not None else None
+    return {
+        "stage": stage.stage.value,
+        "status": stage.status.value,
+        "readiness_status": stage.readiness_status.value,
+        "warning_count": len(stage.warnings),
+        "error_code": error_code,
+        "duration_ms": stage.metadata.get("duration_ms", 0),
+    }
+
+
+def _build_dashboard_handoff_contract(stages: list[AnalysisStageSummary]) -> dict[str, Any]:
+    """Build dashboard-consumable alignment fields for analysis outputs."""
+    stage_map = {stage.stage.value: stage for stage in stages}
+    saturation_stage = stage_map.get("saturation")
+    competitor_stage = stage_map.get("competitor_profile")
+    intent_stage = stage_map.get("intent_classification")
+    clustering_stage = stage_map.get("keyword_clustering")
+    return {
+        "opportunity_cards": {
+            "saturation_status": (
+                saturation_stage.readiness_status.value if saturation_stage is not None else "blocked"
+            ),
+            "competitor_status": (
+                competitor_stage.readiness_status.value if competitor_stage is not None else "blocked"
+            ),
+            "intent_status": intent_stage.readiness_status.value if intent_stage is not None else "blocked",
+        },
+        "keyword_table": {
+            "cluster_status": (
+                clustering_stage.readiness_status.value if clustering_stage is not None else "blocked"
+            ),
+        },
+        "run_history": {
+            "stage_count": len(stages),
+            "failed_stage_count": sum(1 for stage in stages if stage.status == AnalysisStatus.FAILED),
+            "warning_count": sum(len(stage.warnings) for stage in stages),
+        },
+    }
+
+
 def _failed_stage_summary(
     *,
     stage: AnalysisTaskType,
@@ -195,18 +270,24 @@ def _failed_stage_summary(
 ) -> AnalysisStageSummary:
     """Create stable failed-stage summaries without dropping error details."""
     error = AnalysisError.from_exception(exc, code=code)
+    started_at = datetime.now(UTC)
     return AnalysisStageSummary(
         stage=stage,
         status=AnalysisStatus.FAILED,
+        readiness_status=AnalysisReadinessStatus.BLOCKED,
+        readiness_reasons=[code],
         error=error,
         result_type="none",
-        metadata=_stage_metadata(
-            source_id,
-            result_count=0,
-            warning_count=0,
-            missing_field_count=0,
-            error_code=error.code,
-            failed=True,
+        metadata=_with_stage_timing(
+            _stage_metadata(
+                source_id,
+                result_count=0,
+                warning_count=0,
+                missing_field_count=0,
+                error_code=error.code,
+                failed=True,
+            ),
+            started_at=started_at,
         ),
     )
 
@@ -1005,6 +1086,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
     gig_quality_scores: list[float] = []
 
     if "keywords" in payload:
+        stage_started_at = datetime.now(UTC)
         try:
             keyword_input = KeywordClusterInput.model_validate(
                 {
@@ -1027,16 +1109,19 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=keyword_result.warnings,
                     result_type="keyword_clustering",
-                    metadata=_stage_metadata(
-                        source_id,
-                        result_count=len(keyword_result.clusters),
-                        warning_count=len(keyword_result.warnings),
-                        missing_field_count=len(keyword_result.missing_data_fields),
-                        cluster_count=len(keyword_result.clusters),
-                        stage_status=keyword_placeholder["status"],
-                        source_availability=keyword_placeholder["source_availability"],
-                        explanation=keyword_placeholder["explanation"],
-                        readiness_contract=keyword_placeholder,
+                    metadata=_with_stage_timing(
+                        _stage_metadata(
+                            source_id,
+                            result_count=len(keyword_result.clusters),
+                            warning_count=len(keyword_result.warnings),
+                            missing_field_count=len(keyword_result.missing_data_fields),
+                            cluster_count=len(keyword_result.clusters),
+                            stage_status=keyword_placeholder["status"],
+                            source_availability=keyword_placeholder["source_availability"],
+                            explanation=keyword_placeholder["explanation"],
+                            readiness_contract=keyword_placeholder,
+                        ),
+                        started_at=stage_started_at,
                     ),
                 )
             )
@@ -1052,6 +1137,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             )
 
     if "gig" in payload:
+        stage_started_at = datetime.now(UTC)
         try:
             gig_payload = payload.get("gig")
             if not isinstance(gig_payload, dict):
@@ -1071,17 +1157,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         status=AnalysisStatus.SUCCESS,
                         warnings=[malformed_warning],
                         result_type="gig_quality",
-                        metadata=_stage_metadata(
-                            source_id,
-                            result_count=0,
-                            warning_count=1,
-                            missing_field_count=len(gig_placeholder["missing_fields"]),
-                            strength_count=0,
-                            weakness_count=0,
-                            stage_status=gig_placeholder["status"],
-                            source_availability=gig_placeholder["source_availability"],
-                            explanation=gig_placeholder["explanation"],
-                            readiness_contract=gig_placeholder,
+                        metadata=_with_stage_timing(
+                            _stage_metadata(
+                                source_id,
+                                result_count=0,
+                                warning_count=1,
+                                missing_field_count=len(gig_placeholder["missing_fields"]),
+                                strength_count=0,
+                                weakness_count=0,
+                                stage_status=gig_placeholder["status"],
+                                source_availability=gig_placeholder["source_availability"],
+                                explanation=gig_placeholder["explanation"],
+                                readiness_contract=gig_placeholder,
+                            ),
+                            started_at=stage_started_at,
                         ),
                     )
                 )
@@ -1113,17 +1202,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         status=AnalysisStatus.SUCCESS,
                         warnings=gig_result.warnings,
                         result_type="gig_quality",
-                        metadata=_stage_metadata(
-                            source_id,
-                            result_count=1,
-                            warning_count=len(gig_result.warnings),
-                            missing_field_count=len(gig_result.missing_data_fields),
-                            strength_count=len(gig_result.strengths),
-                            weakness_count=len(gig_result.weaknesses),
-                            stage_status=gig_placeholder["status"],
-                            source_availability=gig_placeholder["source_availability"],
-                            explanation=gig_placeholder["explanation"],
-                            readiness_contract=gig_placeholder,
+                        metadata=_with_stage_timing(
+                            _stage_metadata(
+                                source_id,
+                                result_count=1,
+                                warning_count=len(gig_result.warnings),
+                                missing_field_count=len(gig_result.missing_data_fields),
+                                strength_count=len(gig_result.strengths),
+                                weakness_count=len(gig_result.weaknesses),
+                                stage_status=gig_placeholder["status"],
+                                source_availability=gig_placeholder["source_availability"],
+                                explanation=gig_placeholder["explanation"],
+                                readiness_contract=gig_placeholder,
+                            ),
+                            started_at=stage_started_at,
                         ),
                     )
                 )
@@ -1139,6 +1231,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             )
 
     if "competitors" in payload:
+        stage_started_at = datetime.now(UTC)
         try:
             competitors_payload = payload.get("competitors")
             if not isinstance(competitors_payload, list):
@@ -1162,17 +1255,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=competitor_result.warnings,
                     result_type="competitor_profile",
-                    metadata=_stage_metadata(
-                        source_id,
-                        result_count=len(competitor_input.competitors),
-                        warning_count=len(competitor_result.warnings),
-                        missing_field_count=len(competitor_result.missing_data_fields),
-                        competitor_count=len(competitor_input.competitors),
-                        high_authority_count=len(competitor_result.high_authority_sellers),
-                        stage_status=competitor_placeholder["status"],
-                        source_availability=competitor_placeholder["source_availability"],
-                        explanation=competitor_placeholder["explanation"],
-                        readiness_contract=competitor_placeholder,
+                    metadata=_with_stage_timing(
+                        _stage_metadata(
+                            source_id,
+                            result_count=len(competitor_input.competitors),
+                            warning_count=len(competitor_result.warnings),
+                            missing_field_count=len(competitor_result.missing_data_fields),
+                            competitor_count=len(competitor_input.competitors),
+                            high_authority_count=len(competitor_result.high_authority_sellers),
+                            stage_status=competitor_placeholder["status"],
+                            source_availability=competitor_placeholder["source_availability"],
+                            explanation=competitor_placeholder["explanation"],
+                            readiness_contract=competitor_placeholder,
+                        ),
+                        started_at=stage_started_at,
                     ),
                 )
             )
@@ -1188,6 +1284,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             )
 
     if "seller" in payload or "sellers" in payload:
+        stage_started_at = datetime.now(UTC)
         try:
             seller_rows = payload.get("sellers")
             if isinstance(seller_rows, list) and seller_rows:
@@ -1244,17 +1341,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=seller_result.warnings,
                     result_type="seller_strength",
-                    metadata=_stage_metadata(
-                        source_id,
-                        result_count=len(seller_strength_scores),
-                        warning_count=len(seller_result.warnings),
-                        missing_field_count=len(seller_result.missing_data_fields),
-                        evaluated_sellers=len(seller_strength_scores),
-                        component_count=len(seller_result.components),
-                        stage_status=seller_placeholder["status"],
-                        source_availability=seller_placeholder["source_availability"],
-                        explanation=seller_placeholder["explanation"],
-                        readiness_contract=seller_placeholder,
+                    metadata=_with_stage_timing(
+                        _stage_metadata(
+                            source_id,
+                            result_count=len(seller_strength_scores),
+                            warning_count=len(seller_result.warnings),
+                            missing_field_count=len(seller_result.missing_data_fields),
+                            evaluated_sellers=len(seller_strength_scores),
+                            component_count=len(seller_result.components),
+                            stage_status=seller_placeholder["status"],
+                            source_availability=seller_placeholder["source_availability"],
+                            explanation=seller_placeholder["explanation"],
+                            readiness_contract=seller_placeholder,
+                        ),
+                        started_at=stage_started_at,
                     ),
                 )
             )
@@ -1279,6 +1379,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
         "sellers",
     }
     if any(key in payload for key in saturation_trigger_keys):
+        stage_started_at = datetime.now(UTC)
         try:
             prices = [float(price) for price in payload.get("prices", []) if isinstance(price, (int | float))]
             if not prices and isinstance(payload.get("competitors"), list):
@@ -1329,17 +1430,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=saturation_result.warnings,
                     result_type="saturation",
-                    metadata=_stage_metadata(
-                        source_id,
-                        result_count=len(saturation_result.components),
-                        warning_count=len(saturation_result.warnings),
-                        missing_field_count=len(saturation_result.missing_data_fields),
-                        saturation_level=saturation_result.saturation_level.value,
-                        component_count=len(saturation_result.components),
-                        stage_status=saturation_placeholder["status"],
-                        source_availability=saturation_placeholder["source_availability"],
-                        explanation=saturation_placeholder["explanation"],
-                        readiness_contract=saturation_placeholder,
+                    metadata=_with_stage_timing(
+                        _stage_metadata(
+                            source_id,
+                            result_count=len(saturation_result.components),
+                            warning_count=len(saturation_result.warnings),
+                            missing_field_count=len(saturation_result.missing_data_fields),
+                            saturation_level=saturation_result.saturation_level.value,
+                            component_count=len(saturation_result.components),
+                            stage_status=saturation_placeholder["status"],
+                            source_availability=saturation_placeholder["source_availability"],
+                            explanation=saturation_placeholder["explanation"],
+                            readiness_contract=saturation_placeholder,
+                        ),
+                        started_at=stage_started_at,
                     ),
                 )
             )
@@ -1355,6 +1459,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             )
 
     if "reviews" in payload:
+        stage_started_at = datetime.now(UTC)
         try:
             reviews_payload = payload.get("reviews")
             if not isinstance(reviews_payload, list):
@@ -1387,17 +1492,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                         status=AnalysisStatus.SUCCESS,
                         warnings=review_result.warnings,
                         result_type="review_analysis",
-                        metadata=_stage_metadata(
-                            source_id,
-                            result_count=len(review_result.themes),
-                            warning_count=len(review_result.warnings),
-                            missing_field_count=len(review_result.missing_data_fields),
-                            theme_count=len(review_result.themes),
-                            complaint_theme_count=len(review_result.complaint_frequency),
-                            stage_status=review_placeholder["status"],
-                            source_availability=review_placeholder["source_availability"],
-                            explanation=review_placeholder["explanation"],
-                            readiness_contract=review_placeholder,
+                        metadata=_with_stage_timing(
+                            _stage_metadata(
+                                source_id,
+                                result_count=len(review_result.themes),
+                                warning_count=len(review_result.warnings),
+                                missing_field_count=len(review_result.missing_data_fields),
+                                theme_count=len(review_result.themes),
+                                complaint_theme_count=len(review_result.complaint_frequency),
+                                stage_status=review_placeholder["status"],
+                                source_availability=review_placeholder["source_availability"],
+                                explanation=review_placeholder["explanation"],
+                                readiness_contract=review_placeholder,
+                            ),
+                            started_at=stage_started_at,
                         ),
                     )
                 )
@@ -1413,6 +1521,7 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             )
 
     if "intent" in payload or "keyword_text" in payload or "keywords" in payload:
+        stage_started_at = datetime.now(UTC)
         try:
             intent_section = payload.get("intent", {})
             intent_selection = _resolve_intent_keyword_selection(payload, source_id)
@@ -1427,6 +1536,8 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                 "intent_keyword_selection_confidence": intent_selection.selection_confidence,
                 "intent_selection_contract": intent_selection_contract,
             }
+            if isinstance(intent_section, dict) and "mock_label" in intent_section:
+                intent_metadata["mock_label"] = intent_section.get("mock_label")
             if isinstance(intent_section, dict):
                 keyword_text = intent_selection.keyword_text
                 title_phrases = intent_section.get("title_phrases", [])
@@ -1448,36 +1559,39 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     status=AnalysisStatus.SUCCESS,
                     warnings=intent_result.warnings,
                     result_type="intent_classification",
-                    metadata=_stage_metadata(
-                        source_id,
-                        result_count=len(intent_result.matched_rules),
-                        warning_count=len(intent_result.warnings),
-                        missing_field_count=len(intent_selection_contract["missing_input_warnings"]),
-                        label=intent_result.label.value,
-                        matched_rule_count=len(intent_result.matched_rules),
-                        intent_keyword_selection_reason=intent_selection.selection_reason,
-                        intent_keyword_selection_confidence=intent_selection.selection_confidence,
-                        intent_selection_contract=intent_selection_contract,
-                        stage_status=(
-                            "ready"
-                            if intent_selection_contract["selection_reason"] == "explicit_intent_keyword"
-                            else "sparse"
-                            if intent_selection_contract["selection_reason"] != "source_id_fallback"
-                            else "blocked"
+                    metadata=_with_stage_timing(
+                        _stage_metadata(
+                            source_id,
+                            result_count=len(intent_result.matched_rules),
+                            warning_count=len(intent_result.warnings),
+                            missing_field_count=len(intent_selection_contract["missing_input_warnings"]),
+                            label=intent_result.label.value,
+                            matched_rule_count=len(intent_result.matched_rules),
+                            intent_keyword_selection_reason=intent_selection.selection_reason,
+                            intent_keyword_selection_confidence=intent_selection.selection_confidence,
+                            intent_selection_contract=intent_selection_contract,
+                            stage_status=(
+                                "ready"
+                                if intent_selection_contract["selection_reason"] == "explicit_intent_keyword"
+                                else "sparse"
+                                if intent_selection_contract["selection_reason"] != "source_id_fallback"
+                                else "blocked"
+                            ),
+                            source_availability={
+                                "intent_keyword": "intent.keyword_text_missing"
+                                not in intent_selection_contract["missing_input_warnings"],
+                                "payload_keyword": "keyword_text_missing"
+                                not in intent_selection_contract["missing_input_warnings"],
+                                "keywords_array": "keywords_array_missing"
+                                not in intent_selection_contract["missing_input_warnings"],
+                            },
+                            explanation=(
+                                "Intent selection used source_id fallback; intent scoring remains blocked."
+                                if intent_selection_contract["selection_reason"] == "source_id_fallback"
+                                else "Intent selection contract captured deterministic fallback behavior."
+                            ),
                         ),
-                        source_availability={
-                            "intent_keyword": "intent.keyword_text_missing"
-                            not in intent_selection_contract["missing_input_warnings"],
-                            "payload_keyword": "keyword_text_missing"
-                            not in intent_selection_contract["missing_input_warnings"],
-                            "keywords_array": "keywords_array_missing"
-                            not in intent_selection_contract["missing_input_warnings"],
-                        },
-                        explanation=(
-                            "Intent selection used source_id fallback; intent scoring remains blocked."
-                            if intent_selection_contract["selection_reason"] == "source_id_fallback"
-                            else "Intent selection contract captured deterministic fallback behavior."
-                        ),
+                        started_at=stage_started_at,
                     ),
                 )
             )
@@ -1491,6 +1605,20 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
                     exc=exc,
                 )
             )
+
+    for stage in stages:
+        stage_contract = stage.metadata.get("readiness_contract")
+        if isinstance(stage_contract, dict):
+            stage_status = stage_contract.get("status")
+            if isinstance(stage_status, str):
+                stage.readiness_status = _normalize_readiness_status(stage_status)
+                stage.readiness_reasons = _readiness_reasons(stage_contract)
+        elif stage.status == AnalysisStatus.FAILED:
+            stage.readiness_status = AnalysisReadinessStatus.BLOCKED
+        else:
+            stage.readiness_status = AnalysisReadinessStatus.READY
+        if "duration_ms" not in stage.metadata:
+            stage.metadata["duration_ms"] = 0
 
     statuses = [stage.status for stage in stages]
     if statuses and all(status == AnalysisStatus.SUCCESS for status in statuses):
@@ -1524,6 +1652,8 @@ def run_analysis_dry_run(payload: dict[str, Any]) -> AnalysisRunSummary:
             stage.stage.value: stage.metadata.get("readiness_contract", {})
             for stage in stages
         },
+        "stage_log_summary": [_stage_log_entry(stage) for stage in stages],
+        "dashboard_handoff_contract": _build_dashboard_handoff_contract(stages),
         **metadata_dict,
     }
     if collection_evidence is not None:

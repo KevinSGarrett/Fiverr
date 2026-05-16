@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from collections import Counter
 
-from src.analysis.contracts import AnalysisWarning, ReviewAnalysisInput, ReviewAnalysisResult
+from src.analysis.contracts import (
+    AnalysisEvidence,
+    AnalysisReadinessStatus,
+    AnalysisWarning,
+    ReviewAnalysisInput,
+    ReviewAnalysisResult,
+)
 from src.llm.validation import redact_sensitive_text
 
 _COMPLAINT_PATTERNS: dict[str, tuple[str, ...]] = {
@@ -57,6 +63,17 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
             explanation="Review analysis is limited because review snippets are missing.",
             missing_data_fields=["reviews"],
             metadata=payload.metadata,
+            status=AnalysisReadinessStatus.SKIPPED,
+            source_context={"review_count": 0},
+            evidence=[
+                AnalysisEvidence(
+                    code="review_count",
+                    message="No review snippets were provided for deterministic analysis.",
+                    metric=0.0,
+                    source_ref="reviews",
+                )
+            ],
+            downstream_readiness={"status": "blocked", "reasons": ["reviews_missing"]},
         )
 
     complaint_counter: Counter[str] = Counter()
@@ -156,4 +173,32 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
         explanation=explanation,
         missing_data_fields=missing_data_fields,
         metadata=payload.metadata,
+        status=(
+            AnalysisReadinessStatus.READY
+            if len(payload.reviews) >= 3
+            else AnalysisReadinessStatus.PARTIAL
+        ),
+        source_context={
+            "review_count": len(payload.reviews),
+            "redacted": redacted_any,
+            "theme_count": len(themes),
+        },
+        evidence=[
+            AnalysisEvidence(
+                code="negative_sentiment_count",
+                message="Negative sentiment hints derived from reviews.",
+                metric=float(sentiment_counter.get("negative", 0)),
+                source_ref="reviews",
+            ),
+            AnalysisEvidence(
+                code="theme_count",
+                message="Combined complaint and praise theme count.",
+                metric=float(len(themes)),
+                source_ref="reviews",
+            ),
+        ],
+        downstream_readiness={
+            "status": "ready" if len(payload.reviews) >= 3 else "partial",
+            "reasons": [] if len(payload.reviews) >= 3 else ["limited_review_sample"],
+        },
     )

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import re
 
-from src.analysis.contracts import AnalysisWarning, SellerStrengthInput, SellerStrengthResult
+from src.analysis.contracts import (
+    AnalysisEvidence,
+    AnalysisReadinessStatus,
+    AnalysisWarning,
+    SellerStrengthInput,
+    SellerStrengthResult,
+)
 
 _LEVEL_SCORES: dict[str, float] = {
     "no level": 20.0,
@@ -163,4 +169,34 @@ def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:
         explanation=explanation,
         missing_data_fields=sorted(missing_data_fields),
         metadata=payload.metadata,
+        status=(
+            AnalysisReadinessStatus.READY
+            if confidence >= 0.75
+            else AnalysisReadinessStatus.PARTIAL
+            if confidence >= 0.35
+            else AnalysisReadinessStatus.BLOCKED
+        ),
+        source_context={
+            "seller_id": payload.seller_id,
+            "provided_component_count": len(components) - len(missing_data_fields),
+            "expected_component_count": len(components),
+        },
+        evidence=[
+            AnalysisEvidence(
+                code="seller_strength_score",
+                message="Deterministic seller strength score from weighted rubric components.",
+                metric=score,
+                source_ref=payload.seller_id,
+            ),
+            AnalysisEvidence(
+                code="seller_confidence",
+                message="Confidence degrades when fallback values replace missing fields.",
+                metric=confidence,
+                source_ref=payload.seller_id,
+            ),
+        ],
+        downstream_readiness={
+            "status": "ready" if confidence >= 0.75 else "partial",
+            "reasons": [] if not missing_data_fields else ["missing_seller_profile_fields"],
+        },
     )

@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.dashboard.alerts import build_dashboard_alerts
+from src.dashboard.components import build_state_descriptor
+from src.dashboard.keywords import build_keywords_payload
 from src.dashboard.navigation import (
     DashboardPage,
 )
 from src.dashboard.navigation import (
     get_available_pages as get_navigation_pages,
 )
+from src.dashboard.opportunities import build_opportunities_payload
+from src.dashboard.pages import build_registered_page_payloads
+from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 from src.reports import build_governance_report_placeholders
 from src.reports.placeholders import build_active_story_groups
@@ -58,7 +65,31 @@ _STATUS_TO_SEVERITY = {
     "error": "error",
     "blocked": "error",
 }
-_ALERT_SEVERITIES = frozenset({"warning", "error", "governance"})
+_READINESS_SEVERITY_ORDER = {"ok": 0, "ready": 0, "warning": 1, "error": 2, "blocked": 3}
+
+
+@dataclass(frozen=True, slots=True)
+class PageRegistryEntry:
+    """Deterministic app-entry page registry contract."""
+
+    page_id: str
+    label: str
+    order: int
+    status: str
+    enabled: bool
+    required_contracts: tuple[str, ...]
+    disabled_reason: str | None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "page_id": self.page_id,
+            "label": self.label,
+            "order": self.order,
+            "status": self.status,
+            "enabled": self.enabled,
+            "required_contracts": list(self.required_contracts),
+            "disabled_reason": self.disabled_reason,
+        }
 
 
 def _normalize_governance_status(raw_status: str | None) -> tuple[str, str]:
@@ -145,53 +176,22 @@ def build_governance_page_ready_state(
 def get_opportunities_page_descriptor(
     opportunities: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return deterministic placeholder metadata for the Opportunities page."""
-    normalized_rows = list(opportunities or [])
-    return {
-        "page_id": "opportunities",
-        "title": "Top Opportunities",
-        "cards": ["top_opportunity", "runner_up", "watchlist"],
-        "table_columns": ["opportunity", "niche", "score", "confidence", "status"],
-        "rows": normalized_rows,
-        "empty_state": len(normalized_rows) == 0,
-    }
+    """Return opportunities page descriptor using reusable payload contracts."""
+    return build_opportunities_payload(records=opportunities)
 
 
 def get_keywords_page_descriptor(
     keywords: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return deterministic placeholder metadata for the Keywords page."""
-    normalized_rows = list(keywords or [])
-    return {
-        "page_id": "keywords",
-        "title": "Keyword Cluster Health",
-        "columns": ["keyword", "niche", "cluster", "score", "confidence", "freshness_status"],
-        "rows": normalized_rows,
-        "empty_state": len(normalized_rows) == 0,
-    }
+    """Return keywords page descriptor using reusable payload contracts."""
+    return build_keywords_payload(records=keywords)
 
 
 def get_run_history_page_descriptor(
     runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return deterministic placeholder metadata for Run History."""
-    normalized_rows = list(runs or [])
-    return {
-        "page_id": "run_history",
-        "title": "Run History",
-        "columns": [
-            "run_id",
-            "branch",
-            "pull_request",
-            "status",
-            "stages",
-            "warning_count",
-            "duration",
-            "validation_status",
-        ],
-        "rows": normalized_rows,
-        "empty_state": len(normalized_rows) == 0,
-    }
+    """Return run history descriptor using reusable payload contracts."""
+    return build_run_history_payload(records=runs)
 
 
 def get_query_layer_descriptor(
@@ -253,6 +253,80 @@ def _normalize_required_page_ids(page_ids: list[str]) -> list[str]:
         seen.add(page_id)
         normalized.append(page_id)
     return normalized
+
+
+def build_page_registry() -> list[dict[str, Any]]:
+    """Return deterministic page registry with contract + disabled metadata."""
+    contract_map: dict[str, tuple[str, ...]] = {
+        "overview": ("governance_status", "app_readiness"),
+        "foundation_status": ("cycle003_state",),
+        "collection_dry_run": ("cycle003_state",),
+        "analysis_dry_run": ("cycle003_state",),
+        "phase2_readiness": ("phase2_readiness",),
+        "phase2_reports": ("query_layer", "run_history"),
+        "phase2_exports": ("export_system",),
+        "opportunities": ("opportunities", "source_freshness_summary"),
+        "niches": ("opportunities", "source_freshness_summary"),
+        "keywords": ("keywords", "source_freshness_summary"),
+        "run_history": ("run_history",),
+        "scores": ("opportunities",),
+        "recommendations": ("opportunities", "keywords"),
+        "reports": ("query_layer", "governance_status"),
+        "settings": ("app_readiness",),
+    }
+    registry: list[PageRegistryEntry] = []
+    for order, page in enumerate(get_navigation_pages()):
+        disabled_reason = None
+        if not page.enabled:
+            disabled_reason = (
+                "Feature is preview-only for cycle 004."
+                if page.status == "preview_cycle004"
+                else "Feature is not implemented yet."
+            )
+        registry.append(
+            PageRegistryEntry(
+                page_id=page.page_id,
+                label=page.label,
+                order=order,
+                status="ready" if page.enabled else "disabled",
+                enabled=page.enabled,
+                required_contracts=contract_map.get(page.page_id, ("app_readiness",)),
+                disabled_reason=disabled_reason,
+            )
+        )
+    return [entry.as_dict() for entry in registry]
+
+
+def compute_page_readiness(
+    *,
+    page_registry: list[dict[str, Any]],
+    startup: dict[str, Any],
+    orchestrator_handoff: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compute readiness severity and next actions from registry + startup evidence."""
+    blocked_pages = [row["page_id"] for row in page_registry if row.get("status") == "blocked"]
+    startup_status = str(startup.get("status", "warning")).strip().lower() or "warning"
+    orchestrator_status = str((orchestrator_handoff or {}).get("stage_status", "ready")).strip().lower()
+    statuses = [startup_status, orchestrator_status]
+    if blocked_pages:
+        statuses.append("blocked")
+    severity = max(statuses, key=lambda status: _READINESS_SEVERITY_ORDER.get(status, 1))
+    next_actions: list[str] = []
+    if blocked_pages:
+        next_actions.append("Implement blocked dashboard pages or mark explicit non-goals for this cycle.")
+    if startup_status != "ready":
+        next_actions.append("Provide config/data fixtures so app startup diagnostics can become ready.")
+    if orchestrator_status in {"warning", "error", "blocked"}:
+        next_actions.append("Run phase2-smoke and publish orchestrator readiness handoff evidence.")
+    if not next_actions:
+        next_actions.append("Readiness checks are healthy; continue with page-level product work.")
+    return {
+        "severity": severity,
+        "blocked_pages": blocked_pages,
+        "startup_status": startup_status,
+        "orchestrator_status": orchestrator_status,
+        "next_actions": next_actions,
+    }
 
 
 def build_app_startup_diagnostics(
@@ -321,15 +395,24 @@ def build_app_entry_smoke_state(
     data_dir: str = "data",
 ) -> dict[str, Any]:
     """Return app-entry smoke state for startup behavior and page registration."""
-    pages = get_available_pages()
-    required_page_ids = _normalize_required_page_ids([page.page_id for page in pages])
+    page_registry = build_page_registry()
+    required_page_ids = _normalize_required_page_ids([row["page_id"] for row in page_registry])
     registered_page_ids = _normalize_required_page_ids([page.page_id for page in get_navigation_pages()])
     missing_pages = [page_id for page_id in required_page_ids if page_id not in registered_page_ids]
     startup = build_app_startup_diagnostics(config_path=config_path, data_dir=data_dir)
+    if missing_pages:
+        page_registry = [
+            row
+            if row["page_id"] not in missing_pages
+            else {**row, "status": "blocked", "disabled_reason": "Page missing from registration surface."}
+            for row in page_registry
+        ]
+    readiness = compute_page_readiness(page_registry=page_registry, startup=startup)
     registration_status = "blocked" if missing_pages else "ready"
-    status = "blocked" if missing_pages else startup["status"]
+    status = "blocked" if missing_pages else readiness["severity"]
     return {
         "entry": get_app_entry_descriptor(branch=branch, cycle=cycle),
+        "page_registry": page_registry,
         "page_registration": {
             "required_page_ids": required_page_ids,
             "registered_page_ids": registered_page_ids,
@@ -337,6 +420,7 @@ def build_app_entry_smoke_state(
             "status": registration_status,
         },
         "startup": startup,
+        "readiness": readiness,
         "status": status,
         "safe_empty_state": startup["safe_empty_state"],
     }
@@ -346,37 +430,50 @@ def build_alert_readiness_placeholders(
     alerts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, str]]:
     """Normalize alert placeholders without requiring a runtime alerting system."""
-    normalized_alerts: list[dict[str, str]] = []
-    for raw_alert in alerts or []:
-        raw_severity = str(raw_alert.get("severity", "warning")).strip().lower() or "warning"
-        severity = raw_severity if raw_severity in _ALERT_SEVERITIES else "unknown"
-        jira_key = str(raw_alert.get("jira_key", "")).strip() or "UNMAPPED"
-        normalized_alerts.append(
-            {
-                "severity": severity,
-                "source": str(raw_alert.get("source", "dashboard")).strip() or "dashboard",
-                "jira_key": jira_key,
-                "message": str(raw_alert.get("message", "pending")).strip() or "pending",
-                "resolution_status": str(raw_alert.get("resolution_status", "open")).strip() or "open",
-            }
-        )
-    return normalized_alerts
+    normalized_alerts = build_dashboard_alerts(opportunities=alerts or [])
+    return [
+        {
+            "id": str(alert["id"]),
+            "type": str(alert["type"]),
+            "severity": str(alert["severity"]),
+            "title": str(alert["title"]),
+            "source": str(alert["source_context"].get("source", "dashboard")),
+            "jira_key": str(alert["jira_key"]),
+            "message": str(alert["explanation"]),
+            "recommended_action": str(alert["recommended_action"]),
+            "dismissible": "true" if bool(alert["dismissible"]) else "false",
+            "resolution_status": "dismissible" if bool(alert["dismissible"]) else "action_required",
+        }
+        for alert in normalized_alerts
+    ]
 
 
 def get_alert_system_descriptor(alerts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Return deterministic placeholder metadata for alert-system readiness."""
     normalized_alerts = build_alert_readiness_placeholders(alerts)
+    severity_counts = {
+        "info": sum(1 for alert in normalized_alerts if alert["severity"] == "info"),
+        "warning": sum(1 for alert in normalized_alerts if alert["severity"] == "warning"),
+        "error": sum(1 for alert in normalized_alerts if alert["severity"] in {"error", "critical"}),
+        "unknown": sum(1 for alert in normalized_alerts if alert["severity"] not in {"info", "warning", "error", "critical"}),
+    }
     return {
         "page_id": "alert_system",
         "title": "Alert System",
-        "columns": ["severity", "source", "jira_key", "message", "resolution_status"],
+        "columns": [
+            "id",
+            "type",
+            "severity",
+            "title",
+            "source",
+            "jira_key",
+            "message",
+            "recommended_action",
+            "dismissible",
+            "resolution_status",
+        ],
         "rows": normalized_alerts,
-        "summary": {
-            "warning": sum(1 for alert in normalized_alerts if alert["severity"] == "warning"),
-            "error": sum(1 for alert in normalized_alerts if alert["severity"] == "error"),
-            "governance": sum(1 for alert in normalized_alerts if alert["severity"] == "governance"),
-            "unknown": sum(1 for alert in normalized_alerts if alert["severity"] == "unknown"),
-        },
+        "summary": severity_counts,
         "empty_state": len(normalized_alerts) == 0,
     }
 
@@ -403,6 +500,37 @@ def build_page_title() -> str:
 def get_available_pages() -> list[DashboardPage]:
     """Expose dashboard page metadata for callers and tests."""
     return get_navigation_pages()
+
+
+def get_page_registry() -> list[dict[str, Any]]:
+    """Expose deterministic app-entry page registry metadata."""
+    return build_page_registry()
+
+
+def get_product_page_payloads(
+    *,
+    opportunities_records: list[dict[str, Any]] | None = None,
+    keywords_records: list[dict[str, Any]] | None = None,
+    run_history_records: list[dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Expose product page payload builders via one import-safe registry call."""
+    payloads = build_registered_page_payloads(
+        opportunities_records=opportunities_records,
+        keywords_records=keywords_records,
+        run_history_records=run_history_records,
+    )
+    if all(payload["state"]["state"] == "empty" for payload in payloads.values()):
+        payloads["registry_state"] = build_state_descriptor(
+            state="empty",
+            message="All product pages are in safe empty-state mode pending data hydration.",
+            warnings=["No records were supplied for opportunities, keywords, or run history."],
+        )
+    else:
+        payloads["registry_state"] = build_state_descriptor(
+            state="ready",
+            message="Product page payloads are registered and available.",
+        )
+    return payloads
 
 
 def get_cycle003_status_state() -> dict[str, Any]:
@@ -489,4 +617,16 @@ def main() -> None:
     st.write(f"- Startup status: {app_entry_state['startup']['status']}")
     if app_entry_state["safe_empty_state"]:
         st.caption("Safe empty-state mode is active while data artifacts are unavailable.")
+
+    st.subheader("Cycle 014 Product Page Payloads")
+    product_payloads = get_product_page_payloads()
+    st.write(f"- Registry state: {product_payloads['registry_state']['state']}")
+    st.caption(product_payloads["registry_state"]["message"])
+    for page_id in ("opportunities", "keywords", "run_history"):
+        payload = product_payloads[page_id]
+        st.write(f"### {payload['title']}")
+        st.write(f"- State: {payload['state']['state']}")
+        st.write(f"- Rows: {len(payload['table']['rows'])}")
+        if payload["table"]["warning_rows"]:
+            st.write(f"- Warning: {payload['table']['warning_rows'][0]['message']}")
 

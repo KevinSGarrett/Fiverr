@@ -5,6 +5,8 @@ from __future__ import annotations
 from statistics import mean, pstdev
 
 from src.analysis.contracts import (
+    AnalysisEvidence,
+    AnalysisReadinessStatus,
     AnalysisWarning,
     SaturationInput,
     SaturationLevel,
@@ -135,4 +137,34 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
         explanation=explanation,
         missing_data_fields=sorted(set(missing_data_fields)),
         metadata=payload.metadata,
+        status=(
+            AnalysisReadinessStatus.READY
+            if confidence >= 0.75
+            else AnalysisReadinessStatus.PARTIAL
+            if confidence >= 0.35
+            else AnalysisReadinessStatus.BLOCKED
+        ),
+        source_context={
+            "keyword_count": payload.keyword_count,
+            "search_result_count": payload.search_result_count,
+            "competitor_count": payload.competitor_count,
+        },
+        evidence=[
+            AnalysisEvidence(
+                code="saturation_score",
+                message="Deterministic saturation score derived from market density signals.",
+                metric=score,
+                source_ref="market_signals",
+            ),
+            AnalysisEvidence(
+                code="signal_confidence",
+                message="Confidence based on available saturation signal count.",
+                metric=confidence,
+                source_ref="market_signals",
+            ),
+        ],
+        downstream_readiness={
+            "status": "ready" if confidence >= 0.75 else "partial",
+            "reasons": [] if not missing_data_fields else ["missing_saturation_inputs"],
+        },
     )
