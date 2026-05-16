@@ -18,6 +18,7 @@ from src.dashboard.components import (
     build_warning_summary,
 )
 from src.dashboard.design import normalize_run_severity
+from src.dashboard.queries import map_warning_codes_to_operator_severity
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 
 RUN_STATUS_SEVERITY = {
@@ -47,7 +48,14 @@ def build_run_history_payload(
 ) -> dict[str, Any]:
     """Build run-history payload with stage/duration/failure summaries."""
     layer = query_layer or get_dashboard_query_layer()
-    result = layer.run_history(records=records, filters=filters, sort=sort)
+    pagination = _extract_pagination(filters or {})
+    result = layer.run_history(
+        records=records,
+        filters=filters,
+        sort=sort,
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+    )
     context = result.context.as_dict()
     rows, row_warnings = _normalize_run_rows(result.records)
 
@@ -333,8 +341,25 @@ def _build_query_contract(context: dict[str, Any]) -> dict[str, Any]:
         "query_name": "run_history",
         "status": context.get("status", "warning"),
         "warning_codes": warning_codes,
+        "warning_severity": map_warning_codes_to_operator_severity(warning_codes),
         "applied_filters": context.get("applied_filters", {}),
         "applied_sort": context.get("applied_sort", {}),
         "pagination": context.get("pagination"),
+        "source_context": context.get("source_context", {}),
+        "freshness": context.get("freshness", {}),
     }
+
+
+def _extract_pagination(filters: dict[str, Any]) -> dict[str, int]:
+    default_limit = 25
+    default_offset = 0
+    try:
+        limit = int(filters.get("limit", default_limit))
+    except (TypeError, ValueError):
+        limit = default_limit
+    try:
+        offset = int(filters.get("offset", default_offset))
+    except (TypeError, ValueError):
+        offset = default_offset
+    return {"limit": limit, "offset": offset}
 

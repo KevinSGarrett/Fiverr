@@ -128,6 +128,41 @@ _EXPECTED_ANALYSIS_FIELDS = (
     "status",
 )
 
+_WARNING_SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2, "blocked": 3}
+_WARNING_CODE_SEVERITY = {
+    "blocked_pages": "blocked",
+    "invalid_record_shape": "error",
+    "invalid_score": "error",
+    "invalid_confidence": "error",
+    "invalid_rank": "error",
+    "invalid_status_category": "error",
+    "duplicate_record_id": "error",
+    "duplicate_rank": "error",
+    "malformed_evidence": "error",
+    "invalid_generated_at": "warning",
+}
+
+
+def map_warning_codes_to_operator_severity(
+    warning_codes: list[str] | tuple[str, ...],
+) -> dict[str, Any]:
+    """Map warning codes to operator-facing severity categories."""
+    normalized_codes = sorted({code.strip() for code in warning_codes if code.strip()})
+    rows: list[dict[str, str]] = []
+    counts = {"info": 0, "warning": 0, "error": 0, "blocked": 0}
+    highest = "info"
+    for code in normalized_codes:
+        severity = _WARNING_CODE_SEVERITY.get(code, "warning")
+        counts[severity] += 1
+        if _WARNING_SEVERITY_ORDER[severity] > _WARNING_SEVERITY_ORDER[highest]:
+            highest = severity
+        rows.append({"code": code, "severity": severity})
+    return {
+        "highest_severity": highest,
+        "counts": counts,
+        "rows": rows,
+    }
+
 
 def summarize_data_integrity_records(
     *,

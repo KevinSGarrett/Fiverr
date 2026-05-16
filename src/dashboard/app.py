@@ -812,6 +812,7 @@ def get_product_page_payloads(
     }
     acceptance_rollup = build_product_page_acceptance_rollup(payloads=payloads)
     payloads["acceptance_rollup"] = acceptance_rollup
+    payloads["runtime_acceptance_matrix"] = build_runtime_acceptance_matrix(payloads=payloads)
     payloads["docs_snippet"] = {
         "title": "Dashboard Runtime Contract Notes",
         "summary": (
@@ -888,6 +889,50 @@ def build_product_page_acceptance_rollup(*, payloads: dict[str, dict[str, Any]])
         "status": overall,
         "pages": rows,
         "reasons": reasons,
+    }
+
+
+def build_runtime_acceptance_matrix(*, payloads: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Build page-level runtime contract acceptance matrix for operator review."""
+    page_ids = ("opportunities", "keywords", "run_history")
+    rows: list[dict[str, Any]] = []
+    summary = {"ready": 0, "warning": 0, "blocked": 0, "unknown": 0}
+    status_order = {"ready": 0, "warning": 1, "unknown": 2, "blocked": 3}
+    overall = "ready"
+    for page_id in page_ids:
+        payload = payloads.get(page_id, {})
+        acceptance = payload.get("acceptance_status", {})
+        query_contract = payload.get("query_contract", {})
+        contract_status = str(acceptance.get("status", "unknown")).strip().lower() or "unknown"
+        if contract_status not in summary:
+            contract_status = "unknown"
+        summary[contract_status] += 1
+        if status_order[contract_status] > status_order[overall]:
+            overall = contract_status
+        pagination = query_contract.get("pagination") or payload.get("pagination") or {}
+        warning_severity = query_contract.get("warning_severity", {})
+        rows.append(
+            {
+                "page_id": page_id,
+                "acceptance_status": contract_status,
+                "warning_count": int(acceptance.get("warning_count", 0)),
+                "blocker_count": int(acceptance.get("blocker_count", 0)),
+                "has_filter_contract": bool(payload.get("filter_descriptor_contract", {}).get("available")),
+                "has_sort_contract": bool(payload.get("sort_descriptor_contract", {}).get("available")),
+                "has_detail_schema": bool(payload.get("detail_panel_schema", {}).get("row_id_key")),
+                "source_name": str(query_contract.get("source_context", {}).get("source_name", "unknown")),
+                "freshness_status": str(query_contract.get("freshness", {}).get("freshness_status", "unknown")),
+                "pagination_limit": int(pagination.get("limit", 0) or 0),
+                "pagination_offset": int(pagination.get("offset", 0) or 0),
+                "pagination_total_count": int(pagination.get("total_count", 0) or 0),
+                "pagination_truncated": bool(pagination.get("truncated", False)),
+                "warning_severity": str(warning_severity.get("highest_severity", "info")),
+            }
+        )
+    return {
+        "status": overall,
+        "summary": summary,
+        "rows": rows,
     }
 
 

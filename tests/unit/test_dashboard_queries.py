@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.dashboard.contracts import FreshnessMetadata, SourceContext
+from src.dashboard.queries import map_warning_codes_to_operator_severity
 from src.dashboard.query_layer import get_dashboard_query_layer
 
 
@@ -313,6 +314,22 @@ def test_data_integrity_readiness_signal_supports_unknown_warning_and_blocked() 
         ]
     )
     assert blocked_signal["status"] == "blocked"
+
+
+def test_warning_code_severity_mapping_produces_operator_contract() -> None:
+    summary = map_warning_codes_to_operator_severity(
+        [
+            "missing_records",
+            "invalid_score",
+            "blocked_pages",
+            "invalid_score",
+        ]
+    )
+    assert summary["highest_severity"] == "blocked"
+    assert summary["counts"]["blocked"] == 1
+    assert summary["counts"]["error"] == 1
+    assert summary["counts"]["warning"] == 1
+    assert {row["code"] for row in summary["rows"]} == {"missing_records", "invalid_score", "blocked_pages"}
 
 
 def test_analysis_outputs_feed_dashboard_contract_for_complete_payload() -> None:
