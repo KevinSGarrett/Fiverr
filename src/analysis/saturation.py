@@ -177,11 +177,6 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
             if confidence >= 0.35
             else AnalysisReadinessStatus.BLOCKED
         ),
-        source_context={
-            "keyword_count": payload.keyword_count,
-            "search_result_count": payload.search_result_count,
-            "competitor_count": payload.competitor_count,
-        },
         evidence=[
             AnalysisEvidence(
                 code="saturation_score",
