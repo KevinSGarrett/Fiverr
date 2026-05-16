@@ -588,7 +588,17 @@ def get_product_page_payloads(
         keywords_records=keywords_records,
         run_history_records=run_history_records,
     )
-    if all(payload["state"]["state"] == "empty" for payload in payloads.values()):
+    payloads["registry_metadata"] = {
+        "pages_with_payload_support": [
+            page_id
+            for page_id in ("opportunities", "keywords", "run_history")
+            if payloads.get(page_id, {}).get("payload_support", {}).get("implemented") is True
+        ],
+        "ui_runtime_required": ["opportunities", "keywords", "run_history"],
+        "ui_runtime_pending": True,
+    }
+    product_page_ids = ("opportunities", "keywords", "run_history")
+    if all(payloads[page_id]["state"]["state"] == "empty" for page_id in product_page_ids):
         payloads["registry_state"] = build_state_descriptor(
             state="empty",
             message="All product pages are in safe empty-state mode pending data hydration.",

@@ -8,6 +8,7 @@ from src.dashboard.components import (
     ComponentState,
     EvidenceCardPayload,
     StatusCardPayload,
+    build_empty_state_payload,
     build_metric_cards,
     build_state_descriptor,
     build_table_descriptor,
@@ -44,9 +45,10 @@ def build_run_history_payload(
     layer = query_layer or get_dashboard_query_layer()
     result = layer.run_history(records=records, filters=filters, sort=sort)
     context = result.context.as_dict()
-    rows = [_normalize_run_row(row) for row in result.records]
+    rows, row_warnings = _normalize_run_rows(result.records)
 
     warnings = [warning["message"] for warning in context["warnings"]]
+    warnings.extend(row_warnings)
     metrics = build_metric_cards(
         [
             {"card_id": "run_count", "label": "Visible Runs", "value": str(len(rows))},
@@ -54,6 +56,12 @@ def build_run_history_payload(
                 "card_id": "warning_count",
                 "label": "Warnings",
                 "value": str(sum(int(row["warning_count"]) for row in rows)),
+            },
+            {
+                "card_id": "failures",
+                "label": "Failed Runs",
+                "value": str(sum(1 for row in rows if row["severity"] in {"error", "blocked"})),
+                "status_badge": "warning" if rows else "unknown",
             },
         ]
     )
@@ -81,9 +89,12 @@ def build_run_history_payload(
             "status",
             "severity",
             "stage_names",
+            "stage_chips",
             "duration_seconds",
             "warning_count",
+            "failure_count",
             "failure_summary",
+            "evidence_links",
             "next_action",
         ],
         rows=rows,
@@ -91,6 +102,14 @@ def build_run_history_payload(
         sort_descending=context["applied_sort"].get("descending", True) if context["applied_sort"] else True,
         empty_message=context["empty_state_message"] or "No run history has been recorded.",
         warnings=warnings,
+        filter_descriptors=_build_filter_descriptors(
+            filters=context.get("applied_filters") or {},
+            source_descriptors=layer.filter_descriptors(),
+        ),
+        drill_links=[
+            {"label": "Open Run Detail", "target": "run_history/detail"},
+            {"label": "Open Monitoring Alerts", "target": "alerts"},
+        ],
         source_name=context["source_context"]["source_name"],
         freshness_status=context["freshness"]["freshness_status"],
     )
@@ -118,6 +137,11 @@ def build_run_history_payload(
         "status_cards": status_cards,
         "evidence_cards": evidence_cards,
         "table": table,
+        "empty_state": build_empty_state_payload(
+            title="No run history available" if context["empty_state"] else "Run history ready",
+            message=context["empty_state_message"] or "Run history payload is ready for rendering.",
+            next_steps=list(context.get("next_actions") or []),
+        ),
         "source": context["source_context"],
         "freshness": context["freshness"],
         "pagination": context["pagination"],
@@ -125,24 +149,70 @@ def build_run_history_payload(
     }
 
 
-def _normalize_run_row(record: dict[str, Any]) -> dict[str, Any]:
-    status = str(record.get("status", "unknown"))
-    stage_names = [str(stage.get("name", "unknown")) for stage in record.get("stages", [])]
-    if not stage_names and record.get("stage_names"):
-        stage_names = [str(name) for name in record.get("stage_names", [])]
-    failure_summary = str(record.get("failure_summary", "")).strip() or "None"
-    warning_count = _to_int(record.get("warning_count"))
-    duration_seconds = _to_int(record.get("duration_seconds"))
-    return {
-        "run_id": str(record.get("run_id", "unknown")),
-        "status": status,
-        "severity": map_run_status_to_severity(status),
-        "stage_names": stage_names,
-        "duration_seconds": duration_seconds,
-        "warning_count": warning_count,
-        "failure_summary": failure_summary,
-        "next_action": str(record.get("next_action", "Review warnings and re-run if required")),
-    }
+def _normalize_run_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[dict[str, Any]], list[str]]:
+    normalized: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for index, record in enumerate(records, start=1):
+        status = str(record.get("status", "unknown"))
+        run_id_raw = str(record.get("run_id", "")).strip()
+        run_id = run_id_raw or f"missing-run-id-{index}"
+        if not run_id_raw:
+            warnings.append(f"Run row {index} is missing run_id; deterministic placeholder assigned.")
+        stage_names = [str(stage.get("name", "unknown")) for stage in record.get("stages", [])]
+        if not stage_names and record.get("stage_names"):
+            stage_names = [str(name) for name in record.get("stage_names", [])]
+        if not stage_names:
+            warnings.append(f"Run {run_id} has no stage records; stage list defaulted to unknown.")
+            stage_names = ["unknown"]
+        warning_count = _to_int(record.get("warning_count"))
+        duration_seconds = _to_int(record.get("duration_seconds"))
+        started_at = str(record.get("started_at", "")).strip() or "unknown"
+        completed_at = str(record.get("completed_at", "")).strip() or "unknown"
+        if started_at == "unknown" or completed_at == "unknown":
+            warnings.append(f"Run {run_id} is missing timestamps; duration evidence is partial.")
+        failure_summary = str(record.get("failure_summary", "")).strip() or "None"
+        failure_count = 0 if failure_summary == "None" else 1
+        normalized.append(
+            {
+                "run_id": run_id,
+                "status": status,
+                "severity": map_run_status_to_severity(status),
+                "stage_names": stage_names,
+                "stage_chips": [{"name": name, "status": "complete" if status == "pass" else "partial"} for name in stage_names],
+                "duration_seconds": duration_seconds,
+                "warning_count": warning_count,
+                "failure_count": failure_count,
+                "failure_summary": failure_summary,
+                "evidence_links": [
+                    f"run://{run_id}/summary",
+                    f"run://{run_id}/logs",
+                ],
+                "next_action": str(record.get("next_action", "Review warnings and re-run if required")),
+                "started_at": started_at,
+                "completed_at": completed_at,
+            }
+        )
+    return normalized, warnings
+
+
+def _build_filter_descriptors(
+    *,
+    filters: dict[str, Any],
+    source_descriptors: tuple[Any, ...],
+) -> list[dict[str, str]]:
+    descriptor_map = {descriptor.key: descriptor for descriptor in source_descriptors}
+    descriptors: list[dict[str, str]] = []
+    for key, value in filters.items():
+        descriptor = descriptor_map.get(key)
+        descriptors.append(
+            {
+                "key": key,
+                "label": descriptor.label if descriptor else key.replace("_", " ").title(),
+                "value": str(value),
+                "description": descriptor.description if descriptor else "Temporary page-level adapter descriptor.",
+            }
+        )
+    return descriptors
 
 
 def _to_int(value: Any) -> int:
