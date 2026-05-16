@@ -235,3 +235,30 @@ def build_integration_evidence_summary(
         },
     }
 
+
+def build_runtime_diagnostics_markdown_table(
+    *,
+    diagnostics: dict[str, Any],
+    include_header: bool = True,
+) -> str:
+    """Render deterministic markdown table for app/query diagnostics handoff."""
+    categories = diagnostics.get("categories", {})
+    warning_categories = set(diagnostics.get("warning_categories", []))
+    blocking_categories = set(diagnostics.get("blocking_categories", []))
+    rows: list[str] = []
+    if include_header:
+        rows.extend(
+            [
+                "| Diagnostic | Status | Severity | Notes |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+    for category in sorted(categories):
+        status = str(categories.get(category, "unknown")).strip() or "unknown"
+        severity = "error" if category in blocking_categories else ("warning" if category in warning_categories else "ok")
+        notes = "blocking" if severity == "error" else ("review recommended" if severity == "warning" else "ready")
+        rows.append(f"| {category} | {status} | {severity} | {notes} |")
+    if len(rows) <= (2 if include_header else 0):
+        rows.append("| diagnostics | unknown | warning | no categories were provided |")
+    return "\n".join(rows)
+

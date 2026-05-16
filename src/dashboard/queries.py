@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from src.dashboard.contracts import (
+    EmptyStateContract,
     FilterDescriptor,
     FreshnessMetadata,
     PaginationMetadata,
@@ -97,6 +98,26 @@ _SORT_DESCRIPTORS = (
         default_descending=True,
         description="Sort by run identifier.",
     ),
+)
+
+_VALID_STATUS_VALUES = frozenset(
+    {
+        "ready",
+        "warning",
+        "blocked",
+        "strong_go",
+        "conditional_go",
+        "monitor",
+        "caution",
+        "go",
+        "no_go",
+        "pass",
+        "failed",
+        "in_progress",
+        "in_review",
+        "done",
+        "unknown",
+    }
 )
 
 
@@ -527,7 +548,7 @@ def _query_records(
     default_empty_message: str,
 ) -> QueryResult[dict[str, Any]]:
     warnings: list[QueryWarning] = []
-    normalized_records = list(records or [])
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
     active_filters = dict(filters or {})
     active_sort = dict(sort or {})
 
@@ -538,6 +559,16 @@ def _query_records(
                 message="Upstream data set is missing; returning deterministic empty records.",
             )
         )
+    elif len(normalized_records) != len(records):
+        warnings.append(
+            QueryWarning(
+                code="invalid_record_shape",
+                message="Non-object rows were dropped from query payload.",
+                field="records",
+            )
+        )
+
+    warnings.extend(_validate_data_integrity(normalized_records))
 
     filtered = _apply_filters(normalized_records, active_filters)
     sorted_records = _apply_sort(filtered, active_sort)
@@ -569,6 +600,12 @@ def _query_records(
         )
         if empty_state
         else (),
+        empty_state_contract=_build_empty_state_contract(
+            query_name=query_name,
+            default_empty_message=default_empty_message,
+        )
+        if empty_state
+        else None,
     )
     return QueryResult(
         query_name=query_name,
@@ -655,8 +692,24 @@ def _normalize_pagination_inputs(
     offset: int,
     warnings: list[QueryWarning],
 ) -> tuple[int, int]:
-    normalized_limit = limit
-    normalized_offset = offset
+    normalized_limit, limit_warning = _coerce_int(limit)
+    normalized_offset, offset_warning = _coerce_int(offset)
+    if limit_warning:
+        warnings.append(
+            QueryWarning(
+                code="invalid_limit_type",
+                message="Non-integer limit was coerced to default.",
+                field="limit",
+            )
+        )
+    if offset_warning:
+        warnings.append(
+            QueryWarning(
+                code="invalid_offset_type",
+                message="Non-integer offset was coerced to 0.",
+                field="offset",
+            )
+        )
     if normalized_limit < 0:
         warnings.append(
             QueryWarning(
@@ -685,6 +738,106 @@ def _normalize_pagination_inputs(
         )
         normalized_offset = 0
     return (normalized_limit, normalized_offset)
+
+
+def _validate_data_integrity(records: list[dict[str, Any]]) -> list[QueryWarning]:
+    warnings: list[QueryWarning] = []
+    seen_ids: set[str] = set()
+    seen_ranks: set[int] = set()
+    for row in records:
+        row_id = str(row.get("id", row.get("run_id", ""))).strip()
+        if row_id:
+            if row_id in seen_ids:
+                warnings.append(
+                    QueryWarning(
+                        code="duplicate_record_id",
+                        message="Duplicate record identifier detected.",
+                        field="id",
+                    )
+                )
+            seen_ids.add(row_id)
+        score_value = row.get("score")
+        numeric_score = _to_float(score_value)
+        if score_value is not None and numeric_score is None:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_score",
+                    message="One or more score values are non-numeric and will be treated as 0.",
+                    field="score",
+                )
+            )
+        confidence_value = row.get("confidence")
+        confidence_score = _to_float(confidence_value)
+        if confidence_value is not None and confidence_score is None:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_confidence",
+                    message="One or more confidence values are non-numeric and will be treated as 0.",
+                    field="confidence",
+                )
+            )
+        rank_value, rank_warning = _coerce_optional_int(row.get("rank"))
+        if rank_warning:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_rank",
+                    message="One or more rank values are invalid and ignored.",
+                    field="rank",
+                )
+            )
+        if rank_value is not None:
+            if rank_value in seen_ranks:
+                warnings.append(
+                    QueryWarning(
+                        code="duplicate_rank",
+                        message="Duplicate rank values detected; ordering remains deterministic.",
+                        field="rank",
+                    )
+                )
+            seen_ranks.add(rank_value)
+        normalized_status = _normalize_optional_string(row.get("status"))
+        if normalized_status and normalized_status not in _VALID_STATUS_VALUES:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_status_category",
+                    message="Unexpected status category detected in query payload.",
+                    field="status",
+                )
+            )
+    deduped: dict[tuple[str, str | None], QueryWarning] = {}
+    for warning in warnings:
+        deduped[(warning.code, warning.field)] = warning
+    return list(deduped.values())
+
+
+def _build_empty_state_contract(*, query_name: str, default_empty_message: str) -> EmptyStateContract:
+    return EmptyStateContract(
+        title=f"{query_name.replace('_', ' ').title()} Empty State",
+        explanation=default_empty_message,
+        remediation="Run fixture-backed collection/analysis inputs and refresh query consumers.",
+        severity="warning",
+        source="dashboard.query_layer",
+    )
+
+
+def _coerce_int(value: Any, *, default: int = 0) -> tuple[int, bool]:
+    if isinstance(value, bool):
+        return (1 if value else 0, True)
+    if isinstance(value, int):
+        return (value, False)
+    if value is None:
+        return (default, False)
+    try:
+        return (int(value), True)
+    except (TypeError, ValueError):
+        return (default, True)
+
+
+def _coerce_optional_int(value: Any) -> tuple[int | None, bool]:
+    if value is None:
+        return (None, False)
+    coerced, had_coercion = _coerce_int(value, default=0)
+    return (coerced, had_coercion)
 
 
 def _normalize_optional_string(value: Any) -> str | None:

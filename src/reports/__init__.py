@@ -7,6 +7,7 @@ from src.reports.placeholders import (
     build_governance_report_placeholders,
     build_integration_evidence_summary,
     build_jira_mapping_table,
+    build_runtime_diagnostics_markdown_table,
 )
 from src.reports.run_summary import (
     RunSummary,
@@ -59,6 +60,7 @@ __all__ = [
     "build_jira_mapping_table",
     "build_governance_report_placeholders",
     "build_integration_evidence_summary",
+    "build_runtime_diagnostics_markdown_table",
     "DEFAULT_VALIDATION_COMMANDS",
     "build_cycle003_report_bundle",
     "build_default_template",

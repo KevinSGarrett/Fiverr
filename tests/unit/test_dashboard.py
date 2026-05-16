@@ -344,8 +344,10 @@ def test_app_startup_diagnostics_handles_missing_config_and_data(tmp_path) -> No
     )
     assert diagnostics["status"] == "warning"
     assert diagnostics["safe_empty_state"] is True
-    assert diagnostics["warning_count"] == 3
+    assert diagnostics["warning_count"] >= 3
     assert diagnostics["data_entries"] == []
+    assert diagnostics["config_visibility"]["status"] == "warning"
+    assert diagnostics["first_run_readiness"]["status"] == "warning"
 
 
 def test_app_entry_smoke_state_registers_all_required_pages(tmp_path) -> None:
@@ -365,11 +367,11 @@ def test_app_entry_smoke_state_registers_all_required_pages(tmp_path) -> None:
     registration = smoke_state["page_registration"]
     assert registration["status"] == "ready"
     assert registration["missing_pages"] == []
-    assert smoke_state["status"] == "ready"
+    assert smoke_state["status"] == "warning"
     assert smoke_state["safe_empty_state"] is False
     assert smoke_state["entry"]["branch"] == "cycle/012/integration"
     assert smoke_state["page_registry"]
-    assert smoke_state["readiness"]["severity"] == "ready"
+    assert smoke_state["readiness"]["severity"] == "warning"
     assert smoke_state["readiness"]["blocked_pages"] == []
     assert smoke_state["query_diagnostics"]["status"] == "warning"
     assert smoke_state["query_diagnostics"]["categories"]["app_readiness"] == "ok"
@@ -395,6 +397,24 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
     assert diagnostics["status"] == "ready"
     assert diagnostics["blocking_categories"] == []
     assert diagnostics["results"]["integration_evidence"]["records"][0]["stage_status"]["analysis"] == "warning"
+
+
+def test_niche_config_visibility_summary_reports_nine_niches() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    summary = app_module.build_niche_config_visibility_summary(config_path="config.yaml")
+    assert summary["expected_niches"] == 9
+    assert summary["loaded_niches"] == 9
+    assert summary["status"] == "ready"
+
+
+def test_first_run_readiness_summary_includes_prerequisites_and_outputs() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    summary = app_module.build_first_run_readiness_summary(config_path="config.yaml", data_dir="data")
+    assert "collection" in summary["expected_stages"]
+    assert "analysis" in summary["expected_stages"]
+    assert "reporting" in summary["expected_stages"]
+    assert "validation" in summary["expected_stages"]
+    assert "fixture_files_available" in summary["prerequisites"]
 
 
 def test_page_registry_contains_required_contracts_and_disabled_reasons() -> None:

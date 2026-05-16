@@ -42,6 +42,7 @@ from src.reports import (
     build_jira_mapping_table,
     build_phase2_readiness_report,
     build_phase2_readiness_template,
+    build_runtime_diagnostics_markdown_table,
     render_plain_text_summary,
 )
 from src.reports.placeholders import (
@@ -679,4 +680,22 @@ def test_integration_evidence_summary_contains_validation_and_jira_progress_rows
     assert summary["codecov"] == {"project": "pass", "patch": "warning"}
     assert summary["jira_progress"][0]["jira_key"] == "SCRUM-226"
     assert summary["summary"]["validation_count"] == len(DEFAULT_VALIDATION_COMMANDS)
+
+
+def test_runtime_diagnostics_markdown_table_renders_categories() -> None:
+    rendered = build_runtime_diagnostics_markdown_table(
+        diagnostics={
+            "categories": {
+                "app_readiness": "ok",
+                "alerts": "warning",
+                "integration_evidence": "error",
+            },
+            "warning_categories": ["alerts"],
+            "blocking_categories": ["integration_evidence"],
+        }
+    )
+    assert "| Diagnostic | Status | Severity | Notes |" in rendered
+    assert "| app_readiness | ok | ok | ready |" in rendered
+    assert "| alerts | warning | warning | review recommended |" in rendered
+    assert "| integration_evidence | error | error | blocking |" in rendered
 
