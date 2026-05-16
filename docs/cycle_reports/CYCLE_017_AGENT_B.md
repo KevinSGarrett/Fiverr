@@ -19,7 +19,7 @@ Observed output:
 - `git rev-parse --show-toplevel`: `C:/Fiverr/Fiverr`
 - `git branch --show-current`: `cycle/017/integration`
 - `git status --short --branch`: `## cycle/017/integration...origin/cycle/017/integration`
-- `git worktree list`: `C:/Fiverr/Fiverr  d96a02d [cycle/017/integration]`
+- `git worktree list`: `C:/Fiverr/Fiverr  ac165c5 [cycle/017/integration]`
 - `git fetch origin`: completed without error
 
 Pass/fail result:
@@ -42,6 +42,9 @@ Touched Jira keys:
 - `SCRUM-228`
 - `SCRUM-235`
 - `SCRUM-237`
+- `SCRUM-157`
+- `SCRUM-231`
+- `SCRUM-260`
 
 AC/DoD source highlights advanced:
 
@@ -53,6 +56,9 @@ AC/DoD source highlights advanced:
 - `SCRUM-228`: Added cross-page acceptance rollup and docs snippet metadata in app payload registry.
 - `SCRUM-235`: Expanded regression assertions for descriptor/detail/warning/rollup behavior.
 - `SCRUM-237`: Monitoring continuity advanced via deterministic evidence-link warning metadata.
+- `SCRUM-157`: Keywords runtime contracts kept clustering-compatible under sparse/unclustered outputs with deterministic warning-first adapters.
+- `SCRUM-231`: Completion evidence metadata expanded in run-history payloads for integration diagnostics.
+- `SCRUM-260`: Agent B report/evidence package updated with cycle traceability details.
 
 Remaining gaps (non-Done recommendation maintained):
 
@@ -69,6 +75,7 @@ Remaining gaps (non-Done recommendation maintained):
 - `src/dashboard/app.py`
 - `tests/unit/test_dashboard.py`
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
+- `docs/cycle_reports/CYCLE_017_AGENT_B.md`
 
 ## Validation Commands and Outcomes
 
@@ -98,12 +105,15 @@ Jira comments posted this cycle with changed files + validation evidence + remai
 - `SCRUM-228` (comment id `10559`)
 - `SCRUM-235` (comment id `10554`)
 - `SCRUM-237` (comment id `10556`)
+- `SCRUM-157` (comment id `10562`)
+- `SCRUM-231` (comment id `10563`)
+- `SCRUM-260` (comment id `10561`)
 
 ## Branch / Commit State
 
 - Branch: `cycle/017/integration`
-- PR state: local branch update in progress (no push from this run)
-- Final local head SHA: see `git rev-parse HEAD` value in final freeze evidence block.
+- PR state: branch pushed to origin; PR target remains `develop`
+- Final local head SHA: captured via `git rev-parse HEAD` in final freeze evidence.
 - Worktree usage exception: **No**
 - Directory exception: **No**
 
