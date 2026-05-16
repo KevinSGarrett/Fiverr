@@ -102,7 +102,7 @@ Required full validation block:
 ## Commit and SHA Evidence
 
 - Branch: `cycle/018/integration`
-- Final local SHA: capture with `git rev-parse HEAD` immediately after commit.
+- Runtime work commit SHA: `36ee912ffb4fef7a0ed0d359fc214887f941bf38`
 
 ## Jira Comment Payloads Prepared/Posted
 
