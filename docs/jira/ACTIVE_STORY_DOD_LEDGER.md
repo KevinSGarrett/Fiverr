@@ -23,7 +23,7 @@
 | `SCRUM-215` | In Review | `src/dashboard/contracts.py`, `src/dashboard/queries.py`, `tests/unit/test_dashboard_queries.py` | Keywords-facing query fallback now shares the same empty-state contract schema consumed by page-level adapters. | Full keyword runtime/UI acceptance remains open. | `python -m pytest -q tests/unit/test_dashboard_queries.py`; full validation block pass. | `cycle/016/integration` | Keep `In Review`; no Done transition. |
 | `SCRUM-219` | In Review | `src/dashboard/contracts.py`, `src/dashboard/queries.py`, `tests/unit/test_dashboard_queries.py` | Run-history query fallback now emits consistent empty-state contract metadata for deterministic app-entry/runtime handling. | Full run-history runtime/UI acceptance remains open. | `python -m pytest -q tests/unit/test_dashboard_queries.py`; full validation block pass. | `cycle/016/integration` | Keep `In Review`; no Done transition. |
 
-## Cycle 016 Rows (Agent B)
+## Cycle 016 Rows (Agent B - Legacy Snapshot)
 
 | Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 016) | DoD Remaining / Gaps | Tests / Validation | PR/Branch | Next Action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -308,3 +308,32 @@
   - Pytest: pass (`403 passed`)
   - Coverage: pass (`93.25%`)
   - Config/Foundation/Phase2 smoke: pass
+
+## Cycle 016 Rows (Agent D Final Steward)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 016) | DoD Remaining / Gaps | Tests / Validation | PR/Branch | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-260` | In Progress | PR #13 metadata/check state, Codex comment dispositions, `docs/cycle_reports/CYCLE_016_D.md`, `docs/cycle_reports/CYCLE_016_AGENT_D.md` | Final PR stewardship evidence package completed: PR target `develop`, merge state clean, checks visible/green, Codex findings handled in-cycle, no-main policy reconfirmed. | Final story closure depends on final merge timing and sustained green checks at merge point. | `gh pr view 13 --json ...`; `gh pr checks 13`; review comment audit; targeted + full validation rerun pass. | PR #13 (`cycle/016/integration` -> `develop`) | Keep `In Progress`; close only after merge completion evidence. |
+| `SCRUM-259` | In Progress | PR #12 merge-gate ancestry verification in steward pass; branch lineage evidence in report/PR context | Re-verified that `develop` contains Cycle 015 merge before Cycle 016 continuation and confirmed branch ancestry remains valid. | Full story closure remains tied to final governance/steward cycle completion. | `git merge-base --is-ancestor develop HEAD`; PR #12 merged state checks in steward evidence. | `cycle/016/integration` | Keep `In Progress`; no premature Done. |
+| `SCRUM-232` | In Progress | `src/reports/placeholders.py`, `src/dashboard/queries.py`, `tests/unit/test_reports.py`, `tests/unit/test_dashboard_queries.py`, steward synthesis report | Data-integrity guardrails remain active and validated (malformed/duplicate/invalid score-confidence-safe warnings), with report-level evidence consolidated for healthy/sparse/corrupt-path behavior. | Full story DoD still requires broader end-to-end boundary matrix and production acceptance evidence. | `python -m pytest -q tests/unit/test_reports.py tests/unit/test_dashboard_queries.py tests/unit/test_orchestrator_helpers.py`; full validation block pass. | PR #13 | Keep `In Progress`; maintain warning-first non-crash behavior. |
+| `SCRUM-237` | In Progress | `src/dashboard/alerts.py`, `src/reports/placeholders.py`, run-history/dashboard tests, steward summary tables | Monitoring/logging evidence advanced through deterministic alert/run diagnostics summaries and report-ready evidence tables for QA review. | Full monitoring lifecycle/workflow acceptance remains outside current increment. | Targeted tests + full validation block pass; PR checks green. | PR #13 | Keep `In Progress`; continue lifecycle acceptance in subsequent pass. |
+| `SCRUM-239` | In Progress | `src/orchestrator.py`, `src/reports/placeholders.py`, `docs/cycle_reports/CYCLE_016_D.md` | First-run readiness checklist/handoff evidence consolidated with deterministic expected outputs, prerequisites, blockers, and stage expectations for controlled run prep. | Full controlled first-run execution evidence still pending; do not mark Done. | Targeted tests + `python run.py phase2-smoke`; full validation block pass. | PR #13 | Keep `In Progress`; execute controlled run in next integration pass. |
+| `SCRUM-236` | In Progress | Config-check outputs + steward report evidence | Re-verified all-nine-niche readiness from final head via config-check evidence (`niches=9`, config OK). | Story closure still requires sustained runtime integration acceptance evidence. | `python run.py config-check`; full validation block pass. | PR #13 | Keep `In Progress`; no Done recommendation. |
+| `SCRUM-241` | In Progress | `.gitignore`, `git status` hygiene evidence, steward report | Final steward hygiene pass confirms no secrets/session artifacts/runtime DBs/coverage outputs are intentionally staged in final scoped docs commit. | Post-merge hygiene recheck still required at final merge head. | `git status --short --branch`; artifact cleanup review before commit. | `cycle/016/integration` | Keep `In Progress`; re-check immediately before merge. |
+| `SCRUM-214` / `SCRUM-215` / `SCRUM-219` / `SCRUM-225` / `SCRUM-228` / `SCRUM-231` / `SCRUM-235` | In Review / In Progress | A/B/C cycle reports + steward synthesis in `docs/cycle_reports/CYCLE_016_D.md` and PR body updates | Added final runtime acceptance + integration summary tables with conservative status recommendations, explicit remaining gaps, and next-owner mapping; no overclaiming Done. | Story-level DoD remains open pending full runtime UI/integration acceptance and final merged-cycle evidence. | Targeted regression rerun + full mandatory validation rerun + GitHub check audit pass. | PR #13 | Keep non-Done statuses; close only when full source DoD is met. |
+
+## Cycle 016 Final Steward Validation Evidence
+
+- Targeted regression tests (steward pass):
+  - `python -m pytest -q tests/unit/test_reports.py tests/unit/test_dashboard_queries.py tests/unit/test_orchestrator_helpers.py` (`84 passed`)
+- Full mandatory validation block (steward rerun):
+  - `python -m ruff check .` (`pass`)
+  - `python -m mypy src` (`pass`)
+  - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` (`468 passed`, coverage `93.53%`)
+  - `python run.py config-check` (`pass`, `niches=9`)
+  - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle016.db` (`pass`)
+  - `python run.py phase2-smoke` (`pass`)
+- GitHub/Codecov checks (PR #13):
+  - `Lint, Typecheck, Tests, and Gates` (`pass`)
+  - `codecov/project` (`pass`)
+  - `codecov/patch` (`pass`)
