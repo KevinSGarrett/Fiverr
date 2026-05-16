@@ -95,6 +95,37 @@ class PageRegistryEntry:
         }
 
 
+_RUNTIME_REQUIRED_PAGE_REGISTRY_ENTRIES: tuple[PageRegistryEntry, ...] = (
+    PageRegistryEntry(
+        page_id="export_alerts",
+        label="Export/Alerts",
+        order=1000,
+        status="disabled",
+        enabled=False,
+        required_contracts=("export_system", "alert_summary"),
+        disabled_reason="Runtime page registration placeholder pending UI implementation.",
+    ),
+    PageRegistryEntry(
+        page_id="diagnostics",
+        label="Diagnostics",
+        order=1001,
+        status="disabled",
+        enabled=False,
+        required_contracts=("app_readiness", "source_freshness_summary"),
+        disabled_reason="Runtime page registration placeholder pending UI implementation.",
+    ),
+    PageRegistryEntry(
+        page_id="integration_evidence",
+        label="Integration Evidence",
+        order=1002,
+        status="disabled",
+        enabled=False,
+        required_contracts=("integration_evidence", "analysis_output_contract"),
+        disabled_reason="Runtime page registration placeholder pending UI implementation.",
+    ),
+)
+
+
 def _normalize_governance_status(raw_status: str | None) -> tuple[str, str]:
     if raw_status is None or not raw_status.strip():
         return ("unknown", "warning")
@@ -297,6 +328,12 @@ def build_page_registry() -> list[dict[str, Any]]:
                 disabled_reason=disabled_reason,
             )
         )
+    existing_page_ids = {entry.page_id for entry in registry}
+    for required_entry in _RUNTIME_REQUIRED_PAGE_REGISTRY_ENTRIES:
+        if required_entry.page_id in existing_page_ids:
+            continue
+        registry.append(required_entry)
+    registry.sort(key=lambda entry: entry.order)
     return [entry.as_dict() for entry in registry]
 
 
@@ -492,7 +529,13 @@ def build_app_entry_smoke_state(
 ) -> dict[str, Any]:
     """Return app-entry smoke state for startup behavior and page registration."""
     page_registry = build_page_registry()
-    required_page_ids = _normalize_required_page_ids([row["page_id"] for row in page_registry])
+    required_page_ids = _normalize_required_page_ids(
+        [
+            row["page_id"]
+            for row in page_registry
+            if row.get("enabled") is True or row.get("status") == "ready"
+        ]
+    )
     registered_page_ids = _normalize_required_page_ids([page.page_id for page in get_navigation_pages()])
     missing_pages = [page_id for page_id in required_page_ids if page_id not in registered_page_ids]
     startup = build_app_startup_diagnostics(config_path=config_path, data_dir=data_dir)

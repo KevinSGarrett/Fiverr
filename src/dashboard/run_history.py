@@ -145,6 +145,7 @@ def build_run_history_payload(
         "source": context["source_context"],
         "freshness": context["freshness"],
         "pagination": context["pagination"],
+        "query_contract": _build_query_contract(context),
         "next_actions": context["next_actions"],
     }
 
@@ -220,4 +221,22 @@ def _to_int(value: Any) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _build_query_contract(context: dict[str, Any]) -> dict[str, Any]:
+    warning_codes = sorted(
+        {
+            str(warning.get("code", "")).strip()
+            for warning in context.get("warnings", [])
+            if isinstance(warning, dict) and str(warning.get("code", "")).strip()
+        }
+    )
+    return {
+        "query_name": "run_history",
+        "status": context.get("status", "warning"),
+        "warning_codes": warning_codes,
+        "applied_filters": context.get("applied_filters", {}),
+        "applied_sort": context.get("applied_sort", {}),
+        "pagination": context.get("pagination"),
+    }
 

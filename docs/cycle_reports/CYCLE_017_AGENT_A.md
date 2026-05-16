@@ -74,6 +74,9 @@ Executed from `C:\Fiverr\Fiverr` (PowerShell):
 - `src/dashboard/queries.py`
 - `src/reports/__init__.py`
 - `src/reports/placeholders.py`
+- `src/dashboard/opportunities.py`
+- `src/dashboard/keywords.py`
+- `src/dashboard/run_history.py`
 - `tests/unit/test_dashboard.py`
 - `tests/unit/test_dashboard_queries.py`
 - `tests/unit/test_reports.py`
@@ -91,12 +94,15 @@ Executed from `C:\Fiverr\Fiverr` (PowerShell):
 - `SCRUM-239`: first-run readiness contract remains active and visible via app-entry diagnostics.
 - `SCRUM-241`: hygiene guardrails strengthened via `.gitignore` additions and repo-facing preflight script.
 - `SCRUM-235`: deterministic runtime acceptance guard tests expanded across dashboard/query/report suites.
+- `SCRUM-214`: opportunities page now exposes shared query-contract metadata for cross-consumer compatibility.
+- `SCRUM-215`: keywords page now exposes shared query-contract metadata for cross-consumer compatibility.
+- `SCRUM-219`: run-history page now exposes shared query-contract metadata for cross-consumer compatibility.
 
 ## 9) Validation Commands and Outcomes
 
 Targeted tests:
 
-- `python -m pytest -q tests/unit/test_dashboard.py tests/unit/test_dashboard_queries.py tests/unit/test_reports.py tests/unit/test_orchestrator_helpers.py` -> `138 passed`
+- `python -m pytest -q tests/unit/test_dashboard.py tests/unit/test_dashboard_queries.py tests/unit/test_reports.py tests/unit/test_orchestrator_helpers.py` -> `146 passed`
 
 Preflight helper:
 
@@ -106,7 +112,7 @@ Full required validation block:
 
 - `python -m ruff check .` -> `pass`
 - `python -m mypy src` -> `pass` (`Success: no issues found in 94 source files`)
-- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `pass` (`476 passed`, coverage `93.64%`)
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `pass` (`484 passed`, coverage `93.64%`)
 - `python run.py config-check` -> `pass` (`niches=9`)
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle017.db` -> `pass`
 - `python run.py phase2-smoke` -> `pass`
@@ -133,6 +139,9 @@ Full required validation block:
   - `SCRUM-239` comment id `10542`
   - `SCRUM-241` comment id `10543`
   - `SCRUM-235` comment id `10548`
+- `SCRUM-214` comment id `10551`
+- `SCRUM-215` comment id `10550`
+- `SCRUM-219` comment id `10549`
 
 ## 12) Codex Status
 
@@ -142,8 +151,8 @@ Full required validation block:
 ## 13) Branch / SHA State
 
 - Working branch: `cycle/017/integration`
-- Final local commit SHA (post-commit): `d922a40010acf1051dddc6d208b483a8e8e50e44`
-- Final pushed head SHA (post-push): `d922a40010acf1051dddc6d208b483a8e8e50e44`
+- Final local commit SHA (post-commit): `TBD`
+- Final pushed head SHA (post-push): `TBD`
 
 ## 14) Worktree / Directory Policy
 
@@ -153,7 +162,8 @@ Full required validation block:
 
 ## 15) Remaining Risks / Blockers
 
-- Preserved stash from prior cycle remains intentionally unapplied on `cycle/017/integration`.
+- No active blockers.
+- Preserved stash from prior cycle remains intentionally unapplied on `cycle/017/integration` by design.
 
 ## 16) Next-Agent Handoff
 
