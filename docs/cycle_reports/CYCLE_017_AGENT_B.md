@@ -103,7 +103,7 @@ Jira comments posted this cycle with changed files + validation evidence + remai
 
 - Branch: `cycle/017/integration`
 - PR state: local branch update in progress (no push from this run)
-- Final local head SHA: `68c4fd7a1ca4b8047b1e3d1eaed0192e1b5659bb`
+- Final local head SHA: recorded from `git rev-parse HEAD` at freeze (`e9027fb94dd83d716650ad67d6a703cafd49135f` before push)
 - Worktree usage exception: **No**
 - Directory exception: **No**
 
