@@ -5,6 +5,7 @@
 - **Agent**: B
 - **Branch**: `cycle/015/integration`
 - **Head SHA (start of Agent B pass)**: `f26738a43d242430f16173ce175576033b8fe4e8`
+- **Head SHA (current Agent B commit)**: `b90d71b`
 - **Exact Jira keys**: `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`, `SCRUM-237`, `SCRUM-157`, `SCRUM-259`
 
 ## Jira AC/DoD Implementation Map (Before Coding)
@@ -89,6 +90,13 @@
   - `SCRUM-214` comment `10451`
   - `SCRUM-215` comment `10449`
   - `SCRUM-219` comment `10452`
+  - `SCRUM-225` comment `10453`
+  - `SCRUM-228` comment `10455`
+  - `SCRUM-231` comment `10457`
+  - `SCRUM-235` comment `10456`
+  - `SCRUM-237` comment `10458`
+  - `SCRUM-157` comment `10454`
+  - `SCRUM-259` comment `10459`
 
 ## Risks
 
