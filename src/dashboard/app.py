@@ -781,12 +781,34 @@ def get_product_page_payloads(
         "ui_runtime_required": ["opportunities", "keywords", "run_history"],
         "ui_runtime_pending": True,
     }
+    acceptance_rollup = build_product_page_acceptance_rollup(payloads=payloads)
+    payloads["acceptance_rollup"] = acceptance_rollup
+    payloads["docs_snippet"] = {
+        "title": "Dashboard Runtime Contract Notes",
+        "summary": (
+            "Payloads expose deterministic query contracts, descriptor contracts, warning summaries, "
+            "detail panel schemas, and runtime acceptance states for Opportunities, Keywords, and Run History."
+        ),
+        "status_rollup": acceptance_rollup["status"],
+    }
     product_page_ids = ("opportunities", "keywords", "run_history")
-    if all(payloads[page_id]["state"]["state"] == "empty" for page_id in product_page_ids):
+    if acceptance_rollup["status"] == "blocked":
+        payloads["registry_state"] = build_state_descriptor(
+            state="blocked",
+            message="At least one product payload is blocked by missing runtime acceptance prerequisites.",
+            warnings=acceptance_rollup["reasons"],
+        )
+    elif all(payloads[page_id]["state"]["state"] == "empty" for page_id in product_page_ids):
         payloads["registry_state"] = build_state_descriptor(
             state="empty",
             message="All product pages are in safe empty-state mode pending data hydration.",
             warnings=["No records were supplied for opportunities, keywords, or run history."],
+        )
+    elif acceptance_rollup["status"] == "warning":
+        payloads["registry_state"] = build_state_descriptor(
+            state="warning",
+            message="Product payloads are available with sparse-data warnings.",
+            warnings=acceptance_rollup["reasons"],
         )
     else:
         payloads["registry_state"] = build_state_descriptor(
@@ -799,6 +821,38 @@ def get_product_page_payloads(
 def get_cycle003_status_state() -> dict[str, Any]:
     """Expose import-safe status sections for Foundation/Collection/Analysis dry runs."""
     return build_cycle003_status_state()
+
+
+def build_product_page_acceptance_rollup(*, payloads: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Roll up acceptance status across Opportunities, Keywords, and Run History payloads."""
+    page_ids = ("opportunities", "keywords", "run_history")
+    rows: list[dict[str, Any]] = []
+    reasons: list[str] = []
+    status_order = {"ready": 0, "warning": 1, "unknown": 2, "blocked": 3}
+    overall = "ready"
+    for page_id in page_ids:
+        page_payload = payloads.get(page_id, {})
+        acceptance = page_payload.get("acceptance_status", {})
+        status = str(acceptance.get("status", "unknown")).strip().lower() or "unknown"
+        rows.append(
+            {
+                "page_id": page_id,
+                "status": status,
+                "warning_count": int(acceptance.get("warning_count", 0)),
+                "blocker_count": int(acceptance.get("blocker_count", 0)),
+            }
+        )
+        if status_order.get(status, 2) > status_order.get(overall, 2):
+            overall = status
+        for reason in acceptance.get("reasons", []):
+            normalized_reason = str(reason).strip()
+            if normalized_reason and normalized_reason not in reasons:
+                reasons.append(normalized_reason)
+    return {
+        "status": overall,
+        "pages": rows,
+        "reasons": reasons,
+    }
 
 
 def get_phase2_readiness_state() -> dict[str, Any]:

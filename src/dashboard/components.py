@@ -188,6 +188,28 @@ class EmptyStatePayload:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class RuntimeAcceptanceStatus:
+    """Stable runtime acceptance contract for dashboard product payloads."""
+
+    status: Literal["ready", "warning", "blocked", "unknown"]
+    reasons: tuple[str, ...] = ()
+    warning_count: int = 0
+    blocker_count: int = 0
+    stale_data: bool = False
+    evidence_ids: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "reasons": list(self.reasons),
+            "warning_count": self.warning_count,
+            "blocker_count": self.blocker_count,
+            "stale_data": self.stale_data,
+            "evidence_ids": list(self.evidence_ids),
+        }
+
+
 def normalize_status_badge(status: str | None) -> str:
     """Convert status values into stable badge text for payload consumers."""
     normalized = (status or "").strip().lower()
@@ -329,6 +351,85 @@ def build_empty_state_payload(
         message=message,
         next_steps=tuple(next_steps or ()),
     ).as_dict()
+
+
+def build_warning_summary(
+    *,
+    warnings: list[str] | tuple[str, ...] | None = None,
+    blocked: bool = False,
+) -> dict[str, Any]:
+    """Build deterministic warning-summary contract shared across pages."""
+    warning_rows = [str(item) for item in (warnings or ()) if str(item).strip()]
+    severity = "blocked" if blocked else ("warning" if warning_rows else "ok")
+    return {
+        "severity": severity,
+        "count": len(warning_rows),
+        "messages": warning_rows,
+    }
+
+
+def build_descriptor_contract(
+    *,
+    applied: dict[str, Any],
+    available: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build reusable descriptor contract with applied + available values."""
+    return {
+        "applied": dict(applied),
+        "available": available,
+    }
+
+
+def build_runtime_acceptance_status(
+    *,
+    state: ComponentState,
+    warnings: list[str] | tuple[str, ...] | None = None,
+    stale_data: bool = False,
+    evidence_ids: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    """Return deterministic runtime acceptance status for page payloads."""
+    warning_rows = [str(item) for item in (warnings or ()) if str(item).strip()]
+    blockers = [message for message in warning_rows if "blocked" in message.lower()]
+    status: Literal["ready", "warning", "blocked", "unknown"] = "unknown"
+    if state == "blocked":
+        status = "blocked"
+    elif state in {"warning", "error"} or warning_rows:
+        status = "warning"
+    elif state == "ready":
+        status = "ready"
+    reasons: list[str] = []
+    if warning_rows:
+        reasons.append("Warnings present in payload contract.")
+    if stale_data:
+        reasons.append("Freshness state indicates stale runtime evidence.")
+    if not reasons and status == "ready":
+        reasons.append("Payload contract is ready for runtime consumption.")
+    if not reasons:
+        reasons.append("Runtime status is unknown until additional evidence is supplied.")
+    return RuntimeAcceptanceStatus(
+        status=status,
+        reasons=tuple(reasons),
+        warning_count=len(warning_rows),
+        blocker_count=len(blockers),
+        stale_data=stale_data,
+        evidence_ids=tuple(str(item) for item in (evidence_ids or ()) if str(item).strip()),
+    ).as_dict()
+
+
+def build_detail_panel_schema(
+    *,
+    panel_id: str,
+    row_id_key: str,
+    title_field: str,
+    fields: list[str] | tuple[str, ...],
+) -> dict[str, Any]:
+    """Build stable detail-panel schema for UI adapters."""
+    return {
+        "panel_id": panel_id,
+        "row_id_key": row_id_key,
+        "title_field": title_field,
+        "fields": [str(field) for field in fields],
+    }
 
 
 def build_ranking_cards(rows: list[dict[str, Any]], *, title_field: str) -> list[dict[str, Any]]:

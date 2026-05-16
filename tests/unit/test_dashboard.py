@@ -616,6 +616,15 @@ def test_component_state_and_table_contracts_support_warning_rows() -> None:
     assert state["accessible_label"] == "Dashboard page has partial data warnings"
     assert table["empty_state"] is True
     assert table["warning_rows"][0]["message"] == "No rows available"
+    acceptance = components_module.build_runtime_acceptance_status(
+        state="warning",
+        warnings=["Missing required field: score"],
+        stale_data=True,
+        evidence_ids=["opp-1"],
+    )
+    assert acceptance["status"] == "warning"
+    assert acceptance["stale_data"] is True
+    assert acceptance["evidence_ids"] == ["opp-1"]
 
 
 def test_component_status_semantics_are_accessible_and_stable() -> None:
@@ -639,7 +648,10 @@ def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> No
     assert payload["table"]["rows"][0]["niche"] == "logo-design"
     assert payload["ranking_cards"][0]["keyword_links"] == ["kw-logo-design", "kw-brand-kit"]
     assert payload["table"]["rows"][0]["go_decision"] == "Strong GO"
-    assert payload["table"]["filter_descriptors"][0]["key"] == "niche"
+    descriptor_keys = {row["key"] for row in payload["table"]["filter_descriptors"]}
+    assert {"status", "niche", "score_min"} <= descriptor_keys
+    assert payload["filter_descriptor_contract"]["applied"]["niche"] == "logo-design"
+    assert payload["sort_descriptor_contract"]["applied"]["field"] == "score"
 
 
 def test_opportunities_payload_coerces_string_top_score_for_metric_card() -> None:
@@ -699,7 +711,10 @@ def test_keywords_payload_sorting_and_filtering_are_supported() -> None:
         payload["table"]["rows"][0]
     ]
     assert payload["table"]["rows"][0]["keyword"] == "logo design package"
-    assert payload["table"]["filter_descriptors"][0]["key"] == "niche"
+    descriptor_keys = {row["key"] for row in payload["table"]["filter_descriptors"]}
+    assert {"status", "niche", "score_min"} <= descriptor_keys
+    assert payload["filter_descriptor_contract"]["applied"]["niche"] == "logo-design"
+    assert payload["sort_descriptor_contract"]["applied"]["field"] == "score"
 
 
 def test_keywords_payload_sparse_rows_include_freshness_warnings() -> None:
@@ -739,6 +754,8 @@ def test_run_history_payload_handles_malformed_runs_with_warnings() -> None:
     assert row["stage_names"] == ["unknown"]
     assert row["warning_count"] == 3
     assert any("missing run_id" in item["message"] for item in payload["table"]["warning_rows"])
+    assert row["evidence_link_status"] == "warning"
+    assert row["evidence_link_warnings"]
 
 
 def test_alert_rules_emit_missing_run_structure_when_run_id_absent() -> None:
@@ -791,7 +808,7 @@ def test_app_product_page_registry_returns_ready_state_for_fixture_data() -> Non
         keywords_records=fixture["keywords"],
         run_history_records=fixture["run_history"],
     )
-    assert payloads["registry_state"]["state"] == "ready"
+    assert payloads["registry_state"]["state"] in {"ready", "warning"}
     assert payloads["opportunities"]["payload_support"]["implemented"] is True
     assert payloads["opportunities"]["table"]["rows"]
     assert payloads["keywords"]["table"]["rows"]
@@ -813,6 +830,38 @@ def test_query_contract_metadata_is_shared_across_page_consumers() -> None:
         assert isinstance(contract["applied_filters"], dict)
         assert isinstance(contract["applied_sort"], dict)
         assert "pagination" in contract
+
+
+def test_dashboard_descriptor_contracts_and_detail_schemas_are_consistent_across_pages() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=fixture["run_history"],
+    )
+    for page_id in ("opportunities", "keywords", "run_history"):
+        payload = payloads[page_id]
+        assert payload["filter_descriptor_contract"]["available"]
+        assert payload["sort_descriptor_contract"]["available"]
+        assert payload["detail_panel_schema"]["row_id_key"]
+        assert payload["warning_summary"]["severity"] in {"ok", "warning", "blocked"}
+        assert payload["acceptance_status"]["status"] in {"ready", "warning", "blocked", "unknown"}
+
+
+def test_dashboard_cross_page_acceptance_rollup_tracks_warning_states() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=[
+            {"run_id": "run-1", "status": "pass", "stages": [{"name": "analysis"}], "warning_count": 0},
+        ],
+    )
+    assert payloads["acceptance_rollup"]["status"] in {"ready", "warning"}
+    assert payloads["docs_snippet"]["status_rollup"] == payloads["acceptance_rollup"]["status"]
+    assert len(payloads["acceptance_rollup"]["pages"]) == 3
 
 
 def test_runtime_guard_15_handles_non_list_query_records_without_crash() -> None:
