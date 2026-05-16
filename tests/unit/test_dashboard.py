@@ -396,7 +396,10 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
         "exports": "ok",
         "integration_evidence": "ok",
         "analysis_output_contract": "warning",
+        "niche_config_validation": "unknown",
+        "first_run_readiness": "unknown",
         "data_integrity": "ok",
+        "data_integrity_readiness": "unknown",
     }
     assert diagnostics["status"] == "warning"
     assert diagnostics["blocking_categories"] == []
@@ -405,6 +408,7 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
     assert diagnostics["warning_codes"]["analysis_output_contract"] == [
         "missing_analysis_records",
     ]
+    assert diagnostics["runtime_readiness_baseline"]["status"] == "unknown"
 
 
 def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable_codes() -> None:
@@ -422,6 +426,7 @@ def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable
     assert "invalid_rank" in diagnostics["data_integrity"]["warning_codes"]
     assert "invalid_score" in diagnostics["data_integrity"]["warning_codes"]
     assert "malformed_evidence" in diagnostics["data_integrity"]["warning_codes"]
+    assert diagnostics["data_integrity_readiness"]["status"] == "blocked"
 
 
 def test_app_entry_query_diagnostics_payload_availability_includes_source_and_warning_codes() -> None:

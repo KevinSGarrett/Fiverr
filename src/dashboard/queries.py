@@ -169,6 +169,37 @@ def summarize_data_integrity_records(
     }
 
 
+def build_data_integrity_readiness_signal(
+    *,
+    records: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Build app-entry readiness state (ready/warning/blocked/unknown) for integrity."""
+    if records is None:
+        return {
+            "status": "unknown",
+            "record_count": 0,
+            "warning_count": 0,
+            "warning_codes": ["missing_records"],
+            "notes": ["No analysis records were provided for data-integrity validation."],
+        }
+    summary = summarize_data_integrity_records(records=records)
+    warning_count = int(summary["warning_count"])
+    status = "ready"
+    if warning_count >= 3:
+        status = "blocked"
+    elif warning_count > 0:
+        status = "warning"
+    elif int(summary["record_count"]) == 0:
+        status = "unknown"
+    return {
+        "status": status,
+        "record_count": int(summary["record_count"]),
+        "warning_count": warning_count,
+        "warning_codes": list(summary["warning_codes"]),
+        "warnings": list(summary["warnings"]),
+    }
+
+
 def get_filter_descriptors() -> tuple[FilterDescriptor, ...]:
     """Return reusable query filter descriptors for dashboard page consumers."""
     return _FILTER_DESCRIPTORS

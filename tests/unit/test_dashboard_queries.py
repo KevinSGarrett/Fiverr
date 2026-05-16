@@ -297,6 +297,24 @@ def test_summarize_data_integrity_records_returns_traceable_warning_codes() -> N
     )
 
 
+def test_data_integrity_readiness_signal_supports_unknown_warning_and_blocked() -> None:
+    from src.dashboard.queries import build_data_integrity_readiness_signal
+
+    unknown_signal = build_data_integrity_readiness_signal(records=None)
+    assert unknown_signal["status"] == "unknown"
+
+    warning_signal = build_data_integrity_readiness_signal(records=[{"id": "row-1", "score": "bad"}])
+    assert warning_signal["status"] == "warning"
+
+    blocked_signal = build_data_integrity_readiness_signal(
+        records=[
+            {"id": "dup", "score": "bad", "rank": "bad-rank"},
+            {"id": "dup", "score": "still-bad", "rank": "still-bad-rank"},
+        ]
+    )
+    assert blocked_signal["status"] == "blocked"
+
+
 def test_analysis_outputs_feed_dashboard_contract_for_complete_payload() -> None:
     layer = get_dashboard_query_layer()
     result = layer.analysis_output_contract(

@@ -54,6 +54,8 @@ from src.reports.placeholders import (
     JIRA_UPDATED_BY_VALUES,
     build_active_story_groups,
     build_analysis_summary_rows,
+    build_first_run_readiness_baseline_payload,
+    build_integration_run_context_model,
 )
 
 
@@ -724,6 +726,36 @@ def test_runtime_diagnostics_section_contains_operator_context() -> None:
     assert section["warning_count"] == 1
     assert section["warning_codes"]["data_integrity"] == ["duplicate_record_id"]
     assert "| app_readiness | ok | ok | ready |" in section["markdown_table"]
+
+
+def test_integration_run_context_model_marks_unauthorized_worktree_as_blocked() -> None:
+    context = build_integration_run_context_model(
+        expected_root="C:\\Fiverr\\Fiverr",
+        git_root="C:\\Fiverr\\Fiverr",
+        branch="cycle/018/integration",
+        worktrees=["C:\\Fiverr\\Fiverr", "C:\\Temp\\rogue-worktree"],
+        dirty_entries=[],
+    )
+    assert context["status"] == "blocked"
+    assert context["worktree_control"] == "blocked"
+    assert context["unauthorized_worktrees"] == ["C:\\Temp\\rogue-worktree"]
+
+
+def test_first_run_readiness_baseline_payload_rolls_up_warning_statuses() -> None:
+    baseline = build_first_run_readiness_baseline_payload(
+        run_context={"status": "warning", "unauthorized_worktrees": []},
+        diagnostics_status="ready",
+        niche_validation_status="warning",
+        data_integrity_signal={
+            "status": "ready",
+            "record_count": 4,
+            "warning_codes": [],
+        },
+    )
+    assert baseline["status"] == "warning"
+    assert baseline["categories"]["run_context"] == "warning"
+    assert baseline["categories"]["niche_validation"] == "warning"
+    assert baseline["record_count"] == 4
 
 
 def test_data_integrity_summary_detects_malformed_and_mismatched_rows() -> None:

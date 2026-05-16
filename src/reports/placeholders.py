@@ -36,6 +36,18 @@ DEFAULT_VALIDATION_COMMANDS = (
     "python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle014.db",
     "python run.py phase2-smoke",
 )
+RUNTIME_READINESS_STATUS_ORDER = {
+    "ready": 0,
+    "warning": 1,
+    "unknown": 2,
+    "blocked": 3,
+}
+_RUNTIME_STATUS_NORMALIZATION = {
+    "ok": "ready",
+    "pass": "ready",
+    "error": "blocked",
+    "fail": "blocked",
+}
 
 
 def build_governance_report_placeholders(
@@ -293,6 +305,78 @@ def build_runtime_diagnostics_section(
         "payload_availability": payload_availability,
         "warning_codes": warning_codes,
         "markdown_table": build_runtime_diagnostics_markdown_table(diagnostics=diagnostics),
+    }
+
+
+def build_integration_run_context_model(
+    *,
+    expected_root: str,
+    git_root: str,
+    branch: str,
+    worktrees: list[str] | None = None,
+    dirty_entries: list[str] | None = None,
+    preflight_status: str = "ready",
+) -> dict[str, Any]:
+    """Build a deterministic root/worktree/run-context model for integration validation."""
+    normalized_expected_root = expected_root.strip().replace("/", "\\")
+    normalized_git_root = git_root.strip().replace("/", "\\")
+    normalized_branch = branch.strip() or "unknown"
+    normalized_worktrees = [str(item).strip().replace("/", "\\") for item in (worktrees or []) if str(item).strip()]
+    normalized_dirty_entries = [str(item).strip() for item in (dirty_entries or []) if str(item).strip()]
+    unauthorized_worktrees = [
+        path for path in normalized_worktrees if path and path != normalized_expected_root
+    ]
+    root_locked = normalized_git_root == normalized_expected_root
+    normalized_preflight = preflight_status.strip().lower() or "unknown"
+
+    runtime_status = "ready"
+    if not root_locked or unauthorized_worktrees:
+        runtime_status = "blocked"
+    elif normalized_preflight in {"unknown", "pending"}:
+        runtime_status = "unknown"
+    elif normalized_dirty_entries or normalized_preflight in {"warning"}:
+        runtime_status = "warning"
+
+    return {
+        "status": runtime_status,
+        "expected_root": normalized_expected_root,
+        "git_root": normalized_git_root,
+        "branch": normalized_branch,
+        "root_lock": "ready" if root_locked else "blocked",
+        "worktree_control": "blocked" if unauthorized_worktrees else "ready",
+        "dirty_tree": "warning" if normalized_dirty_entries else "ready",
+        "preflight_status": normalized_preflight,
+        "worktree_count": len(normalized_worktrees),
+        "unauthorized_worktrees": unauthorized_worktrees,
+        "dirty_entries": normalized_dirty_entries,
+    }
+
+
+def build_first_run_readiness_baseline_payload(
+    *,
+    run_context: dict[str, Any],
+    diagnostics_status: str,
+    niche_validation_status: str,
+    data_integrity_signal: dict[str, Any],
+) -> dict[str, Any]:
+    """Build first-run baseline payload consumed by dashboard/report evidence."""
+    def _normalize_status(value: str) -> str:
+        normalized = value.strip().lower() or "unknown"
+        return _RUNTIME_STATUS_NORMALIZATION.get(normalized, normalized)
+
+    categories = {
+        "run_context": _normalize_status(str(run_context.get("status", "unknown"))),
+        "diagnostics": _normalize_status(diagnostics_status),
+        "niche_validation": _normalize_status(niche_validation_status),
+        "data_integrity": _normalize_status(str(data_integrity_signal.get("status", "unknown"))),
+    }
+    overall = max(categories.values(), key=lambda status: RUNTIME_READINESS_STATUS_ORDER.get(status, 2))
+    return {
+        "status": overall,
+        "categories": categories,
+        "warning_codes": list(data_integrity_signal.get("warning_codes", [])),
+        "blocking_reasons": list(run_context.get("unauthorized_worktrees", [])),
+        "record_count": int(data_integrity_signal.get("record_count", 0)),
     }
 
 

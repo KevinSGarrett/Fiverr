@@ -18,12 +18,19 @@ from src.dashboard.navigation import (
 )
 from src.dashboard.opportunities import build_opportunities_payload
 from src.dashboard.pages import build_registered_page_payloads
-from src.dashboard.queries import summarize_data_integrity_records
+from src.dashboard.queries import (
+    build_data_integrity_readiness_signal,
+    summarize_data_integrity_records,
+)
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 from src.reports import build_governance_report_placeholders
-from src.reports.placeholders import build_active_story_groups
+from src.reports.placeholders import (
+    build_active_story_groups,
+    build_first_run_readiness_baseline_payload,
+    build_integration_run_context_model,
+)
 
 GOVERNANCE_STATUS_ORDER = (
     "local_parity",
@@ -604,6 +611,23 @@ def build_app_entry_query_diagnostics(
     evidence = layer.integration_evidence(evidence=integration_evidence)
     analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
     integrity_summary = summarize_data_integrity_records(records=analysis_output_records)
+    integrity_signal = build_data_integrity_readiness_signal(records=analysis_output_records)
+    runtime_run_context = build_integration_run_context_model(
+        expected_root="C:\\Fiverr\\Fiverr",
+        git_root="C:\\Fiverr\\Fiverr",
+        branch="unknown",
+        worktrees=["C:\\Fiverr\\Fiverr"],
+        dirty_entries=[],
+        preflight_status="ready",
+    )
+    niche_status = str(startup.get("config_visibility", {}).get("status", "unknown")).strip().lower() or "unknown"
+    first_run_status = str(startup.get("first_run_readiness", {}).get("status", "unknown")).strip().lower() or "unknown"
+    readiness_baseline = build_first_run_readiness_baseline_payload(
+        run_context=runtime_run_context,
+        diagnostics_status=str(app_readiness.context.status),
+        niche_validation_status=niche_status,
+        data_integrity_signal=integrity_signal,
+    )
     query_results = {
         "app_readiness": app_readiness.as_dict(),
         "alerts": alerts.as_dict(),
@@ -617,14 +641,17 @@ def build_app_entry_query_diagnostics(
         "exports": exports.context.status,
         "integration_evidence": evidence.context.status,
         "analysis_output_contract": analysis_contract.context.status,
+        "niche_config_validation": niche_status,
+        "first_run_readiness": first_run_status,
         "data_integrity": integrity_summary["status"],
+        "data_integrity_readiness": integrity_signal["status"],
     }
     payload_availability = _build_query_payload_availability(query_results)
     blocking_categories = [
-        category for category, status in categories.items() if status in {"error"}
+        category for category, status in categories.items() if status in {"error", "blocked"}
     ]
     warning_categories = [
-        category for category, status in categories.items() if status in {"warning"}
+        category for category, status in categories.items() if status in {"warning", "unknown"}
     ]
     status = "error" if blocking_categories else ("warning" if warning_categories else "ready")
     return {
@@ -638,6 +665,8 @@ def build_app_entry_query_diagnostics(
         "blocking_categories": blocking_categories,
         "results": query_results,
         "data_integrity": integrity_summary,
+        "data_integrity_readiness": integrity_signal,
+        "runtime_readiness_baseline": readiness_baseline,
     }
 
 
