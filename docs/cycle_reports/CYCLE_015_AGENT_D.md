@@ -75,7 +75,7 @@
 | --- | --- |
 | `python -m ruff check .` | pass |
 | `python -m mypy src` | pass |
-| `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` | pass (`448 passed`, coverage `93.48%`) |
+| `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` | pass (`449 passed`, coverage `93.46%`) |
 | `python run.py config-check` | pass |
 | `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle015.db` | pass |
 | `python run.py phase2-smoke` | pass |
@@ -90,9 +90,11 @@
   - `codecov/project` -> pass (both workflow runs after final push)
   - `codecov/patch` -> pass (after final push)
 - Codex/review thread status on PR #12 at handoff:
-  - `gh api repos/KevinSGarrett/Fiverr/pulls/12/comments` -> `[]`
-  - `gh api repos/KevinSGarrett/Fiverr/pulls/12/reviews` -> `[]`
-  - No active Codex/review findings to resolve in this cycle at report close time.
+  - One Codex finding was posted on `src/dashboard/queries.py` for malformed integration-evidence type coercion.
+  - Fix implemented in `query_integration_evidence` with deterministic type guarding for `stage_status` and `jira_progress`.
+  - Regression test added: `test_integration_evidence_query_handles_malformed_stage_and_jira_shapes`.
+  - Targeted rerun: `python -m pytest -q tests/unit/test_dashboard_queries.py` -> pass (`11 passed`).
+  - Full required validation block rerun after fix -> pass (coverage gate maintained).
 
 ## Jira Operations Performed
 

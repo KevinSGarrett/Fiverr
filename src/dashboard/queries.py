@@ -430,14 +430,55 @@ def query_integration_evidence(
                 message="Integration evidence was not provided; using default deterministic summary.",
             )
         )
+    evidence_payload = evidence if isinstance(evidence, dict) else {}
+    if evidence is not None and not isinstance(evidence, dict):
+        warnings.append(
+            QueryWarning(
+                code="invalid_integration_evidence_payload",
+                message="Integration evidence payload must be an object; using deterministic fallback values.",
+                field="evidence",
+            )
+        )
+    raw_stage_status = evidence_payload.get("stage_status", {})
+    stage_status = dict(raw_stage_status) if isinstance(raw_stage_status, dict) else {}
+    if raw_stage_status and not isinstance(raw_stage_status, dict):
+        warnings.append(
+            QueryWarning(
+                code="invalid_integration_stage_status",
+                message="Integration stage_status must be a map; using empty stage status fallback.",
+                field="stage_status",
+            )
+        )
+    raw_jira_progress = evidence_payload.get("jira_progress", [])
+    jira_progress: list[dict[str, Any]]
+    if isinstance(raw_jira_progress, list):
+        jira_progress = [row for row in raw_jira_progress if isinstance(row, dict)]
+        if len(jira_progress) != len(raw_jira_progress):
+            warnings.append(
+                QueryWarning(
+                    code="invalid_integration_jira_progress_rows",
+                    message="Non-object Jira progress rows were ignored for deterministic summary generation.",
+                    field="jira_progress",
+                )
+            )
+    else:
+        jira_progress = []
+        if raw_jira_progress:
+            warnings.append(
+                QueryWarning(
+                    code="invalid_integration_jira_progress",
+                    message="Jira progress must be a list of objects; using empty fallback.",
+                    field="jira_progress",
+                )
+            )
     normalized_evidence = build_integration_evidence_summary(
-        stage_status=dict((evidence or {}).get("stage_status", {})),
-        codex_status=str((evidence or {}).get("codex_status", "pending")),
-        codecov_project_status=str((evidence or {}).get("codecov_project_status", "pending")),
-        codecov_patch_status=str((evidence or {}).get("codecov_patch_status", "pending")),
-        jira_progress=list((evidence or {}).get("jira_progress", [])),
+        stage_status=stage_status,
+        codex_status=str(evidence_payload.get("codex_status", "pending")),
+        codecov_project_status=str(evidence_payload.get("codecov_project_status", "pending")),
+        codecov_patch_status=str(evidence_payload.get("codecov_patch_status", "pending")),
+        jira_progress=jira_progress,
     )
-    generated_at = str((evidence or {}).get("generated_at", "")).strip() or None
+    generated_at = str(evidence_payload.get("generated_at", "")).strip() or None
     payload = {
         "source": (source_context or _DEFAULT_SOURCE).source_name,
         "generated_at": generated_at,

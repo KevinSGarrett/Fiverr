@@ -140,3 +140,21 @@ def test_integration_evidence_query_uses_deterministic_default_summary_when_miss
     assert result.context.status == "warning"
     warning_codes = {warning.code for warning in result.context.warnings}
     assert "missing_integration_evidence" in warning_codes
+
+
+def test_integration_evidence_query_handles_malformed_stage_and_jira_shapes() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.integration_evidence(
+        evidence={
+            "stage_status": "pass",
+            "jira_progress": {"jira_key": "SCRUM-1"},
+            "codex_status": "clean",
+        }
+    )
+    assert result.query_name == "integration_evidence"
+    assert result.records[0]["stage_status"] == {}
+    assert result.records[0]["jira_progress"] == []
+    assert result.context.status == "warning"
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "invalid_integration_stage_status" in warning_codes
+    assert "invalid_integration_jira_progress" in warning_codes
