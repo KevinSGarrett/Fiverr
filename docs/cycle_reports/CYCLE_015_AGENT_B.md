@@ -5,7 +5,7 @@
 - **Agent**: B
 - **Branch**: `cycle/015/integration`
 - **Head SHA (start of Agent B pass)**: `f26738a43d242430f16173ce175576033b8fe4e8`
-- **Head SHA (current Agent B commit)**: `b90d71b`
+- **Head SHA (current Agent B commit)**: `c6d1899`
 - **Exact Jira keys**: `SCRUM-212`, `SCRUM-213`, `SCRUM-214`, `SCRUM-215`, `SCRUM-219`, `SCRUM-225`, `SCRUM-228`, `SCRUM-231`, `SCRUM-235`, `SCRUM-237`, `SCRUM-157`, `SCRUM-259`
 
 ## Jira AC/DoD Implementation Map (Before Coding)
@@ -44,6 +44,30 @@
 - **`SCRUM-213` + `SCRUM-212`**: reusable component payload library now exposes stable semantics for status/severity/accessibility plus reusable empty/filter/drill payload primitives.
 - **`SCRUM-228`**: registry payload metadata now exposes implemented payload support and explicit UI-runtime gaps.
 - **`SCRUM-235`**: expanded page payload tests for normal/sparse/malformed inputs across opportunities, keywords, and run history.
+
+## Task-by-Task Completion (Initial Prompt)
+
+- **Task 1** complete: Jira AC/DoD read and implementation map documented in `Jira AC/DoD Implementation Map (Before Coding)`.
+- **Task 2** complete: page payloads consume `DashboardQueryLayer` contracts; no duplicate query logic introduced.
+- **Task 3** complete: opportunities payload expanded with top-card metrics, ranked rows, GO context, warnings, empty/filter descriptors.
+- **Task 4** complete: opportunities sparse-data coercion + warnings for missing/loosely typed fields.
+- **Task 5** complete: keywords payload expanded with metrics, cluster summaries, source/freshness warnings, drill metadata.
+- **Task 6** complete: explicit incomplete-analysis state for absent clusters/unclustered records + sparse warnings.
+- **Task 7** complete: run-history payload expanded with run summaries, stage chips, warning/failure counts, evidence links, filters.
+- **Task 8** complete: malformed run handling for missing IDs/stages/timestamps with deterministic warnings.
+- **Task 9** complete: reusable payload component library strengthened (states, cards, tables, filters, warnings, drill links, empty states).
+- **Task 10** complete: stable status/severity/accessibility/category semantics added without style-only coupling.
+- **Task 11** complete: opportunities payload tests for ranked rows, metrics, GO context, sparse/empty/warning behavior.
+- **Task 12** complete: keywords payload tests for metrics, cluster availability/gaps, source/freshness, sparse fallback behavior.
+- **Task 13** complete: run-history payload tests for stage summaries, states, malformed structure, and empty-state behavior.
+- **Task 14** complete: page payload support metadata connected to app/registry contracts without Streamlit dependency in tests.
+- **Task 15** complete: `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` updated with Cycle 015 Agent B AC/DoD entries.
+- **Task 16** complete: Jira comments posted for dashboard stories with files/tests/progress/remaining gaps (plus scoped dependency keys).
+- **Task 17** complete: targeted dashboard validation executed and recorded.
+- **Task 18** complete: full validation block executed and recorded (ruff, mypy, pytest-cov>=90, config-check, foundation-gate, phase2-smoke).
+- **Task 19** complete: scoped commit created: `b90d71b` with requested commit message pattern.
+- **Task 20** complete: this report created and maintained with required evidence sections.
+- **Task 21** complete: `PR Handoff` section includes changed files, tests, Jira keys, and Codex-sensitive areas.
 
 ## Definition of Done Gaps Remaining
 
