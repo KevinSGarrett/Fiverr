@@ -174,6 +174,21 @@ def test_integration_evidence_query_handles_malformed_stage_and_jira_shapes() ->
     assert "invalid_integration_jira_progress" in warning_codes
 
 
+def test_analysis_output_contract_reports_missing_expected_fields() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.analysis_output_contract(
+        records=[
+            {"keyword": "logo design", "score": 85, "confidence": 0.8, "niche": "logo"},
+            {"keyword": "resume writing", "score": 75, "status": "ready"},
+        ]
+    )
+    assert result.query_name == "analysis_output_contract"
+    assert result.records[0]["record_count"] == 2
+    assert "status" in result.records[0]["missing_fields"]
+    assert "confidence" in result.records[0]["missing_fields"]
+    assert result.context.status == "warning"
+
+
 def test_query_layer_adds_data_integrity_warnings_and_empty_state_contract() -> None:
     layer = get_dashboard_query_layer()
     result = layer.opportunities(

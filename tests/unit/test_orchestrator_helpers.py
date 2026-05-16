@@ -33,6 +33,7 @@ def test_run_dashboard_stub_normalizes_mode(capsys: pytest.CaptureFixture[str]) 
     assert "Dashboard app-entry module" in output
     assert "Dashboard startup status" in output
     assert "Dashboard readiness stage status" in output
+    assert "First-run readiness stage status" in output
 
 
 def test_run_dashboard_stub_returns_error_when_pages_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -70,6 +71,28 @@ def test_build_dashboard_readiness_handoff_uses_smoke_state_payload() -> None:
     assert handoff["stage_status"] == "warning"
     assert handoff["warning_count"] == 2
     assert handoff["next_actions"] == ["Run phase2-smoke"]
+
+
+def test_build_first_run_readiness_handoff_uses_app_entry_first_run_summary() -> None:
+    handoff = orchestrator.build_first_run_readiness_handoff(
+        {
+            "startup": {
+                "first_run_readiness": {
+                    "status": "warning",
+                    "expected_stages": ["collection", "analysis"],
+                    "fixture_paths": ["tests/fixtures/dashboard/factories.py"],
+                    "required_outputs": ["artifacts"],
+                    "missing_outputs": ["artifacts"],
+                    "known_blockers": ["Missing output directories."],
+                    "prerequisites": {"config_exists": True, "fixture_files_available": True},
+                }
+            }
+        }
+    )
+    assert handoff["phase"] == "first-run-readiness"
+    assert handoff["stage_status"] == "warning"
+    assert handoff["expected_stages"] == ["collection", "analysis"]
+    assert handoff["known_blockers"] == ["Missing output directories."]
 
 
 def test_load_fixture_payload_handles_missing_invalid_and_nondict(

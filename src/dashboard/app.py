@@ -545,6 +545,7 @@ def build_app_entry_query_diagnostics(
     alert_records: list[dict[str, Any]] | None = None,
     export_records: list[dict[str, Any]] | None = None,
     integration_evidence: dict[str, Any] | None = None,
+    analysis_output_records: list[dict[str, Any]] | None = None,
     query_layer: DashboardQueryLayer | None = None,
 ) -> dict[str, Any]:
     """Build query-layer diagnostics consumed by app-entry and startup checks."""
@@ -557,11 +558,13 @@ def build_app_entry_query_diagnostics(
     alerts = layer.alert_summary(records=alert_records)
     exports = layer.export_summary(records=export_records, sort={"field": "generated_at", "descending": True})
     evidence = layer.integration_evidence(evidence=integration_evidence)
+    analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
     categories = {
         "app_readiness": app_readiness.context.status,
         "alerts": alerts.context.status,
         "exports": exports.context.status,
         "integration_evidence": evidence.context.status,
+        "analysis_output_contract": analysis_contract.context.status,
     }
     blocking_categories = [
         category for category, status in categories.items() if status in {"error"}
@@ -580,6 +583,7 @@ def build_app_entry_query_diagnostics(
             "alerts": alerts.as_dict(),
             "exports": exports.as_dict(),
             "integration_evidence": evidence.as_dict(),
+            "analysis_output_contract": analysis_contract.as_dict(),
         },
     }
 

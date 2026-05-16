@@ -393,8 +393,9 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
         "alerts": "ok",
         "exports": "ok",
         "integration_evidence": "ok",
+        "analysis_output_contract": "warning",
     }
-    assert diagnostics["status"] == "ready"
+    assert diagnostics["status"] == "warning"
     assert diagnostics["blocking_categories"] == []
     assert diagnostics["results"]["integration_evidence"]["records"][0]["stage_status"]["analysis"] == "warning"
 

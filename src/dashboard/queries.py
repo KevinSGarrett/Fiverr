@@ -120,6 +120,14 @@ _VALID_STATUS_VALUES = frozenset(
     }
 )
 
+_EXPECTED_ANALYSIS_FIELDS = (
+    "keyword",
+    "score",
+    "confidence",
+    "niche",
+    "status",
+)
+
 
 def get_filter_descriptors() -> tuple[FilterDescriptor, ...]:
     """Return reusable query filter descriptors for dashboard page consumers."""
@@ -530,6 +538,85 @@ def query_integration_evidence(
     return QueryResult(
         query_name="integration_evidence",
         records=(payload,),
+        total_count=1,
+        context=context,
+    )
+
+
+def query_analysis_output_contract(
+    *,
+    records: list[dict[str, Any]] | None,
+    expected_fields: tuple[str, ...] = _EXPECTED_ANALYSIS_FIELDS,
+    source_context: SourceContext | None = None,
+    freshness: FreshnessMetadata | None = None,
+) -> QueryResult[dict[str, Any]]:
+    """Return analysis-output contract readiness for dashboard query consumers."""
+    warnings: list[QueryWarning] = []
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
+    if records is None:
+        warnings.append(
+            QueryWarning(
+                code="missing_analysis_records",
+                message="Analysis output records were not provided; contract readiness is degraded.",
+                field="analysis_records",
+            )
+        )
+    elif len(normalized_records) != len(records):
+        warnings.append(
+            QueryWarning(
+                code="invalid_analysis_record_shape",
+                message="Non-object analysis rows were ignored.",
+                field="analysis_records",
+            )
+        )
+
+    missing_field_counts: dict[str, int] = {field: 0 for field in expected_fields}
+    for row in normalized_records:
+        for field in expected_fields:
+            if row.get(field) in (None, ""):
+                missing_field_counts[field] += 1
+    missing_fields = [field for field, count in missing_field_counts.items() if count > 0]
+    if missing_fields:
+        warnings.append(
+            QueryWarning(
+                code="analysis_missing_expected_fields",
+                message="Analysis outputs are missing one or more expected dashboard fields.",
+                field="analysis_output",
+            )
+        )
+
+    readiness_status: Literal["ok", "warning", "error"] = "warning" if warnings else "ok"
+    record = {
+        "expected_fields": list(expected_fields),
+        "record_count": len(normalized_records),
+        "missing_fields": missing_fields,
+        "missing_field_counts": missing_field_counts,
+        "status": readiness_status,
+    }
+    context = QueryContext(
+        status=readiness_status,
+        empty_state=len(normalized_records) == 0,
+        empty_state_message=(
+            "Analysis output contract is empty; dashboard should remain in safe fallback mode."
+            if len(normalized_records) == 0
+            else ""
+        ),
+        warnings=tuple(warnings),
+        source_context=source_context or _DEFAULT_SOURCE,
+        freshness=freshness or FreshnessMetadata(),
+        pagination=PaginationMetadata(
+            limit=1,
+            offset=0,
+            total_count=1,
+            returned_count=1,
+            truncated=False,
+        ),
+        applied_filters={},
+        applied_sort={"field": "keyword", "descending": False},
+    )
+    return QueryResult(
+        query_name="analysis_output_contract",
+        records=(record,),
         total_count=1,
         context=context,
     )
