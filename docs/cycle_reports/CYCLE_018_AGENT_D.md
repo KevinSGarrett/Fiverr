@@ -152,8 +152,8 @@ Posted in this pass:
 
 ## Final SHA / Freeze Fields
 
-- Final local head SHA: `59049e471672e53d8a38e26726bba7bc2f79af35`
-- Final pushed head SHA: `59049e471672e53d8a38e26726bba7bc2f79af35`
+- Final local head SHA evidence command: `git rev-parse HEAD`
+- Final pushed head SHA evidence command: `git rev-parse origin/cycle/018/integration`
 - PR URL (cycle 018): `https://github.com/KevinSGarrett/Fiverr/pull/15`
 - Root/worktree exception: `No`
 - No-main confirmation: `Yes`
