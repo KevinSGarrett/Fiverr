@@ -295,3 +295,37 @@ def test_summarize_data_integrity_records_returns_traceable_warning_codes() -> N
     assert {"duplicate_record_id", "invalid_score", "invalid_rank", "malformed_evidence", "invalid_generated_at"} <= set(
         summary["warning_codes"]
     )
+
+
+def test_analysis_outputs_feed_dashboard_contract_for_complete_payload() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.analysis_output_contract(
+        records=[
+            {
+                "keyword": "python automation",
+                "score": 82.5,
+                "confidence": 0.84,
+                "niche": "automation",
+                "status": "ready",
+            }
+        ]
+    )
+    assert result.context.status == "ok"
+    assert result.records[0]["missing_fields"] == []
+
+
+def test_analysis_outputs_feed_dashboard_contract_for_partial_payload() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.analysis_output_contract(
+        records=[
+            {
+                "keyword": "seo audit",
+                "score": 72.0,
+                "confidence": None,
+                "niche": "seo",
+                "status": "",
+            }
+        ]
+    )
+    assert result.context.status == "warning"
+    assert {"confidence", "status"} <= set(result.records[0]["missing_fields"])

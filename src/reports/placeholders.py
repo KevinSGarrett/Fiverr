@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.analysis.contracts import validate_analysis_integrity_records
+
 
 @dataclass(slots=True, frozen=True)
 class ReportPlaceholder:
@@ -366,6 +368,15 @@ def build_analysis_summary_rows(
     rows: list[dict[str, Any]] = []
     warnings: list[dict[str, str]] = []
     seen_ids: set[str] = set()
+
+    integrity_warnings = validate_analysis_integrity_records(
+        [row for row in stage_outputs if isinstance(row, dict)],
+        source_id="analysis_summary_rows",
+    )
+    warnings.extend(
+        {"code": warning.code, "message": warning.message}
+        for warning in integrity_warnings
+    )
 
     for index, output in enumerate(stage_outputs, start=1):
         stage = str(output.get("stage", "unknown")).strip() or "unknown"

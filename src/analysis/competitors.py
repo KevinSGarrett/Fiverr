@@ -52,6 +52,8 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
             strengths=[],
             weaknesses=["competitor_data_missing"],
             seller_indicators={"competitor_count": 0, "high_authority_ratio": 0.0},
+            competitor_records=[],
+            dashboard_render_hints={"layout": "empty_state", "priority_fields": ["seller_id", "rating"]},
             market_positioning="insufficient_data",
             confidence=0.2,
             explanation="Insufficient competitor data for reliable market profile.",
@@ -197,6 +199,23 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
             "high_authority_ratio": round(strong_ratio, 3),
             "weak_competitor_ratio": round(weak_ratio, 3),
             "new_seller_ratio": round(new_seller_ratio, 3),
+        },
+        competitor_records=[
+            {
+                "competitor_id": f"competitor_{idx:02d}",
+                "seller_id": entry.seller_id,
+                "seller_ref": f"seller:{entry.seller_id}",
+                "starting_price": entry.starting_price,
+                "rating": entry.rating,
+                "review_count": entry.review_count,
+                "strengths": ["high_authority"] if entry.seller_id in high_authority else [],
+                "weaknesses": ["low_authority"] if entry.seller_id in weak_competitors else [],
+            }
+            for idx, entry in enumerate(competitors, start=1)
+        ],
+        dashboard_render_hints={
+            "layout": "table",
+            "priority_fields": ["seller_id", "rating", "review_count", "starting_price"],
         },
         market_positioning=market_positioning,
         confidence=confidence,

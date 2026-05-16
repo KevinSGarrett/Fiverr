@@ -27,6 +27,7 @@ from src.analysis.contracts import (
     SaturationInput,
     SaturationLevel,
     SellerStrengthInput,
+    validate_analysis_integrity_records,
 )
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
@@ -1845,3 +1846,41 @@ def test_orchestrator_stage_log_summary_and_dashboard_handoff_contract_present()
     assert "opportunity_cards" in dashboard_contract
     assert "keyword_table" in dashboard_contract
     assert "run_history" in dashboard_contract
+
+
+def test_keyword_clustering_duplicate_inputs_emit_deterministic_warning() -> None:
+    result = cluster_keywords(
+        KeywordClusterInput(
+            source_id="kw-duplicates",
+            keywords=["seo audit", "seo audit", "seo technical audit", "logo design"],
+            min_cluster_size=1,
+        )
+    )
+    assert any(warning.code == "duplicate_keywords_removed" for warning in result.warnings)
+    assert all(cluster.evidence_count >= 1 for cluster in result.clusters)
+    assert all(cluster.source_lineage.get("stage") == "keyword_clustering" for cluster in result.clusters)
+
+
+def test_analysis_integrity_validator_emits_expected_warning_taxonomy() -> None:
+    warnings = validate_analysis_integrity_records(
+        [
+            {"stage": "gig_quality", "id": "dup", "label": "primary", "score": 101, "confidence": 1.2},
+            {
+                "stage": "gig_quality",
+                "id": "dup",
+                "label": "primary",
+                "score": -1,
+                "confidence": "bad",
+                "source_metadata": {"freshness": "stale"},
+            },
+            {"stage": "saturation", "source_metadata": None},
+        ],
+        source_id="integrity-test",
+    )
+    warning_codes = {warning.code for warning in warnings}
+    assert "analysis_record_duplicate_id" in warning_codes
+    assert "analysis_duplicate_label" in warning_codes
+    assert "analysis_invalid_score_range" in warning_codes
+    assert "analysis_invalid_confidence" in warning_codes
+    assert "analysis_source_metadata_missing" in warning_codes
+    assert "analysis_source_metadata_stale" in warning_codes

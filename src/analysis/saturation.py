@@ -155,6 +155,22 @@ def analyze_saturation(payload: SaturationInput) -> SaturationResult:
         supply_depth=supply_depth,
         demand_proxy=demand_proxy,
         threshold_band=threshold_band,
+        thresholds={"high": 70.0, "medium": 45.0, "low": 0.0},
+        supply_counts={
+            "competitor_count": payload.competitor_count or 0,
+            "seller_strength_count": len(payload.seller_strength_scores),
+            "gig_quality_count": len(payload.gig_quality_scores),
+        },
+        opportunity_interpretation=(
+            "Lower differentiation and stronger incumbents; prioritize micro-niches."
+            if saturation_level == SaturationLevel.HIGH
+            else "Competitive but still tractable with clear positioning."
+            if saturation_level == SaturationLevel.MEDIUM
+            else "Lower competitive pressure; entry opportunity remains favorable."
+            if saturation_level == SaturationLevel.LOW
+            else "Signal coverage is too sparse for a reliable opportunity interpretation."
+        ),
+        warning_codes=sorted({warning.code for warning in warnings}),
         rationale=rationale,
         source_context={
             "keyword_count": payload.keyword_count,

@@ -159,6 +159,22 @@ def score_gig_quality(payload: GigQualityInput) -> GigQualityResult:
         strengths=strengths,
         weaknesses=weaknesses,
         source_references=[f"gig:{payload.gig_id}"],
+        criteria=[
+            {"name": name, "score": score, "weight": weights[name]}
+            for name, score in component_scores.items()
+        ],
+        evidence_snippets=[
+            f"title_present={bool(payload.title and payload.title.strip())}",
+            f"description_length={len((payload.description or '').strip())}",
+            f"review_count={payload.review_count if payload.review_count is not None else 0}",
+        ],
+        normalized_score=round(overall_score / 100.0, 4),
+        readiness_flags={
+            "has_title": bool(payload.title and payload.title.strip()),
+            "has_description": bool(payload.description and payload.description.strip()),
+            "has_social_proof": payload.rating is not None and payload.review_count is not None,
+            "has_packages": payload.package_count is not None and payload.package_count > 0,
+        },
         confidence=confidence,
         explanation=explanation,
         missing_data_fields=missing_data_fields,

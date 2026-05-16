@@ -116,6 +116,11 @@ class ClusterEntry(AnalysisPersistenceModel):
     explanation: str = Field(min_length=1)
     keyword_count: int = Field(default=0, ge=0)
     representative_terms: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    evidence_count: int = Field(default=0, ge=0)
+    warning_codes: list[str] = Field(default_factory=list)
+    source_lineage: dict[str, Any] = Field(default_factory=dict)
+    readiness: dict[str, Any] = Field(default_factory=dict)
 
 
 class KeywordClusterInput(AnalysisPersistenceModel):
@@ -173,6 +178,10 @@ class GigQualityResult(AnalysisResultEnvelope):
     quality_score: float = Field(default=0.0, ge=0.0, le=100.0)
     rubric_components: dict[str, float] = Field(default_factory=dict)
     source_references: list[str] = Field(default_factory=list)
+    criteria: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_snippets: list[str] = Field(default_factory=list)
+    normalized_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    readiness_flags: dict[str, bool] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)
@@ -227,6 +236,8 @@ class CompetitorProfileResult(AnalysisResultEnvelope):
     strengths: list[str] = Field(default_factory=list)
     weaknesses: list[str] = Field(default_factory=list)
     seller_indicators: dict[str, Any] = Field(default_factory=dict)
+    competitor_records: list[dict[str, Any]] = Field(default_factory=list)
+    dashboard_render_hints: dict[str, Any] = Field(default_factory=dict)
     market_positioning: str = Field(default="unknown")
     confidence: float = Field(ge=0.0, le=1.0)
     explanation: str = Field(min_length=1)
@@ -263,8 +274,12 @@ class SellerStrengthResult(AnalysisResultEnvelope):
     confidence: float = Field(ge=0.0, le=1.0)
     components: dict[str, float] = Field(default_factory=dict)
     reliability_signals: dict[str, float] = Field(default_factory=dict)
+    authority_indicators: dict[str, float] = Field(default_factory=dict)
+    input_signals: dict[str, Any] = Field(default_factory=dict)
     experience_indicators: dict[str, Any] = Field(default_factory=dict)
     weakness_markers: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    normalized_score: float = Field(default=0.0, ge=0.0, le=1.0)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
     explanation: str = Field(min_length=1)
     missing_data_fields: list[str] = Field(default_factory=list)
@@ -327,6 +342,10 @@ class SaturationResult(AnalysisResultEnvelope):
     supply_depth: float = Field(default=0.0, ge=0.0, le=100.0)
     demand_proxy: float = Field(default=0.0, ge=0.0, le=100.0)
     threshold_band: str = Field(default="unknown", min_length=1)
+    thresholds: dict[str, float] = Field(default_factory=dict)
+    supply_counts: dict[str, int] = Field(default_factory=dict)
+    opportunity_interpretation: str = Field(default="")
+    warning_codes: list[str] = Field(default_factory=list)
     rationale: str = Field(default="")
     source_context: dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
@@ -376,9 +395,12 @@ class ReviewAnalysisResult(AnalysisResultEnvelope):
     complaint_frequency: dict[str, int] = Field(default_factory=dict)
     praise_frequency: dict[str, int] = Field(default_factory=dict)
     theme_list: list[dict[str, Any]] = Field(default_factory=list)
+    pain_points: list[str] = Field(default_factory=list)
     weakness_signals: list[str] = Field(default_factory=list)
     positive_signals: list[str] = Field(default_factory=list)
     sample_count: int = Field(default=0, ge=0)
+    review_count: int = Field(default=0, ge=0)
+    sentiment_summary: dict[str, Any] = Field(default_factory=dict)
     opportunity_gaps: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
@@ -415,9 +437,12 @@ class IntentResult(AnalysisResultEnvelope):
     source_id: str = Field(min_length=1)
     keyword_text: str = Field(min_length=1)
     label: IntentLabel
+    category: str = Field(default="unknown")
     confidence: float = Field(ge=0.0, le=1.0)
     matched_rules: list[str] = Field(default_factory=list)
     explanation: str = Field(min_length=1)
+    rationale: str = Field(default="")
+    warning_codes: list[str] = Field(default_factory=list)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -462,3 +487,119 @@ class AnalysisRunSummary(AnalysisPersistenceModel):
     stages: list[AnalysisStageSummary] = Field(default_factory=list)
     warnings: list[AnalysisWarning] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+def validate_analysis_integrity_records(
+    records: list[dict[str, Any]] | None,
+    *,
+    source_id: str = "analysis_integrity",
+) -> list[AnalysisWarning]:
+    """Return deterministic warning objects for malformed analysis datasets."""
+    warnings: list[AnalysisWarning] = []
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
+    seen_ids: set[str] = set()
+    seen_labels: set[str] = set()
+
+    for index, row in enumerate(normalized_records, start=1):
+        row_id = str(row.get("id", row.get("source_id", ""))).strip()
+        if not row_id:
+            warnings.append(
+                AnalysisWarning(
+                    code="analysis_record_missing_id",
+                    message="Analysis record is missing id/source_id.",
+                    source_id=source_id,
+                    affected_field="id",
+                    metadata={"row_index": index},
+                )
+            )
+        elif row_id in seen_ids:
+            warnings.append(
+                AnalysisWarning(
+                    code="analysis_record_duplicate_id",
+                    message="Duplicate analysis record id detected.",
+                    source_id=source_id,
+                    affected_field="id",
+                    metadata={"row_index": index, "id": row_id},
+                )
+            )
+        else:
+            seen_ids.add(row_id)
+
+        label = str(row.get("label", "")).strip().lower()
+        if label:
+            if label in seen_labels:
+                warnings.append(
+                    AnalysisWarning(
+                        code="analysis_duplicate_label",
+                        message="Duplicate analysis label detected.",
+                        source_id=source_id,
+                        affected_field="label",
+                        metadata={"row_index": index, "label": label},
+                    )
+                )
+            else:
+                seen_labels.add(label)
+
+        raw_confidence = row.get("confidence")
+        if raw_confidence is not None:
+            try:
+                confidence = float(raw_confidence)
+            except (TypeError, ValueError):
+                confidence = -1.0
+            if confidence < 0.0 or confidence > 1.0:
+                warnings.append(
+                    AnalysisWarning(
+                        code="analysis_invalid_confidence",
+                        message="Confidence must be between 0 and 1.",
+                        source_id=source_id,
+                        affected_field="confidence",
+                        metadata={"row_index": index, "value": str(raw_confidence)},
+                    )
+                )
+
+        raw_score = row.get("score")
+        if raw_score is not None:
+            try:
+                score = float(raw_score)
+            except (TypeError, ValueError):
+                score = -1.0
+            if score < 0.0 or score > 100.0:
+                warnings.append(
+                    AnalysisWarning(
+                        code="analysis_invalid_score_range",
+                        message="Score must be between 0 and 100.",
+                        source_id=source_id,
+                        affected_field="score",
+                        metadata={"row_index": index, "value": str(raw_score)},
+                    )
+                )
+
+        source_metadata_present = "source_metadata" in row
+        source_metadata = row.get("source_metadata")
+        if source_metadata_present and (source_metadata is None or not isinstance(source_metadata, dict)):
+            warnings.append(
+                AnalysisWarning(
+                    code="analysis_source_metadata_missing",
+                    message="source_metadata is missing or malformed.",
+                    source_id=source_id,
+                    affected_field="source_metadata",
+                    metadata={"row_index": index},
+                )
+            )
+        elif source_metadata_present and isinstance(source_metadata, dict):
+            freshness = str(source_metadata.get("freshness", "")).strip().lower()
+            if freshness in {"stale", "expired", ""}:
+                warnings.append(
+                    AnalysisWarning(
+                        code="analysis_source_metadata_stale",
+                        message="source_metadata freshness is stale/expired/empty.",
+                        source_id=source_id,
+                        affected_field="source_metadata.freshness",
+                        metadata={"row_index": index, "freshness": freshness},
+                    )
+                )
+
+    deduped: dict[tuple[str, str | None], AnalysisWarning] = {}
+    for warning in warnings:
+        deduped[(warning.code, warning.affected_field)] = warning
+    return list(deduped.values())
