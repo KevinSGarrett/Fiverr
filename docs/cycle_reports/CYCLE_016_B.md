@@ -33,6 +33,8 @@
 
 ## Files Changed (This Agent B Closure Pass)
 
+- `src/dashboard/queries.py`
+- `tests/unit/test_dashboard_queries.py`
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 - `docs/cycle_reports/CYCLE_016_B.md`
 - `docs/cycle_reports/CYCLE_016_AGENT_B.md`
@@ -90,7 +92,10 @@
 - Contract-level deterministic behavior and warning semantics reduce recurring review friction around malformed/sparse data handling.
 - Shared payload structures reduce duplication risk between query and page layers.
 - Story closure recommendations remain conservative: no touched product story is recommended for `Done` without full runtime/UI DoD evidence.
-- Any same-cycle review findings should be resolved in this PR cycle with evidence-backed replies per cycle rules.
+- Resolved same-cycle Codex findings in `src/dashboard/queries.py`:
+  - Invalid non-integer `limit` values now coerce to bounded default page size instead of unbounded fetch behavior.
+  - Invalid rank values no longer trigger false `duplicate_rank` warnings.
+- Added regression tests in `tests/unit/test_dashboard_queries.py` for both fixes and reran full validation block.
 
 ## Security / Data Hygiene Notes
 

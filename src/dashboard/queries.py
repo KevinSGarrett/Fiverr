@@ -779,7 +779,7 @@ def _normalize_pagination_inputs(
     offset: int,
     warnings: list[QueryWarning],
 ) -> tuple[int, int]:
-    normalized_limit, limit_warning = _coerce_int(limit)
+    normalized_limit, limit_warning = _coerce_int(limit, default=DEFAULT_LIMIT)
     normalized_offset, offset_warning = _coerce_int(offset)
     if limit_warning:
         warnings.append(
@@ -923,8 +923,22 @@ def _coerce_int(value: Any, *, default: int = 0) -> tuple[int, bool]:
 def _coerce_optional_int(value: Any) -> tuple[int | None, bool]:
     if value is None:
         return (None, False)
-    coerced, had_coercion = _coerce_int(value, default=0)
-    return (coerced, had_coercion)
+    if isinstance(value, bool):
+        return (None, True)
+    if isinstance(value, int):
+        return (value, False)
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return (None, True)
+        try:
+            return (int(trimmed), False)
+        except ValueError:
+            return (None, True)
+    try:
+        return (int(value), False)
+    except (TypeError, ValueError):
+        return (None, True)
 
 
 def _normalize_optional_string(value: Any) -> str | None:
