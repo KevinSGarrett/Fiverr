@@ -129,6 +129,46 @@ _EXPECTED_ANALYSIS_FIELDS = (
 )
 
 
+def summarize_data_integrity_records(
+    *,
+    records: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Build warning-first integrity summary for dashboard query consumers."""
+    normalized_records = [row for row in (records or []) if isinstance(row, dict)]
+    warnings = _validate_data_integrity(normalized_records)
+    nested_warnings: list[QueryWarning] = []
+    for row in normalized_records:
+        evidence = row.get("evidence")
+        if evidence is not None and not isinstance(evidence, dict | list):
+            nested_warnings.append(
+                QueryWarning(
+                    code="malformed_evidence",
+                    message="One or more evidence fields are malformed and cannot be traversed safely.",
+                    field="evidence",
+                )
+            )
+        generated_at = row.get("generated_at")
+        if generated_at is not None and not str(generated_at).strip():
+            nested_warnings.append(
+                QueryWarning(
+                    code="invalid_generated_at",
+                    message="One or more generated_at values are blank after normalization.",
+                    field="generated_at",
+                )
+            )
+    deduped: dict[tuple[str, str | None], QueryWarning] = {}
+    for warning in [*warnings, *nested_warnings]:
+        deduped[(warning.code, warning.field)] = warning
+    warning_rows = list(deduped.values())
+    return {
+        "status": "warning" if warning_rows else "ok",
+        "record_count": len(normalized_records),
+        "warning_count": len(warning_rows),
+        "warning_codes": sorted(warning.code for warning in warning_rows),
+        "warnings": [warning.as_dict() for warning in warning_rows],
+    }
+
+
 def get_filter_descriptors() -> tuple[FilterDescriptor, ...]:
     """Return reusable query filter descriptors for dashboard page consumers."""
     return _FILTER_DESCRIPTORS

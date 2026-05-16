@@ -38,6 +38,8 @@ data/**/*.log
 logs/
 *.log
 PM_Pack*.zip
+Cycle_*_Cursor_Prompts*.zip
+Fiverr_cycle*/
 
 # Browser/session files
 playwright/.auth/

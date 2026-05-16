@@ -86,6 +86,20 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
     """Cluster keywords with deterministic token-overlap grouping."""
     warnings: list[AnalysisWarning] = []
     keywords = [keyword for keyword in payload.keywords if normalize_keyword(keyword)]
+    deduped_keywords = list(dict.fromkeys(keywords))
+    if len(deduped_keywords) != len(keywords):
+        warnings.append(
+            AnalysisWarning(
+                code="duplicate_keywords_removed",
+                message="Duplicate keywords were removed before clustering.",
+                source_id=payload.source_id,
+                severity="info",
+                source_stage=AnalysisTaskType.KEYWORD_CLUSTERING,
+                remediation="Provide unique keyword candidates for cleaner clusters.",
+                metadata={"original_count": len(keywords), "deduped_count": len(deduped_keywords)},
+            )
+        )
+    keywords = deduped_keywords
 
     if not keywords:
         warnings.append(
@@ -147,6 +161,11 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
             explanation="Fallback single-cluster output for small keyword set.",
             keyword_count=len(keywords),
             representative_terms=sorted({token for keyword in keywords for token in _token_set(keyword)})[:3],
+            confidence=0.35,
+            evidence_count=1,
+            warning_codes=sorted({warning.code for warning in warnings}),
+            source_lineage={"source_id": payload.source_id, "stage": "keyword_clustering"},
+            readiness={"status": "partial", "dashboard_ready": False},
         )
         return KeywordClusterResult(
             source_id=payload.source_id,
@@ -203,6 +222,11 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
                 representative_terms=sorted({token for keyword in cluster_keywords_list for token in _token_set(keyword)})[
                     :3
                 ],
+                confidence=cohesion,
+                evidence_count=max(1, len(component)),
+                warning_codes=[],
+                source_lineage={"source_id": payload.source_id, "stage": "keyword_clustering"},
+                readiness={"status": "ready", "dashboard_ready": True},
             )
         )
 

@@ -8,10 +8,14 @@ from src.dashboard.components import (
     ComponentState,
     EvidenceCardPayload,
     StatusCardPayload,
+    build_descriptor_contract,
+    build_detail_panel_schema,
     build_empty_state_payload,
     build_metric_cards,
+    build_runtime_acceptance_status,
     build_state_descriptor,
     build_table_descriptor,
+    build_warning_summary,
 )
 from src.dashboard.design import confidence_to_text, normalize_run_severity
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
@@ -71,6 +75,14 @@ def build_keywords_payload(
             details=tuple(warnings),
         ).as_dict()
     ]
+    filter_descriptors = _build_filter_descriptors(
+        filters=context.get("applied_filters") or {},
+        source_descriptors=layer.filter_descriptors(),
+    )
+    sort_descriptors = _build_sort_descriptors(
+        applied_sort=context.get("applied_sort") or {},
+        source_descriptors=layer.sort_descriptors(),
+    )
     table = build_table_descriptor(
         table_id="keywords_table",
         columns=[
@@ -91,10 +103,7 @@ def build_keywords_payload(
         sort_descending=context["applied_sort"].get("descending", True) if context["applied_sort"] else True,
         empty_message=context["empty_state_message"] or "No keyword analysis results are available yet.",
         warnings=warnings,
-        filter_descriptors=_build_filter_descriptors(
-            filters=context.get("applied_filters") or {},
-            source_descriptors=layer.filter_descriptors(),
-        ),
+        filter_descriptors=filter_descriptors,
         drill_links=[
             {"label": "Open Keyword Details", "target": "keywords/detail"},
             {"label": "View Linked Opportunities", "target": "opportunities"},
@@ -103,6 +112,24 @@ def build_keywords_payload(
         freshness_status=context["freshness"]["freshness_status"],
     )
     cluster_summary = _build_cluster_summary(rows)
+    warning_summary = build_warning_summary(warnings=warnings, blocked=context["status"] == "error")
+    detail_panel_schema = build_detail_panel_schema(
+        panel_id="keyword_detail",
+        row_id_key="drill_metadata.keyword_id",
+        title_field="keyword",
+        fields=[
+            "cluster",
+            "niche",
+            "demand",
+            "saturation",
+            "score",
+            "confidence",
+            "confidence_text",
+            "source_name",
+            "freshness_status",
+            "opportunity_ids",
+        ],
+    )
 
     state_key: ComponentState = "ready"
     if context["empty_state"]:
@@ -116,6 +143,12 @@ def build_keywords_payload(
         source_name=context["source_context"]["source_name"],
         freshness_status=context["freshness"]["freshness_status"],
     )
+    acceptance_status = build_runtime_acceptance_status(
+        state=state_key,
+        warnings=warnings,
+        stale_data=context["freshness"].get("freshness_status") == "stale",
+        evidence_ids=[row["drill_metadata"]["keyword_id"] for row in rows[:5]],
+    )
 
     return {
         "page_id": "keywords",
@@ -127,6 +160,8 @@ def build_keywords_payload(
         "status_cards": status_cards,
         "evidence_cards": evidence_cards,
         "table": table,
+        "warning_summary": warning_summary,
+        "detail_panel_schema": detail_panel_schema,
         "cluster_summary": cluster_summary,
         "empty_state": build_empty_state_payload(
             title="No keyword analysis available" if context["empty_state"] else "Keyword analysis ready",
@@ -136,6 +171,16 @@ def build_keywords_payload(
         "source": context["source_context"],
         "freshness": context["freshness"],
         "pagination": context["pagination"],
+        "filter_descriptor_contract": build_descriptor_contract(
+            applied=context["applied_filters"],
+            available=filter_descriptors,
+        ),
+        "sort_descriptor_contract": build_descriptor_contract(
+            applied=context["applied_sort"],
+            available=sort_descriptors,
+        ),
+        "query_contract": _build_query_contract(context),
+        "acceptance_status": acceptance_status,
         "next_actions": context["next_actions"],
     }
 
@@ -144,7 +189,11 @@ def _normalize_keyword_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[d
     rows: list[dict[str, Any]] = []
     warnings: list[str] = []
     for index, record in enumerate(records, start=1):
-        cluster = str(record.get("cluster") or "").strip() or "not available yet"
+        cluster = _resolve_cluster_name(record.get("cluster"))
+        if cluster == "not available yet" and record.get("cluster") not in (None, "", "not available yet"):
+            warnings.append(
+                f"Keyword row {index} has malformed cluster payload; normalized to 'not available yet'."
+            )
         confidence = _to_float(record.get("confidence"))
         score = _to_float(record.get("score"))
         if score is None:
@@ -175,6 +224,20 @@ def _normalize_keyword_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[d
     return rows, warnings
 
 
+def _resolve_cluster_name(value: Any) -> str:
+    if isinstance(value, str):
+        normalized = value.strip()
+        return normalized or "not available yet"
+    if isinstance(value, dict):
+        label = str(value.get("label", "")).strip()
+        if label:
+            return label
+        cluster_id = str(value.get("cluster_id", "")).strip()
+        if cluster_id:
+            return cluster_id
+    return "not available yet"
+
+
 def _build_cluster_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     counts: dict[str, int] = {}
     for row in rows:
@@ -195,17 +258,53 @@ def _build_filter_descriptors(
 ) -> list[dict[str, str]]:
     descriptor_map = {descriptor.key: descriptor for descriptor in source_descriptors}
     descriptors: list[dict[str, str]] = []
+    for descriptor in source_descriptors:
+        value = filters.get(descriptor.key)
+        descriptors.append(
+            {
+                "key": descriptor.key,
+                "label": descriptor.label,
+                "value": "" if value is None else str(value),
+                "description": descriptor.description,
+            }
+        )
     for key, value in filters.items():
-        descriptor = descriptor_map.get(key)
+        if key in descriptor_map:
+            continue
         descriptors.append(
             {
                 "key": key,
-                "label": descriptor.label if descriptor else key.replace("_", " ").title(),
+                "label": key.replace("_", " ").title(),
                 "value": str(value),
-                "description": descriptor.description if descriptor else "Temporary page-level adapter descriptor.",
+                "description": "Temporary page-level adapter descriptor.",
             }
         )
     return descriptors
+
+
+def _build_sort_descriptors(
+    *,
+    applied_sort: dict[str, Any],
+    source_descriptors: tuple[Any, ...],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    applied_field = str(applied_sort.get("field", "")).strip()
+    for descriptor in source_descriptors:
+        rows.append(
+            {
+                "key": descriptor.key,
+                "label": descriptor.label,
+                "value": "desc"
+                if applied_field == descriptor.key and bool(applied_sort.get("descending", True))
+                else (
+                    "asc"
+                    if applied_field == descriptor.key and not bool(applied_sort.get("descending", True))
+                    else ""
+                ),
+                "description": descriptor.description,
+            }
+        )
+    return rows
 
 
 def _to_float(value: Any) -> float | None:
@@ -215,4 +314,22 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _build_query_contract(context: dict[str, Any]) -> dict[str, Any]:
+    warning_codes = sorted(
+        {
+            str(warning.get("code", "")).strip()
+            for warning in context.get("warnings", [])
+            if isinstance(warning, dict) and str(warning.get("code", "")).strip()
+        }
+    )
+    return {
+        "query_name": "keywords",
+        "status": context.get("status", "warning"),
+        "warning_codes": warning_codes,
+        "applied_filters": context.get("applied_filters", {}),
+        "applied_sort": context.get("applied_sort", {}),
+        "pagination": context.get("pagination"),
+    }
 

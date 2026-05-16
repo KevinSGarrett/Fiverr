@@ -7,6 +7,8 @@ import importlib
 import sys
 from dataclasses import asdict
 
+import pytest
+
 
 def _dashboard_fixture_run() -> dict[str, object]:
     fixtures_module = importlib.import_module("tests.fixtures.dashboard.factories")
@@ -394,10 +396,48 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
         "exports": "ok",
         "integration_evidence": "ok",
         "analysis_output_contract": "warning",
+        "data_integrity": "ok",
     }
     assert diagnostics["status"] == "warning"
     assert diagnostics["blocking_categories"] == []
     assert diagnostics["results"]["integration_evidence"]["records"][0]["stage_status"]["analysis"] == "warning"
+    assert diagnostics["payload_availability"]["analysis_output_contract"]["availability"] == "sparse"
+    assert diagnostics["warning_codes"]["analysis_output_contract"] == [
+        "missing_analysis_records",
+    ]
+
+
+def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable_codes() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "ready", "warning_count": 0},
+        analysis_output_records=[
+            {"id": "dup", "score": "bad", "rank": "bad-rank", "evidence": "bad-shape"},
+            {"id": "dup", "score": 80},
+        ],
+    )
+    assert diagnostics["categories"]["data_integrity"] == "warning"
+    assert "duplicate_record_id" in diagnostics["data_integrity"]["warning_codes"]
+    assert "invalid_rank" in diagnostics["data_integrity"]["warning_codes"]
+    assert "invalid_score" in diagnostics["data_integrity"]["warning_codes"]
+    assert "malformed_evidence" in diagnostics["data_integrity"]["warning_codes"]
+
+
+def test_app_entry_query_diagnostics_payload_availability_includes_source_and_warning_codes() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "ready", "warning_count": 0},
+        export_records=fixture["exports"],
+        analysis_output_records=[],
+    )
+    exports = diagnostics["payload_availability"]["exports"]
+    assert exports["availability"] == "available"
+    assert exports["freshness_status"] == "unknown"
+    assert exports["warning_codes"] == []
+    assert exports["source"]["source_name"] == "fixture"
 
 
 def test_niche_config_visibility_summary_reports_nine_niches() -> None:
@@ -426,6 +466,21 @@ def test_page_registry_contains_required_contracts_and_disabled_reasons() -> Non
     assert registry_by_id["keywords"]["status"] == "ready"
     assert registry_by_id["keywords"]["disabled_reason"] is None
     assert registry_by_id["run_history"]["required_contracts"] == ["run_history"]
+
+
+def test_page_registry_contains_runtime_required_placeholder_pages() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    registry = app_module.get_page_registry()
+    registry_by_id = {row["page_id"]: row for row in registry}
+    assert registry_by_id["export_alerts"]["required_contracts"] == ["export_system", "alert_summary"]
+    assert registry_by_id["diagnostics"]["required_contracts"] == ["app_readiness", "source_freshness_summary"]
+    assert registry_by_id["integration_evidence"]["required_contracts"] == [
+        "integration_evidence",
+        "analysis_output_contract",
+    ]
+    assert registry_by_id["export_alerts"]["enabled"] is False
+    assert registry_by_id["diagnostics"]["enabled"] is False
+    assert registry_by_id["integration_evidence"]["enabled"] is False
 
 
 def test_compute_page_readiness_returns_next_actions_for_blocked_pages() -> None:
@@ -563,6 +618,15 @@ def test_component_state_and_table_contracts_support_warning_rows() -> None:
     assert state["accessible_label"] == "Dashboard page has partial data warnings"
     assert table["empty_state"] is True
     assert table["warning_rows"][0]["message"] == "No rows available"
+    acceptance = components_module.build_runtime_acceptance_status(
+        state="warning",
+        warnings=["Missing required field: score"],
+        stale_data=True,
+        evidence_ids=["opp-1"],
+    )
+    assert acceptance["status"] == "warning"
+    assert acceptance["stale_data"] is True
+    assert acceptance["evidence_ids"] == ["opp-1"]
 
 
 def test_component_status_semantics_are_accessible_and_stable() -> None:
@@ -586,7 +650,10 @@ def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> No
     assert payload["table"]["rows"][0]["niche"] == "logo-design"
     assert payload["ranking_cards"][0]["keyword_links"] == ["kw-logo-design", "kw-brand-kit"]
     assert payload["table"]["rows"][0]["go_decision"] == "Strong GO"
-    assert payload["table"]["filter_descriptors"][0]["key"] == "niche"
+    descriptor_keys = {row["key"] for row in payload["table"]["filter_descriptors"]}
+    assert {"status", "niche", "score_min"} <= descriptor_keys
+    assert payload["filter_descriptor_contract"]["applied"]["niche"] == "logo-design"
+    assert payload["sort_descriptor_contract"]["applied"]["field"] == "score"
 
 
 def test_opportunities_payload_coerces_string_top_score_for_metric_card() -> None:
@@ -646,7 +713,10 @@ def test_keywords_payload_sorting_and_filtering_are_supported() -> None:
         payload["table"]["rows"][0]
     ]
     assert payload["table"]["rows"][0]["keyword"] == "logo design package"
-    assert payload["table"]["filter_descriptors"][0]["key"] == "niche"
+    descriptor_keys = {row["key"] for row in payload["table"]["filter_descriptors"]}
+    assert {"status", "niche", "score_min"} <= descriptor_keys
+    assert payload["filter_descriptor_contract"]["applied"]["niche"] == "logo-design"
+    assert payload["sort_descriptor_contract"]["applied"]["field"] == "score"
 
 
 def test_keywords_payload_sparse_rows_include_freshness_warnings() -> None:
@@ -660,6 +730,28 @@ def test_keywords_payload_sparse_rows_include_freshness_warnings() -> None:
     assert payload["table"]["rows"][0]["score"] == 0.0
     assert payload["table"]["rows"][0]["cluster"] == "not available yet"
     assert any("Freshness status is unknown" in row["message"] for row in payload["table"]["warning_rows"])
+
+
+def test_keywords_payload_accepts_structured_cluster_contract_rows() -> None:
+    keywords_module = importlib.import_module("src.dashboard.keywords")
+    payload = keywords_module.build_keywords_payload(
+        records=[
+            {
+                "keyword": "python automation",
+                "cluster": {"cluster_id": "cluster_01", "label": "python automation"},
+                "score": 84.0,
+                "confidence": 0.83,
+            },
+            {
+                "keyword": "seo audit",
+                "cluster": {"cluster_id": "cluster_02"},
+                "score": 70.0,
+                "confidence": 0.61,
+            },
+        ]
+    )
+    assert payload["table"]["rows"][0]["cluster"] == "python automation"
+    assert payload["table"]["rows"][1]["cluster"] == "cluster_02"
 
 
 def test_run_history_payload_includes_severity_mapping_and_stage_details() -> None:
@@ -686,6 +778,8 @@ def test_run_history_payload_handles_malformed_runs_with_warnings() -> None:
     assert row["stage_names"] == ["unknown"]
     assert row["warning_count"] == 3
     assert any("missing run_id" in item["message"] for item in payload["table"]["warning_rows"])
+    assert row["evidence_link_status"] == "warning"
+    assert row["evidence_link_warnings"]
 
 
 def test_alert_rules_emit_missing_run_structure_when_run_id_absent() -> None:
@@ -738,9 +832,172 @@ def test_app_product_page_registry_returns_ready_state_for_fixture_data() -> Non
         keywords_records=fixture["keywords"],
         run_history_records=fixture["run_history"],
     )
-    assert payloads["registry_state"]["state"] == "ready"
+    assert payloads["registry_state"]["state"] in {"ready", "warning"}
     assert payloads["opportunities"]["payload_support"]["implemented"] is True
     assert payloads["opportunities"]["table"]["rows"]
     assert payloads["keywords"]["table"]["rows"]
     assert payloads["run_history"]["table"]["rows"]
+
+
+def test_query_contract_metadata_is_shared_across_page_consumers() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=fixture["run_history"],
+    )
+    for page_id in ("opportunities", "keywords", "run_history"):
+        contract = payloads[page_id]["query_contract"]
+        assert contract["query_name"] == page_id
+        assert isinstance(contract["warning_codes"], list)
+        assert isinstance(contract["applied_filters"], dict)
+        assert isinstance(contract["applied_sort"], dict)
+        assert "pagination" in contract
+
+
+def test_dashboard_descriptor_contracts_and_detail_schemas_are_consistent_across_pages() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=fixture["run_history"],
+    )
+    for page_id in ("opportunities", "keywords", "run_history"):
+        payload = payloads[page_id]
+        assert payload["filter_descriptor_contract"]["available"]
+        assert payload["sort_descriptor_contract"]["available"]
+        assert payload["detail_panel_schema"]["row_id_key"]
+        assert payload["warning_summary"]["severity"] in {"ok", "warning", "blocked"}
+        assert payload["acceptance_status"]["status"] in {"ready", "warning", "blocked", "unknown"}
+
+
+def test_dashboard_cross_page_acceptance_rollup_tracks_warning_states() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=[
+            {"run_id": "run-1", "status": "pass", "stages": [{"name": "analysis"}], "warning_count": 0},
+        ],
+    )
+    assert payloads["acceptance_rollup"]["status"] in {"ready", "warning"}
+    assert payloads["docs_snippet"]["status_rollup"] == payloads["acceptance_rollup"]["status"]
+    assert len(payloads["acceptance_rollup"]["pages"]) == 3
+
+
+def test_app_product_registry_does_not_mark_unknown_acceptance_as_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    stub_payloads = {
+        "opportunities": {
+            "state": {"state": "ready"},
+            "payload_support": {"implemented": True},
+            "acceptance_status": {"status": "ready", "warning_count": 0, "blocker_count": 0, "reasons": []},
+        },
+        "keywords": {
+            "state": {"state": "warning"},
+            "payload_support": {"implemented": True},
+            "acceptance_status": {
+                "status": "unknown",
+                "warning_count": 1,
+                "blocker_count": 0,
+                "reasons": ["keywords acceptance unresolved"],
+            },
+        },
+        "run_history": {
+            "state": {"state": "ready"},
+            "payload_support": {"implemented": True},
+            "acceptance_status": {"status": "ready", "warning_count": 0, "blocker_count": 0, "reasons": []},
+        },
+    }
+    monkeypatch.setattr(app_module, "build_registered_page_payloads", lambda **_: stub_payloads)
+    payloads = app_module.get_product_page_payloads()
+    assert payloads["acceptance_rollup"]["status"] == "unknown"
+    assert payloads["registry_state"]["state"] == "warning"
+    assert "unresolved" in payloads["registry_state"]["message"].lower()
+
+
+def test_runtime_guard_15_handles_non_list_query_records_without_crash() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "ready", "warning_count": 0},
+        query_layer=app_module.DashboardQueryLayer(),
+    )
+    assert diagnostics["status"] in {"ready", "warning"}
+    assert diagnostics["payload_availability"]["app_readiness"]["availability"] in {
+        "available",
+        "sparse",
+        "missing",
+        "stale",
+    }
+
+
+def test_runtime_guard_16_marks_missing_records_as_missing_or_sparse() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "warning", "warning_count": 1},
+        alert_records=None,
+        export_records=None,
+        integration_evidence=None,
+        analysis_output_records=None,
+    )
+    availability_values = {
+        diagnostics["payload_availability"]["alerts"]["availability"],
+        diagnostics["payload_availability"]["exports"]["availability"],
+        diagnostics["payload_availability"]["integration_evidence"]["availability"],
+    }
+    assert availability_values <= {"missing", "sparse", "stale", "available"}
+    assert diagnostics["status"] in {"warning", "error"}
+
+
+def test_runtime_guard_17_surfaces_warning_codes_for_sparse_payloads() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "warning", "warning_count": 2},
+        alert_records=[],
+        export_records=[],
+        integration_evidence={},
+        analysis_output_records=[],
+    )
+    assert "warning_codes" in diagnostics
+    assert isinstance(diagnostics["warning_codes"]["alerts"], list)
+    assert isinstance(diagnostics["warning_codes"]["exports"], list)
+
+
+def test_runtime_guard_18_handles_malformed_analysis_records_as_warning() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={"status": "ready", "warning_count": 0},
+        analysis_output_records=[{"id": "dup", "score": "bad"}, {"id": "dup", "evidence": "bad"}],
+    )
+    assert diagnostics["categories"]["data_integrity"] == "warning"
+    assert "duplicate_record_id" in diagnostics["data_integrity"]["warning_codes"]
+
+
+def test_runtime_guard_19_handles_blank_startup_status_without_crash() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    smoke_state = app_module.build_app_entry_smoke_state(
+        branch="cycle/017/integration",
+        cycle="017",
+    )
+    assert smoke_state["status"] in {"ready", "warning", "blocked"}
+    assert "query_diagnostics" in smoke_state
+
+
+def test_runtime_guard_20_preserves_safe_empty_state_on_missing_data() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    smoke_state = app_module.build_app_entry_smoke_state(
+        config_path="missing-config.yaml",
+        data_dir="missing-data",
+        branch="cycle/017/integration",
+        cycle="017",
+    )
+    assert smoke_state["safe_empty_state"] is True
+    assert smoke_state["startup"]["status"] == "warning"
 

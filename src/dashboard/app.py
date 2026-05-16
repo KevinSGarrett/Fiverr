@@ -18,6 +18,7 @@ from src.dashboard.navigation import (
 )
 from src.dashboard.opportunities import build_opportunities_payload
 from src.dashboard.pages import build_registered_page_payloads
+from src.dashboard.queries import summarize_data_integrity_records
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
@@ -92,6 +93,37 @@ class PageRegistryEntry:
             "required_contracts": list(self.required_contracts),
             "disabled_reason": self.disabled_reason,
         }
+
+
+_RUNTIME_REQUIRED_PAGE_REGISTRY_ENTRIES: tuple[PageRegistryEntry, ...] = (
+    PageRegistryEntry(
+        page_id="export_alerts",
+        label="Export/Alerts",
+        order=1000,
+        status="disabled",
+        enabled=False,
+        required_contracts=("export_system", "alert_summary"),
+        disabled_reason="Runtime page registration placeholder pending UI implementation.",
+    ),
+    PageRegistryEntry(
+        page_id="diagnostics",
+        label="Diagnostics",
+        order=1001,
+        status="disabled",
+        enabled=False,
+        required_contracts=("app_readiness", "source_freshness_summary"),
+        disabled_reason="Runtime page registration placeholder pending UI implementation.",
+    ),
+    PageRegistryEntry(
+        page_id="integration_evidence",
+        label="Integration Evidence",
+        order=1002,
+        status="disabled",
+        enabled=False,
+        required_contracts=("integration_evidence", "analysis_output_contract"),
+        disabled_reason="Runtime page registration placeholder pending UI implementation.",
+    ),
+)
 
 
 def _normalize_governance_status(raw_status: str | None) -> tuple[str, str]:
@@ -296,6 +328,12 @@ def build_page_registry() -> list[dict[str, Any]]:
                 disabled_reason=disabled_reason,
             )
         )
+    existing_page_ids = {entry.page_id for entry in registry}
+    for required_entry in _RUNTIME_REQUIRED_PAGE_REGISTRY_ENTRIES:
+        if required_entry.page_id in existing_page_ids:
+            continue
+        registry.append(required_entry)
+    registry.sort(key=lambda entry: entry.order)
     return [entry.as_dict() for entry in registry]
 
 
@@ -491,7 +529,13 @@ def build_app_entry_smoke_state(
 ) -> dict[str, Any]:
     """Return app-entry smoke state for startup behavior and page registration."""
     page_registry = build_page_registry()
-    required_page_ids = _normalize_required_page_ids([row["page_id"] for row in page_registry])
+    required_page_ids = _normalize_required_page_ids(
+        [
+            row["page_id"]
+            for row in page_registry
+            if row.get("enabled") is True or row.get("status") == "ready"
+        ]
+    )
     registered_page_ids = _normalize_required_page_ids([page.page_id for page in get_navigation_pages()])
     missing_pages = [page_id for page_id in required_page_ids if page_id not in registered_page_ids]
     startup = build_app_startup_diagnostics(config_path=config_path, data_dir=data_dir)
@@ -559,13 +603,23 @@ def build_app_entry_query_diagnostics(
     exports = layer.export_summary(records=export_records, sort={"field": "generated_at", "descending": True})
     evidence = layer.integration_evidence(evidence=integration_evidence)
     analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
+    integrity_summary = summarize_data_integrity_records(records=analysis_output_records)
+    query_results = {
+        "app_readiness": app_readiness.as_dict(),
+        "alerts": alerts.as_dict(),
+        "exports": exports.as_dict(),
+        "integration_evidence": evidence.as_dict(),
+        "analysis_output_contract": analysis_contract.as_dict(),
+    }
     categories = {
         "app_readiness": app_readiness.context.status,
         "alerts": alerts.context.status,
         "exports": exports.context.status,
         "integration_evidence": evidence.context.status,
         "analysis_output_contract": analysis_contract.context.status,
+        "data_integrity": integrity_summary["status"],
     }
+    payload_availability = _build_query_payload_availability(query_results)
     blocking_categories = [
         category for category, status in categories.items() if status in {"error"}
     ]
@@ -576,16 +630,53 @@ def build_app_entry_query_diagnostics(
     return {
         "status": status,
         "categories": categories,
+        "payload_availability": payload_availability,
+        "warning_codes": {
+            category: payload["warning_codes"] for category, payload in payload_availability.items()
+        },
         "warning_categories": warning_categories,
         "blocking_categories": blocking_categories,
-        "results": {
-            "app_readiness": app_readiness.as_dict(),
-            "alerts": alerts.as_dict(),
-            "exports": exports.as_dict(),
-            "integration_evidence": evidence.as_dict(),
-            "analysis_output_contract": analysis_contract.as_dict(),
-        },
+        "results": query_results,
+        "data_integrity": integrity_summary,
     }
+
+
+def _build_query_payload_availability(
+    query_results: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Summarize available/stale/sparse/missing states for query-layer payloads."""
+    summary: dict[str, dict[str, Any]] = {}
+    for category, payload in query_results.items():
+        context = payload.get("context", {})
+        freshness = context.get("freshness", {})
+        warning_rows = context.get("warnings", [])
+        warning_codes = sorted(
+            {
+                str(row.get("code", "")).strip()
+                for row in warning_rows
+                if isinstance(row, dict) and str(row.get("code", "")).strip()
+            }
+        )
+        empty_state = bool(context.get("empty_state", False))
+        records = payload.get("records")
+        has_records = isinstance(records, list) and len(records) > 0
+        if not has_records and empty_state:
+            availability = "missing"
+        elif empty_state or warning_codes:
+            availability = "sparse"
+        else:
+            availability = "available"
+        freshness_status = str(freshness.get("freshness_status", "unknown")).strip().lower() or "unknown"
+        if freshness_status == "stale":
+            availability = "stale"
+        summary[category] = {
+            "availability": availability,
+            "freshness_status": freshness_status,
+            "generated_at": freshness.get("generated_at"),
+            "warning_codes": warning_codes,
+            "source": context.get("source_context", {}),
+        }
+    return summary
 
 
 def build_alert_readiness_placeholders(
@@ -690,12 +781,41 @@ def get_product_page_payloads(
         "ui_runtime_required": ["opportunities", "keywords", "run_history"],
         "ui_runtime_pending": True,
     }
+    acceptance_rollup = build_product_page_acceptance_rollup(payloads=payloads)
+    payloads["acceptance_rollup"] = acceptance_rollup
+    payloads["docs_snippet"] = {
+        "title": "Dashboard Runtime Contract Notes",
+        "summary": (
+            "Payloads expose deterministic query contracts, descriptor contracts, warning summaries, "
+            "detail panel schemas, and runtime acceptance states for Opportunities, Keywords, and Run History."
+        ),
+        "status_rollup": acceptance_rollup["status"],
+    }
     product_page_ids = ("opportunities", "keywords", "run_history")
-    if all(payloads[page_id]["state"]["state"] == "empty" for page_id in product_page_ids):
+    if acceptance_rollup["status"] == "blocked":
+        payloads["registry_state"] = build_state_descriptor(
+            state="blocked",
+            message="At least one product payload is blocked by missing runtime acceptance prerequisites.",
+            warnings=acceptance_rollup["reasons"],
+        )
+    elif all(payloads[page_id]["state"]["state"] == "empty" for page_id in product_page_ids):
         payloads["registry_state"] = build_state_descriptor(
             state="empty",
             message="All product pages are in safe empty-state mode pending data hydration.",
             warnings=["No records were supplied for opportunities, keywords, or run history."],
+        )
+    elif acceptance_rollup["status"] == "warning":
+        payloads["registry_state"] = build_state_descriptor(
+            state="warning",
+            message="Product payloads are available with sparse-data warnings.",
+            warnings=acceptance_rollup["reasons"],
+        )
+    elif acceptance_rollup["status"] == "unknown":
+        # Unknown acceptance means one or more pages are unresolved; do not over-report readiness.
+        payloads["registry_state"] = build_state_descriptor(
+            state="warning",
+            message="Product payload acceptance is unresolved for at least one page.",
+            warnings=acceptance_rollup["reasons"] or ["One or more product pages reported unknown acceptance status."],
         )
     else:
         payloads["registry_state"] = build_state_descriptor(
@@ -708,6 +828,38 @@ def get_product_page_payloads(
 def get_cycle003_status_state() -> dict[str, Any]:
     """Expose import-safe status sections for Foundation/Collection/Analysis dry runs."""
     return build_cycle003_status_state()
+
+
+def build_product_page_acceptance_rollup(*, payloads: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Roll up acceptance status across Opportunities, Keywords, and Run History payloads."""
+    page_ids = ("opportunities", "keywords", "run_history")
+    rows: list[dict[str, Any]] = []
+    reasons: list[str] = []
+    status_order = {"ready": 0, "warning": 1, "unknown": 2, "blocked": 3}
+    overall = "ready"
+    for page_id in page_ids:
+        page_payload = payloads.get(page_id, {})
+        acceptance = page_payload.get("acceptance_status", {})
+        status = str(acceptance.get("status", "unknown")).strip().lower() or "unknown"
+        rows.append(
+            {
+                "page_id": page_id,
+                "status": status,
+                "warning_count": int(acceptance.get("warning_count", 0)),
+                "blocker_count": int(acceptance.get("blocker_count", 0)),
+            }
+        )
+        if status_order.get(status, 2) > status_order.get(overall, 2):
+            overall = status
+        for reason in acceptance.get("reasons", []):
+            normalized_reason = str(reason).strip()
+            if normalized_reason and normalized_reason not in reasons:
+                reasons.append(normalized_reason)
+    return {
+        "status": overall,
+        "pages": rows,
+        "reasons": reasons,
+    }
 
 
 def get_phase2_readiness_state() -> dict[str, Any]:

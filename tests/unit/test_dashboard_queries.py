@@ -91,6 +91,47 @@ def test_query_layer_coerces_invalid_limit_to_default_page_size() -> None:
     assert "invalid_limit_type" in warning_codes
 
 
+def test_query_layer_caps_over_limit_page_size_and_marks_warning() -> None:
+    layer = get_dashboard_query_layer()
+    records = [{"run_id": f"run-{index}", "score": index} for index in range(400)]
+    result = layer.run_history(
+        records=records,
+        limit=999,
+        offset=0,
+    )
+    assert result.context.pagination is not None
+    assert result.context.pagination.limit == 250
+    assert result.context.pagination.returned_count == 250
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "limit_capped" in warning_codes
+
+
+def test_query_layer_handles_missing_offset_with_default_zero() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.opportunities(
+        records=[{"opportunity": "A", "score": 90}],
+        limit=1,
+        offset=None,  # type: ignore[arg-type]
+    )
+    assert result.context.pagination is not None
+    assert result.context.pagination.offset == 0
+    warning_codes = {warning.code for warning in result.context.warnings}
+    assert "invalid_offset_type" not in warning_codes
+
+
+def test_query_layer_exact_limit_boundary_has_no_truncation() -> None:
+    layer = get_dashboard_query_layer()
+    records = [{"run_id": f"run-{index}", "score": index} for index in range(25)]
+    result = layer.run_history(
+        records=records,
+        limit=25,
+        offset=0,
+    )
+    assert result.context.pagination is not None
+    assert result.context.pagination.returned_count == 25
+    assert result.context.pagination.truncated is False
+
+
 def test_query_layer_preserves_source_and_freshness_traceability() -> None:
     layer = get_dashboard_query_layer()
     summary = layer.source_freshness_summary(
@@ -238,3 +279,53 @@ def test_invalid_rank_values_do_not_trigger_duplicate_rank_warning() -> None:
     warning_codes = {warning.code for warning in result.context.warnings}
     assert "invalid_rank" in warning_codes
     assert "duplicate_rank" not in warning_codes
+
+
+def test_summarize_data_integrity_records_returns_traceable_warning_codes() -> None:
+    from src.dashboard.queries import summarize_data_integrity_records
+
+    summary = summarize_data_integrity_records(
+        records=[
+            {"id": "dup", "score": "bad", "generated_at": " ", "evidence": "bad-shape"},
+            {"id": "dup", "rank": "bad"},
+        ]
+    )
+    assert summary["status"] == "warning"
+    assert summary["record_count"] == 2
+    assert {"duplicate_record_id", "invalid_score", "invalid_rank", "malformed_evidence", "invalid_generated_at"} <= set(
+        summary["warning_codes"]
+    )
+
+
+def test_analysis_outputs_feed_dashboard_contract_for_complete_payload() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.analysis_output_contract(
+        records=[
+            {
+                "keyword": "python automation",
+                "score": 82.5,
+                "confidence": 0.84,
+                "niche": "automation",
+                "status": "ready",
+            }
+        ]
+    )
+    assert result.context.status == "ok"
+    assert result.records[0]["missing_fields"] == []
+
+
+def test_analysis_outputs_feed_dashboard_contract_for_partial_payload() -> None:
+    layer = get_dashboard_query_layer()
+    result = layer.analysis_output_contract(
+        records=[
+            {
+                "keyword": "seo audit",
+                "score": 72.0,
+                "confidence": None,
+                "niche": "seo",
+                "status": "",
+            }
+        ]
+    )
+    assert result.context.status == "warning"
+    assert {"confidence", "status"} <= set(result.records[0]["missing_fields"])

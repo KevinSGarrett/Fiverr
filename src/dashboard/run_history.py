@@ -8,10 +8,14 @@ from src.dashboard.components import (
     ComponentState,
     EvidenceCardPayload,
     StatusCardPayload,
+    build_descriptor_contract,
+    build_detail_panel_schema,
     build_empty_state_payload,
     build_metric_cards,
+    build_runtime_acceptance_status,
     build_state_descriptor,
     build_table_descriptor,
+    build_warning_summary,
 )
 from src.dashboard.design import normalize_run_severity
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
@@ -82,6 +86,14 @@ def build_run_history_payload(
             details=tuple(warnings),
         ).as_dict()
     ]
+    filter_descriptors = _build_filter_descriptors(
+        filters=context.get("applied_filters") or {},
+        source_descriptors=layer.filter_descriptors(),
+    )
+    sort_descriptors = _build_sort_descriptors(
+        applied_sort=context.get("applied_sort") or {},
+        source_descriptors=layer.sort_descriptors(),
+    )
     table = build_table_descriptor(
         table_id="run_history_table",
         columns=[
@@ -102,16 +114,31 @@ def build_run_history_payload(
         sort_descending=context["applied_sort"].get("descending", True) if context["applied_sort"] else True,
         empty_message=context["empty_state_message"] or "No run history has been recorded.",
         warnings=warnings,
-        filter_descriptors=_build_filter_descriptors(
-            filters=context.get("applied_filters") or {},
-            source_descriptors=layer.filter_descriptors(),
-        ),
+        filter_descriptors=filter_descriptors,
         drill_links=[
             {"label": "Open Run Detail", "target": "run_history/detail"},
             {"label": "Open Monitoring Alerts", "target": "alerts"},
         ],
         source_name=context["source_context"]["source_name"],
         freshness_status=context["freshness"]["freshness_status"],
+    )
+    warning_summary = build_warning_summary(warnings=warnings, blocked=context["status"] == "error")
+    detail_panel_schema = build_detail_panel_schema(
+        panel_id="run_history_detail",
+        row_id_key="run_id",
+        title_field="run_id",
+        fields=[
+            "status",
+            "severity",
+            "stage_names",
+            "duration_seconds",
+            "warning_count",
+            "failure_summary",
+            "evidence_links",
+            "started_at",
+            "completed_at",
+            "next_action",
+        ],
     )
 
     state_key: ComponentState = "ready"
@@ -126,6 +153,12 @@ def build_run_history_payload(
         source_name=context["source_context"]["source_name"],
         freshness_status=context["freshness"]["freshness_status"],
     )
+    acceptance_status = build_runtime_acceptance_status(
+        state=state_key,
+        warnings=warnings,
+        stale_data=context["freshness"].get("freshness_status") == "stale",
+        evidence_ids=[row["run_id"] for row in rows[:5]],
+    )
 
     return {
         "page_id": "run_history",
@@ -137,6 +170,8 @@ def build_run_history_payload(
         "status_cards": status_cards,
         "evidence_cards": evidence_cards,
         "table": table,
+        "warning_summary": warning_summary,
+        "detail_panel_schema": detail_panel_schema,
         "empty_state": build_empty_state_payload(
             title="No run history available" if context["empty_state"] else "Run history ready",
             message=context["empty_state_message"] or "Run history payload is ready for rendering.",
@@ -145,6 +180,16 @@ def build_run_history_payload(
         "source": context["source_context"],
         "freshness": context["freshness"],
         "pagination": context["pagination"],
+        "filter_descriptor_contract": build_descriptor_contract(
+            applied=context["applied_filters"],
+            available=filter_descriptors,
+        ),
+        "sort_descriptor_contract": build_descriptor_contract(
+            applied=context["applied_sort"],
+            available=sort_descriptors,
+        ),
+        "query_contract": _build_query_contract(context),
+        "acceptance_status": acceptance_status,
         "next_actions": context["next_actions"],
     }
 
@@ -172,6 +217,20 @@ def _normalize_run_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             warnings.append(f"Run {run_id} is missing timestamps; duration evidence is partial.")
         failure_summary = str(record.get("failure_summary", "")).strip() or "None"
         failure_count = 0 if failure_summary == "None" else 1
+        report_path = str(record.get("report_path", "")).strip()
+        pr_url = str(record.get("pr_url", "")).strip()
+        check_url = str(record.get("check_url", "")).strip()
+        evidence_link_warnings: list[str] = []
+        if not report_path:
+            evidence_link_warnings.append("Missing report path")
+        if not pr_url:
+            evidence_link_warnings.append("Missing PR reference")
+        if not check_url:
+            evidence_link_warnings.append("Missing check reference")
+        if evidence_link_warnings:
+            warnings.append(
+                f"Run {run_id} has incomplete evidence links: {', '.join(evidence_link_warnings)}."
+            )
         normalized.append(
             {
                 "run_id": run_id,
@@ -184,9 +243,13 @@ def _normalize_run_rows(records: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 "failure_count": failure_count,
                 "failure_summary": failure_summary,
                 "evidence_links": [
-                    f"run://{run_id}/summary",
-                    f"run://{run_id}/logs",
+                    {"label": "Run Summary", "target": report_path or f"run://{run_id}/summary", "required": True},
+                    {"label": "Pull Request", "target": pr_url or "", "required": False},
+                    {"label": "Check Run", "target": check_url or "", "required": False},
+                    {"label": "Run Logs", "target": f"run://{run_id}/logs", "required": True},
                 ],
+                "evidence_link_status": "warning" if evidence_link_warnings else "ready",
+                "evidence_link_warnings": evidence_link_warnings,
                 "next_action": str(record.get("next_action", "Review warnings and re-run if required")),
                 "started_at": started_at,
                 "completed_at": completed_at,
@@ -202,17 +265,53 @@ def _build_filter_descriptors(
 ) -> list[dict[str, str]]:
     descriptor_map = {descriptor.key: descriptor for descriptor in source_descriptors}
     descriptors: list[dict[str, str]] = []
+    for descriptor in source_descriptors:
+        value = filters.get(descriptor.key)
+        descriptors.append(
+            {
+                "key": descriptor.key,
+                "label": descriptor.label,
+                "value": "" if value is None else str(value),
+                "description": descriptor.description,
+            }
+        )
     for key, value in filters.items():
-        descriptor = descriptor_map.get(key)
+        if key in descriptor_map:
+            continue
         descriptors.append(
             {
                 "key": key,
-                "label": descriptor.label if descriptor else key.replace("_", " ").title(),
+                "label": key.replace("_", " ").title(),
                 "value": str(value),
-                "description": descriptor.description if descriptor else "Temporary page-level adapter descriptor.",
+                "description": "Temporary page-level adapter descriptor.",
             }
         )
     return descriptors
+
+
+def _build_sort_descriptors(
+    *,
+    applied_sort: dict[str, Any],
+    source_descriptors: tuple[Any, ...],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    applied_field = str(applied_sort.get("field", "")).strip()
+    for descriptor in source_descriptors:
+        rows.append(
+            {
+                "key": descriptor.key,
+                "label": descriptor.label,
+                "value": "desc"
+                if applied_field == descriptor.key and bool(applied_sort.get("descending", True))
+                else (
+                    "asc"
+                    if applied_field == descriptor.key and not bool(applied_sort.get("descending", True))
+                    else ""
+                ),
+                "description": descriptor.description,
+            }
+        )
+    return rows
 
 
 def _to_int(value: Any) -> int:
@@ -220,4 +319,22 @@ def _to_int(value: Any) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _build_query_contract(context: dict[str, Any]) -> dict[str, Any]:
+    warning_codes = sorted(
+        {
+            str(warning.get("code", "")).strip()
+            for warning in context.get("warnings", [])
+            if isinstance(warning, dict) and str(warning.get("code", "")).strip()
+        }
+    )
+    return {
+        "query_name": "run_history",
+        "status": context.get("status", "warning"),
+        "warning_codes": warning_codes,
+        "applied_filters": context.get("applied_filters", {}),
+        "applied_sort": context.get("applied_sort", {}),
+        "pagination": context.get("pagination"),
+    }
 
