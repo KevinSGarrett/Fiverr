@@ -28,6 +28,9 @@ GOVERNANCE_REPORT_ORDER = (
 JIRA_MAPPING_TYPES = frozenset({"governance", "product"})
 JIRA_UPDATED_BY_VALUES = frozenset({"pm", "cursor_agent", "pm_and_cursor_agent", "unknown"})
 ACTIVE_STORY_STATUSES = frozenset({"in_progress", "in_review", "blocked"})
+NONCANONICAL_STARTER_KEY_RANGE = range(1, 5)
+NONCANONICAL_DUPLICATE_EPIC_RANGE = range(27, 43)
+DUPLICATE_DONE_RISK_KEYS = frozenset({"SCRUM-217", "SCRUM-221", "SCRUM-222"})
 DEFAULT_VALIDATION_COMMANDS = (
     "python -m ruff check .",
     "python -m mypy src",
@@ -48,6 +51,117 @@ _RUNTIME_STATUS_NORMALIZATION = {
     "error": "blocked",
     "fail": "blocked",
 }
+
+
+def _parse_scrum_numeric_id(jira_key: str) -> int | None:
+    normalized = jira_key.strip().upper()
+    if not normalized.startswith("SCRUM-"):
+        return None
+    suffix = normalized.removeprefix("SCRUM-")
+    if not suffix.isdigit():
+        return None
+    return int(suffix)
+
+
+def _is_noncanonical_board_key(jira_key: str) -> bool:
+    key_number = _parse_scrum_numeric_id(jira_key)
+    if key_number is None:
+        return False
+    return key_number in NONCANONICAL_STARTER_KEY_RANGE or key_number in NONCANONICAL_DUPLICATE_EPIC_RANGE
+
+
+def build_board_reconciliation_entries(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build deterministic board reconciliation entries for steward evidence."""
+    normalized_entries: list[dict[str, Any]] = []
+    for raw_row in rows:
+        jira_key = str(raw_row.get("jira_key", "")).strip().upper()
+        if not jira_key:
+            raise ValueError("jira_key is required for reconciliation entries.")
+        status = str(raw_row.get("status", "unknown")).strip().lower() or "unknown"
+        touched = bool(raw_row.get("touched", False))
+        canonical_scope = str(raw_row.get("canonical_scope", "product")).strip().lower() or "product"
+        if canonical_scope not in {"product", "governance", "future_scope", "noncanonical"}:
+            raise ValueError("canonical_scope must be product, governance, future_scope, or noncanonical.")
+        board_source = str(raw_row.get("board_source", "jira")).strip() or "jira"
+
+        is_duplicate_done_risk = jira_key in DUPLICATE_DONE_RISK_KEYS
+        is_noncanonical = canonical_scope == "noncanonical" or _is_noncanonical_board_key(jira_key)
+        done_requested = status == "done"
+
+        recommended_status = status
+        exclusion_reason = ""
+        if is_noncanonical:
+            recommended_status = "excluded_noncanonical"
+            exclusion_reason = "starter_or_duplicate_epic"
+        elif canonical_scope == "future_scope" and touched:
+            recommended_status = "blocked_future_scope"
+            exclusion_reason = "future_scope_touched"
+        elif done_requested and (is_duplicate_done_risk or touched):
+            recommended_status = "hold_non_done"
+            exclusion_reason = "done_requires_full_source_dod"
+        elif done_requested and canonical_scope == "product":
+            recommended_status = "verify_done_evidence"
+            exclusion_reason = "needs_full_ac_dod_proof"
+
+        normalized_entries.append(
+            {
+                "jira_key": jira_key,
+                "status": status,
+                "touched": touched,
+                "canonical_scope": canonical_scope,
+                "board_source": board_source,
+                "is_noncanonical": is_noncanonical,
+                "is_duplicate_done_risk": is_duplicate_done_risk,
+                "recommended_status": recommended_status,
+                "exclusion_reason": exclusion_reason,
+            }
+        )
+    normalized_entries.sort(key=lambda row: row["jira_key"])
+    return normalized_entries
+
+
+def build_ac_dod_progress_markdown_table(rows: list[dict[str, Any]]) -> str:
+    """Render stable AC/DoD progress table rows for PR/report bodies."""
+    if not rows:
+        return (
+            "| Jira Key | AC/DoD Progress | Remaining Gap | Status Recommendation |\n"
+            "| --- | --- | --- | --- |\n"
+            "| - | No AC/DoD updates recorded. | Steward follow-up required. | In Progress |"
+        )
+
+    normalized_rows: list[dict[str, str]] = []
+    for raw_row in rows:
+        jira_key = str(raw_row.get("jira_key", "")).strip().upper()
+        progress = str(raw_row.get("ac_dod_progress", "")).strip()
+        remaining_gap = str(raw_row.get("remaining_gap", "")).strip()
+        recommendation = str(raw_row.get("status_recommendation", "in_progress")).strip() or "in_progress"
+        if not jira_key:
+            raise ValueError("jira_key is required for AC/DoD progress rows.")
+        if not progress:
+            raise ValueError(f"ac_dod_progress is required for {jira_key}.")
+        if not remaining_gap:
+            raise ValueError(f"remaining_gap is required for {jira_key}.")
+        normalized_rows.append(
+            {
+                "jira_key": jira_key,
+                "ac_dod_progress": progress,
+                "remaining_gap": remaining_gap,
+                "status_recommendation": recommendation,
+            }
+        )
+    normalized_rows.sort(key=lambda row: row["jira_key"])
+
+    lines = [
+        "| Jira Key | AC/DoD Progress | Remaining Gap | Status Recommendation |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in normalized_rows:
+        lines.append(
+            f"| {row['jira_key']} | {row['ac_dod_progress']} | {row['remaining_gap']} | {row['status_recommendation']} |"
+        )
+    return "\n".join(lines)
 
 
 def build_governance_report_placeholders(
@@ -321,8 +435,8 @@ def build_integration_run_context_model(
     normalized_expected_root = expected_root.strip().replace("/", "\\")
     normalized_git_root = git_root.strip().replace("/", "\\")
     normalized_branch = branch.strip() or "unknown"
-    normalized_worktrees = [str(item).strip().replace("/", "\\") for item in (worktrees or []) if str(item).strip()]
-    normalized_dirty_entries = [str(item).strip() for item in (dirty_entries or []) if str(item).strip()]
+    normalized_worktrees = [item.strip().replace("/", "\\") for item in (worktrees or []) if item.strip()]
+    normalized_dirty_entries = [item.strip() for item in (dirty_entries or []) if item.strip()]
     unauthorized_worktrees = [
         path for path in normalized_worktrees if path and path != normalized_expected_root
     ]

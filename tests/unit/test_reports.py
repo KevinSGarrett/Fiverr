@@ -50,10 +50,13 @@ from src.reports import (
 )
 from src.reports.placeholders import (
     ACTIVE_STORY_STATUSES,
+    DUPLICATE_DONE_RISK_KEYS,
     JIRA_MAPPING_TYPES,
     JIRA_UPDATED_BY_VALUES,
+    build_ac_dod_progress_markdown_table,
     build_active_story_groups,
     build_analysis_summary_rows,
+    build_board_reconciliation_entries,
     build_first_run_readiness_baseline_payload,
     build_integration_run_context_model,
 )
@@ -663,6 +666,77 @@ def test_report_placeholder_exports_include_new_mapping_constants() -> None:
     assert "product" in JIRA_MAPPING_TYPES
     assert "cursor_agent" in JIRA_UPDATED_BY_VALUES
     assert "in_review" in ACTIVE_STORY_STATUSES
+
+
+def test_board_reconciliation_entries_flag_noncanonical_and_done_risk_rows() -> None:
+    entries = build_board_reconciliation_entries(
+        [
+            {
+                "jira_key": "SCRUM-1",
+                "status": "done",
+                "touched": True,
+                "canonical_scope": "noncanonical",
+            },
+            {
+                "jira_key": "SCRUM-231",
+                "status": "done",
+                "touched": True,
+                "canonical_scope": "product",
+            },
+            {
+                "jira_key": "SCRUM-233",
+                "status": "to_do",
+                "touched": False,
+                "canonical_scope": "future_scope",
+            },
+        ]
+    )
+    assert entries[0]["jira_key"] == "SCRUM-1"
+    assert entries[0]["recommended_status"] == "excluded_noncanonical"
+    assert entries[1]["jira_key"] == "SCRUM-231"
+    assert entries[1]["recommended_status"] == "hold_non_done"
+    assert entries[2]["jira_key"] == "SCRUM-233"
+    assert entries[2]["recommended_status"] == "to_do"
+
+
+def test_board_reconciliation_entries_tracks_duplicate_done_risk_keys() -> None:
+    key = next(iter(sorted(DUPLICATE_DONE_RISK_KEYS)))
+    entries = build_board_reconciliation_entries(
+        [
+            {
+                "jira_key": key,
+                "status": "done",
+                "touched": False,
+                "canonical_scope": "product",
+            }
+        ]
+    )
+    assert entries[0]["is_duplicate_done_risk"] is True
+    assert entries[0]["recommended_status"] == "hold_non_done"
+    assert entries[0]["exclusion_reason"] == "done_requires_full_source_dod"
+
+
+def test_ac_dod_progress_markdown_table_renders_sorted_rows() -> None:
+    rendered = build_ac_dod_progress_markdown_table(
+        [
+            {
+                "jira_key": "SCRUM-241",
+                "ac_dod_progress": "Security hygiene checks rerun on final steward pass.",
+                "remaining_gap": "Final post-merge hygiene evidence still required.",
+                "status_recommendation": "In Progress",
+            },
+            {
+                "jira_key": "SCRUM-231",
+                "ac_dod_progress": "Pipeline integration evidence consolidated.",
+                "remaining_gap": "Full source DoD requires controlled end-to-end run.",
+                "status_recommendation": "In Review",
+            },
+        ]
+    )
+    assert rendered.splitlines()[0] == "| Jira Key | AC/DoD Progress | Remaining Gap | Status Recommendation |"
+    assert rendered.count("SCRUM-231") == 1
+    assert rendered.count("SCRUM-241") == 1
+    assert rendered.index("SCRUM-231") < rendered.index("SCRUM-241")
 
 
 def test_integration_evidence_summary_contains_validation_and_jira_progress_rows() -> None:

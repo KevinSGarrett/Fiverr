@@ -42,6 +42,7 @@ Paste exact command outputs (or links) for all applicable checks:
 - AC/DoD bullets advanced:
 - AC/DoD bullets not advanced (and why):
 - Missing AC/DoD coverage follow-ups created:
+- Canonical/noncanonical reconciliation performed against `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_###.md`: Yes/No
 
 ## Codecov Status
 
@@ -60,6 +61,12 @@ Paste exact command outputs (or links) for all applicable checks:
 - Compare local archive vs PR head performed: Yes/No
 - Reconciliation result (committed vs intentionally excluded):
 - Evidence comment link:
+
+## AC/DoD Progress Table
+
+| Jira Key | AC/DoD Progress | Remaining Gap | Status Recommendation |
+| --- | --- | --- | --- |
+| `SCRUM-###` |  |  |  |
 
 ## Branch Policy
 
@@ -80,3 +87,5 @@ Paste exact command outputs (or links) for all applicable checks:
 - [ ] Board-first Jira audit summary is complete.
 - [ ] AC/DoD progress for all touched keys is included.
 - [ ] No runtime artifacts (db/cache/temp reports) are included.
+- [ ] Final pushed SHA is synchronized across PR body, cycle report, and Jira ledger.
+- [ ] Final evidence freeze was performed after checks settled.
