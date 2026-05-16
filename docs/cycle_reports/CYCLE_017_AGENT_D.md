@@ -151,7 +151,11 @@ Touched keys for final steward comments:
 Comment result summary:
 
 - Final comments posted for all touched keys with changed files, validation evidence, AC/DoD advanced, remaining gaps, and status recommendation.
-- Exact key/comment references are recorded in the final freeze section.
+- Jira comment references:
+  - `SCRUM-214` (`10586`), `SCRUM-215` (`10585`), `SCRUM-219` (`10588`), `SCRUM-225` (`10587`), `SCRUM-228` (`10590`)
+  - `SCRUM-231` (`10595`), `SCRUM-232` (`10597`), `SCRUM-235` (`10596`), `SCRUM-236` (`10591`), `SCRUM-237` (`10592`), `SCRUM-239` (`10594`), `SCRUM-241` (`10593`)
+  - `SCRUM-157` (`10600`), `SCRUM-158` (`10599`), `SCRUM-159` (`10604`), `SCRUM-160` (`10598`), `SCRUM-161` (`10605`), `SCRUM-162` (`10603`), `SCRUM-163` (`10602`), `SCRUM-164` (`10601`)
+  - `SCRUM-260` (`10589`)
 
 ## Task 9 + 10: PR Body Update and Same-Cycle Codex Stewardship
 
@@ -163,7 +167,7 @@ PR stewardship state:
 Codex stewardship:
 
 - Review threads were checked at final freeze.
-- Same-cycle requirement enforced: valid findings fixed or dispositioned with evidence; no unresolved Codex thread remains unless hard blocker is documented.
+- Same-cycle requirement enforced: no Codex review thread is currently open on PR #14; no unresolved Codex blocker in this steward pass.
 
 ## Task 11: Full Validation Block Final Run
 
@@ -227,11 +231,11 @@ Current evidence result:
 ## Final Evidence Freeze
 
 - Final branch: `cycle/017/integration`
-- Final local head SHA: `PENDING_FINAL_PUSH`
-- Final pushed head SHA: `PENDING_FINAL_PUSH`
-- PR: `PENDING_PR_URL`
-- PR checks (final): `PENDING_FINAL_CHECKS`
-- Codex thread state: `PENDING_FINAL_CODEX_STATE`
+- Final local head SHA evidence: `git rev-parse HEAD`
+- Final pushed head SHA evidence: `git rev-parse origin/cycle/017/integration`
+- PR: `https://github.com/KevinSGarrett/Fiverr/pull/14`
+- PR checks (final): `Lint, Typecheck, Tests, and Gates` pass; `codecov/project` pass (duplicate successful runs present)
+- Codex thread state: `No open Codex review thread observed on PR #14`
 - Worktree usage: `No`
 - Directory exception: `No`
 - Path/worktree exception approved: `No`
