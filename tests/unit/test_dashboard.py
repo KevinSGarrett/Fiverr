@@ -429,6 +429,22 @@ def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable
     assert diagnostics["data_integrity_readiness"]["status"] == "blocked"
 
 
+def test_app_entry_query_diagnostics_respects_startup_run_context() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={
+            "status": "ready",
+            "warning_count": 0,
+            "run_context": {"status": "blocked", "reason": "test"},
+            "config_visibility": {"status": "ready"},
+            "first_run_readiness": {"status": "ready"},
+        },
+    )
+    assert diagnostics["runtime_readiness_baseline"]["categories"]["run_context"] == "blocked"
+    assert diagnostics["runtime_readiness_baseline"]["status"] == "blocked"
+
+
 def test_app_entry_query_diagnostics_payload_availability_includes_source_and_warning_codes() -> None:
     app_module = importlib.import_module("src.dashboard.app")
     fixture = _dashboard_fixture_run()

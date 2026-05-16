@@ -612,14 +612,19 @@ def build_app_entry_query_diagnostics(
     analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
     integrity_summary = summarize_data_integrity_records(records=analysis_output_records)
     integrity_signal = build_data_integrity_readiness_signal(records=analysis_output_records)
-    runtime_run_context = build_integration_run_context_model(
-        expected_root="C:\\Fiverr\\Fiverr",
-        git_root="C:\\Fiverr\\Fiverr",
-        branch="unknown",
-        worktrees=["C:\\Fiverr\\Fiverr"],
-        dirty_entries=[],
-        preflight_status="ready",
-    )
+    startup_run_context = startup.get("run_context")
+    if isinstance(startup_run_context, dict):
+        runtime_run_context = dict(startup_run_context)
+    else:
+        cwd = str(Path.cwd())
+        runtime_run_context = build_integration_run_context_model(
+            expected_root=cwd,
+            git_root=cwd,
+            branch="unknown",
+            worktrees=[cwd],
+            dirty_entries=[],
+            preflight_status="unknown",
+        )
     niche_status = str(startup.get("config_visibility", {}).get("status", "unknown")).strip().lower() or "unknown"
     first_run_status = str(startup.get("first_run_readiness", {}).get("status", "unknown")).strip().lower() or "unknown"
     readiness_baseline = build_first_run_readiness_baseline_payload(

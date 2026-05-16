@@ -1980,6 +1980,16 @@ def test_orchestrator_includes_analysis_closure_matrix_and_scoring_handoff() -> 
     assert "next_cycle_focus" in scoring_handoff
 
 
+def test_closure_matrix_marks_missing_field_count_as_not_closure_ready() -> None:
+    summary = run_analysis_dry_run(_load_analysis_fixture("partial_payload.json"))
+    closure_matrix = summary.metadata["analysis_closure_matrix"]
+    intent_row = next(
+        row for row in closure_matrix if row["stage"] == AnalysisTaskType.INTENT_CLASSIFICATION.value
+    )
+    assert intent_row["missing_field_count"] > 0
+    assert intent_row["closure_ready"] is False
+
+
 def test_analysis_outputs_include_completeness_contracts() -> None:
     gig = score_gig_quality(
         GigQualityInput(source_id="gig-src", gig_id="gig-1", title="I will do work")

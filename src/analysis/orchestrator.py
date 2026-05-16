@@ -336,7 +336,8 @@ def _build_analysis_closure_matrix(stages: list[AnalysisStageSummary]) -> list[d
             continue
         readiness_contract = stage.metadata.get("readiness_contract", {})
         missing_fields = readiness_contract.get("missing_fields", []) if isinstance(readiness_contract, dict) else []
-        closure_ready = stage.status == AnalysisStatus.SUCCESS and not missing_fields
+        missing_field_count = int(stage.metadata.get("missing_field_count", 0))
+        closure_ready = stage.status == AnalysisStatus.SUCCESS and not missing_fields and missing_field_count == 0
         scoring_ready = _stage_contract_status(stage) == "ready"
         matrix.append(
             {
@@ -345,7 +346,7 @@ def _build_analysis_closure_matrix(stages: list[AnalysisStageSummary]) -> list[d
                 "status": stage.status.value,
                 "readiness_status": stage.readiness_status.value,
                 "warning_count": len(stage.warnings),
-                "missing_field_count": int(stage.metadata.get("missing_field_count", 0)),
+                "missing_field_count": missing_field_count,
                 "closure_ready": closure_ready,
                 "scoring_ready": scoring_ready,
             }
