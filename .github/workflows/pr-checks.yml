@@ -1,0 +1,61 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled, synchronize]
+
+jobs:
+  validate-pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate PR Title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const pattern = /^(feat|fix|refactor|test|docs|chore|style|perf|ci|build|release|hotfix|revert)(\([a-z0-9-]+\))?: .+$/;
+            const errors = [];
+            if (!pattern.test(title)) {
+              errors.push('PR title must follow: type(scope): description');
+              errors.push('Example: feat(scoring): add demand score calculator');
+            }
+            if (title.length > 72) {
+              errors.push(`PR title is ${title.length} chars (max 72)`);
+            }
+            if (title.endsWith('.')) {
+              errors.push('PR title should not end with a period');
+            }
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
+      - name: Validate PR Description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const errors = [];
+            if (body.trim().length < 50) {
+              errors.push('PR description is too short (min 50 chars). Please describe what and why.');
+            }
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
+      - name: Check PR Size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const total = additions + deletions;
+            if (total > 1000) {
+              core.setFailed(`PR is too large: ${total} lines changed (max 1000). Consider splitting.`);
+            } else if (total > 300) {
+              core.warning(`PR is large: ${total} lines changed. Consider splitting if possible.`);
+            }

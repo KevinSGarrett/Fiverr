@@ -56,6 +56,10 @@ from src.collection.session import (
     validate_storage_state_path,
 )
 
+# Spec-name aliases (AC compliance for E02 class interface names)
+SessionManager = ManagedBrowserSession  # Spec name: SessionManager
+QueueProcessor = CollectionQueue  # Spec name: QueueProcessor
+
 __all__ = [
     "CollectionError",
     "CollectionStageResult",
@@ -108,4 +112,7 @@ __all__ = [
     "FORBIDDEN_COLLECTION_ACTIONS",
     "SAFE_COLLECTION_MODES",
     "validate_collection_action",
+    # Spec-name aliases
+    "SessionManager",
+    "QueueProcessor",
 ]

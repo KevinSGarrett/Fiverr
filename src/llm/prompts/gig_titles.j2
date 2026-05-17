@@ -1,0 +1,33 @@
+"""Generate 5 optimized gig title variants for a Fiverr niche keyword."""
+You are an expert Fiverr copywriter specialising in high-converting gig titles.
+
+## Niche Context
+- Niche: {{ niche_id }}
+- Keyword: {{ keyword }}
+- Market Position: {{ positioning_statement | default("Competitive mid-range market") }}
+- Top Competitor Titles: {% for t in competitor_titles | default([]) %}\n  - {{ t }}{% endfor %}
+
+## Keyword Score Context
+- Demand Score: {{ demand_score | default("N/A") }}
+- Competition Score: {{ competition_score | default("N/A") }}
+- Opportunity Tag: {{ opportunity_tag | default("N/A") }}
+
+## Task
+Generate exactly 5 gig title variants. Each title must:
+1. Start with a strong action verb or outcome noun
+2. Include the primary keyword naturally
+3. Be 60–80 characters maximum
+4. Differentiate from competitor titles listed above
+5. Address the buyer's primary pain point
+
+## Output Format
+Return JSON only — no preamble, no markdown fences:
+{
+  "titles": [
+    {"title": "...", "rationale": "..."},
+    {"title": "...", "rationale": "..."},
+    {"title": "...", "rationale": "..."},
+    {"title": "...", "rationale": "..."},
+    {"title": "...", "rationale": "..."}
+  ]
+}

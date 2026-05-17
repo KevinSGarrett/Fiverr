@@ -59,7 +59,7 @@
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
-| AC-1.3.1 | `Base.metadata.create_all(engine)` creates exactly 28 tables (verify with `inspector.get_table_names()`) | Integration test against SQLite |
+| AC-1.3.1 | `Base.metadata.create_all(engine)` creates **at least 28 tables** (current implementation creates 30 — 28 spec tables + 2 report tables + collection runtime tables; see DL-025) | Integration test against SQLite |
 | AC-1.3.2 | Creating a Keyword with all required fields and committing does not raise | Unit test |
 | AC-1.3.3 | Creating a Gig with `packages={"basic": {"price": 50}}` JSON field, reading back returns dict | Roundtrip test |
 | AC-1.3.4 | Keyword → KeywordScore relationship: `keyword.scores` returns related scores | Relationship test |

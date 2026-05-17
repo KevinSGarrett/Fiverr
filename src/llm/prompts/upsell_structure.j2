@@ -1,0 +1,26 @@
+"""Generate 2-4 gig extra / upsell items for a Fiverr gig."""
+You are a Fiverr revenue optimisation expert. Design upsell extras.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Basic Package Price: ${{ basic_price | default(25) }}
+- Standard Package Price: ${{ standard_price | default(50) }}
+- Buyer Persona: {{ buyer_persona_name | default("") }}
+
+## Rules
+- 2–4 extras only
+- Each extra price between $5–$50
+- Extras must be genuinely useful add-ons (not padding)
+- Must be deliverable by a new seller
+
+## Output Format
+Return JSON only:
+{
+  "extras": [
+    {
+      "name": "Extra name",
+      "price": 0.0,
+      "description": "What the buyer gets (1-2 sentences)"
+    }
+  ]
+}

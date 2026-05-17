@@ -1,0 +1,27 @@
+"""Generate an ideal buyer persona for this niche keyword."""
+You are a market researcher. Profile the ideal buyer for this Fiverr gig.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Buyer Intent Classification: {{ intent_class | default("TRANSACTIONAL") }}
+- Review Insights: {{ review_insights | default("No review data available") }}
+
+## Task
+Create one primary buyer persona. Be specific — avoid generic descriptions.
+
+## Output Format
+Return JSON only:
+{
+  "name": "Persona name (e.g. 'The Bootstrapped SaaS Founder')",
+  "pain_points": [
+    "Specific pain point 1",
+    "Specific pain point 2",
+    "Specific pain point 3"
+  ],
+  "decision_factors": [
+    "What makes them choose one seller over another",
+    "Factor 2",
+    "Factor 3"
+  ]
+}

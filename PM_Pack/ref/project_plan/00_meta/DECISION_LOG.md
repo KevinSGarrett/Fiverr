@@ -204,3 +204,77 @@
 
 ## Future Decision Slots
 DL-025 through DL-099 reserved for Wave 1–8 decisions.
+
+---
+
+## DL-025 — Model Consolidation: Multiple Models Per File (I-01)
+| Field | Value |
+|---|---|
+| Decision | DB models are consolidated into thematic files (`market.py`, `analysis.py`, `scoring.py`, `runtime.py`, `visual.py`, etc.) rather than one file per model as specified in `.cursorrules`. |
+| Rationale | Reduces file count and import complexity during the foundation phase. All models in a group share mixins and have related FK relationships. Consolidation is consistent with how the codebase was initially built and all tests pass. |
+| Impact | `.cursorrules` rule "one model per file" is updated to: "new models go in their own file; existing consolidated model files are an accepted deviation." |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted — do not refactor existing files |
+
+## DL-026 — Jinja2 Template Naming: Dual Set (I-02, C-07)
+| Field | Value |
+|---|---|
+| Decision | Two sets of Jinja2 templates coexist in `src/llm/prompts/`: (1) 19 operational templates for E02/E03/E06/E07 stages (e.g. `competitor_analysis.j2`, `keyword_scoring.j2`); (2) 13 E05 Recommendation Engine templates with spec-defined names (e.g. `gig_titles.j2`, `tag_sets.j2`). Both sets are kept. |
+| Rationale | The 19 operational templates are in active use by collection and analysis stages. Renaming them would break existing integrations. The 13 E05 templates were added per spec (Story 5.3/5.4) and must use spec-defined filenames because the recommendation engine calls them by exact name. |
+| Impact | Do NOT delete or rename existing operational templates. When implementing E05, import the 13 new spec-named templates. |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted |
+
+## DL-027 — Collection Module Pattern: Functional Rather Than Workflow Classes (I-03)
+| Field | Value |
+|---|---|
+| Decision | The collection engine uses functional modules (`keyword_expansion.py`, `gig_detail.py` etc.) rather than named Workflow classes in a `src/collection/workflows/` subdirectory. Spec-name class aliases (`SessionManager`, `QueueProcessor`) are exposed in `src/collection/__init__.py`. The `workflows/` directory now exists with thin wrapper classes that delegate to the functional modules. |
+| Rationale | The functional approach was adopted early for simplicity. Wrapper classes in `workflows/` satisfy the spec interface contract for E10 integration tests and agent code generation. |
+| Impact | New collection workflows must be created as class files in `src/collection/workflows/`. Existing functional modules remain. |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted |
+
+## DL-028 — Sub-Task Deferral: 600 Tasks Not in Jira (I-04)
+| Field | Value |
+|---|---|
+| Decision | The 600 granular spec tasks (from `ref/todo/EPIC_*.md`) are not created as individual Jira sub-tasks. Only E01 story sub-tasks exist (65 items, created Wave 19). |
+| Rationale | Creating 600 Jira issues is operationally expensive and most tasks are not started yet. The protocol explicitly defers bulk sub-task creation to later import waves. |
+| Impact | ChatGPT PM must plan at story level, not task level, until sub-tasks are wave-imported. Task-level detail lives in story descriptions. |
+| Wave Decided | Protocol design — accepted |
+| Status | Accepted — create sub-tasks per epic wave as each epic begins active development |
+
+## DL-029 — Line Length: 100 Chars (H-07)
+| Field | Value |
+|---|---|
+| Decision | Line length is set to 100 characters in `pyproject.toml` and `.cursorrules`. The original spec `.cursorrules` specified 120 — this is overridden. |
+| Rationale | 100 chars is the existing CI-enforced setting. Changing to 120 would require reformatting all existing code and CI validation would break during the transition. |
+| Impact | All agents must format at 100 chars. The `.cursorrules` deployed to the repo reflects 100. |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted |
+
+## DL-030 — PR Template: Operational Cycle Format (L-06)
+| Field | Value |
+|---|---|
+| Decision | The `.github/pull_request_template.md` retains the operational 91-line cycle-based format rather than the 26-line spec format. |
+| Rationale | The cycle-based format includes board audit artifacts, Jira keys, and validation command sections that are essential for the ChatGPT PM + Cursor agent workflow. The shorter spec format does not capture enough context for AI-driven PRs. |
+| Impact | The spec PR template (`ref/github/05_templates/PR_TEMPLATE.md`) is retained as a reference but is not deployed to the repo. |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted |
+
+## DL-031 — Branch Naming: Cycle Integration Pattern (L-08)
+| Field | Value |
+|---|---|
+| Decision | Integration branches use `cycle/{NNN}/integration` pattern. Individual story branches use `feature/{epic}/{story-slug}` per spec. |
+| Rationale | The cycle integration branch consolidates all agent work for a cycle before merging to develop. This is an operational necessity that the spec branch naming doesn't account for. Individual story branches should follow the spec pattern. |
+| Impact | `.cursorrules` documents both patterns. ChatGPT PM must create story branches per spec pattern and only consolidate to cycle/NNN/integration at PR time. |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted |
+
+## DL-032 — Commit Scope: Cycle vs Module (L-09)
+| Field | Value |
+|---|---|
+| Decision | Commits in cycle integration branches use `cycle-{NNN}` scope. Individual story commits should use module scope per spec (e.g. `feat(scoring): ...`). |
+| Rationale | Cycle-scoped commits make it easy to find all work in a given cycle in `git log`. Module-scoped commits are preferred for individual story PRs. |
+| Impact | ChatGPT PM should instruct agents to use module scope on story branches and cycle scope only on integration branch commits. |
+| Wave Decided | Cycle 019 — Audit Remediation |
+| Status | Accepted |

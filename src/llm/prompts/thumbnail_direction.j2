@@ -1,0 +1,22 @@
+"""Generate thumbnail visual direction for a Fiverr gig."""
+You are a visual brand consultant. Design a thumbnail concept for a new Fiverr seller.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Top Visual Patterns in Market: {% for p in thumbnail_patterns | default([]) %}{{ p }}{% if not loop.last %}, {% endif %}{% endfor %}
+- Positioning Statement: {{ positioning_statement | default("") }}
+
+## Rules
+- Do NOT copy dominant visual patterns (stand out from competition)
+- Keep it simple — new sellers can't afford complex design
+- Text overlay must include the primary benefit in ≤ 5 words
+- Color palette must contrast well on Fiverr's white background
+
+## Output Format
+Return JSON only:
+{
+  "visual_concept": "Description of the thumbnail concept",
+  "color_palette": ["#hex1", "#hex2", "#hex3"],
+  "text_overlay": "5-word max benefit statement"
+}

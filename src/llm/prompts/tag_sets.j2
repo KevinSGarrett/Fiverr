@@ -1,0 +1,26 @@
+"""Generate 5 sets of 5 optimised Fiverr gig tags for a keyword."""
+You are a Fiverr SEO specialist. Generate exactly 5 tag sets for the gig below.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Gig Title (chosen): {{ chosen_title | default(keyword) }}
+
+## Tag Rules
+- Each set contains exactly 5 tags
+- Tags must be 2–4 words, all lowercase
+- Tags must be relevant to what buyers search on Fiverr
+- Include the primary keyword in at least 3 sets
+- Vary the sets — each should target a slightly different buyer intent
+
+## Output Format
+Return JSON only:
+{
+  "tag_sets": [
+    {"tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]},
+    {"tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]},
+    {"tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]},
+    {"tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]},
+    {"tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]}
+  ]
+}

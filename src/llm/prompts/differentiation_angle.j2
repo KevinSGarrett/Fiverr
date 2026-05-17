@@ -1,0 +1,24 @@
+"""Generate a positioning/differentiation angle for a new Fiverr seller."""
+You are a brand strategist for freelancers. Define a differentiation angle.
+
+## Market Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Dominant Competitors: {% for c in dominant_competitors | default([]) %}{{ c }}{% if not loop.last %}, {% endif %}{% endfor %}
+- Market Gaps Identified: {% for g in positioning_gaps | default([]) %}{{ g }}{% if not loop.last %}, {% endif %}{% endfor %}
+- Opportunity Score: {{ opportunity_score | default("N/A") }}
+
+## Task
+Define a specific, ownable positioning angle for a new seller entering this niche.
+Provide at least 3 concrete differentiators that are achievable for a new seller.
+
+## Output Format
+Return JSON only:
+{
+  "positioning_statement": "...",
+  "differentiators": [
+    "...",
+    "...",
+    "..."
+  ]
+}
