@@ -15,7 +15,6 @@ from src.discovery.contracts import (
     DiscoveryInput,
     DiscoveryOutput,
     HypothesisMode,
-    HypothesisStatus,
 )
 
 logger = logging.getLogger(__name__)

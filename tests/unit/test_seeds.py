@@ -10,7 +10,6 @@ AC items tested:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -98,9 +97,9 @@ class TestImportSeedsDB:
         db_path = tmp_path / "test_seeds.db"
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
 
+        from sqlalchemy.orm import Session
         from src.models.database import initialize_database
         from src.models.niche import Niche
-        from sqlalchemy.orm import Session
 
         engine = initialize_database(database_url=f"sqlite:///{db_path.as_posix()}")
 
@@ -118,9 +117,9 @@ class TestImportSeedsDB:
 
     def test_import_inserts_keywords(self, tmp_path: Path, seeded_engine) -> None:
         engine, db_path = seeded_engine
-        from src.scripts.import_seeds import import_seeds
         from sqlalchemy.orm import Session
         from src.models.market import Keyword
+        from src.scripts.import_seeds import import_seeds
 
         # Only run for one niche to avoid needing all niches seeded
         single_seed_dir = tmp_path / "seeds_single"
@@ -145,9 +144,9 @@ class TestImportSeedsDB:
 
     def test_import_is_idempotent(self, tmp_path: Path, seeded_engine) -> None:
         engine, db_path = seeded_engine
-        from src.scripts.import_seeds import import_seeds
         from sqlalchemy.orm import Session
         from src.models.market import Keyword
+        from src.scripts.import_seeds import import_seeds
 
         single_seed_dir = tmp_path / "seeds_idem"
         single_seed_dir.mkdir()
@@ -210,9 +209,9 @@ class TestImportSeedsDryRun:
         db_path = tmp_path / "dryrun.db"
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
 
+        from sqlalchemy.orm import Session
         from src.models.database import initialize_database
         from src.models.niche import Niche
-        from sqlalchemy.orm import Session
 
         engine = initialize_database(database_url=f"sqlite:///{db_path.as_posix()}")
         with Session(engine) as session:
@@ -230,8 +229,8 @@ class TestImportSeedsDryRun:
             encoding="utf-8",
         )
 
-        from src.scripts.import_seeds import import_seeds
         from src.models.market import Keyword
+        from src.scripts.import_seeds import import_seeds
 
         results = import_seeds(
             seeds_dir=single_seed_dir,
