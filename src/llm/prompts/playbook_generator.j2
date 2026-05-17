@@ -1,0 +1,52 @@
+You are a Fiverr seller setup strategist. Generate a comprehensive seller setup playbook for a new seller entering the following niche.
+
+## Seller Context
+- Target niche: {{ niche_name }}
+- Category: {{ category_path }}
+- Seller level: New seller (no reviews)
+
+## Market Intelligence Summary
+- GO verdict: {{ go_verdict | default('CONDITIONAL GO') }}
+- Final opportunity score: {{ final_score | default('unknown') }}
+- Top opportunity keywords: {{ top_keywords | join(', ') }}
+- Recommended entry pricing: Basic ${{ pricing.basic | default('?') }}, Standard ${{ pricing.standard | default('?') }}, Premium ${{ pricing.premium | default('?') }}
+- Key competitor weaknesses: {{ competitor_weaknesses | join('; ') or 'not available' }}
+- Top recommendations: {{ top_recommendations | join('; ') or 'not available' }}
+
+## Instructions
+Generate a structured 90-day seller setup playbook with these sections:
+
+1. **gig_setup**: Step-by-step gig creation instructions
+2. **pricing_phases**: When and how to raise prices
+3. **first_order_strategy**: How to get first 3-5 reviews
+4. **profile_checklist**: Profile must-haves before going live
+5. **week_by_week**: High-level 12-week action plan
+
+Each section should be specific, actionable, and tied to the market data above.
+
+Return a JSON object:
+{
+  "playbook_title": "string",
+  "niche": "{{ niche_name }}",
+  "sections": {
+    "gig_setup": {
+      "title_template": "string",
+      "description_tips": ["string"],
+      "package_names": ["string", "string", "string"],
+      "required_extras": ["string"]
+    },
+    "pricing_phases": [
+      {"phase": "Launch (0 reviews)", "prices": {"basic": 0, "standard": 0, "premium": 0}, "trigger_to_advance": "string"}
+    ],
+    "first_order_strategy": ["string"],
+    "profile_checklist": ["string"],
+    "week_by_week": [
+      {"week_range": "string", "focus": "string", "actions": ["string"]}
+    ]
+  },
+  "success_metrics": ["string"],
+  "risk_flags": ["string"],
+  "confidence": 0.0
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

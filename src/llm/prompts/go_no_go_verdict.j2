@@ -1,0 +1,45 @@
+You are an expert Fiverr market analyst. Evaluate the following opportunity and provide a GO / CONDITIONAL GO / NO-GO verdict for a new seller.
+
+## Opportunity
+- Niche: {{ niche_name }}
+- Primary keyword: {{ primary_keyword }}
+- Category: {{ category_path }}
+
+## Scoring Summary
+- Demand score: {{ demand_score | default('unknown') }}
+- Competition (inverse): {{ competition_inv_score | default('unknown') }}
+- Opportunity score: {{ opportunity_score | default('unknown') }}
+- Feasibility score: {{ feasibility_score | default('unknown') }}
+- Composite score: {{ composite_score | default('unknown') }}
+
+## Market Context
+- Price range: ${{ price_min | default('?') }} – ${{ price_max | default('?') }}
+- Top competitor review counts: {{ top_review_counts | join(', ') or 'unknown' }}
+- Key competitor weaknesses: {{ competitor_weaknesses | join('; ') or 'none identified' }}
+
+## Thresholds
+- STRONG GO: composite ≥ {{ strong_go_threshold | default(0.80) }}
+- CONDITIONAL GO: composite ≥ {{ conditional_go_threshold | default(0.60) }}
+- MONITOR: composite ≥ {{ monitor_threshold | default(0.40) }}
+- NO-GO: composite < {{ monitor_threshold | default(0.40) }}
+
+## Instructions
+Provide a verdict with evidence and conditions. Be specific about:
+1. The primary reason for the verdict
+2. The biggest risk or concern
+3. Conditions that would change the verdict (if CONDITIONAL GO)
+4. Recommended next action
+
+Return a JSON object:
+{
+  "verdict": "GO|CONDITIONAL_GO|MONITOR|NO_GO",
+  "verdict_label": "string",
+  "primary_reason": "string",
+  "biggest_risk": "string",
+  "conditions": ["string"],
+  "next_action": "string",
+  "confidence": 0.0,
+  "evidence_summary": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

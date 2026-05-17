@@ -1,0 +1,28 @@
+niche_id: workflow_automation
+niche_name: Workflow Automation
+category_path: programming-tech/software-development/automations-workflows
+keywords:
+  - keyword: n8n automation
+    normalized_keyword: n8n automation
+    language: en
+    source: seed
+  - keyword: Make automation
+    normalized_keyword: make automation
+    language: en
+    source: seed
+  - keyword: Zapier automation
+    normalized_keyword: zapier automation
+    language: en
+    source: seed
+  - keyword: workflow automation expert
+    normalized_keyword: workflow automation expert
+    language: en
+    source: seed
+  - keyword: business process automation
+    normalized_keyword: business process automation
+    language: en
+    source: seed
+  - keyword: no-code automation
+    normalized_keyword: no-code automation
+    language: en
+    source: seed

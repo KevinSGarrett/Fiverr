@@ -1,0 +1,28 @@
+niche_id: python_automation
+niche_name: Python Automation Scripts
+category_path: programming-tech/buy/web-programming-services/python
+keywords:
+  - keyword: Python automation script
+    normalized_keyword: python automation script
+    language: en
+    source: seed
+  - keyword: automate with Python
+    normalized_keyword: automate with python
+    language: en
+    source: seed
+  - keyword: Python bot
+    normalized_keyword: python bot
+    language: en
+    source: seed
+  - keyword: Python task automation
+    normalized_keyword: python task automation
+    language: en
+    source: seed
+  - keyword: Python file automation
+    normalized_keyword: python file automation
+    language: en
+    source: seed
+  - keyword: custom Python script
+    normalized_keyword: custom python script
+    language: en
+    source: seed

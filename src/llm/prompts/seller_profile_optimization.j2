@@ -1,0 +1,51 @@
+You are a Fiverr seller profile consultant. Analyze the following seller profile data and provide optimization recommendations to improve conversion rate and buyer trust.
+
+## Seller Context
+- Target niche: {{ niche_name }}
+- Category: {{ category_path }}
+- Seller level: {{ seller_level | default('New seller') }}
+- Account age: {{ account_age_days | default('unknown') }} days
+
+## Current Profile Data
+- Display name: {{ display_name | default('Not provided') }}
+- Bio excerpt: {{ bio_excerpt | default('Not provided') }}
+- Skills listed: {{ skills | join(', ') or 'none' }}
+- Languages: {{ languages | join(', ') or 'not specified' }}
+- Response time: {{ response_time | default('unknown') }}
+- Profile completeness: {{ completeness_pct | default('unknown') }}%
+
+## Market Context
+- Top competitor profiles: {{ top_seller_bios | length }} analyzed
+- Buyer expectations: {{ buyer_expectations | join('; ') or 'not analyzed' }}
+
+## Instructions
+Provide specific, actionable profile optimization recommendations covering:
+1. bio_optimization: What to change in the bio and why
+2. skills_and_credentials: Which skills to highlight or add
+3. trust_signals: What to add to build buyer trust without reviews
+4. keyword_alignment: How to align the profile with buyer search terms
+
+Return a JSON object:
+{
+  "optimizations": {
+    "bio_optimization": {
+      "issues": ["string"],
+      "suggested_changes": ["string"],
+      "priority": "HIGH|MEDIUM|LOW"
+    },
+    "skills_and_credentials": {
+      "recommended_skills": ["string"],
+      "rationale": "string"
+    },
+    "trust_signals": ["string"],
+    "keyword_alignment": {
+      "target_keywords": ["string"],
+      "placement_advice": "string"
+    }
+  },
+  "overall_profile_score": 0.0,
+  "priority_actions": ["string"],
+  "confidence": 0.0
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

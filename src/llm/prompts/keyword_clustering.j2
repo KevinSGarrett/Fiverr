@@ -1,0 +1,37 @@
+You are a Fiverr keyword clustering expert. Group the following keywords into thematic clusters based on buyer intent, service type, and market segment.
+
+## Niche Context
+- Niche: {{ niche_name }}
+- Category: {{ category_path }}
+
+## Keywords to Cluster
+{% for kw in keywords %}
+- "{{ kw }}"
+{% endfor %}
+
+## Instructions
+Cluster the keywords by shared buyer intent and service type. Each cluster must have:
+1. A descriptive cluster name
+2. The primary intent (informational/transactional/navigational)
+3. A priority ranking (1 = highest priority for new seller)
+4. Recommended focus keywords (best 1-3 to target first)
+
+Return a JSON object:
+{
+  "clusters": [
+    {
+      "cluster_name": "string",
+      "cluster_id": "string",
+      "primary_intent": "transactional|informational|navigational",
+      "keywords": ["string"],
+      "focus_keywords": ["string"],
+      "priority_rank": 1,
+      "rationale": "string",
+      "estimated_buyer_volume": "HIGH|MEDIUM|LOW"
+    }
+  ],
+  "unclustered_keywords": ["string"],
+  "clustering_notes": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

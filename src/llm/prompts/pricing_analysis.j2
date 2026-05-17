@@ -1,0 +1,47 @@
+You are a Fiverr pricing strategy expert. Analyze market pricing data and recommend an optimal entry pricing strategy for a new seller.
+
+## Niche Context
+- Niche: {{ niche_name }}
+- Primary keyword: {{ primary_keyword }}
+
+## Market Price Distribution
+- Minimum observed price: ${{ price_min | default('?') }}
+- 25th percentile: ${{ price_p25 | default('?') }}
+- Median price: ${{ price_median | default('?') }}
+- 75th percentile: ${{ price_p75 | default('?') }}
+- Maximum observed price: ${{ price_max | default('?') }}
+- Price data points: {{ price_count | default(0) }}
+
+## Seller-Configured Starting Prices
+- Basic: ${{ starter_basic | default('?') }}
+- Standard: ${{ starter_standard | default('?') }}
+- Premium: ${{ starter_premium | default('?') }}
+
+## Competitor Context
+- Average top-seller rating: {{ avg_top_rating | default('unknown') }}
+- Typical top-seller review count: {{ typical_review_count | default('unknown') }}
+
+## Instructions
+Recommend entry pricing for a new seller (no reviews). Consider:
+1. Undercutting enough to win first orders without devaluing
+2. Package structure that maximizes conversion
+3. When and how to raise prices as reviews grow
+4. Risk of pricing too low vs too high
+
+Return a JSON object:
+{
+  "entry_pricing": {
+    "basic_price": 0,
+    "standard_price": 0,
+    "premium_price": 0
+  },
+  "price_rationale": "string",
+  "market_position": "budget|mid-range|premium",
+  "undercutting_percentage": 0.0,
+  "price_increase_triggers": ["string"],
+  "risk_flags": ["string"],
+  "confidence": 0.0,
+  "notes": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

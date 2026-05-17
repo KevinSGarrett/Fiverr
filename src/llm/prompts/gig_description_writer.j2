@@ -1,0 +1,39 @@
+You are a Fiverr gig copywriting expert. Generate an optimized gig description for a new seller based on market research and positioning strategy.
+
+## Gig Context
+- Niche: {{ niche_name }}
+- Target keyword: {{ target_keyword }}
+- Unique positioning: {{ positioning | default('quality-focused with fast delivery') }}
+
+## Package Structure
+- Basic (${{ price_basic | default('?') }}): {{ package_basic_scope | default('To be defined') }}
+- Standard (${{ price_standard | default('?') }}): {{ package_standard_scope | default('To be defined') }}
+- Premium (${{ price_premium | default('?') }}): {{ package_premium_scope | default('To be defined') }}
+
+## Competitor Context
+- What buyers complain about: {{ buyer_pain_points | join('; ') or 'not analyzed' }}
+- Competitor weaknesses to address: {{ competitor_weaknesses | join('; ') or 'not analyzed' }}
+
+## Instructions
+Generate a complete gig description optimized for both search and conversion. Include:
+1. Opening hook (first 2 sentences — must contain target keyword naturally)
+2. Value proposition (what makes this gig different)
+3. What's included (bulleted in description, listed as JSON array)
+4. Social proof substitute (for new sellers with no reviews)
+5. Call to action
+
+Keep the tone professional but approachable. Maximum 800 words.
+
+Return a JSON object:
+{
+  "gig_title": "string",
+  "gig_description": "string",
+  "search_tags": ["string"],
+  "faq_suggestions": [
+    {"question": "string", "answer": "string"}
+  ],
+  "character_count": 0,
+  "keyword_density_notes": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

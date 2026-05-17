@@ -10,6 +10,13 @@ from src.models.analysis import (
     DiscoveryHypothesis,
     PricingSnapshot,
 )
+from src.models.collection_runtime import (
+    CollectionCheckpoint,
+    CollectionProxyEvent,
+    CollectionQueueItem,
+    CollectionSelectorAudit,
+    CollectionSessionEvent,
+)
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.runtime import (
@@ -18,6 +25,8 @@ from src.models.runtime import (
     JobStatus,
     LLMCacheRecord,
     LLMUsageLog,
+    ReportRun,
+    ReportSection,
     RunLog,
 )
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
@@ -46,11 +55,16 @@ REGISTERED_MODEL_CLASSES = (
     ExportArtifact,
     LLMUsageLog,
     LLMCacheRecord,
+    CollectionCheckpoint,
+    CollectionProxyEvent,
+    CollectionQueueItem,
+    CollectionSelectorAudit,
+    CollectionSessionEvent,
+    ReportRun,
+    ReportSection,
 )
 
-# Source-required Foundation target table set (28 total):
-# - 21 currently implemented SQLAlchemy tables.
-# - 7 pending collection/report persistence tables declared in the Foundation backlog.
+# Source-required Foundation target table set (28 total — all implemented):
 SOURCE_REQUIRED_TABLE_NAMES = (
     "alert_events",
     "analysis_results",

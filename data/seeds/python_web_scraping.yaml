@@ -1,0 +1,28 @@
+niche_id: python_web_scraping
+niche_name: Python Web Scraping / Data Scripts
+category_path: programming-tech/buy/web-programming-services/python
+keywords:
+  - keyword: Python web scraping
+    normalized_keyword: python web scraping
+    language: en
+    source: seed
+  - keyword: BeautifulSoup scraper
+    normalized_keyword: beautifulsoup scraper
+    language: en
+    source: seed
+  - keyword: custom web scraper
+    normalized_keyword: custom web scraper
+    language: en
+    source: seed
+  - keyword: Scrapy spider
+    normalized_keyword: scrapy spider
+    language: en
+    source: seed
+  - keyword: data extraction script
+    normalized_keyword: data extraction script
+    language: en
+    source: seed
+  - keyword: Playwright scraper
+    normalized_keyword: playwright scraper
+    language: en
+    source: seed
