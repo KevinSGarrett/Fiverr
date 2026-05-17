@@ -1,0 +1,29 @@
+feat(cycle-019): Wave 1-3 audit remediation — utils, models, scaffolds, cursorrules [Claude AI]
+
+Completes audit items C-06, C-07(partial), C-08, H-06, H-07, H-09, H-10, H-11, H-12,
+M-01, M-02, M-03, M-04, M-06, M-07
+
+Changes:
+- src/utils/datetime.py: format_duration, date_stamp, timestamp_stamp, parse_fiverr_date (AC-1.6.1/2)
+- src/utils/validation.py: validate_url, validate_price, sanitize_text (AC-1.6.3)
+- src/utils/hashing.py: sha256_hash, jaccard_similarity (AC-1.6.4/5)
+- src/utils/export.py: ensure_export_dirs, get_export_path (AC-1.6.6)
+- src/utils/__init__.py: exports all new util functions
+- src/orchestrator.py: added discovery-collect to AVAILABLE_MODES (8th mode) (C-08)
+- src/recommendations/: full scaffold — contracts.py (14 output schemas), orchestrator.py,
+  __init__.py (C-06)
+- .cursorrules: spec file added with corrected line-length=100 (H-06, H-07)
+- src/models/associations.py: KeywordGigAssociation many-to-many junction (M-01, AC-1.3.5)
+- src/models/market.py: discovery fields on Keyword — is_discovery, discovery_mode,
+  hypothesis_confidence (M-02, AC-1.3.8)
+- src/models/visual.py: GigVisualAnalysis model (M-03, AC-1.3.9)
+- src/models/discovery_cycle.py: DiscoveryCycleLog model (M-04)
+- src/models/auto_promotion.py: AutoPromotionLog model (M-04)
+- src/models/order.py: Order model for revenue gate tracker (M-04)
+- src/models/__init__.py: exports all 6 new models
+- src/collection/workflows/: new directory with 8 workflow class files (M-06)
+- src/dashboard/pages/: new directory with 9 page stub files (M-07)
+- src/dashboard/_pages_legacy.py: renamed from pages.py (preserves existing exports)
+- src/dashboard/pages/__init__.py: re-exports legacy + new page functions
+
+Tests: 581/581 passing | ruff: clean

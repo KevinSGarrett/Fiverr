@@ -20,6 +20,7 @@ AVAILABLE_MODES = (
     "analyze-only",
     "recommendations-only",
     "discovery-only",
+    "discovery-collect",
     "resume",
 )
 
@@ -30,6 +31,7 @@ STAGE_AVAILABILITY = {
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
     "recommendations-only": "Recommendation storage exists; recommendation engine is not wired yet.",
     "discovery-only": "Discovery storage exists; discovery orchestration is not wired yet.",
+    "discovery-collect": "Discovery-collect mode: runs collection then discovery stage. Pending full wiring.",
     "resume": "Resume mode placeholder is active; checkpoint resume flow is pending.",
 }
 

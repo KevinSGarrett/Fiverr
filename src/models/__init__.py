@@ -1,4 +1,4 @@
-﻿"""SQLAlchemy model package exports."""
+"""SQLAlchemy model package exports."""
 
 from src.models.analysis import (
     AnalysisResult,
@@ -8,6 +8,8 @@ from src.models.analysis import (
     DiscoveryHypothesis,
     PricingSnapshot,
 )
+from src.models.associations import KeywordGigAssociation
+from src.models.auto_promotion import AutoPromotionLog
 from src.models.base import (
     Base,
     ExternalSourceMixin,
@@ -19,8 +21,10 @@ from src.models.base import (
     safe_json_default,
     utc_now,
 )
+from src.models.discovery_cycle import DiscoveryCycleLog
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
+from src.models.order import Order
 from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
@@ -35,28 +39,34 @@ from src.models.runtime import (
     RunLog,
 )
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
+from src.models.visual import GigVisualAnalysis
 
 __all__ = [
     "AlertEvent",
     "AnalysisResult",
     "AnalysisRun",
     "AnalysisSignalRecord",
+    "AutoPromotionLog",
     "Base",
     "CompetitorSnapshot",
+    "DiscoveryCycleLog",
     "DiscoveryHypothesis",
     "ExportArtifact",
     "ExternalSignal",
     "ExternalSourceMixin",
     "FinalScore",
     "Gig",
+    "GigVisualAnalysis",
     "IntegerPrimaryKeyMixin",
     "JobStatus",
     "Keyword",
+    "KeywordGigAssociation",
     "LLMCacheRecord",
     "LLMUsageLog",
     "MetadataJSONMixin",
     "Niche",
     "NicheConfigRecord",
+    "Order",
     "PricingSnapshot",
     "Recommendation",
     "Review",
