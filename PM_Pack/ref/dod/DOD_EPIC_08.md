@@ -5,6 +5,11 @@
 
 ## Story 8.1 — Gig Visual Analysis
 
+### Definition of Done
+- [ ] GigVisualAnalysis model populated for all scraped gig thumbnails
+- [ ] thumbnail_type classified (branded/stock/illustration/text_only/screenshot)
+- [ ] visual_strength_score computed and stored
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -18,6 +23,11 @@
 
 ## Story 8.2 — Seller Profile Optimization
 
+### Definition of Done
+- [ ] generate_profile_optimization() returns valid ProfileOptimization schema
+- [ ] Bio template includes [PLACEHOLDER] markers for personalisation
+- [ ] Output stored in Recommendation profile_optimization field
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -30,6 +40,11 @@
 ---
 
 ## Story 8.3 — Seller Setup Playbook Generator
+
+### Definition of Done
+- [ ] Full seller setup playbook generated as structured document
+- [ ] Playbook covers: gig setup, profile, pricing, thumbnail, FAQ
+- [ ] All required recommendation fields populated before playbook generation
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -45,6 +60,11 @@
 
 ## Story 8.4 — Playbook PDF Export
 
+### Definition of Done
+- [ ] Playbook exported as PDF using WeasyPrint
+- [ ] PDF includes all playbook sections with correct formatting
+- [ ] Export path follows data/exports/playbook/ convention
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -56,6 +76,11 @@
 ---
 
 ## Story 8.5 — Visual Recommendations
+
+### Definition of Done
+- [ ] generate_visual_recommendations() uses GigVisualAnalysis patterns
+- [ ] Visual recommendations stored in Recommendation visual_recommendations field
+- [ ] Recommendations are specific (not generic placeholder text)
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |

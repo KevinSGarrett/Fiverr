@@ -3,6 +3,16 @@
 
 ---
 
+## All Scores — Universal Definition of Done
+- [ ] All 11 score calculators produce valid 0-100 scores (confidence: 0-1) for every keyword
+- [ ] Null inputs return None — no crashes
+- [ ] score_components JSON populated with all sub-component values
+- [ ] All 4 weight profiles sum to 1.0 ± 0.001
+- [ ] Tags assigned: STRONG GO ≥80, CONDITIONAL GO 60-79, MONITOR 40-59, CAUTION 20-39, PASS <20
+- [ ] Confidence demotion: tag demoted one tier when confidence < 0.50
+- [ ] OpportunityRanking table populated with rank, tag, final_score per keyword per run
+- [ ] `--mode score-only` runs Stages 10-12 end-to-end
+
 ## All Scores — Universal Acceptance Criteria
 
 | AC ID | Criteria | Validation Method |

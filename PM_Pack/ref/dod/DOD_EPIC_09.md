@@ -5,6 +5,11 @@
 
 ## Story 9.1 — Design System Implementation
 
+### Definition of Done
+- [ ] Design tokens defined (colours, typography, spacing)
+- [ ] Streamlit theme configured consistently across all pages
+- [ ] Design system documented in src/dashboard/design.py
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -16,6 +21,11 @@
 ---
 
 ## Story 9.2 — Reusable Component Library
+
+### Definition of Done
+- [ ] Reusable component library covers: score badge, tag chip, gig card, opportunity row
+- [ ] All components tested with sample data
+- [ ] Components available via src/dashboard/components.py
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -33,6 +43,11 @@
 
 ## Story 9.3 — Page 1: Opportunities
 
+### Definition of Done
+- [ ] Page 1 renders opportunities ranked by final_score
+- [ ] GO/CAUTION/PASS tags displayed with correct colour
+- [ ] Filters: niche, tag, min_score working
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -48,6 +63,11 @@
 
 ## Story 9.4 — Page 2: Keywords
 
+### Definition of Done
+- [ ] Page 2 renders all keywords with scores and cluster labels
+- [ ] Sortable by each score dimension
+- [ ] Search/filter by keyword text working
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -61,6 +81,11 @@
 
 ## Story 9.5 — Page 3: Competitors
 
+### Definition of Done
+- [ ] Page 3 renders competitor profiles per cluster
+- [ ] Competitor strength score displayed
+- [ ] synthesis_narrative displayed per cluster
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -72,6 +97,11 @@
 ---
 
 ## Story 9.6 — Page 4: Recommendations
+
+### Definition of Done
+- [ ] Page 4 renders full recommendation for selected keyword
+- [ ] All 14 recommendation fields displayed
+- [ ] Regenerate button triggers per-keyword regeneration
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -99,6 +129,11 @@
 
 ## Story 9.10 — Interaction Patterns
 
+### Definition of Done
+- [ ] Tab navigation between all 9 pages works
+- [ ] State preserved across tab switches
+- [ ] Mobile-responsive layout implemented
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -112,6 +147,11 @@
 ---
 
 ## Story 9.11 — Query Layer
+
+### Definition of Done
+- [ ] All DB queries use DashboardQueryLayer
+- [ ] No raw SQL in dashboard pages
+- [ ] Query results cached appropriately
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |

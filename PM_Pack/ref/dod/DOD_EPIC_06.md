@@ -5,6 +5,11 @@
 
 ## Story 6.1 — Price Distribution Analysis
 
+### Definition of Done
+- [ ] PriceAnalysis computed per keyword (p25, median, p75, std dev)
+- [ ] NichePriceAnalysis aggregate computed per niche
+- [ ] price_clusters identified and labelled
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -22,6 +27,11 @@
 
 ## Story 6.2 — New Seller Entry Pricing Model
 
+### Definition of Done
+- [ ] entry_price recommendation computed for all 9 niches
+- [ ] Milestone pricing roadmap (30/60/90 day) generated
+- [ ] moat_strength and market_type classified per niche
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -37,6 +47,11 @@
 
 ## Story 6.3 — Pricing LLM Task
 
+### Definition of Done
+- [ ] generate_pricing_strategy() returns valid PricingStrategy schema
+- [ ] Prompt uses market price data from PriceAnalysis
+- [ ] Output stored in Recommendation pricing_strategy field
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -48,6 +63,10 @@
 
 ## Story 6.4 — Price Ladder Tracker
 
+### Definition of Done
+- [ ] Price ladder changes tracked over time per gig
+- [ ] Price history queryable for dashboard widgets
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -57,6 +76,11 @@
 ---
 
 ## Story 6.5 — Revenue Gate Tracker
+
+### Definition of Done
+- [ ] Revenue gate thresholds defined per niche depth tier
+- [ ] Order model populated with revenue tracking data
+- [ ] Gate check computable from Order table
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
