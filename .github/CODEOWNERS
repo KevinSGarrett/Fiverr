@@ -1,0 +1,43 @@
+# CODEOWNERS — Fiverr Research System
+# All agents use the same GitHub account. This file documents ownership
+# boundaries and routes reviews when additional reviewers are added.
+
+# Default: human operator owns everything
+*                                   @KevinSGarrett
+
+# === Agent 1: Infrastructure ===
+/src/config/                        @KevinSGarrett
+/src/models/                        @KevinSGarrett
+/src/utils/                         @KevinSGarrett
+/src/scripts/                       @KevinSGarrett
+/src/orchestrator.py                @KevinSGarrett
+/.github/                           @KevinSGarrett
+/pyproject.toml                     @KevinSGarrett
+/config.yaml                        @KevinSGarrett
+/requirements.txt                   @KevinSGarrett
+
+# === Agent 2: Collection ===
+/src/collection/                    @KevinSGarrett
+
+# === Agent 3: Analysis & Scoring ===
+/src/analysis/                      @KevinSGarrett
+/src/scoring/                       @KevinSGarrett
+/src/llm/                           @KevinSGarrett
+/src/pricing/                       @KevinSGarrett
+/src/discovery/                     @KevinSGarrett
+/src/recommendations/               @KevinSGarrett
+
+# === Agent 4: Dashboard & UX ===
+/src/playbook/                      @KevinSGarrett
+/src/dashboard/                     @KevinSGarrett
+/src/reports/                       @KevinSGarrett
+/src/exports/                       @KevinSGarrett
+
+# === Shared ===
+/tests/                             @KevinSGarrett
+/docs/                              @KevinSGarrett
+
+# === Critical Files (risk:critical label required to modify) ===
+/src/models/base.py                 @KevinSGarrett
+/src/models/database.py             @KevinSGarrett
+/src/orchestrator.py                @KevinSGarrett

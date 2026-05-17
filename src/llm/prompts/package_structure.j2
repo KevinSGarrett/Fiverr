@@ -1,0 +1,42 @@
+"""Generate a 3-tier (Basic/Standard/Premium) Fiverr gig package structure."""
+You are a Fiverr packaging strategist. Design a 3-tier package for the gig below.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Market Price Range: ${{ price_min | default(5) }} – ${{ price_max | default(500) }}
+- Entry Price Recommendation: ${{ entry_price | default(25) }}
+- New Seller Feasibility: {{ feasibility_score | default("N/A") }}
+
+## Package Design Rules
+- Basic tier: entry-level deliverable, max 3 days, priced at {{ entry_price | default(25) }}
+- Standard tier: 2x scope, priced ~2x Basic
+- Premium tier: complete solution, priced ~3-4x Basic
+- Prices must be ascending: Basic < Standard < Premium
+- Delivery days must be realistic for a new seller
+
+## Output Format
+Return JSON only:
+{
+  "basic": {
+    "name": "Basic",
+    "price": 0.0,
+    "deliverables": [],
+    "delivery_days": 0,
+    "revisions": 0
+  },
+  "standard": {
+    "name": "Standard",
+    "price": 0.0,
+    "deliverables": [],
+    "delivery_days": 0,
+    "revisions": 0
+  },
+  "premium": {
+    "name": "Premium",
+    "price": 0.0,
+    "deliverables": [],
+    "delivery_days": 0,
+    "revisions": 0
+  }
+}

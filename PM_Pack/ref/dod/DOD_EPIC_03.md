@@ -5,6 +5,14 @@
 
 ## Story 3.1 — Keyword Clustering
 
+### Definition of Done
+- [ ] Embeddings generated for all keywords in the niche
+- [ ] KMeans runs with k = ceil(sqrt(n/2)), capped 2–20
+- [ ] Silhouette score computed; warning logged if < 0.3
+- [ ] Cluster labels (3-5 words) generated via LLM
+- [ ] All keywords have a non-null `cluster_id`
+- [ ] Re-cluster triggers when > 15% new keywords since last run
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -20,6 +28,13 @@
 
 ## Story 3.2 — Gig Quality Analysis
 
+### Definition of Done
+- [ ] LLM analyzes each gig against all 15 criteria from GIG_QUALITY_RUBRIC.md
+- [ ] overall_weakness_score computed (inverted — higher = more exploitable)
+- [ ] Weakness types extracted and stored
+- [ ] red_flag_boost applied for HIGHLY_EXPLOITABLE gigs (weakness ≥ 8.0)
+- [ ] GigQualityScore entries stored in DB
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -33,6 +48,13 @@
 
 ## Story 3.3 — Competitor Profiling
 
+### Definition of Done
+- [ ] competitor_strength score (0-10) computed for every seller with sufficient data
+- [ ] Weakness aggregated from GigQualityScores per cluster
+- [ ] LLM cluster synthesis produces 4 required sections
+- [ ] Dominant sellers identified per cluster
+- [ ] CompetitorAnalysis entries stored in DB
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -44,6 +66,12 @@
 ---
 
 ## Story 3.4 — Seller Strength Model
+
+### Definition of Done
+- [ ] authority_score (0-10) computed for every seller with ≥ 1 reviewed gig
+- [ ] is_new_seller correctly flagged (< 5 reviews OR < 6 months tenure)
+- [ ] 4-quadrant classification assigned per seller
+- [ ] SellerScore entries stored in DB
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -57,6 +85,12 @@
 
 ## Story 3.5 — Saturation Model
 
+### Definition of Done
+- [ ] All 5 saturation components calculated per keyword
+- [ ] Jaccard similarity deduplication applied at 0.65 threshold
+- [ ] saturation_score (0-100) computed and stored
+- [ ] Output feeds into scoring pipeline as inverted component
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -69,6 +103,11 @@
 
 ## Story 3.6 — Review Analysis
 
+### Definition of Done
+- [ ] All 7 red flag types detected via pattern matching
+- [ ] top_buyer_complaints and top_buyer_praise extracted per niche
+- [ ] Review insights stored for recommendation context
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -79,6 +118,11 @@
 ---
 
 ## Story 3.7 — Intent Classification
+
+### Definition of Done
+- [ ] LLM classifies every keyword into one of 4 intent classes
+- [ ] All keywords have non-null `intent_class` after Stage 7
+- [ ] Intent classification feeds into scoring pipeline (IntentScoreCalculator)
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |

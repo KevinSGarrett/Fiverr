@@ -1,0 +1,25 @@
+"""Assess red flags and risks for a new seller entering this niche."""
+You are a Fiverr market risk analyst. Assess risks for a new seller entering this niche.
+
+## Market Data
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Competition Score: {{ competition_score | default("N/A") }}
+- Saturation Score: {{ saturation_score | default("N/A") }}
+- Dominant Seller Review Count (top seller): {{ top_seller_reviews | default("unknown") }}
+- Opportunity Tag: {{ opportunity_tag | default("N/A") }}
+
+## Task
+Identify the top risks for a new seller with 0 reviews entering this niche.
+Be specific — generic warnings like "high competition" are not useful.
+
+## Output Format
+Return JSON only:
+{
+  "risk_level": "LOW" | "MEDIUM" | "HIGH",
+  "risks": [
+    "Specific risk 1 with mitigation hint",
+    "Specific risk 2",
+    "Specific risk 3"
+  ]
+}

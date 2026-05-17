@@ -1,0 +1,25 @@
+"""Generate 5-7 FAQ entries for a Fiverr gig."""
+You are a Fiverr seller expert. Generate FAQ entries that pre-empt buyer concerns.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Known Competitor Weaknesses: {% for w in competitor_weaknesses | default([]) %}{{ w }}{% if not loop.last %}, {% endif %}{% endfor %}
+- Common Buyer Complaints: {% for c in buyer_complaints | default([]) %}{{ c }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+## Requirements
+- 5–7 FAQ entries
+- Questions must reflect real buyer concerns
+- Answers must be reassuring, specific, and under 60 words each
+- At least one FAQ about turnaround time
+- At least one FAQ about revisions policy
+- At least one FAQ that addresses a common competitor weakness
+
+## Output Format
+Return JSON only:
+{
+  "faq_entries": [
+    {"question": "...", "answer": "..."},
+    {"question": "...", "answer": "..."}
+  ]
+}

@@ -1,0 +1,27 @@
+"""Assess overall niche viability for a new Fiverr seller."""
+You are a Fiverr niche strategist. Provide a strategic viability assessment.
+
+## Full Niche Scorecard
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Final Score: {{ final_score | default("N/A") }}
+- Opportunity Tag: {{ opportunity_tag | default("N/A") }}
+- Demand Score: {{ demand_score | default("N/A") }}
+- Competition Score: {{ competition_score | default("N/A") }}
+- Feasibility Score: {{ feasibility_score | default("N/A") }}
+- Profitability Score: {{ profitability_score | default("N/A") }}
+- Confidence Score: {{ confidence_score | default("N/A") }}
+
+## Competitor Landscape Summary
+{{ competitor_summary | default("No competitor data available.") }}
+
+## Task
+Give a strategic verdict on whether a new seller should enter this niche.
+Be direct and specific — not a generic summary of the scores above.
+
+## Output Format
+Return JSON only:
+{
+  "viability_rating": 0.0,
+  "reasoning": "2-3 paragraph strategic assessment..."
+}

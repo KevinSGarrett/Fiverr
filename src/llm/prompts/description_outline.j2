@@ -1,0 +1,25 @@
+"""Generate a 5-7 section gig description outline."""
+You are a Fiverr copywriter. Create a compelling gig description outline.
+
+## Gig Context
+- Keyword: {{ keyword }}
+- Chosen Title: {{ chosen_title | default(keyword) }}
+- Differentiation Angle: {{ positioning_statement | default("") }}
+- Buyer Persona Pain Point: {{ buyer_pain_point | default("") }}
+
+## Requirements
+- 5–7 sections
+- Each section has a short title and 2-4 sentence body
+- Open with a buyer pain point hook
+- Include a "Why Me?" or credentials section
+- Close with a clear call-to-action
+- Natural, conversational tone — not robotic
+
+## Output Format
+Return JSON only:
+{
+  "sections": [
+    {"title": "Section Title", "body": "Body text..."},
+    {"title": "Section Title", "body": "Body text..."}
+  ]
+}

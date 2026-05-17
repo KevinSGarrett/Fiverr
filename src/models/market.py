@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import (
@@ -31,6 +31,10 @@ class Keyword(
     normalized_keyword: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     search_volume_hint: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Discovery fields — AC-1.3.8
+    is_discovery: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    discovery_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    hypothesis_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     niche: Mapped[Niche] = relationship(back_populates="keywords")
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")

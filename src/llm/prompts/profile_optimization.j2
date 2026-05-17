@@ -1,0 +1,21 @@
+"""Generate seller profile optimisation recommendations for this niche."""
+You are a Fiverr profile conversion specialist. Optimise the seller profile for this niche.
+
+## Context
+- Keyword: {{ keyword }}
+- Niche: {{ niche_id }}
+- Buyer Persona: {{ buyer_persona_name | default("") }}
+- Top Seller Profile Patterns: {% for p in profile_patterns | default([]) %}{{ p }}{% if not loop.last %}, {% endif %}{% endfor %}
+- Differentiation Angle: {{ positioning_statement | default("") }}
+
+## Task
+Provide a bio template, headline, and specialisation tags optimised for this niche.
+The bio template must be < 200 words and include [PLACEHOLDER] markers for personalisation.
+
+## Output Format
+Return JSON only:
+{
+  "bio_template": "Full bio text with [PLACEHOLDER] markers...",
+  "headline": "One-line headline (max 100 chars)",
+  "specialization_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
+}

@@ -41,6 +41,14 @@ SELECTOR_REGISTRY: dict[str, dict[str, str]] = {
         "seller_profile_rating": "[data-testid='seller-rating']",
         "seller_profile_response_time": "[data-testid='response-time']",
     },
+    # AC-2.2.3: VISUAL group for Wave 11 thumbnail/gallery analysis
+    "visual": {
+        "gig_thumbnail": "img[data-testid='gig-thumbnail'], img.gig-package-image, img[class*='thumbnail']",
+        "gallery_item": "[data-testid='gallery-item'], .gallery-slide img, .attachment-media img",
+        "video_indicator": "[data-testid='video-overlay'], .video-gig-card, video, iframe[src*='youtube'], iframe[src*='vimeo']",
+        "seller_avatar": "img[data-testid='seller-avatar'], .avatar-photo img, img[class*='avatar']",
+        "gallery_count": "[data-testid='gallery-count'], .gallery-counter",
+    },
     "page_state": {
         "unavailable_indicator": "[data-testid='page-unavailable'], .error-page",
         "blocked_indicator": "form[action*='challenge'], [data-testid='blocked-page']",
@@ -65,6 +73,12 @@ REQUIRED_SELECTORS: dict[str, tuple[str, ...]] = {
         "seller_profile_level",
         "seller_profile_rating",
         "seller_profile_response_time",
+    ),
+    "visual": (
+        "gig_thumbnail",
+        "gallery_item",
+        "video_indicator",
+        "seller_avatar",
     ),
     "page_state": ("unavailable_indicator", "blocked_indicator"),
 }
