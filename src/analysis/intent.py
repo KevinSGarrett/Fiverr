@@ -109,6 +109,7 @@ def classify_intent(payload: IntentInput) -> IntentResult:
     keyword_text = payload.keyword_text.strip()
     warnings: list[AnalysisWarning] = []
     metadata = dict(payload.metadata)
+    missing_data_fields: list[str] = []
     normalized_keyword = keyword_text.lower()
     if normalized_keyword in {"none", "null"}:
         warnings.append(
@@ -121,6 +122,7 @@ def classify_intent(payload: IntentInput) -> IntentResult:
         )
         keyword_text = "unknown"
         normalized_keyword = keyword_text
+        missing_data_fields.append("keyword_text")
 
     mock_label = _normalize_mock_label(metadata.get("mock_label"))
     if "mock_label" in metadata and mock_label is None:
@@ -161,6 +163,7 @@ def classify_intent(payload: IntentInput) -> IntentResult:
                 rationale=explanation,
                 warning_codes=sorted({warning.code for warning in warnings + llm_warnings}),
                 warnings=warnings,
+                missing_data_fields=sorted(set(missing_data_fields)),
                 metadata=metadata,
                 status=readiness_status,
                 source_context={
@@ -179,6 +182,10 @@ def classify_intent(payload: IntentInput) -> IntentResult:
                 downstream_readiness={
                     "status": readiness_status.value,
                     "reasons": [] if confidence >= 0.45 else ["llm_low_confidence"],
+                    "completeness": {
+                        "required_fields": ["keyword_text", "category", "confidence"],
+                        "missing_data_fields": sorted(set(missing_data_fields)),
+                    },
                 },
             )
         warnings.append(
@@ -208,6 +215,7 @@ def classify_intent(payload: IntentInput) -> IntentResult:
             rationale=explanation,
             warning_codes=sorted({warning.code for warning in warnings}),
             warnings=warnings,
+            missing_data_fields=sorted(set(missing_data_fields)),
             metadata=metadata,
             status=AnalysisReadinessStatus.PARTIAL,
             source_context={"keyword_text": keyword_text, "title_phrase_count": len(payload.title_phrases)},
@@ -221,6 +229,10 @@ def classify_intent(payload: IntentInput) -> IntentResult:
             downstream_readiness={
                 "status": "partial",
                 "reasons": ["mock_label_override"],
+                "completeness": {
+                    "required_fields": ["keyword_text", "category", "confidence"],
+                    "missing_data_fields": sorted(set(missing_data_fields)),
+                },
             },
         )
 
@@ -318,6 +330,7 @@ def classify_intent(payload: IntentInput) -> IntentResult:
         rationale=explanation,
         warning_codes=sorted({warning.code for warning in warnings}),
         warnings=warnings,
+        missing_data_fields=sorted(set(missing_data_fields)),
         metadata=metadata,
         status=readiness_status,
         source_context={"keyword_text": keyword_text, "title_phrase_count": len(payload.title_phrases)},
@@ -338,6 +351,10 @@ def classify_intent(payload: IntentInput) -> IntentResult:
         downstream_readiness={
             "status": readiness_status.value,
             "reasons": readiness_reasons,
+            "completeness": {
+                "required_fields": ["keyword_text", "category", "confidence"],
+                "missing_data_fields": sorted(set(missing_data_fields)),
+            },
         },
     )
 

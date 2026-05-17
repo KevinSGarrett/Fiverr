@@ -1,0 +1,42 @@
+You are an expert Fiverr competitive intelligence analyst. Analyze the following competitor gigs and identify exploitable weaknesses for a new seller entering this market.
+
+## Niche Context
+- Niche: {{ niche_name }}
+- Keyword: {{ keyword }}
+
+## Competitor Gig Profiles
+{% for gig in gigs %}
+### Gig {{ loop.index }}: "{{ gig.title }}"
+- Seller level: {{ gig.seller_level | default('unknown') }}
+- Starting price: ${{ gig.starting_price | default('?') }}
+- Avg rating: {{ gig.avg_rating | default('?') }}
+- Review count: {{ gig.review_count | default(0) }}
+- Category: {{ gig.category | default('unknown') }}
+{% endfor %}
+
+## Instructions
+For each competitor, identify:
+1. Primary weakness (scope gap, quality gap, pricing gap, or delivery gap)
+2. Severity: HIGH / MEDIUM / LOW
+3. How a new seller could exploit it
+
+Then provide an overall competitive landscape summary and the top 3 positioning recommendations.
+
+Return a JSON object:
+{
+  "competitor_analyses": [
+    {
+      "gig_title": "string",
+      "weakness_type": "scope|quality|pricing|delivery|other",
+      "weakness_description": "string",
+      "severity": "HIGH|MEDIUM|LOW",
+      "exploitation_strategy": "string"
+    }
+  ],
+  "landscape_summary": "string",
+  "positioning_recommendations": ["string", "string", "string"],
+  "overall_weakness_score": 0.0,
+  "confidence": 0.0
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

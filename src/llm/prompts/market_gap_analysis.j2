@@ -1,0 +1,38 @@
+You are an expert Fiverr market researcher. Analyze the following keyword data and identify market opportunities for a new seller.
+
+## Niche Context
+- Niche: {{ niche_name }}
+- Category: {{ category_path }}
+- Analysis date: {{ analysis_date }}
+
+## Keyword Data
+{% for kw in keywords %}
+- "{{ kw.keyword }}" — volume_hint: {{ kw.volume_hint | default('unknown') }}, search_results: {{ kw.result_count | default(0) }}
+{% endfor %}
+
+## Instructions
+Identify the top market gaps and opportunities. For each gap:
+1. Describe the gap clearly (unmet demand, underserved segment, or quality gap)
+2. Estimate demand strength: HIGH / MEDIUM / LOW
+3. Estimate competition level: HIGH / MEDIUM / LOW
+4. Rate exploitability for a new seller: HIGH / MEDIUM / LOW
+5. Explain the rationale in 2-3 sentences
+
+Return a JSON object with this structure:
+{
+  "gaps": [
+    {
+      "gap_id": "string",
+      "description": "string",
+      "demand": "HIGH|MEDIUM|LOW",
+      "competition": "HIGH|MEDIUM|LOW",
+      "exploitability": "HIGH|MEDIUM|LOW",
+      "rationale": "string",
+      "confidence": 0.0
+    }
+  ],
+  "summary": "string",
+  "analysis_notes": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

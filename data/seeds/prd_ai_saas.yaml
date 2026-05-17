@@ -1,0 +1,28 @@
+niche_id: prd_ai_saas
+niche_name: PRD / AI SaaS MVP Roadmap
+category_path: programming-tech/ai-coding/AI-Technology-Consulting
+keywords:
+  - keyword: product requirements document
+    normalized_keyword: product requirements document
+    language: en
+    source: seed
+  - keyword: AI SaaS PRD
+    normalized_keyword: ai saas prd
+    language: en
+    source: seed
+  - keyword: MVP PRD
+    normalized_keyword: mvp prd
+    language: en
+    source: seed
+  - keyword: AI product roadmap
+    normalized_keyword: ai product roadmap
+    language: en
+    source: seed
+  - keyword: SaaS MVP planning
+    normalized_keyword: saas mvp planning
+    language: en
+    source: seed
+  - keyword: PRD writing service
+    normalized_keyword: prd writing service
+    language: en
+    source: seed

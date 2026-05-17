@@ -183,6 +183,13 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
     else:
         market_positioning = "unknown"
 
+    required_signal_count = 3
+    available_signal_count = sum([bool(prices), bool(ratings), bool(reviews)])
+    completeness_ratio = round(available_signal_count / required_signal_count, 3)
+    completeness_status = (
+        "ready" if completeness_ratio >= 1.0 else "partial" if completeness_ratio >= 0.34 else "blocked"
+    )
+
     return CompetitorProfileResult(
         source_id=payload.source_id,
         competition_intensity_score=competition_intensity_score,
@@ -233,6 +240,8 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
             "has_rating_signals": bool(ratings),
             "has_review_signals": bool(reviews),
             "has_price_signals": bool(prices),
+            "completeness_ratio": completeness_ratio,
+            "completeness_status": completeness_status,
         },
         evidence=[
             AnalysisEvidence(
@@ -251,5 +260,10 @@ def profile_competitors(payload: CompetitorProfileInput) -> CompetitorProfileRes
         downstream_readiness={
             "status": "ready" if len(competitors) >= 3 else "partial",
             "reasons": [] if len(competitors) >= 3 else ["limited_competitor_sample"],
+            "completeness": {
+                "required_signals": ["starting_price", "rating", "review_count"],
+                "available_signal_count": available_signal_count,
+                "completeness_ratio": completeness_ratio,
+            },
         },
     )

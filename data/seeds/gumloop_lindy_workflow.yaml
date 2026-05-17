@@ -1,0 +1,28 @@
+niche_id: gumloop_lindy_workflow
+niche_name: Gumloop/Lindy Workflow
+category_path: programming-tech/software-development/automations-workflows
+keywords:
+  - keyword: Gumloop workflow
+    normalized_keyword: gumloop workflow
+    language: en
+    source: seed
+  - keyword: Lindy AI automation
+    normalized_keyword: lindy ai automation
+    language: en
+    source: seed
+  - keyword: AI workflow automation
+    normalized_keyword: ai workflow automation
+    language: en
+    source: seed
+  - keyword: no-code AI workflow
+    normalized_keyword: no-code ai workflow
+    language: en
+    source: seed
+  - keyword: workflow automation tool
+    normalized_keyword: workflow automation tool
+    language: en
+    source: seed
+  - keyword: AI process automation
+    normalized_keyword: ai process automation
+    language: en
+    source: seed

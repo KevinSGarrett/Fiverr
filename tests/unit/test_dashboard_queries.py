@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.dashboard.contracts import FreshnessMetadata, SourceContext
+from src.dashboard.queries import map_warning_codes_to_operator_severity
 from src.dashboard.query_layer import get_dashboard_query_layer
 
 
@@ -295,6 +296,40 @@ def test_summarize_data_integrity_records_returns_traceable_warning_codes() -> N
     assert {"duplicate_record_id", "invalid_score", "invalid_rank", "malformed_evidence", "invalid_generated_at"} <= set(
         summary["warning_codes"]
     )
+
+
+def test_data_integrity_readiness_signal_supports_unknown_warning_and_blocked() -> None:
+    from src.dashboard.queries import build_data_integrity_readiness_signal
+
+    unknown_signal = build_data_integrity_readiness_signal(records=None)
+    assert unknown_signal["status"] == "unknown"
+
+    warning_signal = build_data_integrity_readiness_signal(records=[{"id": "row-1", "score": "bad"}])
+    assert warning_signal["status"] == "warning"
+
+    blocked_signal = build_data_integrity_readiness_signal(
+        records=[
+            {"id": "dup", "score": "bad", "rank": "bad-rank"},
+            {"id": "dup", "score": "still-bad", "rank": "still-bad-rank"},
+        ]
+    )
+    assert blocked_signal["status"] == "blocked"
+
+
+def test_warning_code_severity_mapping_produces_operator_contract() -> None:
+    summary = map_warning_codes_to_operator_severity(
+        [
+            "missing_records",
+            "invalid_score",
+            "blocked_pages",
+            "invalid_score",
+        ]
+    )
+    assert summary["highest_severity"] == "blocked"
+    assert summary["counts"]["blocked"] == 1
+    assert summary["counts"]["error"] == 1
+    assert summary["counts"]["warning"] == 1
+    assert {row["code"] for row in summary["rows"]} == {"missing_records", "invalid_score", "blocked_pages"}
 
 
 def test_analysis_outputs_feed_dashboard_contract_for_complete_payload() -> None:

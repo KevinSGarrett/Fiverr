@@ -18,12 +18,19 @@ from src.dashboard.navigation import (
 )
 from src.dashboard.opportunities import build_opportunities_payload
 from src.dashboard.pages import build_registered_page_payloads
-from src.dashboard.queries import summarize_data_integrity_records
+from src.dashboard.queries import (
+    build_data_integrity_readiness_signal,
+    summarize_data_integrity_records,
+)
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 from src.dashboard.run_history import build_run_history_payload
 from src.dashboard.state import build_cycle003_status_state, build_phase2_readiness_state
 from src.reports import build_governance_report_placeholders
-from src.reports.placeholders import build_active_story_groups
+from src.reports.placeholders import (
+    build_active_story_groups,
+    build_first_run_readiness_baseline_payload,
+    build_integration_run_context_model,
+)
 
 GOVERNANCE_STATUS_ORDER = (
     "local_parity",
@@ -604,6 +611,28 @@ def build_app_entry_query_diagnostics(
     evidence = layer.integration_evidence(evidence=integration_evidence)
     analysis_contract = layer.analysis_output_contract(records=analysis_output_records)
     integrity_summary = summarize_data_integrity_records(records=analysis_output_records)
+    integrity_signal = build_data_integrity_readiness_signal(records=analysis_output_records)
+    startup_run_context = startup.get("run_context")
+    if isinstance(startup_run_context, dict):
+        runtime_run_context = dict(startup_run_context)
+    else:
+        cwd = str(Path.cwd())
+        runtime_run_context = build_integration_run_context_model(
+            expected_root=cwd,
+            git_root=cwd,
+            branch="unknown",
+            worktrees=[cwd],
+            dirty_entries=[],
+            preflight_status="unknown",
+        )
+    niche_status = str(startup.get("config_visibility", {}).get("status", "unknown")).strip().lower() or "unknown"
+    first_run_status = str(startup.get("first_run_readiness", {}).get("status", "unknown")).strip().lower() or "unknown"
+    readiness_baseline = build_first_run_readiness_baseline_payload(
+        run_context=runtime_run_context,
+        diagnostics_status=str(app_readiness.context.status),
+        niche_validation_status=niche_status,
+        data_integrity_signal=integrity_signal,
+    )
     query_results = {
         "app_readiness": app_readiness.as_dict(),
         "alerts": alerts.as_dict(),
@@ -617,14 +646,17 @@ def build_app_entry_query_diagnostics(
         "exports": exports.context.status,
         "integration_evidence": evidence.context.status,
         "analysis_output_contract": analysis_contract.context.status,
+        "niche_config_validation": niche_status,
+        "first_run_readiness": first_run_status,
         "data_integrity": integrity_summary["status"],
+        "data_integrity_readiness": integrity_signal["status"],
     }
     payload_availability = _build_query_payload_availability(query_results)
     blocking_categories = [
-        category for category, status in categories.items() if status in {"error"}
+        category for category, status in categories.items() if status in {"error", "blocked"}
     ]
     warning_categories = [
-        category for category, status in categories.items() if status in {"warning"}
+        category for category, status in categories.items() if status in {"warning", "unknown"}
     ]
     status = "error" if blocking_categories else ("warning" if warning_categories else "ready")
     return {
@@ -638,6 +670,8 @@ def build_app_entry_query_diagnostics(
         "blocking_categories": blocking_categories,
         "results": query_results,
         "data_integrity": integrity_summary,
+        "data_integrity_readiness": integrity_signal,
+        "runtime_readiness_baseline": readiness_baseline,
     }
 
 
@@ -783,6 +817,7 @@ def get_product_page_payloads(
     }
     acceptance_rollup = build_product_page_acceptance_rollup(payloads=payloads)
     payloads["acceptance_rollup"] = acceptance_rollup
+    payloads["runtime_acceptance_matrix"] = build_runtime_acceptance_matrix(payloads=payloads)
     payloads["docs_snippet"] = {
         "title": "Dashboard Runtime Contract Notes",
         "summary": (
@@ -859,6 +894,50 @@ def build_product_page_acceptance_rollup(*, payloads: dict[str, dict[str, Any]])
         "status": overall,
         "pages": rows,
         "reasons": reasons,
+    }
+
+
+def build_runtime_acceptance_matrix(*, payloads: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Build page-level runtime contract acceptance matrix for operator review."""
+    page_ids = ("opportunities", "keywords", "run_history")
+    rows: list[dict[str, Any]] = []
+    summary = {"ready": 0, "warning": 0, "blocked": 0, "unknown": 0}
+    status_order = {"ready": 0, "warning": 1, "unknown": 2, "blocked": 3}
+    overall = "ready"
+    for page_id in page_ids:
+        payload = payloads.get(page_id, {})
+        acceptance = payload.get("acceptance_status", {})
+        query_contract = payload.get("query_contract", {})
+        contract_status = str(acceptance.get("status", "unknown")).strip().lower() or "unknown"
+        if contract_status not in summary:
+            contract_status = "unknown"
+        summary[contract_status] += 1
+        if status_order[contract_status] > status_order[overall]:
+            overall = contract_status
+        pagination = query_contract.get("pagination") or payload.get("pagination") or {}
+        warning_severity = query_contract.get("warning_severity", {})
+        rows.append(
+            {
+                "page_id": page_id,
+                "acceptance_status": contract_status,
+                "warning_count": int(acceptance.get("warning_count", 0)),
+                "blocker_count": int(acceptance.get("blocker_count", 0)),
+                "has_filter_contract": bool(payload.get("filter_descriptor_contract", {}).get("available")),
+                "has_sort_contract": bool(payload.get("sort_descriptor_contract", {}).get("available")),
+                "has_detail_schema": bool(payload.get("detail_panel_schema", {}).get("row_id_key")),
+                "source_name": str(query_contract.get("source_context", {}).get("source_name", "unknown")),
+                "freshness_status": str(query_contract.get("freshness", {}).get("freshness_status", "unknown")),
+                "pagination_limit": int(pagination.get("limit", 0) or 0),
+                "pagination_offset": int(pagination.get("offset", 0) or 0),
+                "pagination_total_count": int(pagination.get("total_count", 0) or 0),
+                "pagination_truncated": bool(pagination.get("truncated", False)),
+                "warning_severity": str(warning_severity.get("highest_severity", "info")),
+            }
+        )
+    return {
+        "status": overall,
+        "summary": summary,
+        "rows": rows,
     }
 
 

@@ -1,0 +1,23 @@
+You are a JSON repair assistant. The following LLM response was expected to be valid JSON but failed parsing or schema validation.
+
+## Original Task
+Task name: {{ task_name }}
+Expected schema: {{ schema_hint }}
+
+## Failed Response
+```
+{{ failed_response | truncate(2000) }}
+```
+
+## Validation Error
+{{ validation_error }}
+
+## Instructions
+Repair the response to match the expected schema exactly. Rules:
+1. Return ONLY valid JSON — no markdown, no prose, no code fences
+2. Preserve all valid data from the original response
+3. Add required missing fields with sensible defaults (null for strings, 0 for numbers, [] for arrays)
+4. Remove any fields not in the schema
+5. Fix malformed JSON syntax (unclosed brackets, trailing commas, unquoted keys)
+
+Return the corrected JSON object only.

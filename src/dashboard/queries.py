@@ -128,6 +128,41 @@ _EXPECTED_ANALYSIS_FIELDS = (
     "status",
 )
 
+_WARNING_SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2, "blocked": 3}
+_WARNING_CODE_SEVERITY = {
+    "blocked_pages": "blocked",
+    "invalid_record_shape": "error",
+    "invalid_score": "error",
+    "invalid_confidence": "error",
+    "invalid_rank": "error",
+    "invalid_status_category": "error",
+    "duplicate_record_id": "error",
+    "duplicate_rank": "error",
+    "malformed_evidence": "error",
+    "invalid_generated_at": "warning",
+}
+
+
+def map_warning_codes_to_operator_severity(
+    warning_codes: list[str] | tuple[str, ...],
+) -> dict[str, Any]:
+    """Map warning codes to operator-facing severity categories."""
+    normalized_codes = sorted({code.strip() for code in warning_codes if code.strip()})
+    rows: list[dict[str, str]] = []
+    counts = {"info": 0, "warning": 0, "error": 0, "blocked": 0}
+    highest = "info"
+    for code in normalized_codes:
+        severity = _WARNING_CODE_SEVERITY.get(code, "warning")
+        counts[severity] += 1
+        if _WARNING_SEVERITY_ORDER[severity] > _WARNING_SEVERITY_ORDER[highest]:
+            highest = severity
+        rows.append({"code": code, "severity": severity})
+    return {
+        "highest_severity": highest,
+        "counts": counts,
+        "rows": rows,
+    }
+
 
 def summarize_data_integrity_records(
     *,
@@ -166,6 +201,37 @@ def summarize_data_integrity_records(
         "warning_count": len(warning_rows),
         "warning_codes": sorted(warning.code for warning in warning_rows),
         "warnings": [warning.as_dict() for warning in warning_rows],
+    }
+
+
+def build_data_integrity_readiness_signal(
+    *,
+    records: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Build app-entry readiness state (ready/warning/blocked/unknown) for integrity."""
+    if records is None:
+        return {
+            "status": "unknown",
+            "record_count": 0,
+            "warning_count": 0,
+            "warning_codes": ["missing_records"],
+            "notes": ["No analysis records were provided for data-integrity validation."],
+        }
+    summary = summarize_data_integrity_records(records=records)
+    warning_count = int(summary["warning_count"])
+    status = "ready"
+    if warning_count >= 3:
+        status = "blocked"
+    elif warning_count > 0:
+        status = "warning"
+    elif int(summary["record_count"]) == 0:
+        status = "unknown"
+    return {
+        "status": status,
+        "record_count": int(summary["record_count"]),
+        "warning_count": warning_count,
+        "warning_codes": list(summary["warning_codes"]),
+        "warnings": list(summary["warnings"]),
     }
 
 

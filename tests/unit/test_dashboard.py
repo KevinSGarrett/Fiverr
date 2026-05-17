@@ -396,7 +396,10 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
         "exports": "ok",
         "integration_evidence": "ok",
         "analysis_output_contract": "warning",
+        "niche_config_validation": "unknown",
+        "first_run_readiness": "unknown",
         "data_integrity": "ok",
+        "data_integrity_readiness": "unknown",
     }
     assert diagnostics["status"] == "warning"
     assert diagnostics["blocking_categories"] == []
@@ -405,6 +408,7 @@ def test_app_entry_query_diagnostics_returns_category_statuses_for_sparse_inputs
     assert diagnostics["warning_codes"]["analysis_output_contract"] == [
         "missing_analysis_records",
     ]
+    assert diagnostics["runtime_readiness_baseline"]["status"] == "unknown"
 
 
 def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable_codes() -> None:
@@ -422,6 +426,23 @@ def test_app_entry_query_diagnostics_marks_data_integrity_warning_with_traceable
     assert "invalid_rank" in diagnostics["data_integrity"]["warning_codes"]
     assert "invalid_score" in diagnostics["data_integrity"]["warning_codes"]
     assert "malformed_evidence" in diagnostics["data_integrity"]["warning_codes"]
+    assert diagnostics["data_integrity_readiness"]["status"] == "blocked"
+
+
+def test_app_entry_query_diagnostics_respects_startup_run_context() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    diagnostics = app_module.build_app_entry_query_diagnostics(
+        page_registry=app_module.get_page_registry(),
+        startup={
+            "status": "ready",
+            "warning_count": 0,
+            "run_context": {"status": "blocked", "reason": "test"},
+            "config_visibility": {"status": "ready"},
+            "first_run_readiness": {"status": "ready"},
+        },
+    )
+    assert diagnostics["runtime_readiness_baseline"]["categories"]["run_context"] == "blocked"
+    assert diagnostics["runtime_readiness_baseline"]["status"] == "blocked"
 
 
 def test_app_entry_query_diagnostics_payload_availability_includes_source_and_warning_codes() -> None:
@@ -656,6 +677,19 @@ def test_opportunities_payload_filters_and_cross_links_are_deterministic() -> No
     assert payload["sort_descriptor_contract"]["applied"]["field"] == "score"
 
 
+def test_opportunities_payload_applies_limit_and_offset_in_pagination_contract() -> None:
+    opportunities_module = importlib.import_module("src.dashboard.opportunities")
+    fixture = _dashboard_fixture_run()
+    payload = opportunities_module.build_opportunities_payload(
+        records=fixture["opportunities"],
+        filters={"limit": 1, "offset": 1},
+        sort={"field": "score", "descending": True},
+    )
+    assert payload["pagination"]["limit"] == 1
+    assert payload["pagination"]["offset"] == 1
+    assert len(payload["table"]["rows"]) == 1
+
+
 def test_opportunities_payload_coerces_string_top_score_for_metric_card() -> None:
     opportunities_module = importlib.import_module("src.dashboard.opportunities")
     payload = opportunities_module.build_opportunities_payload(
@@ -854,6 +888,30 @@ def test_query_contract_metadata_is_shared_across_page_consumers() -> None:
         assert isinstance(contract["applied_filters"], dict)
         assert isinstance(contract["applied_sort"], dict)
         assert "pagination" in contract
+        assert "source_context" in contract
+        assert "freshness" in contract
+        assert "warning_severity" in contract
+        assert "highest_severity" in contract["warning_severity"]
+
+
+def test_runtime_acceptance_matrix_summarizes_page_contract_state() -> None:
+    app_module = importlib.import_module("src.dashboard.app")
+    fixture = _dashboard_fixture_run()
+    payloads = app_module.get_product_page_payloads(
+        opportunities_records=fixture["opportunities"],
+        keywords_records=fixture["keywords"],
+        run_history_records=fixture["run_history"],
+    )
+    matrix = payloads["runtime_acceptance_matrix"]
+    assert matrix["status"] in {"ready", "warning", "unknown", "blocked"}
+    assert matrix["summary"]["ready"] + matrix["summary"]["warning"] + matrix["summary"]["unknown"] + matrix["summary"][
+        "blocked"
+    ] == 3
+    rows_by_page = {row["page_id"]: row for row in matrix["rows"]}
+    assert set(rows_by_page.keys()) == {"opportunities", "keywords", "run_history"}
+    assert rows_by_page["opportunities"]["has_filter_contract"] is True
+    assert rows_by_page["keywords"]["has_detail_schema"] is True
+    assert rows_by_page["run_history"]["warning_severity"] in {"info", "warning", "error", "blocked"}
 
 
 def test_dashboard_descriptor_contracts_and_detail_schemas_are_consistent_across_pages() -> None:

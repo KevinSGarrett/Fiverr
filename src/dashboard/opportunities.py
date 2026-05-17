@@ -20,6 +20,7 @@ from src.dashboard.components import (
     get_status_semantics,
 )
 from src.dashboard.design import normalize_run_severity
+from src.dashboard.queries import map_warning_codes_to_operator_severity
 from src.dashboard.query_layer import DashboardQueryLayer, get_dashboard_query_layer
 
 
@@ -32,7 +33,14 @@ def build_opportunities_payload(
 ) -> dict[str, Any]:
     """Build opportunities page payload with filters, sorting, and safe empty states."""
     layer = query_layer or get_dashboard_query_layer()
-    result = layer.opportunities(records=records, filters=filters, sort=sort)
+    pagination = _extract_pagination(filters or {})
+    result = layer.opportunities(
+        records=records,
+        filters=filters,
+        sort=sort,
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+    )
     context = result.context.as_dict()
     rows, row_warnings = _normalize_rows(result.records)
     warnings = [warning["message"] for warning in context["warnings"]]
@@ -302,8 +310,25 @@ def _build_query_contract(context: dict[str, Any]) -> dict[str, Any]:
         "query_name": "opportunities",
         "status": context.get("status", "warning"),
         "warning_codes": warning_codes,
+        "warning_severity": map_warning_codes_to_operator_severity(warning_codes),
         "applied_filters": context.get("applied_filters", {}),
         "applied_sort": context.get("applied_sort", {}),
         "pagination": context.get("pagination"),
+        "source_context": context.get("source_context", {}),
+        "freshness": context.get("freshness", {}),
     }
+
+
+def _extract_pagination(filters: dict[str, Any]) -> dict[str, int]:
+    default_limit = 25
+    default_offset = 0
+    try:
+        limit = int(filters.get("limit", default_limit))
+    except (TypeError, ValueError):
+        limit = default_limit
+    try:
+        offset = int(filters.get("offset", default_offset))
+    except (TypeError, ValueError):
+        offset = default_offset
+    return {"limit": limit, "offset": offset}
 

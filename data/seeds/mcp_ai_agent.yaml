@@ -1,0 +1,28 @@
+niche_id: mcp_ai_agent
+niche_name: MCP Server / AI-Agent Integration
+category_path: programming-tech/ai-coding/ai-agents-development
+keywords:
+  - keyword: MCP server integration
+    normalized_keyword: mcp server integration
+    language: en
+    source: seed
+  - keyword: model context protocol
+    normalized_keyword: model context protocol
+    language: en
+    source: seed
+  - keyword: AI agent integration
+    normalized_keyword: ai agent integration
+    language: en
+    source: seed
+  - keyword: MCP tool development
+    normalized_keyword: mcp tool development
+    language: en
+    source: seed
+  - keyword: Claude MCP server
+    normalized_keyword: claude mcp server
+    language: en
+    source: seed
+  - keyword: AI agent MCP setup
+    normalized_keyword: ai agent mcp setup
+    language: en
+    source: seed

@@ -1,0 +1,28 @@
+niche_id: ai_agent_development
+niche_name: AI Agent Development
+category_path: programming-tech/ai-coding/ai-agents-development
+keywords:
+  - keyword: AI agent development
+    normalized_keyword: ai agent development
+    language: en
+    source: seed
+  - keyword: agentic AI
+    normalized_keyword: agentic ai
+    language: en
+    source: seed
+  - keyword: LangChain agent
+    normalized_keyword: langchain agent
+    language: en
+    source: seed
+  - keyword: autonomous AI agent
+    normalized_keyword: autonomous ai agent
+    language: en
+    source: seed
+  - keyword: CrewAI development
+    normalized_keyword: crewai development
+    language: en
+    source: seed
+  - keyword: AI agent builder
+    normalized_keyword: ai agent builder
+    language: en
+    source: seed

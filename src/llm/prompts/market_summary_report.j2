@@ -1,0 +1,52 @@
+You are an expert Fiverr market analyst. Produce a comprehensive market summary report for the following niche based on all available analysis data.
+
+## Report Context
+- Niche: {{ niche_name }}
+- Category: {{ category_path }}
+- Report date: {{ report_date | default('recent') }}
+- Run ID: {{ run_id | default('N/A') }}
+
+## Analysis Data Available
+- Keywords analyzed: {{ keywords_analyzed | default(0) }}
+- Competitors analyzed: {{ competitors_analyzed | default(0) }}
+- Opportunity score: {{ opportunity_score | default('N/A') }}
+- GO/NO-GO verdict: {{ go_verdict | default('N/A') }}
+- Top opportunity keywords: {{ top_keywords | join(', ') or 'none' }}
+- Key competitor weaknesses: {{ competitor_weaknesses | join('; ') or 'none identified' }}
+- Pricing range: ${{ price_min | default('?') }} – ${{ price_max | default('?') }}
+- Recommended entry price: Basic ${{ entry_basic | default('?') }}, Standard ${{ entry_standard | default('?') }}, Premium ${{ entry_premium | default('?') }}
+- Discovery hypotheses: {{ hypothesis_count | default(0) }} generated
+
+## Instructions
+Write a professional market summary report. Structure it as:
+1. Executive summary (2-3 sentences max)
+2. Market opportunity assessment
+3. Competition landscape overview
+4. Entry strategy highlights
+5. Key risks and mitigations
+6. Recommended next steps
+
+Be concise but comprehensive. Use specific data points from the analysis above.
+
+Return a JSON object:
+{
+  "report_title": "string",
+  "niche": "{{ niche_name }}",
+  "sections": {
+    "executive_summary": "string",
+    "opportunity_assessment": "string",
+    "competition_landscape": "string",
+    "entry_strategy": "string",
+    "risks_and_mitigations": [{"risk": "string", "mitigation": "string"}],
+    "next_steps": ["string"]
+  },
+  "key_metrics": {
+    "opportunity_score": {{ opportunity_score | default('null') }},
+    "verdict": "{{ go_verdict | default('N/A') }}",
+    "recommended_entry_price_basic": {{ entry_basic | default('null') }}
+  },
+  "confidence": 0.0,
+  "word_count": 0
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

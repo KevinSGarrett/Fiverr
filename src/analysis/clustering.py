@@ -254,6 +254,10 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         )
 
     confidence = round(sum(cluster.cohesion_score for cluster in clusters) / len(clusters), 4) if clusters else 0.2
+    completeness_ratio = round(len(clusters) / max(1, len(components)), 3)
+    completeness_status = (
+        "ready" if clusters else "partial" if unclustered_keywords else "blocked"
+    )
     return KeywordClusterResult(
         source_id=payload.source_id,
         clusters=clusters,
@@ -267,7 +271,12 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         explanation="Deterministic clustering completed using lexical token overlap.",
         missing_data_fields=[],
         warnings=warnings,
-        source_metadata={"stage": "keyword_clustering", "freshness": "runtime"},
+        source_metadata={
+            "stage": "keyword_clustering",
+            "freshness": "runtime",
+            "completeness_ratio": completeness_ratio,
+            "completeness_status": completeness_status,
+        },
         metadata=payload.metadata,
         status=AnalysisReadinessStatus.READY if clusters else AnalysisReadinessStatus.BLOCKED,
         source_context={"keyword_count": len(keywords), "min_cluster_size": payload.min_cluster_size},
@@ -283,5 +292,10 @@ def cluster_keywords(payload: KeywordClusterInput) -> KeywordClusterResult:
         downstream_readiness={
             "status": "ready" if clusters else "blocked",
             "reasons": [] if clusters else ["min_cluster_size_filter"],
+            "completeness": {
+                "cluster_count": len(clusters),
+                "component_count": len(components),
+                "completeness_ratio": completeness_ratio,
+            },
         },
     )

@@ -1,0 +1,41 @@
+You are a Fiverr market trend analyst. Assess the following keyword or niche for trend signals, growth trajectory, and timing quality for entry.
+
+## Subject
+- Keyword / Niche: {{ keyword_or_niche }}
+- Category: {{ category_path | default('unknown') }}
+
+## Available Trend Data
+{% if trend_signals %}
+{% for signal in trend_signals %}
+- Source: {{ signal.source }} | Topic: {{ signal.topic }} | Value: {{ signal.value | default('unknown') }} | Date: {{ signal.date | default('recent') }}
+{% endfor %}
+{% else %}
+- No external trend data available; perform reasoning from general market knowledge
+{% endif %}
+
+## Context
+- Analysis date: {{ analysis_date | default('recent') }}
+- Niche launch timing: {{ launch_timing | default('ASAP') }}
+
+## Instructions
+Assess the trend trajectory and timing for entry. Evaluate:
+1. Current growth stage: EMERGING / GROWING / PEAK / DECLINING / STABLE
+2. Timing quality: NOW / WAIT_3MO / WAIT_6MO / SKIP
+3. Key trend drivers
+4. Leading indicators to watch
+5. Risk of timing too late vs too early
+
+Return a JSON object:
+{
+  "keyword_or_niche": "{{ keyword_or_niche }}",
+  "growth_stage": "EMERGING|GROWING|PEAK|DECLINING|STABLE",
+  "timing_recommendation": "NOW|WAIT_3MO|WAIT_6MO|SKIP",
+  "trend_drivers": ["string"],
+  "leading_indicators": ["string"],
+  "timing_risk": "string",
+  "trend_score": 0.0,
+  "confidence": 0.0,
+  "notes": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

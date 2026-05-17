@@ -1,0 +1,44 @@
+You are a structured data extraction assistant. Extract structured information from the following raw Fiverr gig page content.
+
+## Extraction Target
+Page type: {{ page_type | default('gig_detail') }}
+URL: {{ source_url | default('unknown') }}
+
+## Raw Content
+```
+{{ raw_content | truncate(8000) }}
+```
+
+## Instructions
+Extract all available structured data from the content above. For missing fields, use null.
+
+Return a JSON object:
+{
+  "gig_title": null,
+  "seller_handle": null,
+  "seller_level": null,
+  "seller_country": null,
+  "starting_price": null,
+  "currency": "USD",
+  "avg_rating": null,
+  "review_count": null,
+  "total_orders": null,
+  "response_time": null,
+  "packages": [
+    {
+      "package_name": null,
+      "price": null,
+      "delivery_days": null,
+      "description": null,
+      "revisions": null
+    }
+  ],
+  "gig_description_excerpt": null,
+  "tags": [],
+  "category": null,
+  "subcategory": null,
+  "extraction_confidence": 0.0,
+  "extraction_warnings": []
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

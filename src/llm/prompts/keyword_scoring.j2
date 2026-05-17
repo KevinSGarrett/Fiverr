@@ -1,0 +1,48 @@
+You are an expert Fiverr market analyst. Score the following keyword based on demand, competition, and new-seller opportunity signals.
+
+## Keyword
+"{{ keyword }}"
+
+## Niche Context
+- Niche: {{ niche_name }}
+- Category: {{ category_path }}
+
+## Signal Data
+- Search result count: {{ result_count | default(0) }}
+- Top gig avg rating: {{ top_avg_rating | default('unknown') }}
+- Price range: ${{ price_min | default('?') }} – ${{ price_max | default('?') }}
+- Review count range: {{ review_min | default('?') }} – {{ review_max | default('?') }}
+- Trend signal: {{ trend_signal | default('unknown') }}
+- External signals: {{ external_signals | default([]) | join(', ') or 'none' }}
+
+## Instructions
+Score the keyword on each dimension from 0.0 to 1.0 (higher = better for new seller):
+- demand_score: Strength of buyer intent
+- competition_inv_score: Inverted competition (1.0 = very low competition)
+- opportunity_score: Overall market gap size
+- feasibility_score: How achievable for a new seller
+- trend_score: Growth trajectory signal
+
+For each score provide a brief rationale. Then compute a weighted composite.
+
+Return a JSON object:
+{
+  "keyword": "{{ keyword }}",
+  "scores": {
+    "demand_score": 0.0,
+    "demand_rationale": "string",
+    "competition_inv_score": 0.0,
+    "competition_rationale": "string",
+    "opportunity_score": 0.0,
+    "opportunity_rationale": "string",
+    "feasibility_score": 0.0,
+    "feasibility_rationale": "string",
+    "trend_score": 0.0,
+    "trend_rationale": "string"
+  },
+  "composite_score": 0.0,
+  "confidence": 0.0,
+  "notes": "string"
+}
+
+Return JSON only. No markdown, no prose outside the JSON object.

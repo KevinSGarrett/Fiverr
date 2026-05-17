@@ -144,6 +144,10 @@ def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:
     score = round(max(0.0, min(100.0, weighted_score)), 2)
 
     completeness_ratio = 1.0 - (len(missing_data_fields) / len(components))
+    completeness_ratio = round(completeness_ratio, 3)
+    completeness_status = (
+        "ready" if completeness_ratio >= 0.75 else "partial" if completeness_ratio >= 0.35 else "blocked"
+    )
     confidence = round(max(0.15, min(1.0, completeness_ratio)), 3)
     if missing_data_fields:
         warnings.append(
@@ -219,6 +223,8 @@ def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:
             "seller_id": payload.seller_id,
             "provided_component_count": len(components) - len(missing_data_fields),
             "expected_component_count": len(components),
+            "completeness_ratio": completeness_ratio,
+            "completeness_status": completeness_status,
         },
         evidence=[
             AnalysisEvidence(
@@ -235,7 +241,12 @@ def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:
             ),
         ],
         downstream_readiness={
-            "status": "ready" if confidence >= 0.75 else "partial",
+            "status": completeness_status,
             "reasons": [] if not missing_data_fields else ["missing_seller_profile_fields"],
+            "completeness": {
+                "required_components": sorted(components.keys()),
+                "missing_fields": sorted(missing_data_fields),
+                "completeness_ratio": completeness_ratio,
+            },
         },
     )

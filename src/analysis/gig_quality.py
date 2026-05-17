@@ -143,6 +143,10 @@ def score_gig_quality(payload: GigQualityInput) -> GigQualityResult:
         )
 
     completeness_ratio = 1.0 - (len(missing_data_fields) / 7.0)
+    completeness_ratio = round(completeness_ratio, 3)
+    completeness_status = (
+        "ready" if completeness_ratio >= 0.85 else "partial" if completeness_ratio >= 0.45 else "blocked"
+    )
     confidence = max(0.2, min(1.0, round(completeness_ratio, 3)))
     explanation = (
         "Gig quality score is a weighted heuristic across title, description, packages, "
@@ -191,6 +195,8 @@ def score_gig_quality(payload: GigQualityInput) -> GigQualityResult:
             "gig_id": payload.gig_id,
             "provided_fields": 7 - len(missing_data_fields),
             "expected_fields": 7,
+            "completeness_ratio": completeness_ratio,
+            "completeness_status": completeness_status,
         },
         evidence=[
             AnalysisEvidence(
@@ -207,7 +213,12 @@ def score_gig_quality(payload: GigQualityInput) -> GigQualityResult:
             ),
         ],
         downstream_readiness={
-            "status": "ready" if completeness_ratio >= 0.85 else "partial",
+            "status": completeness_status,
             "reasons": [] if not missing_data_fields else ["missing_rubric_fields"],
+            "completeness": {
+                "required_fields": 7,
+                "missing_fields": sorted(missing_data_fields),
+                "completeness_ratio": completeness_ratio,
+            },
         },
     )

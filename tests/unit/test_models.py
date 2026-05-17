@@ -84,10 +84,9 @@ def test_model_registry_has_unique_table_names() -> None:
 
 def test_missing_source_tables_registry_is_deterministic() -> None:
     missing = get_missing_source_tables()
+    # All 28 source-required tables are now implemented (7 were added in SCRUM-136)
     assert missing == sorted(missing)
-    assert missing
-    assert len(missing) == 7
-    assert all(not name.startswith("pending_source_table_") for name in missing)
+    assert missing == [], f"Unexpected missing source tables: {missing}"
 
 
 def test_phase2_required_tables_are_present_and_deterministic() -> None:

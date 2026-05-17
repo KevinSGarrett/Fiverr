@@ -189,6 +189,18 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
         "Review analysis aggregates complaint and praise themes from sanitized snippets to "
         "highlight exploitable competitor weaknesses and recurring buyer expectations."
     )
+    available_signal_count = sum(
+        [
+            bool(payload.reviews),
+            bool(complaint_counter or praise_counter),
+            any(review.rating is not None for review in payload.reviews),
+        ]
+    )
+    completeness_ratio = round(available_signal_count / 3.0, 3)
+    completeness_status = (
+        "ready" if completeness_ratio >= 1.0 else "partial" if completeness_ratio >= 0.34 else "blocked"
+    )
+
     return ReviewAnalysisResult(
         source_id=payload.source_id,
         themes=dict(sorted(themes.items())),
@@ -227,6 +239,8 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
             "review_count": len(payload.reviews),
             "redacted": redacted_any,
             "theme_count": len(themes),
+            "completeness_ratio": completeness_ratio,
+            "completeness_status": completeness_status,
         },
         evidence=[
             AnalysisEvidence(
@@ -243,7 +257,12 @@ def analyze_reviews(payload: ReviewAnalysisInput) -> ReviewAnalysisResult:
             ),
         ],
         downstream_readiness={
-            "status": "ready" if len(payload.reviews) >= 3 else "partial",
+            "status": completeness_status,
             "reasons": [] if len(payload.reviews) >= 3 else ["limited_review_sample"],
+            "completeness": {
+                "expected_signals": ["reviews", "themes", "ratings_or_text_sentiment"],
+                "available_signal_count": available_signal_count,
+                "completeness_ratio": completeness_ratio,
+            },
         },
     )

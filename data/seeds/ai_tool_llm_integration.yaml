@@ -1,0 +1,28 @@
+niche_id: ai_tool_llm_integration
+niche_name: AI Tool / LLM Integration
+category_path: programming-tech/ai-coding/ai-integrations
+keywords:
+  - keyword: LLM integration
+    normalized_keyword: llm integration
+    language: en
+    source: seed
+  - keyword: OpenAI API integration
+    normalized_keyword: openai api integration
+    language: en
+    source: seed
+  - keyword: custom AI tool
+    normalized_keyword: custom ai tool
+    language: en
+    source: seed
+  - keyword: GPT API developer
+    normalized_keyword: gpt api developer
+    language: en
+    source: seed
+  - keyword: AI chatbot integration
+    normalized_keyword: ai chatbot integration
+    language: en
+    source: seed
+  - keyword: LangChain integration
+    normalized_keyword: langchain integration
+    language: en
+    source: seed
