@@ -5,6 +5,11 @@
 
 ## Story 10.1 — End-to-End Pipeline Integration
 
+### Definition of Done
+- [ ] All 16 pipeline stages wire correctly in --mode full
+- [ ] Stage sequence logged with timing
+- [ ] Stage failure isolation: one stage failure doesn't crash independent stages
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -17,6 +22,11 @@
 ---
 
 ## Story 10.2 — Data Integrity Validation
+
+### Definition of Done
+- [ ] Orphan detection finds 0 orphans after clean full run
+- [ ] FK integrity validated after every run
+- [ ] No NaN or out-of-range score values
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -31,6 +41,11 @@
 
 ## Story 10.3 — Performance Testing
 
+### Definition of Done
+- [ ] Full pipeline (1 niche, 2 keywords) < 30 minutes
+- [ ] All 7 dashboard pages load in < 3 seconds
+- [ ] LLM cache hit rate ≥ 50% on second identical run
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -43,6 +58,11 @@
 ---
 
 ## Story 10.4 — Resilience Testing
+
+### Definition of Done
+- [ ] Fallback selectors activate on primary selector failure
+- [ ] Kill-and-resume works: resumes from correct checkpoint
+- [ ] LLM invalid JSON triggers self-correction retry
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -59,6 +79,11 @@
 
 ## Story 10.5 — Unit Test Coverage
 
+### Definition of Done
+- [ ] pytest --cov reports ≥ 80% overall coverage
+- [ ] tests/README.md documents all fixtures
+- [ ] All test fixtures documented and usable across modules
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -70,6 +95,11 @@
 ---
 
 ## Story 10.6 — Configuration Validation
+
+### Definition of Done
+- [ ] All 9 niches load without validation errors
+- [ ] All 4 scoring profiles have weights summing to 1.0
+- [ ] All 9 niches have correctly ordered pricing tiers
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -83,6 +113,11 @@
 
 ## Story 10.7 — Logging and Monitoring
 
+### Definition of Done
+- [ ] Structured logging with run_id context in every log line
+- [ ] Log rotation configured for long runs
+- [ ] No unhandled exceptions propagate without logging
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -93,6 +128,11 @@
 ---
 
 ## Story 10.8 — Documentation
+
+### Definition of Done
+- [ ] README.md updated with final setup instructions
+- [ ] Architecture diagram reflects final system structure
+- [ ] CHANGELOG.md updated for v0.1.0 release
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |

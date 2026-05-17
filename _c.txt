@@ -1,0 +1,21 @@
+fix(cycle-019): close real gaps from audit — util tests AC-1.6.1-6, DoD checklists E04-E10 [Claude AI]
+
+Addresses gaps identified by post-completion verification:
+
+1. tests/unit/test_utils_new.py: 42 tests covering all new utility functions
+   - AC-1.6.1/2: format_duration (hours+minutes, seconds-only, edge cases)
+   - AC-1.6.2: date_stamp, timestamp_stamp, parse_fiverr_date
+   - AC-1.6.3: validate_price, validate_url, sanitize_text
+   - AC-1.6.4: jaccard_similarity (identical, partial, near-duplicate threshold)
+   - AC-1.6.5: sha256_hash (64-char hex, idempotent, deterministic)
+   - AC-1.6.6: ensure_export_dirs, get_export_path (all subdirs created, idempotent)
+
+2. PM_Pack/ref/dod/DOD_EPIC_04.md: Universal Definition of Done checklist added
+3. PM_Pack/ref/dod/DOD_EPIC_05.md: Per-story DoD checklists for all 8 stories (5.1-5.8)
+4. PM_Pack/ref/dod/DOD_EPIC_06.md: Per-story DoD checklists for all 5 stories (6.1-6.5)
+5. PM_Pack/ref/dod/DOD_EPIC_07.md: Per-story DoD checklists for all 5 stories (7.1-7.8)
+6. PM_Pack/ref/dod/DOD_EPIC_08.md: Per-story DoD checklists for all 5 stories (8.1-8.5)
+7. PM_Pack/ref/dod/DOD_EPIC_09.md: Per-story DoD checklists for all 8 stories (9.1-9.11)
+8. PM_Pack/ref/dod/DOD_EPIC_10.md: Per-story DoD checklists for all 8 stories (10.1-10.8)
+
+Tests: 710/710 passing (was 581; +129 new) | ruff: clean | mypy: clean

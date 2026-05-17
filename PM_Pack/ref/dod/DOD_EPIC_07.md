@@ -5,6 +5,11 @@
 
 ## Story 7.1 — Discovery Engine Core Loop
 
+### Definition of Done
+- [ ] Discovery cycle loop runs without error for all enabled modes
+- [ ] Hypothesis budget respected (max_cost_per_run)
+- [ ] DiscoveryCycleLog entry created per cycle
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -16,6 +21,11 @@
 ---
 
 ## Story 7.2–7.5 — Hypothesis Modes (All 4)
+
+### Definition of Done
+- [ ] All 4 hypothesis modes (adjacent_keyword, adjacent_niche, gap_exploit, trend_chase) generate valid hypotheses
+- [ ] Each mode respects the min_confidence threshold
+- [ ] Hypotheses stored in discovery_hypotheses table
 
 ### Acceptance Criteria
 | AC ID | Mode | Criteria | Validation Method |
@@ -34,6 +44,11 @@
 
 ## Story 7.6 — Discovery Scoring and Feedback
 
+### Definition of Done
+- [ ] Discovery outcomes scored and fed back into hypothesis confidence
+- [ ] Promoted keywords get is_discovery=True on Keyword model
+- [ ] gold_threshold promotion logic works correctly
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -46,6 +61,10 @@
 
 ## Story 7.7 — Discovery Keyword Integration
 
+### Definition of Done
+- [ ] Promoted discovery keywords enter the main keyword collection pipeline
+- [ ] Keyword.discovery_mode set correctly for all promoted keywords
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -57,6 +76,11 @@
 ---
 
 ## Story 7.8 — Stage 16 Orchestration
+
+### Definition of Done
+- [ ] `--mode discovery-only` runs Stage 16 only
+- [ ] `--mode discovery-collect` runs collection then discovery
+- [ ] Stage 16 wired in full pipeline orchestrator
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |

@@ -5,6 +5,11 @@
 
 ## Story 5.1 — Recommendation Context Builder
 
+### Definition of Done
+- [ ] RecommendationContext built with all required fields
+- [ ] completeness_ratio() computed correctly
+- [ ] Wave 9 pricing + Wave 11 visual fields included in context
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -17,6 +22,12 @@
 ---
 
 ## Story 5.2 — Eligibility and Gating
+
+### Definition of Done
+- [ ] get_eligible_keywords() filters to STRONG GO + CONDITIONAL GO only
+- [ ] passes_recommendation_gates() enforces all 3 gate conditions
+- [ ] should_regenerate_recommendation() skip logic works
+- [ ] force_recommend_keywords override honoured
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -31,6 +42,11 @@
 ---
 
 ## Story 5.3 — LLM Task Implementations (14 Tasks)
+
+### Definition of Done
+- [ ] All 14 LLM task functions implemented and returning correct schema
+- [ ] Each task failure returns None without crashing other 13 tasks
+- [ ] asyncio.gather() runs all 14 tasks concurrently
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -55,6 +71,11 @@
 
 ## Story 5.4 — Jinja2 Prompt Templates
 
+### Definition of Done
+- [ ] All 13 E05-spec .j2 templates exist in src/llm/prompts/
+- [ ] Every template renders without error with a sample context
+- [ ] No template references undefined variables
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -67,6 +88,11 @@
 
 ## Story 5.5 — Pydantic Output Schemas
 
+### Definition of Done
+- [ ] All 14 Pydantic output schemas validate correctly
+- [ ] RecommendationOutput.completeness_ratio() returns correct fraction
+- [ ] Optional fields default to None without error
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -77,6 +103,11 @@
 ---
 
 ## Story 5.6 — Async Concurrent Execution
+
+### Definition of Done
+- [ ] asyncio.gather() collects all 14 task results
+- [ ] Partial success (12/14) stored with generation_complete=False
+- [ ] No unhandled exceptions escape the gather
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
@@ -90,6 +121,11 @@
 
 ## Story 5.7 — Recommendation Storage
 
+### Definition of Done
+- [ ] Recommendation UPSERTs correctly (update if exists, insert if new)
+- [ ] llm_cost_usd summed across all 14 tasks
+- [ ] generation_complete flag set correctly
+
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
 |---|---|---|
@@ -100,6 +136,11 @@
 ---
 
 ## Story 5.8 — Stage 13 Orchestration
+
+### Definition of Done
+- [ ] run_stage_13() loops all eligible keywords applying gates and skip logic
+- [ ] `--mode recommendations-only` runs Stage 13 only
+- [ ] Per-keyword regeneration trigger works from dashboard
 
 ### Acceptance Criteria
 | AC ID | Criteria | Validation Method |
