@@ -51,11 +51,17 @@ jobs:
         with:
           script: |
             const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            // Skip size check for PRs explicitly labelled override:large-pr
+            if (labels.includes('override:large-pr')) {
+              core.info('override:large-pr label found — skipping size check.');
+              return;
+            }
             const additions = pr.additions;
             const deletions = pr.deletions;
             const total = additions + deletions;
             if (total > 1000) {
-              core.setFailed(`PR is too large: ${total} lines changed (max 1000). Consider splitting.`);
+              core.setFailed(`PR is too large: ${total} lines changed (max 1000). Consider splitting or add override:large-pr label.`);
             } else if (total > 300) {
               core.warning(`PR is large: ${total} lines changed. Consider splitting if possible.`);
             }
