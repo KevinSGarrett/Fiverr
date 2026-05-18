@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from sqlalchemy.orm import Session
 
 from src.models import (
     AnalysisResult,
@@ -55,6 +56,13 @@ class RecommendationContext(BaseModel):
     reddit_intent_score: float | None = None
     cluster_label: str | None = None
     opportunity_narrative: str | None = None
+    price_distribution: dict[str, Any] | None = None
+    price_review_correlation: dict[str, Any] | None = None
+    market_type: str | None = None
+    calculated_entry_prices: dict[str, Any] | None = None
+    calculated_price_ladder: list[dict[str, Any]] | None = None
+    new_seller_discount_pct: float | None = None
+    competitor_price_positions: list[dict[str, Any]] | None = None
 
     @property
     def keyword(self) -> str:
@@ -138,6 +146,119 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
     cluster_raw = cluster_result.raw_json if cluster_result and isinstance(cluster_result.raw_json, dict) else {}
     niche_settings = _resolve_niche_settings(config, keyword.niche_id)
 
+    price_analysis = None
+    pricing_rec = None
+    if isinstance(db, Session):
+        try:
+            from src.models.pricing import PriceAnalysis
+
+            price_analysis = (
+                db.query(PriceAnalysis)
+                .filter(PriceAnalysis.keyword_id == keyword_id)
+                .order_by(PriceAnalysis.analyzed_at.desc())
+                .first()
+            )
+        except Exception:
+            price_analysis = None
+
+    if price_analysis is not None:
+        try:
+            from src.pricing.new_seller_pricing import calculate_new_seller_pricing
+
+            pricing_rec = calculate_new_seller_pricing(keyword_id, price_analysis, dict(niche_settings), db)
+        except Exception:
+            pricing_rec = None
+
+    price_distribution: dict[str, Any] | None = None
+    if price_analysis is not None:
+        price_distribution = {
+            "basic": {
+                "median": getattr(price_analysis, "basic_median", None),
+                "mean": getattr(price_analysis, "basic_mean", None),
+                "min": getattr(price_analysis, "basic_min", None),
+                "max": getattr(price_analysis, "basic_max", None),
+                "cv": getattr(price_analysis, "basic_cv", None),
+                "gaps": getattr(price_analysis, "basic_gaps", None) or [],
+            },
+            "standard": {
+                "median": getattr(price_analysis, "standard_median", None),
+                "mean": getattr(price_analysis, "standard_mean", None),
+                "min": getattr(price_analysis, "standard_min", None),
+                "max": getattr(price_analysis, "standard_max", None),
+            },
+            "premium": {
+                "median": getattr(price_analysis, "premium_median", None),
+                "mean": getattr(price_analysis, "premium_mean", None),
+                "min": getattr(price_analysis, "premium_min", None),
+                "max": getattr(price_analysis, "premium_max", None),
+            },
+        }
+
+    price_review_correlation: dict[str, Any] | None = None
+    if price_analysis is not None and getattr(price_analysis, "moat_strength", None):
+        price_review_correlation = {
+            "moat_strength": getattr(price_analysis, "moat_strength", None),
+            "review_premium_usd": getattr(price_analysis, "review_premium", None),
+            "pearson": None,
+            "new_seller_avg_price": None,
+            "new_seller_discount_pct": None,
+        }
+
+    competitor_price_positions: list[dict[str, Any]] | None = None
+    if isinstance(db, Session):
+        try:
+            from src.models import Gig, Seller
+
+            top_rows = (
+                db.query(SearchResult, Gig, Seller)
+                .outerjoin(Gig, SearchResult.gig_id == Gig.id)
+                .outerjoin(Seller, Gig.seller_id == Seller.id)
+                .filter(SearchResult.keyword_id == keyword_id)
+                .order_by(SearchResult.rank.asc())
+                .limit(5)
+                .all()
+            )
+            competitor_price_positions = []
+            for _, gig, seller in top_rows:
+                if gig is None:
+                    continue
+                competitor_price_positions.append(
+                    {
+                        "seller": getattr(seller, "seller_handle", None) or "UNKNOWN",
+                        "level": getattr(seller, "level", None) or "UNKNOWN",
+                        "reviews": getattr(gig, "review_count", None) or 0,
+                        "basic": _to_int(getattr(gig, "starting_price", None), default=0),
+                        "standard": None,
+                    }
+                )
+            if not competitor_price_positions:
+                competitor_price_positions = None
+        except Exception:
+            competitor_price_positions = None
+
+    calculated_entry_prices: dict[str, Any] | None = None
+    calculated_price_ladder: list[dict[str, Any]] | None = None
+    if pricing_rec is not None:
+        calculated_entry_prices = {
+            "basic": _to_int(getattr(pricing_rec, "entry_basic", None), default=0),
+            "standard": _to_int(getattr(pricing_rec, "entry_standard", None), default=0),
+            "premium": _to_int(getattr(pricing_rec, "entry_premium", None), default=0),
+        }
+        calculated_price_ladder = []
+        for step in getattr(pricing_rec, "price_ladder", []):
+            if not isinstance(step, dict):
+                continue
+            calculated_price_ladder.append(
+                {
+                    "milestone_reviews": _to_int(step.get("milestone_reviews"), default=0),
+                    "basic": _to_int(step.get("basic"), default=0),
+                    "standard": _to_int(step.get("standard"), default=0),
+                    "premium": _to_int(step.get("premium"), default=0),
+                }
+            )
+        if not calculated_price_ladder:
+            calculated_price_ladder = None
+
     return RecommendationContext(
         keyword_id=keyword.id,
         keyword_text=keyword.keyword,
@@ -170,6 +291,13 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
         ),
         cluster_label=_to_opt_str(cluster_raw.get("cluster_label")),
         opportunity_narrative=_to_opt_str(cluster_raw.get("opportunity_narrative")),
+        price_distribution=price_distribution,
+        price_review_correlation=price_review_correlation,
+        market_type=getattr(price_analysis, "market_type", None) if price_analysis is not None else None,
+        calculated_entry_prices=calculated_entry_prices,
+        calculated_price_ladder=calculated_price_ladder,
+        new_seller_discount_pct=None,
+        competitor_price_positions=competitor_price_positions,
     )
 
 

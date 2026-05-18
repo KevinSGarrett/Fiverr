@@ -9,6 +9,12 @@ Status: Scaffolded (SCRUM-273). Full implementation in SCRUM-195 through SCRUM-2
 
 from __future__ import annotations
 
+from src.discovery.candidates import (
+    create_discovery_candidate,
+    get_pending_candidates,
+    is_valid_candidate,
+    update_candidate_status,
+)
 from src.discovery.contracts import (
     DiscoveryHypothesisResult,
     DiscoveryInput,
@@ -16,13 +22,22 @@ from src.discovery.contracts import (
     HypothesisMode,
     HypothesisStatus,
 )
+from src.discovery.hypothesis import generate_niche_hypotheses, score_hypothesis_signals
 from src.discovery.orchestrator import DiscoveryOrchestrator
+from src.models.discovery import DiscoveryCandidate
 
 __all__ = [
+    "DiscoveryCandidate",
     "DiscoveryHypothesisResult",
     "DiscoveryInput",
     "DiscoveryOrchestrator",
     "DiscoveryOutput",
     "HypothesisMode",
     "HypothesisStatus",
+    "create_discovery_candidate",
+    "generate_niche_hypotheses",
+    "get_pending_candidates",
+    "is_valid_candidate",
+    "score_hypothesis_signals",
+    "update_candidate_status",
 ]

@@ -139,6 +139,7 @@ def test_e05_generate_recommendation_dry_run() -> None:
         "upsell_structure": None,
         "red_flags": None,
         "niche_viability_assessment": None,
+        "pricing_strategy": None,
     }
     assert result["generation_complete"] is False
 
@@ -219,6 +220,7 @@ def test_e05_generate_recommendation_all_tasks_mock(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _ok)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _ok)
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _ok)
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _ok)
 
     context = RecommendationContext(keyword_id=1, keyword_text="AI SaaS PRD", niche_id=1)
     result = asyncio.run(generate_recommendation(1, context, llm_client=SimpleNamespace(), cache=None, db=None))

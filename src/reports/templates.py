@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 
 class ReportSeverity(StrEnum):
@@ -79,6 +80,23 @@ class ReportTemplate:
     def is_valid(self) -> bool:
         """Return True when all required foundation sections are present."""
         return not self.missing_required_sections()
+
+
+@dataclass(frozen=True, slots=True)
+class OpportunityCard:
+    """E09 dashboard card contract for ranked opportunities."""
+
+    opportunity_id: str
+    keyword_text: str
+    niche: str
+    score: float
+    confidence: float
+    tag: Literal["STRONG GO", "CONDITIONAL GO", "MONITOR", "CAUTION", "PASS"]
+    demand_score: float | None = None
+    competition_score: float | None = None
+    opportunity_score: float | None = None
+    feasibility_score: float | None = None
+    recommendation_available: bool = False
 
 
 def _render_section_lines(sections: tuple[ReportSection, ...]) -> list[str]:

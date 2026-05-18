@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,16 +15,20 @@ from src.models import (
     CompetitorSnapshot,
     ExternalSignal,
     FinalScore,
+    Gig,
     GigVisualAnalysis,
     Keyword,
     Niche,
+    PriceAnalysis,
     Recommendation,
     Review,
     ScoreComponent,
     SearchResult,
+    Seller,
 )
 from src.recommendations.context import RecommendationContext, build_recommendation_context
 from src.recommendations.eligibility import (
+    _coerce_datetime,
     _tags_at_or_above,
     get_eligible_keywords,
     passes_recommendation_gates,
@@ -40,6 +45,7 @@ from src.recommendations.tasks import (
     generate_gig_titles,
     generate_niche_viability,
     generate_package_structure,
+    generate_pricing_strategy,
     generate_recommendation,
     generate_red_flags,
     generate_tag_sets,
@@ -61,6 +67,12 @@ class FakeQuery:
     def join(self, *args: Any, **kwargs: Any) -> FakeQuery:
         return self
 
+    def outerjoin(self, *args: Any, **kwargs: Any) -> FakeQuery:
+        return self
+
+    def limit(self, _value: int) -> FakeQuery:
+        return self
+
     def all(self) -> list[Any]:
         return list(self._rows)
 
@@ -75,8 +87,12 @@ class FakeDB:
     def __init__(self, rows_by_model: dict[Any, list[Any]]) -> None:
         self._rows_by_model = rows_by_model
 
-    def query(self, model: Any) -> FakeQuery:
-        return FakeQuery(self._rows_by_model.get(model, []))
+    def query(self, *models: Any) -> FakeQuery:
+        if len(models) == 1:
+            key: Any = models[0]
+        else:
+            key = tuple(models)
+        return FakeQuery(self._rows_by_model.get(key, []))
 
 
 def _context_config() -> dict[str, Any]:
@@ -176,6 +192,17 @@ def test_recommendation_context_optional_fields_none() -> None:
     assert context.demand_score is None
 
 
+def test_context_pricing_fields_default_none() -> None:
+    context = RecommendationContext(keyword_id=1, keyword_text="k", niche_id=1)
+    assert context.price_distribution is None
+    assert context.price_review_correlation is None
+    assert context.market_type is None
+    assert context.calculated_entry_prices is None
+    assert context.calculated_price_ladder is None
+    assert context.new_seller_discount_pct is None
+    assert context.competitor_price_positions is None
+
+
 def test_build_context_with_mock_db() -> None:
     context = build_recommendation_context(101, _context_db(), _context_config())
     assert context.keyword_id == 101
@@ -237,6 +264,15 @@ def test_passes_gates_all_pass() -> None:
     )
     assert ok is True
     assert reason == "All gates passed"
+
+
+def test_coerce_datetime_passthrough_datetime() -> None:
+    now = datetime.now(UTC)
+    assert _coerce_datetime(now) == now
+
+
+def test_coerce_datetime_invalid_string_returns_none() -> None:
+    assert _coerce_datetime("not-a-datetime") is None
 
 
 def test_should_regenerate_no_existing() -> None:
@@ -426,6 +462,291 @@ def test_build_context_uses_niche_pricing_defaults() -> None:
     assert context.starter_price_premium == 200
 
 
+def test_context_price_distribution_populated(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(
+            keyword_id=101,
+            analyzed_at=now,
+            basic_median=100.0,
+            basic_mean=120.0,
+            basic_min=70.0,
+            basic_max=180.0,
+            basic_cv=0.22,
+            basic_gaps=[{"gap_midpoint": 90}],
+            standard_median=180.0,
+            standard_mean=210.0,
+            standard_min=120.0,
+            standard_max=300.0,
+            premium_median=350.0,
+            premium_mean=390.0,
+            premium_min=250.0,
+            premium_max=550.0,
+            moat_strength="MEDIUM",
+            review_premium=45.0,
+            market_type="MODERATE_SPREAD",
+            basic_n=20,
+            basic_skewness=0.1,
+        )
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.price_distribution is not None
+    assert context.price_distribution["basic"]["median"] == 100.0
+    assert context.price_distribution["basic"]["gaps"] == [{"gap_midpoint": 90}]
+
+
+def test_context_market_type_populated(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(
+            keyword_id=101,
+            analyzed_at=now,
+            basic_median=100.0,
+            standard_median=180.0,
+            premium_median=350.0,
+            market_type="COMMODITY",
+            moat_strength=None,
+        )
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.market_type == "COMMODITY"
+
+
+def test_context_calculated_prices_populated(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(
+            keyword_id=101,
+            analyzed_at=now,
+            basic_median=100.0,
+            standard_median=180.0,
+            premium_median=350.0,
+            basic_n=15,
+            basic_skewness=0.0,
+            basic_gaps=[],
+            market_type="MODERATE_SPREAD",
+            moat_strength="LOW",
+        )
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.calculated_entry_prices is not None
+    assert set(context.calculated_entry_prices.keys()) == {"basic", "standard", "premium"}
+
+
+def test_context_price_ladder_populated(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(
+            keyword_id=101,
+            analyzed_at=now,
+            basic_median=100.0,
+            standard_median=180.0,
+            premium_median=350.0,
+            basic_n=15,
+            basic_skewness=0.0,
+            basic_gaps=[],
+            market_type="MODERATE_SPREAD",
+            moat_strength="LOW",
+        )
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.calculated_price_ladder is not None
+    assert len(context.calculated_price_ladder) >= 4
+    assert "milestone_reviews" in context.calculated_price_ladder[0]
+
+
+def test_context_no_price_analysis_safe(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    db = _context_db()
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.price_distribution is None
+    assert context.price_review_correlation is None
+    assert context.market_type is None
+    assert context.calculated_entry_prices is None
+    assert context.calculated_price_ladder is None
+    assert context.new_seller_discount_pct is None
+    assert context.competitor_price_positions is None
+
+
+def test_context_competitor_positions_populated(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(
+            keyword_id=101,
+            analyzed_at=now,
+            basic_median=100.0,
+            standard_median=180.0,
+            premium_median=350.0,
+            basic_n=15,
+            basic_skewness=0.0,
+            basic_gaps=[],
+            market_type="MODERATE_SPREAD",
+            moat_strength=None,
+        )
+    ]
+    db._rows_by_model[(SearchResult, Gig, Seller)] = [
+        (
+            SimpleNamespace(rank=1),
+            SimpleNamespace(starting_price=95.0, review_count=210),
+            SimpleNamespace(seller_handle="seller_a", level="LEVEL_TWO"),
+        ),
+        (
+            SimpleNamespace(rank=2),
+            SimpleNamespace(starting_price=110.0, review_count=140),
+            SimpleNamespace(seller_handle="seller_b", level="TOP_RATED"),
+        ),
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.competitor_price_positions is not None
+    assert len(context.competitor_price_positions) == 2
+    assert context.competitor_price_positions[0]["seller"] == "seller_a"
+
+
+def test_context_score_components_falls_back_to_final_raw() -> None:
+    db = _context_db()
+    db._rows_by_model[ScoreComponent] = []
+    db._rows_by_model[FinalScore] = [
+        SimpleNamespace(
+            keyword_id=101,
+            final_score=82.0,
+            created_at=datetime.now(UTC),
+            raw_json={"tag": "STRONG_GO", "score_components": {"profitability_score": {"score_value": 77.0}}},
+        )
+    ]
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.score_components["profitability_score"]["score_value"] == 77.0
+
+
+def test_context_bad_float_values_coerce_to_none() -> None:
+    db = _context_db()
+    db._rows_by_model[FinalScore] = [
+        SimpleNamespace(
+            keyword_id=101,
+            final_score=82.0,
+            created_at=datetime.now(UTC),
+            raw_json={"tag": "STRONG_GO", "demand_score": object()},
+        )
+    ]
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.demand_score is None
+
+
+def test_context_price_analysis_query_exception_is_safe(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    class BrokenPriceAnalysisDB(FakeDB):
+        def query(self, *models: Any) -> FakeQuery:
+            if len(models) == 1 and models[0] is PriceAnalysis:
+                raise RuntimeError("boom")
+            return super().query(*models)
+
+    db = BrokenPriceAnalysisDB(_context_db()._rows_by_model)
+    monkeypatch.setattr(context_module, "Session", BrokenPriceAnalysisDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.price_distribution is None
+    assert context.market_type is None
+
+
+def test_context_pricing_calculation_exception_is_safe(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(keyword_id=101, analyzed_at=now, market_type="MODERATE_SPREAD", moat_strength=None)
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    monkeypatch.setattr(
+        "src.pricing.new_seller_pricing.calculate_new_seller_pricing",
+        lambda *args: (_ for _ in ()).throw(RuntimeError("calc failed")),
+    )
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.calculated_entry_prices is None
+    assert context.calculated_price_ladder is None
+
+
+def test_context_competitor_rows_skip_none_gig(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(keyword_id=101, analyzed_at=now, market_type="MODERATE_SPREAD", moat_strength=None)
+    ]
+    db._rows_by_model[(SearchResult, Gig, Seller)] = [
+        (SimpleNamespace(rank=1), None, SimpleNamespace(seller_handle="seller_a", level="LEVEL_TWO")),
+        (SimpleNamespace(rank=2), SimpleNamespace(starting_price=110.0, review_count=140), None),
+    ]
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.competitor_price_positions is not None
+    assert len(context.competitor_price_positions) == 1
+    assert context.competitor_price_positions[0]["seller"] == "UNKNOWN"
+
+
+def test_context_competitor_query_exception_sets_none(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    class BrokenCompetitorDB(FakeDB):
+        def query(self, *models: Any) -> FakeQuery:
+            if len(models) == 3:
+                raise RuntimeError("competitor query failed")
+            return super().query(*models)
+
+    now = datetime.now(UTC)
+    db = BrokenCompetitorDB(_context_db()._rows_by_model)
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(keyword_id=101, analyzed_at=now, market_type="MODERATE_SPREAD", moat_strength=None)
+    ]
+    monkeypatch.setattr(context_module, "Session", BrokenCompetitorDB)
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.competitor_price_positions is None
+
+
+def test_context_non_dict_price_ladder_entries_are_ignored(monkeypatch: Any) -> None:
+    from src.recommendations import context as context_module
+
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[PriceAnalysis] = [
+        SimpleNamespace(keyword_id=101, analyzed_at=now, market_type="MODERATE_SPREAD", moat_strength=None)
+    ]
+
+    class PricingRec:
+        entry_basic = 60
+        entry_standard = 120
+        entry_premium = 220
+        price_ladder = ["bad-step", None]
+
+    monkeypatch.setattr(context_module, "Session", FakeDB)
+    monkeypatch.setattr("src.pricing.new_seller_pricing.calculate_new_seller_pricing", lambda *args: PricingRec())
+    context = build_recommendation_context(101, db, _context_config())
+    assert context.calculated_entry_prices is not None
+    assert context.calculated_price_ladder is None
+
+
 def test_generate_package_structure_mock() -> None:
     context = RecommendationContext(keyword_text="python automation", niche_id=12)
     llm_client = Mock()
@@ -531,10 +852,12 @@ def test_generate_recommendation_all_succeed(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["generation_complete"] is True
     assert result["gig_titles"] == ["t1"]
     assert result["niche_viability_assessment"] == {"verdict": "good"}
+    assert result["pricing_strategy"] == {"entry_prices": {}}
 
 
 def test_generate_recommendation_partial_failure(monkeypatch: Any) -> None:
@@ -554,6 +877,7 @@ def test_generate_recommendation_partial_failure(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _raise)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["generation_complete"] is False
     assert result["package_structure"] is None
@@ -573,8 +897,9 @@ def test_generate_recommendation_cost_accumulated(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}], cost=0.01))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"], cost=0.02))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}, cost=0.04))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}, cost=0.01))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
-    assert abs(result["llm_cost_usd"] - 0.21) < 1e-9
+    assert abs(result["llm_cost_usd"] - 0.22) < 1e-9
 
 
 def test_generate_recommendation_exception_handling(monkeypatch: Any) -> None:
@@ -594,6 +919,7 @@ def test_generate_recommendation_exception_handling(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["gig_titles"] is None
     assert result["generation_complete"] is False
@@ -617,9 +943,185 @@ def test_write_recommendation_returns_true(monkeypatch: Any, tmp_path: Any) -> N
     assert (tmp_path / "data" / "recommendation_results" / "101_run-1.json").exists()
 
 
-def test_11_task_names_match_field_names() -> None:
-    assert len(RECOMMENDATION_FIELD_NAMES) == 11
-    assert len(set(RECOMMENDATION_FIELD_NAMES)) == 11
+def test_12_task_names_match_field_names() -> None:
+    assert len(RECOMMENDATION_FIELD_NAMES) == 12
+    assert len(set(RECOMMENDATION_FIELD_NAMES)) == 12
+
+
+def test_generate_pricing_strategy_no_price_distribution() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=Mock(), cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
+
+
+def test_generate_pricing_strategy_with_price_distribution() -> None:
+    context = RecommendationContext(
+        keyword_text="python automation",
+        niche_id=12,
+        price_distribution={
+            "basic": {"median": 100, "mean": 110, "min": 70, "max": 180, "q1": 80, "q3": 140, "clusters": [], "gaps": []},
+            "standard": {"median": 180, "min": 130, "max": 290},
+            "premium": {"median": 350, "min": 240, "max": 520},
+        },
+        competitor_price_positions=[],
+    )
+    llm_client = Mock()
+    payload = {
+        "pricing_strategy": {
+            "entry_prices": {
+                "basic": 65,
+                "standard": 135,
+                "premium": 260,
+                "lead_tier": "basic",
+                "lead_tier_reasoning": "Lead with Basic to reduce buyer risk and accelerate first conversions.",
+            },
+            "acquisition_prices": {
+                "basic": 55,
+                "standard": 120,
+                "premium": 235,
+                "acquisition_period": "first 5 orders",
+            },
+            "price_ladder": [
+                {"milestone_reviews": 5, "basic": 70, "standard": 145, "premium": 275, "adjustment_rationale": "Initial baseline."},
+                {"milestone_reviews": 10, "basic": 75, "standard": 155, "premium": 290, "adjustment_rationale": "Early proof gained."},
+                {
+                    "milestone_reviews": 25,
+                    "basic": 82,
+                    "standard": 170,
+                    "premium": 315,
+                    "adjustment_rationale": "Demand improves and delivery confidence rises.",
+                },
+                {
+                    "milestone_reviews": 50,
+                    "basic": 90,
+                    "standard": 185,
+                    "premium": 340,
+                    "adjustment_rationale": "Positioning strengthens with social proof.",
+                },
+            ],
+            "strategy_narrative": (
+                "Set entry pricing in the lower-middle cluster to win first conversions while avoiding a pure bargain signal. "
+                "Use a measured ladder tied to review milestones so each increase is justified by proven execution and buyer trust. "
+                "Preserve perceived value by widening package separation and emphasizing faster turnaround plus optional extras."
+            ),
+            "pricing_risks": [
+                {
+                    "risk": "Undercutting too hard can attract low-quality buyers.",
+                    "severity": "MEDIUM",
+                    "mitigation": "Keep scope tight and enforce revisions limits.",
+                }
+            ],
+            "recommended_extras": [
+                {"name": "24-hour delivery", "price": 25, "rationale": "Captures urgent buyers and improves average order value."},
+                {"name": "Source file handoff", "price": 20, "rationale": "Adds perceived professionalism and monetizes final assets."},
+            ],
+            "projected_aov": {"at_entry": 96.5, "at_50_reviews": 142.0, "aov_growth_pct": 47.2},
+        }
+    }
+    llm_client.complete.return_value = SimpleNamespace(
+        text=json.dumps(payload),
+        metadata={"estimated_cost_usd": 0.01},
+    )
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=llm_client, cache=None))
+    assert result["output"] is not None
+    assert result["output"]["entry_prices"]["basic"] == 65
+
+
+def test_generate_pricing_strategy_handles_none_correlation_fields() -> None:
+    context = RecommendationContext(
+        keyword_text="python automation",
+        niche_id=12,
+        price_distribution={
+            "basic": {"median": 100, "mean": 110, "min": 70, "max": 180, "q1": 80, "q3": 140, "clusters": [], "gaps": []},
+            "standard": {"median": 180, "min": 130, "max": 290},
+            "premium": {"median": 350, "min": 240, "max": 520},
+        },
+        price_review_correlation={
+            "moat_strength": "HIGH",
+            "pearson": None,
+            "review_premium_usd": 35.0,
+            "new_seller_avg_price": None,
+            "new_seller_discount_pct": None,
+        },
+        competitor_price_positions=[],
+    )
+    llm_client = Mock()
+    pricing_payload = {
+        "entry_prices": {
+            "basic": 50,
+            "standard": 100,
+            "premium": 180,
+            "lead_tier": "basic",
+            "lead_tier_reasoning": "Lead with basic to maximize early conversion and collect first reviews quickly.",
+        },
+        "acquisition_prices": {
+            "basic": 40,
+            "standard": 80,
+            "premium": 150,
+            "acquisition_period": "first 5 orders",
+        },
+        "price_ladder": [
+            {"milestone_reviews": 5, "basic": 50, "standard": 100, "premium": 180, "adjustment_rationale": "Initial baseline."},
+            {"milestone_reviews": 10, "basic": 60, "standard": 120, "premium": 210, "adjustment_rationale": "Early proof gained."},
+            {
+                "milestone_reviews": 25,
+                "basic": 75,
+                "standard": 145,
+                "premium": 250,
+                "adjustment_rationale": "Demand improves and delivery confidence rises.",
+            },
+            {
+                "milestone_reviews": 50,
+                "basic": 90,
+                "standard": 170,
+                "premium": 290,
+                "adjustment_rationale": "Positioning strengthens with social proof.",
+            },
+        ],
+        "strategy_narrative": (
+            "Set entry pricing in the lower-middle cluster to win first conversions while avoiding a pure bargain signal. "
+            "Use a measured ladder tied to review milestones so each increase is justified by proven execution and buyer trust. "
+            "Preserve perceived value by widening package separation and emphasizing faster turnaround plus optional extras."
+        ),
+        "pricing_risks": [
+            {
+                "risk": "Undercutting too hard can attract low-quality buyers.",
+                "severity": "MEDIUM",
+                "mitigation": "Keep scope tight and enforce revisions limits.",
+            }
+        ],
+        "recommended_extras": [
+            {"name": "24-hour delivery", "price": 25, "rationale": "Captures urgent buyers and improves average order value."},
+            {"name": "Source file handoff", "price": 20, "rationale": "Adds perceived professionalism and monetizes final assets."},
+        ],
+        "projected_aov": {"at_entry": 72.0, "at_50_reviews": 118.0, "aov_growth_pct": 63.9},
+    }
+    llm_client.complete.return_value = SimpleNamespace(
+        text=json.dumps({"pricing_strategy": pricing_payload}),
+        metadata={"estimated_cost_usd": 0.01},
+    )
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=llm_client, cache=None))
+    assert result["output"] is not None
+    assert result["output"]["entry_prices"]["basic"] == 50
+
+
+def test_generate_pricing_strategy_missing_pricing_strategy_key_returns_none() -> None:
+    context = RecommendationContext(
+        keyword_text="python automation",
+        niche_id=12,
+        price_distribution={
+            "basic": {"median": 100, "mean": 110, "min": 70, "max": 180, "q1": 80, "q3": 140, "clusters": [], "gaps": []},
+            "standard": {"median": 180, "min": 130, "max": 290},
+            "premium": {"median": 350, "min": 240, "max": 520},
+        },
+    )
+    llm_client = Mock()
+    llm_client.complete.return_value = SimpleNamespace(
+        text=json.dumps({"not_pricing_strategy": {}}),
+        metadata={"estimated_cost_usd": 0.01},
+    )
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=llm_client, cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
 
 
 def test_generate_recommendation_no_crash_no_llm() -> None:
@@ -849,6 +1351,19 @@ def test_write_recommendation_uses_sidecar_when_model_missing(monkeypatch: Any, 
     monkeypatch.setattr(storage, "_model_by_name", lambda _name: None)
     context = RecommendationContext(keyword_id=5, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
     assert write_recommendation(5, "run-no-model", context, {"generation_complete": True, "llm_cost_usd": 0.0}, db=Mock()) is True
+
+
+def test_write_recommendation_persists_pricing_strategy_field(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    context = RecommendationContext(keyword_id=7, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
+    payload = {
+        "generation_complete": True,
+        "llm_cost_usd": 0.0,
+        "pricing_strategy": {"entry_prices": {"basic": 50}},
+    }
+    assert write_recommendation(7, "run-pricing", context, payload, db=None) is True
+    persisted = json.loads((tmp_path / "data" / "recommendation_results" / "7_run-pricing.json").read_text())
+    assert persisted["pricing_strategy"] == {"entry_prices": {"basic": 50}}
 
 
 def test_write_recommendation_sidecar_write_failure_returns_false(monkeypatch: Any, tmp_path: Path) -> None:

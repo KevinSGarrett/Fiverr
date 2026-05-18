@@ -21,6 +21,7 @@ from src.models.base import (
     safe_json_default,
     utc_now,
 )
+from src.models.discovery import DiscoveryCandidate
 from src.models.discovery_cycle import DiscoveryCycleLog
 from src.models.keyword_score import KeywordScore
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
@@ -51,6 +52,7 @@ __all__ = [
     "AutoPromotionLog",
     "Base",
     "CompetitorSnapshot",
+    "DiscoveryCandidate",
     "DiscoveryCycleLog",
     "DiscoveryHypothesis",
     "ExportArtifact",
