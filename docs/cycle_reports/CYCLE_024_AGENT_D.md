@@ -53,6 +53,10 @@
 - Additional gap tests (8):
   - `niche_init` fallback/edge branches
   - `pacing` non-numeric fallback and cooldown edge branches
+- Final strict-coverage closure tests:
+  - `tests/unit/test_session_manager.py` (remaining branch coverage in session lifecycle helpers)
+  - `tests/unit/test_collection_workflows.py` (DB override path in `_resolve_niche_depth`)
+  - `tests/unit/test_compat_exports.py` (legacy `src.models.init` / `src.scheduler.init` export coverage)
 
 ## Validation Evidence
 
@@ -64,18 +68,16 @@
   - `git worktree list`
   - `python -m pytest -q --cov=src --cov-fail-under=90`
 - Full suite coverage result:
-  - `1261 passed`
-  - total coverage: `94.30%`
+  - `1274 passed`
+  - total coverage: `94.44%`
 
 ## Targeted Coverage Audit (Requested Modules)
 
-- `src.collection.session_manager`: `93%`
-  - missing: `106, 114, 118-122, 198-199, 216-218, 267`
+- `src.collection.session_manager`: `100%` (none missing)
 - `src.collection.fiverr_selectors`: `100%` (none missing)
 - `src.collection.human_events`: `100%` (none missing)
 - `src.collection.pacing`: `100%` (none missing)
-- `src.collection.workflows`: `98%`
-  - missing: `src.collection.workflows.niche_init: 76-78`
+- `src.collection.workflows`: `100%` (none missing)
 - `src.models.job`: `100%` (none missing)
 - `src.scheduler.queue_processor`: `100%` (none missing)
 
@@ -83,7 +85,7 @@
 
 - `python -m ruff check .` -> pass
 - `python -m mypy src` -> pass
-- `python -m pytest -q --cov=src --cov-fail-under=90` -> pass (`1261 passed`, `94.30%`)
+- `python -m pytest -q --cov=src --cov-fail-under=90` -> pass (`1274 passed`, `94.44%`)
 - `python run.py config-check` -> pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle024.db` -> pass
 - `python run.py phase2-smoke` -> pass
@@ -104,11 +106,11 @@
 MERGE GATE CHECKLIST — Cycle 024 PR #28
 ==========================================
 CODECOV:
-[ ] codecov/project: [PASS] — [94.30%]
-[ ] codecov/patch: [PASS] — [96.61%]
+[ ] codecov/project: [PASS] — [94.43%]
+[ ] codecov/patch: [PASS] — [100.00%]
 [ ] Local --cov-fail-under=90: [PASS]
-[ ] All new lines covered by tests: [NO]
-  If NO, uncovered files: [src/collection/session_manager.py, src/collection/workflows/niche_init.py, src/models/init.py, src/scheduler/init.py]
+[ ] All new lines covered by tests: [YES]
+  If NO, uncovered files: [N/A]
 
 CODEX:
 [ ] reviewThreads query executed: YES
@@ -119,6 +121,22 @@ CODEX:
 [ ] Zero unresolved threads: [YES]
 
 FINAL:
-[ ] PR #28 is ready to merge: [NO]
-[ ] Blockers if NO: [All new lines covered by tests = NO]
+[ ] PR #28 is ready to merge: [YES]
+[ ] Blockers if NO: [N/A]
 ```
+
+## Final Cleanup Evidence
+
+- Final SHA freeze:
+  - `git rev-parse origin/cycle/024/integration` -> `3f6b07dabe91a355fb44fb4b37c9049a87ab6992`
+- All four cycle reports confirmed present:
+  - `docs/cycle_reports/CYCLE_024_AGENT_A.md`
+  - `docs/cycle_reports/CYCLE_024_AGENT_B.md`
+  - `docs/cycle_reports/CYCLE_024_AGENT_C.md`
+  - `docs/cycle_reports/CYCLE_024_AGENT_D.md`
+- Artifact hygiene:
+  - no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` staged in this completion commit
+- Steward closeout:
+  - final SCRUM-513 comment posted with all-green gate evidence (`11145`)
+- Final state:
+  - **PR #28 is ready to merge when approved.**
