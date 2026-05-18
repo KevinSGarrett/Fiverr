@@ -8,7 +8,15 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import ExternalSignal, Gig, Keyword, NicheConfigRecord, SearchResult, Seller
+from src.models import (
+    ExternalSignal,
+    Gig,
+    GigVisualAnalysis,
+    Keyword,
+    NicheConfigRecord,
+    SearchResult,
+    Seller,
+)
 
 
 class ConfidenceScoreModifier:
@@ -98,7 +106,7 @@ class ConfidenceScoreModifier:
         if context:
             return context
         if isinstance(db, Session):
-            return self._load_context_from_db(keyword_id, db)
+            return self._load_signals_from_db(keyword_id, db)
         if db is not None and hasattr(db, "get_confidence_inputs"):
             loaded = db.get_confidence_inputs(keyword_id)
             return dict(loaded or {})
@@ -108,7 +116,7 @@ class ConfidenceScoreModifier:
                 return dict(loaded)
         return {}
 
-    def _load_context_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
         top_results = (
             session.query(SearchResult)
@@ -128,7 +136,14 @@ class ConfidenceScoreModifier:
             )
             if seller_id[0] is not None
         ]
-        gig_detail_collected = len(gig_ids) > 0
+        gig_visual_count = (
+            session.query(GigVisualAnalysis)
+            .join(Gig, GigVisualAnalysis.gig_id == Gig.id)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id)
+            .count()
+        )
+        gig_detail_collected = (gig_visual_count > 0) or (len(gig_ids) > 0)
         seller_profiles_collected = len(seller_ids) > 0
         reddit_count = (
             session.query(ExternalSignal)

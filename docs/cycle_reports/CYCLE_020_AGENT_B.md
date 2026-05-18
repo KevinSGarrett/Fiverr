@@ -34,6 +34,7 @@ Primary models inspected:
 - `src/models/niche.py`: `Niche`, `NicheConfigRecord`
 - `src/models/visual.py`: `GigVisualAnalysis`
 - `src/models/scoring.py`: `ScoreComponent`, `FinalScore`, `Recommendation`
+- Not present as ORM classes in current codebase: `GigQualityScore`, `SellerScore`, `KeywordScore`, `GigQuality`, `SellerProfile` (used fallback logic via available models/metadata where needed)
 
 Field/source mapping applied to scoring inputs:
 
@@ -54,6 +55,22 @@ Field/source mapping applied to scoring inputs:
 - Kept output contracts intact (same signal keys consumed by existing scoring logic).
 - Used null-safe extraction for fields that do not yet have first-class ORM columns by reading `metadata_json` or `raw_value_json`.
 - Maintained current LLM-stub posture; no LLM behavior changes introduced.
+
+## Task 2 Signal-Key Audit (All 13 Scoring Files)
+
+- `demand.py`: `total_result_count`, `autocomplete_position`, `trends_12mo_score`, `reddit_demand_intent_score`
+- `competition.py`: `total_result_count`, `avg_review_count_top10`, `avg_seller_level_top10`, `proportion_with_100_plus_reviews`, `pro_verified_presence_ratio`, `avg_starting_price_top10`, `llm_competitor_strength_rating`
+- `opportunity.py`: derived from `demand_result.score_value` + `competition_result.score_value` (no direct signal keys)
+- `feasibility.py`: `level1_or_new_ratio_top10`, `top10_seller_levels`, `lowest_ranked_review_count_page1`, `price_diversity_top10`, `top10_prices`, `llm_gig_quality_weakness_avg_top10`, `llm_entry_gap_assessment`, `niche_tier`, `niche_name`
+- `profitability.py`: `avg_starting_price_top10`, `keyword_universe_starting_price_min/max`, `avg_premium_package_price_top10`, `keyword_universe_premium_price_min/max`, `typical_delivery_days`, `extras_presence_ratio`, `avg_extras_price`, `llm_upsell_potential_assessment`
+- `intent.py`: `keyword`, `commercial_modifier_score`, `avg_review_count_top10`, `llm_buyer_intent_classification`, `reddit_demand_intent_score`
+- `saturation_score.py`: `total_gig_count`, `title_duplication_rate`, `duplicate_title_count_top30`, `price_compression_signal`, `price_diversity_top30`, `seller_portfolio_overlap_ratio`, `llm_saturation_assessment`
+- `weakness.py`: collection keys `video_absence_rate`, `portfolio_absence_rate`, `top10_has_video`, `top10_has_portfolio`; LLM keys remain stub-resolved
+- `trend.py`: `google_trends_slope`, `google_trends_12mo_series`, `google_trends_3mo_series`, `trends_3mo_avg`, `trends_12mo_avg`, `reddit_activity_trend_score`, `reddit_recent_post_volume`, `reddit_historical_post_volume`, `llm_trend_classification`
+- `confidence.py`: run-context keys (`data_completeness_ratio`, freshness/diversity/LLM completion and deduction flags); ORM path now provides these through `_load_signals_from_db()`
+- `final.py`: consumes component score keys from merged calculator outputs (`*_score`, `confidence_modifier`)
+- `ranking.py`: ranks by `final_score` payload; no `db` loader
+- `orchestrator.py`: orchestrates calculator outputs and final payload assembly; now supports Session-through calculator execution
 
 ## Files Changed
 
@@ -94,6 +111,11 @@ Field/source mapping applied to scoring inputs:
 
 Reviewed `SCRUM-165` through `SCRUM-177` descriptions and AC/DoD text (source-backed signals, persistence/explanation, sparse/missing tests, and epic-wide completion requirements).
 
+AC bullets explicitly mentioning database integration or SQLAlchemy:
+
+- None of `SCRUM-165`..`SCRUM-177` contain an explicit SQLAlchemy/database-integration AC bullet.
+- AC language is source-backed signal output + persistence + sparse/missing coverage; SQLAlchemy dual-path implementation is evidence toward those source-backed AC statements.
+
 Cycle 020 Agent B evidence comments posted to:
 
 - `SCRUM-165`
@@ -105,6 +127,10 @@ Cycle 020 Agent B evidence comments posted to:
 - `SCRUM-171`
 
 Recommendation in each comment: keep `In Progress` until LLM stubs and full Epic 04 DoD close.
+
+Task-3 planning-scope comments also posted to:
+
+- `SCRUM-165`, `SCRUM-166`, `SCRUM-167`, `SCRUM-168`, `SCRUM-169`, `SCRUM-170`, `SCRUM-171`
 
 ## AC/DoD Advancement (Agent B Story Set)
 
@@ -119,7 +145,7 @@ Recommendation in each comment: keep `In Progress` until LLM stubs and full Epic
 
 ## Final SHA and Handoff
 
-- Current HEAD SHA: `a51513a03052e6349da31e6a6c07308885850221`
+- Current HEAD SHA: `585b7a3ab7a92fabf03ba11e7700ceb7d0a97896`
 - Handoff to Agent C:
   - Calculator files now have SQLAlchemy paths.
   - Existing dict proxy remains unchanged and test-compatible.
