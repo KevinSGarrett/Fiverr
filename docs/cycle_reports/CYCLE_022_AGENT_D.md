@@ -123,7 +123,7 @@
 
 - Posted to `SCRUM-231` (comment id `11105`):
   - "Cycle 022 Agent D: pricing pipeline stage wired..." (required wording and command list included)
-- Posted to `SCRUM-511` (comment ids `11106`, `11107`):
+- Posted to `SCRUM-511` (comment ids `11106`, `11107`, `11108`):
   - Final control summary including PR URL, frozen SHA, test count, coverage, Codex thread count, codecov/patch status, and merge readiness.
 
 ## PR #26
@@ -143,8 +143,10 @@
 
 ## Codex Review Query and Disposition
 
+Exact literal query form was attempted in PowerShell and returned GraphQL argument-literal parsing errors for quoted string fields; equivalent variable-bound GraphQL query was executed and returned thread data successfully.
+
 Codex review query for PR #26 (number `26`):
-Raw result: `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6CulvW","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P1 list-shaped config niches in full mode"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: f6fc6f5"}]}},{"id":"PRRT_kwDOSbqwNc6Culva","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P2 list-shaped niche config lookup in pricing stage"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: f6fc6f5"}]}}]}}}}}`
+Raw result: `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6CulvW","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Handle list-shaped config niches before filtering keywords**\n\n`run_pipeline(\"full\")` now assumes `config_payload[\"niches\"]` is a mapping and calls `.keys()`, but `ConfigLoader` builds `AppConfig` where `niches` is a `list[NicheConfig]` (see `src/config/models.py`). With normal config data this raises `AttributeError: 'list' object has no attribute 'keys'`, so `full` mode crashes before scoring any keyword.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED\nDecision: Updated full-mode niche-id extraction to support list-shaped `config[niches]` payloads from AppConfig model dumps, preventing `.keys()` crashes.\nEvidence: File: src/orchestrator.py, Test: python -m pytest -q tests/unit/test_orchestrator_helpers.py, Commit: 34d65c8\nResolution: Fixed."}]}},{"id":"PRRT_kwDOSbqwNc6Culva","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Support list-shaped niche config lookup in pricing stage**\n\n`_get_niche_config_for_keyword` only handles `config[\"niches\"]` when it is a dict, but the loaded app config serializes niches as a list of objects. In the normal `price-analysis` path this makes the function always return `{}`, so pricing ignores all niche-specific starter/floor settings and computes generic recommendations.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED\nDecision: Updated pricing niche-config lookup to support both dict and list `config[niches]` payloads so stage pricing uses niche starter/floor settings.\nEvidence: File: src/pricing/orchestrator.py, Test: python -m pytest -q tests/unit/test_pricing.py, Commit: 34d65c8\nResolution: Fixed."}]}}]}}}}}`
 Total threads found: `2`
 
 Disposition details:
@@ -162,29 +164,29 @@ Disposition details:
 MERGE GATE CHECKLIST — Cycle 022 PR #26
 ==========================================
 CODECOV:
-[x] codecov/project: PASS — 93.87%
-[x] codecov/patch: PASS — 95.28%
-[x] Local --cov-fail-under=90: PASS
-[x] All new lines covered by tests: YES
+[ ] codecov/project: PASS — 93.87%
+[ ] codecov/patch: PASS — 95.28%
+[ ] Local --cov-fail-under=90: PASS
+[ ] All new lines covered by tests: YES
   If NO, uncovered files: N/A
 
 CODEX:
-[x] reviewThreads query executed: YES
-[x] Total threads found: 2
-[x] All threads dispositioned: YES
-[x] All VALID_FIXED threads have regression tests: YES
-[x] All threads manually resolved with reply: YES
-[x] Zero unresolved threads: YES
+[ ] reviewThreads query executed: YES
+[ ] Total threads found: 2
+[ ] All threads dispositioned: YES
+[ ] All VALID_FIXED threads have regression tests: YES
+[ ] All threads manually resolved with reply: YES
+[ ] Zero unresolved threads: YES
 
 FINAL:
-[x] PR #26 is ready to merge: YES
-[x] Blockers if NO: N/A
+[ ] PR #26 is ready to merge: YES
+[ ] Blockers if NO: N/A
 
 ## Final SHA Freeze
 
-- `git rev-parse origin/cycle/022/integration`: `f6fc6f51c7c7870fe6a7334696cd56c0c4c2cbad`
-- PR head SHA match: YES (`f6fc6f51c7c7870fe6a7334696cd56c0c4c2cbad`)
-- Freeze comment posted on PR #26: YES (`https://github.com/KevinSGarrett/Fiverr/pull/26#issuecomment-4474770626`)
+- `git rev-parse origin/cycle/022/integration`: `9f33f4a04d4f284701ed605f0608eec651907357`
+- PR head SHA match: YES (`9f33f4a04d4f284701ed605f0608eec651907357`)
+- Freeze comment posted on PR #26: YES (`https://github.com/KevinSGarrett/Fiverr/pull/26#issuecomment-4474785207`)
 
 ## Artifact Hygiene / Guardrails
 
