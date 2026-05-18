@@ -6,6 +6,9 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import Gig, SearchResult
 from src.scoring.contracts import ProfitabilityScoreResult, ScoreComponent
 
 
@@ -197,6 +200,8 @@ class ProfitabilityScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_profitability_inputs"):
             loaded = db.get_profitability_inputs(keyword_id)
             return dict(loaded or {})
@@ -206,6 +211,43 @@ class ProfitabilityScoreCalculator:
                 return dict(loaded)
         return {}
 
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        premium_prices = [
+            self._as_float(self._gig_meta_value(gig, "premium_price", "premium_package_price"))
+            for gig in top_gigs
+        ]
+        valid_premium_prices = [price for price in premium_prices if price is not None]
+        delivery_days_values = [
+            self._as_float(self._gig_meta_value(gig, "delivery_time_days", "typical_delivery_days"))
+            for gig in top_gigs
+        ]
+        valid_delivery_days = [day for day in delivery_days_values if day is not None]
+        extras_flags = [self._has_extras(gig) for gig in top_gigs]
+        avg_extras_prices = [
+            self._as_float(self._gig_meta_value(gig, "avg_extras_price", "extras_price"))
+            for gig in top_gigs
+        ]
+        valid_extras_prices = [price for price in avg_extras_prices if price is not None]
+        return {
+            "avg_starting_price_top10": (sum(starting_prices) / len(starting_prices)) if starting_prices else None,
+            "avg_premium_package_price_top10": (
+                (sum(valid_premium_prices) / len(valid_premium_prices)) if valid_premium_prices else None
+            ),
+            "typical_delivery_days": (sum(valid_delivery_days) / len(valid_delivery_days)) if valid_delivery_days else None,
+            "extras_presence_ratio": (
+                (sum(1 for flag in extras_flags if flag) / len(extras_flags)) if extras_flags else None
+            ),
+            "avg_extras_price": (sum(valid_extras_prices) / len(valid_extras_prices)) if valid_extras_prices else None,
+        }
+
     @staticmethod
     def _as_float(value: Any) -> float | None:
         if value is None:
@@ -214,3 +256,24 @@ class ProfitabilityScoreCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _gig_meta_value(gig: Gig, *keys: str) -> Any:
+        metadata = gig.metadata_json if isinstance(gig.metadata_json, dict) else {}
+        for key in keys:
+            if key in metadata:
+                return metadata.get(key)
+        return None
+
+    def _has_extras(self, gig: Gig) -> bool:
+        metadata = gig.metadata_json if isinstance(gig.metadata_json, dict) else {}
+        extras = metadata.get("gig_extras")
+        if extras is None:
+            extras = metadata.get("extras")
+        if isinstance(extras, list):
+            return len(extras) > 0
+        if isinstance(extras, dict):
+            return len(extras) > 0
+        if isinstance(extras, bool):
+            return extras
+        return False

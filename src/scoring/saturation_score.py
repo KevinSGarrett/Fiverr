@@ -6,6 +6,9 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import Gig, SearchResult
 from src.scoring.contracts import SaturationScoreResult, ScoreComponent
 
 
@@ -187,6 +190,8 @@ class SaturationScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_saturation_inputs"):
             loaded = db.get_saturation_inputs(keyword_id)
             return dict(loaded or {})
@@ -196,6 +201,28 @@ class SaturationScoreCalculator:
                 return dict(loaded)
         return {}
 
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        total_gig_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        normalized_titles = [gig.normalized_title or gig.title for gig in top_gigs if gig.title]
+        title_duplication_rate = None
+        if normalized_titles:
+            unique_title_count = len({title.strip().lower() for title in normalized_titles if title})
+            title_duplication_rate = 1.0 - (unique_title_count / len(normalized_titles))
+        prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        price_compression_signal = self._price_compression_ratio(prices)
+        return {
+            "total_gig_count": float(total_gig_count) if total_gig_count > 0 else None,
+            "title_duplication_rate": title_duplication_rate,
+            "price_compression_signal": price_compression_signal,
+        }
+
     @staticmethod
     def _as_float(value: Any) -> float | None:
         if value is None:
@@ -204,3 +231,15 @@ class SaturationScoreCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _price_compression_ratio(prices: list[float]) -> float | None:
+        if len(prices) < 2:
+            return None
+        spread = max(prices) - min(prices)
+        if spread <= 0:
+            return 1.0
+        avg_price = sum(prices) / len(prices)
+        variance = sum((price - avg_price) ** 2 for price in prices) / len(prices)
+        std_dev = math.sqrt(variance)
+        return max(0.0, min(1.0, std_dev / spread))

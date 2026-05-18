@@ -7,6 +7,9 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import ExternalSignal, Gig, Keyword, SearchResult
 from src.scoring.contracts import IntentScoreResult, ScoreComponent
 
 
@@ -212,6 +215,8 @@ class ConversionIntentScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_intent_inputs"):
             loaded = db.get_intent_inputs(keyword_id)
             return dict(loaded or {})
@@ -220,6 +225,35 @@ class ConversionIntentScoreCalculator:
             if isinstance(loaded, Mapping):
                 return dict(loaded)
         return {}
+
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        review_counts = [float(gig.review_count) for gig in top_gigs if gig.review_count is not None]
+        keyword_meta = keyword.metadata_json if keyword else {}
+        reddit_demand = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "reddit_demand",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        reddit_raw = reddit_demand.raw_value_json if reddit_demand and isinstance(reddit_demand.raw_value_json, dict) else {}
+        return {
+            "keyword": keyword.keyword if keyword else "",
+            "autocomplete_position": keyword_meta.get("autocomplete_position"),
+            "avg_review_count_top10": (sum(review_counts) / len(review_counts)) if review_counts else None,
+            "llm_buyer_intent_classification": keyword_meta.get("intent_classification"),
+            "reddit_demand_intent_score": reddit_raw.get("reddit_demand_intent_score"),
+        }
 
     @staticmethod
     def _as_float(value: Any) -> float | None:

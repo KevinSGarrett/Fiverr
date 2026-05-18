@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import Gig, GigVisualAnalysis, SearchResult
 from src.scoring.contracts import ScoreComponent, WeaknessScoreResult
 
 
@@ -272,6 +275,8 @@ class GigQualityWeaknessScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_weakness_inputs"):
             loaded = db.get_weakness_inputs(keyword_id)
             return dict(loaded or {})
@@ -281,6 +286,35 @@ class GigQualityWeaknessScoreCalculator:
                 return dict(loaded)
         return {}
 
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        gig_ids = [gig.id for gig in top_gigs]
+        video_presence_map: dict[int, bool] = {}
+        if gig_ids:
+            visual_rows = (
+                session.query(GigVisualAnalysis)
+                .filter(GigVisualAnalysis.gig_id.in_(gig_ids))
+                .order_by(GigVisualAnalysis.created_at.desc())
+                .all()
+            )
+            for row in visual_rows:
+                if row.gig_id not in video_presence_map and row.has_video is not None:
+                    video_presence_map[row.gig_id] = bool(row.has_video)
+        top10_has_video = [self._resolve_has_video(gig, video_presence_map.get(gig.id)) for gig in top_gigs]
+        top10_has_portfolio = [self._resolve_has_portfolio(gig) for gig in top_gigs]
+        return {
+            "video_absence_rate": self._absence_rate_from_presence(top10_has_video),
+            "portfolio_absence_rate": self._absence_rate_from_presence(top10_has_portfolio),
+            "top10_has_video": top10_has_video or None,
+            "top10_has_portfolio": top10_has_portfolio or None,
+        }
+
     @staticmethod
     def _as_float(value: Any) -> float | None:
         if value is None:
@@ -289,3 +323,24 @@ class GigQualityWeaknessScoreCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _resolve_has_video(gig: Gig, visual_flag: bool | None) -> bool | None:
+        if visual_flag is not None:
+            return visual_flag
+        metadata = gig.metadata_json if isinstance(gig.metadata_json, dict) else {}
+        value = metadata.get("has_video")
+        return value if isinstance(value, bool) else None
+
+    @staticmethod
+    def _resolve_has_portfolio(gig: Gig) -> bool | None:
+        metadata = gig.metadata_json if isinstance(gig.metadata_json, dict) else {}
+        value = metadata.get("has_portfolio")
+        return value if isinstance(value, bool) else None
+
+    @staticmethod
+    def _absence_rate_from_presence(values: list[bool | None]) -> float | None:
+        known = [value for value in values if isinstance(value, bool)]
+        if not known:
+            return None
+        return 1.0 - (sum(1 for value in known if value) / len(known))

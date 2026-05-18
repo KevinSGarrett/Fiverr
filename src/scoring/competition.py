@@ -6,6 +6,9 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import Gig, SearchResult, Seller
 from src.scoring.contracts import CompetitionScoreResult, ScoreComponent
 
 
@@ -227,6 +230,8 @@ class CompetitionScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_competition_inputs"):
             loaded = db.get_competition_inputs(keyword_id)
             return dict(loaded or {})
@@ -235,6 +240,39 @@ class CompetitionScoreCalculator:
             if isinstance(loaded, Mapping):
                 return dict(loaded)
         return {}
+
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        total_result_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        top_sellers = [gig.seller for gig in top_gigs if gig.seller is not None]
+        review_counts = [float(gig.review_count) for gig in top_gigs if gig.review_count is not None]
+        starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        seller_level_values = [self._seller_level_value(seller.level) for seller in top_sellers]
+        normalized_levels = [value for value in seller_level_values if value is not None]
+        pro_verified_flags = [self._is_pro_verified(seller) for seller in top_sellers]
+
+        return {
+            "total_result_count": float(total_result_count) if total_result_count > 0 else None,
+            "avg_review_count_top10": (sum(review_counts) / len(review_counts)) if review_counts else None,
+            "avg_seller_level_top10": (sum(normalized_levels) / len(normalized_levels)) if normalized_levels else None,
+            "proportion_with_100_plus_reviews": (
+                sum(1 for count in review_counts if count >= 100.0) / len(review_counts)
+                if review_counts
+                else None
+            ),
+            "pro_verified_presence_ratio": (
+                sum(1 for is_verified in pro_verified_flags if is_verified) / len(pro_verified_flags)
+                if pro_verified_flags
+                else None
+            ),
+            "avg_starting_price_top10": (sum(starting_prices) / len(starting_prices)) if starting_prices else None,
+        }
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
@@ -248,3 +286,17 @@ class CompetitionScoreCalculator:
     @staticmethod
     def _has_value(value: Any) -> bool:
         return value is not None
+
+    def _seller_level_value(self, level: str | None) -> float | None:
+        if not level:
+            return None
+        return self._normalize_seller_level(level)
+
+    @staticmethod
+    def _is_pro_verified(seller: Seller) -> bool:
+        metadata = seller.metadata_json if isinstance(seller.metadata_json, dict) else {}
+        for key in ("is_pro", "pro_verified", "fiverr_pro"):
+            value = metadata.get(key)
+            if isinstance(value, bool):
+                return value
+        return False

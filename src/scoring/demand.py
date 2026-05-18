@@ -6,6 +6,9 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import ExternalSignal, Keyword, SearchResult
 from src.scoring.contracts import DemandScoreResult, ScoreComponent
 
 
@@ -144,6 +147,8 @@ class DemandScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_demand_inputs"):
             loaded = db.get_demand_inputs(keyword_id)
             return dict(loaded or {})
@@ -152,6 +157,35 @@ class DemandScoreCalculator:
             if isinstance(loaded, Mapping):
                 return dict(loaded)
         return {}
+
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
+        total_result_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+        google_trends = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "google_trends",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        reddit_demand = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "reddit_demand",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        keyword_meta = keyword.metadata_json if keyword else {}
+        return {
+            "total_result_count": float(total_result_count) if total_result_count > 0 else None,
+            "autocomplete_position": self._as_int(keyword_meta.get("autocomplete_position")),
+            "trends_12mo_score": self._signal_float(google_trends, "trends_12mo_score"),
+            "reddit_demand_intent_score": self._signal_float(reddit_demand, "reddit_demand_intent_score"),
+        }
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
@@ -168,5 +202,18 @@ class DemandScoreCalculator:
             return None
         try:
             return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _signal_float(signal: ExternalSignal | None, key: str) -> float | None:
+        if signal is None:
+            return None
+        raw_json = signal.raw_value_json if isinstance(signal.raw_value_json, dict) else {}
+        raw_value = raw_json.get(key, signal.normalized_value)
+        try:
+            if raw_value is None:
+                return None
+            return float(raw_value)
         except (TypeError, ValueError):
             return None

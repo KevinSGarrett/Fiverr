@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import ExternalSignal
 from src.scoring.contracts import ScoreComponent, TrendScoreResult
 
 
@@ -229,6 +232,8 @@ class TrendScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_trend_inputs"):
             loaded = db.get_trend_inputs(keyword_id)
             return dict(loaded or {})
@@ -237,6 +242,42 @@ class TrendScoreCalculator:
             if isinstance(loaded, Mapping):
                 return dict(loaded)
         return {}
+
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        google_trends = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "google_trends",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        reddit = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type.in_(["reddit_demand", "reddit_activity"]),
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        trends_raw = google_trends.raw_value_json if google_trends and isinstance(google_trends.raw_value_json, dict) else {}
+        reddit_raw = reddit.raw_value_json if reddit and isinstance(reddit.raw_value_json, dict) else {}
+        return {
+            "trends_12mo_score": self._as_float(trends_raw.get("trends_12mo_score")),
+            "trends_3mo_score": self._as_float(trends_raw.get("trends_3mo_score")),
+            "trends_3mo_avg": self._as_float(trends_raw.get("trends_3mo_avg")),
+            "trends_12mo_avg": self._as_float(trends_raw.get("trends_12mo_avg")),
+            "google_trends_3mo_series": trends_raw.get("google_trends_3mo_series"),
+            "google_trends_12mo_series": trends_raw.get("google_trends_12mo_series"),
+            "google_trends_slope": self._as_float(trends_raw.get("google_trends_slope")),
+            "reddit_activity_trend_score": self._as_float(
+                reddit_raw.get("reddit_activity_trend_score", reddit_raw.get("reddit_activity_trend"))
+            ),
+            "reddit_recent_post_volume": self._as_float(reddit_raw.get("reddit_recent_post_volume")),
+            "reddit_historical_post_volume": self._as_float(reddit_raw.get("reddit_historical_post_volume")),
+        }
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
