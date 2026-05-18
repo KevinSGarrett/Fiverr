@@ -111,9 +111,9 @@
 - Codex findings:
   - No Codex review threads/comments posted on PR #25 (`0 findings`).
 - Final pushed SHA freeze:
-  - `git rev-parse origin/cycle/021/integration` -> `e4bf024408626cf6f9f4437b74105ec8475768be`
-  - PR head SHA matches (`headRefOid = e4bf024408626cf6f9f4437b74105ec8475768be`).
-  - Final freeze comment posted to PR.
+  - `git rev-parse origin/cycle/021/integration` -> `a955888164f095cfc6bac2f96ee3aab7280abad7`
+  - PR head SHA matches (`headRefOid = a955888164f095cfc6bac2f96ee3aab7280abad7`).
+  - Final freeze comments posted to PR (latest freeze uses final SHA).
 
 ## Merge Readiness
 
