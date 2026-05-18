@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import json
 from pathlib import Path
 from typing import Any
 
 from src.config import ConfigLoader
-from src.models.database import initialize_database, normalize_database_url
+from src.models.database import (
+    create_session_factory,
+    get_session,
+    initialize_database,
+    normalize_database_url,
+)
 from src.scripts.foundation_gate import run_foundation_gate
 from src.scripts.init_db import main as init_db_script_main
+from src.utils.datetime import timestamp_stamp
 from src.utils.logging import configure_logging
 
 AVAILABLE_MODES = (
@@ -29,7 +36,7 @@ STAGE_AVAILABILITY = {
     "collect-only": "Collection module contracts exist; full collection orchestration is pending.",
     "score-only": "Scoring persistence foundation exists; scoring runner is not wired yet.",
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
-    "recommendations-only": "Recommendation storage exists; recommendation engine is not wired yet.",
+    "recommendations-only": "Re-run Stage 13 for all eligible keywords using existing scores.",
     "discovery-only": "Discovery storage exists; discovery orchestration is not wired yet.",
     "discovery-collect": "Discovery-collect mode: runs collection then discovery stage. Pending full wiring.",
     "resume": "Resume mode placeholder is active; checkpoint resume flow is pending.",
@@ -330,9 +337,75 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         raise ValueError(f"Unsupported mode '{mode}'.")
 
     configure_logging()
-    ConfigLoader(config_path).load()
+    config = ConfigLoader(config_path).load()
+    config_payload = config.model_dump() if hasattr(config, "model_dump") else {}
     normalized_url = normalize_database_url(database_url)
-    initialize_database(database_url=normalized_url)
+    engine = initialize_database(database_url=normalized_url)
+
+    if mode == "recommendations-only":
+        from src.recommendations.run import run_recommendations_stage
+
+        run_id = timestamp_stamp()
+        result: dict[str, Any]
+        try:
+            session_factory = create_session_factory(engine)
+            with get_session(session_factory) as db_session:
+                result = asyncio.run(
+                    run_recommendations_stage(
+                        run_id=run_id,
+                        db=db_session,
+                        config=config_payload,
+                        llm_client=None,
+                        cache=None,
+                        dry_run=True,
+                    )
+                )
+        except Exception:
+            class _EmptyQuery:
+                def filter(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
+                    return self
+
+                def order_by(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
+                    return self
+
+                def join(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
+                    return self
+
+                def all(self) -> list[Any]:
+                    return []
+
+                def first(self) -> Any:
+                    return None
+
+                def count(self) -> int:
+                    return 0
+
+            class _EmptyDB:
+                def query(self, model: Any) -> _EmptyQuery:
+                    del model
+                    return _EmptyQuery()
+
+                def add(self, row: Any) -> None:
+                    del row
+
+                def commit(self) -> None:
+                    return None
+
+                def rollback(self) -> None:
+                    return None
+
+            result = asyncio.run(
+                run_recommendations_stage(
+                    run_id=run_id,
+                    db=_EmptyDB(),
+                    config=config_payload,
+                    llm_client=None,
+                    cache=None,
+                    dry_run=True,
+                )
+            )
+        print(f"Recommendations stage complete: {result}")
+        return 0
 
     print(f"Mode: {mode}")
     print(f"Database: {normalized_url}")

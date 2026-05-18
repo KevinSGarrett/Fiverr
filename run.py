@@ -169,5 +169,19 @@ def phase2_smoke_command(config_path: str) -> None:
     raise SystemExit(run_phase2_smoke(config_path=normalize_cli_config_path(config_path)))
 
 
+@cli.command("recommendations-only")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def recommendations_only_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 13 recommendation orchestration only."""
+    raise SystemExit(
+        run_pipeline(
+            mode="recommendations-only",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
 if __name__ == "__main__":
     cli()

@@ -36,6 +36,7 @@ from src.recommendations.eligibility import (
     should_regenerate_recommendation,
 )
 from src.recommendations.orchestrator import RecommendationOrchestrator
+from src.recommendations.run import run_recommendations_stage
 from src.recommendations.storage import write_recommendation
 from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
@@ -68,6 +69,7 @@ __all__ = [
     "RedFlagsAssessment",
     "RecommendationContext",
     "RecommendationOrchestrator",
+    "run_recommendations_stage",
     "RecommendationOutput",
     "TagSet",
     "ThumbnailDirection",

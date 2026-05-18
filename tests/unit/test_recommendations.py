@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
@@ -28,6 +29,7 @@ from src.recommendations.eligibility import (
     passes_recommendation_gates,
     should_regenerate_recommendation,
 )
+from src.recommendations.run import run_recommendations_stage
 from src.recommendations.storage import write_recommendation
 from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
@@ -625,3 +627,138 @@ def test_generate_recommendation_no_crash_no_llm() -> None:
     result = asyncio.run(generate_recommendation(101, context, llm_client=None, cache=None, db=Mock()))
     assert result["generation_complete"] is False
     assert result["llm_cost_usd"] == 0.0
+
+
+def test_run_recommendations_stage_dry_run_summary_keys(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 101, "final_score": 80.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    monkeypatch.setattr("src.recommendations.run.should_regenerate_recommendation", lambda keyword_id, score, db: True)
+    monkeypatch.setattr(
+        "src.recommendations.run.build_recommendation_context",
+        lambda keyword_id, db, config: RecommendationContext(keyword_id=keyword_id, keyword_text="k", niche_id=1),
+    )
+    writes: list[int] = []
+    monkeypatch.setattr(
+        "src.recommendations.run.write_recommendation",
+        lambda keyword_id, run_id, context, result, db: writes.append(keyword_id) or True,
+    )
+    summary = asyncio.run(run_recommendations_stage("run-1", db=Mock(), config={}, llm_client=None, cache=None))
+    assert set(summary.keys()) == {"eligible_count", "generated", "skipped", "failed", "total_cost_usd"}
+    assert summary["eligible_count"] == 1
+    assert summary["generated"] == 1
+    assert writes == [101]
+
+
+def test_run_recommendations_stage_skips_when_gate_fails(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 201, "final_score": 70.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (False, "blocked"))
+    summary = asyncio.run(run_recommendations_stage("run-2", db=Mock(), config={}, llm_client=None, cache=None))
+    assert summary["generated"] == 0
+    assert summary["skipped"] == 1
+    assert summary["failed"] == 0
+
+
+def test_run_recommendations_stage_skips_when_no_regen(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 202, "final_score": 70.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    monkeypatch.setattr("src.recommendations.run.should_regenerate_recommendation", lambda keyword_id, score, db: False)
+    summary = asyncio.run(run_recommendations_stage("run-3", db=Mock(), config={}, llm_client=None, cache=None))
+    assert summary["generated"] == 0
+    assert summary["skipped"] == 1
+
+
+def test_run_recommendations_stage_records_failures(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 303, "final_score": 75.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    monkeypatch.setattr("src.recommendations.run.should_regenerate_recommendation", lambda keyword_id, score, db: True)
+
+    def _boom(keyword_id: int, db: Any, config: Any) -> RecommendationContext:
+        del keyword_id, db, config
+        raise RuntimeError("context failed")
+
+    monkeypatch.setattr("src.recommendations.run.build_recommendation_context", _boom)
+    summary = asyncio.run(run_recommendations_stage("run-4", db=Mock(), config={}, llm_client=None, cache=None))
+    assert summary["failed"] == 1
+    assert summary["generated"] == 0
+
+
+def test_run_recommendations_stage_accumulates_llm_cost(monkeypatch: Any) -> None:
+    async def _fake_generate(keyword_id: int, context: Any, llm_client: Any, cache: Any, db: Any) -> dict[str, Any]:
+        del keyword_id, context, llm_client, cache, db
+        return {"generation_complete": True, "llm_cost_usd": 0.45}
+
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 401, "final_score": 81.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    monkeypatch.setattr("src.recommendations.run.should_regenerate_recommendation", lambda keyword_id, score, db: True)
+    monkeypatch.setattr(
+        "src.recommendations.run.build_recommendation_context",
+        lambda keyword_id, db, config: RecommendationContext(keyword_id=keyword_id, keyword_text="k", niche_id=1),
+    )
+    monkeypatch.setattr("src.recommendations.run.generate_recommendation", _fake_generate)
+    summary = asyncio.run(
+        run_recommendations_stage("run-5", db=Mock(), config={}, llm_client=Mock(), cache=Mock(), dry_run=False)
+    )
+    assert summary["generated"] == 1
+    assert summary["total_cost_usd"] == 0.45
+
+
+def test_write_recommendation_creates_missing_output_directory(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    output_dir = tmp_path / "data" / "recommendation_results"
+    assert not output_dir.exists()
+    context = RecommendationContext(keyword_id=9, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
+    recommendation_data = {"generation_complete": False, "llm_cost_usd": 0.0}
+    ok = write_recommendation(9, "run-dir", context, recommendation_data, db=None)
+    assert ok is True
+    assert output_dir.exists()
+    assert (output_dir / "9_run-dir.json").exists()
+
+
+def test_get_eligible_keywords_returns_empty_when_no_go_tags() -> None:
+    db = FakeDB(
+        {
+            FinalScore: [
+                SimpleNamespace(keyword_id=101, final_score=35.0, raw_json={"tag": "MONITOR"}),
+                SimpleNamespace(keyword_id=102, final_score=15.0, raw_json={"tag": "PASS"}),
+            ],
+            Keyword: [
+                SimpleNamespace(id=101, keyword="k1", niche_id=12, metadata_json={}),
+                SimpleNamespace(id=102, keyword="k2", niche_id=12, metadata_json={}),
+            ],
+        }
+    )
+    rows = get_eligible_keywords("1", db, _context_config())
+    assert rows == []
+
+
+def test_build_context_missing_keyword_returns_safe_default_object() -> None:
+    context = build_recommendation_context(12345, FakeDB({}), _context_config())
+    assert context is not None
+    assert context.keyword_id == 12345
+    assert context.niche_name == "Unknown"
+
+
+def test_run_recommendations_stage_counts_invalid_keyword_as_failed(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 0, "final_score": 50.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    summary = asyncio.run(run_recommendations_stage("run-6", db=Mock(), config={}, llm_client=None, cache=None))
+    assert summary["failed"] == 1
+    assert summary["generated"] == 0
