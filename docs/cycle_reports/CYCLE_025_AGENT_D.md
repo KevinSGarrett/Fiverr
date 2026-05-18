@@ -74,13 +74,11 @@ Executed exact requested commands:
 
 Coverage outcomes:
 
-- `src.collection.checkpoint`: `97%` (uncovered: `63, 79, 100`)
-- `src.scheduler.retry_handler`: `99%` (uncovered: `111`)
+- `src.collection.checkpoint`: `100%` (no uncovered lines)
+- `src.scheduler.retry_handler`: `100%` (no uncovered lines)
 - `src.scheduler.exceptions`: `100%` (no uncovered lines)
-- `src.collection.workflows` total: `94%`
-  - notable uncovered: `src.collection.workflows.gig_detail: 64-66`
-- `src.collection.orchestrator`: `91%`
-  - uncovered: `55-56, 59-62, 65-70, 73, 119, 189-190, 286-287, 313, 330, 333, 360, 436-438, 463-464, 484-485, 572-573`
+- `src.collection.workflows` total: `100%` (no uncovered lines)
+- `src.collection.orchestrator`: `100%` (no uncovered lines)
 
 ### Task 6 - Targeted Tests Added
 
@@ -153,6 +151,10 @@ Posted epic comment to `SCRUM-17`:
 - Commit 1: `4a285b1` — `feat(collection): collect-only orchestrator and patch coverage [Agent D Cycle 025]`
 - Commit 2 (Codex follow-up): `702fa65` — `fix(scheduler): enforce dead-letter retry policies for permanent errors`
 - Commit 3 (steward evidence): `367d4c7` — `docs(cycle-025): finalize Agent D merge-gate evidence`
+- Commit 4 (SHA refresh): `0266fb1` — `docs(cycle-025): update Agent D final sha freeze`
+- Commit 5 (coverage closure): `1680bc1` — `test(collection): close remaining patch coverage gaps`
+- Commit 6 (coverage branch closure): `0eca374` — `test(cycle-025): close remaining collect-only coverage branches`
+- Commit 7 (CI lint fix): `3f5816a` — `fix(ci): resolve ruff import ordering in collection tests`
 - PR created: `https://github.com/KevinSGarrett/Fiverr/pull/29`
 - CI/checks final state: all PASS including `codecov/patch` hard gate.
 
@@ -176,11 +178,11 @@ MERGE GATE CHECKLIST - Cycle 025 PR #29
 =======================================
 
 CODECOV:
-- [x] codecov/project: PASS - 94.34%
-- [x] codecov/patch: PASS - 91.73%
+- [x] codecov/project: PASS - 94.69%
+- [x] codecov/patch: PASS - 100.00%
 - [x] Local --cov-fail-under=90: PASS
-- [ ] All new lines covered by tests: NO
-  - Uncovered files: `src/collection/orchestrator.py`, `src/collection/workflows/gig_detail.py`, `src/collection/checkpoint.py`, `src/orchestrator.py`, `src/scheduler/retry_handler.py`
+- [x] All new lines covered by tests: YES
+  - Uncovered files: N/A
 
 CODEX:
 - [x] reviewThreads query executed: YES
@@ -196,7 +198,7 @@ FINAL:
 
 ### Task 15-22 - Final Steward Actions
 
-- Final SHA freeze captured and matched to PR head: `367d4c7f17eebd6c250a47a47fcb2480bfc3df40`
+- Final SHA freeze captured and matched to PR head: `3f5816a3ed4994750c42e83995f05de0232cfb9c`
 - Confirmed all four cycle reports present (`A/B/C/D`).
 - Updated DoD ledger (`docs/jira/ACTIVE_STORY_DOD_LEDGER.md`).
 - Posted final steward summary on `SCRUM-514` (comment `11159`).
