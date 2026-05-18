@@ -97,8 +97,8 @@
 - `python -m ruff check .` -> pass
 - `python -m mypy src` -> pass (`Success: no issues found in 158 source files`)
 - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
-  - Result: `1082 passed`
-  - Coverage: `93.90%`
+  - Result: `1083 passed`
+  - Coverage: `93.88%`
 - `python run.py config-check` -> pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle022.db` -> pass
 - `python run.py phase2-smoke` -> pass
@@ -123,66 +123,75 @@
 
 - Posted to `SCRUM-231` (comment id `11105`):
   - "Cycle 022 Agent D: pricing pipeline stage wired..." (required wording and command list included)
+- Posted to `SCRUM-511` (comment id `11106`):
+  - Final control summary including PR URL, frozen SHA, test count, coverage, Codex thread count, codecov/patch status, and merge readiness.
 
 ## PR #26
 
-- URL: PENDING
+- URL: `https://github.com/KevinSGarrett/Fiverr/pull/26`
 - Base/Head: `develop` <- `cycle/022/integration`
 - Title: `feat(cycle-022): Stage 14, pricing pipeline, patch coverage`
 
 ## CI Check Results (ALL checks listed)
 
-- `Lint, Typecheck, Tests, and Gates`: PENDING
-- `codecov/project`: PENDING
-- `codecov/patch`: PENDING
-- `Dependency Audit`: PENDING
-- `Secret Scan`: PENDING
-- `Validate PR`: PENDING
+- `Lint, Typecheck, Tests, and Gates`: SUCCESS
+- `codecov/project`: SUCCESS (`93.87%`)
+- `codecov/patch`: SUCCESS (`95.28%` diff hit, target `90.00%`)
+- `Dependency Audit`: SUCCESS
+- `Secret Scan`: SUCCESS
+- `Validate PR`: SUCCESS
 
 ## Codex Review Query and Disposition
 
-Codex review query for PR #26 (number [PENDING]):
-Raw result: PENDING
-Total threads found: PENDING
+Codex review query for PR #26 (number `26`):
+Raw result: `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6CulvW","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P1 list-shaped config niches in full mode"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: 34d65c8"}]}},{"id":"PRRT_kwDOSbqwNc6Culva","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P2 list-shaped niche config lookup in pricing stage"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: 34d65c8"}]}}]}}}}}`
+Total threads found: `2`
 
 Disposition details:
-- PENDING until PR exists and GraphQL query is executed.
+- `PRRT_kwDOSbqwNc6CulvW` -> `VALID_FIXED`
+  - Fix: full-mode niche-id extraction now supports list-shaped `config["niches"]`.
+  - Evidence: `src/orchestrator.py`, `tests/unit/test_orchestrator_helpers.py`, `python -m pytest -q tests/unit/test_orchestrator_helpers.py`, commit `34d65c8`.
+  - Reply posted and thread resolved.
+- `PRRT_kwDOSbqwNc6Culva` -> `VALID_FIXED`
+  - Fix: pricing niche config lookup now supports both dict and list `config["niches"]`.
+  - Evidence: `src/pricing/orchestrator.py`, `tests/unit/test_pricing.py`, `python -m pytest -q tests/unit/test_pricing.py`, commit `34d65c8`.
+  - Reply posted and thread resolved.
 
 ## Mandatory Merge Gate Checklist
 
 MERGE GATE CHECKLIST — Cycle 022 PR #26
 ==========================================
 CODECOV:
-[ ] codecov/project: [PASS/FAIL] — [exact %]
-[ ] codecov/patch: [PASS/FAIL] — [exact %]
-[ ] Local --cov-fail-under=90: [PASS/FAIL]
-[ ] All new lines covered by tests: [YES/NO]
-  If NO, uncovered files: [list or N/A]
+[x] codecov/project: PASS — 93.87%
+[x] codecov/patch: PASS — 95.28%
+[x] Local --cov-fail-under=90: PASS
+[x] All new lines covered by tests: YES
+  If NO, uncovered files: N/A
 
 CODEX:
-[ ] reviewThreads query executed: YES
-[ ] Total threads found: [N]
-[ ] All threads dispositioned: [YES/N/A]
-[ ] All VALID_FIXED threads have regression tests: [YES/N/A]
-[ ] All threads manually resolved with reply: [YES/N/A]
-[ ] Zero unresolved threads: [YES]
+[x] reviewThreads query executed: YES
+[x] Total threads found: 2
+[x] All threads dispositioned: YES
+[x] All VALID_FIXED threads have regression tests: YES
+[x] All threads manually resolved with reply: YES
+[x] Zero unresolved threads: YES
 
 FINAL:
-[ ] PR #26 is ready to merge: [YES/NO]
-[ ] Blockers if NO: [list or N/A]
+[x] PR #26 is ready to merge: YES
+[x] Blockers if NO: N/A
 
 ## Final SHA Freeze
 
-- `git rev-parse origin/cycle/022/integration`: PENDING (after push)
-- PR head SHA match: PENDING
-- Freeze comment posted on PR #26: PENDING
+- `git rev-parse origin/cycle/022/integration`: `34d65c8f79d7a02e8db755cb20adae53fedbf398`
+- PR head SHA match: YES (`34d65c8f79d7a02e8db755cb20adae53fedbf398`)
+- Freeze comment posted on PR #26: YES (`https://github.com/KevinSGarrett/Fiverr/pull/26#issuecomment-4474753096`)
 
 ## Artifact Hygiene / Guardrails
 
-- `.env` staged: pending final check
-- `*.db` staged: pending final check
-- `coverage.xml` staged: pending final check
-- No-main / worktree check: pending final check
+- `.env` staged: no
+- `*.db` staged: no
+- `coverage.xml` staged: no
+- No-main / worktree check: pass (branch `cycle/022/integration`; canonical root only)
 
 ## Agent Reports Presence Check
 
@@ -193,8 +202,4 @@ FINAL:
 
 ## Merge Readiness Recommendation
 
-- PENDING until:
-  - PR #26 is created,
-  - all CI checks settle,
-  - `codecov/project` and `codecov/patch` are confirmed `SUCCESS` with exact percentages,
-  - Codex review thread query is executed and every thread (if any) is dispositioned/replied/resolved.
+- PR #26 is ready to merge when approved.
