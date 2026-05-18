@@ -600,3 +600,49 @@ def test_write_keyword_score_rolls_back_on_session_failure(monkeypatch: pytest.M
     )
     assert ok is True
     assert rolled_back["value"] is True
+
+
+def test_normalized_profile_with_zero_total_returns_original() -> None:
+    from src.scoring import pipeline
+
+    profile = {"a": 0.0, "b": 0.0}
+    assert pipeline._normalized_profile(profile) == profile
+
+
+def test_calculate_weighted_composite_skips_zero_weight_entries() -> None:
+    scores = {
+        "demand_score": 80.0,
+        "competition_score": 40.0,
+        "opportunity_score": 70.0,
+        "feasibility_score": 60.0,
+        "profitability_score": 50.0,
+        "intent_score": 60.0,
+        "saturation_score": 30.0,
+        "weakness_score": 65.0,
+        "trend_score": 55.0,
+    }
+    profile = dict(SCORING_PROFILES["default"])
+    profile["demand"] = 0.0
+    _, components = calculate_weighted_composite(scores, profile)
+    assert "demand_score" not in components
+
+
+def test_detect_red_flags_low_demand() -> None:
+    flags = detect_red_flags_from_scores(
+        {"competition_score": 30.0, "demand_score": 10.0, "trend_score": 40.0},
+        {"confidence_modifier": 0.8},
+        1,
+        None,
+    )
+    assert any(flag["source"] == "demand_score" for flag in flags)
+
+
+def test_score_keyword_raises_for_unknown_profile() -> None:
+    with pytest.raises(ValueError, match="Unknown scoring profile"):
+        asyncio.run(score_keyword(1, "missing-profile", FakePipelineDB(), None, None))
+
+
+def test_resolve_depth_defaults_to_standard_for_unknown_value() -> None:
+    from src.scoring import pipeline
+
+    assert pipeline._resolve_depth(1, {1: {"score_depth": "not-a-depth"}}) == "standard"

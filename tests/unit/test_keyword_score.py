@@ -288,3 +288,9 @@ def test_keyword_score_all_score_fields_nullable() -> None:
     session.commit()
     assert row.id is not None
     session.close()
+
+
+def test_get_latest_keyword_score_handles_empty_keyword_id() -> None:
+    session = _session()
+    assert get_latest_keyword_score(keyword_id=0, db=session) is None
+    session.close()

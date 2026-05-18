@@ -208,3 +208,59 @@ def test_extract_tier_prices_list_package_metadata() -> None:
     assert basic == 60.0
     assert standard == 90.0
     assert premium == 140.0
+
+
+def test_classify_market_type_unknown_when_cv_missing() -> None:
+    assert _classify_market_type({"cv": None}) == "UNKNOWN"
+
+
+def test_classify_moat_strength_medium() -> None:
+    raw = _raw(basic_prices=[100.0, 105.0, 120.0, 125.0], seller_review_counts=[0, 1, 80, 90])
+    assert _classify_moat_strength(raw) == "MEDIUM"
+
+
+def test_classify_moat_strength_low_when_no_segment_groups() -> None:
+    raw = _raw(basic_prices=[100.0, 110.0], seller_review_counts=[8, 9])
+    assert _classify_moat_strength(raw) == "LOW"
+
+
+def test_classify_moat_strength_low_when_new_average_non_positive() -> None:
+    raw = _raw(basic_prices=[0.0, 0.0, 120.0, 130.0], seller_review_counts=[0, 1, 80, 90])
+    assert _classify_moat_strength(raw) == "LOW"
+
+
+def test_calculate_review_premium_none_without_prices_or_reviews() -> None:
+    raw = _raw(basic_prices=[], seller_review_counts=[])
+    assert _calculate_review_premium(raw) is None
+
+
+def test_find_price_gaps_returns_empty_when_range_is_zero() -> None:
+    assert _find_price_gaps([25.0, 25.0, 25.0]) == []
+
+
+def test_extract_raw_price_data_returns_none_when_all_prices_missing() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    seller = Seller(seller_handle="analysis-no-prices", level="LEVEL_1")
+    gig = Gig(
+        seller=seller,
+        title="Gig No Price",
+        normalized_title="gig no price",
+        starting_price=None,
+        review_count=2,
+        metadata_json={},
+    )
+    session.add_all([seller, gig])
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword_id, rank=1, gig_id=gig.id, metadata_json={}))
+    session.commit()
+    assert extract_raw_price_data_from_db(keyword_id=keyword_id, run_id="run-no-prices", db=session) is None
+    session.close()
+
+
+def test_price_from_package_invalid_shapes_return_none() -> None:
+    from src.pricing.analysis import _price_from_package
+
+    assert _price_from_package({"price": None}) is None
+    assert _price_from_package({"price": object()}) is None
+    assert _price_from_package({"price": "not-a-number"}) is None
