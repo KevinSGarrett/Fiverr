@@ -70,4 +70,11 @@
 ## Governance / Handoff
 
 - Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` rows for `SCRUM-190` and `SCRUM-191`.
+- Artifact hygiene check complete: no `.env`, `*.db`, or `coverage.xml` files are staged in Agent C commit scope.
+- No-main/worktree check complete:
+  - Branch: `cycle/022/integration`
+  - Worktree: `C:/Fiverr/Fiverr` only
+- Recorded implementation SHA for Agent D handoff:
+  - Commit: `df0869f` (`feat(pricing): pipeline integration and pricing strategy text [Agent C Cycle 022]`)
+- Posted explicit Jira evidence comments for both stories using required wording snippets.
 - No push performed (human operator push only).
