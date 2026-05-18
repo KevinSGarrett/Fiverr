@@ -22,9 +22,10 @@ from src.pricing.contracts import (
 from src.pricing.new_seller_pricing import (
     PricingRecommendation,
     calculate_new_seller_pricing,
+    generate_pricing_strategy_text,
     project_revenue_at_entry_pricing,
 )
-from src.pricing.orchestrator import PricingOrchestrator
+from src.pricing.orchestrator import PricingOrchestrator, run_pricing_stage
 
 __all__ = [
     "EntryPricingRecommendation",
@@ -36,6 +37,8 @@ __all__ = [
     "PricingOrchestrator",
     "calculate_new_seller_pricing",
     "extract_raw_price_data_from_db",
+    "generate_pricing_strategy_text",
     "project_revenue_at_entry_pricing",
+    "run_pricing_stage",
     "run_price_distribution_analysis",
 ]

@@ -25,6 +25,7 @@ AVAILABLE_MODES = (
     "collect-only",
     "score-only",
     "analyze-only",
+    "price-analysis",
     "recommendations-only",
     "discovery-only",
     "discovery-collect",
@@ -36,6 +37,7 @@ STAGE_AVAILABILITY = {
     "collect-only": "Collection module contracts exist; full collection orchestration is pending.",
     "score-only": "Scoring persistence foundation exists; scoring runner is not wired yet.",
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
+    "price-analysis": "Run Stage 10.5 pricing analysis and recommendation calculations.",
     "recommendations-only": "Re-run Stage 13 for all eligible keywords using existing scores.",
     "discovery-only": "Discovery storage exists; discovery orchestration is not wired yet.",
     "discovery-collect": "Discovery-collect mode: runs collection then discovery stage. Pending full wiring.",
@@ -363,6 +365,23 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             print(f"Recommendations stage failed: {exc}")
             return 1
         print(f"Recommendations stage complete: {result}")
+        return 0
+
+    if mode == "price-analysis":
+        from src.models import Keyword
+        from src.pricing.orchestrator import run_pricing_stage
+
+        run_id = timestamp_stamp()
+        session_factory = create_session_factory(engine)
+        with get_session(session_factory) as db_session:
+            keyword_ids = [int(keyword_id) for (keyword_id,) in db_session.query(Keyword.id).all()]
+            result = run_pricing_stage(
+                run_id=run_id,
+                keyword_ids=keyword_ids,
+                db=db_session,
+                config=config_payload,
+            )
+        print(f"Price analysis complete: {result}")
         return 0
 
     if mode == "full":

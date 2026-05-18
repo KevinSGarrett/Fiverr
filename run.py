@@ -183,5 +183,19 @@ def recommendations_only_command(config_path: str, database_url: str | None) -> 
     )
 
 
+@cli.command("price-analysis")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def price_analysis_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 10.5 pricing orchestration only."""
+    raise SystemExit(
+        run_pipeline(
+            mode="price-analysis",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
 if __name__ == "__main__":
     cli()
