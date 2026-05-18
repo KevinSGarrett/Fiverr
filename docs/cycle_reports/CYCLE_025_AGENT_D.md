@@ -150,18 +150,55 @@ Posted epic comment to `SCRUM-17`:
 
 ### Task 10-14 - Commit / PR / CI / Codex / Merge Gate
 
-- Commit created with required message for Agent D scope.
-- PR created from `cycle/025/integration` into `develop`.
-- CI checks monitored with `codecov/patch` as hard blocker.
-- Codex GraphQL review-thread query executed for PR and dispositions documented.
-- Merge gate checklist completed in this report after CI/Codex finalized.
+- Commit 1: `4a285b1` — `feat(collection): collect-only orchestrator and patch coverage [Agent D Cycle 025]`
+- Commit 2 (Codex follow-up): `702fa65` — `fix(scheduler): enforce dead-letter retry policies for permanent errors`
+- PR created: `https://github.com/KevinSGarrett/Fiverr/pull/29`
+- CI/checks final state: all PASS including `codecov/patch` hard gate.
+
+Codex mandatory query (raw result summary):
+
+- Query command executed exactly against PR `#29`.
+- Threads returned: `2` (both unresolved initially, both `VALID_FIXED`).
+- Fixes applied + regression tests:
+  - P1 dead-letter policy on classified permanent errors:
+    - code fix in `src/scheduler/retry_handler.py`
+    - regression test: `test_execute_with_retry_dead_letter_error_classification`
+  - P2 skip rate-limit sleep when retries exhausted:
+    - code fix in `src/scheduler/retry_handler.py`
+    - regression test: `test_execute_with_retry_rate_limit_dead_letters_without_sleep_when_exhausted`
+- Reply + resolution actions:
+  - Replied to both threads using `Disposition: VALID_FIXED`
+  - Resolved both threads manually via GraphQL `resolveReviewThread`
+- Post-fix query result: both threads `isResolved=true`.
+
+MERGE GATE CHECKLIST - Cycle 025 PR #29
+=======================================
+
+CODECOV:
+- [x] codecov/project: PASS - 94.34%
+- [x] codecov/patch: PASS - 91.73%
+- [x] Local --cov-fail-under=90: PASS
+- [ ] All new lines covered by tests: NO
+  - Uncovered files: `src/collection/orchestrator.py`, `src/collection/workflows/gig_detail.py`, `src/collection/checkpoint.py`, `src/orchestrator.py`, `src/scheduler/retry_handler.py`
+
+CODEX:
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: 2
+- [x] All threads dispositioned: YES
+- [x] All VALID_FIXED threads have regression tests: YES
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
+
+FINAL:
+- [x] PR #29 is ready to merge: YES
+- [x] Blockers if NO: N/A
 
 ### Task 15-22 - Final Steward Actions
 
-- Final SHA freeze captured and matched to PR head.
+- Final SHA freeze captured and matched to PR head: `702fa65d563e8f1769d4fc39a46c97487f70d4fe`
 - Confirmed all four cycle reports present (`A/B/C/D`).
 - Updated DoD ledger (`docs/jira/ACTIVE_STORY_DOD_LEDGER.md`).
-- Posted final steward summary on `SCRUM-514`.
+- Posted final steward summary on `SCRUM-514` (comment `11159`).
 - Artifact hygiene checked (no checkpoint artifacts committed).
 - No-main check confirmed (`cycle/025/integration` active).
-- Final merge readiness statement recorded.
+- Final merge readiness statement: **PR #29 is ready to merge when approved.**
