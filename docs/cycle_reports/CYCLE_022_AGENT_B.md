@@ -51,3 +51,7 @@
 - DoD remaining for S6.3: run with real collection data and wire this runner into stage orchestration (`run.py` pricing-analysis stage path).
 - Branch used: `cycle/022/integration`.
 - Push status: no push performed (human operator push only).
+- `.cursorrules` reviewed and implementation remains compliant with project constraints (types, imports, tests, SQLAlchemy ORM usage).
+- Final handoff SHA for Agent C: `177ac307cc908ad78bede8b54a597cc40fd805b3`.
+- Final handoff test counts: preflight `52`, targeted pricing `49`, focused analysis `20`, full suite `1046`.
+- Coverage command note: `--cov=src/pricing/analysis.py` fails under current pytest-cov module resolution; equivalent module-target command `--cov=src.pricing.analysis` executed successfully (`92%` module coverage).
