@@ -60,6 +60,8 @@
   - `python run.py config-check` -> pass
   - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle023.db` -> pass
   - `python run.py phase2-smoke` -> pass
+- Post-commit recheck:
+  - `python run.py phase2-smoke` -> pass
 
 ## Jira Evidence Posted
 
@@ -80,4 +82,9 @@
 - Commit message target:
   - `feat(discovery): DiscoveryCandidate model and hypothesis stubs [Agent C Cycle 023]`
 - Final commit SHA:
-  - `TBD (set after commit)`
+  - `5cc1e6094508247d7a8b1a26c4b21372f192e615`
+
+## Final Freeze Metrics
+
+- Final test count recorded: `1136 passed`
+- Final coverage recorded: `93.89%`
