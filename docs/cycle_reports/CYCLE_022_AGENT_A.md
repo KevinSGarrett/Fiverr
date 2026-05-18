@@ -139,5 +139,5 @@
 - `score_keyword` is wired into `--mode full`.
 - Agent B handoff note:
   - "Stage 14 explanation feature-flagged. score_keyword in --mode full. Agent B: build E06 S6.3 price distribution analysis runner."
-- Agent A final SHA (local, unpushed): `05d1c1abd7d0042de9716f0d17856d8b457a22a0`
+- Agent A implementation SHA: `fa77821e10d703ec49868d5c1c043228275d2a2f`
 - Local branch state: `cycle/022/integration` is ahead of `origin/cycle/022/integration` by 2 commits (human operator push pending).
