@@ -12,6 +12,7 @@ from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.demand import DemandScoreCalculator
 from src.scoring.feasibility import NewSellerFeasibilityCalculator
+from src.scoring.final import FinalRecommendationScoreCalculator
 from src.scoring.intent import ConversionIntentScoreCalculator
 from src.scoring.opportunity import OpportunityScoreCalculator
 from src.scoring.profitability import ProfitabilityScoreCalculator
@@ -259,6 +260,7 @@ async def score_keyword(
     weakness_calculator = GigQualityWeaknessScoreCalculator()
     trend_calculator = TrendScoreCalculator()
     confidence_modifier_calculator = ConfidenceScoreModifier()
+    final_calculator = FinalRecommendationScoreCalculator()
 
     source_evidence: list[str] = []
     missing_data_warnings: list[str] = []
@@ -321,7 +323,18 @@ async def score_keyword(
     confidence_breakdown = dict(confidence_modifier_calculator.last_breakdown)
 
     weighted_composite, score_components = calculate_weighted_composite(scores, profile_weights)
-    final_score = calculate_final_score(weighted_composite, confidence_modifier)
+    calculated_final_score = calculate_final_score(weighted_composite, confidence_modifier)
+    final_payload = final_calculator.calculate(
+        keyword_id=keyword_id,
+        profile=profile_name,
+        db={
+            keyword_id: {
+                **scores,
+                "confidence_modifier": confidence_modifier,
+            }
+        },
+    )
+    final_score = calculated_final_score
     tag = assign_tag(final_score, confidence_modifier)
     explanation_text = await _generate_score_explanation(
         keyword_id=keyword_id,
@@ -363,6 +376,7 @@ async def score_keyword(
         "confidence_modifier": confidence_modifier,
         "final_score": final_score,
         "tag": tag,
+        "final_payload": final_payload,
         "score_components": score_components,
         "confidence_breakdown": confidence_breakdown,
         "explanation_text": explanation_text,

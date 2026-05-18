@@ -57,6 +57,7 @@ Implemented:
   - depth-aware calculator execution
   - demand/competition-derived opportunity score path
   - confidence modifier integration
+  - `FinalRecommendationScoreCalculator` execution path for production final payload parity
   - weighted composite -> final score -> tag
   - explanation generation fallback
   - persistence call via `write_keyword_score()`
@@ -143,19 +144,30 @@ Blocked:
 - `Get-Location` stayed at canonical root `C:\Fiverr\Fiverr`.
 - `git worktree list` shows canonical root only.
 - `data/scoring_results/` directory ensured locally and ignored via `.gitignore`.
-- `git log --oneline origin/develop..HEAD` currently empty (no local commits yet in this run), so no main/develop drift was introduced.
+- `git log --oneline origin/develop..HEAD` includes only Cycle 020 branch commits from this run (no `main` changes).
 
 ## Handoff to Agents B/C/D
 
-- Branch handoff target: `cycle/020/integration` at SHA `b29d6bfc60de2e57528776a69e88109bc18c625c` plus uncommitted Agent A changes in working tree.
+- Branch handoff target: `cycle/020/integration` at current `HEAD` SHA with Agent A scoped scoring pipeline commits applied.
 - Files locked by Agent A:
   - `src/scoring/pipeline.py`
   - `tests/unit/test_scoring_pipeline.py`
 - Files available to Agent B:
-  - calculator modules under `src/scoring/` with SQLAlchemy-backed input wiring opportunities.
+  - `src/scoring/demand.py`
+  - `src/scoring/competition.py`
+  - `src/scoring/opportunity.py`
+  - `src/scoring/feasibility.py`
+  - `src/scoring/profitability.py`
+  - `src/scoring/intent.py`
+  - `src/scoring/saturation_score.py`
+  - `src/scoring/trend.py`
+  - `src/scoring/weakness.py`
+  - SQLAlchemy query integration targets: keyword/core market inputs from `src/models/market.py`, scoring persistence from `src/models/scoring.py`.
 - Files available to Agent C:
   - E05 recommendation engine implementation path from `PM_Pack/ref/project_plan/06_analysis/RECOMMENDATION_ENGINE.md`.
+  - LLM-integration stub-heavy scoring modules (8): `competition.py`, `feasibility.py`, `profitability.py`, `intent.py`, `saturation_score.py`, `weakness.py`, `trend.py`, `pipeline.py` explanation path.
 - Exported types/functions available for integration:
   - `score_keyword`, `score_keyword_batch`, `write_keyword_score`
   - `assign_tag`, `detect_red_flags_from_scores`
   - `SCORING_PROFILES`, `calculate_weighted_composite`, `calculate_final_score`
+  - Existing score contracts in `src/scoring/contracts.py` remain available for typed payload interop.
