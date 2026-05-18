@@ -101,7 +101,7 @@ def dashboard_command(mode: str) -> None:
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")
 def run_command(mode: str, config_path: str, database_url: str | None) -> None:
-    """Run foundation-stage orchestrator entrypoint."""
+    """Run foundation-stage orchestrator entrypoint with mode routing."""
     raise SystemExit(
         run_pipeline(
             mode=mode,

@@ -45,15 +45,20 @@
 
 ## Codex Query Result (Explicit)
 
-- Query executed (GraphQL equivalent with variables for PowerShell-safe quoting):
-  - `gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{id isResolved isOutdated comments(first:3){nodes{author{login}body}}}}}}}' -f owner=KevinSGarrett -f name=Fiverr -F number=25`
-- Codex review query for PR #25 (raw result):
-  - `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6Ct1yj","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"...Decouple candidate lookup from new run identifier..."}]}},{"id":"PRRT_kwDOSbqwNc6Ct1yo","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"...Surface recommendations-only failures instead of masking them..."}]}},{"id":"PRRT_kwDOSbqwNc6Ct1yq","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"...Honor persistence outcome before incrementing generated count..."}]}}]}}}}}`
+- Prompt-specified literal query form was attempted and failed under local PowerShell quoting with:
+  - `Argument 'owner' ... invalid value (KevinSGarrett). Expected type 'String!'`
+- Executed equivalent GraphQL query using variables:
+  - `gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{id isResolved isOutdated comments(first:5){nodes{author{login}body}}}}}}}' -f owner=KevinSGarrett -f name=Fiverr -F number=25`
+- Codex review query for PR #25 (raw result excerpt):
+  - `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6Ct1yj","isResolved":true,...},{"id":"PRRT_kwDOSbqwNc6Ct1yo","isResolved":true,...},{"id":"PRRT_kwDOSbqwNc6Ct1yq","isResolved":true,...}]}}}}}`
 - Total threads found: `3`
 - Disposition:
-  - `PRRT_kwDOSbqwNc6Ct1yj` → `VALID_CARRY_FORWARD` (post-merge discovery; requires follow-up hardening task)
-  - `PRRT_kwDOSbqwNc6Ct1yo` → `VALID_CARRY_FORWARD` (error-masking concern in recommendations-only branch)
-  - `PRRT_kwDOSbqwNc6Ct1yq` → `VALID_CARRY_FORWARD` (generated counter behavior in recommendations stage)
+  - `PRRT_kwDOSbqwNc6Ct1yj` → `VALID_FIXED` (non-numeric run-id fallback fixed + regression test)
+  - `PRRT_kwDOSbqwNc6Ct1yo` → `VALID_FIXED` (recommendations-only error masking fixed + regression test)
+  - `PRRT_kwDOSbqwNc6Ct1yq` → `VALID_FIXED` (generated-count persistence handling fixed + regression test)
+- Thread actions completed:
+  - Replied to all three threads with required disposition format.
+  - Resolved all three threads via GraphQL `resolveReviewThread` mutation.
 
 ## Stage 14 Design
 
@@ -103,8 +108,8 @@
 - `python -m ruff check .` → pass
 - `python -m mypy src` → pass (`Success: no issues found in 157 source files`)
 - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
-  - `1024 passed`
-  - coverage `93.52%`
+  - `1026 passed`
+  - coverage `93.51%`
 - `python run.py config-check` → pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle022.db` → pass
 - `python run.py phase2-smoke` → pass
@@ -140,4 +145,4 @@
 - Agent B handoff note:
   - "Stage 14 explanation feature-flagged. score_keyword in --mode full. Agent B: build E06 S6.3 price distribution analysis runner."
 - Agent A implementation SHA: `fa77821e10d703ec49868d5c1c043228275d2a2f`
-- Local branch state: `cycle/022/integration` is ahead of `origin/cycle/022/integration` by 2 commits (human operator push pending).
+- Local branch state: `cycle/022/integration` is ahead of `origin/cycle/022/integration` by 4 commits (human operator push pending).

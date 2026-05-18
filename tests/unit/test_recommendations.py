@@ -746,6 +746,26 @@ def test_get_eligible_keywords_returns_empty_when_no_go_tags() -> None:
     assert rows == []
 
 
+def test_get_eligible_keywords_non_numeric_run_id_uses_latest_final_scores() -> None:
+    db = FakeDB(
+        {
+            FinalScore: [
+                SimpleNamespace(keyword_id=101, final_score=80.0, created_at=datetime(2026, 1, 2, tzinfo=UTC), raw_json={"tag": "STRONG_GO"}),
+                SimpleNamespace(keyword_id=101, final_score=75.0, created_at=datetime(2026, 1, 1, tzinfo=UTC), raw_json={"tag": "CONDITIONAL_GO"}),
+                SimpleNamespace(keyword_id=102, final_score=30.0, created_at=datetime(2026, 1, 3, tzinfo=UTC), raw_json={"tag": "PASS"}),
+            ],
+            Keyword: [
+                SimpleNamespace(id=101, keyword="k1", niche_id=12, metadata_json={}),
+                SimpleNamespace(id=102, keyword="k2", niche_id=12, metadata_json={}),
+            ],
+        }
+    )
+    rows = get_eligible_keywords("run-abc", db, _context_config())
+    assert len(rows) == 1
+    assert rows[0]["keyword_id"] == 101
+    assert rows[0]["final_score"] == 80.0
+
+
 def test_build_context_missing_keyword_returns_safe_default_object() -> None:
     context = build_recommendation_context(12345, FakeDB({}), _context_config())
     assert context is not None
@@ -762,3 +782,20 @@ def test_run_recommendations_stage_counts_invalid_keyword_as_failed(monkeypatch:
     summary = asyncio.run(run_recommendations_stage("run-6", db=Mock(), config={}, llm_client=None, cache=None))
     assert summary["failed"] == 1
     assert summary["generated"] == 0
+
+
+def test_run_recommendations_stage_write_failure_counts_failed(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 808, "final_score": 70.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    monkeypatch.setattr("src.recommendations.run.should_regenerate_recommendation", lambda keyword_id, score, db: True)
+    monkeypatch.setattr(
+        "src.recommendations.run.build_recommendation_context",
+        lambda keyword_id, db, config: RecommendationContext(keyword_id=keyword_id, keyword_text="k", niche_id=1),
+    )
+    monkeypatch.setattr("src.recommendations.run.write_recommendation", lambda *args, **kwargs: False)
+    summary = asyncio.run(run_recommendations_stage("run-7", db=Mock(), config={}, llm_client=None, cache=None))
+    assert summary["generated"] == 0
+    assert summary["failed"] == 1

@@ -346,7 +346,6 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         from src.recommendations.run import run_recommendations_stage
 
         run_id = timestamp_stamp()
-        result: dict[str, Any]
         try:
             session_factory = create_session_factory(engine)
             with get_session(session_factory) as db_session:
@@ -360,50 +359,9 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
                         dry_run=True,
                     )
                 )
-        except Exception:
-            class _EmptyQuery:
-                def filter(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
-                    return self
-
-                def order_by(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
-                    return self
-
-                def join(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
-                    return self
-
-                def all(self) -> list[Any]:
-                    return []
-
-                def first(self) -> Any:
-                    return None
-
-                def count(self) -> int:
-                    return 0
-
-            class _EmptyDB:
-                def query(self, model: Any) -> _EmptyQuery:
-                    del model
-                    return _EmptyQuery()
-
-                def add(self, row: Any) -> None:
-                    del row
-
-                def commit(self) -> None:
-                    return None
-
-                def rollback(self) -> None:
-                    return None
-
-            result = asyncio.run(
-                run_recommendations_stage(
-                    run_id=run_id,
-                    db=_EmptyDB(),
-                    config=config_payload,
-                    llm_client=None,
-                    cache=None,
-                    dry_run=True,
-                )
-            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Recommendations stage failed: {exc}")
+            return 1
         print(f"Recommendations stage complete: {result}")
         return 0
 

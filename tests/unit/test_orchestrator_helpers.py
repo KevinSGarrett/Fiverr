@@ -395,7 +395,10 @@ def test_run_pipeline_recommendations_only_uses_stage_runner(
     assert "Recommendations stage complete" in capsys.readouterr().out
 
 
-def test_run_pipeline_recommendations_only_fallback_empty_db(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_pipeline_recommendations_only_returns_error_on_stage_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     class _FakeLoader:
         def __init__(self, _config_path: str) -> None:
             pass
@@ -403,22 +406,10 @@ def test_run_pipeline_recommendations_only_fallback_empty_db(monkeypatch: pytest
         def load(self) -> object:
             return object()
 
-    async def _fake_stage(**kwargs: Any) -> dict[str, Any]:
-        db = kwargs["db"]
-        query = db.query(object())
-        assert query.filter().order_by().join().all() == []
-        assert query.first() is None
-        assert query.count() == 0
-        db.add(object())
-        db.commit()
-        db.rollback()
-        return {"generated": 0, "failed": 0}
-
     monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
     monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
     monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
     monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: (_ for _ in ()).throw(RuntimeError("no session")))
-    monkeypatch.setattr("src.recommendations.run.run_recommendations_stage", _fake_stage)
-
-    assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 0
+    assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 1
+    assert "Recommendations stage failed" in capsys.readouterr().out
