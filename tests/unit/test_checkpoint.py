@@ -93,6 +93,14 @@ def test_checkpoint_read_corrupt(tmp_path: Path) -> None:
     assert manager.read("stage04", "niche_a") is None
 
 
+def test_checkpoint_read_non_mapping_payload_returns_none(tmp_path: Path) -> None:
+    manager = CheckpointManager(run_id="run_001", data_dir=str(tmp_path))
+    checkpoint_path = tmp_path / "checkpoints" / "run_001" / "stage04_niche_a.json"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_path.write_text('["not", "a", "mapping"]', encoding="utf-8")
+    assert manager.read("stage04", "niche_a") is None
+
+
 def test_checkpoint_cleanup(tmp_path: Path) -> None:
     manager = CheckpointManager(run_id="run_001", data_dir=str(tmp_path))
     manager.write("stage04", "niche_a", {"records_complete": 5})
@@ -114,7 +122,22 @@ def test_checkpoint_list_checkpoints(tmp_path: Path) -> None:
     assert [checkpoint["stage"] for checkpoint in checkpoints] == ["stage01", "stage02"]
 
 
+def test_checkpoint_list_skips_malformed_checkpoint_filenames(tmp_path: Path) -> None:
+    manager = CheckpointManager(run_id="run_001", data_dir=str(tmp_path))
+    malformed = tmp_path / "checkpoints" / "run_001" / "stage01.json"
+    malformed.parent.mkdir(parents=True, exist_ok=True)
+    malformed.write_text("{}", encoding="utf-8")
+    assert manager.list_checkpoints() == []
+
+
 def test_checkpoint_find_latest_run_none(tmp_path: Path) -> None:
+    assert CheckpointManager.find_latest_run(str(tmp_path)) is None
+
+
+def test_checkpoint_find_latest_run_returns_none_for_empty_run_dirs(tmp_path: Path) -> None:
+    checkpoint_root = tmp_path / "checkpoints"
+    (checkpoint_root / "run_empty_a").mkdir(parents=True)
+    (checkpoint_root / "run_empty_b").mkdir(parents=True)
     assert CheckpointManager.find_latest_run(str(tmp_path)) is None
 
 

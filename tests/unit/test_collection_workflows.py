@@ -469,6 +469,32 @@ def test_get_top_n_dict_db() -> None:
     assert get_top_n_gig_urls_for_keyword(1, "standard", db={"fake": "db"}) == []
 
 
+def test_get_top_n_with_sqlalchemy_session_returns_stub_list() -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine("sqlite:///:memory:", future=True)
+    session = sessionmaker(bind=engine)()
+    try:
+        assert get_top_n_gig_urls_for_keyword(1, "standard", db=session) == []
+    finally:
+        session.close()
+
+
+def test_get_top_n_handles_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import builtins
+
+    original_import = builtins.__import__
+
+    def _fake_import(name: str, *args: object, **kwargs: object):
+        if name == "sqlalchemy.orm":
+            raise ImportError("sqlalchemy unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    assert get_top_n_gig_urls_for_keyword(1, "full", db=None) == []
+
+
 def test_parse_gig_detail_fields_stub() -> None:
     result = parse_gig_detail_fields({"any": "payload"})
     expected_keys = {
