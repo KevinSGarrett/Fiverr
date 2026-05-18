@@ -336,6 +336,20 @@ def test_get_niche_config_for_keyword_from_session() -> None:
     session.close()
 
 
+def test_get_niche_config_for_keyword_from_list_payload() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    config = {
+        "niches": [
+            {"niche_id": "999", "starter_prices": {"basic": 10, "standard": 20, "premium": 30}},
+            {"niche_id": "1", "starter_prices": {"basic": 70, "standard": 140, "premium": 210}},
+        ]
+    }
+    niche_config = pricing_orchestrator._get_niche_config_for_keyword(keyword_id=keyword_id, db=session, config=config)
+    assert niche_config["starter_prices"]["basic"] == 70
+    session.close()
+
+
 def test_run_pricing_stage_empty_keywords() -> None:
     summary = pricing_orchestrator.run_pricing_stage(
         run_id="run-empty",

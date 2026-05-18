@@ -304,7 +304,10 @@ def test_run_pipeline_initializes_database_and_prints_mode(
 
         def load(self) -> object:
             calls["loaded"] = True
-            return SimpleNamespace(scoring=SimpleNamespace(active_profile="default"), model_dump=lambda: {"niches": {}})
+            return SimpleNamespace(
+                scoring=SimpleNamespace(active_profile="default"),
+                model_dump=lambda: {"niches": [{"niche_id": "12"}]},
+            )
 
     monkeypatch.setattr(orchestrator, "configure_logging", lambda: calls.setdefault("logged", True))
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)

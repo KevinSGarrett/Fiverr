@@ -393,7 +393,17 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             or config_payload.get("scoring", {}).get("active_profile")
             or "default"
         )
-        niche_ids = [int(niche_id) for niche_id in config_payload.get("niches", {}).keys() if str(niche_id).isdigit()]
+        niche_ids: list[int] = []
+        niches_payload = config_payload.get("niches", [])
+        if isinstance(niches_payload, dict):
+            niche_ids = [int(niche_id) for niche_id in niches_payload.keys() if str(niche_id).isdigit()]
+        elif isinstance(niches_payload, list):
+            for niche in niches_payload:
+                if not isinstance(niche, dict):
+                    continue
+                niche_id = niche.get("niche_id")
+                if niche_id is not None and str(niche_id).isdigit():
+                    niche_ids.append(int(niche_id))
         session_factory = create_session_factory(engine)
         with get_session(session_factory) as db_session:
             keyword_query = db_session.query(Keyword.id)

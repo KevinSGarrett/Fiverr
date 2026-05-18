@@ -69,14 +69,22 @@ def _get_niche_config_for_keyword(keyword_id: int, db: Any, config: dict[str, An
         niche_id = getattr(keyword, "niche_id", None)
 
     niches = config.get("niches", {}) if isinstance(config, dict) else {}
-    if not isinstance(niches, dict) or niche_id is None:
+    if niche_id is None:
         return {}
-    return (
-        niches.get(niche_id)
-        or niches.get(str(niche_id))
-        or (niches.get(int(niche_id)) if isinstance(niche_id, int | str) and str(niche_id).isdigit() else None)
-        or {}
-    )
+    if isinstance(niches, dict):
+        return (
+            niches.get(niche_id)
+            or niches.get(str(niche_id))
+            or (niches.get(int(niche_id)) if isinstance(niche_id, int | str) and str(niche_id).isdigit() else None)
+            or {}
+        )
+    if isinstance(niches, list):
+        for niche in niches:
+            if not isinstance(niche, dict):
+                continue
+            if str(niche.get("niche_id")) == str(niche_id):
+                return niche
+    return {}
 
 
 class PricingOrchestrator:
