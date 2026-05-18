@@ -88,6 +88,13 @@
   - `pytest`: `1002 passed`
   - coverage: `93.00%`
   - config/foundation/smoke: pass
+- Final rerun on latest pushed SHA:
+  - `python -m ruff check .` -> pass
+  - `python -m mypy src` -> pass
+  - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `1002 passed`, coverage `93.00%`
+  - `python run.py config-check` -> pass
+  - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle021.db` -> pass
+  - `python run.py phase2-smoke` -> pass
 
 ## Jira Comments Posted
 
@@ -111,8 +118,8 @@
 - Codex findings:
   - No Codex review threads/comments posted on PR #25 (`0 findings`).
 - Final pushed SHA freeze:
-  - `git rev-parse origin/cycle/021/integration` -> `a955888164f095cfc6bac2f96ee3aab7280abad7`
-  - PR head SHA matches (`headRefOid = a955888164f095cfc6bac2f96ee3aab7280abad7`).
+  - `git rev-parse origin/cycle/021/integration` -> `7964ec9ebd763e89eafa86009803a7dbc9829ffe`
+  - PR head SHA matches (`headRefOid = 7964ec9ebd763e89eafa86009803a7dbc9829ffe`).
   - Final freeze comments posted to PR (latest freeze uses final SHA).
 
 ## Merge Readiness
