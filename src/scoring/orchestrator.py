@@ -203,9 +203,10 @@ class ScoringOrchestrator:
                 explanation="Scoring not yet implemented — stub compatibility path.",
             )
         keyword_id = scoring_input.keyword_id if scoring_input.keyword_id is not None else -1
+        db_payload = self._materialize_single_input_db(scoring_input)
         run_result = self.run(
             keyword_ids=[keyword_id],
-            db=scoring_input,
+            db=db_payload,
             profile=scoring_input.profile_name,
         )
         first_result = run_result.ranked_keywords[0] if run_result.ranked_keywords else {}
@@ -247,8 +248,16 @@ class ScoringOrchestrator:
         present_scores = sum(1 for value in score_values if value is not None)
         completeness_ratio = present_scores / max(1, len(score_values))
         warnings: list[str] = []
+        source_evidence: list[str] = []
+        missing_reddit_signal = False
         for result in results.values():
             warnings.extend(getattr(result, "missing_data_warnings", []))
+            source_evidence.extend(getattr(result, "source_evidence", []))
+            confidence_breakdown = getattr(result, "confidence_breakdown", {}) or {}
+            if any("missing_reddit" in str(key) for key in confidence_breakdown):
+                missing_reddit_signal = True
+        reddit_signal_evidence = any("reddit" in entry.lower() for entry in source_evidence)
+        reddit_warning_missing = any("reddit_not_implemented" in warning for warning in warnings)
         return {
             "data_completeness_ratio": completeness_ratio,
             "data_freshness_score": 1.0,
@@ -257,7 +266,9 @@ class ScoringOrchestrator:
             "google_trends_available": getattr(results["trend_result"], "score_value", None) is not None,
             "gig_detail_collected": True,
             "seller_profiles_collected": True,
-            "reddit_signals_available": True,
+            "reddit_signals_available": (
+                reddit_signal_evidence and not missing_reddit_signal and not reddit_warning_missing
+            ),
             "llm_gig_quality_incomplete_count": sum(
                 1 for warning in warnings if "llm_not_implemented" in warning
             ),
@@ -269,3 +280,18 @@ class ScoringOrchestrator:
             "data_ttl_hours": 168.0,
             "mode": "standard",
         }
+
+    @staticmethod
+    def _materialize_single_input_db(scoring_input: ScoringInput) -> dict[int, dict[str, Any]]:
+        keyword_id = scoring_input.keyword_id if scoring_input.keyword_id is not None else -1
+        merged_signals: dict[str, Any] = {}
+        merged_signals.update(scoring_input.demand_signals)
+        merged_signals.update(scoring_input.competition_signals)
+        merged_signals.update(scoring_input.opportunity_signals)
+        merged_signals.update(scoring_input.feasibility_signals)
+        merged_signals.update(scoring_input.profitability_signals)
+        merged_signals.update(scoring_input.intent_signals)
+        merged_signals.update(scoring_input.saturation_signals)
+        merged_signals.update(scoring_input.weakness_signals)
+        merged_signals.update(scoring_input.trend_signals)
+        return {keyword_id: merged_signals}

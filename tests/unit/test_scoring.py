@@ -7,6 +7,7 @@ from typing import Any
 
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
+from src.scoring.contracts import ScoringInput
 from src.scoring.demand import DemandScoreCalculator
 from src.scoring.feasibility import NewSellerFeasibilityCalculator
 from src.scoring.final import FinalRecommendationScoreCalculator
@@ -1576,3 +1577,63 @@ def test_orchestrator_error_list() -> None:
     )
     result = orchestrator.run([1201], db, profile="default")
     assert isinstance(result.errors, list)
+
+
+def test_orchestrator_score_uses_scoring_input_signals() -> None:
+    orchestrator = ScoringOrchestrator()
+    rich_input = ScoringInput(
+        run_id=1,
+        keyword_id=1201,
+        profile_name="default",
+        demand_signals=_base_demand_inputs(),
+        competition_signals=_base_competition_inputs(),
+        feasibility_signals=_base_feasibility_inputs(),
+        profitability_signals=_base_profitability_inputs(),
+        intent_signals=_base_intent_inputs(),
+        saturation_signals=_base_saturation_inputs(),
+        weakness_signals=_base_weakness_inputs(),
+        trend_signals=_base_trend_inputs(),
+    )
+    sparse_input = replace(
+        rich_input,
+        demand_signals={},
+        competition_signals={},
+        feasibility_signals={},
+        profitability_signals={},
+        intent_signals={},
+        saturation_signals={},
+        weakness_signals={},
+        trend_signals={},
+    )
+
+    rich_output = orchestrator.score(rich_input)
+    sparse_output = orchestrator.score(sparse_input)
+
+    assert rich_output.composite_score > sparse_output.composite_score
+    assert rich_output.raw_json.get("component_scores", {}).get("demand_score") is not None
+
+
+def test_orchestrator_run_context_marks_missing_reddit_signals() -> None:
+    orchestrator = ScoringOrchestrator()
+    demand_inputs = _base_demand_inputs()
+    demand_inputs["reddit_demand_intent_score"] = None
+    intent_inputs = _base_intent_inputs()
+    intent_inputs["reddit_demand_intent_score"] = None
+    trend_inputs = _base_trend_inputs()
+    trend_inputs["reddit_recent_post_volume"] = None
+    trend_inputs["reddit_historical_post_volume"] = None
+
+    db = _db_with_inputs(
+        demand_inputs=demand_inputs,
+        competition_inputs=_base_competition_inputs(),
+        feasibility_inputs=_base_feasibility_inputs(),
+        profitability_inputs=_base_profitability_inputs(),
+        intent_inputs=intent_inputs,
+        saturation_inputs=_base_saturation_inputs(),
+        weakness_inputs=_base_weakness_inputs(),
+        trend_inputs=trend_inputs,
+        keyword_id=1201,
+    )
+    result = orchestrator.run([1201], db, profile="default")
+    confidence_breakdown = result.keyword_results[0]["confidence_breakdown"]
+    assert confidence_breakdown["missing_reddit_signals"] == -0.05
