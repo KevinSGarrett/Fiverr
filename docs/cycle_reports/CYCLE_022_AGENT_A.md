@@ -96,7 +96,7 @@
   - `test_score_keyword_explanation_populated`
   - `test_mode_full_smoke`
 - `python -m pytest -q tests/unit/test_scoring_pipeline.py` result:
-  - `34 passed`
+  - `37 passed`
 
 ## Validation Block
 
