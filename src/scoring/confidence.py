@@ -3,7 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
+
+from sqlalchemy.orm import Session
+
+from src.models import (
+    ExternalSignal,
+    Gig,
+    GigVisualAnalysis,
+    Keyword,
+    NicheConfigRecord,
+    SearchResult,
+    Seller,
+)
 
 
 class ConfidenceScoreModifier:
@@ -92,6 +105,8 @@ class ConfidenceScoreModifier:
         context = dict(run_context or {})
         if context:
             return context
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if db is not None and hasattr(db, "get_confidence_inputs"):
             loaded = db.get_confidence_inputs(keyword_id)
             return dict(loaded or {})
@@ -100,6 +115,83 @@ class ConfidenceScoreModifier:
             if isinstance(loaded, Mapping):
                 return dict(loaded)
         return {}
+
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
+        top_results = (
+            session.query(SearchResult)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        gig_ids = [result.gig_id for result in top_results if result.gig_id is not None]
+        seller_ids = [
+            seller_id
+            for seller_id in (
+                session.query(Gig.seller_id)
+                .filter(Gig.id.in_(gig_ids))
+                .all()
+                if gig_ids
+                else []
+            )
+            if seller_id[0] is not None
+        ]
+        gig_visual_count = (
+            session.query(GigVisualAnalysis)
+            .join(Gig, GigVisualAnalysis.gig_id == Gig.id)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id)
+            .count()
+        )
+        gig_detail_collected = (gig_visual_count > 0) or (len(gig_ids) > 0)
+        seller_profiles_collected = len(seller_ids) > 0
+        reddit_count = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type.in_(["reddit_demand", "reddit_activity"]),
+            )
+            .count()
+        )
+        google_trends_available = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "google_trends",
+            )
+            .count()
+            > 0
+        )
+        freshest = self._latest_timestamp(keyword, top_results, keyword_id, session)
+        now = datetime.now(UTC)
+        data_age_hours = (
+            max(0.0, (now - freshest).total_seconds() / 3600.0)
+            if freshest is not None and freshest.tzinfo is not None
+            else 0.0
+        )
+        current_depth = "standard"
+        if keyword is not None:
+            config = session.query(NicheConfigRecord).filter(NicheConfigRecord.niche_id == str(keyword.niche_id)).first()
+            if config is not None and config.depth:
+                current_depth = str(config.depth)
+        available_sources = sum([google_trends_available, gig_detail_collected, seller_profiles_collected, reddit_count > 0])
+        source_diversity = min(1.0, available_sources / 4.0)
+        data_completeness = min(1.0, available_sources / 4.0)
+        return {
+            "data_completeness_ratio": data_completeness,
+            "data_freshness_score": max(0.0, min(1.0, 1.0 - (data_age_hours / 168.0))),
+            "source_diversity_score": source_diversity,
+            "llm_analysis_completion_ratio": 1.0,
+            "google_trends_available": google_trends_available,
+            "gig_detail_collected": gig_detail_collected,
+            "seller_profiles_collected": seller_profiles_collected,
+            "reddit_signals_available": reddit_count > 0,
+            "llm_gig_quality_incomplete_count": 0.0,
+            "llm_competitor_synthesis_failed": False,
+            "data_age_hours": data_age_hours,
+            "data_ttl_hours": 168.0,
+            "mode": current_depth,
+        }
 
     @staticmethod
     def _as_float(value: Any, default: float) -> float:
@@ -127,3 +219,47 @@ class ConfidenceScoreModifier:
     @staticmethod
     def _clamp_0_1(value: float) -> float:
         return max(0.0, min(1.0, value))
+
+    @staticmethod
+    def _latest_timestamp(
+        keyword: Keyword | None,
+        top_results: list[SearchResult],
+        keyword_id: int,
+        session: Session,
+    ) -> datetime | None:
+        timestamps: list[datetime] = []
+        if keyword is not None and isinstance(keyword.updated_at, datetime):
+            timestamps.append(keyword.updated_at)
+        for result in top_results:
+            if isinstance(result.updated_at, datetime):
+                timestamps.append(result.updated_at)
+        newest_signal = (
+            session.query(ExternalSignal)
+            .filter(ExternalSignal.keyword_id == keyword_id)
+            .order_by(ExternalSignal.updated_at.desc())
+            .first()
+        )
+        if newest_signal is not None and isinstance(newest_signal.updated_at, datetime):
+            timestamps.append(newest_signal.updated_at)
+        newest_gig = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id)
+            .order_by(Gig.updated_at.desc())
+            .first()
+        )
+        if newest_gig is not None and isinstance(newest_gig.updated_at, datetime):
+            timestamps.append(newest_gig.updated_at)
+        newest_seller = (
+            session.query(Seller)
+            .join(Gig, Gig.seller_id == Seller.id)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id)
+            .order_by(Seller.updated_at.desc())
+            .first()
+        )
+        if newest_seller is not None and isinstance(newest_seller.updated_at, datetime):
+            timestamps.append(newest_seller.updated_at)
+        if not timestamps:
+            return None
+        return max(timestamps)

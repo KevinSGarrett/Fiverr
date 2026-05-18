@@ -28,6 +28,8 @@ data/screenshots/
 data/checkpoints/
 data/sessions/
 data/exports/
+data/scoring_results/
+data/recommendation_results/
 data/*.db
 data/*.sqlite
 data/*.sqlite3

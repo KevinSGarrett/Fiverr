@@ -6,6 +6,9 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import SearchResult
 from src.scoring.contracts import FeasibilityScoreResult, ScoreComponent
 
 
@@ -217,6 +220,8 @@ class NewSellerFeasibilityCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_feasibility_inputs"):
             loaded = db.get_feasibility_inputs(keyword_id)
             return dict(loaded or {})
@@ -226,6 +231,35 @@ class NewSellerFeasibilityCalculator:
                 return dict(loaded)
         return {}
 
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        top_results = (
+            session.query(SearchResult)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        top_gigs = [result.gig for result in top_results if result.gig is not None]
+        seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
+        accessible_levels = {"", "none", "new", "new seller", "level 1", "level1", "1"}
+        accessible_count = sum(1 for level in seller_levels if level.strip().lower() in accessible_levels)
+        review_candidates = [
+            float(result.gig.review_count)
+            for result in top_results
+            if result.gig is not None and result.gig.review_count is not None
+        ]
+        prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        price_diversity = self._compute_price_diversity(prices)
+        return {
+            "level1_or_new_ratio_top10": (
+                (accessible_count / len(seller_levels)) if seller_levels else None
+            ),
+            "top10_seller_levels": seller_levels or None,
+            "lowest_ranked_review_count_page1": review_candidates[-1] if review_candidates else None,
+            "price_diversity_top10": price_diversity,
+            "top10_prices": prices or None,
+            "llm_gig_quality_weakness_avg_top10": None,
+        }
+
     @staticmethod
     def _as_float(value: Any) -> float | None:
         if value is None:
@@ -234,3 +268,14 @@ class NewSellerFeasibilityCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _compute_price_diversity(prices: list[float]) -> float | None:
+        if len(prices) < 2:
+            return None
+        avg_price = sum(prices) / len(prices)
+        if avg_price <= 0:
+            return 0.0
+        variance = sum((price - avg_price) ** 2 for price in prices) / len(prices)
+        std_dev = math.sqrt(variance)
+        return max(0.0, min(1.0, std_dev / avg_price))

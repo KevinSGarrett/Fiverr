@@ -3,6 +3,10 @@
 Full implementation: SCRUM-178 through SCRUM-186.
 """
 
+from src.recommendations.context import (
+    RecommendationContext,
+    build_recommendation_context,
+)
 from src.recommendations.contracts import (
     BuyerPersona,
     DescriptionOutline,
@@ -15,7 +19,6 @@ from src.recommendations.contracts import (
     PackageTier,
     PricingStrategy,
     ProfileOptimization,
-    RecommendationContext,
     RecommendationOutput,
     RedFlagsAssessment,
     TagSet,
@@ -24,7 +27,31 @@ from src.recommendations.contracts import (
     UpsellStructure,
     VisualRecommendations,
 )
+from src.recommendations.contracts import (
+    RecommendationContext as RecommendationContractContext,
+)
+from src.recommendations.eligibility import (
+    get_eligible_keywords,
+    passes_recommendation_gates,
+    should_regenerate_recommendation,
+)
 from src.recommendations.orchestrator import RecommendationOrchestrator
+from src.recommendations.storage import write_recommendation
+from src.recommendations.tasks import (
+    RECOMMENDATION_FIELD_NAMES,
+    generate_buyer_persona,
+    generate_description_outline,
+    generate_differentiation_angle,
+    generate_faq_entries,
+    generate_gig_titles,
+    generate_niche_viability,
+    generate_package_structure,
+    generate_recommendation,
+    generate_red_flags,
+    generate_tag_sets,
+    generate_thumbnail_direction,
+    generate_upsell_structure,
+)
 
 __all__ = [
     "BuyerPersona",
@@ -47,4 +74,23 @@ __all__ = [
     "UpsellExtra",
     "UpsellStructure",
     "VisualRecommendations",
+    "RecommendationContractContext",
+    "build_recommendation_context",
+    "get_eligible_keywords",
+    "passes_recommendation_gates",
+    "should_regenerate_recommendation",
+    "write_recommendation",
+    "RECOMMENDATION_FIELD_NAMES",
+    "generate_gig_titles",
+    "generate_tag_sets",
+    "generate_package_structure",
+    "generate_description_outline",
+    "generate_faq_entries",
+    "generate_differentiation_angle",
+    "generate_buyer_persona",
+    "generate_thumbnail_direction",
+    "generate_upsell_structure",
+    "generate_red_flags",
+    "generate_niche_viability",
+    "generate_recommendation",
 ]

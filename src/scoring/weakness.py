@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import Gig, GigVisualAnalysis, Keyword, SearchResult
 from src.scoring.contracts import ScoreComponent, WeaknessScoreResult
 
 
@@ -21,7 +26,13 @@ class GigQualityWeaknessScoreCalculator:
     _PACKAGE_DIFFERENTIATION_INV_WEIGHT = 0.10
     _NICHE_SPECIFICITY_INV_WEIGHT = 0.05
 
-    def calculate(self, keyword_id: int, db: Any) -> WeaknessScoreResult:
+    def calculate(
+        self,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> WeaknessScoreResult:
         """Calculate weakness score with graceful degradation for missing LLM inputs."""
         signals = self._load_signals(keyword_id, db)
         score_components: dict[str, ScoreComponent] = {}
@@ -30,12 +41,25 @@ class GigQualityWeaknessScoreCalculator:
         confidence_breakdown: dict[str, float] = {}
         weighted_sum = 0.0
         total_weight_available = 0.0
+        warn_not_implemented = llm_client is None
+
+        if llm_client is not None:
+            keyword_text = str(signals.get("keyword", "")).strip()
+            llm_values = self._run_async(
+                self._collect_llm_values(keyword_text, signals, llm_client, cache)
+            )
+            for key, value in llm_values.items():
+                if value is not None:
+                    signals[key] = value
+                else:
+                    missing_data_warnings.append(f"{key.replace('llm_', '').replace('_score', '')}_failed")
 
         description_quality = self._resolve_llm_value(
             "llm_description_quality_score",
             signals,
             self._llm_description_quality_stub,
             missing_data_warnings,
+            warn_not_implemented=warn_not_implemented,
         )
         if description_quality is not None:
             description_weakness = self._invert_quality_score(description_quality)
@@ -53,6 +77,7 @@ class GigQualityWeaknessScoreCalculator:
             signals,
             self._llm_weakness_count_stub,
             missing_data_warnings,
+            warn_not_implemented=warn_not_implemented,
         )
         if weakness_count is not None:
             weakness_count_score = self._normalize_weakness_count(weakness_count)
@@ -102,6 +127,7 @@ class GigQualityWeaknessScoreCalculator:
             signals,
             self._llm_thumbnail_quality_stub,
             missing_data_warnings,
+            warn_not_implemented=warn_not_implemented,
         )
         if thumbnail_quality is not None:
             thumbnail_weakness = self._invert_quality_score(thumbnail_quality)
@@ -119,6 +145,7 @@ class GigQualityWeaknessScoreCalculator:
             signals,
             self._llm_faq_completeness_stub,
             missing_data_warnings,
+            warn_not_implemented=warn_not_implemented,
         )
         if faq_completeness is not None:
             faq_weakness = self._invert_quality_score(faq_completeness)
@@ -136,6 +163,7 @@ class GigQualityWeaknessScoreCalculator:
             signals,
             self._llm_package_differentiation_stub,
             missing_data_warnings,
+            warn_not_implemented=warn_not_implemented,
         )
         if package_differentiation is not None:
             package_weakness = self._invert_quality_score(package_differentiation)
@@ -153,6 +181,7 @@ class GigQualityWeaknessScoreCalculator:
             signals,
             self._llm_niche_specificity_stub,
             missing_data_warnings,
+            warn_not_implemented=warn_not_implemented,
         )
         if niche_specificity is not None:
             niche_genericness = self._invert_quality_score(niche_specificity)
@@ -202,17 +231,143 @@ class GigQualityWeaknessScoreCalculator:
             default_weight=self.DEFAULT_WEIGHT,
         )
 
+    async def _collect_llm_values(
+        self,
+        keyword_text: str,
+        signals: dict[str, Any],
+        llm_client: Any,
+        cache: Any | None,
+    ) -> dict[str, float | None]:
+        return {
+            "llm_description_quality_score": await self._get_llm_description_quality(
+                keyword_text, llm_client, cache
+            ),
+            "llm_weakness_count_per_gig": await self._get_llm_weakness_count(
+                keyword_text, llm_client, cache
+            ),
+            "llm_thumbnail_quality_score": await self._get_llm_thumbnail_quality(
+                keyword_text, llm_client, cache
+            ),
+            "llm_faq_completeness_score": await self._get_llm_faq_completeness(
+                keyword_text, llm_client, cache
+            ),
+            "llm_package_differentiation_score": await self._get_llm_package_differentiation(
+                keyword_text, llm_client, cache
+            ),
+            "llm_niche_specificity_score": await self._get_llm_niche_specificity(
+                keyword_text, llm_client, cache
+            ),
+        }
+
+    async def _get_llm_description_quality(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Rate top competitor gig description quality for keyword '{keyword_text}' on a 0-10 scale. "
+            "Respond with only the number."
+        )
+        return await self._get_llm_numeric_score(prompt, "gpt-4o", llm_client, cache)
+
+    async def _get_llm_weakness_count(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Estimate average weakness count per top gig for keyword '{keyword_text}' as a 0-10 value. "
+            "Respond with only the number."
+        )
+        return await self._get_llm_numeric_score(prompt, "gpt-4o", llm_client, cache)
+
+    async def _get_llm_thumbnail_quality(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Rate top competitor thumbnail quality for keyword '{keyword_text}' on a 0-10 scale. "
+            "Respond with only the number."
+        )
+        return await self._get_llm_numeric_score(prompt, "gpt-4o-mini", llm_client, cache)
+
+    async def _get_llm_faq_completeness(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Rate FAQ completeness for top gigs in keyword '{keyword_text}' on a 0-10 scale. "
+            "Respond with only the number."
+        )
+        return await self._get_llm_numeric_score(prompt, "gpt-4o-mini", llm_client, cache)
+
+    async def _get_llm_package_differentiation(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Rate package differentiation for top gigs in keyword '{keyword_text}' on a 0-10 scale. "
+            "Respond with only the number."
+        )
+        return await self._get_llm_numeric_score(prompt, "gpt-4o", llm_client, cache)
+
+    async def _get_llm_niche_specificity(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Rate niche specificity for top gigs in keyword '{keyword_text}' on a 0-10 scale. "
+            "Respond with only the number."
+        )
+        return await self._get_llm_numeric_score(prompt, "gpt-4o", llm_client, cache)
+
+    async def _get_llm_numeric_score(
+        self,
+        prompt: str,
+        model: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        try:
+            response = await asyncio.to_thread(
+                self._complete_with_optional_cache,
+                llm_client,
+                prompt,
+                model,
+                cache,
+            )
+        except Exception:
+            return None
+        text = self._extract_llm_text(response).strip()
+        try:
+            return float(text)
+        except ValueError:
+            return None
+
     def _resolve_llm_value(
         self,
         key: str,
         signals: dict[str, Any],
         fallback: Callable[[], float | None],
         warnings: list[str],
+        *,
+        warn_not_implemented: bool = True,
     ) -> float | None:
         explicit = self._as_float(signals.get(key))
         if explicit is not None:
             return explicit
-        warnings.append(f"llm_not_implemented: missing {key}.")
+        if warn_not_implemented:
+            warnings.append(f"llm_not_implemented: missing {key}.")
         return self._as_float(fallback())
 
     @staticmethod
@@ -272,6 +427,8 @@ class GigQualityWeaknessScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_weakness_inputs"):
             loaded = db.get_weakness_inputs(keyword_id)
             return dict(loaded or {})
@@ -281,6 +438,37 @@ class GigQualityWeaknessScoreCalculator:
                 return dict(loaded)
         return {}
 
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        gig_ids = [gig.id for gig in top_gigs]
+        video_presence_map: dict[int, bool] = {}
+        if gig_ids:
+            visual_rows = (
+                session.query(GigVisualAnalysis)
+                .filter(GigVisualAnalysis.gig_id.in_(gig_ids))
+                .order_by(GigVisualAnalysis.created_at.desc())
+                .all()
+            )
+            for row in visual_rows:
+                if row.gig_id not in video_presence_map and row.has_video is not None:
+                    video_presence_map[row.gig_id] = bool(row.has_video)
+        top10_has_video = [self._resolve_has_video(gig, video_presence_map.get(gig.id)) for gig in top_gigs]
+        top10_has_portfolio = [self._resolve_has_portfolio(gig) for gig in top_gigs]
+        return {
+            "keyword": keyword.keyword if keyword else "",
+            "video_absence_rate": self._absence_rate_from_presence(top10_has_video),
+            "portfolio_absence_rate": self._absence_rate_from_presence(top10_has_portfolio),
+            "top10_has_video": top10_has_video or None,
+            "top10_has_portfolio": top10_has_portfolio or None,
+        }
+
     @staticmethod
     def _as_float(value: Any) -> float | None:
         if value is None:
@@ -289,3 +477,52 @@ class GigQualityWeaknessScoreCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _resolve_has_video(gig: Gig, visual_flag: bool | None) -> bool | None:
+        if visual_flag is not None:
+            return visual_flag
+        metadata = gig.metadata_json if isinstance(gig.metadata_json, dict) else {}
+        value = metadata.get("has_video")
+        return value if isinstance(value, bool) else None
+
+    @staticmethod
+    def _resolve_has_portfolio(gig: Gig) -> bool | None:
+        metadata = gig.metadata_json if isinstance(gig.metadata_json, dict) else {}
+        value = metadata.get("has_portfolio")
+        return value if isinstance(value, bool) else None
+
+    @staticmethod
+    def _absence_rate_from_presence(values: list[bool | None]) -> float | None:
+        known = [value for value in values if isinstance(value, bool)]
+        if not known:
+            return None
+        return 1.0 - (sum(1 for value in known if value) / len(known))
+
+    @staticmethod
+    def _complete_with_optional_cache(
+        llm_client: Any,
+        prompt: str,
+        model: str,
+        cache: Any | None,
+    ) -> Any:
+        try:
+            return llm_client.complete(prompt=prompt, model=model, cache=cache)
+        except TypeError:
+            return llm_client.complete(prompt=prompt, model=model)
+
+    @staticmethod
+    def _extract_llm_text(response: Any) -> str:
+        if isinstance(response, str):
+            return response
+        text = getattr(response, "text", None)
+        return text if isinstance(text, str) else str(response)
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()

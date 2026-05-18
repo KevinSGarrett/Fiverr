@@ -7,6 +7,8 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.contracts import ScoreDimension, ScoringInput, ScoringOutput, ScoringRunResult
@@ -64,23 +66,24 @@ class ScoringOrchestrator:
         run_id = f"score_run_{timestamp_stamp(started_at)}"
         errors: list[str] = []
         keyword_results: list[dict[str, Any]] = []
+        calculator_db: Any = db if isinstance(db, Session) else db
 
         for keyword_id in keyword_ids:
             try:
-                demand_result = self._demand_calculator.calculate(keyword_id, db)
-                competition_result = self._competition_calculator.calculate(keyword_id, db)
+                demand_result = self._demand_calculator.calculate(keyword_id, calculator_db)
+                competition_result = self._competition_calculator.calculate(keyword_id, calculator_db)
                 opportunity_result = self._opportunity_calculator.calculate(
                     keyword_id,
-                    db,
+                    calculator_db,
                     demand_result=demand_result,
                     competition_result=competition_result,
                 )
-                feasibility_result = self._feasibility_calculator.calculate(keyword_id, db)
-                profitability_result = self._profitability_calculator.calculate(keyword_id, db)
-                intent_result = self._intent_calculator.calculate(keyword_id, db)
-                saturation_result = self._saturation_calculator.calculate(keyword_id, db)
-                weakness_result = self._weakness_calculator.calculate(keyword_id, db)
-                trend_result = self._trend_calculator.calculate(keyword_id, db)
+                feasibility_result = self._feasibility_calculator.calculate(keyword_id, calculator_db)
+                profitability_result = self._profitability_calculator.calculate(keyword_id, calculator_db)
+                intent_result = self._intent_calculator.calculate(keyword_id, calculator_db)
+                saturation_result = self._saturation_calculator.calculate(keyword_id, calculator_db)
+                weakness_result = self._weakness_calculator.calculate(keyword_id, calculator_db)
+                trend_result = self._trend_calculator.calculate(keyword_id, calculator_db)
 
                 run_context = self._build_run_context(
                     demand_result=demand_result,
@@ -94,7 +97,7 @@ class ScoringOrchestrator:
                     trend_result=trend_result,
                 )
 
-                confidence_modifier = self._confidence_modifier.calculate(keyword_id, run_context, db)
+                confidence_modifier = self._confidence_modifier.calculate(keyword_id, run_context, calculator_db)
                 confidence_breakdown = dict(self._confidence_modifier.last_breakdown)
 
                 component_scores = {

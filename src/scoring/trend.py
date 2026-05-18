@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import ExternalSignal, Keyword
 from src.scoring.contracts import ScoreComponent, TrendScoreResult
 
 
@@ -25,7 +30,13 @@ class TrendScoreCalculator:
         "STRONGLY_DECLINING": 0.0,
     }
 
-    def calculate(self, keyword_id: int, db: Any) -> TrendScoreResult:
+    def calculate(
+        self,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> TrendScoreResult:
         """Calculate trend score payload for the provided keyword."""
         signals = self._load_signals(keyword_id, db)
         score_components: dict[str, ScoreComponent] = {}
@@ -82,7 +93,25 @@ class TrendScoreCalculator:
         else:
             missing_data_warnings.append("reddit_not_implemented: missing Reddit activity trend signal.")
 
-        llm_classification = self._resolve_llm_trend_classification(signals, missing_data_warnings)
+        llm_classification: str | None
+        if llm_client is not None:
+            llm_classification = self._run_async(
+                self._get_llm_trend_class(
+                    str(signals.get("keyword") or ""),
+                    slope_value,
+                    llm_client,
+                    cache,
+                )
+            )
+            if llm_classification is None:
+                missing_data_warnings.append("llm_trend_failed: unable to classify trend via LLM.")
+        else:
+            llm_classification = self._resolve_llm_trend_classification(signals, missing_data_warnings)
+
+        if llm_classification is None:
+            llm_classification = "STABLE"
+            if llm_client is None:
+                missing_data_warnings.append("llm_not_implemented: defaulted llm_trend_classification to STABLE.")
         llm_score = self._LLM_CLASSIFICATION_MAP[llm_classification]
         score_components["llm_trend_classification"] = ScoreComponent(
             value=llm_score,
@@ -186,6 +215,31 @@ class TrendScoreCalculator:
         warnings.append("llm_not_implemented: defaulted llm_trend_classification to STABLE.")
         return "STABLE"
 
+    async def _get_llm_trend_class(
+        self,
+        keyword_text: str,
+        slope_value: float | None,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> str | None:
+        prompt = (
+            f"Classify the trend for keyword '{keyword_text}' with slope {slope_value}. "
+            "Respond with exactly one of: STRONGLY_RISING, RISING, STABLE, DECLINING, "
+            "STRONGLY_DECLINING"
+        )
+        try:
+            response = await asyncio.to_thread(
+                self._complete_with_optional_cache,
+                llm_client,
+                prompt,
+                "gpt-4o-mini",
+                cache,
+            )
+        except Exception:
+            return None
+        text = self._extract_llm_text(response).strip().upper()
+        return text if text in self._LLM_CLASSIFICATION_MAP else None
+
     @staticmethod
     def _linear_slope(values: list[float]) -> float:
         n = len(values)
@@ -229,6 +283,8 @@ class TrendScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_trend_inputs"):
             loaded = db.get_trend_inputs(keyword_id)
             return dict(loaded or {})
@@ -238,6 +294,44 @@ class TrendScoreCalculator:
                 return dict(loaded)
         return {}
 
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
+        google_trends = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "google_trends",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        reddit = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type.in_(["reddit_demand", "reddit_activity"]),
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        trends_raw = google_trends.raw_value_json if google_trends and isinstance(google_trends.raw_value_json, dict) else {}
+        reddit_raw = reddit.raw_value_json if reddit and isinstance(reddit.raw_value_json, dict) else {}
+        return {
+            "keyword": keyword.keyword if keyword else "",
+            "trends_12mo_score": self._as_float(trends_raw.get("trends_12mo_score")),
+            "trends_3mo_score": self._as_float(trends_raw.get("trends_3mo_score")),
+            "trends_3mo_avg": self._as_float(trends_raw.get("trends_3mo_avg")),
+            "trends_12mo_avg": self._as_float(trends_raw.get("trends_12mo_avg")),
+            "google_trends_3mo_series": trends_raw.get("google_trends_3mo_series"),
+            "google_trends_12mo_series": trends_raw.get("google_trends_12mo_series"),
+            "google_trends_slope": self._as_float(trends_raw.get("google_trends_slope")),
+            "reddit_activity_trend_score": self._as_float(
+                reddit_raw.get("reddit_activity_trend_score", reddit_raw.get("reddit_activity_trend"))
+            ),
+            "reddit_recent_post_volume": self._as_float(reddit_raw.get("reddit_recent_post_volume")),
+            "reddit_historical_post_volume": self._as_float(reddit_raw.get("reddit_historical_post_volume")),
+        }
+
     @staticmethod
     def _as_float(value: Any) -> float | None:
         if value is None:
@@ -246,3 +340,31 @@ class TrendScoreCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _complete_with_optional_cache(
+        llm_client: Any,
+        prompt: str,
+        model: str,
+        cache: Any | None,
+    ) -> Any:
+        try:
+            return llm_client.complete(prompt=prompt, model=model, cache=cache)
+        except TypeError:
+            return llm_client.complete(prompt=prompt, model=model)
+
+    @staticmethod
+    def _extract_llm_text(response: Any) -> str:
+        if isinstance(response, str):
+            return response
+        text = getattr(response, "text", None)
+        return text if isinstance(text, str) else str(response)
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()

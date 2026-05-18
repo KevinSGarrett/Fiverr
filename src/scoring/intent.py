@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 import re
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models import ExternalSignal, Gig, Keyword, SearchResult
 from src.scoring.contracts import IntentScoreResult, ScoreComponent
 
 
@@ -31,7 +36,13 @@ class ConversionIntentScoreCalculator:
         "TRANSACTIONAL": 100.0,
     }
 
-    def calculate(self, keyword_id: int, db: Any) -> IntentScoreResult:
+    def calculate(
+        self,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> IntentScoreResult:
         """Calculate a conversion intent score payload for the provided keyword."""
         signals = self._load_signals(keyword_id, db)
         score_components: dict[str, ScoreComponent] = {}
@@ -86,6 +97,10 @@ class ConversionIntentScoreCalculator:
             missing_data_warnings.append("Missing average review count signal from top gigs.")
 
         llm_intent_raw = signals.get("llm_buyer_intent_classification")
+        if llm_client is not None and keyword_text:
+            llm_intent_raw = self._run_async(self._get_llm_intent_class(keyword_text, llm_client, cache))
+            if llm_intent_raw is None:
+                missing_data_warnings.append("llm_intent_failed: unable to classify buyer intent via LLM.")
         llm_intent_class = ""
         if isinstance(llm_intent_raw, str):
             llm_intent_class = llm_intent_raw.strip().upper()
@@ -173,6 +188,58 @@ class ConversionIntentScoreCalculator:
             default_weight=self.DEFAULT_WEIGHT,
         )
 
+    async def _get_llm_intent_class(
+        self,
+        keyword_text: str,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> str | None:
+        prompt = (
+            "Classify buyer intent for the Fiverr keyword below. "
+            "Return exactly one token from: INFORMATIONAL, CONSIDERATION, HIGH_INTENT, TRANSACTIONAL.\n"
+            f"Keyword: {keyword_text}"
+        )
+        try:
+            response = await asyncio.to_thread(
+                self._complete_with_optional_cache,
+                llm_client,
+                prompt,
+                "gpt-4o-mini",
+                cache,
+            )
+        except Exception:
+            return None
+        text = self._extract_llm_text(response).strip().upper()
+        return text if text in self._LLM_INTENT_MAP else None
+
+    @staticmethod
+    def _complete_with_optional_cache(
+        llm_client: Any,
+        prompt: str,
+        model: str,
+        cache: Any | None,
+    ) -> Any:
+        try:
+            return llm_client.complete(prompt=prompt, model=model, cache=cache)
+        except TypeError:
+            return llm_client.complete(prompt=prompt, model=model)
+
+    @staticmethod
+    def _extract_llm_text(response: Any) -> str:
+        if isinstance(response, str):
+            return response
+        text = getattr(response, "text", None)
+        return text if isinstance(text, str) else str(response)
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()
+
     def _resolve_commercial_modifier_score(self, signals: dict[str, Any], keyword_text: str) -> float | None:
         explicit_modifier_score = self._as_float(signals.get("commercial_modifier_score"))
         if explicit_modifier_score is not None:
@@ -212,6 +279,8 @@ class ConversionIntentScoreCalculator:
     def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
         if db is None:
             return {}
+        if isinstance(db, Session):
+            return self._load_signals_from_db(keyword_id, db)
         if hasattr(db, "get_intent_inputs"):
             loaded = db.get_intent_inputs(keyword_id)
             return dict(loaded or {})
@@ -220,6 +289,35 @@ class ConversionIntentScoreCalculator:
             if isinstance(loaded, Mapping):
                 return dict(loaded)
         return {}
+
+    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
+        top_gigs = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        review_counts = [float(gig.review_count) for gig in top_gigs if gig.review_count is not None]
+        keyword_meta = keyword.metadata_json if keyword else {}
+        reddit_demand = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "reddit_demand",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
+        reddit_raw = reddit_demand.raw_value_json if reddit_demand and isinstance(reddit_demand.raw_value_json, dict) else {}
+        return {
+            "keyword": keyword.keyword if keyword else "",
+            "autocomplete_position": keyword_meta.get("autocomplete_position"),
+            "avg_review_count_top10": (sum(review_counts) / len(review_counts)) if review_counts else None,
+            "llm_buyer_intent_classification": keyword_meta.get("intent_classification"),
+            "reddit_demand_intent_score": reddit_raw.get("reddit_demand_intent_score"),
+        }
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
