@@ -229,6 +229,10 @@ def test_get_latest_keyword_score_none_for_missing() -> None:
     session.close()
 
 
+def test_get_latest_keyword_score_none_for_non_session_db() -> None:
+    assert get_latest_keyword_score(keyword_id=1, db=object()) is None
+
+
 def test_keyword_score_index_exists() -> None:
     names = {index.name for index in KeywordScore.__table__.indexes}
     assert "ix_keyword_scores_keyword_scored_at" in names

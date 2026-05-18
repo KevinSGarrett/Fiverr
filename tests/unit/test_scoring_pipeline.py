@@ -375,3 +375,46 @@ def test_validate_scoring_profile_accepts_999_total() -> None:
 
 def test_calculate_final_score_applies_confidence_floor_for_zero_modifier() -> None:
     assert calculate_final_score(100.0, 0.0) == 20.0
+
+
+def test_write_keyword_score_rolls_back_on_session_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from src.models import Base, Keyword, Niche
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="rollback", name="Rollback", category_path="x/y")
+    session.add(niche)
+    session.flush()
+    session.add(Keyword(niche_id=niche.id, keyword="rollback", normalized_keyword="rollback"))
+    session.commit()
+
+    rolled_back = {"value": False}
+    original_rollback = session.rollback
+    monkeypatch.setattr(session, "merge", lambda _row: (_ for _ in ()).throw(RuntimeError("merge failure")))
+
+    def _tracked_rollback() -> None:
+        rolled_back["value"] = True
+        original_rollback()
+
+    monkeypatch.setattr(session, "rollback", _tracked_rollback)
+    ok = write_keyword_score(
+        keyword_id=1,
+        scores={"demand_score": 10.0},
+        weighted_composite=10.0,
+        confidence_modifier=1.0,
+        final_score=10.0,
+        tag="PASS",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="x",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        db=session,
+    )
+    assert ok is True
+    assert rolled_back["value"] is True

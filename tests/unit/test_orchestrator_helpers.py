@@ -2,7 +2,6 @@
 """Unit tests for orchestration helper functions."""
 
 from __future__ import annotations
-
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -326,3 +325,73 @@ def test_run_pipeline_initializes_database_and_prints_mode(
 def test_run_pipeline_rejects_unsupported_mode() -> None:
     with pytest.raises(ValueError, match="Unsupported mode"):
         orchestrator.run_pipeline("unknown-mode")
+
+
+def test_run_pipeline_recommendations_only_uses_stage_runner(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    class _FakeConfig:
+        @staticmethod
+        def model_dump() -> dict[str, Any]:
+            return {"recommendations": {"min_tag": "CONDITIONAL_GO"}}
+
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> _FakeConfig:
+            return _FakeConfig()
+
+    async def _fake_stage(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["run_id"]
+        assert kwargs["dry_run"] is True
+        return {"generated": 1, "failed": 0}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.recommendations.run.run_recommendations_stage", _fake_stage)
+
+    assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 0
+    assert "Recommendations stage complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_recommendations_only_fallback_empty_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return object()
+
+    async def _fake_stage(**kwargs: Any) -> dict[str, Any]:
+        db = kwargs["db"]
+        query = db.query(object())
+        assert query.filter().order_by().join().all() == []
+        assert query.first() is None
+        assert query.count() == 0
+        db.add(object())
+        db.commit()
+        db.rollback()
+        return {"generated": 0, "failed": 0}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: (_ for _ in ()).throw(RuntimeError("no session")))
+    monkeypatch.setattr("src.recommendations.run.run_recommendations_stage", _fake_stage)
+
+    assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 0

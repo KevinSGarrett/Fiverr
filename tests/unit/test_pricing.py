@@ -14,9 +14,11 @@ from src.pricing.new_seller_pricing import (
     _build_price_ladder,
     _calculate_moat_adjustment,
     _calculate_undercut,
+    _coerce_positive,
     _find_gap_opportunity,
     _get_floor_price,
     _lerp,
+    _resolve_starter_prices,
     calculate_new_seller_pricing,
     project_revenue_at_entry_pricing,
 )
@@ -233,6 +235,29 @@ def test_confidence_high_n() -> None:
 
 def test_confidence_low_n() -> None:
     assert _assess_pricing_confidence(_price_analysis(basic_n=4)) == "LOW"
+
+
+def test_calculate_undercut_handles_low_sample_and_negative_skew() -> None:
+    value = _calculate_undercut(_price_analysis(market_type="FRAGMENTED", basic_n=2, basic_skewness=-0.5))
+    assert value == 0.20
+
+
+def test_find_gap_ignores_non_dict_entries() -> None:
+    gap, used = _find_gap_opportunity(_price_analysis(basic_gaps=["skip", {"gap_midpoint": 70, "pct_of_range": 5}]))
+    assert gap is None
+    assert used is False
+
+
+def test_resolve_starter_prices_supports_metadata_fallback() -> None:
+    basic, standard, premium = _resolve_starter_prices(
+        {"metadata": {"starter_price_basic": 80, "starter_price_standard": 190, "starter_price_premium": 330}}
+    )
+    assert (basic, standard, premium) == (80.0, 190.0, 330.0)
+
+
+def test_coerce_positive_uses_fallback_for_invalid_values() -> None:
+    assert _coerce_positive("bad", 42.0) == 42.0
+    assert _coerce_positive(0, 42.0) == 42.0
 
 
 def test_calculate_new_seller_pricing_fallback_when_median_none() -> None:
