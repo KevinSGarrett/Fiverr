@@ -123,7 +123,7 @@
 
 - Posted to `SCRUM-231` (comment id `11105`):
   - "Cycle 022 Agent D: pricing pipeline stage wired..." (required wording and command list included)
-- Posted to `SCRUM-511` (comment id `11106`):
+- Posted to `SCRUM-511` (comment ids `11106`, `11107`):
   - Final control summary including PR URL, frozen SHA, test count, coverage, Codex thread count, codecov/patch status, and merge readiness.
 
 ## PR #26
@@ -144,17 +144,17 @@
 ## Codex Review Query and Disposition
 
 Codex review query for PR #26 (number `26`):
-Raw result: `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6CulvW","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P1 list-shaped config niches in full mode"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: 34d65c8"}]}},{"id":"PRRT_kwDOSbqwNc6Culva","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P2 list-shaped niche config lookup in pricing stage"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: 34d65c8"}]}}]}}}}}`
+Raw result: `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6CulvW","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P1 list-shaped config niches in full mode"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: f6fc6f5"}]}},{"id":"PRRT_kwDOSbqwNc6Culva","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P2 list-shaped niche config lookup in pricing stage"},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED ... Commit: f6fc6f5"}]}}]}}}}}`
 Total threads found: `2`
 
 Disposition details:
 - `PRRT_kwDOSbqwNc6CulvW` -> `VALID_FIXED`
   - Fix: full-mode niche-id extraction now supports list-shaped `config["niches"]`.
-  - Evidence: `src/orchestrator.py`, `tests/unit/test_orchestrator_helpers.py`, `python -m pytest -q tests/unit/test_orchestrator_helpers.py`, commit `34d65c8`.
+  - Evidence: `src/orchestrator.py`, `tests/unit/test_orchestrator_helpers.py`, `python -m pytest -q tests/unit/test_orchestrator_helpers.py`, commit `f6fc6f5`.
   - Reply posted and thread resolved.
 - `PRRT_kwDOSbqwNc6Culva` -> `VALID_FIXED`
   - Fix: pricing niche config lookup now supports both dict and list `config["niches"]`.
-  - Evidence: `src/pricing/orchestrator.py`, `tests/unit/test_pricing.py`, `python -m pytest -q tests/unit/test_pricing.py`, commit `34d65c8`.
+  - Evidence: `src/pricing/orchestrator.py`, `tests/unit/test_pricing.py`, `python -m pytest -q tests/unit/test_pricing.py`, commit `f6fc6f5`.
   - Reply posted and thread resolved.
 
 ## Mandatory Merge Gate Checklist
@@ -182,9 +182,9 @@ FINAL:
 
 ## Final SHA Freeze
 
-- `git rev-parse origin/cycle/022/integration`: `34d65c8f79d7a02e8db755cb20adae53fedbf398`
-- PR head SHA match: YES (`34d65c8f79d7a02e8db755cb20adae53fedbf398`)
-- Freeze comment posted on PR #26: YES (`https://github.com/KevinSGarrett/Fiverr/pull/26#issuecomment-4474753096`)
+- `git rev-parse origin/cycle/022/integration`: `f6fc6f51c7c7870fe6a7334696cd56c0c4c2cbad`
+- PR head SHA match: YES (`f6fc6f51c7c7870fe6a7334696cd56c0c4c2cbad`)
+- Freeze comment posted on PR #26: YES (`https://github.com/KevinSGarrett/Fiverr/pull/26#issuecomment-4474770626`)
 
 ## Artifact Hygiene / Guardrails
 
