@@ -124,6 +124,12 @@ Executed focused retry coverage command set:
 - `python -m pytest -q --cov=src.scheduler.retry_handler --cov-report=term-missing tests/unit/test_retry_handler.py tests/unit/test_queue_processor.py`
 - `python -m pytest -q --cov=src.scheduler.exceptions --cov-report=term-missing tests/unit/test_retry_handler.py tests/unit/test_queue_processor.py`
 
+Exact prompt command rerun (post-fix final confirmation):
+
+- `python -m pytest -q tests/unit/test_retry_handler.py` (`21 passed`)
+- `python -m pytest -q --cov=src.scheduler.retry_handler --cov-report=term-missing` (`99%`)
+- `python -m pytest -q --cov=src.scheduler.exceptions --cov-report=term-missing` (`100%`)
+
 Results:
 
 - `src.scheduler.retry_handler`: `99%`
@@ -162,6 +168,7 @@ Results:
   - `git branch --show-current` -> `cycle/025/integration`
   - `git worktree list` -> single worktree on cycle branch
 - Pre-commit HEAD SHA (before Agent B commit): `fcc5e82122b36ab1fe43cff2bdc7cbb37cfe893f`
+- Agent B commit SHA: `50ba0a313cdc1a08b118d628cf769008274306e0`
 
 ## Changed Files (Agent B Scope)
 
