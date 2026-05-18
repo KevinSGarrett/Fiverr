@@ -174,7 +174,8 @@ Required full validation block:
 
 ## Handoff to Agent C
 
-- Current local SHA at report generation time: `003fb5d6e1d52ca9132ef89ed6715d5729014d8b`
+- Current local SHA at handoff completion: `20d89b713f5c62f306f76d18bc7194683c76f4b6`
+- Push status: `cycle/019/integration` pushed to `origin/cycle/019/integration` (up to date).
 - Files locked from Agent A+B scope:
   - `src/scoring/demand.py`
   - `src/scoring/competition.py`
