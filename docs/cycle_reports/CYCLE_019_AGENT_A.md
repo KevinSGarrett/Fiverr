@@ -205,3 +205,44 @@ Test coverage by story:
   - return typed score-result payloads with component breakdown + confidence + warnings + evidence
   - keep null-safe `<30%` data sufficiency rule for sparse-path resilience
 
+## Preflight Condition Resolution (Task R-4/R-5 Addendum)
+
+- Diagnosis:
+  - At addendum start, `git status --short --branch` showed three tracked unstaged files:
+    - `PM_Pack/07_hydration/HYDRATION_HEADER.md`
+    - `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
+    - `PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md`
+  - No staged changes (`git diff --cached --name-only` was empty).
+  - Untracked files were workspace artifacts under `PM_Pack/...`, plus `_export.py` and `_repo_files.zip`.
+- Classification:
+  - **MEDIUM (tracked unstaged docs drift):**
+    - `PM_Pack/07_hydration/HYDRATION_HEADER.md`
+    - `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
+    - `PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md`
+  - **NONE (untracked workspace noise):**
+    - All `??` paths from `git status --porcelain`, including:
+      - `PM_Pack/03_cursor_agent_system/...`
+      - `PM_Pack/04_jira_protocol/...`
+      - `PM_Pack/09_templates/...`
+      - `PM_Pack/10_cycle_log/...`
+      - `PM_Pack/CYCLE_019_PM_RESPONSE.md`
+      - `_export.py`
+      - `_repo_files.zip`
+  - **HIGH:** none (no staged-but-uncommitted tracked files).
+- Resolution:
+  - Applied R-5 remediation by discarding only the three tracked PM_Pack drifts using:
+    - `git checkout -- PM_Pack/07_hydration/HYDRATION_HEADER.md PM_Pack/07_hydration/STATE_SNAPSHOT.md PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md`
+  - Rechecked status:
+    - `git status --porcelain` now shows only `??` lines (untracked files), no `M/A/D/R` tracked changes.
+- Merge-base SHA (develop intersection cycle branch):
+  - `git merge-base develop cycle/019/integration` -> `2b00e3285a0566119b97cd18f5258faff4d7ebd3`
+  - `git rev-parse develop` -> `2b00e3285a0566119b97cd18f5258faff4d7ebd3`
+  - This confirms cycle branch ancestry is correct from post-audit develop HEAD.
+- Branch integrity confirmed: YES
+  - `git log --oneline cycle/019/integration | first 10` contains scoring commit `63d8bc0` and subsequent report-sync commits.
+  - `git show --stat 63d8bc0018955c96e07152d74990a9a25d2b02fe` confirms expected scoring files (`demand.py`, `competition.py`, `opportunity.py`, `contracts.py`, `test_scoring.py`, ledger/report updates).
+- Scoring tests on final branch:
+  - Targeted: `python -m pytest -q tests/unit/test_scoring.py` -> `30 passed`
+  - Full suite evidence: `python -m pytest -q --cov=src ...` -> `740 passed`, coverage `93.75%`
+- Status: RESOLVED — no restart required
+
