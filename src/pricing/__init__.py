@@ -14,12 +14,20 @@ from src.pricing.contracts import (
     PricingInput,
     PricingOutput,
 )
+from src.pricing.new_seller_pricing import (
+    PricingRecommendation,
+    calculate_new_seller_pricing,
+    project_revenue_at_entry_pricing,
+)
 from src.pricing.orchestrator import PricingOrchestrator
 
 __all__ = [
     "EntryPricingRecommendation",
     "PriceDistribution",
+    "PricingRecommendation",
     "PricingInput",
     "PricingOutput",
     "PricingOrchestrator",
+    "calculate_new_seller_pricing",
+    "project_revenue_at_entry_pricing",
 ]
