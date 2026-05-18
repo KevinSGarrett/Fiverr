@@ -10,9 +10,27 @@ from __future__ import annotations
 
 from src.scoring.contracts import ScoringInput, ScoringOutput
 from src.scoring.orchestrator import ScoringOrchestrator
+from src.scoring.pipeline import (
+    SCORING_PROFILES,
+    assign_tag,
+    calculate_final_score,
+    calculate_weighted_composite,
+    detect_red_flags_from_scores,
+    score_keyword,
+    score_keyword_batch,
+    write_keyword_score,
+)
 
 __all__ = [
+    "SCORING_PROFILES",
     "ScoringInput",
     "ScoringOutput",
     "ScoringOrchestrator",
+    "assign_tag",
+    "calculate_final_score",
+    "calculate_weighted_composite",
+    "detect_red_flags_from_scores",
+    "score_keyword",
+    "score_keyword_batch",
+    "write_keyword_score",
 ]
