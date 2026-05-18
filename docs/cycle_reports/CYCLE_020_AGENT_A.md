@@ -114,16 +114,11 @@ From `PM_Pack/ref/project_plan/06_analysis/RECOMMENDATION_ENGINE.md`, key design
 
 Completed:
 
-- Verified target issues and planned transitions/comments content.
-
-Blocked:
-
-- Jira write operations (`createJiraIssue`, `transitionJiraIssue`, `addCommentToJiraIssue`) could not be executed from this environment because MCP tool invocation currently rejects required argument payloads at call boundary.
-- Impacted tasks:
-  - Transition `SCRUM-508` to Done and comment merge evidence
-  - Create/transition `SCRUM-509`
-  - Transition/comment `SCRUM-19`
-  - Comment updates for `SCRUM-175` and `SCRUM-177`
+- `SCRUM-508` transitioned to `Done` (transition id `41`), comment added (`11014`) with merge SHA + cycle closure evidence.
+- `SCRUM-509` created as Story and transitioned to `In Progress` (transition id `21`), control comment added (`11012`).
+- `SCRUM-19` queried at `To Do`, transitioned to `In Progress` (transition id `21`), epic correction comment added (`11013`).
+- `SCRUM-175` Cycle 020 composite/final formula comment added (`11016`).
+- `SCRUM-177` Cycle 020 orchestration/persistence comment added (`11015`).
 
 ## Ledger Update
 
