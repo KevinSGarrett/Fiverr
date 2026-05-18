@@ -16,6 +16,7 @@ from src.discovery import (
     score_hypothesis_signals,
     update_candidate_status,
 )
+from src.discovery.hypothesis import _coerce_json_payload
 from src.models.database import create_session_factory, initialize_database
 from src.models.discovery import DiscoveryCandidate
 
@@ -445,3 +446,7 @@ def test_generate_hypotheses_skips_malformed_items() -> None:
     )
     assert len(result) == 1
     assert result[0]["hypothesis_text"] == "AI process documentation advisor"
+
+
+def test_coerce_json_payload_non_string_returns_none() -> None:
+    assert _coerce_json_payload(SimpleNamespace(text=123)) is None

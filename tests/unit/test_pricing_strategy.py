@@ -13,6 +13,8 @@ from pydantic import ValidationError
 from src.recommendations.context import RecommendationContext
 from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
+    _complete_pricing_strategy,
+    _extract_usage_cost,
     generate_pricing_strategy,
     generate_recommendation,
 )
@@ -183,3 +185,61 @@ def test_generate_recommendation_12_tasks(monkeypatch: Any) -> None:
 
 def test_field_names_count() -> None:
     assert len(RECOMMENDATION_FIELD_NAMES) == 12
+
+
+def test_entry_prices_premium_must_exceed_standard() -> None:
+    with pytest.raises(ValidationError):
+        EntryPrices(
+            basic=25,
+            standard=40,
+            premium=40,
+            lead_tier="basic",
+            lead_tier_reasoning="This payload intentionally sets an invalid premium ordering for coverage.",
+        )
+
+
+def test_pricing_strategy_ladder_descending_rejected() -> None:
+    payload = _valid_strategy_payload()
+    payload["price_ladder"][1]["basic"] = 45
+    with pytest.raises(ValidationError):
+        PricingStrategy(**payload)
+
+
+def test_generate_pricing_strategy_llm_none_with_price_distribution() -> None:
+    context = _pricing_context()
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=None, cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
+
+
+def test_complete_pricing_strategy_requires_complete_method() -> None:
+    class MissingComplete:
+        pass
+
+    with pytest.raises(AttributeError):
+        asyncio.run(_complete_pricing_strategy(MissingComplete(), "prompt"))
+
+
+def test_complete_pricing_strategy_falls_back_without_response_format() -> None:
+    class StrictClient:
+        def complete(self, **kwargs: Any) -> Any:
+            if "response_format" in kwargs:
+                raise TypeError("response_format unsupported")
+            return SimpleNamespace(text='{"pricing_strategy": {}}')
+
+    response = asyncio.run(_complete_pricing_strategy(StrictClient(), "prompt"))
+    assert response.text == '{"pricing_strategy": {}}'
+
+
+def test_complete_pricing_strategy_awaits_coroutine_result() -> None:
+    class AsyncClient:
+        async def complete(self, **kwargs: Any) -> Any:
+            del kwargs
+            return SimpleNamespace(text='{"pricing_strategy": {}}', usage_cost=0.02)
+
+    response = asyncio.run(_complete_pricing_strategy(AsyncClient(), "prompt"))
+    assert response.usage_cost == 0.02
+
+
+def test_extract_usage_cost_falls_back_to_zero_on_bad_usage() -> None:
+    response = SimpleNamespace(usage_cost="not-a-number", metadata={"estimated_cost_usd": "n/a"})
+    assert _extract_usage_cost(response) == 0.0

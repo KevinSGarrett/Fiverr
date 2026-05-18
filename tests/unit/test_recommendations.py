@@ -28,6 +28,7 @@ from src.models import (
 )
 from src.recommendations.context import RecommendationContext, build_recommendation_context
 from src.recommendations.eligibility import (
+    _coerce_datetime,
     _tags_at_or_above,
     get_eligible_keywords,
     passes_recommendation_gates,
@@ -263,6 +264,15 @@ def test_passes_gates_all_pass() -> None:
     )
     assert ok is True
     assert reason == "All gates passed"
+
+
+def test_coerce_datetime_passthrough_datetime() -> None:
+    now = datetime.now(UTC)
+    assert _coerce_datetime(now) == now
+
+
+def test_coerce_datetime_invalid_string_returns_none() -> None:
+    assert _coerce_datetime("not-a-datetime") is None
 
 
 def test_should_regenerate_no_existing() -> None:
