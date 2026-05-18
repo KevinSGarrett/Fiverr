@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.models.job import Job
+from src.scheduler.retry_handler import execute_with_retry
 
 NEXT_JOB_QUERY = text(
     """
@@ -30,30 +31,6 @@ NEXT_JOB_QUERY = text(
     LIMIT 1
     """
 )
-
-
-async def execute_with_retry(
-    job_func: Callable[..., Any],
-    job: Job,
-    pacing_manager: Any,
-    session_manager: Any,
-    db: Session,
-) -> bool:
-    """Runs job_func with retry logic. Marks job COMPLETE, FAILED, or DEAD_LETTER."""
-    job.mark_running()
-    db.commit()
-    try:
-        await job_func(job, session_manager=session_manager, pacing_manager=pacing_manager, db=db)
-        job.mark_complete()
-        db.commit()
-        return True
-    except Exception as exc:
-        job.mark_failed(str(exc))
-        # Re-queue transient failures while retries remain so the pull query can pick them up.
-        if job.status != "DEAD_LETTER":
-            job.status = "QUEUED"
-        db.commit()
-        return False
 
 
 class QueueProcessor:
@@ -114,8 +91,16 @@ class QueueProcessor:
             self._failed += 1
             return
 
+        async def run_handler(target_job: Job) -> None:
+            await handler(
+                target_job,
+                session_manager=self.session_manager,
+                pacing_manager=self.pacing_manager,
+                db=self.db,
+            )
+
         success = await execute_with_retry(
-            job_func=handler,
+            job_func=run_handler,
             job=job,
             pacing_manager=self.pacing_manager,
             session_manager=self.session_manager,
