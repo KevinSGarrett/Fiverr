@@ -95,15 +95,26 @@
 - `SCRUM-509`: Cycle 021 steward Done confirmation posted.
 - `SCRUM-175`: final E04 open-items comment posted.
 - `SCRUM-177`: final E04 open-items comment posted.
-- `SCRUM-510`: pending final cycle summary comment (to include PR #25 URL and Codex finding count).
+- `SCRUM-510`: final cycle steward summary comment posted (tests/coverage/PR URL/Codex count).
 
 ## PR #25 / CI / Codex / Freeze
 
-- PR #25 URL: pending creation.
-- CI check consolidation: pending PR creation.
-- Codex thread resolution sweep: pending PR creation.
-- Final pushed SHA freeze: pending final push and PR head verification.
+- PR #25 URL: `https://github.com/KevinSGarrett/Fiverr/pull/25`
+- PR title was shortened to satisfy repo `Validate PR` title-length gate (<=72 chars).
+- Large-PR validation gate required `override:large-pr` label; label applied and check re-ran green.
+- CI checks settled:
+  - `Lint, Typecheck, Tests, and Gates`: pass
+  - `codecov/project`: pass
+  - `Dependency Audit`: pass
+  - `Secret Scan`: pass
+  - `Validate PR`: pass
+- Codex findings:
+  - No Codex review threads/comments posted on PR #25 (`0 findings`).
+- Final pushed SHA freeze:
+  - `git rev-parse origin/cycle/021/integration` -> `e4bf024408626cf6f9f4437b74105ec8475768be`
+  - PR head SHA matches (`headRefOid = e4bf024408626cf6f9f4437b74105ec8475768be`).
+  - Final freeze comment posted to PR.
 
 ## Merge Readiness
 
-- Current readiness statement: pending PR #25 creation and CI/Codex completion.
+- PR #25 is ready to merge when approved.
