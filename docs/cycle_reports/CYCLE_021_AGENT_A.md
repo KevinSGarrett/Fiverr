@@ -178,7 +178,7 @@
 
 - `git worktree list` validated canonical root usage.
 - No `main` branch checkout or mutation performed.
-- Agent A head SHA at report capture: `343badcd7aa1d7582b5227e0b6615b46f7c124a4`
+- Agent A final SHA: `ba588c71f2cd49f5f15f74e11f67618e8f9c74fd`
 
 ## Handoff to Agent B
 
