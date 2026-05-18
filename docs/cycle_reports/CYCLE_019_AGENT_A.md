@@ -6,6 +6,7 @@
 - Branch: `cycle/019/integration`
 - Base SHA on branch creation: `2b00e3285a0566119b97cd18f5258faff4d7ebd3`
 - Agent A scoring implementation commit SHA: `63d8bc0018955c96e07152d74990a9a25d2b02fe`
+- Current branch head SHA (post-report sync): `342146dae61dd20a5bfd2adc1072afe32838020d`
 - Jira scope: `SCRUM-19`, `SCRUM-508` (Cycle 019 control), `SCRUM-165` (S4.1), `SCRUM-166` (S4.2), `SCRUM-167` (S4.3), `SCRUM-140`
 
 ## Preflight Output (Mandatory Gate)
@@ -126,13 +127,11 @@ Test coverage by story:
 
 ### Full Cycle Validation Commands
 
-- `python -m ruff check .` -> **blocked by pre-existing unrelated file** `_export.py`
-  - errors in `_export.py`: E401, I001, F401
-  - file existed in dirty tree before Agent A changes
+- `python -m ruff check .` -> pass
 - `python -m mypy src` -> pass
 - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> pass
   - `740 passed`
-  - coverage `93.76%`
+  - coverage `93.75%`
 - `python run.py config-check` -> pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle019.db` -> pass
 - `python run.py phase2-smoke` -> pass
@@ -154,7 +153,15 @@ Test coverage by story:
 - `SCRUM-167` (S4.3): AC advanced via derived opportunity calculator + 8 dedicated tests
 - `SCRUM-508` (control): branch established, implementation baseline complete, validation evidence captured
 - `SCRUM-140`: baseline confirmed with seed test evidence; status recommendation unchanged (In Review)
-- Remaining DoD gaps: broader E04 scope (S4.4-S4.13), full-cycle green `ruff check .` blocked by pre-existing unrelated file
+- Remaining DoD gaps: broader E04 scope (S4.4-S4.13)
+
+## .cursorrules Compliance Check
+
+- One-class-per-file: satisfied (`DemandScoreCalculator`, `CompetitionScoreCalculator`, `OpportunityScoreCalculator` each in dedicated file)
+- Public method type annotations: satisfied for calculator public methods
+- No `print()` statements in production scoring modules: satisfied
+- Line length: verified through `ruff` pass on module + repo-wide checks
+- Deviations: none in Agent A scoring file scope
 
 ## Artifact Hygiene / Guardrails
 
@@ -166,8 +173,8 @@ Test coverage by story:
 ## Risks / Blockers
 
 - Pre-existing dirty working tree on branch entry
-- Required global ruff gate blocked by unrelated pre-existing `_export.py`
 - Remaining E04 calculators pending Agents B/C/D
+- Codex status: N/A until PR
 
 ## Handoff to Agents B/C/D
 
@@ -179,6 +186,17 @@ Test coverage by story:
   - `src/scoring/contracts.py`
 - Existing test file to extend (do not replace):
   - `tests/unit/test_scoring.py`
+- Files available for Agent B:
+  - `src/scoring/feasibility.py`
+  - `src/scoring/profitability.py`
+  - `src/scoring/intent.py`
+  - `src/scoring/saturation_score.py`
+- Files available for Agent C:
+  - `src/scoring/weakness.py`
+  - `src/scoring/trend.py`
+  - `src/scoring/final.py`
+  - `src/scoring/confidence.py`
+  - `src/scoring/ranking.py`
 - Available contract types for downstream calculators:
   - `ScoreComponent`, `ScoreResult`
   - `DemandScoreResult`, `CompetitionScoreResult`, `OpportunityScoreResult`
