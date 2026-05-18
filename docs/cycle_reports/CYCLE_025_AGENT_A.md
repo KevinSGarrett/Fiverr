@@ -37,6 +37,10 @@ Raw result summary:
 - Thread `PRRT_kwDOSbqwNc6C6Re7`: `isResolved=true`
 - Thread `PRRT_kwDOSbqwNc6C6RfA`: `isResolved=true`
 
+Codex query PR #28: raw result (excerpt):
+
+`{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6C6Re7","isResolved":true,"isOutdated":false,...},{"id":"PRRT_kwDOSbqwNc6C6RfA","isResolved":true,"isOutdated":true,...}]}}}}}`
+
 Disposition record:
 
 - Codex query PR #28: raw result captured from GraphQL response.
@@ -206,6 +210,7 @@ Evidence comments posted to:
 ## Artifact Hygiene + Worktree Checks
 
 - `git worktree list` -> single worktree on `cycle/025/integration`
+- `git branch --show-current` -> `cycle/025/integration` (no `main`/`master` checkout)
 - `git status --short data/checkpoints` -> no tracked/staged checkpoint artifacts
 - `.gitignore` already includes `data/checkpoints/`
 
