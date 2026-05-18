@@ -59,6 +59,44 @@ class OpportunityScoreResult(ScoreResult):
 
 
 @dataclass
+class FeasibilityScoreResult(ScoreResult):
+    """Result payload for S4.4 new seller feasibility scoring."""
+
+    keyword_id: int | None = None
+    total_weight_available: float = 0.0
+    default_weight: float = 0.15
+    niche_tier: str = ""
+
+
+@dataclass
+class ProfitabilityScoreResult(ScoreResult):
+    """Result payload for S4.5 profitability scoring."""
+
+    keyword_id: int | None = None
+    total_weight_available: float = 0.0
+    default_weight: float = 0.10
+
+
+@dataclass
+class IntentScoreResult(ScoreResult):
+    """Result payload for S4.6 conversion intent scoring."""
+
+    keyword_id: int | None = None
+    total_weight_available: float = 0.0
+    default_weight: float = 0.10
+
+
+@dataclass
+class SaturationScoreResult(ScoreResult):
+    """Result payload for S4.7 saturation scoring."""
+
+    keyword_id: int | None = None
+    total_weight_available: float = 0.0
+    default_weight: float = 0.05
+    is_inverted: bool = True
+
+
+@dataclass
 class ScoreDimension:
     """Single scored dimension with value, weight, and explanation."""
 
