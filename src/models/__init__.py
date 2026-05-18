@@ -22,6 +22,7 @@ from src.models.base import (
     utc_now,
 )
 from src.models.discovery_cycle import DiscoveryCycleLog
+from src.models.keyword_score import KeywordScore
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
@@ -60,6 +61,7 @@ __all__ = [
     "IntegerPrimaryKeyMixin",
     "JobStatus",
     "Keyword",
+    "KeywordScore",
     "KeywordGigAssociation",
     "LLMCacheRecord",
     "LLMUsageLog",
