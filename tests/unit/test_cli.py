@@ -138,6 +138,15 @@ def test_export_missing_input_returns_nonzero() -> None:
     assert "Missing option '--input-path'" in result.output
 
 
+def test_export_valid_path_calls_stub(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(run_module, "run_export_stub", lambda **_kwargs: 0)
+    runner = CliRunner()
+    input_path = tmp_path / "input.json"
+    input_path.write_text("{}", encoding="utf-8")
+    result = runner.invoke(cli, ["export", "--format", "csv", "--input-path", str(input_path)])
+    assert result.exit_code == 0
+
+
 def test_dashboard_stub_does_not_launch_streamlit() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["dashboard", "--mode", "local"])
@@ -302,3 +311,17 @@ def test_phase2_smoke_reports_collection_and_analysis() -> None:
     assert result.exit_code == 0
     assert "Phase2 smoke OK: collection package" in result.output
     assert "Phase2 smoke OK: analysis package" in result.output
+
+
+def test_run_command_invokes_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run_module, "run_pipeline", lambda **_kwargs: 0)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--mode", "full", "--config-path", "config.yaml"])
+    assert result.exit_code == 0
+
+
+def test_recommendations_only_invokes_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run_module, "run_pipeline", lambda **_kwargs: 0)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["recommendations-only", "--config-path", "config.yaml"])
+    assert result.exit_code == 0

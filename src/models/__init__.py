@@ -22,9 +22,11 @@ from src.models.base import (
     utc_now,
 )
 from src.models.discovery_cycle import DiscoveryCycleLog
+from src.models.keyword_score import KeywordScore
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
+from src.models.pricing import PriceAnalysis
 from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
@@ -60,6 +62,7 @@ __all__ = [
     "IntegerPrimaryKeyMixin",
     "JobStatus",
     "Keyword",
+    "KeywordScore",
     "KeywordGigAssociation",
     "LLMCacheRecord",
     "LLMUsageLog",
@@ -68,6 +71,7 @@ __all__ = [
     "NicheConfigRecord",
     "Order",
     "PricingSnapshot",
+    "PriceAnalysis",
     "Recommendation",
     "Review",
     "RunLog",

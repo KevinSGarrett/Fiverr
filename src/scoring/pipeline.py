@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Awaitable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.demand import DemandScoreCalculator
@@ -439,6 +443,7 @@ def write_keyword_score(
     db: Any,
 ) -> bool:
     """Persist score to KeywordScore model when available, else JSON sidecar fallback."""
+    missing_data_warnings = [key for key, value in scores.items() if value is None]
     payload = {
         "keyword_id": keyword_id,
         **scores,
@@ -452,24 +457,47 @@ def write_keyword_score(
         "red_flags": red_flags,
         "scoring_profile": scoring_profile,
         "score_depth": score_depth,
+        "source_evidence": [],
+        "llm_inputs_used": {},
+        "missing_data_warnings": missing_data_warnings,
+        "niche_tier": "standard",
+        "data_as_of": None,
     }
 
-    keyword_score_model = _resolve_keyword_score_model()
-    if keyword_score_model is not None and hasattr(db, "query"):
+    if isinstance(db, Session):
         try:
-            row = db.query(keyword_score_model).filter(keyword_score_model.keyword_id == keyword_id).first()
-            if row is None:
-                row = keyword_score_model(keyword_id=keyword_id)
-                db.add(row)
-            for key, value in payload.items():
-                if hasattr(row, key):
-                    setattr(row, key, value)
-            if hasattr(db, "commit"):
-                db.commit()
+            row = KeywordScore(
+                keyword_id=keyword_id,
+                scoring_profile=scoring_profile,
+                score_depth=score_depth,
+                scored_at=datetime.now(UTC),
+                data_as_of=None,
+                demand_score=scores.get("demand_score"),
+                competition_score=scores.get("competition_score"),
+                opportunity_score=scores.get("opportunity_score"),
+                feasibility_score=scores.get("feasibility_score"),
+                profitability_score=scores.get("profitability_score"),
+                intent_score=scores.get("intent_score"),
+                saturation_score=scores.get("saturation_score"),
+                weakness_score=scores.get("weakness_score"),
+                trend_score=scores.get("trend_score"),
+                final_score=final_score,
+                confidence_modifier=confidence_modifier,
+                tag=tag,
+                score_components=score_components,
+                confidence_breakdown=confidence_breakdown,
+                explanation_text=explanation_text,
+                red_flags=red_flags,
+                missing_data_warnings=missing_data_warnings,
+                source_evidence=[],
+                llm_inputs_used={},
+                niche_tier="standard",
+            )
+            db.merge(row)
+            db.commit()
             return True
         except Exception:  # noqa: BLE001
-            if hasattr(db, "rollback"):
-                db.rollback()
+            db.rollback()
             logger.exception("DB write failed for keyword %s; falling back to sidecar.", keyword_id)
 
     try:
@@ -480,16 +508,6 @@ def write_keyword_score(
     except OSError:
         logger.exception("Sidecar write failed for keyword %s.", keyword_id)
         return False
-
-
-def _resolve_keyword_score_model() -> Any:
-    try:
-        from src.models import scoring as scoring_models  # noqa: PLC0415
-    except Exception:  # noqa: BLE001
-        return None
-    return getattr(scoring_models, "KeywordScore", None)
-
-
 def _resolve_depth(keyword_id: int, db: Any) -> str:
     if db is not None and hasattr(db, "get_keyword_depth"):
         depth = db.get_keyword_depth(keyword_id)

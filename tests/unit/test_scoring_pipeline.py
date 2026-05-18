@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from src.models import Base, Keyword, Niche
 from src.scoring.pipeline import (
+    DEPTH_SCORE_AVAILABILITY,
     SCORING_PROFILES,
     assign_tag,
     calculate_final_score,
@@ -286,3 +290,129 @@ def test_write_keyword_score_creates_json_sidecar(tmp_path: Path, monkeypatch: p
     payload = json.loads((tmp_path / "200.json").read_text(encoding="utf-8"))
     assert payload["keyword_id"] == 200
     assert payload["tag"] == "CONDITIONAL_GO"
+
+
+def test_score_keyword_handles_sparse_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.scoring import pipeline
+
+    class SparseDB(FakePipelineDB):
+        def __init__(self) -> None:
+            super().__init__(depth="keyword_only")
+            self._base = {}
+
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", tmp_path)
+    result = asyncio.run(score_keyword(404, "default", SparseDB(), llm_client=None, cache=None))
+    assert result["keyword_id"] == 404
+    assert result["scores"]["demand_score"] is None
+    assert result["scores"]["feasibility_score"] is None
+
+
+def test_score_keyword_batch_mixed_success_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.scoring import pipeline
+
+    async def _fake_score_keyword(
+        keyword_id: int,
+        profile_name: str,
+        db: Any,
+        llm_client: Any,
+        cache: Any,
+    ) -> dict[str, Any]:
+        del profile_name, db, llm_client, cache
+        if keyword_id == 2:
+            raise RuntimeError("boom")
+        return {"keyword_id": keyword_id, "final_score": 50.0, "tag": "MONITOR", "persisted": True}
+
+    monkeypatch.setattr(pipeline, "score_keyword", _fake_score_keyword)
+    payload = asyncio.run(score_keyword_batch([1, 2, 3], "default", FakePipelineDB(), None, None))
+    assert len(payload) == 3
+    assert payload[1]["keyword_id"] == 2
+    assert payload[1]["persisted"] is False
+    assert payload[1]["tag"] == "PASS"
+    assert "boom" in payload[1]["error"]
+
+
+def test_write_keyword_score_creates_missing_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.scoring import pipeline
+
+    target_dir = tmp_path / "nested" / "scoring_results"
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", target_dir)
+    ok = write_keyword_score(
+        keyword_id=777,
+        scores={"demand_score": 42.0},
+        weighted_composite=42.0,
+        confidence_modifier=1.0,
+        final_score=42.0,
+        tag="MONITOR",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="ok",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="scores_1_to_5",
+        db=None,
+    )
+    assert ok is True
+    assert target_dir.exists()
+    assert (target_dir / "777.json").exists()
+
+
+def test_detect_red_flags_declining_trend_has_medium_severity() -> None:
+    flags = detect_red_flags_from_scores(
+        {"competition_score": 30.0, "demand_score": 50.0, "trend_score": 24.0},
+        {"confidence_modifier": 0.8},
+        1,
+        None,
+    )
+    assert any(flag["source"] == "trend_score" and flag["severity"] == "MEDIUM" for flag in flags)
+
+
+def test_depth_availability_feasibility_excludes_scores_6_to_9() -> None:
+    feasibility = DEPTH_SCORE_AVAILABILITY["feasibility"]
+    for score_idx in (6, 7, 8, 9):
+        assert score_idx not in feasibility
+
+
+def test_validate_scoring_profile_accepts_999_total() -> None:
+    validate_scoring_profile("tolerant", {"a": 0.333, "b": 0.333, "c": 0.333})
+
+
+def test_calculate_final_score_applies_confidence_floor_for_zero_modifier() -> None:
+    assert calculate_final_score(100.0, 0.0) == 20.0
+
+
+def test_write_keyword_score_rolls_back_on_session_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="rollback", name="Rollback", category_path="x/y")
+    session.add(niche)
+    session.flush()
+    session.add(Keyword(niche_id=niche.id, keyword="rollback", normalized_keyword="rollback"))
+    session.commit()
+
+    rolled_back = {"value": False}
+    original_rollback = session.rollback
+    monkeypatch.setattr(session, "merge", lambda _row: (_ for _ in ()).throw(RuntimeError("merge failure")))
+
+    def _tracked_rollback() -> None:
+        rolled_back["value"] = True
+        original_rollback()
+
+    monkeypatch.setattr(session, "rollback", _tracked_rollback)
+    ok = write_keyword_score(
+        keyword_id=1,
+        scores={"demand_score": 10.0},
+        weighted_composite=10.0,
+        confidence_modifier=1.0,
+        final_score=10.0,
+        tag="PASS",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="x",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        db=session,
+    )
+    assert ok is True
+    assert rolled_back["value"] is True
