@@ -97,6 +97,39 @@ class SaturationScoreResult(ScoreResult):
 
 
 @dataclass
+class WeaknessScoreResult(ScoreResult):
+    """Result payload for S4.8 gig quality weakness scoring."""
+
+    keyword_id: int | None = None
+    total_weight_available: float = 0.0
+    default_weight: float = 0.10
+
+
+@dataclass
+class TrendScoreResult(ScoreResult):
+    """Result payload for S4.9 trend scoring."""
+
+    keyword_id: int | None = None
+    total_weight_available: float = 0.0
+    default_weight: float = 0.05
+
+
+@dataclass
+class ScoringRunResult:
+    """Output payload for orchestrated scoring across a keyword batch."""
+
+    run_id: str
+    started_at: datetime
+    completed_at: datetime
+    keyword_count: int
+    profile_used: str
+    keyword_results: list[dict[str, Any]] = field(default_factory=list)
+    ranked_keywords: list[dict[str, Any]] = field(default_factory=list)
+    grouped_rankings: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ScoreDimension:
     """Single scored dimension with value, weight, and explanation."""
 

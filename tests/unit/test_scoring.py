@@ -6,12 +6,18 @@ from dataclasses import replace
 from typing import Any
 
 from src.scoring.competition import CompetitionScoreCalculator
+from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.demand import DemandScoreCalculator
 from src.scoring.feasibility import NewSellerFeasibilityCalculator
+from src.scoring.final import FinalRecommendationScoreCalculator
 from src.scoring.intent import ConversionIntentScoreCalculator
 from src.scoring.opportunity import OpportunityScoreCalculator
+from src.scoring.orchestrator import ScoringOrchestrator
 from src.scoring.profitability import ProfitabilityScoreCalculator
+from src.scoring.ranking import KeywordRanker
 from src.scoring.saturation_score import SaturationScoreCalculator
+from src.scoring.trend import TrendScoreCalculator
+from src.scoring.weakness import GigQualityWeaknessScoreCalculator
 
 
 class FakeScoringDB:
@@ -25,6 +31,10 @@ class FakeScoringDB:
         profitability_inputs: dict[int, dict[str, Any]] | None = None,
         intent_inputs: dict[int, dict[str, Any]] | None = None,
         saturation_inputs: dict[int, dict[str, Any]] | None = None,
+        weakness_inputs: dict[int, dict[str, Any]] | None = None,
+        trend_inputs: dict[int, dict[str, Any]] | None = None,
+        confidence_inputs: dict[int, dict[str, Any]] | None = None,
+        final_inputs: dict[int, dict[str, Any]] | None = None,
     ) -> None:
         self._demand_inputs = demand_inputs or {}
         self._competition_inputs = competition_inputs or {}
@@ -32,6 +42,10 @@ class FakeScoringDB:
         self._profitability_inputs = profitability_inputs or {}
         self._intent_inputs = intent_inputs or {}
         self._saturation_inputs = saturation_inputs or {}
+        self._weakness_inputs = weakness_inputs or {}
+        self._trend_inputs = trend_inputs or {}
+        self._confidence_inputs = confidence_inputs or {}
+        self._final_inputs = final_inputs or {}
 
     def get_demand_inputs(self, keyword_id: int) -> dict[str, Any]:
         return self._demand_inputs.get(keyword_id, {})
@@ -50,6 +64,18 @@ class FakeScoringDB:
 
     def get_saturation_inputs(self, keyword_id: int) -> dict[str, Any]:
         return self._saturation_inputs.get(keyword_id, {})
+
+    def get_weakness_inputs(self, keyword_id: int) -> dict[str, Any]:
+        return self._weakness_inputs.get(keyword_id, {})
+
+    def get_trend_inputs(self, keyword_id: int) -> dict[str, Any]:
+        return self._trend_inputs.get(keyword_id, {})
+
+    def get_confidence_inputs(self, keyword_id: int) -> dict[str, Any]:
+        return self._confidence_inputs.get(keyword_id, {})
+
+    def get_final_inputs(self, keyword_id: int) -> dict[str, Any]:
+        return self._final_inputs.get(keyword_id, {})
 
 
 def _base_demand_inputs() -> dict[str, Any]:
@@ -80,6 +106,10 @@ def _db_with_inputs(
     profitability_inputs: dict[str, Any] | None = None,
     intent_inputs: dict[str, Any] | None = None,
     saturation_inputs: dict[str, Any] | None = None,
+    weakness_inputs: dict[str, Any] | None = None,
+    trend_inputs: dict[str, Any] | None = None,
+    confidence_inputs: dict[str, Any] | None = None,
+    final_inputs: dict[str, Any] | None = None,
     keyword_id: int = 101,
 ) -> FakeScoringDB:
     return FakeScoringDB(
@@ -89,6 +119,10 @@ def _db_with_inputs(
         profitability_inputs={keyword_id: profitability_inputs or {}},
         intent_inputs={keyword_id: intent_inputs or {}},
         saturation_inputs={keyword_id: saturation_inputs or {}},
+        weakness_inputs={keyword_id: weakness_inputs or {}},
+        trend_inputs={keyword_id: trend_inputs or {}},
+        confidence_inputs={keyword_id: confidence_inputs or {}},
+        final_inputs={keyword_id: final_inputs or {}},
     )
 
 
@@ -135,6 +169,63 @@ def _base_saturation_inputs() -> dict[str, Any]:
         "price_compression_signal": 0.62,
         "seller_portfolio_overlap_ratio": 0.47,
         "llm_saturation_assessment": 6.9,
+    }
+
+
+def _base_weakness_inputs() -> dict[str, Any]:
+    return {
+        "video_absence_rate": 0.5,
+        "portfolio_absence_rate": 0.4,
+        "llm_description_quality_score": 6.0,
+        "llm_weakness_count_per_gig": 4.0,
+        "llm_thumbnail_quality_score": 7.0,
+        "llm_faq_completeness_score": 6.0,
+        "llm_package_differentiation_score": 5.0,
+        "llm_niche_specificity_score": 6.5,
+    }
+
+
+def _base_trend_inputs() -> dict[str, Any]:
+    return {
+        "google_trends_slope": 10.0,
+        "trends_3mo_avg": 72.0,
+        "trends_12mo_avg": 60.0,
+        "reddit_recent_post_volume": 30.0,
+        "reddit_historical_post_volume": 20.0,
+        "llm_trend_classification": "RISING",
+    }
+
+
+def _base_confidence_context() -> dict[str, Any]:
+    return {
+        "data_completeness_ratio": 0.95,
+        "data_freshness_score": 0.90,
+        "source_diversity_score": 0.85,
+        "llm_analysis_completion_ratio": 0.95,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0,
+        "llm_competitor_synthesis_failed": False,
+        "data_age_hours": 4.0,
+        "data_ttl_hours": 24.0,
+        "mode": "standard",
+    }
+
+
+def _base_final_inputs() -> dict[str, Any]:
+    return {
+        "demand_score": 80.0,
+        "competition_score": 40.0,
+        "opportunity_score": 70.0,
+        "feasibility_score": 65.0,
+        "profitability_score": 75.0,
+        "intent_score": 60.0,
+        "saturation_score": 30.0,
+        "weakness_score": 68.0,
+        "trend_score": 72.0,
+        "confidence_modifier": 0.9,
     }
 
 
@@ -833,3 +924,655 @@ def test_saturation_inversion_note() -> None:
     calculator = SaturationScoreCalculator()
     result = calculator.calculate(701, _db_with_inputs(saturation_inputs=_base_saturation_inputs(), keyword_id=701))
     assert "(100 - saturation_score) * 0.05" in result.explanation_text
+
+
+def test_weakness_collection_inputs_only() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(
+        801,
+        _db_with_inputs(
+            weakness_inputs={"video_absence_rate": 0.8, "portfolio_absence_rate": 0.6},
+            keyword_id=801,
+        ),
+    )
+    assert result.score_value is not None
+
+
+def test_weakness_video_absence() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(
+        801,
+        _db_with_inputs(
+            weakness_inputs={"top10_has_video": [False] * 10, "portfolio_absence_rate": 0.2},
+            keyword_id=801,
+        ),
+    )
+    assert result.score_components["video_absence_rate"].value == 100.0
+
+
+def test_weakness_portfolio_absence() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(
+        801,
+        _db_with_inputs(
+            weakness_inputs={"video_absence_rate": 0.2, "top10_has_portfolio": [False] * 10},
+            keyword_id=801,
+        ),
+    )
+    assert result.score_components["portfolio_absence_rate"].value == 100.0
+
+
+def test_weakness_all_llm_stubs() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    inputs = _base_weakness_inputs()
+    for key in list(inputs.keys()):
+        if key.startswith("llm_"):
+            inputs[key] = None
+    result = calculator.calculate(801, _db_with_inputs(weakness_inputs=inputs, keyword_id=801))
+    assert result.score_value is not None
+
+
+def test_weakness_high_weakness_count() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    inputs = _base_weakness_inputs()
+    inputs["llm_weakness_count_per_gig"] = 12.0
+    result = calculator.calculate(801, _db_with_inputs(weakness_inputs=inputs, keyword_id=801))
+    assert result.score_components["weakness_count"].value == 100.0
+
+
+def test_weakness_description_quality_inverted() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    high_quality = _base_weakness_inputs()
+    low_quality = _base_weakness_inputs()
+    high_quality["llm_description_quality_score"] = 9.0
+    low_quality["llm_description_quality_score"] = 2.0
+    high_result = calculator.calculate(801, _db_with_inputs(weakness_inputs=high_quality, keyword_id=801))
+    low_result = calculator.calculate(801, _db_with_inputs(weakness_inputs=low_quality, keyword_id=801))
+    assert (
+        high_result.score_components["description_quality_inverted"].value
+        < low_result.score_components["description_quality_inverted"].value
+    )
+
+
+def test_weakness_llm_warning_emission() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(
+        801,
+        _db_with_inputs(
+            weakness_inputs={"video_absence_rate": 0.7, "portfolio_absence_rate": 0.5},
+            keyword_id=801,
+        ),
+    )
+    assert any("llm_not_implemented" in warning for warning in result.missing_data_warnings)
+
+
+def test_weakness_insufficient_data() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(801, _db_with_inputs(weakness_inputs={"video_absence_rate": 0.5}, keyword_id=801))
+    assert result.score_value is None
+
+
+def test_weakness_result_fields() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(801, _db_with_inputs(weakness_inputs=_base_weakness_inputs(), keyword_id=801))
+    assert isinstance(result.score_components, dict)
+    assert isinstance(result.confidence_modifier, float)
+    assert isinstance(result.source_evidence, list)
+
+
+def test_weakness_score_range() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    result = calculator.calculate(801, _db_with_inputs(weakness_inputs=_base_weakness_inputs(), keyword_id=801))
+    assert result.score_value is not None
+    assert 0.0 <= result.score_value <= 100.0
+
+
+def test_weakness_opportunity_interpretation() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    strong_inputs = _base_weakness_inputs()
+    weak_inputs = _base_weakness_inputs()
+    strong_inputs["video_absence_rate"] = 1.0
+    strong_inputs["portfolio_absence_rate"] = 1.0
+    weak_inputs["video_absence_rate"] = 0.0
+    weak_inputs["portfolio_absence_rate"] = 0.0
+    strong_result = calculator.calculate(801, _db_with_inputs(weakness_inputs=strong_inputs, keyword_id=801))
+    weak_result = calculator.calculate(801, _db_with_inputs(weakness_inputs=weak_inputs, keyword_id=801))
+    assert strong_result.score_value is not None
+    assert weak_result.score_value is not None
+    assert strong_result.score_value > weak_result.score_value
+
+
+def test_weakness_deterministic() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    inputs = _base_weakness_inputs()
+    first = calculator.calculate(801, _db_with_inputs(weakness_inputs=inputs, keyword_id=801))
+    second = calculator.calculate(801, _db_with_inputs(weakness_inputs=inputs, keyword_id=801))
+    assert first.score_value == second.score_value
+
+
+def test_trend_all_inputs() -> None:
+    calculator = TrendScoreCalculator()
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=_base_trend_inputs(), keyword_id=901))
+    assert result.score_value is not None
+    assert 0.0 <= result.score_value <= 100.0
+
+
+def test_trend_slope_calculation() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["google_trends_slope"] = 22.0
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_components["google_trends_slope"].value > 50.0
+
+
+def test_trend_negative_slope() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["google_trends_slope"] = -20.0
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_components["google_trends_slope"].value < 50.0
+
+
+def test_trend_acceleration_positive() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["trends_3mo_avg"] = 80.0
+    inputs["trends_12mo_avg"] = 60.0
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_components["google_trends_acceleration"].value > 50.0
+
+
+def test_trend_acceleration_negative() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["trends_3mo_avg"] = 45.0
+    inputs["trends_12mo_avg"] = 60.0
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_components["google_trends_acceleration"].value < 50.0
+
+
+def test_trend_strongly_rising_llm() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["llm_trend_classification"] = "STRONGLY_RISING"
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_components["llm_trend_classification"].value == 100.0
+
+
+def test_trend_stable_default() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["llm_trend_classification"] = None
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_components["llm_trend_classification"].value == 50.0
+
+
+def test_trend_insufficient_data() -> None:
+    calculator = TrendScoreCalculator()
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs={"llm_trend_classification": None}, keyword_id=901))
+    assert result.score_value is None
+
+
+def test_trend_result_fields() -> None:
+    calculator = TrendScoreCalculator()
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=_base_trend_inputs(), keyword_id=901))
+    assert isinstance(result.score_components, dict)
+    assert isinstance(result.source_evidence, list)
+
+
+def test_trend_no_google_trends() -> None:
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    inputs["google_trends_slope"] = None
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.confidence_breakdown["missing_google_trends"] == -0.15
+
+
+def test_confidence_full_data() -> None:
+    modifier = ConfidenceScoreModifier()
+    value = modifier.calculate(1001, _base_confidence_context(), None)
+    assert value > 0.8
+
+
+def test_confidence_missing_google_trends() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["google_trends_available"] = False
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["missing_google_trends"] == -0.15
+
+
+def test_confidence_no_gig_detail() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["gig_detail_collected"] = False
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["missing_gig_detail"] == -0.20
+
+
+def test_confidence_no_seller_profiles() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["seller_profiles_collected"] = False
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["missing_seller_profiles"] == -0.10
+
+
+def test_confidence_no_reddit() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["reddit_signals_available"] = False
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["missing_reddit_signals"] == -0.05
+
+
+def test_confidence_llm_gig_quality_incomplete() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["llm_gig_quality_incomplete_count"] = 4
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["llm_gig_quality_incomplete"] == -0.2
+
+
+def test_confidence_llm_competitor_failed() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["llm_competitor_synthesis_failed"] = True
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["llm_competitor_synthesis_failed"] == -0.10
+
+
+def test_confidence_stale_data() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["data_age_hours"] = 100.0
+    context["data_ttl_hours"] = 20.0
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["data_stale_over_2x_ttl"] == -0.15
+
+
+def test_confidence_keyword_only_mode() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context["mode"] = "keyword_only"
+    modifier.calculate(1001, context, None)
+    assert modifier.last_breakdown["partial_depth_mode"] == -0.25
+
+
+def test_confidence_clamped_at_zero() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context.update(
+        {
+            "data_completeness_ratio": 0.0,
+            "data_freshness_score": 0.0,
+            "source_diversity_score": 0.0,
+            "llm_analysis_completion_ratio": 0.0,
+            "google_trends_available": False,
+            "gig_detail_collected": False,
+            "seller_profiles_collected": False,
+            "reddit_signals_available": False,
+            "llm_gig_quality_incomplete_count": 10,
+            "llm_competitor_synthesis_failed": True,
+            "data_age_hours": 999.0,
+            "data_ttl_hours": 1.0,
+            "mode": "keyword_only",
+        }
+    )
+    value = modifier.calculate(1001, context, None)
+    assert value == 0.0
+
+
+def test_confidence_clamped_at_one() -> None:
+    modifier = ConfidenceScoreModifier()
+    context = _base_confidence_context()
+    context.update(
+        {
+            "data_completeness_ratio": 1.0,
+            "data_freshness_score": 1.0,
+            "source_diversity_score": 1.0,
+            "llm_analysis_completion_ratio": 1.0,
+        }
+    )
+    value = modifier.calculate(1001, context, None)
+    assert 0.0 <= value <= 1.0
+
+
+def test_confidence_breakdown_dict() -> None:
+    modifier = ConfidenceScoreModifier()
+    modifier.calculate(1001, _base_confidence_context(), None)
+    assert "remaining_modifier" in modifier.last_breakdown
+
+
+def test_final_score_default_profile() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=_base_final_inputs(), keyword_id=1101))
+    assert result["profile_used"] == "default"
+
+
+def test_final_score_aggressive_profile() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    result = calculator.calculate(
+        1101,
+        "aggressive_new_seller",
+        _db_with_inputs(final_inputs=_base_final_inputs(), keyword_id=1101),
+    )
+    assert result["weights_applied"]["feasibility"] == 0.25
+
+
+def test_final_score_profitability_profile() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    result = calculator.calculate(
+        1101,
+        "profitability_focus",
+        _db_with_inputs(final_inputs=_base_final_inputs(), keyword_id=1101),
+    )
+    assert result["weights_applied"]["profitability"] == 0.25
+
+
+def test_final_score_trend_chaser_profile() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    result = calculator.calculate(
+        1101,
+        "trend_chaser",
+        _db_with_inputs(final_inputs=_base_final_inputs(), keyword_id=1101),
+    )
+    assert result["weights_applied"]["trend"] == 0.25
+
+
+def test_final_score_weights_sum_to_1() -> None:
+    sums = FinalRecommendationScoreCalculator.validate_profile_weights()
+    assert all(abs(total - 1.0) <= 0.001 for total in sums.values())
+
+
+def test_final_score_strong_go_threshold() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    high = _base_final_inputs()
+    for key in list(high.keys()):
+        if key.endswith("_score"):
+            high[key] = 100.0
+    high["competition_score"] = 0.0
+    high["saturation_score"] = 0.0
+    high["confidence_modifier"] = 1.0
+    result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=high, keyword_id=1101))
+    assert result["tag"] == "STRONG_GO"
+
+
+def test_final_score_pass_threshold() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    low = _base_final_inputs()
+    for key in list(low.keys()):
+        if key.endswith("_score"):
+            low[key] = 0.0
+    low["confidence_modifier"] = 0.5
+    result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=low, keyword_id=1101))
+    assert result["tag"] == "PASS"
+
+
+def test_final_score_confidence_applied() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    inputs = _base_final_inputs()
+    inputs["confidence_modifier"] = 0.5
+    result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=inputs, keyword_id=1101))
+    assert result["final_score"] < 60.0
+
+
+def test_final_score_none_components() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    inputs = _base_final_inputs()
+    inputs["trend_score"] = None
+    inputs["weakness_score"] = None
+    result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=inputs, keyword_id=1101))
+    assert "trend_score" in result["missing_components"]
+    assert "weakness_score" in result["missing_components"]
+
+
+def test_final_score_competition_inverted() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    low_comp = _base_final_inputs()
+    high_comp = _base_final_inputs()
+    low_comp["competition_score"] = 20.0
+    high_comp["competition_score"] = 80.0
+    low_result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=low_comp, keyword_id=1101))
+    high_result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=high_comp, keyword_id=1101))
+    assert low_result["final_score"] > high_result["final_score"]
+
+
+def test_final_score_saturation_inverted() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    low_sat = _base_final_inputs()
+    high_sat = _base_final_inputs()
+    low_sat["saturation_score"] = 10.0
+    high_sat["saturation_score"] = 90.0
+    low_result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=low_sat, keyword_id=1101))
+    high_result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=high_sat, keyword_id=1101))
+    assert low_result["final_score"] > high_result["final_score"]
+
+
+def test_final_score_result_structure() -> None:
+    calculator = FinalRecommendationScoreCalculator()
+    result = calculator.calculate(1101, "default", _db_with_inputs(final_inputs=_base_final_inputs(), keyword_id=1101))
+    for field in [
+        "final_score",
+        "tag",
+        "profile_used",
+        "weights_applied",
+        "component_scores",
+        "confidence_modifier",
+        "missing_components",
+        "explanation_text",
+    ]:
+        assert field in result
+
+
+def test_ranker_sort_descending() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 2, "final_score": 50.0, "tag": "MONITOR"},
+            {"keyword_id": 1, "final_score": 75.0, "tag": "CONDITIONAL_GO"},
+        ],
+        profile="default",
+    )
+    assert ranked[0]["keyword_id"] == 1
+
+
+def test_ranker_rank_field() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [{"keyword_id": 1, "final_score": 60.0, "tag": "MONITOR"}],
+        profile="default",
+    )
+    assert ranked[0]["rank"] == 1
+
+
+def test_ranker_percentile_field() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 1, "final_score": 80.0, "tag": "STRONG_GO"},
+            {"keyword_id": 2, "final_score": 60.0, "tag": "MONITOR"},
+            {"keyword_id": 3, "final_score": 40.0, "tag": "CAUTION"},
+        ],
+        profile="default",
+    )
+    assert all(0.0 <= item["percentile"] <= 100.0 for item in ranked)
+
+
+def test_ranker_delta_from_top() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 1, "final_score": 90.0, "tag": "STRONG_GO"},
+            {"keyword_id": 2, "final_score": 80.0, "tag": "CONDITIONAL_GO"},
+        ],
+        profile="default",
+    )
+    assert ranked[0]["delta_from_top"] == 0.0
+    assert ranked[1]["delta_from_top"] == 10.0
+
+
+def test_ranker_filter_by_tag() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 1, "final_score": 90.0, "tag": "STRONG_GO"},
+            {"keyword_id": 2, "final_score": 70.0, "tag": "CONDITIONAL_GO"},
+        ],
+        profile="default",
+    )
+    filtered = ranker.filter_by_tag(ranked, "STRONG_GO")
+    assert len(filtered) == 1
+
+
+def test_ranker_filter_by_niche() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 1, "final_score": 90.0, "tag": "STRONG_GO", "niche_id": "A"},
+            {"keyword_id": 2, "final_score": 70.0, "tag": "CONDITIONAL_GO", "niche_id": "B"},
+        ],
+        profile="default",
+    )
+    filtered = ranker.filter_by_niche(ranked, "A")
+    assert len(filtered) == 1
+
+
+def test_ranker_filter_by_min_score() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 1, "final_score": 90.0, "tag": "STRONG_GO"},
+            {"keyword_id": 2, "final_score": 50.0, "tag": "MONITOR"},
+        ],
+        profile="default",
+    )
+    filtered = ranker.filter_by_min_score(ranked, 60.0)
+    assert len(filtered) == 1
+
+
+def test_ranker_tie_breaking() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank(
+        [
+            {"keyword_id": 2, "final_score": 80.0, "tag": "CONDITIONAL_GO"},
+            {"keyword_id": 1, "final_score": 80.0, "tag": "CONDITIONAL_GO"},
+        ],
+        profile="default",
+    )
+    assert ranked[0]["keyword_id"] == 1
+
+
+def test_ranker_empty_input() -> None:
+    ranker = KeywordRanker()
+    assert ranker.rank([], profile="default") == []
+
+
+def test_ranker_single_item() -> None:
+    ranker = KeywordRanker()
+    ranked = ranker.rank([{"keyword_id": 1, "final_score": 88.0, "tag": "STRONG_GO"}], profile="default")
+    assert ranked[0]["rank"] == 1
+    assert ranked[0]["percentile"] == 100.0
+    assert ranked[0]["delta_from_top"] == 0.0
+
+
+def test_orchestrator_runs_all_calculators() -> None:
+    orchestrator = ScoringOrchestrator()
+    db = _db_with_inputs(
+        demand_inputs=_base_demand_inputs(),
+        competition_inputs=_base_competition_inputs(),
+        feasibility_inputs=_base_feasibility_inputs(),
+        profitability_inputs=_base_profitability_inputs(),
+        intent_inputs=_base_intent_inputs(),
+        saturation_inputs=_base_saturation_inputs(),
+        weakness_inputs=_base_weakness_inputs(),
+        trend_inputs=_base_trend_inputs(),
+        keyword_id=1201,
+    )
+    result = orchestrator.run([1201], db, profile="default")
+    assert len(result.keyword_results) == 1
+    assert "demand_score" in result.keyword_results[0]["scores"]
+    assert "trend_score" in result.keyword_results[0]["scores"]
+
+
+def test_orchestrator_returns_scoring_run_result() -> None:
+    orchestrator = ScoringOrchestrator()
+    result = orchestrator.run([], _db_with_inputs(keyword_id=1201), profile="default")
+    assert hasattr(result, "run_id")
+    assert hasattr(result, "keyword_results")
+
+
+def test_orchestrator_handles_none_scores() -> None:
+    orchestrator = ScoringOrchestrator()
+    db = _db_with_inputs(
+        demand_inputs={},
+        competition_inputs={},
+        feasibility_inputs={},
+        profitability_inputs={},
+        intent_inputs={},
+        saturation_inputs={},
+        weakness_inputs={"video_absence_rate": 0.6, "portfolio_absence_rate": 0.6},
+        trend_inputs={"llm_trend_classification": None},
+        keyword_id=1201,
+    )
+    result = orchestrator.run([1201], db, profile="default")
+    assert result.keyword_results[0]["final_payload"]["final_score"] >= 0.0
+
+
+def test_orchestrator_applies_profile() -> None:
+    orchestrator = ScoringOrchestrator()
+    db = _db_with_inputs(
+        demand_inputs=_base_demand_inputs(),
+        competition_inputs=_base_competition_inputs(),
+        feasibility_inputs=_base_feasibility_inputs(),
+        profitability_inputs=_base_profitability_inputs(),
+        intent_inputs=_base_intent_inputs(),
+        saturation_inputs=_base_saturation_inputs(),
+        weakness_inputs=_base_weakness_inputs(),
+        trend_inputs=_base_trend_inputs(),
+        keyword_id=1201,
+    )
+    result = orchestrator.run([1201], db, profile="trend_chaser")
+    assert result.profile_used == "trend_chaser"
+
+
+def test_orchestrator_run_metadata() -> None:
+    orchestrator = ScoringOrchestrator()
+    result = orchestrator.run([], _db_with_inputs(keyword_id=1201), profile="default")
+    assert result.run_id.startswith("score_run_")
+    assert result.started_at <= result.completed_at
+
+
+def test_orchestrator_empty_keyword_list() -> None:
+    orchestrator = ScoringOrchestrator()
+    result = orchestrator.run([], _db_with_inputs(keyword_id=1201), profile="default")
+    assert result.keyword_count == 0
+    assert result.ranked_keywords == []
+
+
+def test_orchestrator_ranking_included() -> None:
+    orchestrator = ScoringOrchestrator()
+    db = _db_with_inputs(
+        demand_inputs=_base_demand_inputs(),
+        competition_inputs=_base_competition_inputs(),
+        feasibility_inputs=_base_feasibility_inputs(),
+        profitability_inputs=_base_profitability_inputs(),
+        intent_inputs=_base_intent_inputs(),
+        saturation_inputs=_base_saturation_inputs(),
+        weakness_inputs=_base_weakness_inputs(),
+        trend_inputs=_base_trend_inputs(),
+        keyword_id=1201,
+    )
+    result = orchestrator.run([1201], db, profile="default")
+    assert result.ranked_keywords[0]["rank"] == 1
+
+
+def test_orchestrator_error_list() -> None:
+    orchestrator = ScoringOrchestrator()
+    db = _db_with_inputs(
+        weakness_inputs={"video_absence_rate": 0.8, "portfolio_absence_rate": 0.9},
+        trend_inputs={"llm_trend_classification": None},
+        keyword_id=1201,
+    )
+    result = orchestrator.run([1201], db, profile="default")
+    assert isinstance(result.errors, list)
