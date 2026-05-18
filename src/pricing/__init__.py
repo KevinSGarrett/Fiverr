@@ -8,6 +8,11 @@ Status: Scaffolded (SCRUM-273). Full implementation in SCRUM-187 through SCRUM-1
 
 from __future__ import annotations
 
+from src.pricing.analysis import (
+    RawPriceData,
+    extract_raw_price_data_from_db,
+    run_price_distribution_analysis,
+)
 from src.pricing.contracts import (
     EntryPricingRecommendation,
     PriceDistribution,
@@ -17,9 +22,10 @@ from src.pricing.contracts import (
 from src.pricing.new_seller_pricing import (
     PricingRecommendation,
     calculate_new_seller_pricing,
+    generate_pricing_strategy_text,
     project_revenue_at_entry_pricing,
 )
-from src.pricing.orchestrator import PricingOrchestrator
+from src.pricing.orchestrator import PricingOrchestrator, run_pricing_stage
 
 __all__ = [
     "EntryPricingRecommendation",
@@ -27,7 +33,12 @@ __all__ = [
     "PricingRecommendation",
     "PricingInput",
     "PricingOutput",
+    "RawPriceData",
     "PricingOrchestrator",
     "calculate_new_seller_pricing",
+    "extract_raw_price_data_from_db",
+    "generate_pricing_strategy_text",
     "project_revenue_at_entry_pricing",
+    "run_pricing_stage",
+    "run_price_distribution_analysis",
 ]

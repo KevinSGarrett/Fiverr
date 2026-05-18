@@ -25,6 +25,7 @@ AVAILABLE_MODES = (
     "collect-only",
     "score-only",
     "analyze-only",
+    "price-analysis",
     "recommendations-only",
     "discovery-only",
     "discovery-collect",
@@ -36,6 +37,7 @@ STAGE_AVAILABILITY = {
     "collect-only": "Collection module contracts exist; full collection orchestration is pending.",
     "score-only": "Scoring persistence foundation exists; scoring runner is not wired yet.",
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
+    "price-analysis": "Run Stage 10.5 pricing analysis and recommendation calculations.",
     "recommendations-only": "Re-run Stage 13 for all eligible keywords using existing scores.",
     "discovery-only": "Discovery storage exists; discovery orchestration is not wired yet.",
     "discovery-collect": "Discovery-collect mode: runs collection then discovery stage. Pending full wiring.",
@@ -346,7 +348,6 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         from src.recommendations.run import run_recommendations_stage
 
         run_id = timestamp_stamp()
-        result: dict[str, Any]
         try:
             session_factory = create_session_factory(engine)
             with get_session(session_factory) as db_session:
@@ -360,51 +361,65 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
                         dry_run=True,
                     )
                 )
-        except Exception:
-            class _EmptyQuery:
-                def filter(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
-                    return self
+        except Exception as exc:  # noqa: BLE001
+            print(f"Recommendations stage failed: {exc}")
+            return 1
+        print(f"Recommendations stage complete: {result}")
+        return 0
 
-                def order_by(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
-                    return self
+    if mode == "price-analysis":
+        from src.models import Keyword
+        from src.pricing.orchestrator import run_pricing_stage
 
-                def join(self, *args: Any, **kwargs: Any) -> _EmptyQuery:
-                    return self
+        run_id = timestamp_stamp()
+        session_factory = create_session_factory(engine)
+        with get_session(session_factory) as db_session:
+            keyword_ids = [int(keyword_id) for (keyword_id,) in db_session.query(Keyword.id).all()]
+            result = run_pricing_stage(
+                run_id=run_id,
+                keyword_ids=keyword_ids,
+                db=db_session,
+                config=config_payload,
+            )
+        print(f"Price analysis complete: {result}")
+        return 0
 
-                def all(self) -> list[Any]:
-                    return []
+    if mode == "full":
+        from src.models import Keyword
+        from src.scoring.pipeline import score_keyword_batch
 
-                def first(self) -> Any:
-                    return None
-
-                def count(self) -> int:
-                    return 0
-
-            class _EmptyDB:
-                def query(self, model: Any) -> _EmptyQuery:
-                    del model
-                    return _EmptyQuery()
-
-                def add(self, row: Any) -> None:
-                    del row
-
-                def commit(self) -> None:
-                    return None
-
-                def rollback(self) -> None:
-                    return None
-
-            result = asyncio.run(
-                run_recommendations_stage(
-                    run_id=run_id,
-                    db=_EmptyDB(),
-                    config=config_payload,
+        profile_name = (
+            getattr(getattr(config, "scoring", None), "active_profile", None)
+            or config_payload.get("scoring", {}).get("active_profile")
+            or "default"
+        )
+        niche_ids: list[int] = []
+        niches_payload = config_payload.get("niches", [])
+        if isinstance(niches_payload, dict):
+            niche_ids = [int(niche_id) for niche_id in niches_payload.keys() if str(niche_id).isdigit()]
+        elif isinstance(niches_payload, list):
+            for niche in niches_payload:
+                if not isinstance(niche, dict):
+                    continue
+                niche_id = niche.get("niche_id")
+                if niche_id is not None and str(niche_id).isdigit():
+                    niche_ids.append(int(niche_id))
+        session_factory = create_session_factory(engine)
+        with get_session(session_factory) as db_session:
+            keyword_query = db_session.query(Keyword.id)
+            if niche_ids:
+                keyword_query = keyword_query.filter(Keyword.niche_id.in_(niche_ids))
+            keyword_ids = [int(keyword_id) for (keyword_id,) in keyword_query.all()]
+            scored_results = asyncio.run(
+                score_keyword_batch(
+                    keyword_ids=keyword_ids,
+                    profile_name=profile_name,
+                    db=db_session,
                     llm_client=None,
                     cache=None,
-                    dry_run=True,
                 )
             )
-        print(f"Recommendations stage complete: {result}")
+        print(f"Scoring complete: {len(scored_results)} keywords scored")
         return 0
 
     print(f"Mode: {mode}")

@@ -746,6 +746,26 @@ def test_get_eligible_keywords_returns_empty_when_no_go_tags() -> None:
     assert rows == []
 
 
+def test_get_eligible_keywords_non_numeric_run_id_uses_latest_final_scores() -> None:
+    db = FakeDB(
+        {
+            FinalScore: [
+                SimpleNamespace(keyword_id=101, final_score=80.0, created_at=datetime(2026, 1, 2, tzinfo=UTC), raw_json={"tag": "STRONG_GO"}),
+                SimpleNamespace(keyword_id=101, final_score=75.0, created_at=datetime(2026, 1, 1, tzinfo=UTC), raw_json={"tag": "CONDITIONAL_GO"}),
+                SimpleNamespace(keyword_id=102, final_score=30.0, created_at=datetime(2026, 1, 3, tzinfo=UTC), raw_json={"tag": "PASS"}),
+            ],
+            Keyword: [
+                SimpleNamespace(id=101, keyword="k1", niche_id=12, metadata_json={}),
+                SimpleNamespace(id=102, keyword="k2", niche_id=12, metadata_json={}),
+            ],
+        }
+    )
+    rows = get_eligible_keywords("run-abc", db, _context_config())
+    assert len(rows) == 1
+    assert rows[0]["keyword_id"] == 101
+    assert rows[0]["final_score"] == 80.0
+
+
 def test_build_context_missing_keyword_returns_safe_default_object() -> None:
     context = build_recommendation_context(12345, FakeDB({}), _context_config())
     assert context is not None
@@ -762,3 +782,122 @@ def test_run_recommendations_stage_counts_invalid_keyword_as_failed(monkeypatch:
     summary = asyncio.run(run_recommendations_stage("run-6", db=Mock(), config={}, llm_client=None, cache=None))
     assert summary["failed"] == 1
     assert summary["generated"] == 0
+
+
+def test_run_recommendations_stage_write_failure_counts_failed(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "src.recommendations.run.get_eligible_keywords",
+        lambda run_id, db, config: [{"keyword_id": 808, "final_score": 70.0}],
+    )
+    monkeypatch.setattr("src.recommendations.run.passes_recommendation_gates", lambda kw, db: (True, "ok"))
+    monkeypatch.setattr("src.recommendations.run.should_regenerate_recommendation", lambda keyword_id, score, db: True)
+    monkeypatch.setattr(
+        "src.recommendations.run.build_recommendation_context",
+        lambda keyword_id, db, config: RecommendationContext(keyword_id=keyword_id, keyword_text="k", niche_id=1),
+    )
+    monkeypatch.setattr("src.recommendations.run.write_recommendation", lambda *args, **kwargs: False)
+    summary = asyncio.run(run_recommendations_stage("run-7", db=Mock(), config={}, llm_client=None, cache=None))
+    assert summary["generated"] == 0
+    assert summary["failed"] == 1
+
+
+def test_passes_gates_invalid_keyword_id() -> None:
+    ok, reason = passes_recommendation_gates({"keyword_id": 0}, _context_db())
+    assert ok is False
+    assert "Invalid keyword id" in reason
+
+
+def test_extract_tag_and_confidence_defaults_when_raw_not_dict() -> None:
+    from src.recommendations import eligibility
+
+    row = SimpleNamespace(raw_json="not-a-dict")
+    assert eligibility._extract_tag_from_raw(row) == "MONITOR"
+    assert eligibility._extract_confidence_modifier(row) == 1.0
+
+
+def test_resolve_demand_score_uses_keyword_score_model(monkeypatch: Any) -> None:
+    from src.recommendations import eligibility
+
+    class _KeywordScore:
+        keyword_id = object()
+
+    db = FakeDB({_KeywordScore: [SimpleNamespace(demand_score=47.0)]})
+    monkeypatch.setattr(eligibility, "_model_by_name", lambda name: _KeywordScore if name == "KeywordScore" else None)
+    assert eligibility._resolve_demand_score(101, {}, db) == 47.0
+
+
+def test_has_gig_analysis_uses_registered_model(monkeypatch: Any) -> None:
+    from src.recommendations import eligibility
+
+    class _GigQuality:
+        keyword_id = object()
+
+        class analysis_complete:
+            @staticmethod
+            def is_(_value: object) -> object:
+                return object()
+
+    db = FakeDB({_GigQuality: [SimpleNamespace(keyword_id=101)]})
+    monkeypatch.setattr(eligibility, "_model_by_name", lambda name: _GigQuality if name == "GigQualityScore" else None)
+    assert eligibility._has_gig_analysis(101, db) is True
+
+
+def test_write_recommendation_uses_sidecar_when_model_missing(monkeypatch: Any, tmp_path: Path) -> None:
+    from src.recommendations import storage
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(storage, "_model_by_name", lambda _name: None)
+    context = RecommendationContext(keyword_id=5, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
+    assert write_recommendation(5, "run-no-model", context, {"generation_complete": True, "llm_cost_usd": 0.0}, db=Mock()) is True
+
+
+def test_write_recommendation_sidecar_write_failure_returns_false(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    context = RecommendationContext(keyword_id=6, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
+
+    def _raise(*args: Any, **kwargs: Any) -> int:
+        del args, kwargs
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", _raise)
+    assert write_recommendation(6, "run-fail", context, {"generation_complete": True, "llm_cost_usd": 0.0}, db=None) is False
+
+
+def test_storage_private_helpers_cover_fallback_branches() -> None:
+    from src.recommendations import storage
+
+    assert storage._model_by_name("DefinitelyMissingModel") is None
+    assert storage._to_float("bad-value", 3.5) == 3.5
+
+
+def test_tasks_private_parsers_fallback_paths() -> None:
+    from src.recommendations import tasks
+
+    assert tasks._parse_titles('{"titles":"bad"}') == []
+    assert tasks._parse_tag_sets('{"tag_sets":"bad"}') == []
+    assert tasks._parse_differentiation_angle('{"not_statement":"x"}') == ""
+    assert tasks._parse_red_flags('{"risks":"bad"}') == []
+    assert tasks._parse_faq_entries('{"faq_entries":"bad"}') == []
+    assert tasks._parse_thumbnail_direction('{"nope":"x"}') == ""
+    assert tasks._parse_upsell_structure("[]") == []
+    assert tasks._parse_upsell_structure('{"something_else": 1}') == []
+
+
+def test_tasks_private_runtime_fallback_paths() -> None:
+    from src.recommendations import tasks
+
+    class _Client:
+        @staticmethod
+        def complete(*, prompt: str, model: str, cache: Any | None = None) -> str:
+            del prompt, model
+            if cache is not None:
+                raise TypeError("no cache support")
+            return "ok"
+
+    assert tasks._extract_cost_usd(SimpleNamespace(metadata={"estimated_cost_usd": "bad"})) == 0.0
+    assert tasks._extract_cost_usd(SimpleNamespace(metadata={})) == 0.0
+    assert tasks._extract_cost_usd(SimpleNamespace(metadata=None)) == 0.0
+    assert tasks._to_float("bad", default=2.0) == 2.0
+    assert tasks._complete_with_optional_cache(_Client(), "p", "m", cache=object()) == "ok"
+    assert tasks._extract_llm_text("direct") == "direct"
+    assert tasks._extract_llm_text(SimpleNamespace(text=None)) == "namespace(text=None)"

@@ -101,7 +101,7 @@ def dashboard_command(mode: str) -> None:
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")
 def run_command(mode: str, config_path: str, database_url: str | None) -> None:
-    """Run foundation-stage orchestrator entrypoint."""
+    """Run foundation-stage orchestrator entrypoint with mode routing."""
     raise SystemExit(
         run_pipeline(
             mode=mode,
@@ -177,6 +177,20 @@ def recommendations_only_command(config_path: str, database_url: str | None) -> 
     raise SystemExit(
         run_pipeline(
             mode="recommendations-only",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
+@cli.command("price-analysis")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def price_analysis_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 10.5 pricing orchestration only."""
+    raise SystemExit(
+        run_pipeline(
+            mode="price-analysis",
             config_path=normalize_cli_config_path(config_path),
             database_url=database_url,
         )

@@ -34,7 +34,17 @@ def get_eligible_keywords(run_id: str, db: Any, config: Mapping[str, Any]) -> li
             .all()
         )
     else:
-        rows = db.query(FinalScore).filter(FinalScore.run_id == int(run_id) if str(run_id).isdigit() else False).all()
+        final_score_query = db.query(FinalScore)
+        if str(run_id).isdigit():
+            final_score_query = final_score_query.filter(FinalScore.run_id == int(run_id))
+        fallback_rows = final_score_query.order_by(FinalScore.created_at.desc()).all()
+        latest_by_keyword: dict[int, Any] = {}
+        for row in fallback_rows:
+            keyword_id = int(getattr(row, "keyword_id", 0) or 0)
+            if keyword_id <= 0 or keyword_id in latest_by_keyword:
+                continue
+            latest_by_keyword[keyword_id] = row
+        rows = list(latest_by_keyword.values())
 
     eligible: list[dict[str, Any]] = []
     for row in rows:

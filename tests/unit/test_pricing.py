@@ -5,11 +5,15 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from click.testing import CliRunner
+from run import cli
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import Base, Keyword, Niche, PriceAnalysis
+from src.pricing import orchestrator as pricing_orchestrator
 from src.pricing.new_seller_pricing import (
+    PricingRecommendation,
     _assess_pricing_confidence,
     _build_price_ladder,
     _calculate_moat_adjustment,
@@ -20,6 +24,7 @@ from src.pricing.new_seller_pricing import (
     _lerp,
     _resolve_starter_prices,
     calculate_new_seller_pricing,
+    generate_pricing_strategy_text,
     project_revenue_at_entry_pricing,
 )
 
@@ -83,6 +88,40 @@ def _price_analysis(**overrides: object) -> SimpleNamespace:
 
 def _niche_config() -> dict[str, object]:
     return {"starter_prices": {"basic": 95, "standard": 225, "premium": 395}}
+
+
+def _pricing_recommendation(**overrides: object) -> PricingRecommendation:
+    base = PricingRecommendation(
+        keyword_id=7,
+        keyword_text="pricing keyword",
+        niche_id=1,
+        entry_basic=65.0,
+        entry_standard=145.0,
+        entry_premium=280.0,
+        acquisition_basic=55.0,
+        acquisition_standard=130.0,
+        acquisition_premium=266.0,
+        price_ladder=[
+            {"milestone_reviews": 0, "basic": 65.0},
+            {"milestone_reviews": 5, "basic": 75.0},
+            {"milestone_reviews": 10, "basic": 85.0},
+            {"milestone_reviews": 25, "basic": 95.0},
+            {"milestone_reviews": 50, "basic": 105.0},
+            {"milestone_reviews": 100, "basic": 115.0},
+        ],
+        target_basic=115.0,
+        target_standard=230.0,
+        target_premium=375.0,
+        undercut_pct=25.0,
+        moat_adjustment=5.0,
+        gap_pricing_used=False,
+        gap_target=None,
+        market_type="WIDE_SPREAD",
+        confidence="HIGH",
+    )
+    values = base.__dict__.copy()
+    values.update(overrides)
+    return PricingRecommendation(**values)
 
 
 def test_price_analysis_table_name() -> None:
@@ -267,3 +306,136 @@ def test_calculate_new_seller_pricing_fallback_when_median_none() -> None:
     assert pricing.target_basic == 95.0
     assert pricing.target_standard == 225.0
     assert pricing.target_premium == 415.0
+
+
+def test_calculate_new_seller_pricing_uses_lower_gap_target() -> None:
+    db = _FakeDB(SimpleNamespace(id=33, keyword="ai pricing", niche_id=7))
+    analysis = _price_analysis(
+        basic_median=100.0,
+        basic_gaps=[{"gap_midpoint": 60.0, "gap_width": 20.0, "pct_of_range": 20.0}],
+    )
+    pricing = calculate_new_seller_pricing(33, analysis, _niche_config(), db)
+    assert pricing.entry_basic == 60.0
+
+
+def test_calculate_undercut_positive_skew_reduction() -> None:
+    value = _calculate_undercut(_price_analysis(market_type="MODERATE_SPREAD", basic_n=10, basic_skewness=0.8))
+    assert value == pytest.approx(0.15)
+
+
+def test_confidence_medium_n() -> None:
+    assert _assess_pricing_confidence(_price_analysis(basic_n=5)) == "MEDIUM"
+
+
+def test_get_niche_config_for_keyword_from_session() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    config = {"niches": {"1": {"starter_prices": {"basic": 80, "standard": 160, "premium": 240}}}}
+    niche_config = pricing_orchestrator._get_niche_config_for_keyword(keyword_id=keyword_id, db=session, config=config)
+    assert niche_config["starter_prices"]["basic"] == 80
+    session.close()
+
+
+def test_get_niche_config_for_keyword_from_list_payload() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    config = {
+        "niches": [
+            {"niche_id": "999", "starter_prices": {"basic": 10, "standard": 20, "premium": 30}},
+            {"niche_id": "1", "starter_prices": {"basic": 70, "standard": 140, "premium": 210}},
+        ]
+    }
+    niche_config = pricing_orchestrator._get_niche_config_for_keyword(keyword_id=keyword_id, db=session, config=config)
+    assert niche_config["starter_prices"]["basic"] == 70
+    session.close()
+
+
+def test_run_pricing_stage_empty_keywords() -> None:
+    summary = pricing_orchestrator.run_pricing_stage(
+        run_id="run-empty",
+        keyword_ids=[],
+        db=object(),
+        config={},
+    )
+    assert summary["analyzed"] == 0
+    assert summary["priced"] == 0
+    assert summary["failed"] == 0
+
+
+def test_run_pricing_stage_no_gig_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pricing_orchestrator, "extract_raw_price_data_from_db", lambda **kwargs: None)
+    summary = pricing_orchestrator.run_pricing_stage(
+        run_id="run-no-gigs",
+        keyword_ids=[11],
+        db=object(),
+        config={},
+    )
+    assert summary["analyzed"] == 0
+    assert summary["priced"] == 0
+    assert summary["failed"] == 1
+
+
+def test_run_pricing_stage_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pricing_orchestrator, "extract_raw_price_data_from_db", lambda **kwargs: object())
+    monkeypatch.setattr(pricing_orchestrator, "run_price_distribution_analysis", lambda raw, db: _price_analysis())
+    monkeypatch.setattr(
+        pricing_orchestrator,
+        "calculate_new_seller_pricing",
+        lambda keyword_id, price_analysis, niche_config, db: _pricing_recommendation(keyword_id=keyword_id),
+    )
+    summary = pricing_orchestrator.run_pricing_stage(
+        run_id="run-success",
+        keyword_ids=[101],
+        db=object(),
+        config={"niches": {}},
+    )
+    assert summary["analyzed"] == 1
+    assert summary["priced"] == 1
+    assert summary["failed"] == 0
+
+
+def test_run_pricing_stage_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pricing_orchestrator, "extract_raw_price_data_from_db", lambda **kwargs: object())
+
+    def _raise(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pricing_orchestrator, "run_price_distribution_analysis", _raise)
+    summary = pricing_orchestrator.run_pricing_stage(
+        run_id="run-exception",
+        keyword_ids=[55],
+        db=object(),
+        config={},
+    )
+    assert summary["analyzed"] == 0
+    assert summary["priced"] == 0
+    assert summary["failed"] == 1
+
+
+def test_generate_pricing_strategy_text_basic() -> None:
+    text = generate_pricing_strategy_text(_pricing_recommendation())
+    assert isinstance(text, str)
+    assert "Enter at $65 Basic / $145 Standard / $280 Premium" in text
+
+
+def test_generate_pricing_strategy_text_contains_ladder() -> None:
+    text = generate_pricing_strategy_text(_pricing_recommendation())
+    assert "Price ladder:" in text
+    assert "r)" in text
+
+
+def test_generate_pricing_strategy_text_gap_note() -> None:
+    text = generate_pricing_strategy_text(_pricing_recommendation(gap_pricing_used=True, gap_target=72.0))
+    assert "A price gap exists at $72." in text
+
+
+def test_generate_pricing_strategy_text_no_gap() -> None:
+    text = generate_pricing_strategy_text(_pricing_recommendation(gap_pricing_used=False, gap_target=None))
+    assert "A price gap exists at" not in text
+
+
+def test_price_analysis_mode_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("run.run_pipeline", lambda **kwargs: 0)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["price-analysis"])
+    assert result.exit_code == 0

@@ -5,9 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from jinja2 import Template
+
 from src.models import Keyword
 
 REVENUE_GATES = {4: 1720, 6: 4770, 9: 17795, 10: 25045, 12: 37500}
+PRICING_STRATEGY_TEMPLATE = Template(
+    "Enter at ${{ entry_basic }} Basic / ${{ entry_standard }} Standard / ${{ entry_premium }} Premium"
+    " - {{ undercut_pct }}% below market median."
+    "{% if gap_note %} {{ gap_note }}{% endif %}"
+    "{% if moat_note %} {{ moat_note }}{% endif %} "
+    "Price ladder: {{ ladder_summary }}. "
+    "Target prices at 100 reviews: ${{ target_basic }} / ${{ target_standard }} / ${{ target_premium }}. "
+    "Confidence: {{ confidence }}."
+)
 
 
 @dataclass
@@ -115,6 +126,40 @@ def calculate_new_seller_pricing(
         gap_target=float(round(gap_target, 0)) if gap_target is not None else None,
         market_type=getattr(price_analysis, "market_type", None) or "UNKNOWN",
         confidence=confidence,
+    )
+
+
+def generate_pricing_strategy_text(
+    pricing: PricingRecommendation,
+    niche_config: dict[str, Any] | None = None,
+) -> str:
+    """Generate deterministic human-readable pricing strategy narrative."""
+    del niche_config  # Reserved for future copy customizations by niche.
+    ladder_summary = " -> ".join(
+        f"${step['basic']:.0f} ({step['milestone_reviews']}r)" for step in pricing.price_ladder[:5]
+    )
+    gap_note = (
+        f"A price gap exists at ${pricing.gap_target:.0f}."
+        if pricing.gap_pricing_used and pricing.gap_target is not None
+        else ""
+    )
+    moat_note = (
+        "Review moat detected - established sellers command a premium."
+        if pricing.moat_adjustment > 0
+        else ""
+    )
+    return PRICING_STRATEGY_TEMPLATE.render(
+        entry_basic=f"{pricing.entry_basic:.0f}",
+        entry_standard=f"{pricing.entry_standard:.0f}",
+        entry_premium=f"{pricing.entry_premium:.0f}",
+        undercut_pct=f"{pricing.undercut_pct:.0f}",
+        ladder_summary=ladder_summary,
+        target_basic=f"{pricing.target_basic:.0f}",
+        target_standard=f"{pricing.target_standard:.0f}",
+        target_premium=f"{pricing.target_premium:.0f}",
+        confidence=pricing.confidence,
+        gap_note=gap_note,
+        moat_note=moat_note,
     )
 
 

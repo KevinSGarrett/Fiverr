@@ -304,7 +304,10 @@ def test_run_pipeline_initializes_database_and_prints_mode(
 
         def load(self) -> object:
             calls["loaded"] = True
-            return object()
+            return SimpleNamespace(
+                scoring=SimpleNamespace(active_profile="default"),
+                model_dump=lambda: {"niches": [{"niche_id": "12"}]},
+            )
 
     monkeypatch.setattr(orchestrator, "configure_logging", lambda: calls.setdefault("logged", True))
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
@@ -312,14 +315,41 @@ def test_run_pipeline_initializes_database_and_prints_mode(
     monkeypatch.setattr(
         orchestrator,
         "initialize_database",
-        lambda database_url: calls.setdefault("db_url", database_url),
+        lambda database_url: calls.setdefault("db_url", object()),
     )
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+
+    class _FakeQuery:
+        def filter(self, *args: Any, **kwargs: Any) -> _FakeQuery:
+            return self
+
+        def all(self) -> list[tuple[int]]:
+            return [(101,)]
+
+    class _FakeSession:
+        def query(self, _model: Any) -> _FakeQuery:
+            return _FakeQuery()
+
+    class _FakeSessionContext:
+        def __enter__(self) -> _FakeSession:
+            return _FakeSession()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_score_keyword_batch(**kwargs: Any) -> list[dict[str, Any]]:
+        calls["keyword_ids"] = kwargs["keyword_ids"]
+        return [{"keyword_id": 101}]
+
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.scoring.pipeline.score_keyword_batch", _fake_score_keyword_batch)
 
     assert orchestrator.run_pipeline("full", config_path="config.yaml", database_url=None) == 0
     assert calls["loaded"] is True
     assert calls["logged"] is True
-    assert calls["db_url"] == "sqlite:///normalized.db"
-    assert "Mode: full" in capsys.readouterr().out
+    assert calls["keyword_ids"] == [101]
+    assert "Scoring complete: 1 keywords scored" in capsys.readouterr().out
 
 
 def test_run_pipeline_rejects_unsupported_mode() -> None:
@@ -368,7 +398,10 @@ def test_run_pipeline_recommendations_only_uses_stage_runner(
     assert "Recommendations stage complete" in capsys.readouterr().out
 
 
-def test_run_pipeline_recommendations_only_fallback_empty_db(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_pipeline_recommendations_only_returns_error_on_stage_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     class _FakeLoader:
         def __init__(self, _config_path: str) -> None:
             pass
@@ -376,22 +409,10 @@ def test_run_pipeline_recommendations_only_fallback_empty_db(monkeypatch: pytest
         def load(self) -> object:
             return object()
 
-    async def _fake_stage(**kwargs: Any) -> dict[str, Any]:
-        db = kwargs["db"]
-        query = db.query(object())
-        assert query.filter().order_by().join().all() == []
-        assert query.first() is None
-        assert query.count() == 0
-        db.add(object())
-        db.commit()
-        db.rollback()
-        return {"generated": 0, "failed": 0}
-
     monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
     monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
     monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
     monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: (_ for _ in ()).throw(RuntimeError("no session")))
-    monkeypatch.setattr("src.recommendations.run.run_recommendations_stage", _fake_stage)
-
-    assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 0
+    assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 1
+    assert "Recommendations stage failed" in capsys.readouterr().out

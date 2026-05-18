@@ -18,6 +18,7 @@ from src.scoring.pipeline import (
     calculate_final_score,
     calculate_weighted_composite,
     detect_red_flags_from_scores,
+    generate_score_explanation,
     score_keyword,
     score_keyword_batch,
     validate_scoring_profile,
@@ -380,6 +381,189 @@ def test_calculate_final_score_applies_confidence_floor_for_zero_modifier() -> N
     assert calculate_final_score(100.0, 0.0) == 20.0
 
 
+def test_generate_score_explanation_no_llm() -> None:
+    text = asyncio.run(
+        generate_score_explanation(
+            keyword_id=1,
+            keyword_text="ai assistant",
+            scores={"confidence_modifier": 0.88, "scoring_profile": "default"},
+            components={"demand_score": {"contribution": 12.5}},
+            final_score=72.3,
+            tag="CONDITIONAL_GO",
+            llm_client=None,
+            cache=None,
+        )
+    )
+    assert text.startswith("Final score:")
+
+
+def test_generate_score_explanation_template_contains_score() -> None:
+    text = asyncio.run(
+        generate_score_explanation(
+            keyword_id=2,
+            keyword_text="automation",
+            scores={"confidence_modifier": 0.5, "scoring_profile": "default"},
+            components={"demand_score": {"contribution": 11.0}},
+            final_score=55.7,
+            tag="MONITOR",
+            llm_client=None,
+            cache=None,
+        )
+    )
+    assert "55.7" in text
+
+
+def test_generate_score_explanation_template_contains_tag() -> None:
+    text = asyncio.run(
+        generate_score_explanation(
+            keyword_id=3,
+            keyword_text="automation",
+            scores={"confidence_modifier": 0.5, "scoring_profile": "default"},
+            components={"demand_score": {"contribution": 11.0}},
+            final_score=45.7,
+            tag="MONITOR",
+            llm_client=None,
+            cache=None,
+        )
+    )
+    assert "(MONITOR)" in text
+
+
+def test_generate_score_explanation_llm_mock() -> None:
+    class _MockLLM:
+        @staticmethod
+        async def complete(**kwargs: Any) -> Any:
+            del kwargs
+            return type("Resp", (), {"text": "LLM explanation"})()
+
+    text = asyncio.run(
+        generate_score_explanation(
+            keyword_id=4,
+            keyword_text="automation",
+            scores={"confidence_modifier": 0.7, "scoring_profile": "default"},
+            components={"demand_score": {"contribution": 9.0}},
+            final_score=60.0,
+            tag="CONDITIONAL_GO",
+            llm_client=_MockLLM(),
+            cache=None,
+        )
+    )
+    assert text == "LLM explanation"
+
+
+def test_generate_score_explanation_llm_failure() -> None:
+    class _MockLLM:
+        @staticmethod
+        def complete(**kwargs: Any) -> Any:
+            del kwargs
+            raise RuntimeError("llm failed")
+
+    text = asyncio.run(
+        generate_score_explanation(
+            keyword_id=5,
+            keyword_text="automation",
+            scores={"confidence_modifier": 0.7, "scoring_profile": "default"},
+            components={"demand_score": {"contribution": 9.0}},
+            final_score=60.0,
+            tag="CONDITIONAL_GO",
+            llm_client=_MockLLM(),
+            cache=None,
+        )
+    )
+    assert text.startswith("Final score:")
+
+
+def test_generate_score_explanation_empty_components() -> None:
+    text = asyncio.run(
+        generate_score_explanation(
+            keyword_id=6,
+            keyword_text="automation",
+            scores={"confidence_modifier": 0.7, "scoring_profile": "default"},
+            components={},
+            final_score=60.0,
+            tag="CONDITIONAL_GO",
+            llm_client=None,
+            cache=None,
+        )
+    )
+    assert "Top drivers:" in text
+
+
+def test_score_keyword_explanation_populated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.scoring import pipeline
+
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", tmp_path)
+    result = asyncio.run(score_keyword(808, "default", FakePipelineDB("standard"), llm_client=None, cache=None))
+    assert isinstance(result["explanation_text"], str)
+    assert result["explanation_text"]
+
+
+def test_mode_full_smoke() -> None:
+    import src.orchestrator as orchestrator
+
+    assert orchestrator.run_phase2_smoke(config_path="config.yaml") == 0
+
+
+def test_resolve_depth_from_dict_payload() -> None:
+    from src.scoring import pipeline
+
+    assert pipeline._resolve_depth(1, {1: {"score_depth": "keyword_only"}}) == "keyword_only"
+
+
+def test_resolve_keyword_context_from_session() -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx", name="Context", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="context keyword", normalized_keyword="context keyword")
+    session.add(keyword)
+    session.commit()
+
+    from src.scoring import pipeline
+
+    keyword_text, niche_id = pipeline._resolve_keyword_context(int(keyword.id), session)
+    assert keyword_text == "context keyword"
+    assert niche_id == niche.id
+
+
+def test_write_keyword_score_sidecar_oserror_returns_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.scoring import pipeline
+
+    class _FailingPath:
+        def mkdir(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+            return None
+
+        def __truediv__(self, _other: str) -> _FailingPath:
+            return self
+
+        def write_text(self, *_args: Any, **_kwargs: Any) -> int:
+            raise OSError("disk full")
+
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", _FailingPath())
+    ok = write_keyword_score(
+        keyword_id=1,
+        scores={"demand_score": 1.0},
+        weighted_composite=1.0,
+        confidence_modifier=1.0,
+        final_score=1.0,
+        tag="PASS",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="x",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        db=None,
+    )
+    assert ok is False
+
+
 def test_write_keyword_score_rolls_back_on_session_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     Base.metadata.create_all(engine)
@@ -416,3 +600,49 @@ def test_write_keyword_score_rolls_back_on_session_failure(monkeypatch: pytest.M
     )
     assert ok is True
     assert rolled_back["value"] is True
+
+
+def test_normalized_profile_with_zero_total_returns_original() -> None:
+    from src.scoring import pipeline
+
+    profile = {"a": 0.0, "b": 0.0}
+    assert pipeline._normalized_profile(profile) == profile
+
+
+def test_calculate_weighted_composite_skips_zero_weight_entries() -> None:
+    scores = {
+        "demand_score": 80.0,
+        "competition_score": 40.0,
+        "opportunity_score": 70.0,
+        "feasibility_score": 60.0,
+        "profitability_score": 50.0,
+        "intent_score": 60.0,
+        "saturation_score": 30.0,
+        "weakness_score": 65.0,
+        "trend_score": 55.0,
+    }
+    profile = dict(SCORING_PROFILES["default"])
+    profile["demand"] = 0.0
+    _, components = calculate_weighted_composite(scores, profile)
+    assert "demand_score" not in components
+
+
+def test_detect_red_flags_low_demand() -> None:
+    flags = detect_red_flags_from_scores(
+        {"competition_score": 30.0, "demand_score": 10.0, "trend_score": 40.0},
+        {"confidence_modifier": 0.8},
+        1,
+        None,
+    )
+    assert any(flag["source"] == "demand_score" for flag in flags)
+
+
+def test_score_keyword_raises_for_unknown_profile() -> None:
+    with pytest.raises(ValueError, match="Unknown scoring profile"):
+        asyncio.run(score_keyword(1, "missing-profile", FakePipelineDB(), None, None))
+
+
+def test_resolve_depth_defaults_to_standard_for_unknown_value() -> None:
+    from src.scoring import pipeline
+
+    assert pipeline._resolve_depth(1, {1: {"score_depth": "not-a-depth"}}) == "standard"

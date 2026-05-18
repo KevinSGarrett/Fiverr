@@ -519,10 +519,11 @@ class TestDashboardPages:
 
 
 class TestAvailableModes:
-    def test_all_eight_modes_present(self) -> None:
+    def test_all_nine_modes_present(self) -> None:
         from src.orchestrator import AVAILABLE_MODES
         required = {
             "full", "collect-only", "score-only", "analyze-only",
+            "price-analysis",
             "recommendations-only", "discovery-only", "discovery-collect", "resume",
         }
         assert required == set(AVAILABLE_MODES), (

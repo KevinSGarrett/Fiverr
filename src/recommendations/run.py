@@ -80,7 +80,10 @@ async def run_recommendations_stage(
                 cache,
                 db,
             )
-            write_recommendation(keyword_id, run_id, context, result, db)
+            wrote = write_recommendation(keyword_id, run_id, context, result, db)
+            if not wrote:
+                summary["failed"] += 1
+                continue
             summary["generated"] += 1
             summary["total_cost_usd"] += float(result.get("llm_cost_usd", 0.0) or 0.0)
         except Exception:
