@@ -22,7 +22,14 @@ from src.collection.workflows.fiverr_search import (
     run_fiverr_search_collection,
     should_collect_page_2,
 )
-from src.collection.workflows.gig_detail import GigDetailWorkflow
+from src.collection.workflows.gig_detail import (
+    GigDetailWorkflow,
+    get_top_n_gig_urls_for_keyword,
+    is_gig_removed,
+    parse_gig_detail_fields,
+    run_gig_detail_collection,
+    should_skip_gig_detail,
+)
 from src.collection.workflows.google_trends import GoogleTrendsWorkflow
 from src.collection.workflows.keyword_expansion import (
     KeywordExpansionWorkflow,
@@ -31,7 +38,13 @@ from src.collection.workflows.keyword_expansion import (
 )
 from src.collection.workflows.niche_init import run_niche_initialization
 from src.collection.workflows.reddit_signals import RedditSignalWorkflow
-from src.collection.workflows.seller_profile import SellerProfileWorkflow
+from src.collection.workflows.seller_profile import (
+    SellerProfileWorkflow,
+    build_seller_profile_url,
+    parse_seller_profile_fields,
+    run_seller_profile_collection,
+    should_skip_seller_profile,
+)
 
 
 def _run(coro):
@@ -374,6 +387,182 @@ def test_should_collect_page_2_informational() -> None:
 def test_is_keyword_only_depth() -> None:
     assert is_keyword_only_depth("keyword_only") is True
     assert is_keyword_only_depth("standard") is False
+
+
+def test_gig_detail_dry_run() -> None:
+    result = _run(
+        run_gig_detail_collection(
+            gig_url="https://www.fiverr.com/seller/my-gig",
+            keyword_id=123,
+            niche_id="ai_saas",
+            depth="standard",
+            run_id="run-18",
+            db=None,
+            session_manager=None,
+            pacing_manager=None,
+            checkpoint_manager=None,
+            dry_run=True,
+        )
+    )
+    assert result["gig_url"] == "https://www.fiverr.com/seller/my-gig"
+    assert result["keyword_id"] == 123
+    assert result["collected"] is False
+    assert result["seller_queued"] is False
+    assert result["fields_collected"] == []
+    assert result["dry_run"] is True
+
+
+def test_gig_detail_result_keys() -> None:
+    result = _run(
+        run_gig_detail_collection(
+            gig_url="https://www.fiverr.com/seller/gig-2",
+            keyword_id=1,
+            niche_id="niche",
+            depth="full",
+            run_id="run-19",
+            db=None,
+            session_manager=None,
+            pacing_manager=None,
+            checkpoint_manager=None,
+            dry_run=True,
+        )
+    )
+    required_keys = {
+        "gig_url",
+        "keyword_id",
+        "collected",
+        "seller_queued",
+        "fields_collected",
+        "dry_run",
+        "note",
+    }
+    assert required_keys.issubset(result.keys())
+
+
+def test_gig_detail_not_implemented() -> None:
+    with pytest.raises(NotImplementedError):
+        _run(
+            run_gig_detail_collection(
+                gig_url="https://www.fiverr.com/seller/gig-3",
+                keyword_id=1,
+                niche_id="niche",
+                depth="standard",
+                run_id="run-20",
+                db=None,
+                session_manager=None,
+                pacing_manager=None,
+                checkpoint_manager=None,
+                dry_run=False,
+            )
+        )
+
+
+def test_get_top_n_full_depth() -> None:
+    assert get_top_n_gig_urls_for_keyword(1, "full", db=None) == []
+
+
+def test_get_top_n_keyword_only() -> None:
+    assert get_top_n_gig_urls_for_keyword(1, "keyword_only", db=None) == []
+
+
+def test_get_top_n_dict_db() -> None:
+    assert get_top_n_gig_urls_for_keyword(1, "standard", db={"fake": "db"}) == []
+
+
+def test_parse_gig_detail_fields_stub() -> None:
+    result = parse_gig_detail_fields({"any": "payload"})
+    expected_keys = {
+        "gig_title_full",
+        "description_text",
+        "packages",
+        "gig_extras",
+        "tags",
+        "faq_text",
+        "faq_entries",
+        "video_present",
+        "portfolio_count",
+        "review_count_exact",
+        "rating_exact",
+        "review_snippets",
+        "orders_in_queue",
+        "thumbnail_url",
+    }
+    assert set(result.keys()) == expected_keys
+    assert all(value is None for value in result.values())
+
+
+def test_is_gig_removed_404() -> None:
+    assert is_gig_removed({"status_code": 404}) is True
+
+
+def test_is_gig_removed_false() -> None:
+    assert is_gig_removed({"status_code": 200, "gig_removed": False}) is False
+
+
+def test_should_skip_gig_stub() -> None:
+    assert should_skip_gig_detail("https://www.fiverr.com/seller/gig-4", "run-21", db=None) is False
+
+
+def test_seller_profile_dry_run() -> None:
+    result = _run(
+        run_seller_profile_collection(
+            seller_username="top_seller",
+            niche_id="ai_saas",
+            run_id="run-22",
+            db=None,
+            session_manager=None,
+            pacing_manager=None,
+            checkpoint_manager=None,
+            dry_run=True,
+        )
+    )
+    assert result["seller_username"] == "top_seller"
+    assert result["collected"] is False
+    assert result["fields_collected"] == []
+    assert result["dry_run"] is True
+
+
+def test_seller_profile_not_implemented() -> None:
+    with pytest.raises(NotImplementedError):
+        _run(
+            run_seller_profile_collection(
+                seller_username="top_seller",
+                niche_id="ai_saas",
+                run_id="run-23",
+                db=None,
+                session_manager=None,
+                pacing_manager=None,
+                checkpoint_manager=None,
+                dry_run=False,
+            )
+        )
+
+
+def test_build_seller_profile_url() -> None:
+    assert build_seller_profile_url("myuser") == "https://www.fiverr.com/myuser"
+
+
+def test_parse_seller_fields_stub() -> None:
+    result = parse_seller_profile_fields({"some": "payload"})
+    expected_keys = {
+        "seller_level",
+        "member_since",
+        "response_time",
+        "response_rate",
+        "languages",
+        "bio_text",
+        "total_reviews",
+        "total_gigs",
+        "active_gig_titles",
+        "portfolio_count",
+        "badges",
+    }
+    assert set(result.keys()) == expected_keys
+    assert all(value is None for value in result.values())
+
+
+def test_should_skip_seller_stub() -> None:
+    assert should_skip_seller_profile("top_seller", "run-24", db=None) is False
 
 
 def test_wrapper_workflow_modules_and_pending_paths() -> None:
