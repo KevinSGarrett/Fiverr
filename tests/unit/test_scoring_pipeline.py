@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from src.models import Base, Keyword, Niche
 from src.scoring.pipeline import (
     DEPTH_SCORE_AVAILABILITY,
     SCORING_PROFILES,
@@ -378,11 +381,6 @@ def test_calculate_final_score_applies_confidence_floor_for_zero_modifier() -> N
 
 
 def test_write_keyword_score_rolls_back_on_session_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    from src.models import Base, Keyword, Niche
-
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
