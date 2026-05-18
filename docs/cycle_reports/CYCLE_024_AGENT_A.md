@@ -87,14 +87,20 @@
   - `python -m pytest -q --cov=src.collection.human_events --cov-report=term-missing tests/unit/test_session_manager.py` -> `100%`
 - Lint/type checks:
   - `python -m ruff check src/collection/session_manager.py src/collection/fiverr_selectors.py src/collection/human_events.py tests/unit/test_session_manager.py` -> pass
-  - `python -m mypy src/collection/` -> pass
+  - `python -m mypy src/collection/session_manager.py src/collection/ --exclude "^src/collection/session_manager.py$"` -> pass
 - Full validation block:
   - `python -m ruff check .` -> pass
   - `python -m mypy src` -> pass
+  - `python -m pytest -q --cov=src --cov-fail-under=90` -> `1199 passed`, coverage `94.21%`
   - `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `1199 passed`, coverage `94.21%`
   - `python run.py config-check` -> pass
   - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle024.db` -> pass
   - `python run.py phase2-smoke` -> pass
+  - `python run.py recommendations-only` -> pass
+  - `python run.py phase2-smoke` (final rerun) -> pass
+- No-main/worktree safety:
+  - `git branch --show-current` -> `cycle/024/integration`
+  - `git worktree list` -> current worktree is non-main
 
 ## Final Notes
 
@@ -103,4 +109,4 @@
 - Branch:
   - `cycle/024/integration`
 - Latest working HEAD at handoff:
-  - `f5cadcc35f9f173edbd7a4479a7301f9ba2f7e62`
+  - `10c5e5610eceb138627b1dfcfa11a97e07a0bf99`
