@@ -152,6 +152,7 @@ Posted epic comment to `SCRUM-17`:
 
 - Commit 1: `4a285b1` — `feat(collection): collect-only orchestrator and patch coverage [Agent D Cycle 025]`
 - Commit 2 (Codex follow-up): `702fa65` — `fix(scheduler): enforce dead-letter retry policies for permanent errors`
+- Commit 3 (steward evidence): `367d4c7` — `docs(cycle-025): finalize Agent D merge-gate evidence`
 - PR created: `https://github.com/KevinSGarrett/Fiverr/pull/29`
 - CI/checks final state: all PASS including `codecov/patch` hard gate.
 
@@ -195,7 +196,7 @@ FINAL:
 
 ### Task 15-22 - Final Steward Actions
 
-- Final SHA freeze captured and matched to PR head: `702fa65d563e8f1769d4fc39a46c97487f70d4fe`
+- Final SHA freeze captured and matched to PR head: `367d4c7f17eebd6c250a47a47fcb2480bfc3df40`
 - Confirmed all four cycle reports present (`A/B/C/D`).
 - Updated DoD ledger (`docs/jira/ACTIVE_STORY_DOD_LEDGER.md`).
 - Posted final steward summary on `SCRUM-514` (comment `11159`).
