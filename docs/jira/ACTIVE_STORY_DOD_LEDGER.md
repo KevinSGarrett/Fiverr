@@ -666,3 +666,45 @@
   - Pytest: pass (`1241 passed`)
   - Coverage: pass (`94.23%`)
   - Config/Foundation/Phase2 smoke/Recommendations: pass
+
+## Cycle 024 Rows (Agent D)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 024) | DoD Remaining / Gaps | Tests / Validation | Branch / PR | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-513` | In Progress | `src/collection/workflows/fiverr_search.py`, `tests/unit/test_collection_workflows.py`, `tests/unit/test_pacing.py`, targeted coverage audit commands, Jira status reconciliation + comments | Implemented Workflow 3 Stage-3 stub (`run_fiverr_search_collection`) with dry-run-safe result payload and helper utilities (`build_fiverr_search_url`, `parse_gig_cards_from_page`, `should_collect_page_2`, `is_keyword_only_depth`); added 12 Workflow 3 tests plus 8 targeted gap tests covering pacing/workflow branches; reconciled board statuses (`SCRUM-17` and `SCRUM-145` moved back to `In Progress`) and posted Cycle 024 foundation progress update on `SCRUM-17`. | Real Playwright search navigation, pagination extraction, persistence, and queue wiring remain intentionally unimplemented (`dry_run=True` guard stays default). CI/codecov/Codex merge-gate closure remains pending until PR checks settle. | Full validation block pass (`ruff` + `mypy` + `1261 passed`, coverage `94.30%`, config/foundation/phase2/recommendations pass). Targeted collection module audits: `session_manager 93%`, `fiverr_selectors 100%`, `human_events 100%`, `pacing 100%`, `workflows 98%`, `models.job 100%`, `queue_processor 100%`. | `cycle/024/integration` / PR `#28` (pending creation) | Create PR, monitor CI to green (`codecov/patch` hard gate), execute exact Codex reviewThreads query, disposition/resolve all threads, then publish final merge-gate checklist. |
+| `SCRUM-17` | In Progress | Jira transition + epic progress comment `11142` | Cycle 024 foundation summary posted with Agent A/B/C/D deliverables and explicit next-cycle Workfow 3 real Playwright integration note. | Epic closure still depends on downstream collection stages and live run evidence. | Story board reconciliation command verified children statuses and corrected stale epic state. | Jira | Keep `In Progress`; continue cycle integration and merge-gate execution. |
+| `SCRUM-145` | In Progress | Jira transition evidence | Reconciled S2.5 status target per board rules (`In Review` -> `In Progress`) to maintain active wave tracking. | Story DoD unchanged; checkpoint system implementation still pending dedicated cycle scope. | Status checks executed via JQL sweep for control/epic/story set. | Jira | Keep `In Progress` until checkpoint delivery cycle. |
+
+## Cycle 024 Validation Evidence (Agent D)
+
+- Preflight:
+  - `Get-Location`
+  - `git rev-parse --show-toplevel`
+  - `git branch --show-current`
+  - `git log --oneline -12`
+  - `git worktree list`
+- Workflow and gap tests:
+  - `python -m pytest -q tests/unit/test_collection_workflows.py` (`28 passed`)
+  - `python -m pytest -q tests/unit/test_collection_workflows.py tests/unit/test_pacing.py` (`44 passed`)
+- Targeted patch coverage audits:
+  - `python -m pytest -q --cov=src.collection.session_manager --cov-report=term-missing` (`93%`, missing `106, 114, 118-122, 198-199, 216-218, 267`)
+  - `python -m pytest -q --cov=src.collection.fiverr_selectors --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.collection.human_events --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.collection.pacing --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.collection.workflows --cov-report=term-missing` (`98%`, missing `src.collection.workflows.niche_init: 76-78`)
+  - `python -m pytest -q --cov=src.models.job --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.scheduler.queue_processor --cov-report=term-missing` (`100%`, no uncovered lines)
+- Full validation block:
+  - `python -m ruff check .`
+  - `python -m mypy src`
+  - `python -m pytest -q --cov=src --cov-fail-under=90`
+  - `python run.py config-check`
+  - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle024.db`
+  - `python run.py phase2-smoke`
+  - `python run.py recommendations-only`
+- Results:
+  - Ruff: pass (`All checks passed!`)
+  - Mypy: pass (`Success: no issues found in 175 source files`)
+  - Pytest: pass (`1261 passed`)
+  - Coverage: pass (`94.30%`)
+  - Config/Foundation/Phase2 smoke/Recommendations: pass
