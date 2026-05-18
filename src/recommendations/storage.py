@@ -21,6 +21,7 @@ _OUTPUT_FIELDS = [
     "upsell_structure",
     "red_flags",
     "niche_viability_assessment",
+    "pricing_strategy",
 ]
 
 

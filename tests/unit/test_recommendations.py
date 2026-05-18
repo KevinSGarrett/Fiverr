@@ -904,6 +904,84 @@ def test_generate_pricing_strategy_with_price_distribution() -> None:
     assert result["output"]["entry_prices"]["basic"] == 65
 
 
+def test_generate_pricing_strategy_handles_none_correlation_fields() -> None:
+    context = RecommendationContext(
+        keyword_text="python automation",
+        niche_id=12,
+        price_distribution={
+            "basic": {"median": 100, "mean": 110, "min": 70, "max": 180, "q1": 80, "q3": 140, "clusters": [], "gaps": []},
+            "standard": {"median": 180, "min": 130, "max": 290},
+            "premium": {"median": 350, "min": 240, "max": 520},
+        },
+        price_review_correlation={
+            "moat_strength": "HIGH",
+            "pearson": None,
+            "review_premium_usd": 35.0,
+            "new_seller_avg_price": None,
+            "new_seller_discount_pct": None,
+        },
+        competitor_price_positions=[],
+    )
+    llm_client = Mock()
+    pricing_payload = {
+        "entry_prices": {
+            "basic": 50,
+            "standard": 100,
+            "premium": 180,
+            "lead_tier": "basic",
+            "lead_tier_reasoning": "Lead with basic to maximize early conversion and collect first reviews quickly.",
+        },
+        "acquisition_prices": {
+            "basic": 40,
+            "standard": 80,
+            "premium": 150,
+            "acquisition_period": "first 5 orders",
+        },
+        "price_ladder": [
+            {"milestone_reviews": 5, "basic": 50, "standard": 100, "premium": 180, "adjustment_rationale": "Initial baseline."},
+            {"milestone_reviews": 10, "basic": 60, "standard": 120, "premium": 210, "adjustment_rationale": "Early proof gained."},
+            {
+                "milestone_reviews": 25,
+                "basic": 75,
+                "standard": 145,
+                "premium": 250,
+                "adjustment_rationale": "Demand improves and delivery confidence rises.",
+            },
+            {
+                "milestone_reviews": 50,
+                "basic": 90,
+                "standard": 170,
+                "premium": 290,
+                "adjustment_rationale": "Positioning strengthens with social proof.",
+            },
+        ],
+        "strategy_narrative": (
+            "Set entry pricing in the lower-middle cluster to win first conversions while avoiding a pure bargain signal. "
+            "Use a measured ladder tied to review milestones so each increase is justified by proven execution and buyer trust. "
+            "Preserve perceived value by widening package separation and emphasizing faster turnaround plus optional extras."
+        ),
+        "pricing_risks": [
+            {
+                "risk": "Undercutting too hard can attract low-quality buyers.",
+                "severity": "MEDIUM",
+                "mitigation": "Keep scope tight and enforce revisions limits.",
+            }
+        ],
+        "recommended_extras": [
+            {"name": "24-hour delivery", "price": 25, "rationale": "Captures urgent buyers and improves average order value."},
+            {"name": "Source file handoff", "price": 20, "rationale": "Adds perceived professionalism and monetizes final assets."},
+        ],
+        "projected_aov": {"at_entry": 72.0, "at_50_reviews": 118.0, "aov_growth_pct": 63.9},
+    }
+    llm_client.complete.return_value = SimpleNamespace(
+        text=json.dumps({"pricing_strategy": pricing_payload}),
+        metadata={"estimated_cost_usd": 0.01},
+    )
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=llm_client, cache=None))
+    assert result["output"] is not None
+    assert result["output"]["entry_prices"]["basic"] == 50
+
+
 def test_generate_recommendation_no_crash_no_llm() -> None:
     context = RecommendationContext(keyword_text="python automation", niche_id=12)
     result = asyncio.run(generate_recommendation(101, context, llm_client=None, cache=None, db=Mock()))
@@ -1131,6 +1209,19 @@ def test_write_recommendation_uses_sidecar_when_model_missing(monkeypatch: Any, 
     monkeypatch.setattr(storage, "_model_by_name", lambda _name: None)
     context = RecommendationContext(keyword_id=5, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
     assert write_recommendation(5, "run-no-model", context, {"generation_complete": True, "llm_cost_usd": 0.0}, db=Mock()) is True
+
+
+def test_write_recommendation_persists_pricing_strategy_field(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    context = RecommendationContext(keyword_id=7, keyword_text="k", niche_id=1, niche_name="N", tag="MONITOR")
+    payload = {
+        "generation_complete": True,
+        "llm_cost_usd": 0.0,
+        "pricing_strategy": {"entry_prices": {"basic": 50}},
+    }
+    assert write_recommendation(7, "run-pricing", context, payload, db=None) is True
+    persisted = json.loads((tmp_path / "data" / "recommendation_results" / "7_run-pricing.json").read_text())
+    assert persisted["pricing_strategy"] == {"entry_prices": {"basic": 50}}
 
 
 def test_write_recommendation_sidecar_write_failure_returns_false(monkeypatch: Any, tmp_path: Path) -> None:

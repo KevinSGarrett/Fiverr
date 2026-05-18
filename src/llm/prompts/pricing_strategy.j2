@@ -31,10 +31,10 @@ Premium tier:
 MARKET STRUCTURE: {{ market_type or "Unknown" }}
 {% if price_review_correlation %}
 REVIEW MOAT: {{ price_review_correlation.moat_strength }}
-  - Price-review correlation: {{ price_review_correlation.pearson | round(3) }}
-  - Established sellers charge ${{ price_review_correlation.review_premium_usd | round(0) }} more than new sellers
-  - New sellers currently average: ${{ price_review_correlation.new_seller_avg_price | round(0) }}
-  - New sellers discount vs market: {{ price_review_correlation.new_seller_discount_pct | round(0) }}%
+  - Price-review correlation: {{ price_review_correlation.pearson | default(0, true) | round(3) }}
+  - Established sellers charge ${{ price_review_correlation.review_premium_usd | default(0, true) | round(0) }} more than new sellers
+  - New sellers currently average: ${{ price_review_correlation.new_seller_avg_price | default(0, true) | round(0) }}
+  - New sellers discount vs market: {{ price_review_correlation.new_seller_discount_pct | default(0, true) | round(0) }}%
 {% endif %}
 
 ALGORITHM-CALCULATED ENTRY PRICES:

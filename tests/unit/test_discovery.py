@@ -373,6 +373,24 @@ def test_generate_hypotheses_mock_llm() -> None:
     assert result[0]["hypothesis_type"] == "adjacent_keyword"
 
 
+def test_generate_hypotheses_sync_llm_client() -> None:
+    class SyncClient:
+        def complete(self, **_: object) -> SimpleNamespace:
+            payload = {"hypotheses": [{"keyword": "Sync LLM keyword", "mode": "adjacent_keyword"}]}
+            return SimpleNamespace(text=json.dumps(payload))
+
+    result = asyncio.run(
+        generate_niche_hypotheses(
+            source_niche_id="niche-sync",
+            existing_keywords=["seed"],
+            llm_client=SyncClient(),
+            cache=None,
+        )
+    )
+    assert len(result) == 1
+    assert result[0]["hypothesis_text"] == "Sync LLM keyword"
+
+
 def test_generate_hypotheses_llm_error_returns_empty() -> None:
     class FailingLlmClient:
         async def complete(self, **_: object) -> SimpleNamespace:

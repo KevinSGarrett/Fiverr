@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from inspect import isawaitable
 from typing import Any
 
 from src.models.discovery import DiscoveryCandidate
@@ -32,12 +33,14 @@ async def generate_niche_hypotheses(
     )
 
     try:
-        response = await llm_client.complete(
+        response = llm_client.complete(
             prompt=prompt,
             model="gpt-4o-mini",
             temperature=0.4,
             response_format={"type": "json_object"},
         )
+        if isawaitable(response):
+            response = await response
     except Exception:
         return []
 
