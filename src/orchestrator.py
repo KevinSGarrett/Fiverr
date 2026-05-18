@@ -384,6 +384,28 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         print(f"Price analysis complete: {result}")
         return 0
 
+    if mode == "collect-only":
+        import uuid
+
+        from src.collection.orchestrator import run_collection_pipeline
+
+        run_id = str(uuid.uuid4())
+        try:
+            result = asyncio.run(
+                run_collection_pipeline(
+                    run_id=run_id,
+                    db={},
+                    config=config_payload if isinstance(config_payload, dict) else {},
+                    session_manager=None,
+                    dry_run=True,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Collection dry run failed: {exc}")
+            return 1
+        print(f"Collection dry run complete: {result}")
+        return 0
+
     if mode == "full":
         from src.models import Keyword
         from src.scoring.pipeline import score_keyword_batch

@@ -61,6 +61,7 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "export" in result.output
     assert "dashboard" in result.output
     assert "collection-dry-run" in result.output
+    assert "collect-only" in result.output
     assert "analysis-dry-run" in result.output
     assert "phase2-smoke" in result.output
 
