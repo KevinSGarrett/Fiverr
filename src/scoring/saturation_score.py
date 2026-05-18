@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import Gig, SearchResult
+from src.models import Gig, Keyword, SearchResult
 from src.scoring.contracts import SaturationScoreResult, ScoreComponent
 
 
@@ -22,7 +24,13 @@ class SaturationScoreCalculator:
     _SELLER_OVERLAP_WEIGHT = 0.15
     _LLM_SATURATION_WEIGHT = 0.15
 
-    def calculate(self, keyword_id: int, db: Any) -> SaturationScoreResult:
+    def calculate(
+        self,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> SaturationScoreResult:
         """Calculate a saturation score payload for the provided keyword."""
         signals = self._load_signals(keyword_id, db)
         score_components: dict[str, ScoreComponent] = {}
@@ -87,6 +95,14 @@ class SaturationScoreCalculator:
             missing_data_warnings.append("Missing seller portfolio overlap signal.")
 
         llm_saturation_assessment = self._resolve_llm_saturation_assessment(signals)
+        if llm_client is not None:
+            keyword_text = str(signals.get("keyword") or "").strip()
+            gig_count = int(total_gig_count or 0)
+            llm_saturation_assessment = self._run_async(
+                self._get_llm_saturation(keyword_text, gig_count, llm_client, cache)
+            )
+            if llm_saturation_assessment is None:
+                missing_data_warnings.append("llm_saturation_failed: unable to get LLM saturation score.")
         if llm_saturation_assessment is not None:
             llm_score = self._normalize_ratio_or_score(llm_saturation_assessment)
             score_components["llm_saturation_assessment"] = ScoreComponent(
@@ -141,6 +157,36 @@ class SaturationScoreCalculator:
             default_weight=self.DEFAULT_WEIGHT,
             is_inverted=True,
         )
+
+    async def _get_llm_saturation(
+        self,
+        keyword_text: str,
+        gig_count: int,
+        llm_client: Any,
+        cache: Any | None,
+    ) -> float | None:
+        prompt = (
+            f"Rate saturation for '{keyword_text}' with {gig_count} gigs. Return a number 0-100 "
+            "where 100 = completely saturated. Respond with only the number."
+        )
+        try:
+            response = await asyncio.to_thread(
+                self._complete_with_optional_cache,
+                llm_client,
+                prompt,
+                "gpt-4o-mini",
+                cache,
+            )
+        except Exception:
+            return None
+        text = self._extract_llm_text(response).strip()
+        try:
+            value = float(text)
+        except ValueError:
+            return None
+        if value < 0.0 or value > 100.0:
+            return None
+        return value
 
     def _resolve_title_duplication_score(self, signals: dict[str, Any]) -> float | None:
         duplication_rate = self._as_float(signals.get("title_duplication_rate"))
@@ -202,6 +248,7 @@ class SaturationScoreCalculator:
         return {}
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
         total_gig_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
         top_gigs = (
             session.query(Gig)
@@ -218,6 +265,7 @@ class SaturationScoreCalculator:
         prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
         price_compression_signal = self._price_compression_ratio(prices)
         return {
+            "keyword": keyword.keyword if keyword else "",
             "total_gig_count": float(total_gig_count) if total_gig_count > 0 else None,
             "title_duplication_rate": title_duplication_rate,
             "price_compression_signal": price_compression_signal,
@@ -243,3 +291,31 @@ class SaturationScoreCalculator:
         variance = sum((price - avg_price) ** 2 for price in prices) / len(prices)
         std_dev = math.sqrt(variance)
         return max(0.0, min(1.0, std_dev / spread))
+
+    @staticmethod
+    def _complete_with_optional_cache(
+        llm_client: Any,
+        prompt: str,
+        model: str,
+        cache: Any | None,
+    ) -> Any:
+        try:
+            return llm_client.complete(prompt=prompt, model=model, cache=cache)
+        except TypeError:
+            return llm_client.complete(prompt=prompt, model=model)
+
+    @staticmethod
+    def _extract_llm_text(response: Any) -> str:
+        if isinstance(response, str):
+            return response
+        text = getattr(response, "text", None)
+        return text if isinstance(text, str) else str(response)
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()
