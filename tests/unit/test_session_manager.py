@@ -210,12 +210,42 @@ def test_is_session_valid_handles_exceptions() -> None:
     assert _run(sm.is_session_valid()) is False
 
 
+def test_is_session_valid_true() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
+    context = MagicMock()
+    sm._get_context = AsyncMock(return_value=context)
+    sm._verify_session = AsyncMock(return_value=True)
+    assert _run(sm.is_session_valid()) is True
+
+
 def test_initialize_idempotent_when_context_exists() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     sm._context = MagicMock()
     sm._load_or_login = AsyncMock()
     _run(sm._initialize())
     sm._load_or_login.assert_not_called()
+
+
+def test_initialize_sets_context() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
+    context = MagicMock()
+    sm._load_or_login = AsyncMock(return_value=context)
+    _run(sm._initialize())
+    assert sm._context is context
+
+
+def test_get_context_initializes_when_missing() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
+    context = MagicMock()
+    sm._load_or_login = AsyncMock(return_value=context)
+    assert _run(sm._get_context()) is context
+
+
+def test_get_context_raises_when_initialization_fails() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
+    sm._load_or_login = AsyncMock(return_value=None)
+    with pytest.raises(RuntimeError, match="Session context initialization failed"):
+        _run(sm._get_context())
 
 
 def test_load_or_login_returns_valid_existing_session(tmp_path: Path) -> None:
@@ -258,6 +288,13 @@ def test_verify_session_on_page_handles_exception() -> None:
     assert _run(sm._verify_session_on_page(page)) is False
 
 
+def test_verify_session_on_page_uses_fallback() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
+    page = MagicMock()
+    page.query_selector = AsyncMock(side_effect=[None, MagicMock()])
+    assert _run(sm._verify_session_on_page(page)) is True
+
+
 def test_browser_args_and_context_options_shape() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     args = sm._browser_args()
@@ -280,6 +317,18 @@ def test_cfg_supports_attribute_and_model_dump() -> None:
     assert sm._cfg("fiverr.session_file") == "data/sessions/fiverr_session.json"
     assert sm._cfg("collection.pacing.delay") == 1
     assert sm._cfg("unknown.value", "fallback") == "fallback"
+
+
+def test_cfg_model_dump_missing_key_returns_default() -> None:
+    class ModelOnly:
+        def model_dump(self):
+            return {"present": 1}
+
+    class ConfigObject:
+        nested = ModelOnly()
+
+    sm = SessionManager(ConfigObject())
+    assert sm._cfg("nested.missing", "fallback") == "fallback"
 
 
 def test_load_session_headless_uses_async_playwright(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -361,6 +410,41 @@ def test_headed_login_flow_success_path(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     result = _run(sm._headed_login_flow())
     assert result is loaded_context
+    context.storage_state.assert_awaited_once()
+
+
+def test_headed_login_flow_chmod_oserror(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    session_path = tmp_path / "fiverr_session.json"
+    sm = SessionManager(
+        {
+            "fiverr": {"session_file": str(session_path), "login_url": "https://www.fiverr.com/login"},
+            "playwright": {"require_login": True},
+        }
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt: "")
+    monkeypatch.setattr(session_module.os, "chmod", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("nope")))
+
+    page = MagicMock()
+    page.goto = AsyncMock()
+    page.close = AsyncMock()
+    context = MagicMock()
+    context.new_page = AsyncMock(return_value=page)
+    context.storage_state = AsyncMock()
+    context.close = AsyncMock()
+    browser = MagicMock()
+    browser.new_context = AsyncMock(return_value=context)
+    browser.close = AsyncMock()
+    chromium = MagicMock()
+    chromium.launch = AsyncMock(return_value=browser)
+    playwright_instance = MagicMock()
+    playwright_instance.chromium = chromium
+    starter = MagicMock()
+    starter.start = AsyncMock(return_value=playwright_instance)
+    monkeypatch.setattr(session_module, "async_playwright", lambda: starter)
+
+    sm._verify_session_on_page = AsyncMock(return_value=True)
+    sm._load_session_headless = AsyncMock(return_value=MagicMock())
+    _run(sm._headed_login_flow())
     context.storage_state.assert_awaited_once()
 
 

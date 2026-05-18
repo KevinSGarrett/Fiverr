@@ -231,6 +231,27 @@ def test_resolve_niche_depth_handles_model_lookup_failure(monkeypatch) -> None:
     assert _resolve_niche_depth("n1", {"depth": "full"}, db=_FakeSession()) == "full"
 
 
+def test_resolve_niche_depth_uses_db_override(monkeypatch) -> None:
+    from src.collection.workflows.niche_init import _resolve_niche_depth
+
+    class _Record:
+        depth = "full"
+
+    class _Query:
+        def filter(self, *_args, **_kwargs):
+            return self
+
+        def first(self):
+            return _Record()
+
+    class _FakeSession:
+        def query(self, *_args, **_kwargs):
+            return _Query()
+
+    monkeypatch.setattr("sqlalchemy.orm.Session", _FakeSession)
+    assert _resolve_niche_depth("n1", {"depth": "standard"}, db=_FakeSession()) == "full"
+
+
 def test_keyword_expansion_stub_alias() -> None:
     result = _run(
         run_keyword_expansion_stub(
