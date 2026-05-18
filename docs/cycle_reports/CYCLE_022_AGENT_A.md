@@ -145,5 +145,5 @@
 - Agent B handoff note:
   - "Stage 14 explanation feature-flagged. score_keyword in --mode full. Agent B: build E06 S6.3 price distribution analysis runner."
 - Agent A implementation SHA: `fa77821e10d703ec49868d5c1c043228275d2a2f`
-- Final Agent A SHA (local, unpushed): `15c5a8dbd56e57feba72ac2f7efaaa4d76f86759`
-- Local branch state: `cycle/022/integration` is ahead of `origin/cycle/022/integration` by 5 commits (human operator push pending).
+- Final Agent A SHA (local, unpushed): `bd65d631d9e1ce02b65fe7b12695775f2abc6ef3`
+- Local branch state: `cycle/022/integration` is ahead of `origin/cycle/022/integration` by 6 commits (human operator push pending).
