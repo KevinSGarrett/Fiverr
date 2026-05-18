@@ -179,7 +179,7 @@ def test_queue_processor_handler_failure(db_session: Session) -> None:
     async def handler(_job: Job, **_kwargs) -> None:
         raise RuntimeError("boom")
 
-    job = _make_job(job_id="job_failure")
+    job = _make_job(job_id="job_failure", max_retries=1)
     db_session.add(job)
     db_session.commit()
 
@@ -190,7 +190,7 @@ def test_queue_processor_handler_failure(db_session: Session) -> None:
 
     assert processed == 1
     assert failed == 1
-    assert job.status == "FAILED"
+    assert job.status == "DEAD_LETTER"
 
 
 def test_queue_processor_missing_handler_marks_dead_letter(db_session: Session) -> None:
@@ -282,4 +282,50 @@ def test_execute_with_retry_failure(db_session: Session) -> None:
     db_session.refresh(job)
 
     assert success is False
-    assert job.status == "FAILED"
+    assert job.status == "QUEUED"
+
+
+def test_execute_with_retry_failure_dead_letters_at_max_retries(db_session: Session) -> None:
+    async def handler(_job: Job, **_kwargs) -> None:
+        raise RuntimeError("retry failure")
+
+    job = _make_job(job_id="job_retry_dead_letter", max_retries=1)
+    db_session.add(job)
+    db_session.commit()
+
+    success = _run(
+        execute_with_retry(
+            job_func=handler,
+            job=job,
+            pacing_manager=object(),
+            session_manager=object(),
+            db=db_session,
+        )
+    )
+    db_session.refresh(job)
+
+    assert success is False
+    assert job.status == "DEAD_LETTER"
+
+
+def test_queue_processor_retries_then_completes(db_session: Session) -> None:
+    attempts = {"count": 0}
+
+    async def handler(_job: Job, **_kwargs) -> None:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise RuntimeError("transient")
+
+    job = _make_job(job_id="job_retry_then_success", max_retries=3)
+    db_session.add(job)
+    db_session.commit()
+
+    processor = QueueProcessor(db=db_session, config={}, session_manager=object(), pacing_manager=object())
+    processor.register_handler("FIVERR_SEARCH", handler)
+    processed, failed = _run(processor.run_until_empty("run_cycle_024"))
+    db_session.refresh(job)
+
+    assert attempts["count"] == 2
+    assert processed == 2
+    assert failed == 1
+    assert job.status == "COMPLETE"

@@ -305,6 +305,27 @@ def test_load_session_headless_uses_async_playwright(monkeypatch: pytest.MonkeyP
     browser.new_context.assert_awaited_once()
 
 
+def test_load_session_headless_reuses_existing_playwright(tmp_path: Path) -> None:
+    session_path = tmp_path / "fiverr_session.json"
+    session_path.write_text("{}", encoding="utf-8")
+    sm = SessionManager({"fiverr": {"session_file": str(session_path)}})
+
+    context = MagicMock()
+    browser = MagicMock()
+    browser.new_context = AsyncMock(return_value=context)
+    chromium = MagicMock()
+    chromium.launch = AsyncMock(return_value=browser)
+    playwright_instance = MagicMock()
+    playwright_instance.chromium = chromium
+    sm._playwright = playwright_instance
+
+    loaded = _run(sm._load_session_headless())
+    assert loaded is context
+    assert sm._playwright is playwright_instance
+    chromium.launch.assert_awaited_once()
+    browser.new_context.assert_awaited_once()
+
+
 def test_headed_login_flow_success_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     session_path = tmp_path / "fiverr_session.json"
     sm = SessionManager(

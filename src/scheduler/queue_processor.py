@@ -49,6 +49,9 @@ async def execute_with_retry(
         return True
     except Exception as exc:
         job.mark_failed(str(exc))
+        # Re-queue transient failures while retries remain so the pull query can pick them up.
+        if job.status != "DEAD_LETTER":
+            job.status = "QUEUED"
         db.commit()
         return False
 

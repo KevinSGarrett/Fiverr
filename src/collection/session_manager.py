@@ -136,7 +136,8 @@ class SessionManager:
 
     async def _load_session_headless(self) -> BrowserContext:
         """Open headless Chromium and load storage_state from disk."""
-        self._playwright = await async_playwright().start()
+        if self._playwright is None:
+            self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(
             headless=True,
             args=self._browser_args(),
