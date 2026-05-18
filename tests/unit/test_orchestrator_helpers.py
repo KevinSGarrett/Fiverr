@@ -304,7 +304,7 @@ def test_run_pipeline_initializes_database_and_prints_mode(
 
         def load(self) -> object:
             calls["loaded"] = True
-            return object()
+            return SimpleNamespace(scoring=SimpleNamespace(active_profile="default"), model_dump=lambda: {"niches": {}})
 
     monkeypatch.setattr(orchestrator, "configure_logging", lambda: calls.setdefault("logged", True))
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
@@ -312,14 +312,41 @@ def test_run_pipeline_initializes_database_and_prints_mode(
     monkeypatch.setattr(
         orchestrator,
         "initialize_database",
-        lambda database_url: calls.setdefault("db_url", database_url),
+        lambda database_url: calls.setdefault("db_url", object()),
     )
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+
+    class _FakeQuery:
+        def filter(self, *args: Any, **kwargs: Any) -> _FakeQuery:
+            return self
+
+        def all(self) -> list[tuple[int]]:
+            return [(101,)]
+
+    class _FakeSession:
+        def query(self, _model: Any) -> _FakeQuery:
+            return _FakeQuery()
+
+    class _FakeSessionContext:
+        def __enter__(self) -> _FakeSession:
+            return _FakeSession()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_score_keyword_batch(**kwargs: Any) -> list[dict[str, Any]]:
+        calls["keyword_ids"] = kwargs["keyword_ids"]
+        return [{"keyword_id": 101}]
+
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.scoring.pipeline.score_keyword_batch", _fake_score_keyword_batch)
 
     assert orchestrator.run_pipeline("full", config_path="config.yaml", database_url=None) == 0
     assert calls["loaded"] is True
     assert calls["logged"] is True
-    assert calls["db_url"] == "sqlite:///normalized.db"
-    assert "Mode: full" in capsys.readouterr().out
+    assert calls["keyword_ids"] == [101]
+    assert "Scoring complete: 1 keywords scored" in capsys.readouterr().out
 
 
 def test_run_pipeline_rejects_unsupported_mode() -> None:

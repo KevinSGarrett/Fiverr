@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.models import Keyword
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
@@ -242,7 +243,6 @@ async def score_keyword(
     cache: Any,
 ) -> dict[str, Any]:
     """Run full keyword scoring pipeline, compute final score, and persist result."""
-    del cache
     profile_weights = SCORING_PROFILES.get(profile_name)
     if profile_weights is None:
         raise ValueError(f"Unknown scoring profile: {profile_name}")
@@ -340,13 +340,21 @@ async def score_keyword(
     )
     final_score = calculated_final_score
     tag = assign_tag(final_score, confidence_modifier)
-    explanation_text = await _generate_score_explanation(
+    explanation_scores = {
+        **scores,
+        "confidence_modifier": confidence_modifier,
+        "scoring_profile": profile_name,
+    }
+    keyword_text, niche_id = _resolve_keyword_context(keyword_id=keyword_id, db=db)
+    explanation_text = await generate_score_explanation(
         keyword_id=keyword_id,
-        scores=scores,
-        score_components=score_components,
+        keyword_text=keyword_text,
+        scores=explanation_scores,
+        components=score_components,
         final_score=final_score,
         tag=tag,
         llm_client=llm_client,
+        cache=cache,
     )
     red_flags = detect_red_flags_from_scores(
         scores=scores,
@@ -373,6 +381,8 @@ async def score_keyword(
 
     return {
         "keyword_id": keyword_id,
+        "keyword_text": keyword_text,
+        "niche_id": niche_id,
         "scoring_profile": profile_name,
         "score_depth": score_depth,
         "scores": scores,
@@ -425,6 +435,57 @@ async def score_keyword_batch(
                 }
             )
     return results
+
+
+async def generate_score_explanation(
+    keyword_id: int,
+    keyword_text: str,
+    scores: dict[str, Any],
+    components: dict[str, dict[str, float | None]],
+    final_score: float,
+    tag: str,
+    llm_client: Any,
+    cache: Any,
+) -> str:
+    """
+    Generates a human-readable explanation for a keyword's final recommendation score.
+    Feature-flagged: returns template explanation when llm_client is None.
+    """
+    del keyword_id, cache
+    component_contributions: list[tuple[str, float]] = []
+    for name, component in components.items():
+        contribution = component.get("contribution")
+        if contribution is None:
+            continue
+        component_contributions.append((name, float(contribution)))
+    top_components = sorted(component_contributions, key=lambda value: value[1], reverse=True)[:3]
+    top_text = ", ".join(f"{name.replace('_score', '')}={value:.1f}" for name, value in top_components)
+    template_explanation = (
+        f"Final score: {final_score:.1f} ({tag}). "
+        f"Confidence: {scores.get('confidence_modifier', 0):.2f}. "
+        f"Top drivers: {top_text}. "
+        f"Profile: {scores.get('scoring_profile', 'default')}."
+    )
+    if llm_client is None:
+        return template_explanation
+
+    try:
+        prompt = (
+            f"Explain in 2-3 sentences why '{keyword_text}' scored {final_score:.1f}/100 "
+            f"with tag {tag}. Top score drivers: {top_text}. "
+            f"Confidence modifier: {scores.get('confidence_modifier', 0):.2f}. "
+            "Be specific and actionable for a new Fiverr seller."
+        )
+        llm_result = llm_client.complete(
+            prompt=prompt,
+            model="gpt-4o",
+            temperature=0.3,
+        )
+        if isinstance(llm_result, Awaitable):
+            llm_result = await llm_result
+        return getattr(llm_result, "text", None) or template_explanation
+    except Exception:  # noqa: BLE001
+        return template_explanation
 
 
 def write_keyword_score(
@@ -553,29 +614,12 @@ def _build_confidence_context(
     }
 
 
-async def _generate_score_explanation(
-    keyword_id: int,
-    scores: dict[str, float | None],
-    score_components: dict[str, dict[str, float | None]],
-    final_score: float,
-    tag: str,
-    llm_client: Any,
-) -> str:
-    if llm_client is not None and hasattr(llm_client, "generate_score_explanation"):
-        maybe_awaitable = llm_client.generate_score_explanation(
-            keyword_id=keyword_id,
-            scores=scores,
-            score_components=score_components,
-            final_score=final_score,
-            tag=tag,
-        )
-        if isinstance(maybe_awaitable, Awaitable):
-            return str(await maybe_awaitable)
-        return str(maybe_awaitable)
-    return (
-        f"Keyword {keyword_id} final score is {final_score:.2f} ({tag}) based on weighted "
-        "score components and confidence-adjusted composite."
-    )
+def _resolve_keyword_context(keyword_id: int, db: Any) -> tuple[str, int | None]:
+    if isinstance(db, Session):
+        keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
+        if keyword_row is not None:
+            return str(getattr(keyword_row, "keyword", f"keyword-{keyword_id}")), getattr(keyword_row, "niche_id", None)
+    return f"keyword-{keyword_id}", None
 
 
 def _score_value(result: Any) -> float | None:

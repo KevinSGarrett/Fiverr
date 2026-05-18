@@ -407,6 +407,34 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         print(f"Recommendations stage complete: {result}")
         return 0
 
+    if mode == "full":
+        from src.models import Keyword
+        from src.scoring.pipeline import score_keyword_batch
+
+        profile_name = (
+            getattr(getattr(config, "scoring", None), "active_profile", None)
+            or config_payload.get("scoring", {}).get("active_profile")
+            or "default"
+        )
+        niche_ids = [int(niche_id) for niche_id in config_payload.get("niches", {}).keys() if str(niche_id).isdigit()]
+        session_factory = create_session_factory(engine)
+        with get_session(session_factory) as db_session:
+            keyword_query = db_session.query(Keyword.id)
+            if niche_ids:
+                keyword_query = keyword_query.filter(Keyword.niche_id.in_(niche_ids))
+            keyword_ids = [int(keyword_id) for (keyword_id,) in keyword_query.all()]
+            scored_results = asyncio.run(
+                score_keyword_batch(
+                    keyword_ids=keyword_ids,
+                    profile_name=profile_name,
+                    db=db_session,
+                    llm_client=None,
+                    cache=None,
+                )
+            )
+        print(f"Scoring complete: {len(scored_results)} keywords scored")
+        return 0
+
     print(f"Mode: {mode}")
     print(f"Database: {normalized_url}")
     print(STAGE_AVAILABILITY[mode])
