@@ -103,9 +103,8 @@ Required cycle validation commands completed successfully:
 
 ## Final SHA
 
-- Local HEAD after implementation: `b10314310c89f87efa54477a4d3485a8e1476670`
-- Origin branch SHA freeze: `b10314310c89f87efa54477a4d3485a8e1476670`
-- PR head SHA: `b10314310c89f87efa54477a4d3485a8e1476670` (matches origin branch freeze)
+- Final frozen SHA recorded in PR #24 freeze comment and mirrored in `SCRUM-509`.
+- Verification outcome: `origin/cycle/020/integration` SHA matched PR head SHA at freeze time.
 
 ## AC/DoD Table
 
