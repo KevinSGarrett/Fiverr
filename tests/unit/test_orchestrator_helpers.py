@@ -441,3 +441,27 @@ def test_run_pipeline_collect_only_runs_collection_orchestrator(
 
     assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 0
     assert "Collection dry run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    async def _broken_collection_pipeline(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("dry-run boom")
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _broken_collection_pipeline)
+
+    assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 1
+    assert "Collection dry run failed: dry-run boom" in capsys.readouterr().out
