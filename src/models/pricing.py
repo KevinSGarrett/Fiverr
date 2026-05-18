@@ -15,6 +15,7 @@ class PriceAnalysis(IntegerPrimaryKeyMixin, Base):
     """Persisted per-keyword price distribution analysis."""
 
     __tablename__ = "price_analyses"
+    tablename = __tablename__
     __table_args__ = (
         UniqueConstraint("keyword_id", "run_id", name="uq_price_analyses_keyword_run"),
         Index("ix_price_analyses_keyword_analyzed_at", "keyword_id", desc("analyzed_at")),

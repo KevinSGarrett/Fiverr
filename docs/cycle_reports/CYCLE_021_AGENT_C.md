@@ -4,6 +4,7 @@
 
 - Working directory: `C:\Fiverr\Fiverr`
 - Branch verified: `cycle/021/integration`
+- Pulled latest branch state: `git pull origin cycle/021/integration` -> `Already up to date.`
 - Required preflight commands executed:
   - `Get-Location`
   - `git rev-parse --show-toplevel`
@@ -35,7 +36,7 @@
   - `Index(keyword_id, analyzed_at DESC)`
 - Registered model in `src/models/__init__.py`.
 - Verification:
-  - `python -c "from src.models import PriceAnalysis; print(getattr(PriceAnalysis, '__tablename__', None))"` -> `price_analyses`
+  - `python -c "from src.models import PriceAnalysis; print(PriceAnalysis.tablename)"` -> `price_analyses`
   - `python -c "from src.models import Base; print([t for t in Base.metadata.tables])"` includes `price_analyses`
 
 ## Pricing Calculator Design
@@ -122,6 +123,7 @@
   - `python run.py phase2-smoke` -> pass
 - Final smoke rerun:
   - `python run.py phase2-smoke` -> pass
+
 
 ## Jira Evidence Posted
 
