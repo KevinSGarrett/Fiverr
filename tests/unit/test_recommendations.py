@@ -40,6 +40,7 @@ from src.recommendations.tasks import (
     generate_gig_titles,
     generate_niche_viability,
     generate_package_structure,
+    generate_pricing_strategy,
     generate_recommendation,
     generate_red_flags,
     generate_tag_sets,
@@ -531,10 +532,12 @@ def test_generate_recommendation_all_succeed(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["generation_complete"] is True
     assert result["gig_titles"] == ["t1"]
     assert result["niche_viability_assessment"] == {"verdict": "good"}
+    assert result["pricing_strategy"] == {"entry_prices": {}}
 
 
 def test_generate_recommendation_partial_failure(monkeypatch: Any) -> None:
@@ -554,6 +557,7 @@ def test_generate_recommendation_partial_failure(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _raise)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["generation_complete"] is False
     assert result["package_structure"] is None
@@ -573,8 +577,9 @@ def test_generate_recommendation_cost_accumulated(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}], cost=0.01))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"], cost=0.02))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}, cost=0.04))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}, cost=0.01))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
-    assert abs(result["llm_cost_usd"] - 0.21) < 1e-9
+    assert abs(result["llm_cost_usd"] - 0.22) < 1e-9
 
 
 def test_generate_recommendation_exception_handling(monkeypatch: Any) -> None:
@@ -594,6 +599,7 @@ def test_generate_recommendation_exception_handling(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
+    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["gig_titles"] is None
     assert result["generation_complete"] is False
@@ -617,9 +623,15 @@ def test_write_recommendation_returns_true(monkeypatch: Any, tmp_path: Any) -> N
     assert (tmp_path / "data" / "recommendation_results" / "101_run-1.json").exists()
 
 
-def test_11_task_names_match_field_names() -> None:
-    assert len(RECOMMENDATION_FIELD_NAMES) == 11
-    assert len(set(RECOMMENDATION_FIELD_NAMES)) == 11
+def test_12_task_names_match_field_names() -> None:
+    assert len(RECOMMENDATION_FIELD_NAMES) == 12
+    assert len(set(RECOMMENDATION_FIELD_NAMES)) == 12
+
+
+def test_generate_pricing_strategy_no_price_distribution() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    result = asyncio.run(generate_pricing_strategy(context, llm_client=Mock(), cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
 
 
 def test_generate_recommendation_no_crash_no_llm() -> None:

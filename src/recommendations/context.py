@@ -55,6 +55,13 @@ class RecommendationContext(BaseModel):
     reddit_intent_score: float | None = None
     cluster_label: str | None = None
     opportunity_narrative: str | None = None
+    price_distribution: dict[str, Any] | None = None
+    price_review_correlation: dict[str, Any] | None = None
+    market_type: str | None = None
+    calculated_entry_prices: dict[str, Any] | None = None
+    calculated_price_ladder: list[dict[str, Any]] | None = None
+    new_seller_discount_pct: float | None = None
+    competitor_price_positions: list[dict[str, Any]] | None = None
 
     @property
     def keyword(self) -> str:

@@ -8,6 +8,7 @@ from typing import Any
 
 from src.llm import TemplateRenderer
 from src.recommendations.context import RecommendationContext
+from src.schemas.pricing_output import PricingStrategy
 from src.utils.json import safe_json_loads
 
 _RENDERER = TemplateRenderer()
@@ -189,6 +190,30 @@ async def generate_niche_viability(
     )
 
 
+async def generate_pricing_strategy(
+    context: RecommendationContext,
+    llm_client: Any,
+    cache: Any | None,
+) -> dict[str, Any]:
+    """Task 12: Generate LLM pricing strategy. Skips when pricing data is missing."""
+    del cache
+    if not getattr(context, "price_distribution", None):
+        return {"output": None, "cost_usd": 0.0}
+    if llm_client is None:
+        return {"output": None, "cost_usd": 0.0}
+
+    prompt = _RENDERER.render_template("pricing_strategy.j2", _task_context(context))
+    try:
+        response = await _complete_pricing_strategy(llm_client, prompt)
+        parsed = safe_json_loads(_extract_llm_text(response))
+        if not isinstance(parsed, Mapping) or not isinstance(parsed.get("pricing_strategy"), Mapping):
+            return {"output": None, "cost_usd": 0.0}
+        strategy = PricingStrategy(**dict(parsed["pricing_strategy"]))
+        return {"output": strategy.model_dump(), "cost_usd": _extract_usage_cost(response)}
+    except Exception:
+        return {"output": None, "cost_usd": 0.0}
+
+
 RECOMMENDATION_FIELD_NAMES = [
     "gig_titles",
     "tag_sets",
@@ -201,6 +226,7 @@ RECOMMENDATION_FIELD_NAMES = [
     "upsell_structure",
     "red_flags",
     "niche_viability_assessment",
+    "pricing_strategy",
 ]
 
 
@@ -211,7 +237,7 @@ async def generate_recommendation(
     cache: Any | None,
     db: Any,
 ) -> dict[str, Any]:
-    """Run all 11 LLM tasks concurrently for a single keyword."""
+    """Run all 12 LLM tasks concurrently for a single keyword."""
     del keyword_id, db
     tasks = [
         generate_gig_titles(context, llm_client, cache),
@@ -225,6 +251,7 @@ async def generate_recommendation(
         generate_upsell_structure(context, llm_client, cache),
         generate_red_flags(context, llm_client, cache),
         generate_niche_viability(context, llm_client, cache),
+        generate_pricing_strategy(context, llm_client, cache),
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -271,6 +298,18 @@ async def _generate_task(
 
 def _task_context(context: RecommendationContext) -> dict[str, Any]:
     return {
+        "keyword_text": context.keyword_text,
+        "niche_name": context.niche_name,
+        "tag": context.tag,
+        "final_score": context.final_score,
+        "price_distribution": getattr(context, "price_distribution", None),
+        "price_review_correlation": getattr(context, "price_review_correlation", None),
+        "market_type": getattr(context, "market_type", None),
+        "calculated_entry_prices": getattr(context, "calculated_entry_prices", None),
+        "calculated_price_ladder": getattr(context, "calculated_price_ladder", None),
+        "new_seller_discount_pct": getattr(context, "new_seller_discount_pct", None),
+        "competitor_price_positions": getattr(context, "competitor_price_positions", None),
+        "top_competitor_weaknesses": context.top_competitor_weaknesses,
         "keyword": context.keyword_text,
         "niche_id": context.niche_id,
         "demand_score": context.demand_score,
@@ -311,7 +350,7 @@ def _parse_tag_sets(raw_text: str) -> list[list[str]]:
     parsed: list[list[str]] = []
     for item in sets:
         if isinstance(item, Mapping) and isinstance(item.get("tags"), list):
-            parsed.append([str(tag) for tag in item["tags"] if isinstance(tag, str)])
+            parsed.append([tag for tag in item["tags"] if isinstance(tag, str)])
     return parsed
 
 
@@ -327,7 +366,7 @@ def _parse_red_flags(raw_text: str) -> list[str]:
     risks = payload.get("risks") if isinstance(payload, Mapping) else None
     if not isinstance(risks, list):
         return []
-    return [str(item) for item in risks if isinstance(item, str)]
+    return [item for item in risks if isinstance(item, str)]
 
 
 def _parse_package_structure(raw_text: str) -> dict[str, Any]:
@@ -390,6 +429,39 @@ def _extract_cost_usd(response: Any) -> float:
         except (TypeError, ValueError):
             return 0.0
     return 0.0
+
+
+async def _complete_pricing_strategy(llm_client: Any, prompt: str) -> Any:
+    complete = getattr(llm_client, "complete", None)
+    if complete is None:
+        raise AttributeError("llm_client.complete is required")
+
+    kwargs = {
+        "prompt": prompt,
+        "model": "gpt-4o",
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
+
+    try:
+        result = complete(**kwargs)
+    except TypeError:
+        kwargs.pop("response_format", None)
+        result = complete(**kwargs)
+
+    if asyncio.iscoroutine(result):
+        return await result
+    return await asyncio.to_thread(lambda: result)
+
+
+def _extract_usage_cost(response: Any) -> float:
+    usage_cost = getattr(response, "usage_cost", None)
+    if usage_cost is not None:
+        try:
+            return float(usage_cost)
+        except (TypeError, ValueError):
+            pass
+    return _extract_cost_usd(response)
 
 
 def _to_float(value: Any, default: float) -> float:

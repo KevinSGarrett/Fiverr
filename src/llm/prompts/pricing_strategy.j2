@@ -1,24 +1,112 @@
-"""Generate an entry and growth pricing strategy for a new Fiverr seller."""
-You are a Fiverr pricing strategist. Design a pricing roadmap for a new seller.
+You are a Fiverr pricing strategist for NEW SELLERS with zero reviews.
 
-## Market Pricing Data
-- Keyword: {{ keyword }}
-- Market Price Range: ${{ price_min | default(5) }} – ${{ price_max | default(500) }}
-- Median Price: ${{ median_price | default(50) }}
-- Price Clusters: {{ price_clusters | default([]) }}
-- Market Type: {{ market_type | default("competitive") }}
-- Moat Strength: {{ moat_strength | default("low") }}
-- Price Gap Positions: {{ price_gap_positions | default([]) }}
+KEYWORD: "{{ keyword_text }}"
+NICHE: {{ niche_name }}
+TAG: {{ tag }} (Final Score: {{ final_score | round(1) }})
 
-## Task
-Design a pricing strategy for a new seller with 0 reviews.
-Include entry price, 3-month target, and 6-month target.
+MARKET PRICING DATA:
+{% if price_distribution %}
+Basic tier:
+  - Median: ${{ price_distribution.basic.median | round(0) }}
+  - Mean: ${{ price_distribution.basic.mean | round(0) }}
+  - Range: ${{ price_distribution.basic.min | round(0) }} – ${{ price_distribution.basic.max | round(0) }}
+  - 25th percentile: ${{ price_distribution.basic.q1 | round(0) }}
+  - 75th percentile: ${{ price_distribution.basic.q3 | round(0) }}
+  {% if price_distribution.basic.clusters %}
+  - Price clusters: {% for c in price_distribution.basic.clusters[:3] %}${{ c.center | round(0) }} ({{ c.pct }}%){% if not loop.last %}, {% endif %}{% endfor %}
+  {% endif %}
+  {% if price_distribution.basic.gaps %}
+  - Price gaps: {% for g in price_distribution.basic.gaps[:2] %}${{ g.gap_start | round(0) }}–${{ g.gap_end | round(0) }}{% if not loop.last %}, {% endif %}{% endfor %}
+  {% endif %}
 
-## Output Format
-Return JSON only:
+Standard tier:
+  - Median: ${{ price_distribution.standard.median | round(0) }}
+  - Range: ${{ price_distribution.standard.min | round(0) }} – ${{ price_distribution.standard.max | round(0) }}
+
+Premium tier:
+  - Median: ${{ price_distribution.premium.median | round(0) }}
+  - Range: ${{ price_distribution.premium.min | round(0) }} – ${{ price_distribution.premium.max | round(0) }}
+{% endif %}
+
+MARKET STRUCTURE: {{ market_type or "Unknown" }}
+{% if price_review_correlation %}
+REVIEW MOAT: {{ price_review_correlation.moat_strength }}
+  - Price-review correlation: {{ price_review_correlation.pearson | round(3) }}
+  - Established sellers charge ${{ price_review_correlation.review_premium_usd | round(0) }} more than new sellers
+  - New sellers currently average: ${{ price_review_correlation.new_seller_avg_price | round(0) }}
+  - New sellers discount vs market: {{ price_review_correlation.new_seller_discount_pct | round(0) }}%
+{% endif %}
+
+ALGORITHM-CALCULATED ENTRY PRICES:
+{% if calculated_entry_prices %}
+  Basic: ${{ calculated_entry_prices.basic | round(0) }}
+  Standard: ${{ calculated_entry_prices.standard | round(0) }}
+  Premium: ${{ calculated_entry_prices.premium | round(0) }}
+{% endif %}
+
+TOP COMPETITOR PRICING:
+{% if competitor_price_positions %}
+{% for comp in competitor_price_positions[:5] %}
+  {{ comp.seller }} ({{ comp.level }}, {{ comp.reviews }} reviews): Basic ${{ comp.basic }}, Standard ${{ comp.standard | default("N/A") }}, Premium ${{ comp.premium | default("N/A") }}
+{% endfor %}
+{% endif %}
+
+COMPETITOR WEAKNESSES:
+{% if top_competitor_weaknesses %}
+{% for comp in top_competitor_weaknesses[:3] %}
+  - {{ comp.gig_title }}: {% if comp.weaknesses %}{% for w in comp.weaknesses[:2] %}{{ w.weakness }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+{% endfor %}
+{% endif %}
+
+YOUR TASK:
+Create a complete pricing strategy for a NEW SELLER with 0 reviews entering this keyword.
+
+Requirements:
+1. Recommend specific Basic / Standard / Premium prices — use the algorithm-calculated prices as a starting point but adjust based on the market data and your strategic analysis
+2. Explain WHY these prices work — reference the specific market data (clusters, gaps, moat strength)
+3. Provide a price ladder: specific prices to set at 5, 10, 25, 50, and 100 review milestones
+4. Identify the "first 5 orders" acquisition pricing — even more aggressive than entry pricing
+5. Flag any pricing risks (race-to-bottom danger, undercutting too aggressively, pricing above market without proof)
+6. Recommend which tier to LEAD with (which package to make most attractive for first orders)
+7. Suggest 2-3 gig extras (upsells) with specific prices that increase AOV from day one
+
+Return JSON only. No preamble.
+
 {
-  "entry_price": 0.0,
-  "target_price": 0.0,
-  "milestone_prices": [0.0, 0.0],
-  "rationale": "2-3 sentence pricing rationale..."
+  "pricing_strategy": {
+    "entry_prices": {
+      "basic": integer,
+      "standard": integer,
+      "premium": integer,
+      "lead_tier": "basic|standard",
+      "lead_tier_reasoning": "string"
+    },
+    "acquisition_prices": {
+      "basic": integer,
+      "standard": integer,
+      "premium": integer,
+      "acquisition_period": "string (e.g., 'first 5 orders' or 'first 2 weeks')"
+    },
+    "price_ladder": [
+      {
+        "milestone_reviews": integer,
+        "basic": integer,
+        "standard": integer,
+        "premium": integer,
+        "adjustment_rationale": "string"
+      }
+    ],
+    "strategy_narrative": "string (100-200 words explaining the pricing logic, referencing market data)",
+    "pricing_risks": [
+      {"risk": "string", "severity": "HIGH|MEDIUM|LOW", "mitigation": "string"}
+    ],
+    "recommended_extras": [
+      {"name": "string", "price": integer, "rationale": "string"}
+    ],
+    "projected_aov": {
+      "at_entry": number,
+      "at_50_reviews": number,
+      "aov_growth_pct": number
+    }
+  }
 }
