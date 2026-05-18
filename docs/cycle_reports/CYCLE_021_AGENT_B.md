@@ -9,6 +9,17 @@
 - Baseline scoring tests (Agent A preflight gate):  
   `python -m pytest -q tests/unit/test_scoring.py tests/unit/test_scoring_pipeline.py` -> `163 passed`.
 
+## Pre-Code State and Plan
+
+- Current state before coding:
+  - `write_keyword_score()` relied on sidecar fallback because no concrete `KeywordScore` ORM model existed.
+  - `init_db` path was ready to create any table registered through `Base.metadata`.
+- Plan documented before implementation:
+  - Create `KeywordScore` model with Explanation Field Standard fields and constraints/index.
+  - Register model export so metadata includes `keyword_scores`.
+  - Replace model-probing path in `write_keyword_score()` with explicit Session ORM write path, keeping sidecar fallback.
+  - Add dedicated model/write-path tests and run targeted + full validations.
+
 ## Existing Models Found (Before Coding)
 
 - Read all files in `src/models/`.
@@ -90,6 +101,13 @@
 - Additional required command:
   - `python run.py recommendations-only` -> pass.
 
+## Jira AC/DoD Persistence Notes (Task 2)
+
+- `SCRUM-165` AC includes: explanations and component values are stored for transparency.
+- `SCRUM-166` AC includes: explanations and component values are stored for transparency.
+- `SCRUM-167` AC includes: component values and explanations are stored for transparency.
+- These persistence requirements are now materially advanced by the new `keyword_scores` ORM persistence path.
+
 ## Jira Comments Posted
 
 - Planning + implementation scope/evidence posted:
@@ -103,7 +121,7 @@
 
 - `keyword_scores` table added.
 - Current metadata table count observed: `36`.
-- Table count now exceeds the original 28-table baseline and should be reflected in a follow-up DOD note update when the documentation steward batch is run.
+- Updated `PM_Pack/ref/dod/DOD_EPIC_01.md` AC-1.3.1 note to reflect intentional additions beyond original 28-table baseline.
 
 ## E04 DoD Self-Check (Remaining)
 
