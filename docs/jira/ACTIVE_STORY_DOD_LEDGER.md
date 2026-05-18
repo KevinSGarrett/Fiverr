@@ -622,3 +622,89 @@
 | Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 023) | DoD Remaining / Gaps | Tests / Validation | Branch / PR | Next Action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `SCRUM-512` | In Progress | `src/dashboard/schemas/opportunity_card.py`, `src/dashboard/schemas/pricing_display.py`, `src/dashboard/__init__.py`, `tests/unit/test_dashboard_schemas.py`, coverage audit commands, Jira comments (`SCRUM-212`, `SCRUM-213`) | Added E09 dashboard display schemas (`OpportunityCardSchema`, `PricingDisplaySchema`) with conversion constructors and strict validation; transitioned first two E09 stories to `In Progress` and posted planning comments; reconciled board statuses (`SCRUM-22` moved to `In Progress`). | Final cycle-control closure is pending PR #27 creation, CI/codecov verification, Codex disposition workflow, and final SHA freeze posting. | Targeted tests pass (`test_dashboard_schemas` + `test_discovery`), comprehensive patch audit rerun, full gate run pass (`1161 passed`, coverage `94.08%`, `ruff`+`mypy`+config/foundation/smoke pass). | `cycle/023/integration` / PR #27 (pending) | Continue with PR creation, codecov/patch >=90 confirmation, Codex thread disposition, and merge gate checklist publication. |
+
+## Cycle 024 Rows (Agent A)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 024) | DoD Remaining / Gaps | Tests / Validation | Branch | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-512` | Done | PR #27 merge evidence (`23f4c33`), Jira comment `11130`, Jira transition to Done | Cycle 023 control closed after PR #27 verification gate was executed (preflight + review-thread resolution + check rollup including `codecov/project=SUCCESS` and `codecov/patch=SUCCESS`). | None for Cycle 023 control closure. | Preflight commands captured, GraphQL thread check confirmed all 3 threads resolved, merge completed, and Jira merge-SHA evidence posted. | `develop` | Keep closed; use `SCRUM-513` as Cycle 024 control ticket. |
+| `SCRUM-513` | In Progress | Branch setup (`cycle/024/integration`), Jira create/transition evidence, cycle validation outputs | Created Cycle 024 control ticket and moved to In Progress; cycle branch initialized from updated `develop` after PR #27 merge. | Remains open until Agent A/B/C/D cycle deliverables are merged and final gate evidence is frozen. | Full validation currently green on cycle branch (`ruff` + `mypy` pass, `1199 passed`, `94.21%` coverage, config/foundation/phase2-smoke pass). | `cycle/024/integration` | Continue tracking cross-agent cycle execution and final merge readiness. |
+| `SCRUM-141` | In Progress | `src/collection/session_manager.py`, `src/collection/fiverr_selectors.py`, `src/collection/human_events.py`, `tests/unit/test_session_manager.py`, Jira comments `11129` + `11131` | Implemented S2.1 session foundation with async `SessionManager` lifecycle, load-or-login behavior, session verification, shared context page APIs, guarded headed login via `playwright.require_login`, and selector/human-events module dependencies. | Real authenticated login and session-expiry re-login need live-run verification with actual Fiverr credentials outside mocked CI tests. | New unit suite `27 passed` (all Playwright objects mocked), targeted module coverage above gate (`session_manager 93%`, selectors/human_events 100%), full suite still passes (`1199 passed`, `94.21%`). | `cycle/024/integration` | Keep in progress; execute controlled real-session relogin proof in a manual secure environment before final story closure. |
+| `SCRUM-144` | In Progress | `src/models/job.py`, `src/models/init.py`, `src/models/__init__.py`, `src/models/registry.py`, `src/scheduler/queue_processor.py`, `src/scheduler/init.py`, `src/scheduler/__init__.py`, `tests/unit/test_queue_processor.py`, Jira comments `11133` + `11134`; strict prompt traceability comments also posted to `SCRUM-142` (`11135`, `11136`) | Implemented S2.4 queue foundations: new `jobs` ORM table with status/priority constraints and indexes, sequential `QueueProcessor` with priority pull query and dead-letter fallback, plus `execute_with_retry` helper wired for handler execution lifecycle. | Needs orchestration integration with real collection run and checkpoint file-write flow validation before DoD can be closed. | New queue suite `18 passed`; targeted coverage: `src.models.job` 100%, `src.scheduler.queue_processor` 100%; full validation pass: `ruff` + `mypy`, `1217 passed`, global coverage `94.26%`, `config-check` + `foundation-gate` + `phase2-smoke` + `recommendations-only` pass. | `cycle/024/integration` | Continue with orchestrator wiring and live collection integration evidence for checkpoint/resume behavior. |
+
+## Cycle 024 Rows (Agent C)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 024) | DoD Remaining / Gaps | Tests / Validation | Branch | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-143` | In Progress | `src/collection/pacing.py`, `tests/unit/test_pacing.py`, `tests/unit/test_collection_pacing.py`, Jira comments `11137` + `11140` | Implemented `PacingManager.wait(...)` with config-driven base+jitter delays, `dry_run=True` bypass for smoke safety, per-key hourly timestamp tracking (`_record_request`, `requests_in_last_hour`), and delay-config introspection while preserving legacy pacing API compatibility. | Adaptive 429 escalation and niche-level override behavior are still broader than this cycle stub scope. | New pacing suite `8 passed`; compatibility suite `5 passed`; targeted coverage `src.collection.pacing` `98%`; full validation block pass (`1241 passed`, `94.23%`, `ruff`+`mypy` clean). | `cycle/024/integration` | Keep `In Progress`; extend adaptive pacing/error escalation during Stage 2+ integration cycles. |
+| `SCRUM-144` | In Progress | `src/collection/workflows/niche_init.py`, `src/collection/workflows/keyword_expansion.py`, `src/collection/workflows/__init__.py`, `tests/unit/test_collection_workflows.py`, Jira comments `11138` + `11139` | Added Workflow 1 Stage-1 `run_niche_initialization(...)` and Workflow 2 Stage-2 `run_keyword_expansion(...)` dry-run-safe stub interfaces, including depth resolution, gate enforcement, seed normalization/dedupe, and exported workflow entrypoints (`run_niche_initialization`, `run_keyword_expansion_stub`). | Real Playwright/LLM collection execution and queue/orchestrator integration remain pending for full workflow DoD closure. | New workflow suite `16 passed`; targeted coverage `src.collection.workflows` `94%`; full validation block pass (`1241 passed`, `94.23%`) with `config-check`, `foundation-gate`, `phase2-smoke`, and `recommendations-only` passing. | `cycle/024/integration` | Keep `In Progress`; wire non-dry-run execution path in upcoming cycle with queue/checkpoint orchestration. |
+
+## Cycle 024 Validation Evidence (Agent C)
+
+- Preflight and dependency check:
+  - `Get-Location`
+  - `git rev-parse --show-toplevel`
+  - `git branch --show-current`
+  - `git log --oneline -8`
+  - `git worktree list`
+  - `python -m pytest -q tests/unit/test_session_manager.py tests/unit/test_queue_processor.py` (`45 passed`)
+- Targeted patch coverage:
+  - `python -m pytest -q --cov=src.collection.pacing --cov-report=term-missing tests/unit/test_pacing.py tests/unit/test_collection_pacing.py` (`98%`)
+  - `python -m pytest -q --cov=src.collection.workflows --cov-report=term-missing tests/unit/test_collection_workflows.py` (`94%`)
+- Full validation block:
+  - `python -m ruff check .`
+  - `python -m mypy src`
+  - `python -m pytest -q --cov=src --cov-fail-under=90`
+  - `python run.py config-check`
+  - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle024.db`
+  - `python run.py phase2-smoke`
+  - `python run.py recommendations-only`
+  - `python run.py phase2-smoke`
+- Results:
+  - Ruff: pass
+  - Mypy: pass (`Success: no issues found in 175 source files`)
+  - Pytest: pass (`1241 passed`)
+  - Coverage: pass (`94.23%`)
+  - Config/Foundation/Phase2 smoke/Recommendations: pass
+
+## Cycle 024 Rows (Agent D)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 024) | DoD Remaining / Gaps | Tests / Validation | Branch / PR | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-513` | In Progress | `src/collection/workflows/fiverr_search.py`, `src/collection/session_manager.py`, `src/scheduler/queue_processor.py`, `tests/unit/test_collection_workflows.py`, `tests/unit/test_session_manager.py`, `tests/unit/test_queue_processor.py`, `tests/unit/test_compat_exports.py`, PR #28 checks/comments | Implemented Workflow 3 Stage-3 stub with required helper utilities, resolved Codex review findings with regression tests, and closed strict patch-coverage gaps by covering remaining lines in `session_manager`, `niche_init`, and legacy `init.py` compatibility modules. | Real Playwright search navigation/persistence and queue wiring remain intentionally deferred to next cycle (`dry_run=True` default); this is scope-deferred, not a merge blocker for current cycle deliverables. | Full validation block pass (`ruff` + `mypy` + `1274 passed`, local coverage `94.44%`). Targeted audits now all green for requested modules (`session_manager`, `fiverr_selectors`, `human_events`, `pacing`, `workflows`, `models.job`, `queue_processor`) with no missing lines in the previously uncovered files. CI checks settled with `codecov/project` PASS (`94.43%`) and `codecov/patch` PASS (`100.00% diff hit`). | `cycle/024/integration` / PR `#28` | Keep `SCRUM-513` In Progress until PR approval/merge, then post merge SHA and transition per cycle-close protocol. |
+| `SCRUM-17` | In Progress | Jira transition + epic progress comment `11142` | Cycle 024 foundation summary posted with Agent A/B/C/D deliverables and explicit next-cycle Workfow 3 real Playwright integration note. | Epic closure still depends on downstream collection stages and live run evidence. | Story board reconciliation command verified children statuses and corrected stale epic state. | Jira | Keep `In Progress`; continue cycle integration and merge-gate execution. |
+| `SCRUM-145` | In Progress | Jira transition evidence | Reconciled S2.5 status target per board rules (`In Review` -> `In Progress`) to maintain active wave tracking. | Story DoD unchanged; checkpoint system implementation still pending dedicated cycle scope. | Status checks executed via JQL sweep for control/epic/story set. | Jira | Keep `In Progress` until checkpoint delivery cycle. |
+
+## Cycle 024 Validation Evidence (Agent D)
+
+- Preflight:
+  - `Get-Location`
+  - `git rev-parse --show-toplevel`
+  - `git branch --show-current`
+  - `git log --oneline -12`
+  - `git worktree list`
+- Workflow and gap tests:
+  - `python -m pytest -q tests/unit/test_collection_workflows.py` (`28 passed`)
+  - `python -m pytest -q tests/unit/test_collection_workflows.py tests/unit/test_pacing.py` (`44 passed`)
+- Targeted patch coverage audits:
+  - `python -m pytest -q --cov=src.collection.session_manager --cov-report=term-missing` (`93%`, missing `106, 114, 118-122, 198-199, 216-218, 267`)
+  - `python -m pytest -q --cov=src.collection.fiverr_selectors --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.collection.human_events --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.collection.pacing --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.collection.workflows --cov-report=term-missing` (`98%`, missing `src.collection.workflows.niche_init: 76-78`)
+  - `python -m pytest -q --cov=src.models.job --cov-report=term-missing` (`100%`, no uncovered lines)
+  - `python -m pytest -q --cov=src.scheduler.queue_processor --cov-report=term-missing` (`100%`, no uncovered lines)
+- Full validation block:
+  - `python -m ruff check .`
+  - `python -m mypy src`
+  - `python -m pytest -q --cov=src --cov-fail-under=90`
+  - `python run.py config-check`
+  - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle024.db`
+  - `python run.py phase2-smoke`
+  - `python run.py recommendations-only`
+- Results:
+  - Ruff: pass (`All checks passed!`)
+  - Mypy: pass (`Success: no issues found in 175 source files`)
+  - Pytest: pass (`1261 passed`)
+  - Coverage: pass (`94.30%`)
+  - Config/Foundation/Phase2 smoke/Recommendations: pass

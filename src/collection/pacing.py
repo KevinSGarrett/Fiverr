@@ -1,4 +1,4 @@
-"""Deterministic pacing and cooldown logic for collection workloads."""
+"""Pacing utilities for collection workloads."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import random
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,16 +35,32 @@ class SourcePacingState:
 
 
 class PacingManager:
-    """Calculates delays and cooldowns without sleeping."""
+    """Manages request pacing and legacy cooldown calculations."""
 
     def __init__(
         self,
-        config: PacingConfig | None = None,
+        config: PacingConfig | dict[str, object] | None = None,
         source_configs: dict[str, PacingConfig] | None = None,
         random_provider: Callable[[float, float], float] | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:
-        self.config = config or PacingConfig()
+        self.config = config if config is not None else {}
+        self.pacing: dict[str, dict[str, object]] = {}
+
+        if isinstance(config, dict):
+            raw_pacing = config.get("pacing", {})
+            if isinstance(raw_pacing, dict):
+                self.pacing = {
+                    str(key): value
+                    for key, value in raw_pacing.items()
+                    if isinstance(value, dict)
+                }
+            self._legacy_config = PacingConfig()
+        else:
+            self._legacy_config = config or PacingConfig()
+
+        # Tracks request timestamps for the newer hourly count API.
+        self._hourly_counts: dict[str, list[float]] = {}
         self._source_configs = source_configs or {}
         self._random = random_provider or random.uniform
         self._clock = clock or time.time
@@ -53,7 +70,55 @@ class PacingManager:
         return self._state_by_source.setdefault(source, SourcePacingState())
 
     def _config_for_source(self, source: str) -> PacingConfig:
-        return self._source_configs.get(source, self.config)
+        return self._source_configs.get(source, self._legacy_config)
+
+    @staticmethod
+    def _float_value(value: Any, fallback: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+    async def wait(self, pacing_key: str, dry_run: bool = False) -> float:
+        """
+        Wait for configured delay (base + jitter), then record request.
+
+        When `dry_run=True`, skip sleeping and return 0.0.
+        """
+        if dry_run:
+            return 0.0
+
+        import asyncio
+
+        cfg = self.pacing.get(pacing_key, self.pacing.get("default", {}))
+        base = self._float_value(cfg.get("base_delay_seconds", 2.0), 2.0)
+        jitter_max = self._float_value(cfg.get("jitter_seconds", 1.0), 1.0)
+        delay = base + random.uniform(0.0, jitter_max)
+        await asyncio.sleep(delay)
+        self._record_request(pacing_key)
+        return delay
+
+    def _record_request(self, pacing_key: str) -> None:
+        """Record timestamp and purge entries older than 1 hour."""
+        now = time.time()
+        if pacing_key not in self._hourly_counts:
+            self._hourly_counts[pacing_key] = []
+        self._hourly_counts[pacing_key].append(now)
+        cutoff = now - 3600.0
+        self._hourly_counts[pacing_key] = [t for t in self._hourly_counts[pacing_key] if t > cutoff]
+
+    def requests_in_last_hour(self, pacing_key: str) -> int:
+        """Return number of requests in the last hour for the key."""
+        now = time.time()
+        cutoff = now - 3600.0
+        return sum(1 for t in self._hourly_counts.get(pacing_key, []) if t > cutoff)
+
+    def get_delay_config(self, pacing_key: str) -> dict[str, object]:
+        """Return effective config for a pacing key."""
+        cfg = self.pacing.get(pacing_key, self.pacing.get("default", {}))
+        if isinstance(cfg, dict):
+            return dict(cfg)
+        return {}
 
     @staticmethod
     def _prune_request_window(state: SourcePacingState, now: float) -> None:
