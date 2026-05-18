@@ -89,27 +89,36 @@
 - `python run.py phase2-smoke` -> pass
 - `python run.py recommendations-only` -> pass
 
-## Merge Gate Checklist (Will be posted to PR after CI settles)
+## Codex Review Threads Query (Mandatory)
+
+- Executed exact query:
+  - `gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{id isResolved isOutdated comments(first:5){nodes{author{login}body}}}}}}}' -f owner=KevinSGarrett -f name=Fiverr -F number=28`
+- Raw result:
+  - `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}`
+- Total threads found: `0`
+- Codex query confirmed 0 review threads. No disposition required.
+
+## Merge Gate Checklist
 
 ```text
 MERGE GATE CHECKLIST — Cycle 024 PR #28
 ==========================================
 CODECOV:
-[ ] codecov/project: [PENDING] — [PENDING]
-[ ] codecov/patch: [PENDING] — [PENDING]
+[ ] codecov/project: [PASS] — [94.30%]
+[ ] codecov/patch: [PASS] — [96.58849%]
 [ ] Local --cov-fail-under=90: [PASS]
-[ ] All new lines covered by tests: [YES]
-  If NO, uncovered files: [N/A]
+[ ] All new lines covered by tests: [NO]
+  If NO, uncovered files: [src/collection/session_manager.py, src/collection/workflows/niche_init.py, src/models/init.py, src/scheduler/init.py]
 
 CODEX:
-[ ] reviewThreads query executed: NO (pending PR number)
-[ ] Total threads found: [PENDING]
-[ ] All threads dispositioned: [PENDING]
-[ ] All VALID_FIXED threads have regression tests: [PENDING]
-[ ] All threads manually resolved with reply: [PENDING]
-[ ] Zero unresolved threads: [PENDING]
+[ ] reviewThreads query executed: YES
+[ ] Total threads found: [0]
+[ ] All threads dispositioned: [N/A]
+[ ] All VALID_FIXED threads have regression tests: [N/A]
+[ ] All threads manually resolved with reply: [N/A]
+[ ] Zero unresolved threads: [YES]
 
 FINAL:
 [ ] PR #28 is ready to merge: [NO]
-[ ] Blockers if NO: [PR not created yet; CI/codecov/Codex disposition pending]
+[ ] Blockers if NO: [All new lines covered by tests = NO]
 ```
