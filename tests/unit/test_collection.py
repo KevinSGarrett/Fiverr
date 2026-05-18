@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from src.collection import orchestrator as collection_orchestrator_module
 from src.collection.autocomplete import AutocompleteFixtureError, load_autocomplete_fixture
 from src.collection.checkpoint import (
     QueueCheckpointError,
@@ -27,7 +28,6 @@ from src.collection.external_signals import (
 from src.collection.gig_detail import parse_gig_detail_from_html
 from src.collection.html_text import clean_html_text, extract_data_testid_text
 from src.collection.keyword_expansion import expand_keywords
-from src.collection import orchestrator as collection_orchestrator_module
 from src.collection.orchestrator import run_collection_dry_run
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
