@@ -23,6 +23,7 @@ from src.models.base import (
 )
 from src.models.discovery import DiscoveryCandidate
 from src.models.discovery_cycle import DiscoveryCycleLog
+from src.models.job import Job
 from src.models.keyword_score import KeywordScore
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
@@ -62,6 +63,7 @@ __all__ = [
     "Gig",
     "GigVisualAnalysis",
     "IntegerPrimaryKeyMixin",
+    "Job",
     "JobStatus",
     "Keyword",
     "KeywordScore",

@@ -17,6 +17,7 @@ from src.models.collection_runtime import (
     CollectionSelectorAudit,
     CollectionSessionEvent,
 )
+from src.models.job import Job
 from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.runtime import (
@@ -49,6 +50,7 @@ REGISTERED_MODEL_CLASSES = (
     ScoreComponent,
     FinalScore,
     Recommendation,
+    Job,
     RunLog,
     JobStatus,
     AlertEvent,
@@ -128,7 +130,7 @@ TABLE_DOMAIN_MAP = {
         "analysis_signal_records",
     },
     "scoring": {"score_components", "final_scores", "recommendations"},
-    "runtime": {"run_logs", "job_statuses", "alert_events", "export_artifacts", "llm_usage_logs", "llm_cache_records"},
+    "runtime": {"run_logs", "jobs", "job_statuses", "alert_events", "export_artifacts", "llm_usage_logs", "llm_cache_records"},
     "niche": {"niche_configs", "niches"},
 }
 
