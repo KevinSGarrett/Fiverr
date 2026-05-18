@@ -143,7 +143,7 @@ Completed:
 
 ## Handoff to Agents B/C/D
 
-- Branch handoff target: `cycle/020/integration` at current `HEAD` SHA with Agent A scoped scoring pipeline commits applied.
+- Branch handoff target: `cycle/020/integration` at SHA `8567ddc3fcfda912d48a7315130633f2b78507dd` with Agent A scoped scoring pipeline commits applied.
 - Files locked by Agent A:
   - `src/scoring/pipeline.py`
   - `tests/unit/test_scoring_pipeline.py`
