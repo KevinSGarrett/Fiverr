@@ -28,7 +28,12 @@ from src.recommendations.eligibility import (
     passes_recommendation_gates,
     should_regenerate_recommendation,
 )
-from src.recommendations.tasks import generate_gig_titles
+from src.recommendations.tasks import (
+    generate_differentiation_angle,
+    generate_gig_titles,
+    generate_red_flags,
+    generate_tag_sets,
+)
 
 
 class FakeQuery:
@@ -264,3 +269,146 @@ def test_gig_titles_task_mock_llm() -> None:
     result = asyncio.run(generate_gig_titles(context, llm_client, cache=None))
     assert isinstance(result["output"], list)
     assert result["output"][0] == "I will automate your workflows"
+
+
+def test_recommendation_context_legacy_keyword_alias() -> None:
+    context = RecommendationContext(keyword="legacy keyword", niche_id="n1")
+    assert context.keyword_text == "legacy keyword"
+
+
+def test_build_context_missing_keyword_returns_default() -> None:
+    db = FakeDB({})
+    context = build_recommendation_context(999, db, _context_config())
+    assert context.keyword_id == 999
+    assert context.final_score == 0.0
+
+
+def test_get_eligible_keywords_skips_disabled_niche() -> None:
+    db = FakeDB(
+        {
+            FinalScore: [SimpleNamespace(keyword_id=101, final_score=80.0, raw_json={"tag": "STRONG_GO"})],
+            Keyword: [SimpleNamespace(id=101, keyword="python automation", niche_id=12, metadata_json={})],
+        }
+    )
+    config = _context_config()
+    config["recommendations"]["niches"]["12"]["recommendation_generation"] = False
+    rows = get_eligible_keywords("1", db, config)
+    assert rows == []
+
+
+def test_get_eligible_keywords_includes_force_flag() -> None:
+    db = FakeDB(
+        {
+            FinalScore: [SimpleNamespace(keyword_id=101, final_score=80.0, raw_json={"tag": "STRONG_GO"})],
+            Keyword: [
+                SimpleNamespace(
+                    id=101,
+                    keyword="python automation",
+                    niche_id=12,
+                    metadata_json={"force_recommended": True},
+                )
+            ],
+        }
+    )
+    rows = get_eligible_keywords("1", db, _context_config())
+    assert rows[0]["force_recommended"] is True
+
+
+def test_tags_at_or_above_invalid_defaults_to_conditional() -> None:
+    assert _tags_at_or_above("UNKNOWN") == ["STRONG_GO", "CONDITIONAL_GO"]
+
+
+def test_passes_gates_force_recommended_override() -> None:
+    ok, reason = passes_recommendation_gates(
+        {"keyword_id": 101, "confidence_modifier": 0.0, "force_recommended": True},
+        _context_db(),
+    )
+    assert ok is True
+    assert "forced recommendation" in reason
+
+
+def test_should_regenerate_on_newer_competitor_data() -> None:
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[Recommendation] = [
+        SimpleNamespace(created_at=now, raw_json={"generation_complete": True, "final_score": 80.0})
+    ]
+    db._rows_by_model[CompetitorSnapshot] = [SimpleNamespace(created_at=now + timedelta(minutes=1))]
+    assert should_regenerate_recommendation(101, 82.0, db) is True
+
+
+def test_should_regenerate_when_generation_incomplete() -> None:
+    now = datetime.now(UTC)
+    db = _context_db()
+    db._rows_by_model[Recommendation] = [
+        SimpleNamespace(created_at=now, raw_json={"generation_complete": False, "final_score": 80.0})
+    ]
+    assert should_regenerate_recommendation(101, 80.0, db) is True
+
+
+def test_tag_sets_task_mock_llm() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    llm_client = Mock()
+    llm_client.complete.return_value = SimpleNamespace(
+        text='{"tag_sets":[{"tags":["python automation","workflow automation","api automation","task scripts","python dev"]}]}',
+        metadata={"estimated_cost_usd": 0.002},
+    )
+    result = asyncio.run(generate_tag_sets(context, llm_client, cache=None))
+    assert isinstance(result["output"], list)
+    assert len(result["output"][0]) == 5
+
+
+def test_differentiation_angle_task_mock_llm() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    llm_client = Mock()
+    llm_client.complete.return_value = SimpleNamespace(
+        text='{"positioning_statement":"Automation with fast turnaround","differentiators":["speed","clarity","maintainability"]}',
+        metadata={"estimated_cost_usd": 0.01},
+    )
+    result = asyncio.run(generate_differentiation_angle(context, llm_client, cache=None))
+    assert result["output"] == "Automation with fast turnaround"
+
+
+def test_red_flags_task_mock_llm() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    llm_client = Mock()
+    llm_client.complete.return_value = SimpleNamespace(
+        text='{"risk_level":"HIGH","risks":["race to bottom pricing","unclear scope"]}',
+        metadata={"estimated_cost_usd": 0.008},
+    )
+    result = asyncio.run(generate_red_flags(context, llm_client, cache=None))
+    assert result["output"] == ["race to bottom pricing", "unclear scope"]
+
+
+def test_task_returns_none_on_llm_failure() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    llm_client = Mock()
+    llm_client.complete.side_effect = RuntimeError("boom")
+    result = asyncio.run(generate_gig_titles(context, llm_client, cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
+
+
+def test_task_returns_none_on_invalid_json() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    llm_client = Mock()
+    llm_client.complete.return_value = SimpleNamespace(text="not-json", metadata={"estimated_cost_usd": 0.01})
+    result = asyncio.run(generate_tag_sets(context, llm_client, cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
+
+
+def test_task_returns_none_with_no_client() -> None:
+    context = RecommendationContext(keyword_text="python automation", niche_id=12)
+    result = asyncio.run(generate_red_flags(context, llm_client=None, cache=None))
+    assert result == {"output": None, "cost_usd": 0.0}
+
+
+def test_build_context_includes_score_components_from_rows() -> None:
+    context = build_recommendation_context(101, _context_db(), _context_config())
+    assert "demand_score" in context.score_components
+
+
+def test_build_context_uses_niche_pricing_defaults() -> None:
+    context = build_recommendation_context(101, _context_db(), _context_config())
+    assert context.starter_price_basic == 50
+    assert context.starter_price_standard == 100
+    assert context.starter_price_premium == 200

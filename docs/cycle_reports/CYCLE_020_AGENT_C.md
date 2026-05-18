@@ -66,12 +66,12 @@
 ## Tests Added
 
 - `tests/unit/test_scoring_llm.py` (16 tests)
-- `tests/unit/test_recommendations.py` (13 tests)
+- `tests/unit/test_recommendations.py` (29 tests)
 
 ### Targeted Results
 
 - `python -m pytest -q tests/unit/test_scoring_llm.py` -> `16 passed`
-- `python -m pytest -q tests/unit/test_recommendations.py` -> `13 passed`
+- `python -m pytest -q tests/unit/test_recommendations.py` -> `29 passed`
 
 ## Regression + Quality Gates
 
@@ -87,7 +87,7 @@
 
 - `python -m ruff check .` -> pass
 - `python -m mypy src` -> pass
-- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `905 passed`, `92.64%`
+- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> `921 passed`, `92.94%`
 - `python run.py config-check` -> pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle020.db` -> pass
 - `python run.py phase2-smoke` -> pass
@@ -96,6 +96,8 @@
 
 - E04 read + planning + evidence comments:
   - `SCRUM-170`, `SCRUM-171`, `SCRUM-172`, `SCRUM-173`
+- AC bullets explicitly referencing LLM integration in SCRUM-170..173:
+  - None explicitly mention model/runtime LLM wiring; AC language remains score validity, persistence transparency, and sparse/missing test behavior.
 - E05 read + transition + planning + evidence comments:
   - `SCRUM-178`, `SCRUM-179`, `SCRUM-180`, `SCRUM-181`
 - Transitioned to In Progress:

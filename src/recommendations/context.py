@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from src.models import (
     AnalysisResult,
@@ -23,12 +23,15 @@ from src.models import (
 class RecommendationContext(BaseModel):
     """Shared source-traceable context for recommendation generation tasks."""
 
-    keyword_id: int
-    keyword_text: str
-    niche_id: int | str
-    niche_name: str
-    tag: str
-    final_score: float
+    model_config = ConfigDict(populate_by_name=True)
+
+    keyword_id: int = 0
+    keyword_text: str = Field(default="", validation_alias=AliasChoices("keyword_text", "keyword"))
+    run_id: int | None = None
+    niche_id: int | str = 0
+    niche_name: str = ""
+    tag: str = "MONITOR"
+    final_score: float = 0.0
     demand_score: float | None = None
     competition_score: float | None = None
     opportunity_score: float | None = None
@@ -52,6 +55,11 @@ class RecommendationContext(BaseModel):
     reddit_intent_score: float | None = None
     cluster_label: str | None = None
     opportunity_narrative: str | None = None
+
+    @property
+    def keyword(self) -> str:
+        """Backward-compatible alias for older recommendation scaffold calls."""
+        return self.keyword_text
 
 
 def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, Any]) -> RecommendationContext:

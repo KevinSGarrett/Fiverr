@@ -4,9 +4,7 @@ Full implementation: SCRUM-178 through SCRUM-186.
 """
 
 from src.recommendations.context import (
-    RecommendationContext as RecommendationEngineContext,
-)
-from src.recommendations.context import (
+    RecommendationContext,
     build_recommendation_context,
 )
 from src.recommendations.contracts import (
@@ -21,7 +19,6 @@ from src.recommendations.contracts import (
     PackageTier,
     PricingStrategy,
     ProfileOptimization,
-    RecommendationContext,
     RecommendationOutput,
     RedFlagsAssessment,
     TagSet,
@@ -29,6 +26,9 @@ from src.recommendations.contracts import (
     UpsellExtra,
     UpsellStructure,
     VisualRecommendations,
+)
+from src.recommendations.contracts import (
+    RecommendationContext as RecommendationContractContext,
 )
 from src.recommendations.eligibility import (
     get_eligible_keywords,
@@ -64,7 +64,7 @@ __all__ = [
     "UpsellExtra",
     "UpsellStructure",
     "VisualRecommendations",
-    "RecommendationEngineContext",
+    "RecommendationContractContext",
     "build_recommendation_context",
     "get_eligible_keywords",
     "passes_recommendation_gates",
