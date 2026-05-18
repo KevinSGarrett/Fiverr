@@ -121,6 +121,37 @@ def test_execute_with_retry_rate_limit_waits() -> None:
     sleep_mock.assert_awaited_once_with(7)
 
 
+def test_execute_with_retry_rate_limit_dead_letters_without_sleep_when_exhausted() -> None:
+    job = _make_job()
+    job_func = AsyncMock(side_effect=RateLimitError("fiverr", 9))
+
+    with (
+        patch("src.scheduler.retry_handler.asyncio.sleep", new=AsyncMock()) as sleep_mock,
+        patch(
+            "src.scheduler.retry_handler.get_retry_config",
+            return_value={
+                "max_retries": 0,
+                "backoff_base_seconds": 1,
+                "backoff_multiplier": 2.0,
+                "max_backoff_seconds": 2,
+            },
+        ),
+    ):
+        result = _run(
+            execute_with_retry(
+                job_func,
+                job,
+                pacing_manager=object(),
+                session_manager=AsyncMock(),
+                db={},
+            )
+        )
+
+    assert result is False
+    assert job.status == "DEAD_LETTER"
+    sleep_mock.assert_not_awaited()
+
+
 def test_execute_with_retry_session_expired_relogins() -> None:
     job = _make_job()
     job_func = AsyncMock(side_effect=[SessionExpiredError(), None])
@@ -174,6 +205,30 @@ def test_execute_with_retry_no_retry_error_dead_letters() -> None:
     assert result is False
     assert job.status == "DEAD_LETTER"
     assert job.retry_count == 0
+
+
+def test_execute_with_retry_dead_letter_error_classification() -> None:
+    job = _make_job("FIVERR_SEARCH")
+    job_func = AsyncMock(side_effect=RuntimeError("session ban"))
+
+    with (
+        patch("src.scheduler.retry_handler.classify_error", return_value="PERMANENT_BAN"),
+        patch("src.scheduler.retry_handler.asyncio.sleep", new=AsyncMock()) as sleep_mock,
+    ):
+        result = _run(
+            execute_with_retry(
+                job_func,
+                job,
+                pacing_manager=object(),
+                session_manager=AsyncMock(),
+                db={},
+            )
+        )
+
+    assert result is False
+    assert job.status == "DEAD_LETTER"
+    assert job.retry_count == 0
+    sleep_mock.assert_not_awaited()
 
 
 def test_execute_with_retry_exponential_backoff() -> None:

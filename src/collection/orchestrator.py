@@ -32,7 +32,6 @@ from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
 from src.collection.seller_profile import parse_seller_profile_from_html
-from src.scheduler.queue_processor import QueueProcessor
 
 
 @dataclass(slots=True)
@@ -138,6 +137,7 @@ async def run_collection_pipeline(
     from src.collection.workflows.keyword_expansion import run_keyword_expansion
     from src.collection.workflows.niche_init import run_niche_initialization
     from src.collection.workflows.seller_profile import run_seller_profile_collection
+    from src.scheduler.queue_processor import QueueProcessor
 
     if not dry_run:
         raise NotImplementedError(

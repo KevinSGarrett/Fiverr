@@ -10,7 +10,12 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session
 
 from src.scheduler.exceptions import PermanentError, RateLimitError, SessionExpiredError
-from src.scheduler.retry_config import classify_error, get_retry_config, is_no_retry_error
+from src.scheduler.retry_config import (
+    classify_error,
+    get_retry_config,
+    is_no_retry_error,
+    should_dead_letter_on_error,
+)
 
 if TYPE_CHECKING:
     from src.collection.pacing import PacingManager
@@ -58,6 +63,12 @@ async def execute_with_retry(
             job.retry_count += 1
             if isinstance(db, Session):
                 db.commit()
+            if job.retry_count > config["max_retries"]:
+                job.status = "DEAD_LETTER"
+                job.completed_at = datetime.now(UTC)
+                if isinstance(db, Session):
+                    db.commit()
+                return False
             await asyncio.sleep(wait)
 
         except SessionExpiredError:
@@ -82,6 +93,13 @@ async def execute_with_retry(
             if is_no_retry_error(job.job_type, error_code):
                 job.status = "DEAD_LETTER"
                 job.error_log = (job.error_log or []) + [f"No-retry error [{error_code}]: {str(e)}"]
+                job.completed_at = datetime.now(UTC)
+                if isinstance(db, Session):
+                    db.commit()
+                return False
+            if should_dead_letter_on_error(job.job_type, error_code):
+                job.status = "DEAD_LETTER"
+                job.error_log = (job.error_log or []) + [f"Dead-letter error [{error_code}]: {str(e)}"]
                 job.completed_at = datetime.now(UTC)
                 if isinstance(db, Session):
                     db.commit()
