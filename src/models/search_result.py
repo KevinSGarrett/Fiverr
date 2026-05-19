@@ -27,6 +27,7 @@ class SearchResult(
     """Persist collected Fiverr search result payloads for a keyword/run/page."""
 
     __tablename__ = "search_results"
+    tablename = __tablename__
     __table_args__ = (
         UniqueConstraint("keyword_id", "run_id", "page_collected", name="uq_search_results_keyword_run_page"),
         # Legacy compatibility for rank-based callers until downstream workflow updates land.
@@ -52,8 +53,8 @@ class SearchResult(
     result_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     observed_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    keyword_ref: Mapped["Keyword"] = relationship(back_populates="search_results")
-    gig: Mapped["Gig | None"] = relationship(back_populates="search_results")
+    keyword_ref: Mapped[Keyword] = relationship(back_populates="search_results")
+    gig: Mapped[Gig | None] = relationship(back_populates="search_results")
 
     def __init__(self, **kwargs: Any) -> None:
         # Keep legacy callers working while new workflow callers pass run/page directly.

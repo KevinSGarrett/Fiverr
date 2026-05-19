@@ -26,7 +26,6 @@ from src.models.discovery_cycle import DiscoveryCycleLog
 from src.models.job import Job
 from src.models.keyword_score import KeywordScore
 from src.models.market import ExternalSignal, Gig, Keyword, Review, Seller
-from src.models.search_result import SearchResult, get_latest_search_result, write_search_result
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.pricing import PriceAnalysis
@@ -44,6 +43,7 @@ from src.models.runtime import (
     RunLog,
 )
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
+from src.models.search_result import SearchResult, get_latest_search_result, write_search_result
 from src.models.visual import GigVisualAnalysis
 
 __all__ = [

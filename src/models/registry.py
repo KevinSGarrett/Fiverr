@@ -20,7 +20,6 @@ from src.models.collection_runtime import (
 from src.models.job import Job
 from src.models.market import ExternalSignal, Gig, Keyword, Review, Seller
 from src.models.niche import Niche, NicheConfigRecord
-from src.models.search_result import SearchResult
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
@@ -32,6 +31,7 @@ from src.models.runtime import (
     RunLog,
 )
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
+from src.models.search_result import SearchResult
 
 REGISTERED_MODEL_CLASSES = (
     NicheConfigRecord,

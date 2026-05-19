@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
-
 from src.models import Keyword, Niche, SearchResult
 from src.models.database import initialize_database
 from src.models.search_result import get_latest_search_result, write_search_result
