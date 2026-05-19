@@ -52,9 +52,11 @@ Updated `src/collection/workflows/gig_detail.py`:
   - `_extract_faq(...)`
   - `_parse_review_count(...)`
   - `_parse_rating(...)`
+  - `_parse_starting_price(...)`
 - Added DB persistence path (Session-guarded):
   - query by `Gig.gig_url`
   - update detail fields
+  - update `starting_price` from extracted package prices
   - set `detail_collected=True`
   - set `detail_collected_at=datetime.now(UTC)`
   - `db.commit()`
@@ -62,7 +64,7 @@ Updated `src/collection/workflows/gig_detail.py`:
 
 ## Task 4 — Workflow 4 Tests (AsyncMock Only)
 
-Extended `tests/unit/test_collection_workflows.py` with Workflow 4 real-path coverage:
+Extended `tests/unit/test_collection_workflows.py` and added `tests/unit/test_gig_detail.py` for Workflow 4 real-path coverage:
 
 - `test_w4_real_navigates_to_gig_url`
 - `test_w4_real_calls_pacing_wait`
@@ -92,7 +94,7 @@ Command:
 
 Result:
 
-- `84 passed`
+- `1484 passed`
 - `src.collection.workflows.gig_detail` coverage: `98%` (>=90% gate satisfied)
 
 ## Task 6 — Full Validation Block
@@ -109,8 +111,8 @@ Executed:
 Results:
 
 - Lint/type checks pass.
-- Full test suite: `1469 passed`
-- Global coverage: `94.87%`
+- Full test suite: `1484 passed`
+- Global coverage: `94.86%`
 - Config check: pass
 - Foundation gate: pass
 - Phase2 smoke: pass
@@ -136,6 +138,7 @@ Posted required implementation evidence to `SCRUM-149`:
 ## Files Changed (Agent B Scope)
 
 - `src/collection/workflows/gig_detail.py`
+- `tests/unit/test_gig_detail.py`
 - `tests/unit/test_collection_workflows.py`
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 - `docs/cycle_reports/CYCLE_027_AGENT_B.md`

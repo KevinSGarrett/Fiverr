@@ -78,6 +78,7 @@ async def run_gig_detail_collection(
         rating_text = await _safe_inner_text(page, GIG_DETAIL_RATING)
         review_count = _parse_review_count(review_count_text)
         rating = _parse_rating(rating_text)
+        starting_price = _parse_starting_price(packages)
 
         if isinstance(db, Session):
             gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
@@ -91,6 +92,7 @@ async def run_gig_detail_collection(
                 gig.portfolio_count = portfolio_count
                 gig.review_count_exact = review_count
                 gig.rating_exact = rating
+                gig.starting_price = starting_price
                 gig.detail_collected = True
                 gig.detail_collected_at = datetime.now(UTC)
                 db.commit()
@@ -108,6 +110,7 @@ async def run_gig_detail_collection(
             "portfolio_count": portfolio_count,
             "review_count": review_count,
             "rating": rating,
+            "starting_price": starting_price,
             "seller_queued": False,
             "dry_run": False,
         }
@@ -181,6 +184,18 @@ def _parse_rating(text: str | None) -> float | None:
         return None
     nums = re.findall(r"\d+\.\d+|\d+", text)
     return float(nums[0]) if nums else None
+
+
+def _parse_starting_price(packages: list[dict[str, Any]]) -> float | None:
+    prices: list[float] = []
+    for package in packages:
+        price_text = package.get("price_text")
+        if not isinstance(price_text, str):
+            continue
+        nums = re.findall(r"[\d.]+", price_text.replace(",", ""))
+        if nums:
+            prices.append(float(nums[0]))
+    return min(prices) if prices else None
 
 
 def get_top_n_gig_urls_for_keyword(keyword_id: int, depth: str, db: Any) -> list[str]:
