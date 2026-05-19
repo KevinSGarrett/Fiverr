@@ -204,13 +204,16 @@ Artifact hygiene:
 No-main/worktree verification:
 
 - `git branch --show-current` -> `cycle/028/integration`
-- `git worktree list` -> `C:/Fiverr/Fiverr  c6a6e9f [cycle/028/integration]` (single expected worktree)
+- `git worktree list` -> `C:/Fiverr/Fiverr  edcaebd [cycle/028/integration]` (single expected worktree)
 - Pre-commit HEAD snapshot: `c6a6e9f304203b4e800fcda9d50198003e20b95d`
+- Final HEAD snapshot after report/ledger evidence alignment: `edcaebd90b228393d868179f6b9668ee2e6ba97d`
 - PR check for current branch: `gh pr list --head cycle/028/integration` -> none open (Codex thread gate deferred to Agent D merge PR stage)
 
 Commit created (not pushed):
 
 - `a18c70d feat(scoring): wire weakness.py to GigQualityScore + W5 interface [Agent C Cycle 028]`
+- `e3b9c9d docs(cycle): finalize Agent C report metadata [Cycle 028]`
+- `edcaebd docs(cycle): align Agent C final evidence [Cycle 028]`
 
 Scoped files committed:
 
