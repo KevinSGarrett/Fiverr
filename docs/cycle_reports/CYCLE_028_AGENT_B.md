@@ -109,13 +109,15 @@ Additional helper/edge-path tests were added to satisfy patch coverage gates.
 
 ## Task 6 — Targeted Patch Coverage
 
-Command:
+Commands:
 
 - `python -m pytest -q --cov=src.collection.workflows.google_trends --cov-report=term-missing tests/unit/test_google_trends.py`
+- `python -m pytest -q --cov=src.collection.workflows.google_trends --cov-report=term-missing` (exact prompt command)
 
-Result:
+Results:
 
-- `28 passed`
+- Focused workflow suite: `28 passed`
+- Exact command run: `1573 passed`
 - `src.collection.workflows.google_trends` coverage: `99%` (>=90% gate satisfied)
 
 ## Task 7 + Task 14 — Full Validation Block
@@ -167,6 +169,6 @@ Posted implementation evidence to `SCRUM-151`:
 
 ## Final Handoff Snapshot
 
-- Final commit SHA: `<to be updated after commit>`
+- Final commit SHA: `f09e80a99bf0b8e6af81af5f07981e480e0c523f`
 - Full-suite validation count: `1573 passed`
 - Global coverage: `95.01%`
