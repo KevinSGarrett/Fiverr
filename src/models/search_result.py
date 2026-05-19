@@ -18,7 +18,8 @@ from src.models.base import (
 )
 
 if TYPE_CHECKING:
-    from src.models.market import Gig, Keyword
+    from src.models.gig import Gig
+    from src.models.market import Keyword
 
 
 class SearchResult(

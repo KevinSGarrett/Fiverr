@@ -15,6 +15,7 @@ from src.models.base import (
     SoftStatusMixin,
     TimestampMixin,
 )
+from src.models.gig import Gig
 from src.models.search_result import SearchResult
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ class Keyword(
 
     niche: Mapped[Niche] = relationship(back_populates="keywords")
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
+    gigs: Mapped[list[Gig]] = relationship(back_populates="keyword_ref")
     external_signals: Mapped[list[ExternalSignal]] = relationship(back_populates="keyword_ref")
 
 
@@ -53,27 +55,6 @@ class Seller(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, Metada
     response_time_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     gigs: Mapped[list[Gig]] = relationship(back_populates="seller")
-
-
-class Gig(
-    IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, SoftStatusMixin, Base
-):
-    __tablename__ = "gigs"
-    __table_args__ = (UniqueConstraint("external_gig_id", name="uq_gigs_external_gig_id"),)
-
-    external_gig_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
-    seller_id: Mapped[int | None] = mapped_column(ForeignKey("sellers.id"), nullable=True, index=True)
-    title: Mapped[str] = mapped_column(String(512), nullable=False)
-    normalized_title: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
-    category: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    starting_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    avg_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
-    review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    seller: Mapped[Seller | None] = relationship(back_populates="gigs")
-    search_results: Mapped[list[SearchResult]] = relationship(back_populates="gig")
-    reviews: Mapped[list[Review]] = relationship(back_populates="gig")
 
 
 class Review(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, Base):

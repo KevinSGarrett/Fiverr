@@ -23,9 +23,10 @@ from src.models.base import (
 )
 from src.models.discovery import DiscoveryCandidate
 from src.models.discovery_cycle import DiscoveryCycleLog
+from src.models.gig import Gig, get_gigs_for_keyword, write_gig_card
 from src.models.job import Job
 from src.models.keyword_score import KeywordScore
-from src.models.market import ExternalSignal, Gig, Keyword, Review, Seller
+from src.models.market import ExternalSignal, Keyword, Review, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.pricing import PriceAnalysis
@@ -63,6 +64,7 @@ __all__ = [
     "FinalScore",
     "Gig",
     "GigVisualAnalysis",
+    "get_gigs_for_keyword",
     "IntegerPrimaryKeyMixin",
     "Job",
     "JobStatus",
@@ -90,6 +92,7 @@ __all__ = [
     "get_registered_table_names",
     "naming_convention",
     "safe_json_default",
+    "write_gig_card",
     "write_search_result",
     "get_latest_search_result",
     "utc_now",
