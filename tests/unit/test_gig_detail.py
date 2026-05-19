@@ -10,6 +10,9 @@ from sqlalchemy.orm import sessionmaker
 from src.collection.workflows.gig_detail import (
     _parse_rating,
     _parse_review_count,
+    _parse_starting_price,
+    _safe_inner_text,
+    build_gig_detail_url,
     run_gig_detail_collection,
 )
 from src.models.gig import Gig
@@ -336,3 +339,37 @@ def test_parse_rating_decimal() -> None:
 
 def test_parse_rating_none() -> None:
     assert _parse_rating(None) is None
+
+
+def test_build_gig_detail_url_relative_path() -> None:
+    assert build_gig_detail_url("/services/test-gig") == "https://www.fiverr.com/services/test-gig"
+
+
+def test_build_gig_detail_url_plain_text_passthrough() -> None:
+    assert build_gig_detail_url("seller/test-gig") == "seller/test-gig"
+
+
+def test_safe_inner_text_none_node_returns_none() -> None:
+    page = AsyncMock()
+    page.query_selector = AsyncMock(return_value=None)
+    result = _run(_safe_inner_text(page, ".missing"))
+    assert result is None
+
+
+def test_safe_inner_text_blank_string_returns_none() -> None:
+    node = AsyncMock()
+    node.inner_text = AsyncMock(return_value="   ")
+    page = AsyncMock()
+    page.query_selector = AsyncMock(return_value=node)
+    result = _run(_safe_inner_text(page, ".blank"))
+    assert result is None
+
+
+def test_parse_starting_price_skips_non_string_entries() -> None:
+    packages = [{"price_text": 99}, {"price_text": None}, {"price_text": "$42"}]
+    assert _parse_starting_price(packages) == 42.0
+
+
+def test_parse_starting_price_returns_min_value() -> None:
+    packages = [{"price_text": "$120"}, {"price_text": "From $1,050"}, {"price_text": "$95"}]
+    assert _parse_starting_price(packages) == 95.0

@@ -277,3 +277,11 @@ def test_get_analysis_complete_count_some() -> None:
 
 def test_gig_quality_score_in_base_metadata() -> None:
     assert "gig_quality_scores" in Base.metadata.tables
+
+
+def test_get_scores_non_session_returns_empty() -> None:
+    assert get_gig_quality_scores(1, db={}) == []
+
+
+def test_get_analysis_complete_count_non_session_returns_zero() -> None:
+    assert get_analysis_complete_count(1, db={}) == 0
