@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from types import ModuleType
 from typing import Any
 
@@ -43,7 +42,7 @@ async def _fetch_google_suggest(seed: str, pacing_manager: Any) -> list[str]:
             if not (isinstance(data, list) and len(data) > 1 and isinstance(data[1], list)):
                 return []
             return [value.strip() for value in data[1] if isinstance(value, str) and value.strip()]
-    except Exception:
+    except (httpx.HTTPError, TimeoutError, ValueError, TypeError):
         logger.warning("Google Suggest fetch failed for seed '%s'.", cleaned_seed)
         return []
     finally:
@@ -98,6 +97,7 @@ def _write_keywords_to_db(niche_id: str, keyword_list: list[str], db: Any) -> in
         return 0
 
     from src.collection.keyword_expansion import normalize_keyword
+    from src.models.base import utc_now
     from src.models.market import Keyword
 
     try:
@@ -122,7 +122,7 @@ def _write_keywords_to_db(niche_id: str, keyword_list: list[str], db: Any) -> in
                 keyword=keyword_text,
                 normalized_keyword=normalized,
                 external_source="google_suggest",
-                source_collected_at=datetime.now(UTC),
+                source_collected_at=utc_now(),
                 metadata_json={"source": "google_suggest", "autocomplete_position": None},
             )
         )
