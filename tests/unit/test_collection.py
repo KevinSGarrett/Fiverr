@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from src.collection import orchestrator as collection_orchestrator_module
 from src.collection.autocomplete import AutocompleteFixtureError, load_autocomplete_fixture
 from src.collection.checkpoint import (
     QueueCheckpointError,
@@ -1278,3 +1279,88 @@ def test_collection_dry_run_seller_placeholder_marks_blocked_when_fixture_lacks_
     seller_metrics = result.metadata["stage_metrics"]["stage_5_seller_profile"]
     assert seller_metrics["readiness_status"] == "blocked"
     assert any("stage 5 readiness is blocked" in warning.lower() for warning in result.warnings)
+
+
+def test_resolve_max_candidates_counts_niche_field_in_safe_cap() -> None:
+    safe_cap, warning = collection_orchestrator_module._resolve_max_candidates(
+        seed_keywords=["logo design"],
+        niche_metadata={"niche": "logo design", "modifiers": ["local"]},
+        requested_max_candidates=0,
+    )
+    assert safe_cap == 5
+    assert warning is not None
+
+
+def test_load_raw_autocomplete_count_handles_list_and_invalid_payload(tmp_path: Path) -> None:
+    as_list = tmp_path / "autocomplete_list.json"
+    as_list.write_text('["a", "b", "c"]', encoding="utf-8")
+    assert collection_orchestrator_module._load_raw_autocomplete_count(as_list) == 3
+
+    invalid_payload = tmp_path / "autocomplete_invalid.json"
+    invalid_payload.write_text('{"items": ["a"]}', encoding="utf-8")
+    assert collection_orchestrator_module._load_raw_autocomplete_count(invalid_payload) is None
+
+
+def test_collection_dry_run_invalid_seed_sequence_returns_failed_result(tmp_path: Path) -> None:
+    result = run_collection_dry_run(
+        "logo design",  # type: ignore[arg-type]
+        checkpoint_path=tmp_path / "invalid-seed-checkpoint.json",
+    )
+    assert str(result.status).endswith("failed")
+    assert result.errors and result.errors[0].code == "dry_run_failed"
+
+
+def test_collection_dry_run_invalid_resume_checkpoint_warns_and_preserves_stage_warning(tmp_path: Path) -> None:
+    resume_checkpoint = tmp_path / "resume_checkpoint.json"
+    resume_checkpoint.write_text("{not valid json", encoding="utf-8")
+
+    result = run_collection_dry_run(
+        ["logo design"],
+        checkpoint_path=tmp_path / "resume-warning-checkpoint.json",
+        resume_checkpoint_path=resume_checkpoint,
+    )
+    assert str(result.status).endswith("success")
+    assert any("Resume checkpoint was unavailable or invalid" in warning for warning in result.warnings)
+    stage_warnings = result.metadata["stage_warnings"]
+    assert any(
+        "Resume checkpoint was unavailable or invalid" in warning
+        for warning in stage_warnings["stage_7_checkpoint_metadata"]
+    )
+
+
+def test_collection_dry_run_fixture_warning_paths_are_propagated(tmp_path: Path) -> None:
+    autocomplete_empty = tmp_path / "autocomplete_empty.json"
+    autocomplete_empty.write_text("[]", encoding="utf-8")
+    gig_detail_warning = tmp_path / "gig_detail_warning.html"
+    gig_detail_warning.write_text("not_html", encoding="utf-8")
+    community_warning = tmp_path / "community_warning.json"
+    community_warning.write_text(
+        json.dumps(
+            [
+                {
+                    "keyword": "logo design",
+                    "mention_count": 3,
+                    "sentiment_hint": "neutral",
+                    "sample_theme": "contact me at person@example.com",
+                    "source": "community_fixture",
+                    "captured_at": "2026-01-01T00:00:00Z",
+                    "source_keyword": "logo design",
+                    "confidence": 0.7,
+                    "username": "should_be_ignored",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_collection_dry_run(
+        ["logo design"],
+        checkpoint_path=tmp_path / "fixture-warning-checkpoint.json",
+        autocomplete_fixture_path=autocomplete_empty,
+        gig_detail_fixture_path=gig_detail_warning,
+        community_signal_fixture_path=community_warning,
+    )
+    assert str(result.status).endswith("success")
+    assert any("Autocomplete fixture yielded no suggestions." in warning for warning in result.warnings)
+    assert any("Gig detail HTML appears malformed" in warning for warning in result.warnings)
+    assert any("Ignored disallowed personal-data-like fields" in warning for warning in result.warnings)

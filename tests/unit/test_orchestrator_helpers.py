@@ -416,3 +416,52 @@ def test_run_pipeline_recommendations_only_returns_error_on_stage_failure(
     monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: (_ for _ in ()).throw(RuntimeError("no session")))
     assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 1
     assert "Recommendations stage failed" in capsys.readouterr().out
+
+
+def test_run_pipeline_collect_only_runs_collection_orchestrator(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    async def _fake_collection_pipeline(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["dry_run"] is True
+        return {"run_id": kwargs["run_id"], "stages_run": ["stage01_niche_init"], "errors": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
+
+    assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 0
+    assert "Collection dry run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    async def _broken_collection_pipeline(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("dry-run boom")
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _broken_collection_pipeline)
+
+    assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 1
+    assert "Collection dry run failed: dry-run boom" in capsys.readouterr().out

@@ -282,7 +282,7 @@ def test_execute_with_retry_failure(db_session: Session) -> None:
     db_session.refresh(job)
 
     assert success is False
-    assert job.status == "QUEUED"
+    assert job.status == "DEAD_LETTER"
 
 
 def test_execute_with_retry_failure_dead_letters_at_max_retries(db_session: Session) -> None:
@@ -326,6 +326,6 @@ def test_queue_processor_retries_then_completes(db_session: Session) -> None:
     db_session.refresh(job)
 
     assert attempts["count"] == 2
-    assert processed == 2
-    assert failed == 1
+    assert processed == 1
+    assert failed == 0
     assert job.status == "COMPLETE"

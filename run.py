@@ -169,6 +169,20 @@ def phase2_smoke_command(config_path: str) -> None:
     raise SystemExit(run_phase2_smoke(config_path=normalize_cli_config_path(config_path)))
 
 
+@cli.command("collect-only")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def collect_only_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 1-5 dry-run collection orchestration only."""
+    raise SystemExit(
+        run_pipeline(
+            mode="collect-only",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
 @cli.command("recommendations-only")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")

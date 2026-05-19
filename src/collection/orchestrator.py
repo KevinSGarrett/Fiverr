@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,268 @@ from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
 from src.collection.seller_profile import parse_seller_profile_from_html
+
+
+@dataclass(slots=True)
+class _DryRunJob:
+    id: int
+    run_id: str
+    job_type: str
+    stage: int
+    payload: dict[str, Any] = field(default_factory=dict)
+    priority: str = "STANDARD"
+    status: str = "QUEUED"
+    retry_count: int = 0
+    max_retries: int = 1
+    error_log: list[str] = field(default_factory=list)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float | None = None
+
+    def mark_running(self) -> None:
+        self.status = "RUNNING"
+        self.started_at = datetime.now(UTC)
+
+    def mark_complete(self) -> None:
+        self.status = "COMPLETE"
+        self.completed_at = datetime.now(UTC)
+        if self.started_at is not None:
+            self.duration_seconds = max(0.0, (self.completed_at - self.started_at).total_seconds())
+
+    def mark_failed(self, message: str) -> None:
+        self.retry_count += 1
+        self.error_log.append(message)
+        if self.retry_count >= self.max_retries:
+            self.status = "DEAD_LETTER"
+        else:
+            self.status = "FAILED"
+
+    def should_dead_letter(self) -> bool:
+        return self.retry_count >= self.max_retries
+
+
+class _InMemoryQueryResult:
+    def __init__(self, payload: dict[str, Any] | None) -> None:
+        self._payload = payload
+
+    def mappings(self) -> _InMemoryQueryResult:
+        return self
+
+    def first(self) -> dict[str, Any] | None:
+        return self._payload
+
+
+class _InMemoryORMQuery:
+    def __init__(self, db: _InMemoryQueueDb) -> None:
+        self._db = db
+
+    def filter(self, *_args: Any, **_kwargs: Any) -> _InMemoryORMQuery:
+        return self
+
+    def first(self) -> _DryRunJob | None:
+        return self._db.selected_job
+
+
+class _InMemoryQueueDb:
+    def __init__(self, jobs: list[_DryRunJob]) -> None:
+        self.jobs = jobs
+        self.selected_job: _DryRunJob | None = None
+
+    def execute(self, _query: Any, params: dict[str, Any]) -> _InMemoryQueryResult:
+        run_id = str(params.get("run_id", ""))
+        candidates = [
+            job
+            for job in self.jobs
+            if job.run_id == run_id and job.status == "QUEUED"
+        ]
+        candidates.sort(key=lambda item: (item.stage, item.id))
+        self.selected_job = candidates[0] if candidates else None
+        payload = {"id": self.selected_job.id} if self.selected_job else None
+        return _InMemoryQueryResult(payload)
+
+    def query(self, _model: Any) -> _InMemoryORMQuery:
+        return _InMemoryORMQuery(self)
+
+    def commit(self) -> None:
+        return None
+
+
+async def run_collection_pipeline(
+    run_id: str,
+    db: Any,
+    config: dict[str, Any],
+    session_manager: Any,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """
+    Run a full Stage 1-5 collection pass in dry-run mode.
+
+    Real collection (dry_run=False) remains intentionally blocked until browser wiring lands.
+    """
+    from src.collection.checkpoint import CheckpointManager
+    from src.collection.pacing import PacingManager
+    from src.collection.workflows.fiverr_search import run_fiverr_search_collection
+    from src.collection.workflows.gig_detail import run_gig_detail_collection
+    from src.collection.workflows.keyword_expansion import run_keyword_expansion
+    from src.collection.workflows.niche_init import run_niche_initialization
+    from src.collection.workflows.seller_profile import run_seller_profile_collection
+    from src.scheduler.queue_processor import QueueProcessor
+
+    if not dry_run:
+        raise NotImplementedError(
+            "Real collection (dry_run=False) not yet implemented. "
+            "Set dry_run=True or await browser wiring in Cycle 026."
+        )
+
+    pacing = PacingManager(config if isinstance(config, dict) else {})
+    checkpoint_mgr = CheckpointManager(run_id, data_dir="data")
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "dry_run": dry_run,
+        "stages_run": [],
+        "niches_initialized": 0,
+        "keywords_queued": 0,
+        "search_jobs_run": 0,
+        "gig_detail_jobs_run": 0,
+        "seller_profile_jobs_run": 0,
+        "errors": [],
+    }
+
+    stage1_result: dict[str, Any] = {"niche_specs": []}
+    try:
+        stage1_result = await run_niche_initialization(config, db, run_id, dry_run=dry_run)
+        summary["niches_initialized"] = int(stage1_result.get("niches_processed", 0))
+        checkpoint_mgr.write(
+            "stage01",
+            "all_niches",
+            {"niches_processed": summary["niches_initialized"]},
+        )
+    except Exception as exc:  # noqa: BLE001
+        summary["errors"].append(f"Stage 1 error: {exc}")
+    finally:
+        summary["stages_run"].append("stage01_niche_init")
+
+    for niche_spec in stage1_result.get("niche_specs", []):
+        try:
+            stage2_result = await run_keyword_expansion(
+                niche_id=str(niche_spec.get("niche_id", "")),
+                seeds=list(niche_spec.get("seeds", [])),
+                depth=str(niche_spec.get("depth", "standard")),
+                run_id=run_id,
+                db=db,
+                session_manager=session_manager,
+                pacing_manager=pacing,
+                dry_run=dry_run,
+            )
+            summary["keywords_queued"] += int(stage2_result.get("keywords_queued", 0))
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 2 error ({niche_spec.get('niche_id')}): {exc}")
+    summary["stages_run"].append("stage02_keyword_expansion")
+
+    queue_db = _InMemoryQueueDb(
+        [
+            _DryRunJob(
+                id=1,
+                run_id=run_id,
+                job_type="FIVERR_SEARCH",
+                stage=3,
+                payload={
+                    "keyword_id": 0,
+                    "keyword_text": "_dry_run_test_",
+                    "niche_id": "dry_run",
+                    "depth": "standard",
+                },
+            ),
+            _DryRunJob(
+                id=2,
+                run_id=run_id,
+                job_type="GIG_DETAIL",
+                stage=4,
+                payload={
+                    "gig_url": "https://dry-run-test.invalid/",
+                    "keyword_id": 0,
+                    "niche_id": "dry_run",
+                    "depth": "standard",
+                },
+            ),
+            _DryRunJob(
+                id=3,
+                run_id=run_id,
+                job_type="SELLER_PROFILE",
+                stage=5,
+                payload={
+                    "seller_username": "_dry_run_test_",
+                    "niche_id": "dry_run",
+                },
+            ),
+        ]
+    )
+    queue_processor = QueueProcessor(
+        db=queue_db,  # type: ignore[arg-type]
+        config=config,
+        session_manager=session_manager,
+        pacing_manager=pacing,
+    )
+
+    async def _handle_stage3(job: _DryRunJob, **_kwargs: Any) -> None:
+        await run_fiverr_search_collection(
+            keyword_id=int(job.payload["keyword_id"]),
+            keyword_text=str(job.payload["keyword_text"]),
+            niche_id=str(job.payload["niche_id"]),
+            depth=str(job.payload["depth"]),
+            run_id=run_id,
+            db=db,
+            session_manager=session_manager,
+            pacing_manager=pacing,
+            dry_run=True,
+        )
+        summary["search_jobs_run"] += 1
+
+    async def _handle_stage4(job: _DryRunJob, **_kwargs: Any) -> None:
+        await run_gig_detail_collection(
+            gig_url=str(job.payload["gig_url"]),
+            keyword_id=int(job.payload["keyword_id"]),
+            niche_id=str(job.payload["niche_id"]),
+            depth=str(job.payload["depth"]),
+            run_id=run_id,
+            db=db,
+            session_manager=session_manager,
+            pacing_manager=pacing,
+            checkpoint_manager=checkpoint_mgr,
+            dry_run=True,
+        )
+        summary["gig_detail_jobs_run"] += 1
+
+    async def _handle_stage5(job: _DryRunJob, **_kwargs: Any) -> None:
+        await run_seller_profile_collection(
+            seller_username=str(job.payload["seller_username"]),
+            niche_id=str(job.payload["niche_id"]),
+            run_id=run_id,
+            db=db,
+            session_manager=session_manager,
+            pacing_manager=pacing,
+            checkpoint_manager=checkpoint_mgr,
+            dry_run=True,
+        )
+        summary["seller_profile_jobs_run"] += 1
+
+    queue_processor.register_handler("FIVERR_SEARCH", _handle_stage3)
+    queue_processor.register_handler("GIG_DETAIL", _handle_stage4)
+    queue_processor.register_handler("SELLER_PROFILE", _handle_stage5)
+
+    try:
+        _processed, _failed = await queue_processor.run_until_empty(run_id)
+    except Exception as exc:  # noqa: BLE001
+        summary["errors"].append(f"Queue processing error: {exc}")
+
+    summary["stages_run"].extend(
+        [
+            "stage03_fiverr_search",
+            "stage04_gig_detail",
+            "stage05_seller_profile",
+        ]
+    )
+    return summary
 
 
 def _resolve_max_candidates(
