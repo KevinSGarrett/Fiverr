@@ -23,10 +23,16 @@ from src.models.base import (
 )
 from src.models.discovery import DiscoveryCandidate
 from src.models.discovery_cycle import DiscoveryCycleLog
+from src.models.external_signal import (
+    ExternalSignal,
+    get_all_signals,
+    get_signal,
+    write_external_signal,
+)
 from src.models.gig import Gig, get_gigs_for_keyword, write_gig_card
 from src.models.job import Job
 from src.models.keyword_score import KeywordScore
-from src.models.market import ExternalSignal, Keyword, Review
+from src.models.market import Keyword, Review
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.pricing import PriceAnalysis
@@ -89,12 +95,15 @@ __all__ = [
     "SoftStatusMixin",
     "TimestampMixin",
     "get_missing_source_tables",
+    "get_all_signals",
+    "get_signal",
     "get_registered_model_classes",
     "get_registered_table_names",
     "naming_convention",
     "safe_json_default",
     "write_gig_card",
     "write_search_result",
+    "write_external_signal",
     "write_seller_profile",
     "get_seller",
     "get_latest_search_result",
