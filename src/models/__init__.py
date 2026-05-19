@@ -30,6 +30,12 @@ from src.models.external_signal import (
     write_external_signal,
 )
 from src.models.gig import Gig, get_gigs_for_keyword, write_gig_card
+from src.models.gig_quality_score import (
+    GigQualityScore,
+    get_analysis_complete_count,
+    get_gig_quality_scores,
+    write_gig_quality_score,
+)
 from src.models.job import Job
 from src.models.keyword_score import KeywordScore
 from src.models.market import Keyword, Review
@@ -70,6 +76,7 @@ __all__ = [
     "ExternalSourceMixin",
     "FinalScore",
     "Gig",
+    "GigQualityScore",
     "GigVisualAnalysis",
     "get_gigs_for_keyword",
     "IntegerPrimaryKeyMixin",
@@ -96,12 +103,15 @@ __all__ = [
     "TimestampMixin",
     "get_missing_source_tables",
     "get_all_signals",
+    "get_analysis_complete_count",
+    "get_gig_quality_scores",
     "get_signal",
     "get_registered_model_classes",
     "get_registered_table_names",
     "naming_convention",
     "safe_json_default",
     "write_gig_card",
+    "write_gig_quality_score",
     "write_search_result",
     "write_external_signal",
     "write_seller_profile",
