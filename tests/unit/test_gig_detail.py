@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.collection.workflows.gig_detail import (
     _parse_rating,
@@ -16,6 +16,7 @@ from src.collection.workflows.gig_detail import (
     run_gig_detail_collection,
 )
 from src.models.gig import Gig
+from src.models.job import Job
 
 
 def _run(coro):
@@ -373,3 +374,44 @@ def test_parse_starting_price_skips_non_string_entries() -> None:
 def test_parse_starting_price_returns_min_value() -> None:
     packages = [{"price_text": "$120"}, {"price_text": "From $1,050"}, {"price_text": "$95"}]
     assert _parse_starting_price(packages) == 95.0
+
+
+def test_w4_real_queues_seller_profile_job() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE run_logs (run_id VARCHAR(64) PRIMARY KEY)"))
+        conn.execute(text("CREATE TABLE niche_configs (niche_id VARCHAR(64) PRIMARY KEY)"))
+        conn.execute(text("INSERT INTO run_logs(run_id) VALUES ('run-seller')"))
+        conn.execute(text("INSERT INTO niche_configs(niche_id) VALUES ('niche')"))
+
+    Gig.__table__.create(bind=engine, checkfirst=True)
+    Job.__table__.create(bind=engine, checkfirst=True)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        db.add(Gig(gig_url="https://www.fiverr.com/seller-queue/gig", seller_username="seller-queue"))
+        db.commit()
+
+        _page, session_manager, pacing_manager = _build_real_gig_detail_mocks()
+        result = _run(
+            run_gig_detail_collection(
+                gig_url="https://www.fiverr.com/seller-queue/gig",
+                keyword_id=1,
+                niche_id="niche",
+                depth="standard",
+                run_id="run-seller",
+                db=db,
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                checkpoint_manager=None,
+                dry_run=False,
+            )
+        )
+
+        assert result["seller_queued"] is True
+        jobs = db.query(Job).all()
+        assert len(jobs) == 1
+        assert jobs[0].job_type == "SELLER_PROFILE"
+        assert jobs[0].status == "QUEUED"
+        assert jobs[0].payload == {"seller_username": "seller-queue", "niche_id": "niche"}
+    finally:
+        db.close()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from types import ModuleType
 from typing import Any
 from urllib.parse import urlparse
@@ -79,8 +80,14 @@ async def run_gig_detail_collection(
         review_count = _parse_review_count(review_count_text)
         rating = _parse_rating(rating_text)
         starting_price = _parse_starting_price(packages)
+        seller_username = _extract_seller_username_from_gig_url(gig_url)
+        seller_queued = False
 
         if isinstance(db, Session):
+            from sqlalchemy import inspect as sa_inspect
+
+            from src.models.job import Job
+
             gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
             if gig:
                 gig.gig_title_full = title
@@ -95,6 +102,22 @@ async def run_gig_detail_collection(
                 gig.starting_price = starting_price
                 gig.detail_collected = True
                 gig.detail_collected_at = datetime.now(UTC)
+                seller_username = gig.seller_username or seller_username
+            if depth != "keyword_only" and db.bind is not None and sa_inspect(db.bind).has_table("jobs"):
+                db.add(
+                    Job(
+                        job_id=f"seller_profile_{uuid.uuid4().hex[:12]}",
+                        run_id=run_id,
+                        job_type="SELLER_PROFILE",
+                        stage=5,
+                        niche_id=niche_id,
+                        priority="STANDARD",
+                        status="QUEUED",
+                        payload={"seller_username": seller_username, "niche_id": niche_id},
+                        created_at=datetime.now(UTC),
+                    )
+                )
+                seller_queued = True
                 db.commit()
 
         return {
@@ -111,7 +134,7 @@ async def run_gig_detail_collection(
             "review_count": review_count,
             "rating": rating,
             "starting_price": starting_price,
-            "seller_queued": False,
+            "seller_queued": seller_queued,
             "dry_run": False,
         }
     finally:
@@ -196,6 +219,13 @@ def _parse_starting_price(packages: list[dict[str, Any]]) -> float | None:
         if nums:
             prices.append(float(nums[0]))
     return min(prices) if prices else None
+
+
+def _extract_seller_username_from_gig_url(gig_url: str) -> str:
+    parsed = urlparse(gig_url.strip())
+    path = parsed.path if parsed.path else gig_url
+    parts = [part for part in path.split("/") if part]
+    return parts[0] if parts else "unknown_seller"
 
 
 def get_top_n_gig_urls_for_keyword(keyword_id: int, depth: str, db: Any) -> list[str]:
