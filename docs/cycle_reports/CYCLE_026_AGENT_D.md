@@ -165,33 +165,71 @@ Posted exact required progress comment on `SCRUM-17`:
 
 ### Task 12-16 - Commit/PR/CI/Codex/Merge Gate
 
-In progress at time of this report draft; final results are recorded after PR creation and CI completion below.
+Completed:
 
-MERGE GATE CHECKLIST - Cycle 026 PR #30
+- Commit `a900389`:
+  - `feat(models): Seller ORM and patch coverage [Agent D Cycle 026]`
+- Codex follow-up commit `f0cdacf`:
+  - `fix(collection): handle comma-separated gig prices in Workflow 3 parser`
+- PR #30 created:
+  - `https://github.com/KevinSGarrett/Fiverr/pull/30`
+- CI/check suite final state: all required checks PASS
+  - `Validate PR`, `Dependency Audit`, `Secret Scan`, `Lint, Typecheck, Tests, and Gates`, `codecov/project`, `codecov/patch`
+
+Mandatory Codex query executed verbatim (before fix):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DBd0m","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"id":"PRRC_kwDOSbqwNc7CgrV8","author":{"login":"chatgpt-codex-connector"},"body":"...Parse comma-separated prices...","createdAt":"2026-05-19T02:42:08Z","url":"https://github.com/KevinSGarrett/Fiverr/pull/30#discussion_r3263346044"}]}}]}}}}}
+```
+
+Disposition actions:
+
+- Classified thread as `VALID_FIXED`.
+- Fix applied in `src/collection/workflows/fiverr_search.py` (`_parse_price` now strips commas before parsing).
+- Regression test added:
+  - `tests/unit/test_collection_workflows.py::test_parse_price_with_commas`
+- Reply posted to thread with `Disposition: VALID_FIXED`.
+- Thread resolved manually via GraphQL `resolveReviewThread`.
+
+Mandatory Codex query re-run verbatim (after fix):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DBd0m","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"id":"PRRC_kwDOSbqwNc7CgrV8","author":{"login":"chatgpt-codex-connector"},"body":"...Parse comma-separated prices..."},{"id":"PRRC_kwDOSbqwNc7CgwZx","author":{"login":"KevinSGarrett"},"body":"Disposition: VALID_FIXED ..."}]}}]}}}}}
+```
+
+MERGE GATE CHECKLIST — Cycle 026 PR #30
 ==========================================
 CODECOV:
-[ ] codecov/project: [PENDING] - [PENDING]
-[ ] codecov/patch: [PENDING] - [PENDING]
+[ ] codecov/project: [PASS] — [94.81%]
+[ ] codecov/patch: [PASS] — [100.00%]
 [ ] Local --cov-fail-under=90: [PASS]
 [ ] All new lines covered by tests: [YES]
   If NO, uncovered files: [N/A]
 
 CODEX:
 [ ] reviewThreads query executed: YES
-[ ] Total threads found: [PENDING]
-[ ] All threads dispositioned: [PENDING]
-[ ] All VALID_FIXED threads have regression tests: [PENDING]
-[ ] All threads manually resolved with reply: [PENDING]
-[ ] Zero unresolved threads: [PENDING]
+[ ] Total threads found: [1]
+[ ] All threads dispositioned: [YES]
+[ ] All VALID_FIXED threads have regression tests: [YES]
+[ ] All threads manually resolved with reply: [YES]
+[ ] Zero unresolved threads: [YES]
 
 FINAL:
-[ ] PR #30 is ready to merge: [PENDING]
-[ ] Blockers if NO: [PENDING]
+[ ] PR #30 is ready to merge: [YES]
+[ ] Blockers if NO: [N/A]
 
 ### Tasks 17-22 - Final Cleanup
 
-- Final SHA freeze: pending PR completion checkpoint.
-- Confirmed cycle reports A/B/C present; Agent D report created in this file.
+- Final SHA freeze:
+  - `git rev-parse origin/cycle/026/integration` -> `f0cdacf167a446a4b155c8b2e0b02614c281e848`
+- Confirmed all four cycle reports present:
+  - `CYCLE_026_AGENT_A.md`
+  - `CYCLE_026_AGENT_B.md`
+  - `CYCLE_026_AGENT_C.md`
+  - `CYCLE_026_AGENT_D.md`
 - Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`.
-- Artifact hygiene check to be finalized at staging/commit step (no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` in staged set).
+- Artifact hygiene:
+  - No `.env`, `*.db`, `coverage.xml`, or `data/sessions/` files staged in Agent D commits.
+- Final statement:
+  - PR #30 is ready to merge when approved.
 
