@@ -19,8 +19,9 @@ from src.models.base import (
 )
 
 if TYPE_CHECKING:
-    from src.models.market import Keyword, Review, Seller
+    from src.models.market import Keyword, Review
     from src.models.search_result import SearchResult
+    from src.models.seller import Seller
 
 
 class Gig(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, SoftStatusMixin, Base):

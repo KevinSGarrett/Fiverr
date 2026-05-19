@@ -17,6 +17,7 @@ from src.models.base import (
 )
 from src.models.gig import Gig
 from src.models.search_result import SearchResult
+from src.models.seller import Seller as Seller  # noqa: F401
 
 if TYPE_CHECKING:
     from src.models.niche import Niche
@@ -42,19 +43,6 @@ class Keyword(
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
     gigs: Mapped[list[Gig]] = relationship(back_populates="keyword_ref")
     external_signals: Mapped[list[ExternalSignal]] = relationship(back_populates="keyword_ref")
-
-
-class Seller(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, Base):
-    __tablename__ = "sellers"
-    __table_args__ = (UniqueConstraint("seller_handle", name="uq_sellers_seller_handle"),)
-
-    seller_handle: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    level: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    response_time_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    gigs: Mapped[list[Gig]] = relationship(back_populates="seller")
 
 
 class Review(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, Base):

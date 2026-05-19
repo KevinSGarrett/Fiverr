@@ -195,6 +195,10 @@ def test_get_gigs_for_keyword_empty() -> None:
     session.close()
 
 
+def test_get_gigs_for_keyword_dict_db() -> None:
+    assert get_gigs_for_keyword(keyword_id=1, db={}) == []
+
+
 def test_get_gigs_for_keyword_ordered() -> None:
     session = _session()
     keyword_id = _seed_keyword(session, "ordered lookup")

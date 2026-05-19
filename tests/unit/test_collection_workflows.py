@@ -19,9 +19,11 @@ from src.collection.workflows.auto_promotion import AutoPromotionWorkflow
 from src.collection.workflows.autocomplete import AutocompleteWorkflow
 from src.collection.workflows.fiverr_search import (
     FiverrSearchWorkflow,
+    _extract_gig_card,
     _parse_price,
     _parse_result_count,
     _queue_gig_detail_jobs,
+    _safe_attribute,
     build_fiverr_search_url,
     is_keyword_only_depth,
     parse_gig_cards_from_page,
@@ -626,6 +628,40 @@ def test_parse_price_dollar() -> None:
 
 def test_parse_price_none() -> None:
     assert _parse_price(None) is None
+
+
+def test_safe_attribute_returns_none_when_selector_missing() -> None:
+    card = _FakeCard({})
+    value = _run(_safe_attribute(card, "a[data-testid='gig-link'], a.gig-link", "href"))
+    assert value is None
+
+
+def test_safe_attribute_returns_none_when_attribute_missing() -> None:
+    card = _FakeCard({"a[data-testid='gig-link'], a.gig-link": _FakeElement(attrs={})})
+    value = _run(_safe_attribute(card, "a[data-testid='gig-link'], a.gig-link", "href"))
+    assert value is None
+
+
+def test_extract_gig_card_returns_none_when_url_and_title_missing() -> None:
+    card = _FakeCard(
+        {
+            "a[data-testid='gig-link'], a.gig-link": _FakeElement(attrs={}),
+            "[data-testid='gig-title'], .gig-title": _FakeElement(""),
+        }
+    )
+    assert _run(_extract_gig_card(card, 1)) is None
+
+
+def test_queue_jobs_skips_cards_without_url() -> None:
+    session = _make_job_test_session()
+    try:
+        gig_cards = [{"seller_username": "no-url-card"}, {"gig_url": "https://www.fiverr.com/gig/ok"}]
+        queued = _queue_gig_detail_jobs(10, "ai_saas", "run-queue", gig_cards, "standard", session)
+        assert queued == 1
+        rows = session.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one()
+        assert rows == 1
+    finally:
+        session.close()
 
 
 def test_queue_jobs_full_depth() -> None:

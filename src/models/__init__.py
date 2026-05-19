@@ -26,7 +26,7 @@ from src.models.discovery_cycle import DiscoveryCycleLog
 from src.models.gig import Gig, get_gigs_for_keyword, write_gig_card
 from src.models.job import Job
 from src.models.keyword_score import KeywordScore
-from src.models.market import ExternalSignal, Keyword, Review, Seller
+from src.models.market import ExternalSignal, Keyword, Review
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.pricing import PriceAnalysis
@@ -45,6 +45,7 @@ from src.models.runtime import (
 )
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
 from src.models.search_result import SearchResult, get_latest_search_result, write_search_result
+from src.models.seller import Seller, get_seller, write_seller_profile
 from src.models.visual import GigVisualAnalysis
 
 __all__ = [
@@ -94,6 +95,8 @@ __all__ = [
     "safe_json_default",
     "write_gig_card",
     "write_search_result",
+    "write_seller_profile",
+    "get_seller",
     "get_latest_search_result",
     "utc_now",
 ]

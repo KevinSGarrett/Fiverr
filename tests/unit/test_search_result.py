@@ -220,3 +220,7 @@ def test_get_latest_search_result_missing(tmp_path: Path) -> None:
     session = _build_session(tmp_path, "search_result_latest_missing.db")
     assert get_latest_search_result(keyword_id=999999, db=session) is None
     session.close()
+
+
+def test_get_latest_search_result_dict_db() -> None:
+    assert get_latest_search_result(keyword_id=1, db={}) is None
