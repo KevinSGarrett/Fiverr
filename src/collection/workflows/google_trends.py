@@ -14,7 +14,10 @@ from src.models import Keyword
 from src.models.external_signal import ExternalSignal, write_external_signal
 
 try:
-    from pytrends.request import TrendReq as _TrendReq  # type: ignore[import-not-found]
+    import importlib
+
+    _pytrends_request = importlib.import_module("pytrends.request")
+    _TrendReq = getattr(_pytrends_request, "TrendReq", None)
 except Exception:  # pragma: no cover - dependency guard for environments without pytrends installed
     _TrendReq = None
 
