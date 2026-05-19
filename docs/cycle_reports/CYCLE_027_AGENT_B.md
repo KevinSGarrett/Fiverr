@@ -129,11 +129,17 @@ Posted required implementation evidence to `SCRUM-149`:
 - Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with new Cycle 027 row for `SCRUM-149`.
 - Artifact hygiene check:
   - No `.env`, `coverage.xml`, session artifacts, or DB dumps intentionally staged.
+- No-main/worktree verification:
+  - `git branch --show-current` -> `cycle/027/integration`
+  - `git worktree list` -> `C:/Fiverr/Fiverr 92f6af0 [cycle/027/integration]`
 - Additional run commands requested:
   - `python run.py collect-only` -> pass
   - `python run.py phase2-smoke` (re-run) -> pass
 - Agent C planning hint captured:
   - Align `GigQualityScore` field usage expected by `src/scoring/weakness.py`.
+- Final SHA + test count:
+  - `92f6af0e6c072b51ac42a3c0b5ab3a1f944bdefd`
+  - Full suite: `1484 passed`
 
 ## Files Changed (Agent B Scope)
 
