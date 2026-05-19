@@ -1,10 +1,26 @@
 """Gig detail workflow interfaces for Stage 4."""
 from __future__ import annotations
 
+import re
 from types import ModuleType
 from typing import Any
+from urllib.parse import urlparse
 
 from src.collection import gig_detail as _mod
+from src.collection.fiverr_selectors import (
+    GIG_DETAIL_DESCRIPTION,
+    GIG_DETAIL_FAQ_ANSWER,
+    GIG_DETAIL_FAQ_ITEMS,
+    GIG_DETAIL_FAQ_QUESTION,
+    GIG_DETAIL_PACKAGE_PRICE,
+    GIG_DETAIL_PACKAGES,
+    GIG_DETAIL_PORTFOLIO,
+    GIG_DETAIL_RATING,
+    GIG_DETAIL_REVIEW_COUNT,
+    GIG_DETAIL_TAGS,
+    GIG_DETAIL_TITLE,
+    GIG_DETAIL_VIDEO,
+)
 
 
 async def run_gig_detail_collection(
@@ -25,7 +41,7 @@ async def run_gig_detail_collection(
     Navigates to a gig URL, collects all gig detail fields, updates gig row in DB,
     queues seller username for Stage 5.
     """
-    _ = (niche_id, depth, run_id, db, session_manager, pacing_manager, checkpoint_manager)
+    _ = (niche_id, depth, run_id, checkpoint_manager)
     if dry_run:
         return {
             "gig_url": gig_url,
@@ -37,10 +53,134 @@ async def run_gig_detail_collection(
             "note": "Dry run: no Playwright navigation performed",
         }
 
-    raise NotImplementedError(
-        "Gig detail collection with real Playwright not yet implemented. "
-        "Set dry_run=True."
-    )
+    from datetime import UTC, datetime
+
+    from sqlalchemy.orm import Session
+
+    from src.models.gig import Gig
+
+    detail_url = build_gig_detail_url(gig_url)
+    page = await session_manager.new_page()
+    try:
+        await page.goto(detail_url, wait_until="domcontentloaded", timeout=30_000)
+        await pacing_manager.wait("fiverr_gig_detail", dry_run=False)
+
+        title = await _safe_inner_text(page, GIG_DETAIL_TITLE)
+        description = await _safe_inner_text(page, GIG_DETAIL_DESCRIPTION)
+        packages = await _extract_packages(page)
+        tags = await _extract_tags(page)
+        faq_text = await _extract_faq(page)
+
+        video_present = await page.query_selector(GIG_DETAIL_VIDEO) is not None
+        portfolio_count = len(await page.query_selector_all(GIG_DETAIL_PORTFOLIO))
+
+        review_count_text = await _safe_inner_text(page, GIG_DETAIL_REVIEW_COUNT)
+        rating_text = await _safe_inner_text(page, GIG_DETAIL_RATING)
+        review_count = _parse_review_count(review_count_text)
+        rating = _parse_rating(rating_text)
+
+        if isinstance(db, Session):
+            gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
+            if gig:
+                gig.gig_title_full = title
+                gig.description_text = description
+                gig.packages = packages
+                gig.tags = tags
+                gig.faq_text = faq_text
+                gig.video_present = video_present
+                gig.portfolio_count = portfolio_count
+                gig.review_count_exact = review_count
+                gig.rating_exact = rating
+                gig.detail_collected = True
+                gig.detail_collected_at = datetime.now(UTC)
+                db.commit()
+
+        return {
+            "gig_url": gig_url,
+            "keyword_id": keyword_id,
+            "collected": True,
+            "detail_collected": True,
+            "title": title,
+            "description_length": len(description) if description else 0,
+            "packages_count": len(packages),
+            "tags_count": len(tags),
+            "has_video": video_present,
+            "portfolio_count": portfolio_count,
+            "review_count": review_count,
+            "rating": rating,
+            "seller_queued": False,
+            "dry_run": False,
+        }
+    finally:
+        await session_manager.close_page(page)
+
+
+def build_gig_detail_url(gig_url: str) -> str:
+    """Normalizes a gig URL for browser navigation."""
+    cleaned = gig_url.strip()
+    parsed = urlparse(cleaned)
+    if parsed.scheme and parsed.netloc:
+        return cleaned
+    return f"https://www.fiverr.com{cleaned}" if cleaned.startswith("/") else cleaned
+
+
+async def _safe_inner_text(page: Any, selector: str) -> str | None:
+    node = await page.query_selector(selector)
+    if node is None:
+        return None
+    text = (await node.inner_text()).strip()
+    return text or None
+
+
+async def _extract_packages(page: Any) -> list[dict[str, Any]]:
+    """Extracts package tier pricing from gig detail page."""
+    packages: list[dict[str, Any]] = []
+    package_nodes = await page.query_selector_all(GIG_DETAIL_PACKAGES)
+    for idx, package_node in enumerate(package_nodes, start=1):
+        price_node = await package_node.query_selector(GIG_DETAIL_PACKAGE_PRICE)
+        price_text = (await price_node.inner_text()).strip() if price_node else None
+        packages.append({"tier_index": idx, "price_text": price_text})
+    return packages
+
+
+async def _extract_tags(page: Any) -> list[str]:
+    """Extracts tags from gig detail page."""
+    tags: list[str] = []
+    tag_nodes = await page.query_selector_all(GIG_DETAIL_TAGS)
+    for tag_node in tag_nodes:
+        tag_text = (await tag_node.inner_text()).strip()
+        if tag_text:
+            tags.append(tag_text)
+    return tags
+
+
+async def _extract_faq(page: Any) -> str:
+    """Extracts FAQ Q+A concatenated text."""
+    faq_blocks = await page.query_selector_all(GIG_DETAIL_FAQ_ITEMS)
+    entries: list[str] = []
+    for faq in faq_blocks:
+        question_node = await faq.query_selector(GIG_DETAIL_FAQ_QUESTION)
+        answer_node = await faq.query_selector(GIG_DETAIL_FAQ_ANSWER)
+        question = (await question_node.inner_text()).strip() if question_node else ""
+        answer = (await answer_node.inner_text()).strip() if answer_node else ""
+        pair = " ".join(part for part in [question, answer] if part).strip()
+        if pair:
+            entries.append(pair)
+    return " | ".join(entries)
+
+
+def _parse_review_count(text: str | None) -> int | None:
+    if not text:
+        return None
+    nums = re.findall(r"[\d,]+", text)
+    return int(nums[0].replace(",", "")) if nums else None
+
+
+def _parse_rating(text: str | None) -> float | None:
+    if not text:
+        return None
+    nums = re.findall(r"\d+\.\d+|\d+", text)
+    return float(nums[0]) if nums else None
 
 
 def get_top_n_gig_urls_for_keyword(keyword_id: int, depth: str, db: Any) -> list[str]:
