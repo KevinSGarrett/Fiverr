@@ -18,7 +18,8 @@ from src.models.database import (
     get_session,
     initialize_database,
 )
-from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
+from src.models.external_signal import ExternalSignal
+from src.models.market import Gig, Keyword, Review, SearchResult, Seller
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.registry import (
     get_missing_source_tables,

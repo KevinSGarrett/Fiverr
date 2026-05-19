@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import (
@@ -20,6 +20,7 @@ from src.models.search_result import SearchResult
 from src.models.seller import Seller as Seller  # noqa: F401
 
 if TYPE_CHECKING:
+    from src.models.external_signal import ExternalSignal
     from src.models.niche import Niche
 
 
@@ -42,7 +43,7 @@ class Keyword(
     niche: Mapped[Niche] = relationship(back_populates="keywords")
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
     gigs: Mapped[list[Gig]] = relationship(back_populates="keyword_ref")
-    external_signals: Mapped[list[ExternalSignal]] = relationship(back_populates="keyword_ref")
+    external_signals: Mapped[list[ExternalSignal]] = relationship("ExternalSignal", back_populates="keyword_ref")
 
 
 class Review(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, Base):
@@ -57,14 +58,3 @@ class Review(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, Metada
     gig: Mapped[Gig | None] = relationship(back_populates="reviews")
 
 
-class ExternalSignal(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixin, Base):
-    __tablename__ = "external_signals"
-
-    source_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    signal_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    keyword_id: Mapped[int | None] = mapped_column(ForeignKey("keywords.id"), nullable=True, index=True)
-    raw_value_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    normalized_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    collected_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    keyword_ref: Mapped[Keyword | None] = relationship(back_populates="external_signals")
