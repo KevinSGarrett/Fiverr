@@ -176,7 +176,7 @@ def _parse_price(text: str | None) -> float | None:
     """Parses values like '$95' into 95.0."""
     if not text:
         return None
-    nums = re.findall(r"[\d.]+", text)
+    nums = re.findall(r"[\d.]+", text.replace(",", ""))
     return float(nums[0]) if nums else None
 
 

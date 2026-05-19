@@ -626,6 +626,10 @@ def test_parse_price_dollar() -> None:
     assert _parse_price("$95") == 95.0
 
 
+def test_parse_price_with_commas() -> None:
+    assert _parse_price("From $1,200") == 1200.0
+
+
 def test_parse_price_none() -> None:
     assert _parse_price(None) is None
 
