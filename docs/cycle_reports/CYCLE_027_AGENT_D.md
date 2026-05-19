@@ -186,6 +186,21 @@ Disposition actions completed:
 - Thread manually resolved via GraphQL `resolveReviewThread`.
 - Re-query confirmed thread resolved (`isResolved=true`).
 
+## Final Steward Checks (Tasks 15-20)
+
+- Final SHA freeze:
+  - `25293b561ab72e0f3c8cc8aa1fdc550425d8a5ba`
+- Agent reports present:
+  - `docs/cycle_reports/CYCLE_027_AGENT_A.md`
+  - `docs/cycle_reports/CYCLE_027_AGENT_B.md`
+  - `docs/cycle_reports/CYCLE_027_AGENT_C.md`
+  - `docs/cycle_reports/CYCLE_027_AGENT_D.md`
+- No-main/worktree verification:
+  - Branch: `cycle/027/integration`
+  - Worktree: `C:/Fiverr/Fiverr 25293b5 [cycle/027/integration]`
+- Artifact hygiene:
+  - No secrets or runtime artifacts were included in scoped commits (`.env`, DB dumps, coverage artifacts not staged by this work).
+
 ## Merge Gate Checklist
 
 ```text
