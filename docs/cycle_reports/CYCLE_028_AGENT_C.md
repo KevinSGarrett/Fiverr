@@ -194,5 +194,33 @@ Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with new Cycle 028 Agent C rows:
 
 ## Task 12/13/14/15 — Hygiene, No-Main Checks, Commit, Handoff
 
-Post-validation checks and commit metadata are recorded after commit is created.
+Artifact hygiene:
+
+- Verified scoped staging only (no secret files, no `.env`, no DB artifacts).
+- Existing unrelated PM-pack working tree changes were left untouched.
+
+No-main/worktree verification:
+
+- `git branch --show-current` -> `cycle/028/integration`
+- `git worktree list` -> `C:/Fiverr/Fiverr  c6a6e9f [cycle/028/integration]` (single expected worktree)
+- Pre-commit HEAD snapshot: `c6a6e9f304203b4e800fcda9d50198003e20b95d`
+
+Commit created (not pushed):
+
+- `a18c70d feat(scoring): wire weakness.py to GigQualityScore + W5 interface [Agent C Cycle 028]`
+
+Scoped files committed:
+
+- `src/scoring/weakness.py`
+- `src/collection/workflows/seller_profile.py`
+- `tests/unit/test_scoring_weakness_gqs.py`
+- `tests/unit/test_seller_profile.py`
+- `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
+- `docs/cycle_reports/CYCLE_028_AGENT_C.md`
+
+Handoff to Agent D:
+
+- Supplementary GQS wiring is now in place with fallback preservation.
+- Workflow 5 helper interface is complete for next-cycle Playwright implementation.
+- Full validation and coverage gates passed locally; Jira + ledger evidence posted.
 
