@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session, sessionmaker
 from src.collection import autocomplete as autocomplete_module
 from src.collection import community_signals as community_signals_module
 from src.collection import external_signals as external_signals_module
@@ -16,6 +19,11 @@ from src.collection.workflows.auto_promotion import AutoPromotionWorkflow
 from src.collection.workflows.autocomplete import AutocompleteWorkflow
 from src.collection.workflows.fiverr_search import (
     FiverrSearchWorkflow,
+    _extract_gig_card,
+    _parse_price,
+    _parse_result_count,
+    _queue_gig_detail_jobs,
+    _safe_attribute,
     build_fiverr_search_url,
     is_keyword_only_depth,
     parse_gig_cards_from_page,
@@ -328,21 +336,348 @@ def test_fiverr_search_result_structure() -> None:
     assert required_keys.issubset(result.keys())
 
 
-def test_fiverr_search_raises_without_dry_run() -> None:
-    with pytest.raises(NotImplementedError):
+class _FakeElement:
+    def __init__(self, text: str | None = None, attrs: dict[str, str] | None = None):
+        self._text = text
+        self._attrs = attrs or {}
+
+    async def inner_text(self) -> str:
+        return self._text or ""
+
+    async def get_attribute(self, key: str) -> str | None:
+        return self._attrs.get(key)
+
+
+class _FakeCard:
+    def __init__(self, mapping: dict[str, _FakeElement | None]):
+        self.mapping = mapping
+
+    async def query_selector(self, selector: str):
+        return self.mapping.get(selector)
+
+
+def _build_real_search_mocks(
+    *, count_text: str = "1,234 results", cards: list[_FakeCard] | None = None
+) -> tuple[AsyncMock, AsyncMock, AsyncMock]:
+    page = AsyncMock()
+    page.goto = AsyncMock()
+    page.query_selector = AsyncMock(return_value=_FakeElement(count_text))
+    page.query_selector_all = AsyncMock(return_value=cards or [])
+
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    session_manager.close_page = AsyncMock()
+
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+    return page, session_manager, pacing_manager
+
+
+def test_w3_real_navigates_to_correct_url() -> None:
+    page, session_manager, pacing_manager = _build_real_search_mocks()
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
+        _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python automation",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-17",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+
+    page.goto.assert_awaited_once_with(
+        "https://www.fiverr.com/search/gigs?query=python%20automation",
+        wait_until="domcontentloaded",
+        timeout=30_000,
+    )
+
+
+def test_w3_real_calls_pacing_wait() -> None:
+    _page, session_manager, pacing_manager = _build_real_search_mocks()
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
         _run(
             run_fiverr_search_collection(
                 keyword_id=2,
                 keyword_text="python",
                 niche_id="ai_saas",
                 depth="standard",
-                run_id="run-17",
-                db=None,
-                session_manager=None,
-                pacing_manager=None,
+                run_id="run-18",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
                 dry_run=False,
             )
         )
+    pacing_manager.wait.assert_awaited_once_with("fiverr_search", dry_run=False)
+
+
+def test_w3_real_extracts_result_count() -> None:
+    _page, session_manager, pacing_manager = _build_real_search_mocks(count_text="9,876 results for test")
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
+        result = _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-19",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+    assert result["total_result_count"] == 9876
+
+
+def test_w3_real_collects_gig_cards() -> None:
+    card = _FakeCard(
+        {
+            "[data-testid='gig-title'], .gig-title": _FakeElement("Gig A"),
+            "[data-testid='seller-name'], .seller-name": _FakeElement("seller_a"),
+            "[data-testid='seller-level-badge'], .seller-level-badge": _FakeElement("Level 2"),
+            "[data-testid='starting-price'], .gig-price": _FakeElement("$95"),
+            "[data-testid='rating-count-number'], .reviews-count": _FakeElement("123"),
+            "a[data-testid='gig-link'], a.gig-link": _FakeElement(attrs={"href": "https://www.fiverr.com/gig/a"}),
+            "[data-testid='promoted-badge'], .promoted-badge": None,
+        }
+    )
+    _page, session_manager, pacing_manager = _build_real_search_mocks(cards=[card])
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
+        result = _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-20",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+    assert result["gig_cards_collected"] == 1
+
+
+def test_w3_real_writes_search_result() -> None:
+    _page, session_manager, pacing_manager = _build_real_search_mocks()
+    with patch("src.collection.workflows.fiverr_search.write_search_result") as write_mock, patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
+        _run(
+            run_fiverr_search_collection(
+                keyword_id=7,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-21",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+    assert write_mock.call_args.kwargs["keyword_id"] == 7
+    assert write_mock.call_args.kwargs["run_id"] == "run-21"
+    assert write_mock.call_args.kwargs["page_collected"] == 1
+
+
+def _make_job_test_session() -> Session:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE run_logs (run_id VARCHAR(64) PRIMARY KEY)"))
+        conn.execute(text("CREATE TABLE niche_configs (niche_id VARCHAR(64) PRIMARY KEY)"))
+        conn.execute(text("INSERT INTO run_logs(run_id) VALUES ('run-queue')"))
+        conn.execute(text("INSERT INTO niche_configs(niche_id) VALUES ('ai_saas')"))
+    from src.models.job import Job
+
+    Job.__table__.create(bind=engine, checkfirst=True)
+    maker = sessionmaker(bind=engine, future=True)
+    return maker()
+
+
+def test_w3_real_queues_gig_detail_jobs() -> None:
+    session = _make_job_test_session()
+    try:
+        gig_cards = [{"gig_url": f"https://www.fiverr.com/gig/{i}"} for i in range(12)]
+        queued = _queue_gig_detail_jobs(10, "ai_saas", "run-queue", gig_cards, "standard", session)
+        assert queued == 10
+        rows = session.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one()
+        assert rows == 10
+    finally:
+        session.close()
+
+
+def test_w3_real_keyword_only_no_jobs() -> None:
+    session = _make_job_test_session()
+    try:
+        queued = _queue_gig_detail_jobs(
+            10,
+            "ai_saas",
+            "run-queue",
+            [{"gig_url": "https://www.fiverr.com/gig/a"}],
+            "keyword_only",
+            session,
+        )
+        assert queued == 0
+        rows = session.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one()
+        assert rows == 0
+    finally:
+        session.close()
+
+
+def test_w3_real_closes_page_on_success() -> None:
+    _page, session_manager, pacing_manager = _build_real_search_mocks()
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
+        _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-22",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+    session_manager.close_page.assert_awaited_once()
+
+
+def test_w3_real_closes_page_on_error() -> None:
+    page, session_manager, pacing_manager = _build_real_search_mocks()
+    page.goto.side_effect = RuntimeError("boom")
+    with pytest.raises(RuntimeError):
+        _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-23",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+    session_manager.close_page.assert_awaited_once()
+
+
+def test_w3_real_max_20_cards() -> None:
+    cards = [
+        _FakeCard(
+            {
+                "[data-testid='gig-title'], .gig-title": _FakeElement(f"Gig {i}"),
+                "a[data-testid='gig-link'], a.gig-link": _FakeElement(
+                    attrs={"href": f"https://www.fiverr.com/gig/{i}"}
+                ),
+                "[data-testid='promoted-badge'], .promoted-badge": None,
+            }
+        )
+        for i in range(25)
+    ]
+    _page, session_manager, pacing_manager = _build_real_search_mocks(cards=cards)
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ):
+        result = _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-24",
+                db=object(),
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+            )
+        )
+    assert result["gig_cards_collected"] == 20
+
+
+def test_parse_result_count_with_commas() -> None:
+    assert _parse_result_count("1,234 results for test") == 1234
+
+
+def test_parse_result_count_none() -> None:
+    assert _parse_result_count(None) is None
+
+
+def test_parse_price_dollar() -> None:
+    assert _parse_price("$95") == 95.0
+
+
+def test_parse_price_with_commas() -> None:
+    assert _parse_price("From $1,200") == 1200.0
+
+
+def test_parse_price_none() -> None:
+    assert _parse_price(None) is None
+
+
+def test_safe_attribute_returns_none_when_selector_missing() -> None:
+    card = _FakeCard({})
+    value = _run(_safe_attribute(card, "a[data-testid='gig-link'], a.gig-link", "href"))
+    assert value is None
+
+
+def test_safe_attribute_returns_none_when_attribute_missing() -> None:
+    card = _FakeCard({"a[data-testid='gig-link'], a.gig-link": _FakeElement(attrs={})})
+    value = _run(_safe_attribute(card, "a[data-testid='gig-link'], a.gig-link", "href"))
+    assert value is None
+
+
+def test_extract_gig_card_returns_none_when_url_and_title_missing() -> None:
+    card = _FakeCard(
+        {
+            "a[data-testid='gig-link'], a.gig-link": _FakeElement(attrs={}),
+            "[data-testid='gig-title'], .gig-title": _FakeElement(""),
+        }
+    )
+    assert _run(_extract_gig_card(card, 1)) is None
+
+
+def test_queue_jobs_skips_cards_without_url() -> None:
+    session = _make_job_test_session()
+    try:
+        gig_cards = [{"seller_username": "no-url-card"}, {"gig_url": "https://www.fiverr.com/gig/ok"}]
+        queued = _queue_gig_detail_jobs(10, "ai_saas", "run-queue", gig_cards, "standard", session)
+        assert queued == 1
+        rows = session.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one()
+        assert rows == 1
+    finally:
+        session.close()
+
+
+def test_queue_jobs_full_depth() -> None:
+    session = _make_job_test_session()
+    try:
+        gig_cards = [{"gig_url": f"https://www.fiverr.com/gig/{i}"} for i in range(30)]
+        queued = _queue_gig_detail_jobs(10, "ai_saas", "run-queue", gig_cards, "full", session)
+        assert queued == 20
+        rows = session.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one()
+        assert rows == 20
+    finally:
+        session.close()
 
 
 def test_build_fiverr_search_url_basic() -> None:
