@@ -184,6 +184,8 @@ Posted:
 - `SCRUM-172` planning comment: `11230`
 - `SCRUM-172` implementation evidence: `11232`
 - `SCRUM-150` implementation evidence: `11231`
+- `SCRUM-172` exact Task-10 evidence text posted: `11233`
+- `SCRUM-150` exact Task-10 evidence text posted: `11234`
 
 ## Task 11 — DoD Ledger
 
@@ -204,6 +206,7 @@ No-main/worktree verification:
 - `git branch --show-current` -> `cycle/028/integration`
 - `git worktree list` -> `C:/Fiverr/Fiverr  c6a6e9f [cycle/028/integration]` (single expected worktree)
 - Pre-commit HEAD snapshot: `c6a6e9f304203b4e800fcda9d50198003e20b95d`
+- PR check for current branch: `gh pr list --head cycle/028/integration` -> none open (Codex thread gate deferred to Agent D merge PR stage)
 
 Commit created (not pushed):
 
