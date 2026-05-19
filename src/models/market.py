@@ -15,6 +15,7 @@ from src.models.base import (
     SoftStatusMixin,
     TimestampMixin,
 )
+from src.models.search_result import SearchResult
 
 if TYPE_CHECKING:
     from src.models.niche import Niche
@@ -39,23 +40,6 @@ class Keyword(
     niche: Mapped[Niche] = relationship(back_populates="keywords")
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
     external_signals: Mapped[list[ExternalSignal]] = relationship(back_populates="keyword_ref")
-
-
-class SearchResult(
-    IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, SoftStatusMixin, Base
-):
-    __tablename__ = "search_results"
-    __table_args__ = (UniqueConstraint("keyword_id", "rank", name="uq_search_results_keyword_rank"),)
-
-    keyword_id: Mapped[int] = mapped_column(ForeignKey("keywords.id"), nullable=False, index=True)
-    rank: Mapped[int] = mapped_column(nullable=False)
-    title: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    gig_id: Mapped[int | None] = mapped_column(ForeignKey("gigs.id"), nullable=True, index=True)
-    result_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    observed_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    keyword_ref: Mapped[Keyword] = relationship(back_populates="search_results")
-    gig: Mapped[Gig | None] = relationship(back_populates="search_results")
 
 
 class Seller(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJSONMixin, Base):

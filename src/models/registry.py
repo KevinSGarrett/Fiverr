@@ -18,8 +18,9 @@ from src.models.collection_runtime import (
     CollectionSessionEvent,
 )
 from src.models.job import Job
-from src.models.market import ExternalSignal, Gig, Keyword, Review, SearchResult, Seller
+from src.models.market import ExternalSignal, Gig, Keyword, Review, Seller
 from src.models.niche import Niche, NicheConfigRecord
+from src.models.search_result import SearchResult
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
