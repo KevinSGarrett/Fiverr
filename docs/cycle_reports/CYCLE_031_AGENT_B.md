@@ -97,7 +97,7 @@ Persistence/helper updates:
 
 ## Final SHA
 
-- Pending commit creation in Task 18 (`feat(analysis): E03 Competitor Profiling + Seller Strength — Stage 10 pipeline [Agent B Cycle 031]`).
+- Agent B Task 18 commit SHA (scoped freeze): `d4c50bc9bb15d06f802ad2f0deeac3876267aaca`.
 
 ## Handoff Notes for Agent C
 
