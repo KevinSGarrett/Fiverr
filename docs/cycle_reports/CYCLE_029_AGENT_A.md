@@ -117,7 +117,7 @@
 - Checked for accidental staging targets (`.env`, `data/sessions/`, `*.db`, `coverage.xml`): none of these were staged as part of Agent A scope.
 
 ## Final Agent Commit SHA
-- `TBD` (to be filled after Task 15 commit).
+- `c5e27eeb043c28e84f99a40f08ab54431a35502f`.
 
 ## Handoff Notes for Agent B
 - Workflow 5 non-dry path is now active in `run_seller_profile_collection(...)` with:

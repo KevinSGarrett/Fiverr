@@ -1,0 +1,34 @@
+{
+  "cycle": "020",
+  "created_at": "2026-05-17T00:00:00.000000",
+  "pr_reviewed": 23,
+  "pr_23_state": "ready_to_merge",
+  "pr_23_sha": "e97267438ceb70bd7cfa3c7dc748279673fd603a",
+  "tests_on_pr_23": 848,
+  "coverage_on_pr_23": "93.30%",
+  "cycle_019_control_ticket": "SCRUM-508",
+  "cycle_020_control_ticket": "SCRUM-509",
+  "primary_epics": ["SCRUM-19", "SCRUM-20"],
+  "scoring_stories_completed_cycle_019": [
+    "SCRUM-165", "SCRUM-166", "SCRUM-167", "SCRUM-168",
+    "SCRUM-169", "SCRUM-170", "SCRUM-171", "SCRUM-172",
+    "SCRUM-173", "SCRUM-174", "SCRUM-175", "SCRUM-176", "SCRUM-177"
+  ],
+  "cycle_020_focus": {
+    "agent_a": "PR #23 gate/merge, score_keyword() async pipeline, write_keyword_score()",
+    "agent_b": "SQLAlchemy DB integration for all 13 scoring calculators",
+    "agent_c": "LLM wiring for 8 stub calculators, feature-flagged",
+    "agent_d": "E05 S5.1-S5.4 Recommendations foundation, PR #24, Codex, board reconciliation"
+  },
+  "prompt_audit": [
+    {"agent": "A", "task_count": 24, "status": "PLANNED"},
+    {"agent": "B", "task_count": 24, "status": "PLANNED"},
+    {"agent": "C", "task_count": 24, "status": "PLANNED"},
+    {"agent": "D", "task_count": 22, "status": "PLANNED"}
+  ],
+  "board_ranges_reviewed": [
+    "SCRUM-1..SCRUM-177",
+    "SCRUM-178..SCRUM-274",
+    "SCRUM-508..SCRUM-509"
+  ]
+}

@@ -1,0 +1,42 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "0 9 * * *"  # 9 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  stale:
+    name: Mark Stale
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # PR settings
+          stale-pr-message: >
+            This PR has been inactive for 3 days. Please:
+            1. Push new commits to continue work
+            2. Add `status:blocked` label if waiting on something
+            3. Close if no longer needed.
+            This PR will be auto-closed after 7 days of inactivity.
+          close-pr-message: >
+            Closed due to 7 days of inactivity. Reopen if still needed —
+            rebase from develop first.
+          stale-pr-label: "status:stale"
+          days-before-pr-stale: 3
+          days-before-pr-close: 7
+          exempt-pr-labels: "status:blocked,status:on-hold,priority:P1-critical,type:release"
+
+          # Issue settings
+          stale-issue-message: >
+            This issue has had no activity for 7 days. Please update or
+            add `status:blocked` if waiting. Will auto-close after 30 days.
+          close-issue-message: >
+            Closed due to 30 days of inactivity. Reopen if still relevant.
+          stale-issue-label: "status:stale"
+          days-before-issue-stale: 7
+          days-before-issue-close: 30
+          exempt-issue-labels: "issue:epic,status:blocked,priority:P1-critical,priority:P2-high"

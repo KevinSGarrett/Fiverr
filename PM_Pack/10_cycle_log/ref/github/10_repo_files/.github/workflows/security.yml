@@ -1,0 +1,59 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for secrets
+        run: |
+          FOUND=0
+          # OpenAI API keys
+          if grep -rn 'sk-[a-zA-Z0-9]\{20,\}' src/ tests/ --include="*.py" 2>/dev/null; then
+            echo "::error::Potential OpenAI API key found in source code"
+            FOUND=1
+          fi
+          # Hardcoded passwords (excluding test/mock)
+          if grep -rn 'password\s*=' src/ --include="*.py" | grep -v 'test\|mock\|example\|placeholder\|getenv\|environ' 2>/dev/null; then
+            echo "::error::Potential hardcoded password found"
+            FOUND=1
+          fi
+          # Generic secret assignments
+          if grep -rn 'secret\s*=' src/ --include="*.py" | grep -v 'test\|mock\|example\|getenv\|environ' 2>/dev/null; then
+            echo "::error::Potential hardcoded secret found"
+            FOUND=1
+          fi
+          # Connection strings with credentials
+          if grep -rn 'postgresql://.*:.*@' src/ tests/ --include="*.py" | grep -v 'example\|placeholder\|getenv' 2>/dev/null; then
+            echo "::error::Potential database connection string with credentials found"
+            FOUND=1
+          fi
+          if [ $FOUND -eq 1 ]; then
+            exit 1
+          fi
+          echo "No secrets detected."
+
+  dependency-check:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Audit dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt --desc || echo "::warning::Dependency audit found issues"
+          else
+            echo "No requirements.txt found, skipping audit"
+          fi

@@ -1,0 +1,30 @@
+{
+  "cycle": "021",
+  "created_at": "2026-05-17T00:00:00.000000",
+  "pr_reviewed": 24,
+  "pr_24_state": "ready_to_merge",
+  "pr_24_codex_findings": 0,
+  "tests_on_pr_24": 935,
+  "coverage_on_pr_24": "92.79%",
+  "cycle_020_control_ticket": "SCRUM-509",
+  "cycle_021_control_ticket": "SCRUM-510",
+  "primary_epics": ["SCRUM-20", "SCRUM-19", "SCRUM-21"],
+  "cycle_020_gaps_to_close": [
+    "KeywordScore ORM model missing",
+    "run_recommendations() CLI not in AVAILABLE_MODES",
+    "codecov/patch gap on PR #24",
+    "E06 Pricing not started"
+  ],
+  "cycle_021_scope": {
+    "agent_a": "PR #24 gate/merge, run_recommendations() CLI hook, E05 smoke, codecov patch gap",
+    "agent_b": "KeywordScore ORM model, write_keyword_score() real DB, model init/migration",
+    "agent_c": "E06 S6.1 PriceAnalysis model + S6.2 new_seller_pricing.py calculator",
+    "agent_d": "E05 e2e integration test, SCRUM-231 evidence, PR #25, Codex, board"
+  },
+  "prompt_audit": [
+    {"agent": "A", "task_count": 24, "status": "PLANNED"},
+    {"agent": "B", "task_count": 24, "status": "PLANNED"},
+    {"agent": "C", "task_count": 24, "status": "PLANNED"},
+    {"agent": "D", "task_count": 22, "status": "PLANNED"}
+  ]
+}

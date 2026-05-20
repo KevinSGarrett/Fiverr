@@ -1,0 +1,84 @@
+{
+  "cycle": "029",
+  "pm_review_completed": "2026-05-19",
+  "pm_protocol_version": "v2_master_prompt",
+  "new_rules_applied": ["R-090 task sizing", "R-091 branch hygiene", "R-092 coverage consolidation"],
+
+  "verification_audit_part_8": {
+    "all_4_reports_read": true,
+    "files_verified_on_disk": "11/11 verified via list_directory",
+    "full_test_suite_run_locally": "Skipped — Python not callable from PM env. Trusted Agent D's audit (1608 / 95.04%).",
+    "live_github_api": "PR #32 state from Agent D verified report (3 Codex VALID_FIXED, all resolved, codecov/patch 100%)",
+    "live_jira_api_called": "Yes — 17 keys verified, zero discrepancies",
+    "spec_files_read": "COLLECTION_WORKFLOWS.md W2/W5/W6/W7, SCORING_DIRECTION.md S4.8 (read in prior cycle)",
+    "pm_pack_updated_with_verified_state": true,
+    "unresolved_codex_threads": "CONFIRMED NONE — Agent D raw GraphQL shows all 3 threads isResolved=true",
+    "codecov_patch_success": "Yes — 100% per Agent D checklist",
+    "every_agent_prompt_cites_spec": true
+  },
+
+  "pr_reviewed": 32,
+  "pr_32_codex_findings": 3,
+  "pr_32_all_valid_fixed": true,
+  "pr_32_codecov_patch": "100.00%",
+  "tests_on_pr_32": 1608,
+  "coverage_on_pr_32": "95.04%",
+
+  "cycle_028_control_ticket": "SCRUM-517",
+  "cycle_029_control_ticket": "SCRUM-518",
+
+  "cycle_029_scope_with_task_tiers": {
+    "agent_a": {
+      "total_estimated_time_min": 120,
+      "tasks": [
+        {"id": 1, "tier": "MEDIUM", "min": 30, "desc": "PR #32 gate + R-091 branch cleanup + cycle/029/integration setup"},
+        {"id": 2, "tier": "LARGE", "min": 75, "desc": "Workflow 5 Seller Profile REAL Playwright (SCRUM-150)"},
+        {"id": 3, "tier": "MEDIUM", "min": 15, "desc": "Targeted patch coverage + Jira + commit + handoff"}
+      ]
+    },
+    "agent_b": {
+      "total_estimated_time_min": 120,
+      "tasks": [
+        {"id": 1, "tier": "SMALL", "min": 10, "desc": "Preflight + handoff + spec read"},
+        {"id": 2, "tier": "LARGE", "min": 80, "desc": "Workflow 2 Step 2c LLM keyword generation (SCRUM-147)"},
+        {"id": 3, "tier": "MEDIUM", "min": 25, "desc": "Workflow 2 Step 2d LLM relevance filter"},
+        {"id": 4, "tier": "MEDIUM", "min": 15, "desc": "Targeted patch coverage + Jira + commit"}
+      ]
+    },
+    "agent_c": {
+      "total_estimated_time_min": 105,
+      "tasks": [
+        {"id": 1, "tier": "SMALL", "min": 10, "desc": "Preflight + handoff read"},
+        {"id": 2, "tier": "MEDIUM", "min": 45, "desc": "Workflow 2 Step 2f LLM intent classification (SCRUM-147)"},
+        {"id": 3, "tier": "MEDIUM", "min": 40, "desc": "Auto-trigger recommendations on STRONG_GO/CONDITIONAL_GO (SCRUM-20)"},
+        {"id": 4, "tier": "MEDIUM", "min": 10, "desc": "Targeted patch coverage + Jira + commit"}
+      ]
+    },
+    "agent_d": {
+      "total_estimated_time_min": 180,
+      "tasks": [
+        {"id": 1, "tier": "SMALL", "min": 15, "desc": "Preflight + read all handoffs"},
+        {"id": 2, "tier": "LARGE", "min": 75, "desc": "Workflow 7 Reddit REAL praw (SCRUM-152)"},
+        {"id": 3, "tier": "MEDIUM", "min": 30, "desc": "R-092 Tier 2 comprehensive coverage audit (ONLY Agent D)"},
+        {"id": 4, "tier": "MEDIUM", "min": 30, "desc": "Board reconciliation + PR #33 + CI monitoring"},
+        {"id": 5, "tier": "MEDIUM", "min": 30, "desc": "Codex disposition + merge gate checklist + final cleanup"}
+      ]
+    }
+  },
+
+  "cycle_029_targets": {
+    "tests": ">= 1670",
+    "coverage": ">= 90%",
+    "codecov_patch": "PASS (canonical gate)",
+    "codex_threads": "all resolved"
+  },
+
+  "spec_files_referenced": [
+    "PM_Pack/ref/project_plan/04_collection/COLLECTION_WORKFLOWS.md (W2 Steps 2c/2d/2f, W5, W7)",
+    "PM_Pack/ref/project_plan/05_scoring/SCORING_DIRECTION.md (S4.8 GO/NO-GO triggers)",
+    "PM_Pack/01_pm_instructions/AGENT_PROMPT_TEMPLATE.md (NEW Cycle 029 standard)",
+    "PM_Pack/01_pm_instructions/PM_CORRECTIVE_RULES_CYCLE_029.md (NEW)",
+    "PM_Pack/05_github_protocol/GITHUB_RULES.md (G-005 added)",
+    "PM_Pack/05_github_protocol/PR_CHECKS_CODECOV_PROTOCOL.md (R-092 appended)"
+  ]
+}
