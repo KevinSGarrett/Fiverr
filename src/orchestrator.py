@@ -23,6 +23,7 @@ from src.utils.logging import configure_logging
 AVAILABLE_MODES = (
     "full",
     "collect-only",
+    "cluster-only",
     "score-only",
     "analyze-only",
     "price-analysis",
@@ -35,6 +36,7 @@ AVAILABLE_MODES = (
 STAGE_AVAILABILITY = {
     "full": "Foundation CLI is active. Full pipeline orchestration is not wired yet.",
     "collect-only": "Collection module contracts exist; full collection orchestration is pending.",
+    "cluster-only": "Cluster-only mode runs Stage 9 keyword clustering for active niches.",
     "score-only": "Scoring persistence foundation exists; scoring runner is not wired yet.",
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
     "price-analysis": "Run Stage 10.5 pricing analysis and recommendation calculations.",
@@ -404,6 +406,30 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             print(f"Collection dry run failed: {exc}")
             return 1
         print(f"Collection dry run complete: {result}")
+        return 0
+
+    if mode == "cluster-only":
+        import uuid
+
+        from src.analysis.keyword_clusterer import run_clustering_for_all_niches
+
+        run_id = str(uuid.uuid4())
+        session_factory = create_session_factory(engine)
+        try:
+            with get_session(session_factory) as db_session:
+                result = asyncio.run(
+                    run_clustering_for_all_niches(
+                        run_id=run_id,
+                        db=db_session,
+                        config=config_payload if isinstance(config_payload, dict) else {},
+                        llm_client=None,
+                        cache=None,
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Cluster-only run failed: {exc}")
+            return 1
+        print(f"Cluster-only run complete: {result}")
         return 0
 
     if mode == "full":

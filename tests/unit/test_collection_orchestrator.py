@@ -44,6 +44,7 @@ def test_run_collection_dry_run_stages_run() -> None:
     assert result["stages_run"] == [
         "stage01_niche_init",
         "stage02_keyword_expansion",
+        "stage09_keyword_clustering",
         "stage03_fiverr_search",
         "stage04_gig_detail",
         "stage05_seller_profile",
@@ -110,6 +111,36 @@ def test_run_collection_stages_list() -> None:
     )
     assert isinstance(result["stages_run"], list)
     assert len(result["stages_run"]) >= 1
+
+
+def test_stage9_registered_in_pipeline() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage9-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage09_keyword_clustering" in result["stages_run"]
+
+
+def test_stage9_skipped_at_feasibility_depth() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage9-feasibility",
+            db={},
+            config={"niches": [{"niche_id": "feasibility-niche", "seed_keywords": ["seed"], "depth": "feasibility"}]},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert any(
+        entry.get("reason") == "feasibility_depth_skip"
+        for entry in result["clustering_results"]
+        if isinstance(entry, dict)
+    )
 
 
 def test_orchestrator_checkpoint_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

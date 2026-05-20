@@ -1,0 +1,18 @@
+You are analyzing keyword clusters for a Fiverr research system.
+
+Niche: {{ niche_name }}
+Cluster keywords (most representative first):
+{% for kw in representative_keywords %}
+- {{ kw }}
+{% endfor %}
+
+Return strict JSON with this schema:
+{
+  "label": "4-8 word descriptive label",
+  "opportunity_narrative": "1-2 sentence strategic summary"
+}
+
+Rules:
+- Keep the label concise and concrete.
+- Keep opportunity_narrative actionable and specific.
+- Return JSON only (no markdown, no code fences).

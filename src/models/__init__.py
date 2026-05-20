@@ -40,8 +40,12 @@ from src.models.job import Job
 from src.models.keyword_score import KeywordScore
 from src.models.market import (
     AutocompleteSuggestion,
+    ClusterAssignment,
+    ClusterLabel,
     Keyword,
     Review,
+    write_cluster_assignment,
+    write_cluster_label,
     write_autocomplete_suggestion,
 )
 from src.models.niche import Niche, NicheConfigRecord
@@ -74,6 +78,8 @@ __all__ = [
     "AutoPromotionLog",
     "Base",
     "CompetitorSnapshot",
+    "ClusterAssignment",
+    "ClusterLabel",
     "DiscoveryCandidate",
     "DiscoveryCycleLog",
     "DiscoveryHypothesis",
@@ -119,6 +125,8 @@ __all__ = [
     "write_gig_card",
     "write_gig_quality_score",
     "write_autocomplete_suggestion",
+    "write_cluster_assignment",
+    "write_cluster_label",
     "write_search_result",
     "write_external_signal",
     "write_seller_profile",

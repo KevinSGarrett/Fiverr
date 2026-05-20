@@ -62,6 +62,7 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "dashboard" in result.output
     assert "collection-dry-run" in result.output
     assert "collect-only" in result.output
+    assert "cluster-only" in result.output
     assert "analysis-dry-run" in result.output
     assert "phase2-smoke" in result.output
 
@@ -325,4 +326,11 @@ def test_recommendations_only_invokes_pipeline(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(run_module, "run_pipeline", lambda **_kwargs: 0)
     runner = CliRunner()
     result = runner.invoke(cli, ["recommendations-only", "--config-path", "config.yaml"])
+    assert result.exit_code == 0
+
+
+def test_cluster_only_invokes_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run_module, "run_pipeline", lambda **_kwargs: 0)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["cluster-only", "--config-path", "config.yaml"])
     assert result.exit_code == 0

@@ -48,6 +48,7 @@ class Keyword(
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     intent_class: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
     embedding_vector: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    cluster_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True, default=None)
     search_volume_hint: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Discovery fields — AC-1.3.8
     is_discovery: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -58,6 +59,47 @@ class Keyword(
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
     gigs: Mapped[list[Gig]] = relationship(back_populates="keyword_ref")
     external_signals: Mapped[list[ExternalSignal]] = relationship("ExternalSignal", back_populates="keyword_ref")
+
+
+class ClusterAssignment(IntegerPrimaryKeyMixin, Base):
+    """Persist Stage 9 keyword-to-cluster assignments."""
+
+    __tablename__ = "cluster_assignments"
+    __table_args__ = (
+        UniqueConstraint("keyword_id", "run_id", name="uq_cluster_assignments_keyword_run"),
+    )
+
+    keyword_id: Mapped[int] = mapped_column(ForeignKey("keywords.id"), nullable=False, index=True)
+    niche_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    cluster_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    algorithm: Mapped[str] = mapped_column(String(16), nullable=False, default="kmeans")
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )
+
+
+class ClusterLabel(IntegerPrimaryKeyMixin, Base):
+    """Persist Stage 9 cluster-level labels and narratives."""
+
+    __tablename__ = "cluster_labels"
+    __table_args__ = (
+        UniqueConstraint("niche_id", "cluster_id", "run_id", name="uq_cluster_labels_niche_cluster_run"),
+    )
+
+    niche_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    cluster_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    label_text: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    opportunity_narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
+    keyword_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )
 
 
 class AutocompleteSuggestion(IntegerPrimaryKeyMixin, TimestampMixin, Base):
@@ -156,6 +198,93 @@ def write_autocomplete_suggestion(
         if row is None:
             return None
     db.refresh(row)
+    return row
+
+
+def write_cluster_assignment(
+    *,
+    keyword_id: int,
+    niche_id: str,
+    cluster_id: int,
+    run_id: str,
+    db: Any,
+    algorithm: str = "kmeans",
+    commit: bool = True,
+) -> ClusterAssignment | None:
+    """Upsert a cluster assignment keyed by keyword/run."""
+    if not isinstance(db, Session):
+        return None
+
+    row = (
+        db.query(ClusterAssignment)
+        .filter(
+            ClusterAssignment.keyword_id == keyword_id,
+            ClusterAssignment.run_id == run_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = ClusterAssignment(
+            keyword_id=keyword_id,
+            niche_id=niche_id,
+            cluster_id=cluster_id,
+            run_id=run_id,
+            algorithm=algorithm,
+        )
+    else:
+        row.niche_id = niche_id
+        row.cluster_id = cluster_id
+        row.algorithm = algorithm
+
+    db.add(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def write_cluster_label(
+    *,
+    niche_id: str,
+    cluster_id: int,
+    run_id: str,
+    db: Any,
+    label_text: str | None = None,
+    opportunity_narrative: str | None = None,
+    keyword_count: int = 0,
+    commit: bool = True,
+) -> ClusterLabel | None:
+    """Upsert a cluster label keyed by niche/cluster/run."""
+    if not isinstance(db, Session):
+        return None
+
+    row = (
+        db.query(ClusterLabel)
+        .filter(
+            ClusterLabel.niche_id == niche_id,
+            ClusterLabel.cluster_id == cluster_id,
+            ClusterLabel.run_id == run_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = ClusterLabel(
+            niche_id=niche_id,
+            cluster_id=cluster_id,
+            run_id=run_id,
+            label_text=label_text,
+            opportunity_narrative=opportunity_narrative,
+            keyword_count=keyword_count,
+        )
+    else:
+        row.label_text = label_text
+        row.opportunity_narrative = opportunity_narrative
+        row.keyword_count = keyword_count
+
+    db.add(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
     return row
 
 

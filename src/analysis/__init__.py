@@ -35,6 +35,16 @@ from src.analysis.contracts import (
 )
 from src.analysis.gig_quality import score_gig_quality
 from src.analysis.intent import classify_intent
+from src.analysis.keyword_clusterer import (
+    compute_n_clusters,
+    load_embeddings_for_niche,
+    normalize_embeddings,
+    run_clustering_for_all_niches,
+    run_clustering_for_niche,
+    run_dbscan,
+    run_kmeans,
+    select_algorithm,
+)
 from src.analysis.keyword_features import (
     KeywordFeatureError,
     build_keyword_feature_set,
@@ -75,14 +85,21 @@ __all__ = [
     "KeywordClusterInput",
     "KeywordClusterResult",
     "KeywordFeatureError",
+    "compute_n_clusters",
     "build_keyword_feature_set",
     "build_lexical_features",
     "classify_intent",
     "cluster_keywords",
     "extract_tokens",
+    "load_embeddings_for_niche",
+    "normalize_embeddings",
     "normalize_keyword",
     "profile_competitors",
     "run_analysis_dry_run",
+    "run_clustering_for_all_niches",
+    "run_clustering_for_niche",
+    "run_dbscan",
+    "run_kmeans",
     "persist_analysis_run_summary",
     "build_analysis_output_registry",
     "SaturationInput",
@@ -94,6 +111,7 @@ __all__ = [
     "score_gig_quality_contract",
     "score_seller_strength_contract",
     "score_seller_strength",
+    "select_algorithm",
     "analyze_saturation",
     "analyze_reviews",
     "ReviewAnalysisInput",

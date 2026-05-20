@@ -465,3 +465,73 @@ def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
 
     assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 1
     assert "Collection dry run failed: dry-run boom" in capsys.readouterr().out
+
+
+def test_run_pipeline_cluster_only_runs_clustering_stage(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": [{"niche_id": "ai_saas"}]})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_cluster_all(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["run_id"]
+        return {"niches_processed": 1, "niches_clustered": 1, "results": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_all_niches", _fake_cluster_all)
+
+    assert orchestrator.run_pipeline("cluster-only", config_path="config.yaml", database_url=None) == 0
+    assert "Cluster-only run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_cluster_only_returns_error_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    async def _broken_cluster_all(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("cluster boom")
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_all_niches", _broken_cluster_all)
+
+    assert orchestrator.run_pipeline("cluster-only", config_path="config.yaml", database_url=None) == 1
+    assert "Cluster-only run failed: cluster boom" in capsys.readouterr().out

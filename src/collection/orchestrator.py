@@ -138,6 +138,7 @@ async def run_collection_pipeline(
     from src.collection.workflows.keyword_expansion import run_keyword_expansion
     from src.collection.workflows.niche_init import run_niche_initialization
     from src.collection.workflows.seller_profile import run_seller_profile_collection
+    from src.analysis.keyword_clusterer import run_clustering_for_niche
     from src.scheduler.queue_processor import QueueProcessor
 
     if not dry_run:
@@ -158,6 +159,8 @@ async def run_collection_pipeline(
         "gig_detail_jobs_run": 0,
         "seller_profile_jobs_run": 0,
         "autocomplete_jobs_run": 0,
+        "clustering_niches_run": 0,
+        "clustering_results": [],
         "errors": [],
     }
 
@@ -191,6 +194,34 @@ async def run_collection_pipeline(
         except Exception as exc:  # noqa: BLE001
             summary["errors"].append(f"Stage 2 error ({niche_spec.get('niche_id')}): {exc}")
     summary["stages_run"].append("stage02_keyword_expansion")
+
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        depth = str(niche_spec.get("depth", "standard")).strip().lower()
+        if depth == "feasibility":
+            summary["clustering_results"].append(
+                {
+                    "niche_id": niche_id,
+                    "clustered": False,
+                    "reason": "feasibility_depth_skip",
+                }
+            )
+            continue
+        try:
+            clustering_result = await run_clustering_for_niche(
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+                config=config if isinstance(config, dict) else {},
+                llm_client=None,
+                cache=None,
+            )
+            summary["clustering_results"].append(clustering_result)
+            if clustering_result.get("clustered") is True:
+                summary["clustering_niches_run"] += 1
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 9 error ({niche_id}): {exc}")
+    summary["stages_run"].append("stage09_keyword_clustering")
 
     queue_db = _InMemoryQueueDb(
         [

@@ -188,6 +188,20 @@ def collect_only_command(config_path: str, database_url: str | None) -> None:
     )
 
 
+@cli.command("cluster-only")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def cluster_only_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 9 keyword clustering for all niches."""
+    raise SystemExit(
+        run_pipeline(
+            mode="cluster-only",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
 @cli.command("recommendations-only")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")
