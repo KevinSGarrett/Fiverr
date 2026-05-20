@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+from pathlib import Path
+
 import click
+from src.collection.session_manager import SessionManager, validate_session_file
+from src.config import ConfigLoader
 from src.orchestrator import (
     AVAILABLE_MODES,
     normalize_cli_config_path,
@@ -209,6 +214,72 @@ def price_analysis_command(config_path: str, database_url: str | None) -> None:
             database_url=database_url,
         )
     )
+
+
+@cli.command("relogin")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+def relogin_command(config_path: str) -> None:
+    """Trigger a headed Fiverr login and save session to data/sessions/fiverr_session.json."""
+
+    async def _run() -> None:
+        config = ConfigLoader(normalize_cli_config_path(config_path)).load()
+        session_manager = SessionManager(config)
+        try:
+            await session_manager.force_relogin()
+        finally:
+            await session_manager.close()
+
+    asyncio.run(_run())
+    click.echo("Session saved successfully.")
+
+
+@cli.command("session-check")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+def session_check_command(config_path: str) -> None:
+    """Check if the saved Fiverr session is valid without running collection."""
+
+    async def _run() -> int:
+        config = ConfigLoader(normalize_cli_config_path(config_path)).load()
+        session_file = Path(config.fiverr.session_file)
+        validation = validate_session_file(session_file)
+        click.echo(f"Session file: {validation['path']}")
+        click.echo(
+            "Session file health: "
+            f"exists={validation['exists']}, "
+            f"valid_json={validation['valid_json']}, "
+            f"has_cookies={validation['has_cookies']}, "
+            f"has_origins={validation['has_origins']}"
+        )
+
+        exists = bool(validation["exists"])
+        valid_json = bool(validation["valid_json"])
+        has_cookies = bool(validation["has_cookies"])
+        has_origins = bool(validation["has_origins"])
+
+        if not exists:
+            click.echo("ERROR: Session file not found. Run: python run.py relogin")
+            return 1
+        if not valid_json:
+            click.echo("ERROR: Session file is invalid JSON. Run: python run.py relogin")
+            return 1
+        if not (has_cookies or has_origins):
+            click.echo("ERROR: Session file has no auth payload. Run: python run.py relogin")
+            return 1
+
+        session_manager = SessionManager(config)
+        try:
+            valid = await session_manager.is_session_valid()
+        finally:
+            await session_manager.close()
+
+        if valid:
+            click.echo("Session is VALID. Ready for collection.")
+            return 0
+
+        click.echo("Session is EXPIRED. Run: python run.py relogin")
+        return 1
+
+    raise SystemExit(asyncio.run(_run()))
 
 
 if __name__ == "__main__":

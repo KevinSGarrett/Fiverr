@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -34,6 +35,35 @@ MAX_LOGIN_ATTEMPTS = 3
 
 class SessionLoginError(Exception):
     """Raised when Fiverr login cannot be verified after maximum attempts."""
+
+
+def validate_session_file(session_file_path: Path) -> dict[str, bool | str]:
+    """
+    Validate session file structure without launching a browser.
+
+    Returns:
+        Dict with keys: exists, valid_json, has_cookies, has_origins, path
+    """
+    result: dict[str, bool | str] = {
+        "exists": False,
+        "valid_json": False,
+        "has_cookies": False,
+        "has_origins": False,
+        "path": str(session_file_path),
+    }
+    if not session_file_path.exists():
+        return result
+
+    result["exists"] = True
+    try:
+        data = json.loads(session_file_path.read_text(encoding="utf-8"))
+        result["valid_json"] = True
+        if isinstance(data, dict):
+            result["has_cookies"] = bool(data.get("cookies", []))
+            result["has_origins"] = bool(data.get("origins", []))
+    except (json.JSONDecodeError, OSError):
+        pass
+    return result
 
 
 class SessionManager:
@@ -170,16 +200,11 @@ class SessionManager:
 
     async def _headed_login_flow(self) -> BrowserContext:
         """Open headed browser, wait for user login, persist, then return headless context."""
-        if not self._cfg("playwright.require_login", False):
-            raise SessionLoginError(
-                "Headed login flow is disabled. Set playwright.require_login: true in config "
-                "and run: python run.py --mode relogin to authenticate."
-            )
-
         if self._playwright is None:
             self._playwright = await async_playwright().start()
 
-        for _attempt in range(1, MAX_LOGIN_ATTEMPTS + 1):
+        for attempt in range(1, MAX_LOGIN_ATTEMPTS + 1):
+            log.info("Login attempt %s/%s", attempt, MAX_LOGIN_ATTEMPTS)
             browser = await self._playwright.chromium.launch(headless=False, args=self._browser_args())
             context = await browser.new_context(**self._context_options())
             page = await context.new_page()
@@ -188,10 +213,20 @@ class SessionManager:
                 wait_until="domcontentloaded",
                 timeout=LOGIN_TIMEOUT_MS,
             )
-            input("Press Enter when logged in: ")
+            print("\n" + "=" * 62)
+            print("  ACTION REQUIRED — Fiverr Login")
+            print("=" * 62)
+            print("  A browser window has opened. Please:")
+            print("  1. Log in to your Fiverr account")
+            print("  2. Complete any 2FA or CAPTCHA steps")
+            print("  3. Wait until you see your Fiverr dashboard/homepage")
+            print("  4. Return here and press Enter to continue")
+            print("=" * 62)
+            input("  Press Enter when logged in: ")
             verified = await self._verify_session_on_page(page)
             await page.close()
             if verified:
+                log.info("Login verified. Saving session.")
                 self.session_file.parent.mkdir(parents=True, exist_ok=True)
                 await context.storage_state(path=str(self.session_file))
                 try:
@@ -202,12 +237,13 @@ class SessionManager:
                 await browser.close()
                 return await self._load_session_headless()
 
+            print("\n  Login could not be verified. Please try again.")
             await context.close()
             await browser.close()
 
         raise SessionLoginError(
             f"Failed to verify Fiverr login after {MAX_LOGIN_ATTEMPTS} attempts. "
-            "Run 'python run.py --mode relogin' to try again."
+            "Run 'python run.py relogin' to try again."
         )
 
     async def _verify_session_on_page(self, page: Page) -> bool:
