@@ -126,7 +126,7 @@ async def run_collection_pipeline(
     dry_run: bool = True,
 ) -> dict[str, Any]:
     """
-    Run a full Stage 1-5 collection pass in dry-run mode.
+    Run the Stage 1-12 dry-run orchestration contract.
 
     Real collection (dry_run=False) remains intentionally blocked until browser wiring lands.
     """
@@ -139,9 +139,12 @@ async def run_collection_pipeline(
     from src.collection.workflows.autocomplete import run_autocomplete_collection
     from src.collection.workflows.fiverr_search import run_fiverr_search_collection
     from src.collection.workflows.gig_detail import run_gig_detail_collection
+    from src.collection.workflows.google_trends import run_google_trends_collection
     from src.collection.workflows.keyword_expansion import run_keyword_expansion
     from src.collection.workflows.niche_init import run_niche_initialization
+    from src.collection.workflows.reddit_signals import run_reddit_signals_collection
     from src.collection.workflows.seller_profile import run_seller_profile_collection
+    from src.collection.workflows.youtube_count import run_youtube_count_collection
     from src.scheduler.queue_processor import QueueProcessor
 
     if not dry_run:
@@ -162,10 +165,16 @@ async def run_collection_pipeline(
         "gig_detail_jobs_run": 0,
         "seller_profile_jobs_run": 0,
         "autocomplete_jobs_run": 0,
+        "google_trends_niches_run": 0,
+        "reddit_signals_niches_run": 0,
+        "youtube_count_niches_run": 0,
         "clustering_niches_run": 0,
         "competitor_profiling_niches_run": 0,
         "gig_quality_analysis_niches_run": 0,
         "review_analysis_niches_run": 0,
+        "google_trends_results": [],
+        "reddit_signals_results": [],
+        "youtube_count_results": [],
         "clustering_results": [],
         "competitor_profiling_results": [],
         "gig_quality_analysis_results": [],
@@ -204,33 +213,23 @@ async def run_collection_pipeline(
             summary["errors"].append(f"Stage 2 error ({niche_spec.get('niche_id')}): {exc}")
     summary["stages_run"].append("stage02_keyword_expansion")
 
-    for niche_spec in stage1_result.get("niche_specs", []):
-        niche_id = str(niche_spec.get("niche_id", ""))
-        depth = str(niche_spec.get("depth", "standard")).strip().lower()
-        if depth == "feasibility":
-            summary["clustering_results"].append(
-                {
-                    "niche_id": niche_id,
-                    "clustered": False,
-                    "reason": "feasibility_depth_skip",
-                }
-            )
-            continue
-        try:
-            clustering_result = await run_clustering_for_niche(
-                niche_id=niche_id,
-                run_id=run_id,
-                db=db,
-                config=config if isinstance(config, dict) else {},
-                llm_client=None,
-                cache=None,
-            )
-            summary["clustering_results"].append(clustering_result)
-            if clustering_result.get("clustered") is True:
-                summary["clustering_niches_run"] += 1
-        except Exception as exc:  # noqa: BLE001
-            summary["errors"].append(f"Stage 9 error ({niche_id}): {exc}")
-    summary["stages_run"].append("stage09_keyword_clustering")
+    config_payload = config if isinstance(config, dict) else {}
+    niche_config_map: dict[str, dict[str, Any]] = {}
+    raw_niches = config_payload.get("niches", [])
+    if isinstance(raw_niches, list):
+        for item in raw_niches:
+            if not isinstance(item, dict):
+                continue
+            niche_id = str(item.get("niche_id", "")).strip()
+            if niche_id:
+                niche_config_map[niche_id] = item
+    elif isinstance(raw_niches, dict):
+        for value in raw_niches.values():
+            if not isinstance(value, dict):
+                continue
+            niche_id = str(value.get("niche_id", "")).strip()
+            if niche_id:
+                niche_config_map[niche_id] = value
 
     queue_db = _InMemoryQueueDb(
         [
@@ -265,17 +264,6 @@ async def run_collection_pipeline(
                 stage=5,
                 payload={
                     "seller_username": "_dry_run_test_",
-                    "niche_id": "dry_run",
-                },
-            ),
-            _DryRunJob(
-                id=4,
-                run_id=run_id,
-                job_type="AUTOCOMPLETE",
-                stage=8,
-                payload={
-                    "keyword_id": 0,
-                    "keyword_text": "_dry_run_test_",
                     "niche_id": "dry_run",
                 },
             ),
@@ -330,11 +318,119 @@ async def run_collection_pipeline(
         )
         summary["seller_profile_jobs_run"] += 1
 
-    async def _handle_stage8(job: _DryRunJob, **_kwargs: Any) -> None:
+    queue_processor.register_handler("FIVERR_SEARCH", _handle_stage3)
+    queue_processor.register_handler("GIG_DETAIL", _handle_stage4)
+    queue_processor.register_handler("SELLER_PROFILE", _handle_stage5)
+
+    try:
+        _processed, _failed = await queue_processor.run_until_empty(run_id)
+    except Exception as exc:  # noqa: BLE001
+        summary["errors"].append(f"Queue processing error: {exc}")
+
+    summary["stages_run"].extend(
+        [
+            "stage03_fiverr_search",
+            "stage04_gig_detail",
+            "stage05_seller_profile",
+        ]
+    )
+
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        seeds = [seed for seed in niche_spec.get("seeds", []) if isinstance(seed, str)]
+        niche_cfg = niche_config_map.get(niche_id, {})
+
+        external_sources = niche_cfg.get("external_sources", {})
+        if not isinstance(external_sources, dict):
+            external_sources = {}
+        google_enabled = bool(external_sources.get("google_trends", True))
+        reddit_enabled = bool(external_sources.get("reddit", True))
+        youtube_enabled = bool(external_sources.get("youtube", True))
+
+        raw_subreddits = niche_cfg.get("reddit_subreddits", niche_cfg.get("subreddits", []))
+        if not isinstance(raw_subreddits, list):
+            raw_subreddits = []
+        subreddits = [value.strip() for value in raw_subreddits if isinstance(value, str) and value.strip()]
+        if not subreddits:
+            metadata = niche_cfg.get("metadata", {})
+            if isinstance(metadata, dict):
+                metadata_subreddits = metadata.get("subreddits", [])
+                if isinstance(metadata_subreddits, list):
+                    subreddits = [
+                        value.strip() for value in metadata_subreddits if isinstance(value, str) and value.strip()
+                    ]
+
+        if google_enabled:
+            try:
+                trends_result = await run_google_trends_collection(
+                    niche_id=niche_id,
+                    keywords=seeds,
+                    run_id=run_id,
+                    db=db,
+                    pacing_manager=pacing,
+                    dry_run=dry_run,
+                )
+                summary["google_trends_results"].append(trends_result)
+                summary["google_trends_niches_run"] += 1
+            except Exception as exc:  # noqa: BLE001
+                summary["errors"].append(f"Stage 6a error ({niche_id}): {exc}")
+
+        if reddit_enabled:
+            try:
+                reddit_result = await run_reddit_signals_collection(
+                    niche_id=niche_id,
+                    seed_keywords=seeds,
+                    subreddits=subreddits,
+                    run_id=run_id,
+                    db=db,
+                    pacing_manager=pacing,
+                    llm_client=None,
+                    cache=None,
+                    checkpoint_manager=checkpoint_mgr,
+                    dry_run=dry_run,
+                )
+                summary["reddit_signals_results"].append(reddit_result)
+                summary["reddit_signals_niches_run"] += 1
+            except Exception as exc:  # noqa: BLE001
+                summary["errors"].append(f"Stage 6b error ({niche_id}): {exc}")
+
+        if youtube_enabled:
+            try:
+                youtube_result = await run_youtube_count_collection(
+                    niche_id=niche_id,
+                    seed_keywords=seeds,
+                    run_id=run_id,
+                    db=db,
+                    pacing_manager=pacing,
+                    checkpoint_manager=checkpoint_mgr,
+                    dry_run=dry_run,
+                )
+                summary["youtube_count_results"].append(youtube_result)
+                summary["youtube_count_niches_run"] += 1
+            except Exception as exc:  # noqa: BLE001
+                summary["errors"].append(f"Stage 6c error ({niche_id}): {exc}")
+
+    summary["stages_run"].extend(
+        [
+            "stage06a_google_trends",
+            "stage06b_reddit_signals",
+            "stage06c_youtube_count",
+        ]
+    )
+
+    stage8_niche_id = "dry_run"
+    stage8_keyword_text = "_dry_run_test_"
+    first_niche = stage1_result.get("niche_specs", [])
+    if first_niche and isinstance(first_niche[0], dict):
+        stage8_niche_id = str(first_niche[0].get("niche_id", "dry_run"))
+        seeds = first_niche[0].get("seeds", [])
+        if isinstance(seeds, list) and seeds and isinstance(seeds[0], str):
+            stage8_keyword_text = seeds[0]
+    try:
         await run_autocomplete_collection(
-            keyword_id=int(job.payload["keyword_id"]),
-            keyword_text=str(job.payload["keyword_text"]),
-            niche_id=str(job.payload["niche_id"]),
+            keyword_id=0,
+            keyword_text=stage8_keyword_text,
+            niche_id=stage8_niche_id,
             run_id=run_id,
             db=db,
             session_manager=session_manager,
@@ -343,16 +439,37 @@ async def run_collection_pipeline(
             dry_run=True,
         )
         summary["autocomplete_jobs_run"] += 1
-
-    queue_processor.register_handler("FIVERR_SEARCH", _handle_stage3)
-    queue_processor.register_handler("GIG_DETAIL", _handle_stage4)
-    queue_processor.register_handler("SELLER_PROFILE", _handle_stage5)
-    queue_processor.register_handler("AUTOCOMPLETE", _handle_stage8)
-
-    try:
-        _processed, _failed = await queue_processor.run_until_empty(run_id)
     except Exception as exc:  # noqa: BLE001
-        summary["errors"].append(f"Queue processing error: {exc}")
+        summary["errors"].append(f"Stage 8 error ({stage8_niche_id}): {exc}")
+    summary["stages_run"].append("stage08_autocomplete")
+
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        depth = str(niche_spec.get("depth", "standard")).strip().lower()
+        if depth == "feasibility":
+            summary["clustering_results"].append(
+                {
+                    "niche_id": niche_id,
+                    "clustered": False,
+                    "reason": "feasibility_depth_skip",
+                }
+            )
+            continue
+        try:
+            clustering_result = await run_clustering_for_niche(
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+                config=config_payload,
+                llm_client=None,
+                cache=None,
+            )
+            summary["clustering_results"].append(clustering_result)
+            if clustering_result.get("clustered") is True:
+                summary["clustering_niches_run"] += 1
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 9 error ({niche_id}): {exc}")
+    summary["stages_run"].append("stage09_keyword_clustering")
 
     for niche_spec in stage1_result.get("niche_specs", []):
         niche_id = str(niche_spec.get("niche_id", ""))
@@ -404,13 +521,9 @@ async def run_collection_pipeline(
 
     summary["stages_run"].extend(
         [
-            "stage03_fiverr_search",
-            "stage04_gig_detail",
-            "stage05_seller_profile",
             "stage10_competitor_profiling",
             "stage11_gig_quality_analysis",
             "stage12_review_analysis",
-            "stage08_autocomplete",
         ]
     )
     return summary

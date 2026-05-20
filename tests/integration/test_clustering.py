@@ -7,7 +7,6 @@ import json
 
 import numpy as np
 from sqlalchemy import select
-
 from src.analysis.keyword_clusterer import run_clustering_for_niche
 from src.models.database import create_session_factory, initialize_database
 from src.models.market import ClusterAssignment, ClusterLabel, Keyword

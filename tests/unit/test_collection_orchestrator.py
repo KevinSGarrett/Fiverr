@@ -44,14 +44,17 @@ def test_run_collection_dry_run_stages_run() -> None:
     assert result["stages_run"] == [
         "stage01_niche_init",
         "stage02_keyword_expansion",
-        "stage09_keyword_clustering",
         "stage03_fiverr_search",
         "stage04_gig_detail",
         "stage05_seller_profile",
+        "stage06a_google_trends",
+        "stage06b_reddit_signals",
+        "stage06c_youtube_count",
+        "stage08_autocomplete",
+        "stage09_keyword_clustering",
         "stage10_competitor_profiling",
         "stage11_gig_quality_analysis",
         "stage12_review_analysis",
-        "stage08_autocomplete",
     ]
 
 
@@ -127,6 +130,48 @@ def test_stage9_registered_in_pipeline() -> None:
         )
     )
     assert "stage09_keyword_clustering" in result["stages_run"]
+
+
+def test_all_stage6_signals_registered() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage6-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage06a_google_trends" in result["stages_run"]
+    assert "stage06b_reddit_signals" in result["stages_run"]
+    assert "stage06c_youtube_count" in result["stages_run"]
+
+
+def test_orchestrator_stage_sequence_correct() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage-sequence",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert result["stages_run"] == [
+        "stage01_niche_init",
+        "stage02_keyword_expansion",
+        "stage03_fiverr_search",
+        "stage04_gig_detail",
+        "stage05_seller_profile",
+        "stage06a_google_trends",
+        "stage06b_reddit_signals",
+        "stage06c_youtube_count",
+        "stage08_autocomplete",
+        "stage09_keyword_clustering",
+        "stage10_competitor_profiling",
+        "stage11_gig_quality_analysis",
+        "stage12_review_analysis",
+    ]
 
 
 def test_stage9_skipped_at_feasibility_depth() -> None:

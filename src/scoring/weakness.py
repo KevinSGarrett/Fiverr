@@ -514,10 +514,10 @@ class GigQualityWeaknessScoreCalculator:
                     .all()
                 )
                 latest_by_url: dict[str, Any] = {}
-                for row in analysis_rows:
-                    gig_url = getattr(row, "gig_url", None)
+                for analysis_row in analysis_rows:
+                    gig_url = getattr(analysis_row, "gig_url", None)
                     if isinstance(gig_url, str) and gig_url not in latest_by_url:
-                        latest_by_url[gig_url] = row
+                        latest_by_url[gig_url] = analysis_row
                 scoped_rows = list(latest_by_url.values())
                 if scoped_rows:
                     video_absence = sum(

@@ -30,6 +30,10 @@ from src.collection.workflows.seller_profile import (
     build_seller_profile_url,
     run_seller_profile_collection,
 )
+from src.collection.workflows.youtube_count import (
+    YoutubeCountWorkflow,
+    run_youtube_count_collection,
+)
 
 __all__ = [
     "AutoPromotionWorkflow",
@@ -40,6 +44,7 @@ __all__ = [
     "KeywordExpansionWorkflow",
     "RedditSignalWorkflow",
     "SellerProfileWorkflow",
+    "YoutubeCountWorkflow",
     "build_seller_profile_url",
     "get_top_n_gig_urls_for_keyword",
     "parse_gig_detail_fields",
@@ -48,5 +53,6 @@ __all__ = [
     "run_keyword_expansion_stub",
     "run_autocomplete_collection",
     "run_seller_profile_collection",
+    "run_youtube_count_collection",
     "enqueue_autocomplete_job",
 ]

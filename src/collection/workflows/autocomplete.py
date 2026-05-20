@@ -126,7 +126,6 @@ async def run_autocomplete_collection(
     page: Any = None
     suggestions: list[dict[str, Any]] = []
     collected = False
-    error: str | None = None
     try:
         page = await session_manager.new_page()
         await page.goto(
@@ -148,14 +147,8 @@ async def run_autocomplete_collection(
             )
         collected = True
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "Autocomplete collection failed keyword_id=%s niche_id=%s run_id=%s: %s",
-            keyword_id,
-            niche_id,
-            run_id,
-            exc,
-        )
-        error = str(exc)
+        logger.error("Stage 8 autocomplete failed gig_url=%s: %s", keyword_text, exc)
+        raise
     finally:
         if page is not None:
             try:
@@ -185,7 +178,7 @@ async def run_autocomplete_collection(
         "suggestions_collected": len(suggestions),
         "collected": collected,
         "dry_run": False,
-        "error": error,
+        "error": None,
     }
 
 

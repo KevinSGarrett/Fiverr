@@ -54,8 +54,11 @@ This document captures the implemented dependency contract for Epic 03 analysis 
 ## E03 -> E04 Scoring Boundary
 
 - **Current primary weakness input:** `GigQualityScore` (read by `src/scoring/weakness.py`).
-- **Stage 11 compatibility path:** `GigQualityWeaknessScoreCalculator` now includes fallback reads from `gig_quality_analyses` when Stage 7 `gig_quality_scores` rows are absent.
-- **Stage 12 output usage:** `review_analyses` is currently persisted for downstream scoring/recommendation consumers; direct weighted scoring integration is staged for future E04 iteration.
+- **Stage 11 compatibility path:** `GigQualityWeaknessScoreCalculator` includes fallback reads from `gig_quality_analyses` when Stage 7 `gig_quality_scores` rows are absent.
+- **ClusterAssignment consumption:** Not consumed yet by `src/scoring/pipeline.py` or `src/scoring/orchestrator.py`.
+- **CompetitorProfile consumption:** Not consumed yet by `src/scoring/pipeline.py` or `src/scoring/orchestrator.py`.
+- **GigQualityAnalysis consumption:** Partially consumed only through the Stage 11 fallback branch in `src/scoring/weakness.py`; not yet used as a first-class weighted input in scoring orchestration.
+- **Cycle 032 integration gap:** Promote Stage 9/10/11 table reads (`cluster_assignments`, `competitor_profiles`, `gig_quality_analyses`) into explicit scoring context inputs so E04 scoring can directly leverage E03 outputs.
 
 ## Operational Notes
 

@@ -54,6 +54,11 @@ collection:
       jitter_seconds: 1
       max_requests_per_hour: 60
       human_events: false
+    youtube:
+      base_delay_seconds: 3
+      jitter_seconds: 2
+      max_requests_per_hour: 60
+      human_events: false
     external_default:
       base_delay_seconds: 3
       jitter_seconds: 2
