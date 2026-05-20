@@ -156,7 +156,7 @@
 MERGE GATE CHECKLIST — Cycle 029 PR #33
 ==========================================
 CODECOV:
-[ ] codecov/project: [PASS] — [95.01%]
+[ ] codecov/project: [PASS] — [95.00%]
 [ ] codecov/patch: [PASS] — [0.00% (coverage not affected / no coverable patch lines)]
 [ ] Local --cov-fail-under=90: [PASS]
 [ ] All new lines covered by tests: [YES]
