@@ -124,8 +124,25 @@
 - Updated: `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with Cycle 029 Agent D rows.
 
 ## Task 15 — Codex Query and Disposition
-- Pending PR creation (`#33`) and mandatory GraphQL query execution.
-- Raw JSON result and thread disposition table will be appended after PR query execution.
+- Mandatory query executed for PR `#33`.
+- Raw JSON result (first query, verbatim):
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DXjd1","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Call checkpoint write with stage and niche in correct order**\n\n`CheckpointManager.write` expects `(stage, niche_id, data)`, but this call passes `run_id` as the stage and `stage06_reddit_<niche>` as the niche key. That silently writes misnamed checkpoint files (e.g., `<run_id>_stage06_reddit_<niche>.json`), so stage-based resume/read logic cannot reliably find Reddit stage checkpoints and stage summaries become mislabeled.\n\nUseful? React with 👍 / 👎."}]}},{"id":"PRRT_kwDOSbqwNc6DXjd7","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Preserve compatibility when adding keywords.intent_class**\n\nThis new ORM column is now part of keyword inserts, but the project initializes schema with `Base.metadata.create_all`, which does not alter existing tables. On an existing SQLite DB created before this change, Stage 2 inserts will fail with an `OperationalError` because `keywords.intent_class` is missing. Add an explicit migration/compat path before relying on this field in writes.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
+```
+- Disposition + action table:
+  - `PRRT_kwDOSbqwNc6DXjd1` -> `VALID_FIXED`
+    - Fix: corrected `CheckpointManager.write(stage, niche_id, data)` argument order and retained `run_id` in checkpoint payload.
+    - Regression test: `tests/unit/test_reddit_signals.py::test_reddit_real_writes_checkpoint`
+    - Commit: `f60f5fee472c1cf57f38e31739c8585035106db6`
+  - `PRRT_kwDOSbqwNc6DXjd7` -> `VALID_FIXED`
+    - Fix: added SQLite legacy schema compatibility backfill for missing `keywords.intent_class` in `initialize_database(...)`.
+    - Regression test: `tests/integration/test_database_init.py::test_initialize_database_backfills_keyword_intent_class_for_legacy_sqlite`
+    - Commit: `f60f5fee472c1cf57f38e31739c8585035106db6`
+- Replies posted on both threads with required disposition format and both threads manually resolved.
+- Re-check query (verbatim) confirms `isResolved=true` for all threads:
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DXjd1","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Call checkpoint write with stage and niche in correct order**\n\n`CheckpointManager.write` expects `(stage, niche_id, data)`, but this call passes `run_id` as the stage and `stage06_reddit_<niche>` as the niche key. That silently writes misnamed checkpoint files (e.g., `<run_id>_stage06_reddit_<niche>.json`), so stage-based resume/read logic cannot reliably find Reddit stage checkpoints and stage summaries become mislabeled.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Disposition: VALID_FIXED\nDecision: CheckpointManager.write was called with arguments in the wrong order; updated Workflow 7 to call write(stage, niche_id, data) and preserve run_id inside payload for traceability.\nEvidence: File: src/collection/workflows/reddit_signals.py; Test: test_reddit_real_writes_checkpoint; Commit: f60f5fee472c1cf57f38e31739c8585035106db6\nResolution: Fixed with regression coverage and pushed."}]}},{"id":"PRRT_kwDOSbqwNc6DXjd7","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Preserve compatibility when adding keywords.intent_class**\n\nThis new ORM column is now part of keyword inserts, but the project initializes schema with `Base.metadata.create_all`, which does not alter existing tables. On an existing SQLite DB created before this change, Stage 2 inserts will fail with an `OperationalError` because `keywords.intent_class` is missing. Add an explicit migration/compat path before relying on this field in writes.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Disposition: VALID_FIXED\nDecision: Existing SQLite databases created before the new keywords.intent_class column could fail at Stage 2 writes; added an initialize-time compatibility backfill that adds the missing column when absent.\nEvidence: File: src/models/database.py; Test: test_initialize_database_backfills_keyword_intent_class_for_legacy_sqlite; Commit: f60f5fee472c1cf57f38e31739c8585035106db6\nResolution: Fixed with regression coverage and pushed."}]}}]}}}}}
+```
 
 ## Canonical Final Coverage Gate
 - `python -m pytest -q --cov=src --cov-fail-under=90`
@@ -133,4 +150,28 @@
 - Global coverage: `95.01%`
 
 ## Final SHA
-- Pending final freeze step (`git rev-parse origin/cycle/029/integration`) after PR/Codex completion.
+- `f60f5fee472c1cf57f38e31739c8585035106db6`
+
+## Merge Gate Checklist (G-004)
+MERGE GATE CHECKLIST — Cycle 029 PR #33
+==========================================
+CODECOV:
+[ ] codecov/project: [PASS] — [95.01%]
+[ ] codecov/patch: [PASS] — [0.00% (coverage not affected / no coverable patch lines)]
+[ ] Local --cov-fail-under=90: [PASS]
+[ ] All new lines covered by tests: [YES]
+  If NO, uncovered files: [N/A]
+
+CODEX:
+[ ] reviewThreads query executed: YES
+[ ] Total threads found: [2]
+[ ] All threads dispositioned: [YES]
+[ ] All VALID_FIXED threads have regression tests: [YES]
+[ ] All threads manually resolved with reply: [YES]
+[ ] Zero unresolved threads: [YES]
+
+FINAL:
+[ ] PR #33 is ready to merge: [YES]
+[ ] Blockers if NO: [N/A]
+
+PR #33 is ready to merge when approved.
