@@ -114,7 +114,7 @@
 
 ## Task 13 — Jira Evidence Posted
 - `SCRUM-519` planning comment posted (Agent B scope kickoff).
-- `SCRUM-519` completion evidence comment posted.
+- `SCRUM-519` completion evidence comments posted (`11292`, plus exact prompt wording in `11294`).
 - `SCRUM-17` epic progress comment posted (auth tooling complete, next live-auth step).
 - Ledger updated:
   - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with Cycle 030 Agent B rows.
@@ -123,8 +123,8 @@
 - No session artifacts staged.
 - Security-sensitive paths remain ignored (`data/sessions/`).
 
-## Final Commit SHA
-- Captured at Task 15 freeze via `git rev-parse HEAD`.
+## Task 15 Commit SHA
+- `30b57e3ae07d615b8ee059c333767a2b96c4028b`
 
 ## Handoff Notes for Agent C
 - Authentication tooling is complete and validated.

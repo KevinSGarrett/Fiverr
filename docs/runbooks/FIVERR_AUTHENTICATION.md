@@ -8,7 +8,7 @@
 ## First-Time Login
 1. Run:
    - `python run.py relogin`
-2. A headed browser window opens at Fiverr login.
+2. A headed browser window opens to `https://www.fiverr.com/login`.
 3. Log in normally with your Fiverr credentials.
 4. Complete any 2FA or CAPTCHA challenges.
 5. Wait until Fiverr home/dashboard is fully visible.
