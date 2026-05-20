@@ -38,7 +38,12 @@ from src.models.gig_quality_score import (
 )
 from src.models.job import Job
 from src.models.keyword_score import KeywordScore
-from src.models.market import Keyword, Review
+from src.models.market import (
+    AutocompleteSuggestion,
+    Keyword,
+    Review,
+    write_autocomplete_suggestion,
+)
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.pricing import PriceAnalysis
@@ -65,6 +70,7 @@ __all__ = [
     "AnalysisResult",
     "AnalysisRun",
     "AnalysisSignalRecord",
+    "AutocompleteSuggestion",
     "AutoPromotionLog",
     "Base",
     "CompetitorSnapshot",
@@ -112,6 +118,7 @@ __all__ = [
     "safe_json_default",
     "write_gig_card",
     "write_gig_quality_score",
+    "write_autocomplete_suggestion",
     "write_search_result",
     "write_external_signal",
     "write_seller_profile",

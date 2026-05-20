@@ -132,6 +132,7 @@ async def run_collection_pipeline(
     """
     from src.collection.checkpoint import CheckpointManager
     from src.collection.pacing import PacingManager
+    from src.collection.workflows.autocomplete import run_autocomplete_collection
     from src.collection.workflows.fiverr_search import run_fiverr_search_collection
     from src.collection.workflows.gig_detail import run_gig_detail_collection
     from src.collection.workflows.keyword_expansion import run_keyword_expansion
@@ -156,6 +157,7 @@ async def run_collection_pipeline(
         "search_jobs_run": 0,
         "gig_detail_jobs_run": 0,
         "seller_profile_jobs_run": 0,
+        "autocomplete_jobs_run": 0,
         "errors": [],
     }
 
@@ -226,6 +228,17 @@ async def run_collection_pipeline(
                     "niche_id": "dry_run",
                 },
             ),
+            _DryRunJob(
+                id=4,
+                run_id=run_id,
+                job_type="AUTOCOMPLETE",
+                stage=8,
+                payload={
+                    "keyword_id": 0,
+                    "keyword_text": "_dry_run_test_",
+                    "niche_id": "dry_run",
+                },
+            ),
         ]
     )
     queue_processor = QueueProcessor(
@@ -277,9 +290,24 @@ async def run_collection_pipeline(
         )
         summary["seller_profile_jobs_run"] += 1
 
+    async def _handle_stage8(job: _DryRunJob, **_kwargs: Any) -> None:
+        await run_autocomplete_collection(
+            keyword_id=int(job.payload["keyword_id"]),
+            keyword_text=str(job.payload["keyword_text"]),
+            niche_id=str(job.payload["niche_id"]),
+            run_id=run_id,
+            db=db,
+            session_manager=session_manager,
+            pacing_manager=pacing,
+            checkpoint_manager=checkpoint_mgr,
+            dry_run=True,
+        )
+        summary["autocomplete_jobs_run"] += 1
+
     queue_processor.register_handler("FIVERR_SEARCH", _handle_stage3)
     queue_processor.register_handler("GIG_DETAIL", _handle_stage4)
     queue_processor.register_handler("SELLER_PROFILE", _handle_stage5)
+    queue_processor.register_handler("AUTOCOMPLETE", _handle_stage8)
 
     try:
         _processed, _failed = await queue_processor.run_until_empty(run_id)
@@ -291,6 +319,7 @@ async def run_collection_pipeline(
             "stage03_fiverr_search",
             "stage04_gig_detail",
             "stage05_seller_profile",
+            "stage08_autocomplete",
         ]
     )
     return summary
