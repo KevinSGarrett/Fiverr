@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import (
@@ -35,6 +35,7 @@ class Keyword(
     normalized_keyword: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     intent_class: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
+    embedding_vector: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     search_volume_hint: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Discovery fields — AC-1.3.8
     is_discovery: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

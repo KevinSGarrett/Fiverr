@@ -21,6 +21,7 @@ from src.collection.workflows.keyword_expansion import (
     _extract_cached_keywords,
     _extract_relevant_keywords,
     _fetch_google_suggest,
+    _generate_embeddings,
     _is_session,
     _llm_classify_intent,
     _llm_generate_keywords,
@@ -60,11 +61,13 @@ def _set_feature_flags(
     step_2c: bool = True,
     step_2d: bool = True,
     step_2f: bool = False,
+    step_2g: bool = True,
 ):
     updated = dict(_FEATURE_FLAGS)
     updated["step_2c_llm_generation"] = step_2c
     updated["step_2d_llm_relevance_filter"] = step_2d
     updated["step_2f_llm_intent_classification"] = step_2f
+    updated["step_2g_embedding_generation"] = step_2g
     monkeypatch.setattr("src.collection.workflows.keyword_expansion._FEATURE_FLAGS", updated)
 
 
@@ -1266,6 +1269,199 @@ def test_run_expansion_step2f_flag_false_skips_intent_classification(monkeypatch
             )
 
     intent_mock.assert_not_awaited()
+
+
+def test_generate_embeddings_returns_dict_mapping() -> None:
+    llm_client = SimpleNamespace(
+        embed=AsyncMock(return_value={"embeddings": [[0.1, 0.2], [0.3, 0.4]]})
+    )
+
+    result = _run(
+        _generate_embeddings(
+            niche_id="ai_saas",
+            keywords=["kw-one", "kw-two"],
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert result == {"kw-one": [0.1, 0.2], "kw-two": [0.3, 0.4]}
+    llm_client.embed.assert_awaited_once_with(["kw-one", "kw-two"], model="text-embedding-3-small")
+
+
+def test_generate_embeddings_batches_100() -> None:
+    keywords = [f"kw-{idx}" for idx in range(150)]
+
+    async def _embed(texts: list[str], *, model: str):
+        _ = model
+        return {"embeddings": [[float(idx)] for idx, _kw in enumerate(texts)]}
+
+    llm_client = SimpleNamespace(embed=AsyncMock(side_effect=_embed))
+    result = _run(_generate_embeddings("ai_saas", keywords, llm_client, _AsyncCache()))
+
+    assert len(result) == 150
+    assert llm_client.embed.await_count == 2
+    first_call_texts = llm_client.embed.await_args_list[0].args[0]
+    second_call_texts = llm_client.embed.await_args_list[1].args[0]
+    assert len(first_call_texts) == 100
+    assert len(second_call_texts) == 50
+
+
+def test_generate_embeddings_cache_hit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._cache_key_for_keywords",
+        lambda *args, **kwargs: "embed-cache-hit",
+    )
+    llm_client = SimpleNamespace(embed=AsyncMock())
+    cache = _AsyncCache(seed_data={"embed-cache-hit": {"kw-one": [1.0], "kw-two": [2.0]}})
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, cache))
+
+    assert result == {"kw-one": [1.0], "kw-two": [2.0]}
+    llm_client.embed.assert_not_called()
+
+
+def test_generate_embeddings_api_error_returns_null_map(caplog) -> None:
+    caplog.set_level("WARNING")
+    llm_client = SimpleNamespace(embed=AsyncMock(side_effect=RuntimeError("embed down")))
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, _AsyncCache()))
+
+    assert result == {"kw-one": None, "kw-two": None}
+    assert "Embedding generation failed niche=ai_saas" in caplog.text
+
+
+def test_generate_embeddings_payload_not_list_falls_back_to_null(caplog) -> None:
+    caplog.set_level("WARNING")
+    llm_client = SimpleNamespace(embed=AsyncMock(return_value={"embeddings": "not-a-list"}))
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, _AsyncCache()))
+
+    assert result == {"kw-one": None, "kw-two": None}
+    assert "Embedding generation failed niche=ai_saas" in caplog.text
+
+
+def test_generate_embeddings_truncated_payload_logs_warning(caplog) -> None:
+    caplog.set_level("WARNING")
+    llm_client = SimpleNamespace(embed=AsyncMock(return_value={"embeddings": [[0.9, 0.8]]}))
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, _AsyncCache()))
+
+    assert result["kw-one"] == [0.9, 0.8]
+    assert result["kw-two"] is None
+    assert "Embedding response truncated niche=ai_saas" in caplog.text
+
+
+def test_generate_embeddings_empty_keywords() -> None:
+    llm_client = SimpleNamespace(embed=AsyncMock())
+
+    result = _run(_generate_embeddings("ai_saas", [], llm_client, _AsyncCache()))
+
+    assert result == {}
+    llm_client.embed.assert_not_called()
+
+
+def test_llm_classify_intent_empty_keywords_returns_empty() -> None:
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    result = _run(_llm_classify_intent("ai_saas", [], llm_client, _AsyncCache()))
+    assert result == {}
+    llm_client.complete.assert_not_called()
+
+
+def test_run_expansion_step2g_sets_embedding_on_db_keywords(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False, step_2g=True)
+    session, niche = _build_keyword_session()
+    try:
+        with patch(
+            "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+            new=AsyncMock(return_value=["buy logo design", "logo design consultant"]),
+        ):
+            llm_client = SimpleNamespace(
+                complete=AsyncMock(),
+                embed=AsyncMock(return_value={"embeddings": [[0.11, 0.22], [0.33, 0.44]]}),
+            )
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2g-db",
+                    db=session,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                    llm_client=llm_client,
+                    cache=_AsyncCache(),
+                )
+            )
+
+        rows = session.query(Keyword).filter(Keyword.niche_id == niche.id).all()
+        vector_map = {row.keyword: row.embedding_vector for row in rows}
+        assert result["keywords_queued"] == 2
+        assert json.loads(vector_map["buy logo design"]) == [0.11, 0.22]
+        assert json.loads(vector_map["logo design consultant"]) == [0.33, 0.44]
+    finally:
+        session.close()
+
+
+def test_run_expansion_step2g_flag_false_no_embedding(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    session, niche = _build_keyword_session()
+    embedding_mock = AsyncMock(return_value={"buy logo design": [0.11, 0.22]})
+    try:
+        with patch(
+            "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+            new=AsyncMock(return_value=["buy logo design"]),
+        ):
+            with patch("src.collection.workflows.keyword_expansion._generate_embeddings", new=embedding_mock):
+                _run(
+                    run_keyword_expansion(
+                        niche_id="ai_saas",
+                        seeds=["seed"],
+                        depth="standard",
+                        run_id="run-step2g-off",
+                        db=session,
+                        session_manager=None,
+                        pacing_manager=AsyncMock(),
+                        dry_run=False,
+                        llm_client=SimpleNamespace(complete=AsyncMock(), embed=AsyncMock()),
+                        cache=_AsyncCache(),
+                    )
+                )
+
+        rows = session.query(Keyword).filter(Keyword.niche_id == niche.id).all()
+        assert len(rows) == 1
+        assert rows[0].embedding_vector is None
+        embedding_mock.assert_not_awaited()
+    finally:
+        session.close()
+
+
+def test_run_expansion_step2g_embedding_skipped_at_feasibility_depth(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False, step_2g=True)
+    embedding_mock = AsyncMock(return_value={"buy logo design": [0.11, 0.22]})
+
+    with patch(
+        "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+        new=AsyncMock(return_value=["buy logo design"]),
+    ):
+        with patch("src.collection.workflows.keyword_expansion._generate_embeddings", new=embedding_mock):
+            _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="feasibility",
+                    run_id="run-step2g-feasibility",
+                    db=None,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                    llm_client=SimpleNamespace(complete=AsyncMock(), embed=AsyncMock()),
+                    cache=_AsyncCache(),
+                )
+            )
+
+    embedding_mock.assert_not_awaited()
 
 
 def test_run_keyword_expansion_stub_alias() -> None:

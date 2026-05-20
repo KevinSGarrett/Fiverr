@@ -63,6 +63,27 @@ def _ensure_keyword_intent_class_column(engine: Engine) -> None:
         connection.exec_driver_sql("ALTER TABLE keywords ADD COLUMN intent_class VARCHAR(32)")
 
 
+def _ensure_keyword_embedding_vector_column(engine: Engine) -> None:
+    """
+    Backfill `keywords.embedding_vector` for pre-existing SQLite databases.
+
+    Existing installs may predate this column. `create_all()` does not alter tables,
+    so we add the column when missing to keep Workflow 2 Step 2g writes compatible.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "keywords" not in inspector.get_table_names():
+        return
+    existing_columns = {column["name"] for column in inspector.get_columns("keywords")}
+    if "embedding_vector" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql("ALTER TABLE keywords ADD COLUMN embedding_vector TEXT")
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -112,6 +133,7 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(active_engine)
     _ensure_keyword_intent_class_column(active_engine)
+    _ensure_keyword_embedding_vector_column(active_engine)
     return active_engine
 
 
