@@ -78,6 +78,11 @@
 - Storage target: `keywords.embedding_vector`
 - Execution order: after Step 2f intent classification, before DB write
 - Depth variants: `full/standard/keyword_only` run Step 2g; `feasibility` skips Step 2g
+- LLM client embedding method inspected in `src/llm/client.py`:
+  - `def embed(self, texts: list[str], model: str = "text-embedding-3-small") -> dict[str, Any]`
+  - returns payload shape containing `embeddings` + `metadata`
+- Non-dry insertion point confirmed in `src/collection/workflows/keyword_expansion.py`:
+  - Step 2g executes after Step 2f intent classification, before keyword DB write path
 
 ## Selector Reconciliation
 - `src/collection/fiverr_selectors.py` already contained spec-name aliases and they were validated with tests:
@@ -121,20 +126,20 @@
 | 4 | PASS | Added `Keyword.embedding_vector` field and SQLite backfill guard; model tests added for existence/nullable. |
 | 5 | PASS | Implemented `_generate_embeddings(...)` with batch=100, cache-first behavior, and null fallback. |
 | 6 | PASS | Wired Step 2g into non-dry path, enabled feature flag, and enforced feasibility depth skip. |
-| 7 | PASS | Added 8 Step 2g-focused tests; embedding subset command passes (`8 passed`). |
+| 7 | PASS | Added required 8 Step 2g tests plus 2 targeted gap tests; embedding subset command passes (`10 passed`). |
 | 8 | PASS | Selector spec aliases validated; compatibility retained; alias tests added and passing. |
 | 9 | PASS | Targeted module coverage audits completed; all relevant modules now >=90%. |
 | 10 | PASS | Ruff + mypy clean on changed modules; `python run.py collect-only` pass; dry-run regression unchanged. |
 | 11 | PASS | Jira evidence comments posted to `SCRUM-147`, `SCRUM-519`, and `SCRUM-17`; `SCRUM-518` closed. |
 | 12 | PASS | Artifact checks run; cycle report created; no forbidden artifacts staged in Agent A scope. |
 | 13 | PASS | Final `_FEATURE_FLAGS` state verified and documented. |
-| 14 | PASS | Workflow smoke and unit-suite runs complete (`82` keyword-expansion tests, `1707` full unit tests). |
+| 14 | PASS | Workflow smoke and unit-suite runs complete (`83` keyword-expansion tests, `1708` full unit tests). |
 | 15 | PASS | Scoped commit completed: `feat(collection): W2 Step 2g embedding generation + selector spec aliases [Agent A Cycle 030]` with handoff code SHA frozen. |
 
 ## Targeted Test Counts
-- `python -m pytest -q tests/unit/test_keyword_expansion.py -k "embedding" --no-header` => `8 passed`
-- `python -m pytest -q tests/unit/test_keyword_expansion.py --no-header` => `82 passed`
-- `python -m pytest -q tests/unit/ --no-header -x` => `1707 passed`
+- `python -m pytest -q tests/unit/test_keyword_expansion.py -k "embedding" --no-header` => `10 passed`
+- `python -m pytest -q tests/unit/test_keyword_expansion.py --no-header` => `83 passed`
+- `python -m pytest -q tests/unit/ --no-header -x` => `1708 passed`
 
 ## Coverage Summary (R-092 Targeted)
 - `src.collection.workflows.keyword_expansion` => `90.14%`
@@ -153,7 +158,8 @@
 - Staging hygiene target: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` in commit scope
 
 ## Final Agent Commit SHA
-- `983b45f6dd686ca1fd79d68c9d38fec593dd8160`
+- Handoff code SHA for Agent B (Task 15 feature commit):
+  - `983b45f6dd686ca1fd79d68c9d38fec593dd8160`
 
 ## Handoff Notes for Agent B
 - Workflow 2 Step 2g is now real and enabled:

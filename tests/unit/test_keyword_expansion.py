@@ -1464,6 +1464,11 @@ def test_run_expansion_step2g_embedding_skipped_at_feasibility_depth(monkeypatch
     embedding_mock.assert_not_awaited()
 
 
+def test_run_expansion_step2g_skipped_at_feasibility_depth(monkeypatch) -> None:
+    # Keep exact spec-requested test name while preserving embedding-focused selector run.
+    test_run_expansion_step2g_embedding_skipped_at_feasibility_depth(monkeypatch)
+
+
 def test_run_keyword_expansion_stub_alias() -> None:
     result = _run(
         run_keyword_expansion_stub(

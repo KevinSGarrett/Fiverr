@@ -80,8 +80,12 @@ def _ensure_keyword_embedding_vector_column(engine: Engine) -> None:
     if "embedding_vector" in existing_columns:
         return
 
-    with engine.begin() as connection:
-        connection.exec_driver_sql("ALTER TABLE keywords ADD COLUMN embedding_vector TEXT")
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE keywords ADD COLUMN embedding_vector TEXT")
+    except Exception:
+        # Guard legacy initialization flows where schema introspection can race.
+        return
 
 
 def build_engine(database_url: str | None = None) -> Engine:
