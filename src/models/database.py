@@ -228,6 +228,84 @@ def _ensure_competitor_profiles_table(engine: Engine) -> None:
         )
 
 
+def _ensure_gig_quality_analyses_table(engine: Engine) -> None:
+    """Backfill `gig_quality_analyses` table for legacy SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "gig_quality_analyses" in inspector.get_table_names():
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS gig_quality_analyses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gig_url VARCHAR(1024) NOT NULL,
+                niche_id VARCHAR(64) NOT NULL,
+                run_id VARCHAR(64) NOT NULL,
+                rubric_score FLOAT NOT NULL DEFAULT 0.0,
+                video_absent BOOLEAN NOT NULL DEFAULT 0,
+                portfolio_absent BOOLEAN NOT NULL DEFAULT 0,
+                description_thin BOOLEAN NOT NULL DEFAULT 0,
+                faq_absent BOOLEAN NOT NULL DEFAULT 0,
+                thumbnail_quality_flag BOOLEAN NOT NULL DEFAULT 0,
+                weakness_flags JSON NOT NULL DEFAULT '[]',
+                analyzed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_gig_quality_analyses_gig_url_run UNIQUE (gig_url, run_id)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_gig_quality_analyses_gig_url ON gig_quality_analyses (gig_url)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_gig_quality_analyses_niche_id ON gig_quality_analyses (niche_id)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_gig_quality_analyses_run_id ON gig_quality_analyses (run_id)"
+        )
+
+
+def _ensure_review_analyses_table(engine: Engine) -> None:
+    """Backfill `review_analyses` table for legacy SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "review_analyses" in inspector.get_table_names():
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS review_analyses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gig_url VARCHAR(1024) NOT NULL,
+                niche_id VARCHAR(64) NOT NULL,
+                run_id VARCHAR(64) NOT NULL,
+                review_count INTEGER NOT NULL DEFAULT 0,
+                avg_rating FLOAT,
+                review_velocity FLOAT NOT NULL DEFAULT 0.0,
+                sentiment_score FLOAT,
+                recurring_complaints JSON NOT NULL DEFAULT '[]',
+                analyzed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_review_analyses_gig_url_run UNIQUE (gig_url, run_id)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_review_analyses_gig_url ON review_analyses (gig_url)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_review_analyses_niche_id ON review_analyses (niche_id)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_review_analyses_run_id ON review_analyses (run_id)"
+        )
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -282,6 +360,8 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     _ensure_cluster_assignments_table(active_engine)
     _ensure_cluster_labels_table(active_engine)
     _ensure_competitor_profiles_table(active_engine)
+    _ensure_gig_quality_analyses_table(active_engine)
+    _ensure_review_analyses_table(active_engine)
     return active_engine
 
 

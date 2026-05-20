@@ -216,6 +216,34 @@ def profile_only_command(config_path: str, database_url: str | None) -> None:
     )
 
 
+@cli.command("quality-analysis")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def quality_analysis_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 11 gig quality rubric analysis for all niches."""
+    raise SystemExit(
+        run_pipeline(
+            mode="quality-analysis",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
+@cli.command("review-analysis")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def review_analysis_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 12 review signal analysis for all niches."""
+    raise SystemExit(
+        run_pipeline(
+            mode="review-analysis",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
 @cli.command("recommendations-only")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")

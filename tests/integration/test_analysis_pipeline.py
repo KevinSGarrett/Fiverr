@@ -6,13 +6,21 @@ import asyncio
 import json
 
 import numpy as np
+from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_niche
 from sqlalchemy import select
 from src.analysis.competitor_profiler import run_competitor_profiling_for_niche
 from src.analysis.keyword_clusterer import run_clustering_for_niche
+from src.analysis.review_analyzer import run_review_analysis_for_niche
 from src.models.database import create_session_factory, initialize_database
 from src.models.gig import Gig
 from src.models.gig_quality_score import GigQualityScore
-from src.models.market import ClusterAssignment, CompetitorProfile, Keyword
+from src.models.market import (
+    ClusterAssignment,
+    CompetitorProfile,
+    GigQualityAnalysis,
+    Keyword,
+    ReviewAnalysis,
+)
 from src.models.niche import Niche
 from src.models.search_result import SearchResult
 from src.models.seller import Seller
@@ -37,7 +45,7 @@ def _seed_keyword(session: object, niche: Niche, keyword_text: str, vector: list
     return row
 
 
-def test_stage9_and_stage10_pipeline_with_seeded_data(monkeypatch) -> None:
+def test_stage9_to_stage12_pipeline_with_seeded_data(monkeypatch) -> None:
     engine = initialize_database("sqlite:///:memory:")
     session_factory = create_session_factory(engine)
     session = session_factory()
@@ -99,9 +107,19 @@ def test_stage9_and_stage10_pipeline_with_seeded_data(monkeypatch) -> None:
                 keyword_id=keyword.id,
                 run_id="integration-run",
                 seller_username=seller_username,
+                gig_title_full=f"Integration Gig {idx}",
+                description_text=("Detailed deliverable scope and format. " * 10)
+                if idx % 3
+                else "short",
+                faq_text="Q: turnaround? A: 2 days" if idx % 4 else "",
                 starting_price=50.0 + float(idx * 10),
                 rating_exact=4.1 + float((idx % 4) * 0.2),
                 review_count_exact=15 + idx * 7,
+                review_snippets=[
+                    {"snippet": "Great communication", "date": "2 days ago"},
+                    {"snippet": "Delivered fast", "date": "1 week ago"},
+                    {"snippet": "Quality work", "date": "Mar 2025"},
+                ],
                 orders_in_queue=idx % 5,
                 video_present=(idx % 2 == 0),
                 portfolio_count=idx % 3,
@@ -130,6 +148,9 @@ def test_stage9_and_stage10_pipeline_with_seeded_data(monkeypatch) -> None:
                     analysis_complete=True,
                     video_present=(idx % 2 == 0),
                     portfolio_count=idx % 3,
+                    description_quality_score=7.0 if idx % 3 else 2.0,
+                    faq_completeness_score=7.5 if idx % 4 else 1.5,
+                    thumbnail_quality_score=8.0 if idx % 5 else 2.0,
                 )
             )
             session.commit()
@@ -158,16 +179,41 @@ def test_stage9_and_stage10_pipeline_with_seeded_data(monkeypatch) -> None:
                 config={"niches": [{"niche_id": "test_niche", "is_active": True}]},
             )
         )
+        quality_result = _run(
+            run_gig_quality_analysis_for_niche(
+                niche_id="test_niche",
+                run_id="integration-run",
+                db=session,
+                config={"niches": [{"niche_id": "test_niche", "is_active": True}]},
+            )
+        )
+        review_result = _run(
+            run_review_analysis_for_niche(
+                niche_id="test_niche",
+                run_id="integration-run",
+                db=session,
+                config={"niches": [{"niche_id": "test_niche", "is_active": True}]},
+                llm_client=None,
+            )
+        )
 
         assignments = session.scalars(select(ClusterAssignment)).all()
         competitor_profile = session.scalars(select(CompetitorProfile)).one_or_none()
+        quality_rows = session.scalars(select(GigQualityAnalysis)).all()
+        review_rows = session.scalars(select(ReviewAnalysis)).all()
         refreshed_keywords = session.scalars(select(Keyword).order_by(Keyword.id)).all()
 
         assert clustering_result["clustered"] is True
         assert len(assignments) == 3
         assert profiling_result["profiled"] is True
+        assert quality_result["analyzed"] is True
+        assert quality_result["gigs_analyzed"] > 0
+        assert review_result["analyzed"] is True
+        assert review_result["gigs_analyzed"] > 0
         assert competitor_profile is not None
         assert competitor_profile.median_price is not None
+        assert all(row.rubric_score is not None for row in quality_rows)
+        assert all(row.avg_rating is not None for row in review_rows)
         assert all(keyword.cluster_id is not None for keyword in refreshed_keywords)
     finally:
         session.close()

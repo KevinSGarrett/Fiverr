@@ -38,6 +38,10 @@ from src.analysis.contracts import (
     SellerStrengthResult,
 )
 from src.analysis.gig_quality import score_gig_quality
+from src.analysis.gig_quality_rubric import (
+    run_gig_quality_analysis_for_all_niches,
+    run_gig_quality_analysis_for_niche,
+)
 from src.analysis.intent import classify_intent
 from src.analysis.keyword_clusterer import (
     compute_n_clusters,
@@ -61,6 +65,10 @@ from src.analysis.orchestrator import run_analysis_dry_run
 from src.analysis.persistence import persist_analysis_run_summary
 from src.analysis.quality import score_gig_quality as score_gig_quality_contract
 from src.analysis.registry import build_analysis_output_registry
+from src.analysis.review_analyzer import (
+    run_review_analysis_for_all_niches,
+    run_review_analysis_for_niche,
+)
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
 from src.analysis.seller_strength import (
@@ -110,6 +118,10 @@ __all__ = [
     "run_clustering_for_niche",
     "run_competitor_profiling_for_all_niches",
     "run_competitor_profiling_for_niche",
+    "run_gig_quality_analysis_for_all_niches",
+    "run_gig_quality_analysis_for_niche",
+    "run_review_analysis_for_all_niches",
+    "run_review_analysis_for_niche",
     "run_dbscan",
     "run_kmeans",
     "persist_analysis_run_summary",

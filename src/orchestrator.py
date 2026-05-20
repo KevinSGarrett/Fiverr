@@ -25,6 +25,8 @@ AVAILABLE_MODES = (
     "collect-only",
     "cluster-only",
     "profile-only",
+    "quality-analysis",
+    "review-analysis",
     "score-only",
     "analyze-only",
     "price-analysis",
@@ -39,6 +41,8 @@ STAGE_AVAILABILITY = {
     "collect-only": "Collection module contracts exist; full collection orchestration is pending.",
     "cluster-only": "Cluster-only mode runs Stage 9 keyword clustering for active niches.",
     "profile-only": "Profile-only mode runs Stage 10 competitor profiling for active niches.",
+    "quality-analysis": "Quality-analysis mode runs Stage 11 gig quality rubric analysis.",
+    "review-analysis": "Review-analysis mode runs Stage 12 review signal analysis.",
     "score-only": "Scoring persistence foundation exists; scoring runner is not wired yet.",
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
     "price-analysis": "Run Stage 10.5 pricing analysis and recommendation calculations.",
@@ -455,6 +459,52 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             print(f"Profile-only run failed: {exc}")
             return 1
         print(f"Profile-only run complete: {result}")
+        return 0
+
+    if mode == "quality-analysis":
+        import uuid
+
+        from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_all_niches
+
+        run_id = str(uuid.uuid4())
+        session_factory = create_session_factory(engine)
+        try:
+            with get_session(session_factory) as db_session:
+                result = asyncio.run(
+                    run_gig_quality_analysis_for_all_niches(
+                        run_id=run_id,
+                        db=db_session,
+                        config=config_payload if isinstance(config_payload, dict) else {},
+                        llm_client=None,
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Quality-analysis run failed: {exc}")
+            return 1
+        print(f"Quality-analysis run complete: {result}")
+        return 0
+
+    if mode == "review-analysis":
+        import uuid
+
+        from src.analysis.review_analyzer import run_review_analysis_for_all_niches
+
+        run_id = str(uuid.uuid4())
+        session_factory = create_session_factory(engine)
+        try:
+            with get_session(session_factory) as db_session:
+                result = asyncio.run(
+                    run_review_analysis_for_all_niches(
+                        run_id=run_id,
+                        db=db_session,
+                        config=config_payload if isinstance(config_payload, dict) else {},
+                        llm_client=None,
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Review-analysis run failed: {exc}")
+            return 1
+        print(f"Review-analysis run complete: {result}")
         return 0
 
     if mode == "full":

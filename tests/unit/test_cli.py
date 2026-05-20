@@ -64,6 +64,8 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "collect-only" in result.output
     assert "cluster-only" in result.output
     assert "profile-only" in result.output
+    assert "quality-analysis" in result.output
+    assert "review-analysis" in result.output
     assert "analysis-dry-run" in result.output
     assert "phase2-smoke" in result.output
 
@@ -356,3 +358,45 @@ def test_profile_only_calls_profiler(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(cli, ["profile-only", "--config-path", "config.yaml"])
     assert result.exit_code == 0
     assert captured["mode"] == "profile-only"
+
+
+def test_quality_analysis_command_exists() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["quality-analysis", "--help"])
+    assert result.exit_code == 0
+    assert "Run Stage 11 gig quality rubric analysis for all niches." in result.output
+
+
+def test_quality_analysis_calls_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    def _fake_run_pipeline(**kwargs: Any) -> int:
+        captured["mode"] = str(kwargs.get("mode"))
+        return 0
+
+    monkeypatch.setattr(run_module, "run_pipeline", _fake_run_pipeline)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["quality-analysis", "--config-path", "config.yaml"])
+    assert result.exit_code == 0
+    assert captured["mode"] == "quality-analysis"
+
+
+def test_review_analysis_command_exists() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["review-analysis", "--help"])
+    assert result.exit_code == 0
+    assert "Run Stage 12 review signal analysis for all niches." in result.output
+
+
+def test_review_analysis_calls_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    def _fake_run_pipeline(**kwargs: Any) -> int:
+        captured["mode"] = str(kwargs.get("mode"))
+        return 0
+
+    monkeypatch.setattr(run_module, "run_pipeline", _fake_run_pipeline)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["review-analysis", "--config-path", "config.yaml"])
+    assert result.exit_code == 0
+    assert captured["mode"] == "review-analysis"

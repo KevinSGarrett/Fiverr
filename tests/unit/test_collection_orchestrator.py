@@ -49,6 +49,8 @@ def test_run_collection_dry_run_stages_run() -> None:
         "stage04_gig_detail",
         "stage05_seller_profile",
         "stage10_competitor_profiling",
+        "stage11_gig_quality_analysis",
+        "stage12_review_analysis",
         "stage08_autocomplete",
     ]
 
@@ -169,6 +171,60 @@ def test_stage10_after_stage5() -> None:
     )
     stage_order = result["stages_run"]
     assert stage_order.index("stage10_competitor_profiling") > stage_order.index("stage05_seller_profile")
+
+
+def test_stage11_registered() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage11-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage11_gig_quality_analysis" in result["stages_run"]
+
+
+def test_stage11_runs_after_stage5() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage11-order",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    stage_order = result["stages_run"]
+    assert stage_order.index("stage11_gig_quality_analysis") > stage_order.index("stage05_seller_profile")
+
+
+def test_stage12_registered() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage12-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage12_review_analysis" in result["stages_run"]
+
+
+def test_stage12_runs_after_stage4() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage12-order",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    stage_order = result["stages_run"]
+    assert stage_order.index("stage12_review_analysis") > stage_order.index("stage04_gig_detail")
 
 
 def test_orchestrator_checkpoint_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

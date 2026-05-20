@@ -131,6 +131,54 @@ class CompetitorProfile(IntegerPrimaryKeyMixin, Base):
     )
 
 
+class GigQualityAnalysis(IntegerPrimaryKeyMixin, Base):
+    """Persist Stage 11 gig rubric analysis rows."""
+
+    __tablename__ = "gig_quality_analyses"
+    __table_args__ = (
+        UniqueConstraint("gig_url", "run_id", name="uq_gig_quality_analyses_gig_url_run"),
+    )
+
+    gig_url: Mapped[str] = mapped_column(String(1024), nullable=False, index=True)
+    niche_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    rubric_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    video_absent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    portfolio_absent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    description_thin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    faq_absent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    thumbnail_quality_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    weakness_flags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    analyzed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )
+
+
+class ReviewAnalysis(IntegerPrimaryKeyMixin, Base):
+    """Persist Stage 12 per-gig review signal analysis rows."""
+
+    __tablename__ = "review_analyses"
+    __table_args__ = (
+        UniqueConstraint("gig_url", "run_id", name="uq_review_analyses_gig_url_run"),
+    )
+
+    gig_url: Mapped[str] = mapped_column(String(1024), nullable=False, index=True)
+    niche_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    review_velocity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recurring_complaints: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    analyzed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )
+
+
 class AutocompleteSuggestion(IntegerPrimaryKeyMixin, TimestampMixin, Base):
     """Persist Stage-8 Fiverr autocomplete suggestions per keyword/run."""
 
@@ -364,6 +412,94 @@ def write_competitor_profile(
     row.max_delivery_days = max_delivery_days
     row.video_present_rate = video_present_rate
     row.portfolio_present_rate = portfolio_present_rate
+
+    db.add(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def write_gig_quality_analysis(
+    *,
+    gig_url: str,
+    niche_id: str,
+    run_id: str,
+    db: Any,
+    rubric_score: float,
+    video_absent: bool,
+    portfolio_absent: bool,
+    description_thin: bool,
+    faq_absent: bool,
+    thumbnail_quality_flag: bool,
+    weakness_flags: list[str] | None = None,
+    commit: bool = True,
+) -> GigQualityAnalysis | None:
+    """Upsert Stage 11 gig quality analysis by gig/run key."""
+    if not isinstance(db, Session):
+        return None
+
+    row = (
+        db.query(GigQualityAnalysis)
+        .filter(
+            GigQualityAnalysis.gig_url == gig_url,
+            GigQualityAnalysis.run_id == run_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = GigQualityAnalysis(gig_url=gig_url, run_id=run_id)
+
+    row.niche_id = niche_id
+    row.rubric_score = float(rubric_score)
+    row.video_absent = bool(video_absent)
+    row.portfolio_absent = bool(portfolio_absent)
+    row.description_thin = bool(description_thin)
+    row.faq_absent = bool(faq_absent)
+    row.thumbnail_quality_flag = bool(thumbnail_quality_flag)
+    row.weakness_flags = sorted(set(str(flag) for flag in (weakness_flags or [])))
+
+    db.add(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def write_review_analysis(
+    *,
+    gig_url: str,
+    niche_id: str,
+    run_id: str,
+    db: Any,
+    review_count: int,
+    avg_rating: float | None,
+    review_velocity: float,
+    sentiment_score: float | None,
+    recurring_complaints: list[str] | None = None,
+    commit: bool = True,
+) -> ReviewAnalysis | None:
+    """Upsert Stage 12 review analysis by gig/run key."""
+    if not isinstance(db, Session):
+        return None
+
+    row = (
+        db.query(ReviewAnalysis)
+        .filter(
+            ReviewAnalysis.gig_url == gig_url,
+            ReviewAnalysis.run_id == run_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = ReviewAnalysis(gig_url=gig_url, run_id=run_id)
+
+    row.niche_id = niche_id
+    row.review_count = max(0, int(review_count))
+    row.avg_rating = avg_rating
+    row.review_velocity = max(0.0, float(review_velocity))
+    row.sentiment_score = sentiment_score
+    row.recurring_complaints = sorted(set(str(item) for item in (recurring_complaints or [])))
 
     db.add(row)
     if commit:

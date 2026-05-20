@@ -599,3 +599,15 @@ def test_analysis_package_exports_public_api() -> None:
     assert callable(exported_profile)
     assert callable(exported_strength)
 
+
+def test_analysis_package_full_exports() -> None:
+    from src.analysis import (  # noqa: PLC0415
+        run_gig_quality_analysis_for_niche as exported_quality,
+    )
+    from src.analysis import (  # noqa: PLC0415
+        run_review_analysis_for_niche as exported_review,
+    )
+
+    assert callable(exported_quality)
+    assert callable(exported_review)
+

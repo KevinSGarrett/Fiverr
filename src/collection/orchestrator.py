@@ -131,7 +131,9 @@ async def run_collection_pipeline(
     Real collection (dry_run=False) remains intentionally blocked until browser wiring lands.
     """
     from src.analysis.competitor_profiler import run_competitor_profiling_for_niche
+    from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_niche
     from src.analysis.keyword_clusterer import run_clustering_for_niche
+    from src.analysis.review_analyzer import run_review_analysis_for_niche
     from src.collection.checkpoint import CheckpointManager
     from src.collection.pacing import PacingManager
     from src.collection.workflows.autocomplete import run_autocomplete_collection
@@ -162,8 +164,12 @@ async def run_collection_pipeline(
         "autocomplete_jobs_run": 0,
         "clustering_niches_run": 0,
         "competitor_profiling_niches_run": 0,
+        "gig_quality_analysis_niches_run": 0,
+        "review_analysis_niches_run": 0,
         "clustering_results": [],
         "competitor_profiling_results": [],
+        "gig_quality_analysis_results": [],
+        "review_analysis_results": [],
         "errors": [],
     }
 
@@ -364,12 +370,46 @@ async def run_collection_pipeline(
         except Exception as exc:  # noqa: BLE001
             summary["errors"].append(f"Stage 10 error ({niche_id}): {exc}")
 
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        try:
+            gig_quality_result = await run_gig_quality_analysis_for_niche(
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+                config=config if isinstance(config, dict) else {},
+                llm_client=None,
+            )
+            summary["gig_quality_analysis_results"].append(gig_quality_result)
+            if gig_quality_result.get("analyzed") is True:
+                summary["gig_quality_analysis_niches_run"] += 1
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 11 error ({niche_id}): {exc}")
+
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        try:
+            review_result = await run_review_analysis_for_niche(
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+                config=config if isinstance(config, dict) else {},
+                llm_client=None,
+            )
+            summary["review_analysis_results"].append(review_result)
+            if review_result.get("analyzed") is True:
+                summary["review_analysis_niches_run"] += 1
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 12 error ({niche_id}): {exc}")
+
     summary["stages_run"].extend(
         [
             "stage03_fiverr_search",
             "stage04_gig_detail",
             "stage05_seller_profile",
             "stage10_competitor_profiling",
+            "stage11_gig_quality_analysis",
+            "stage12_review_analysis",
             "stage08_autocomplete",
         ]
     )

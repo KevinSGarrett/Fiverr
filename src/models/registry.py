@@ -20,7 +20,15 @@ from src.models.collection_runtime import (
 from src.models.external_signal import ExternalSignal
 from src.models.gig import Gig
 from src.models.job import Job
-from src.models.market import AutocompleteSuggestion, ClusterAssignment, ClusterLabel, Keyword, Review
+from src.models.market import (
+    AutocompleteSuggestion,
+    ClusterAssignment,
+    ClusterLabel,
+    GigQualityAnalysis,
+    Keyword,
+    Review,
+    ReviewAnalysis,
+)
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.runtime import (
     AlertEvent,
@@ -43,6 +51,8 @@ REGISTERED_MODEL_CLASSES = (
     AutocompleteSuggestion,
     ClusterAssignment,
     ClusterLabel,
+    GigQualityAnalysis,
+    ReviewAnalysis,
     SearchResult,
     Gig,
     Seller,
@@ -138,6 +148,8 @@ TABLE_DOMAIN_MAP = {
         "analysis_signal_records",
         "cluster_assignments",
         "cluster_labels",
+        "gig_quality_analyses",
+        "review_analyses",
     },
     "scoring": {"score_components", "final_scores", "recommendations"},
     "runtime": {"run_logs", "jobs", "job_statuses", "alert_events", "export_artifacts", "llm_usage_logs", "llm_cache_records"},

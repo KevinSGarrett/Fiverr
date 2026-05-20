@@ -25,8 +25,10 @@ from src.models.market import (
     ClusterAssignment,
     ClusterLabel,
     Gig,
+    GigQualityAnalysis,
     Keyword,
     Review,
+    ReviewAnalysis,
     SearchResult,
     Seller,
 )
@@ -278,6 +280,50 @@ def test_cluster_label_model(tmp_path: Path) -> None:
     assert fetched.cluster_id == 1
     assert fetched.label_text == "AI Agents - Workflow Automation"
     assert fetched.keyword_count == 8
+    session.close()
+
+
+def test_gig_quality_analysis_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "gig_quality_analysis.db")
+    row = GigQualityAnalysis(
+        gig_url="https://fiverr.com/gig/quality-model",
+        niche_id="test_niche",
+        run_id="run-gqa",
+        rubric_score=82.5,
+        video_absent=False,
+        portfolio_absent=False,
+        description_thin=False,
+        faq_absent=False,
+        thumbnail_quality_flag=False,
+        weakness_flags=[],
+    )
+    session.add(row)
+    session.commit()
+
+    fetched = session.execute(select(GigQualityAnalysis)).scalar_one()
+    assert fetched.gig_url == "https://fiverr.com/gig/quality-model"
+    assert fetched.rubric_score == 82.5
+    session.close()
+
+
+def test_review_analysis_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "review_analysis.db")
+    row = ReviewAnalysis(
+        gig_url="https://fiverr.com/gig/review-model",
+        niche_id="test_niche",
+        run_id="run-ra",
+        review_count=24,
+        avg_rating=4.8,
+        review_velocity=0.25,
+        sentiment_score=9.6,
+        recurring_complaints=["late_delivery"],
+    )
+    session.add(row)
+    session.commit()
+
+    fetched = session.execute(select(ReviewAnalysis)).scalar_one()
+    assert fetched.gig_url == "https://fiverr.com/gig/review-model"
+    assert fetched.review_velocity == 0.25
     session.close()
 
 
