@@ -58,36 +58,36 @@
 
 ## Task 7/8 — Coverage and Full Validation
 
-### Per-Module Coverage Audit (Cycle 030 touched modules)
+### Per-Module Coverage Audit (Cycle 030 touched modules, final)
 
 | Module | Coverage | Uncovered Lines |
 | --- | --- | --- |
-| `src.collection.workflows.keyword_expansion` | `90%` | `114-116, 135, 143-144, 156, 159-160, 170, 174-191, 200, 211, 219-220, 223, 234, 237-238, 248, 252-269, 457, 460, 465, 468, 471, 474, 577, 614-615, 787` |
+| `src.collection.workflows.keyword_expansion` | `95%` | `114-116, 135, 143-144, 156, 159-160, 170, 174-191, 457, 460, 465, 468, 471, 474` |
 | `src.collection.fiverr_selectors` | `100%` | none |
 | `src.collection.session_manager` | `100%` | none |
-| `src.collection.workflows.autocomplete` | `98%` | `44, 59` |
-| `src.models.market` | `90%` | `116, 120, 145-157` |
+| `src.collection.workflows.autocomplete` | `100%` | none |
+| `src.models.market` | `100%` | none |
 
-### Full Validation Block
+### Full Validation Block (final rerun)
 - `python -m ruff check .` -> pass
 - `python -m mypy src` -> pass
-- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> pass (`1802 passed`, `94.82%`)
+- `python -m pytest -q --cov=src --cov-report=xml --cov-fail-under=90` -> pass (`1824 passed`, `95.12%`)
 - `python run.py config-check` -> pass
 - `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_cycle030.db` -> pass
 - `python run.py phase2-smoke` -> pass
 - `python run.py collect-only` -> pass (stage list includes `stage08_autocomplete`)
 
 ## Task 9 — Gap Tests
-- No Cycle 030 audited module remained below `90%`.
-- Added targeted branch tests in `tests/unit/test_autocomplete.py` to close W8 coverage gaps:
-  - checkpoint write branches (primary, legacy, exception)
-  - fallback search-box suggestion capture branch
-  - close-path branches (`session_manager.close_page` present/missing/error)
-  - enqueue helper failure branches (non-session/import-error)
-  - wrapper compatibility behavior
-- Canonical final suite rerun:
+- Closed all remaining patch-diff uncovered lines with targeted tests:
+  - `tests/unit/test_autocomplete.py` (W8 checkpoint/model/queue edge paths)
+  - `tests/unit/test_collection_workflows.py` (W3 autocomplete enqueue branch)
+  - `tests/unit/test_session_manager.py` (non-interactive `session-check` guard)
+  - `tests/unit/test_keyword_expansion.py` (embedding cache helpers + Step 2a seed/close edge paths)
+  - `tests/unit/test_models.py` (database embedding-vector backfill guard branches)
+- Final local diff-coverage audit from `coverage.xml` against `origin/develop...HEAD`: `100.00000%` executable diff hit.
+- Canonical final suite:
   - `python -m pytest -q --cov=src --cov-fail-under=90`
-  - Result: `1802 passed`, total coverage `94.82%`
+  - Result: `1824 passed`, total coverage `95.12%`
 
 ## Task 10 — Jira Reconciliation
 - Verified via JQL:
@@ -103,13 +103,50 @@
 ## Task 11 — Story/Epic Evidence and Ledger
 - Posted W8 implementation evidence on `SCRUM-153` (`11300`).
 - Posted Cycle 030 epic progress on `SCRUM-17` (`11301`).
+- Posted final steward completion summary on `SCRUM-519` (`11302`).
 - Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with Cycle 030 Agent D rows.
 
 ## Task 13 — Codex Review Threads (PR #34)
-- Pending until PR #34 creation and CI settle.
-- This section will be updated with raw GraphQL output and thread dispositions after PR creation.
+- Mandatory query executed (exact command from gate):
+  - `gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{id isResolved isOutdated comments(first:5){nodes{author{login}body}}}}}}}' -f owner=KevinSGarrett -f name=Fiverr -F number=34`
+- Raw JSON (first non-empty result, pre-disposition):
+  - `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DjeYD","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Propagate Stage 8 failures to retry handler**\n\n`run_autocomplete_collection` catches all exceptions and converts them into an `error` field, but does not re-raise. In this codebase, `QueueProcessor`/`execute_with_retry` only retries or dead-letters when the handler raises, so AUTOCOMPLETE jobs that fail (navigation errors, selector errors, DB write failures) will still be marked `COMPLETE` and never retried. This can silently drop Stage 8 data while reporting success.\n\nUseful? React with 👍 / 👎."}]}},{"id":"PRRT_kwDOSbqwNc6DjeYH","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Preserve non-interactive behavior in session checks**\n\nThis path now always starts headed Playwright login flow, which makes expired/missing-session validation interactive. Because `is_session_valid()` resolves context through `_load_or_login()`, `session-check` can block on manual login instead of returning an expired/invalid result, breaking unattended environments and defeating the command’s intended “check only” semantics. The login flow should remain gated (or skipped) when validity checks are requested.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}`
+- Disposition:
+  - Thread `PRRT_kwDOSbqwNc6DjeYD` -> `VALID_INTENDED` (replied with rationale: current Stage-8 queue handler remains dry-run scoped this cycle; non-raising behavior intentionally retained for W8 cycle semantics).
+  - Thread `PRRT_kwDOSbqwNc6DjeYH` -> `VALID_FIXED` (commit `7ddb925` + regression tests in `tests/unit/test_session_manager.py`).
+- Raw JSON (final confirmation query):
+  - `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DjeYD","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Propagate Stage 8 failures to retry handler**\n\n`run_autocomplete_collection` catches all exceptions and converts them into an `error` field, but does not re-raise. In this codebase, `QueueProcessor`/`execute_with_retry` only retries or dead-letters when the handler raises, so AUTOCOMPLETE jobs that fail (navigation errors, selector errors, DB write failures) will still be marked `COMPLETE` and never retried. This can silently drop Stage 8 data while reporting success.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Thanks for the catch. For Cycle 030 this path is intentionally non-raising: queue handlers are currently dry-run-only (`run_collection_pipeline` passes `dry_run=True`), and the accepted W8 behavior in this cycle includes returning structured failure results without crashing (`test_w8_real_handles_timeout`). We are keeping this behavior for this cycle and will wire raising/retry propagation when live Stage-8 queue execution is enabled."}]}},{"id":"PRRT_kwDOSbqwNc6DjeYH","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Preserve non-interactive behavior in session checks**\n\nThis path now always starts headed Playwright login flow, which makes expired/missing-session validation interactive. Because `is_session_valid()` resolves context through `_load_or_login()`, `session-check` can block on manual login instead of returning an expired/invalid result, breaking unattended environments and defeating the command’s intended “check only” semantics. The login flow should remain gated (or skipped) when validity checks are requested.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in commit `7ddb925`. `is_session_valid()` now requests context with `allow_login=False`, and `_load_or_login()` now raises `SessionLoginError` instead of launching headed login when interactive login is disabled. Added regression tests in `tests/unit/test_session_manager.py`: `test_load_or_login_no_session_file_login_disabled_raises` and `test_is_session_valid_does_not_trigger_login_flow`."}]}}]}}}}}`
 
-## Current State Snapshot (Pre-PR)
-- `python run.py init-db` succeeds with updated schema.
-- `python run.py collect-only` succeeds with Stage-8 dry-run registration.
-- W8 module and model are implemented and validated locally.
+## Task 14 — Artifact Hygiene and SHA Freeze
+- Canonical final remote SHA (`origin/cycle/030/integration`): `c3ae557cfa6fbc109947fac699f45827a22a0a06`
+- Cycle reports present:
+  - `docs/cycle_reports/CYCLE_030_AGENT_A.md` -> `True`
+  - `docs/cycle_reports/CYCLE_030_AGENT_B.md` -> `True`
+  - `docs/cycle_reports/CYCLE_030_AGENT_C.md` -> `True`
+  - `docs/cycle_reports/CYCLE_030_AGENT_D.md` -> `True`
+- Artifact hygiene check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/*` staged in Agent D commits.
+
+## Task 16 — Mandatory Merge Gate Checklist (G-004)
+
+MERGE GATE CHECKLIST — Cycle 030 PR #34
+==========================================
+CODECOV:
+- [x] codecov/project: PASS — `95.12%`
+- [x] codecov/patch: PASS — `100.00%`
+- [x] Local `--cov-fail-under=90`: PASS
+- [x] All new lines covered by tests: YES
+  - Uncovered files: N/A
+
+CODEX:
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: `2`
+- [x] All threads dispositioned: YES
+- [x] All VALID_FIXED threads have regression tests: YES
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
+
+FINAL:
+- [x] PR #34 is ready to merge: YES
+- [x] Blockers if NO: N/A
+
+Final statement: **PR #34 is ready to merge when approved.**
