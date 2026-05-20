@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 from typing import Any
 from unittest.mock import AsyncMock
@@ -431,6 +432,24 @@ def test_google_trends_missing_pytrends_dependency(monkeypatch: pytest.MonkeyPat
         )
 
 
+def test_google_trends_import_guard_sets_none_when_pytrends_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_import_module = importlib.import_module
+
+    def _fake_import_module(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "pytrends.request":
+            raise ImportError("missing pytrends")
+        return real_import_module(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", _fake_import_module)
+    importlib.reload(google_trends_module)
+    assert google_trends_module.TrendReq is None
+
+    monkeypatch.setattr(importlib, "import_module", real_import_module)
+    importlib.reload(google_trends_module)
+
+
 def test_google_trends_non_dataframe_and_missing_keyword_id(monkeypatch: pytest.MonkeyPatch) -> None:
     _payload_calls, writes, pacing_manager, _sleep_mock = _configure_workflow_mocks(
         monkeypatch,
@@ -493,6 +512,31 @@ def test_google_trends_non_429_error_skips_batch(monkeypatch: pytest.MonkeyPatch
     assert result["rate_limited"] is False
     assert result["signals_written"] == 0
     assert writes == []
+
+
+def test_google_trends_timeout_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    _payload_calls, writes, pacing_manager, sleep_mock = _configure_workflow_mocks(
+        monkeypatch,
+        dataframes=[pd.DataFrame({"kw": [2, 4, 6]})],
+        errors=[RuntimeError("request timeout"), None],
+        keyword_ids={"kw": 1},
+    )
+
+    result = _run(
+        google_trends_module.run_google_trends_collection(
+            niche_id="niche-timeout",
+            keywords=["kw"],
+            run_id="run-timeout",
+            db=object(),
+            pacing_manager=pacing_manager,
+            dry_run=False,
+        )
+    )
+
+    assert result["signals_written"] == 1
+    assert sleep_mock.await_count == 1
+    sleep_mock.assert_awaited_with(15.0)
+    assert len(writes) == 1
 
 
 def test_safe_pacing_wait_without_wait_fn() -> None:
