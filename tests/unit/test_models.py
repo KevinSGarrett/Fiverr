@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import sqlalchemy
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from src.models import Base, naming_convention
 from src.models.analysis import AnalysisResult, AnalysisRun
 from src.models.database import (
+    _ensure_keyword_embedding_vector_column,
     build_engine,
     create_session_factory,
     get_session,
@@ -219,6 +221,55 @@ def test_keyword_embedding_vector_field_exists() -> None:
 def test_keyword_embedding_vector_nullable() -> None:
     embedding_column = Keyword.__table__.columns["embedding_vector"]
     assert embedding_column.nullable is True
+
+
+def test_ensure_embedding_vector_column_noop_for_non_sqlite(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "postgresql"
+    inspect_mock = MagicMock()
+    monkeypatch.setattr("src.models.database.inspect", inspect_mock)
+
+    _ensure_keyword_embedding_vector_column(engine)
+
+    inspect_mock.assert_not_called()
+
+
+def test_ensure_embedding_vector_column_returns_when_keywords_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "sqlite"
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["niches"]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: inspector)
+
+    _ensure_keyword_embedding_vector_column(engine)
+
+    inspector.get_columns.assert_not_called()
+
+
+def test_ensure_embedding_vector_column_handles_alter_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "sqlite"
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["keywords"]
+    inspector.get_columns.return_value = [{"name": "id"}, {"name": "keyword"}]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: inspector)
+
+    connection = MagicMock()
+    connection.exec_driver_sql.side_effect = RuntimeError("alter failed")
+
+    class _BeginCtx:
+        def __enter__(self):
+            return connection
+
+        def __exit__(self, *_args):
+            return False
+
+    engine.begin.return_value = _BeginCtx()
+
+    _ensure_keyword_embedding_vector_column(engine)
+    connection.exec_driver_sql.assert_called_once_with(
+        "ALTER TABLE keywords ADD COLUMN embedding_vector TEXT"
+    )
 
 
 def test_analysis_scoring_runtime_insert_and_json_roundtrip(tmp_path: Path) -> None:

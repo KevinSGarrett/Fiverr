@@ -14,10 +14,13 @@ from sqlalchemy.orm import sessionmaker
 from src.collection.workflows.keyword_expansion import (
     _FEATURE_FLAGS,
     KeywordExpansionWorkflow,
+    _cache_get_embedding_map,
     _cache_get_keywords,
+    _cache_set_embedding_map,
     _cache_set_keywords,
     _call_llm_json,
     _deduplicate_keywords,
+    _extract_cached_embedding_map,
     _extract_cached_keywords,
     _extract_relevant_keywords,
     _fetch_fiverr_autocomplete,
@@ -27,6 +30,7 @@ from src.collection.workflows.keyword_expansion import (
     _llm_classify_intent,
     _llm_generate_keywords,
     _llm_relevance_filter,
+    _normalize_embedding_vector,
     _resolve_maybe_await,
     _resolve_niche_pk,
     _safe_pacing_wait,
@@ -379,6 +383,32 @@ def test_fetch_fiverr_autocomplete_closes_page_on_error() -> None:
     )
 
     page.close.assert_awaited_once()
+
+
+def test_fetch_fiverr_autocomplete_blank_seed_or_missing_session_returns_empty() -> None:
+    assert _run(_fetch_fiverr_autocomplete("   ", "ai_saas", None, AsyncMock())) == []
+
+
+def test_fetch_fiverr_autocomplete_ignores_close_errors() -> None:
+    item = _build_autocomplete_item("keyword")
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    page.close = AsyncMock(side_effect=RuntimeError("close failed"))
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == [{"text": "keyword", "position": 1}]
+    pacing_manager.wait.assert_awaited_once_with("fiverr_search", dry_run=False)
 
 
 def test_safe_pacing_wait_without_wait_method() -> None:
@@ -1044,6 +1074,30 @@ def test_run_expansion_step2a_autocomplete_no_session_manager(monkeypatch) -> No
     autocomplete_mock.assert_not_awaited()
 
 
+def test_run_expansion_step2a_skips_non_string_seed(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=True, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[])
+    google_mock = AsyncMock(return_value=[])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed", 123],
+                    depth="standard",
+                    run_id="run-step2a-seed-filter",
+                    db=None,
+                    session_manager=AsyncMock(),
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert autocomplete_mock.await_count == 1
+    assert autocomplete_mock.await_args.kwargs["seed"] == "seed"
+
+
 def test_run_expansion_step2a_autocomplete_disabled(monkeypatch) -> None:
     _set_feature_flags(monkeypatch, step_2a=False, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
     autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
@@ -1186,6 +1240,67 @@ def test_cache_set_keywords_typeerror_fallback_exception() -> None:
             raise RuntimeError("fallback failed")
 
     _run(_cache_set_keywords(_FailingFallbackCache(), "key", "keywords", ["value"]))
+
+
+def test_normalize_embedding_vector_rejects_bool() -> None:
+    assert _normalize_embedding_vector([1.0, True]) is None
+
+
+def test_extract_cached_embedding_map_supports_wrapped_payload_and_missing_values() -> None:
+    cached = {"embedding_map": {"alpha": [1, 2]}}
+    result = _extract_cached_embedding_map(cached, ["alpha", "beta"])
+    assert result == {"alpha": [1.0, 2.0], "beta": None}
+
+
+def test_extract_cached_embedding_map_rejects_invalid_vector() -> None:
+    cached = {"embedding_map": {"alpha": [1.0, "bad"]}}
+    assert _extract_cached_embedding_map(cached, ["alpha"]) is None
+
+
+def test_cache_get_embedding_map_none_cache_returns_none() -> None:
+    assert _run(_cache_get_embedding_map(None, "key", ["alpha"])) is None
+
+
+def test_cache_get_embedding_map_handles_exception() -> None:
+    class _BrokenCache:
+        def get(self, key: str):
+            raise RuntimeError(key)
+
+    assert _run(_cache_get_embedding_map(_BrokenCache(), "key", ["alpha"])) is None
+
+
+def test_cache_set_embedding_map_none_cache_noop() -> None:
+    _run(_cache_set_embedding_map(None, "key", {"alpha": [1.0]}))
+
+
+def test_cache_set_embedding_map_fallback_exception_path() -> None:
+    class _FallbackErrorCache:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def set(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise TypeError("legacy signature")
+            raise RuntimeError("fallback failed")
+
+    cache = _FallbackErrorCache()
+    _run(_cache_set_embedding_map(cache, "key", {"alpha": [1.0]}))
+    assert cache.calls == 2
+
+
+def test_cache_set_embedding_map_primary_exception_path() -> None:
+    class _PrimaryErrorCache:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def set(self, *_args, **_kwargs):
+            self.calls += 1
+            raise RuntimeError("primary set failed")
+
+    cache = _PrimaryErrorCache()
+    _run(_cache_set_embedding_map(cache, "key", {"alpha": [1.0]}))
+    assert cache.calls == 1
 
 
 def test_call_llm_json_typeerror_fallback_uses_no_response_format() -> None:
