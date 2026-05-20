@@ -96,8 +96,8 @@ Targeted additions completed in Agent D scope:
 Canonical post-change full coverage revalidation:
 
 - Command: `pytest -q --cov=src --cov-fail-under=90`
-- Result: `1928 passed in 376.80s`
-- Global coverage: `92.74%`
+- Result: `1934 passed in 386.89s`
+- Global coverage: `92.92%`
 
 ## Task 9 - Jira Reconciliation
 
@@ -150,37 +150,62 @@ Depth-variant skip behavior remains explicit for Stage 9 feasibility-depth niche
 
 ## Task 12 - Codex Disposition
 
-Pending PR creation and Codex query execution for PR #35.
-This section will be updated with raw query JSON and final thread disposition state.
+Codex query executed for PR #35.
 
-## Task 18 - Merge Gate Checklist (Draft; pending PR/CI/Codex finalization)
+Initial raw JSON (verbatim):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DpVXR","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Reuse an existing run_id in quality/review stage-only modes**\n\nThe `quality-analysis` path creates a fresh UUID `run_id` and immediately uses it for Stage 11, but Stage 11/12 loaders join on exact `run_id` (`src/analysis/gig_quality_rubric.py` uses `SearchResult.run_id == run_id` and `GigQualityScore.run_id == run_id`; `src/analysis/review_analyzer.py` uses `SearchResult.run_id == run_id`). In normal usage, collected data belongs to prior run IDs, so these commands will consistently report no input data instead of analyzing existing results. This makes the new CLI modes effectively no-op unless the user somehow already has rows for that random UUID.\n\nUseful? React with 👍 / 👎."}]}},{"id":"PRRT_kwDOSbqwNc6DpVXT","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Avoid random run_id in profile-only mode**\n\n`profile-only` also generates a new UUID `run_id`, but `load_gig_data_for_niche` filters gigs by that run (`Gig.run_id == run_id` or null). For data produced by the collection pipeline (which writes concrete run IDs), this excludes previously collected gigs and returns empty profiling results. The mode should accept/resolve a prior collection run instead of inventing a new one at execution time.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
+```
+
+Disposition:
+
+- `PRRT_kwDOSbqwNc6DpVXR` -> `VALID_FIXED`
+- `PRRT_kwDOSbqwNc6DpVXT` -> `VALID_FIXED`
+- Fix commit: `9b2a564ac4f4a4e7b86882a3b288ff3e5be31148`
+- Code updates:
+  - `src/orchestrator.py` now resolves existing run IDs for `cluster-only`, `profile-only`, `quality-analysis`, and `review-analysis`.
+  - `tests/unit/test_orchestrator_helpers.py` adds regression tests for run-id resolution and mode routing.
+- Validation:
+  - `pytest -q tests/unit/test_orchestrator_helpers.py --no-header` -> `27 passed`.
+  - `pytest -q --cov=src --cov-fail-under=90` -> `1934 passed`, `92.92%`.
+- Both threads replied to and manually resolved.
+
+Re-query raw JSON (verbatim, post-disposition):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DpVXR","isResolved":true,"isOutdated":true},{"id":"PRRT_kwDOSbqwNc6DpVXT","isResolved":true,"isOutdated":true}]}}}}}
+```
+
+## Task 18 - Merge Gate Checklist
 
 MERGE GATE CHECKLIST - Cycle 031 PR #35
 ==========================================
 CODECOV:
-[ ] codecov/project: [PENDING]
-[ ] codecov/patch: [PENDING]
-[x] Local --cov-fail-under=90: PASS (92.74%)
-[x] All new lines covered by tests: YES
+[x] codecov/project: PASS - 92.92% (local canonical coverage; check status green)
+[ ] codecov/patch: FAIL - 73.50097% (target 90.00%)
+[x] Local --cov-fail-under=90: PASS (92.92%)
+[ ] All new lines covered by tests: NO
+  If NO, uncovered files (from Codecov): `src/analysis/review_analyzer.py`, `src/analysis/keyword_clusterer.py`, `src/analysis/competitor_profiler.py`, `src/analysis/gig_quality_rubric.py`, `src/models/database.py`, `src/collection/orchestrator.py`, `src/models/market.py`, `src/analysis/seller_strength.py`, `src/orchestrator.py`
 
 CODEX:
-[ ] reviewThreads query executed: PENDING
-[ ] Total threads found: PENDING
-[ ] All threads dispositioned: PENDING
-[ ] All VALID_FIXED threads have regression tests: PENDING
-[ ] All threads manually resolved with reply: PENDING
-[ ] Zero unresolved threads: PENDING
+[x] reviewThreads query executed: YES
+[x] Total threads found: 2
+[x] All threads dispositioned: YES
+[x] All VALID_FIXED threads have regression tests: YES
+[x] All threads manually resolved with reply: YES
+[x] Zero unresolved threads: YES
 
 FINAL:
-[ ] PR #35 is ready to merge: PENDING
-[ ] Blockers if NO: pending CI + pending Codex disposition
+[ ] PR #35 is ready to merge: NO
+[x] Blockers if NO: `codecov/patch` failing at 73.50097% (<90.00% required)
 
 ## Task 14 - SHA Freeze / Hygiene
 
-- Canonical remote SHA (`origin/cycle/031/integration`): `f852af90ab3ad9bd32baf6bb75cd254dda17febd`
-- Cycle 031 reports present for Agents A/B/C; Agent D report added in this cycle.
-- Artifact hygiene check to be finalized at pre-merge commit verification.
+- Canonical remote SHA (`origin/cycle/031/integration`): `9b2a564ac4f4a4e7b86882a3b288ff3e5be31148`
+- Cycle 031 reports present: `CYCLE_031_AGENT_A.md`, `CYCLE_031_AGENT_B.md`, `CYCLE_031_AGENT_C.md`, `CYCLE_031_AGENT_D.md`.
+- `git status --short` artifact hygiene check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` files staged.
 
 ## Final SHA
 
-Pending Agent D commit creation/push in Task 11.
+`9b2a564ac4f4a4e7b86882a3b288ff3e5be31148`
