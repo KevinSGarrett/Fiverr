@@ -18,6 +18,7 @@ from src.collection.fiverr_selectors import (
     GIG_CARD_TITLE,
     SEARCH_RESULT_COUNT,
 )
+from src.collection.workflows.autocomplete import enqueue_autocomplete_job
 from src.models.job import Job
 from src.models.search_result import write_search_result
 
@@ -32,6 +33,7 @@ async def run_fiverr_search_collection(
     session_manager: Any,
     pacing_manager: Any,
     dry_run: bool = True,
+    enqueue_autocomplete: bool = False,
 ) -> dict[str, Any]:
     """
     Stage 3: Fiverr Search Collection Per Keyword.
@@ -56,6 +58,7 @@ async def run_fiverr_search_collection(
     gig_cards: list[dict[str, Any]] = []
     total_result_count: int | None = None
     gig_urls_queued = 0
+    autocomplete_jobs_queued = 0
 
     page = await session_manager.new_page()
     try:
@@ -90,6 +93,15 @@ async def run_fiverr_search_collection(
             depth=depth,
             db=db,
         )
+        if enqueue_autocomplete and depth != "keyword_only":
+            if enqueue_autocomplete_job(
+                keyword_id=keyword_id,
+                keyword_text=keyword_text,
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+            ):
+                autocomplete_jobs_queued = 1
     finally:
         await session_manager.close_page(page)
 
@@ -100,6 +112,7 @@ async def run_fiverr_search_collection(
         "total_result_count": total_result_count,
         "gig_cards_collected": len(gig_cards),
         "gig_urls_queued": gig_urls_queued,
+        "autocomplete_jobs_queued": autocomplete_jobs_queued,
         "pages_collected": 1,
         "dry_run": False,
     }

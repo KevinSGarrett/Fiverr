@@ -14,6 +14,7 @@ from src.collection import seller_profile as seller_profile_module
 from src.collection.fiverr_selectors import (
     SELLER_BADGE,
     SELLER_BIO,
+    SELLER_GIG_COUNT,
     SELLER_GIG_TITLE,
     SELLER_LANGUAGES,
     SELLER_LEVEL_BADGE,
@@ -21,6 +22,7 @@ from src.collection.fiverr_selectors import (
     SELLER_PORTFOLIO_ITEM,
     SELLER_RESPONSE_RATE,
     SELLER_RESPONSE_TIME,
+    SELLER_REVIEW_COUNT,
     SELLER_TOTAL_GIGS,
     SELLER_TOTAL_REVIEWS,
 )
@@ -198,6 +200,14 @@ def test_parse_int_handles_commas() -> None:
 
 def test_parse_int_none_input() -> None:
     assert _parse_int(None) is None
+
+
+def test_seller_review_count_alias_matches_value() -> None:
+    assert SELLER_REVIEW_COUNT == SELLER_TOTAL_REVIEWS
+
+
+def test_seller_gig_count_alias_matches_value() -> None:
+    assert SELLER_GIG_COUNT == SELLER_TOTAL_GIGS
 
 
 def test_w5_non_dry_requires_managers() -> None:

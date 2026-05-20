@@ -1,4 +1,4 @@
-"""Unit tests for Stage 1-5 collection orchestrator dry-run wiring."""
+"""Unit tests for collection orchestrator dry-run wiring."""
 
 from __future__ import annotations
 
@@ -47,6 +47,7 @@ def test_run_collection_dry_run_stages_run() -> None:
         "stage03_fiverr_search",
         "stage04_gig_detail",
         "stage05_seller_profile",
+        "stage08_autocomplete",
     ]
 
 
@@ -198,6 +199,7 @@ def test_run_collection_counts_queue_stage_jobs() -> None:
     assert result["search_jobs_run"] == 1
     assert result["gig_detail_jobs_run"] == 1
     assert result["seller_profile_jobs_run"] == 1
+    assert result["autocomplete_jobs_run"] == 1
 
 
 def test_dry_run_job_state_transitions() -> None:

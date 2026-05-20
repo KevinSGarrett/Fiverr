@@ -14,17 +14,23 @@ from sqlalchemy.orm import sessionmaker
 from src.collection.workflows.keyword_expansion import (
     _FEATURE_FLAGS,
     KeywordExpansionWorkflow,
+    _cache_get_embedding_map,
     _cache_get_keywords,
+    _cache_set_embedding_map,
     _cache_set_keywords,
     _call_llm_json,
     _deduplicate_keywords,
+    _extract_cached_embedding_map,
     _extract_cached_keywords,
     _extract_relevant_keywords,
+    _fetch_fiverr_autocomplete,
     _fetch_google_suggest,
+    _generate_embeddings,
     _is_session,
     _llm_classify_intent,
     _llm_generate_keywords,
     _llm_relevance_filter,
+    _normalize_embedding_vector,
     _resolve_maybe_await,
     _resolve_niche_pk,
     _safe_pacing_wait,
@@ -57,14 +63,18 @@ class _AsyncCache:
 def _set_feature_flags(
     monkeypatch,
     *,
+    step_2a: bool = True,
     step_2c: bool = True,
     step_2d: bool = True,
     step_2f: bool = False,
+    step_2g: bool = True,
 ):
     updated = dict(_FEATURE_FLAGS)
+    updated["step_2a_fiverr_autocomplete"] = step_2a
     updated["step_2c_llm_generation"] = step_2c
     updated["step_2d_llm_relevance_filter"] = step_2d
     updated["step_2f_llm_intent_classification"] = step_2f
+    updated["step_2g_embedding_generation"] = step_2g
     monkeypatch.setattr("src.collection.workflows.keyword_expansion._FEATURE_FLAGS", updated)
 
 
@@ -190,6 +200,215 @@ def test_fetch_google_suggest_uses_query_params(monkeypatch) -> None:
     assert result == ["result"]
     assert captured["url"] == "https://suggestqueries.google.com/complete/search"
     assert captured["params"] == {"q": "ai & ml+dev #1", "client": "firefox"}
+
+
+def _build_autocomplete_item(
+    text: str,
+    *,
+    with_text_element: bool = False,
+) -> AsyncMock:
+    item = AsyncMock()
+    if with_text_element:
+        text_el = AsyncMock()
+        text_el.inner_text = AsyncMock(return_value=text)
+        item.query_selector = AsyncMock(return_value=text_el)
+        item.inner_text = AsyncMock(return_value="unused")
+    else:
+        item.query_selector = AsyncMock(return_value=None)
+        item.inner_text = AsyncMock(return_value=text)
+    return item
+
+
+def _build_autocomplete_page(
+    *,
+    initial_items: list[AsyncMock] | None = None,
+    fallback_items: list[AsyncMock] | None = None,
+    goto_error: Exception | None = None,
+) -> tuple[AsyncMock, AsyncMock]:
+    page = AsyncMock()
+    page.goto = AsyncMock(side_effect=goto_error) if goto_error else AsyncMock()
+    if fallback_items is None:
+        page.query_selector_all = AsyncMock(return_value=initial_items or [])
+    else:
+        page.query_selector_all = AsyncMock(side_effect=[initial_items or [], fallback_items])
+    search_box = AsyncMock()
+    search_box.click = AsyncMock()
+    page.query_selector = AsyncMock(return_value=search_box)
+    page.keyboard = SimpleNamespace(type=AsyncMock())
+    page.wait_for_timeout = AsyncMock()
+    page.close = AsyncMock()
+    return page, search_box
+
+
+def test_fetch_fiverr_autocomplete_returns_suggestions() -> None:
+    item = _build_autocomplete_item("  AI logo design  ", with_text_element=True)
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == [{"text": "AI logo design", "position": 1}]
+    session_manager.new_page.assert_awaited_once()
+
+
+def test_fetch_fiverr_autocomplete_approach_b_keypress() -> None:
+    item = _build_autocomplete_item("fallback suggestion")
+    page, search_box = _build_autocomplete_page(initial_items=[], fallback_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "seed term",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == [{"text": "fallback suggestion", "position": 1}]
+    search_box.click.assert_awaited_once()
+    page.keyboard.type.assert_awaited_once_with("seed term", delay=100)
+    page.wait_for_timeout.assert_awaited_once_with(1000)
+
+
+def test_fetch_fiverr_autocomplete_caps_at_10() -> None:
+    items = [_build_autocomplete_item(f"kw-{idx}") for idx in range(15)]
+    page, _search_box = _build_autocomplete_page(initial_items=items)
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert len(result) == 10
+    assert result[0]["position"] == 1
+    assert result[-1]["position"] == 10
+    assert result[-1]["text"] == "kw-9"
+
+
+def test_fetch_fiverr_autocomplete_timeout_returns_empty() -> None:
+    page, _search_box = _build_autocomplete_page(goto_error=TimeoutError("timeout"))
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == []
+
+
+def test_fetch_fiverr_autocomplete_calls_pacing() -> None:
+    item = _build_autocomplete_item("keyword")
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    pacing_manager.wait.assert_awaited_once_with("fiverr_search", dry_run=False)
+
+
+def test_fetch_fiverr_autocomplete_closes_page_on_success() -> None:
+    item = _build_autocomplete_item("keyword")
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    page.close.assert_awaited_once()
+
+
+def test_fetch_fiverr_autocomplete_closes_page_on_error() -> None:
+    page, _search_box = _build_autocomplete_page(goto_error=RuntimeError("boom"))
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    page.close.assert_awaited_once()
+
+
+def test_fetch_fiverr_autocomplete_blank_seed_or_missing_session_returns_empty() -> None:
+    assert _run(_fetch_fiverr_autocomplete("   ", "ai_saas", None, AsyncMock())) == []
+
+
+def test_fetch_fiverr_autocomplete_ignores_close_errors() -> None:
+    item = _build_autocomplete_item("keyword")
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    page.close = AsyncMock(side_effect=RuntimeError("close failed"))
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == [{"text": "keyword", "position": 1}]
+    pacing_manager.wait.assert_awaited_once_with("fiverr_search", dry_run=False)
 
 
 def test_safe_pacing_wait_without_wait_method() -> None:
@@ -804,6 +1023,106 @@ def test_run_expansion_skips_llm_when_flags_false(monkeypatch) -> None:
     llm_client.complete.assert_not_called()
 
 
+def test_run_expansion_step2a_autocomplete_enabled(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=True, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
+    google_mock = AsyncMock(return_value=["google keyword"])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2a-on",
+                    db=None,
+                    session_manager=AsyncMock(),
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert result["sources"]["fiverr_autocomplete"] == 1
+    assert result["autocomplete_count"] == 1
+    assert result["keywords_queued"] == 2
+    autocomplete_mock.assert_awaited_once()
+
+
+def test_run_expansion_step2a_autocomplete_no_session_manager(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=True, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
+    google_mock = AsyncMock(return_value=["google keyword"])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2a-no-session",
+                    db=None,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert result["sources"]["fiverr_autocomplete"] == 0
+    assert result["autocomplete_count"] == 0
+    autocomplete_mock.assert_not_awaited()
+
+
+def test_run_expansion_step2a_skips_non_string_seed(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=True, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[])
+    google_mock = AsyncMock(return_value=[])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed", 123],
+                    depth="standard",
+                    run_id="run-step2a-seed-filter",
+                    db=None,
+                    session_manager=AsyncMock(),
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert autocomplete_mock.await_count == 1
+    assert autocomplete_mock.await_args.kwargs["seed"] == "seed"
+
+
+def test_run_expansion_step2a_autocomplete_disabled(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=False, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
+    google_mock = AsyncMock(return_value=["google keyword"])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2a-off",
+                    db=None,
+                    session_manager=AsyncMock(),
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert result["sources"]["fiverr_autocomplete"] == 0
+    assert result["autocomplete_count"] == 0
+    autocomplete_mock.assert_not_awaited()
+
+
 def test_run_expansion_dry_run_unchanged(monkeypatch) -> None:
     _set_feature_flags(monkeypatch, step_2c=True, step_2d=True)
     fetch_mock = AsyncMock(return_value=["should not run"])
@@ -921,6 +1240,67 @@ def test_cache_set_keywords_typeerror_fallback_exception() -> None:
             raise RuntimeError("fallback failed")
 
     _run(_cache_set_keywords(_FailingFallbackCache(), "key", "keywords", ["value"]))
+
+
+def test_normalize_embedding_vector_rejects_bool() -> None:
+    assert _normalize_embedding_vector([1.0, True]) is None
+
+
+def test_extract_cached_embedding_map_supports_wrapped_payload_and_missing_values() -> None:
+    cached = {"embedding_map": {"alpha": [1, 2]}}
+    result = _extract_cached_embedding_map(cached, ["alpha", "beta"])
+    assert result == {"alpha": [1.0, 2.0], "beta": None}
+
+
+def test_extract_cached_embedding_map_rejects_invalid_vector() -> None:
+    cached = {"embedding_map": {"alpha": [1.0, "bad"]}}
+    assert _extract_cached_embedding_map(cached, ["alpha"]) is None
+
+
+def test_cache_get_embedding_map_none_cache_returns_none() -> None:
+    assert _run(_cache_get_embedding_map(None, "key", ["alpha"])) is None
+
+
+def test_cache_get_embedding_map_handles_exception() -> None:
+    class _BrokenCache:
+        def get(self, key: str):
+            raise RuntimeError(key)
+
+    assert _run(_cache_get_embedding_map(_BrokenCache(), "key", ["alpha"])) is None
+
+
+def test_cache_set_embedding_map_none_cache_noop() -> None:
+    _run(_cache_set_embedding_map(None, "key", {"alpha": [1.0]}))
+
+
+def test_cache_set_embedding_map_fallback_exception_path() -> None:
+    class _FallbackErrorCache:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def set(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise TypeError("legacy signature")
+            raise RuntimeError("fallback failed")
+
+    cache = _FallbackErrorCache()
+    _run(_cache_set_embedding_map(cache, "key", {"alpha": [1.0]}))
+    assert cache.calls == 2
+
+
+def test_cache_set_embedding_map_primary_exception_path() -> None:
+    class _PrimaryErrorCache:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def set(self, *_args, **_kwargs):
+            self.calls += 1
+            raise RuntimeError("primary set failed")
+
+    cache = _PrimaryErrorCache()
+    _run(_cache_set_embedding_map(cache, "key", {"alpha": [1.0]}))
+    assert cache.calls == 1
 
 
 def test_call_llm_json_typeerror_fallback_uses_no_response_format() -> None:
@@ -1266,6 +1646,204 @@ def test_run_expansion_step2f_flag_false_skips_intent_classification(monkeypatch
             )
 
     intent_mock.assert_not_awaited()
+
+
+def test_generate_embeddings_returns_dict_mapping() -> None:
+    llm_client = SimpleNamespace(
+        embed=AsyncMock(return_value={"embeddings": [[0.1, 0.2], [0.3, 0.4]]})
+    )
+
+    result = _run(
+        _generate_embeddings(
+            niche_id="ai_saas",
+            keywords=["kw-one", "kw-two"],
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert result == {"kw-one": [0.1, 0.2], "kw-two": [0.3, 0.4]}
+    llm_client.embed.assert_awaited_once_with(["kw-one", "kw-two"], model="text-embedding-3-small")
+
+
+def test_generate_embeddings_batches_100() -> None:
+    keywords = [f"kw-{idx}" for idx in range(150)]
+
+    async def _embed(texts: list[str], *, model: str):
+        _ = model
+        return {"embeddings": [[float(idx)] for idx, _kw in enumerate(texts)]}
+
+    llm_client = SimpleNamespace(embed=AsyncMock(side_effect=_embed))
+    result = _run(_generate_embeddings("ai_saas", keywords, llm_client, _AsyncCache()))
+
+    assert len(result) == 150
+    assert llm_client.embed.await_count == 2
+    first_call_texts = llm_client.embed.await_args_list[0].args[0]
+    second_call_texts = llm_client.embed.await_args_list[1].args[0]
+    assert len(first_call_texts) == 100
+    assert len(second_call_texts) == 50
+
+
+def test_generate_embeddings_cache_hit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._cache_key_for_keywords",
+        lambda *args, **kwargs: "embed-cache-hit",
+    )
+    llm_client = SimpleNamespace(embed=AsyncMock())
+    cache = _AsyncCache(seed_data={"embed-cache-hit": {"kw-one": [1.0], "kw-two": [2.0]}})
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, cache))
+
+    assert result == {"kw-one": [1.0], "kw-two": [2.0]}
+    llm_client.embed.assert_not_called()
+
+
+def test_generate_embeddings_api_error_returns_null_map(caplog) -> None:
+    caplog.set_level("WARNING")
+    llm_client = SimpleNamespace(embed=AsyncMock(side_effect=RuntimeError("embed down")))
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, _AsyncCache()))
+
+    assert result == {"kw-one": None, "kw-two": None}
+    assert "Embedding generation failed niche=ai_saas" in caplog.text
+
+
+def test_generate_embeddings_payload_not_list_falls_back_to_null(caplog) -> None:
+    caplog.set_level("WARNING")
+    llm_client = SimpleNamespace(embed=AsyncMock(return_value={"embeddings": "not-a-list"}))
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, _AsyncCache()))
+
+    assert result == {"kw-one": None, "kw-two": None}
+    assert "Embedding generation failed niche=ai_saas" in caplog.text
+
+
+def test_generate_embeddings_truncated_payload_logs_warning(caplog) -> None:
+    caplog.set_level("WARNING")
+    llm_client = SimpleNamespace(embed=AsyncMock(return_value={"embeddings": [[0.9, 0.8]]}))
+
+    result = _run(_generate_embeddings("ai_saas", ["kw-one", "kw-two"], llm_client, _AsyncCache()))
+
+    assert result["kw-one"] == [0.9, 0.8]
+    assert result["kw-two"] is None
+    assert "Embedding response truncated niche=ai_saas" in caplog.text
+
+
+def test_generate_embeddings_empty_keywords() -> None:
+    llm_client = SimpleNamespace(embed=AsyncMock())
+
+    result = _run(_generate_embeddings("ai_saas", [], llm_client, _AsyncCache()))
+
+    assert result == {}
+    llm_client.embed.assert_not_called()
+
+
+def test_llm_classify_intent_empty_keywords_returns_empty() -> None:
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    result = _run(_llm_classify_intent("ai_saas", [], llm_client, _AsyncCache()))
+    assert result == {}
+    llm_client.complete.assert_not_called()
+
+
+def test_run_expansion_step2g_sets_embedding_on_db_keywords(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False, step_2g=True)
+    session, niche = _build_keyword_session()
+    try:
+        with patch(
+            "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+            new=AsyncMock(return_value=["buy logo design", "logo design consultant"]),
+        ):
+            llm_client = SimpleNamespace(
+                complete=AsyncMock(),
+                embed=AsyncMock(return_value={"embeddings": [[0.11, 0.22], [0.33, 0.44]]}),
+            )
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2g-db",
+                    db=session,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                    llm_client=llm_client,
+                    cache=_AsyncCache(),
+                )
+            )
+
+        rows = session.query(Keyword).filter(Keyword.niche_id == niche.id).all()
+        vector_map = {row.keyword: row.embedding_vector for row in rows}
+        assert result["keywords_queued"] == 2
+        assert json.loads(vector_map["buy logo design"]) == [0.11, 0.22]
+        assert json.loads(vector_map["logo design consultant"]) == [0.33, 0.44]
+    finally:
+        session.close()
+
+
+def test_run_expansion_step2g_flag_false_no_embedding(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    session, niche = _build_keyword_session()
+    embedding_mock = AsyncMock(return_value={"buy logo design": [0.11, 0.22]})
+    try:
+        with patch(
+            "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+            new=AsyncMock(return_value=["buy logo design"]),
+        ):
+            with patch("src.collection.workflows.keyword_expansion._generate_embeddings", new=embedding_mock):
+                _run(
+                    run_keyword_expansion(
+                        niche_id="ai_saas",
+                        seeds=["seed"],
+                        depth="standard",
+                        run_id="run-step2g-off",
+                        db=session,
+                        session_manager=None,
+                        pacing_manager=AsyncMock(),
+                        dry_run=False,
+                        llm_client=SimpleNamespace(complete=AsyncMock(), embed=AsyncMock()),
+                        cache=_AsyncCache(),
+                    )
+                )
+
+        rows = session.query(Keyword).filter(Keyword.niche_id == niche.id).all()
+        assert len(rows) == 1
+        assert rows[0].embedding_vector is None
+        embedding_mock.assert_not_awaited()
+    finally:
+        session.close()
+
+
+def test_run_expansion_step2g_embedding_skipped_at_feasibility_depth(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False, step_2g=True)
+    embedding_mock = AsyncMock(return_value={"buy logo design": [0.11, 0.22]})
+
+    with patch(
+        "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+        new=AsyncMock(return_value=["buy logo design"]),
+    ):
+        with patch("src.collection.workflows.keyword_expansion._generate_embeddings", new=embedding_mock):
+            _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="feasibility",
+                    run_id="run-step2g-feasibility",
+                    db=None,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                    llm_client=SimpleNamespace(complete=AsyncMock(), embed=AsyncMock()),
+                    cache=_AsyncCache(),
+                )
+            )
+
+    embedding_mock.assert_not_awaited()
+
+
+def test_run_expansion_step2g_skipped_at_feasibility_depth(monkeypatch) -> None:
+    # Keep exact spec-requested test name while preserving embedding-focused selector run.
+    test_run_expansion_step2g_embedding_skipped_at_feasibility_depth(monkeypatch)
 
 
 def test_run_keyword_expansion_stub_alias() -> None:

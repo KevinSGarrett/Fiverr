@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Protocol, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -21,11 +22,11 @@ _STAGE02_TEMPLATE_RENDERER = TemplateRenderer(
 )
 
 _FEATURE_FLAGS: dict[str, bool] = {
-    "step_2a_fiverr_autocomplete": False,
+    "step_2a_fiverr_autocomplete": True,
     "step_2c_llm_generation": True,
     "step_2d_llm_relevance_filter": True,
     "step_2f_llm_intent_classification": True,
-    "step_2g_embedding_generation": False,
+    "step_2g_embedding_generation": True,
 }
 
 _VALID_INTENT_CLASSES = {
@@ -46,6 +47,9 @@ class KeywordExpansionLLMClient(Protocol):
         model: str,
         response_format: dict[str, Any] | None = ...,
     ) -> Any:
+        ...
+
+    def embed(self, texts: list[str], model: str = ...) -> Any:
         ...
 
 
@@ -179,6 +183,84 @@ async def _cache_set_intent_map(
                 cache_key,
                 {"intent_map": batch_map},
                 model="gpt-4o-mini",
+                temperature=0.0,
+                prompt_text=cache_key,
+            )
+        )
+    except Exception:
+        logger.debug("Cache set fallback failed for key '%s'.", cache_key, exc_info=True)
+
+
+def _normalize_embedding_vector(value: Any) -> list[float] | None:
+    if not isinstance(value, list):
+        return None
+    vector: list[float] = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, int | float):
+            return None
+        vector.append(float(item))
+    return vector
+
+
+def _extract_cached_embedding_map(
+    cached: Any,
+    batch: list[str],
+) -> dict[str, list[float] | None] | None:
+    payload = cached
+    if isinstance(cached, dict) and isinstance(cached.get("embedding_map"), dict):
+        payload = cached["embedding_map"]
+    if not isinstance(payload, dict):
+        return None
+
+    extracted: dict[str, list[float] | None] = {}
+    for keyword in batch:
+        value = payload.get(keyword)
+        if value is None:
+            extracted[keyword] = None
+            continue
+        normalized = _normalize_embedding_vector(value)
+        if normalized is None:
+            return None
+        extracted[keyword] = normalized
+    return extracted
+
+
+async def _cache_get_embedding_map(
+    cache: KeywordExpansionCache | Any | None,
+    cache_key: str,
+    batch: list[str],
+) -> dict[str, list[float] | None] | None:
+    if cache is None:
+        return None
+    try:
+        cached: Any = await _resolve_maybe_await(cache.get(cache_key))
+    except Exception:
+        return None
+    return _extract_cached_embedding_map(cached, batch)
+
+
+async def _cache_set_embedding_map(
+    cache: KeywordExpansionCache | Any | None,
+    cache_key: str,
+    batch_map: dict[str, list[float] | None],
+) -> None:
+    if cache is None:
+        return
+    try:
+        await _resolve_maybe_await(cache.set(cache_key, batch_map))
+        return
+    except TypeError:
+        pass
+    except Exception:
+        logger.debug("Cache set failed for key '%s'.", cache_key, exc_info=True)
+        return
+
+    try:
+        await _resolve_maybe_await(
+            cache.set(
+                cache_key,
+                {"embedding_map": batch_map},
+                model="text-embedding-3-small",
                 temperature=0.0,
                 prompt_text=cache_key,
             )
@@ -415,11 +497,123 @@ async def _llm_classify_intent(
     return result
 
 
+async def _generate_embeddings(
+    niche_id: str,
+    keywords: list[str],
+    llm_client: KeywordExpansionLLMClient | Any | None,
+    cache: KeywordExpansionCache | Any | None,
+) -> dict[str, list[float] | None]:
+    """Step 2g: text-embedding-3-small for all keywords. Returns {keyword: vector|None}."""
+    cleaned_keywords = [kw.strip() for kw in keywords if isinstance(kw, str) and kw.strip()]
+    if not cleaned_keywords:
+        return {}
+    if llm_client is None or not hasattr(llm_client, "embed"):
+        return {kw: None for kw in cleaned_keywords}
+
+    result: dict[str, list[float] | None] = {}
+    for batch_start in range(0, len(cleaned_keywords), 100):
+        batch = cleaned_keywords[batch_start : batch_start + 100]
+        cache_key = _cache_key_for_keywords("embed_v1", niche_id, batch)
+        cached_batch_map = await _cache_get_embedding_map(cache, cache_key, batch)
+        if cached_batch_map is not None:
+            result.update(cached_batch_map)
+            continue
+
+        try:
+            response = llm_client.embed(batch, model="text-embedding-3-small")
+            resolved: Any = await _resolve_maybe_await(response)
+            payload = resolved.get("embeddings", []) if isinstance(resolved, dict) else resolved
+            if not isinstance(payload, list):
+                raise ValueError("Embedding response payload is not a list")
+
+            batch_map: dict[str, list[float] | None] = {}
+            for idx, keyword in enumerate(batch):
+                vector = payload[idx] if idx < len(payload) else None
+                batch_map[keyword] = _normalize_embedding_vector(vector)
+            if len(payload) < len(batch):
+                logger.warning(
+                    "Embedding response truncated niche=%s batch_start=%d expected=%d got=%d",
+                    niche_id,
+                    batch_start,
+                    len(batch),
+                    len(payload),
+                )
+        except Exception as exc:
+            logger.warning(
+                "Embedding generation failed niche=%s batch_start=%d: %s",
+                niche_id,
+                batch_start,
+                exc,
+            )
+            batch_map = {keyword: None for keyword in batch}
+
+        await _cache_set_embedding_map(cache, cache_key, batch_map)
+        result.update(batch_map)
+    return result
+
+
 async def _safe_pacing_wait(pacing_manager: Any, pacing_key: str, *, dry_run: bool) -> None:
     wait_fn = getattr(pacing_manager, "wait", None)
     if wait_fn is None:
         return
     await wait_fn(pacing_key, dry_run=dry_run)
+
+
+async def _fetch_fiverr_autocomplete(
+    seed: str,
+    niche_id: str,
+    session_manager: Any,
+    pacing_manager: Any,
+) -> list[dict[str, Any]]:
+    """Step 2a: Collect Fiverr autocomplete suggestions for one seed."""
+    from src.collection.fiverr_selectors import (
+        AUTOCOMPLETE_ITEM,
+        AUTOCOMPLETE_ITEM_TEXT,
+        SEARCH_BOX,
+    )
+
+    cleaned_seed = seed.strip()
+    if not cleaned_seed or session_manager is None:
+        return []
+
+    page: Any = None
+    try:
+        page = await session_manager.new_page()
+        url = f"https://www.fiverr.com/search/gigs?query={quote(cleaned_seed)}"
+        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+
+        items = await page.query_selector_all(AUTOCOMPLETE_ITEM)
+        if not items:
+            search_box = await page.query_selector(SEARCH_BOX)
+            if search_box is not None:
+                await search_box.click()
+                await page.keyboard.type(cleaned_seed, delay=100)
+                await page.wait_for_timeout(1000)
+                items = await page.query_selector_all(AUTOCOMPLETE_ITEM)
+
+        suggestions: list[dict[str, Any]] = []
+        for position, item in enumerate(items[:10], start=1):
+            text_el = await item.query_selector(AUTOCOMPLETE_ITEM_TEXT)
+            raw_text = await text_el.inner_text() if text_el else await item.inner_text()
+            text = raw_text.strip() if isinstance(raw_text, str) else ""
+            if text:
+                suggestions.append({"text": text, "position": position})
+        return suggestions
+    except Exception as exc:
+        logger.warning(
+            "Fiverr autocomplete failed seed=%s niche=%s: %s",
+            cleaned_seed,
+            niche_id,
+            exc,
+        )
+        return []
+    finally:
+        if page is not None:
+            try:
+                await page.close()
+            except Exception:
+                logger.debug("Failed to close Fiverr autocomplete page.", exc_info=True)
+        await _safe_pacing_wait(pacing_manager, "fiverr_search", dry_run=False)
 
 
 async def _fetch_google_suggest(seed: str, pacing_manager: Any) -> list[str]:
@@ -492,6 +686,7 @@ def _write_keywords_to_db(
     db: Any,
     *,
     intent_map: dict[str, str | None] | None = None,
+    embedding_map: dict[str, list[float] | None] | None = None,
 ) -> int:
     if not _is_session(db):
         return 0
@@ -520,6 +715,7 @@ def _write_keywords_to_db(
         normalized = normalize_keyword(keyword_text)
         if not normalized or normalized in existing_normalized:
             continue
+        embedding_vector = embedding_map.get(keyword_text) if embedding_map else None
 
         db.add(
             Keyword(
@@ -527,6 +723,7 @@ def _write_keywords_to_db(
                 keyword=keyword_text,
                 normalized_keyword=normalized,
                 intent_class=(intent_map.get(keyword_text) if intent_map else None),
+                embedding_vector=json.dumps(embedding_vector) if embedding_vector is not None else None,
                 external_source="google_suggest",
                 source_collected_at=utc_now(),
                 metadata_json={"source": "google_suggest", "autocomplete_position": None},
@@ -557,7 +754,6 @@ async def run_keyword_expansion(
 
     `dry_run=True` is smoke-safe and performs no live browser/LLM activity.
     """
-    _ = (depth, session_manager)
     if dry_run:
         return {
             "niche_id": niche_id,
@@ -582,9 +778,28 @@ async def run_keyword_expansion(
     if not _FEATURE_FLAGS["step_2g_embedding_generation"]:
         logger.warning("Workflow 2 Step 2g stubbed: embedding generation is feature-flagged off.")
 
-    fiverr_autocomplete_keywords: list[str] = []
     llm_generated_keywords: list[str] = []
-    _ = (fiverr_autocomplete_keywords, llm_generated_keywords)
+
+    autocomplete_keywords: list[str] = []
+    if _FEATURE_FLAGS["step_2a_fiverr_autocomplete"] and session_manager is not None:
+        for seed in seeds:
+            if not isinstance(seed, str):
+                continue
+            suggestions = await _fetch_fiverr_autocomplete(
+                seed=seed,
+                niche_id=niche_id,
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+            )
+            autocomplete_keywords.extend(
+                suggestion["text"].strip()
+                for suggestion in suggestions
+                if isinstance(suggestion, dict)
+                and isinstance(suggestion.get("text"), str)
+                and suggestion["text"].strip()
+            )
+    deduplicated_autocomplete = _deduplicate_keywords(autocomplete_keywords)
+    autocomplete_count = len(deduplicated_autocomplete)
 
     google_suggest_keywords: list[str] = []
     for seed in seeds:
@@ -595,7 +810,8 @@ async def run_keyword_expansion(
     deduplicated_google = _deduplicate_keywords(google_suggest_keywords)
     google_suggest_count = len(deduplicated_google)
 
-    combined_keywords = list(deduplicated_google)
+    combined_keywords = list(deduplicated_autocomplete)
+    combined_keywords.extend(deduplicated_google)
     if _FEATURE_FLAGS["step_2c_llm_generation"]:
         llm_generated_keywords = await _llm_generate_keywords(
             niche_id=niche_id,
@@ -627,6 +843,17 @@ async def run_keyword_expansion(
     else:
         intent_map = {}
 
+    is_feasibility_depth = depth.strip().lower() == "feasibility"
+    if _FEATURE_FLAGS["step_2g_embedding_generation"] and not is_feasibility_depth:
+        embedding_map = await _generate_embeddings(
+            niche_id=niche_id,
+            keywords=deduplicated_keywords,
+            llm_client=llm_client,
+            cache=cache,
+        )
+    else:
+        embedding_map = {}
+
     keywords_queued = len(deduplicated_keywords)
     if _is_session(db):
         keywords_queued = _write_keywords_to_db(
@@ -634,16 +861,18 @@ async def run_keyword_expansion(
             deduplicated_keywords,
             db,
             intent_map=intent_map,
+            embedding_map=embedding_map,
         )
 
     return {
         "niche_id": niche_id,
         "keywords_queued": keywords_queued,
         "sources": {
-            "fiverr_autocomplete": 0,
+            "fiverr_autocomplete": autocomplete_count,
             "google_suggest": google_suggest_count,
             "llm_generated": len(llm_generated_keywords),
         },
+        "autocomplete_count": autocomplete_count,
         "dry_run": False,
     }
 

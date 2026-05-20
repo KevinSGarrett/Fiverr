@@ -36,6 +36,15 @@ RETRY_CONFIG: dict[str, dict[str, Any]] = {
         "no_retry_on": ["HTTP_404"],
         "session_refresh_on": ["SESSION_EXPIRED"],
     },
+    "AUTOCOMPLETE": {
+        "max_retries": 3,
+        "backoff_base_seconds": 10,
+        "backoff_multiplier": 2.0,
+        "max_backoff_seconds": 60,
+        "dead_letter_on": ["HTTP_404", "HTTP_410"],
+        "no_retry_on": ["HTTP_404", "HTTP_410"],
+        "session_refresh_on": ["SESSION_EXPIRED"],
+    },
     "KEYWORD_EXPAND": {
         "max_retries": 2,
         "backoff_base_seconds": 10,

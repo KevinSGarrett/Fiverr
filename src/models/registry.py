@@ -20,7 +20,7 @@ from src.models.collection_runtime import (
 from src.models.external_signal import ExternalSignal
 from src.models.gig import Gig
 from src.models.job import Job
-from src.models.market import Keyword, Review
+from src.models.market import AutocompleteSuggestion, Keyword, Review
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.runtime import (
     AlertEvent,
@@ -40,6 +40,7 @@ REGISTERED_MODEL_CLASSES = (
     NicheConfigRecord,
     Niche,
     Keyword,
+    AutocompleteSuggestion,
     SearchResult,
     Gig,
     Seller,
@@ -123,6 +124,7 @@ TABLE_DOMAIN_MAP = {
         "gigs",
         "sellers",
         "reviews",
+        "autocomplete_suggestions",
         "external_signals",
     },
     "analysis": {

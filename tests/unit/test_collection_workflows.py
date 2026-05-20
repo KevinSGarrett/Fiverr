@@ -147,6 +147,35 @@ def test_keyword_expansion_dry_run() -> None:
     assert result["keywords_queued"] == 0
 
 
+def test_w2_full_pipeline_dry_run_all_flags_active() -> None:
+    all_real_flags = {
+        "step_2a_fiverr_autocomplete": True,
+        "step_2c_llm_generation": True,
+        "step_2d_llm_relevance_filter": True,
+        "step_2f_llm_intent_classification": True,
+        "step_2g_embedding_generation": True,
+    }
+    with patch("src.collection.workflows.keyword_expansion._FEATURE_FLAGS", all_real_flags):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["mvp", "roadmap"],
+                depth="standard",
+                run_id="run-w2-dry-all-flags",
+                db=None,
+                session_manager=AsyncMock(),
+                pacing_manager=AsyncMock(),
+                dry_run=True,
+                llm_client=AsyncMock(),
+            )
+        )
+
+    assert result["dry_run"] is True
+    assert result["niche_id"] == "ai_saas"
+    assert "sources" in result
+    assert set(result["sources"].keys()) == {"fiverr_autocomplete", "google_suggest", "llm_generated"}
+
+
 def test_keyword_expansion_real_path_returns_result(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fake_fetch(_seed: str, _pacing_manager: object) -> list[str]:
         return ["mvp roadmap", "MVP Roadmap"]
@@ -619,6 +648,37 @@ def test_w3_real_keyword_only_no_jobs() -> None:
         assert rows == 0
     finally:
         session.close()
+
+
+def test_w3_real_enqueues_autocomplete_job_when_enabled() -> None:
+    _page, session_manager, pacing_manager = _build_real_search_mocks()
+    db = object()
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ), patch("src.collection.workflows.fiverr_search.enqueue_autocomplete_job", return_value=True) as enqueue_mock:
+        result = _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-22a",
+                db=db,
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+                enqueue_autocomplete=True,
+            )
+        )
+
+    enqueue_mock.assert_called_once_with(
+        keyword_id=2,
+        keyword_text="python",
+        niche_id="ai_saas",
+        run_id="run-22a",
+        db=db,
+    )
+    assert result["autocomplete_jobs_queued"] == 1
 
 
 def test_w3_real_closes_page_on_success() -> None:
