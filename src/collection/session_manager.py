@@ -132,26 +132,26 @@ class SessionManager:
     async def is_session_valid(self) -> bool:
         """Check whether current session is valid without side effects."""
         try:
-            context = await self._get_context()
+            context = await self._get_context(allow_login=False)
             return await self._verify_session(context)
         except Exception:
             return False
 
-    async def _initialize(self) -> None:
+    async def _initialize(self, *, allow_login: bool = True) -> None:
         """Initialize shared browser context once (idempotent)."""
         if self._context is not None:
             return
-        self._context = await self._load_or_login()
+        self._context = await self._load_or_login(allow_login=allow_login)
 
-    async def _get_context(self) -> BrowserContext:
+    async def _get_context(self, *, allow_login: bool = True) -> BrowserContext:
         """Get initialized browser context, initializing on first use."""
         if self._context is None:
-            await self._initialize()
+            await self._initialize(allow_login=allow_login)
         if self._context is None:  # pragma: no cover - safety net
             raise RuntimeError("Session context initialization failed.")
         return self._context
 
-    async def _load_or_login(self) -> BrowserContext:
+    async def _load_or_login(self, *, allow_login: bool = True) -> BrowserContext:
         """Load saved session if valid; otherwise trigger headed login flow."""
         if self.session_file.exists():
             context = await self._load_session_headless()
@@ -162,6 +162,8 @@ class SessionManager:
             if self._browser is not None:
                 await self._browser.close()
                 self._browser = None
+        if not allow_login:
+            raise SessionLoginError("Session invalid or missing while interactive login is disabled.")
         return await self._headed_login_flow()
 
     async def _load_session_headless(self) -> BrowserContext:

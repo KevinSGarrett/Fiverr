@@ -141,6 +141,16 @@ def test_load_or_login_no_session_file() -> None:
     sm._load_session_headless.assert_not_called()
 
 
+def test_load_or_login_no_session_file_login_disabled_raises() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/not-there.json"}})
+    sm._headed_login_flow = AsyncMock(return_value=MagicMock())
+
+    with pytest.raises(SessionLoginError):
+        _run(sm._load_or_login(allow_login=False))
+
+    sm._headed_login_flow.assert_not_awaited()
+
+
 def test_load_or_login_session_expired(tmp_path: Path) -> None:
     session_path = tmp_path / "fiverr_session.json"
     session_path.write_text("{}", encoding="utf-8")
@@ -231,6 +241,17 @@ def test_is_session_valid_handles_exceptions() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     sm._get_context = AsyncMock(side_effect=RuntimeError("boom"))
     assert _run(sm.is_session_valid()) is False
+
+
+def test_is_session_valid_does_not_trigger_login_flow(tmp_path: Path) -> None:
+    session_path = tmp_path / "missing_session.json"
+    sm = SessionManager({"fiverr": {"session_file": str(session_path)}})
+    sm._headed_login_flow = AsyncMock(return_value=MagicMock())
+    sm._verify_session = AsyncMock(return_value=True)
+
+    assert _run(sm.is_session_valid()) is False
+    sm._headed_login_flow.assert_not_awaited()
+    sm._verify_session.assert_not_awaited()
 
 
 def test_is_session_valid_true() -> None:
