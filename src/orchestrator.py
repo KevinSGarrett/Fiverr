@@ -15,6 +15,8 @@ from src.models.database import (
     initialize_database,
     normalize_database_url,
 )
+from src.models.gig import Gig
+from src.models.search_result import SearchResult
 from src.scripts.foundation_gate import run_foundation_gate
 from src.scripts.init_db import main as init_db_script_main
 from src.utils.datetime import timestamp_stamp
@@ -57,6 +59,30 @@ PHASE2_EXPECTED_GATES = (
     "codecov/project",
     "codecov/patch",
 )
+
+
+def _resolve_existing_run_id(db_session: Any) -> str | None:
+    """Resolve the most recent collection run_id available in local DB."""
+    if not hasattr(db_session, "query"):
+        return None
+
+    latest_search_run = (
+        db_session.query(SearchResult.run_id).order_by(SearchResult.collected_at.desc()).limit(1).scalar()
+    )
+    if isinstance(latest_search_run, str) and latest_search_run.strip():
+        return latest_search_run.strip()
+
+    latest_gig_run = (
+        db_session.query(Gig.run_id)
+        .filter(Gig.run_id.isnot(None))
+        .order_by(Gig.created_at.desc())
+        .limit(1)
+        .scalar()
+    )
+    if isinstance(latest_gig_run, str) and latest_gig_run.strip():
+        return latest_gig_run.strip()
+
+    return None
 
 
 def build_dashboard_readiness_handoff(
@@ -419,10 +445,10 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
 
         from src.analysis.keyword_clusterer import run_clustering_for_all_niches
 
-        run_id = str(uuid.uuid4())
         session_factory = create_session_factory(engine)
         try:
             with get_session(session_factory) as db_session:
+                run_id = _resolve_existing_run_id(db_session) or str(uuid.uuid4())
                 result = asyncio.run(
                     run_clustering_for_all_niches(
                         run_id=run_id,
@@ -443,10 +469,10 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
 
         from src.analysis.competitor_profiler import run_competitor_profiling_for_all_niches
 
-        run_id = str(uuid.uuid4())
         session_factory = create_session_factory(engine)
         try:
             with get_session(session_factory) as db_session:
+                run_id = _resolve_existing_run_id(db_session) or str(uuid.uuid4())
                 result = asyncio.run(
                     run_competitor_profiling_for_all_niches(
                         run_id=run_id,
@@ -466,10 +492,10 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
 
         from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_all_niches
 
-        run_id = str(uuid.uuid4())
         session_factory = create_session_factory(engine)
         try:
             with get_session(session_factory) as db_session:
+                run_id = _resolve_existing_run_id(db_session) or str(uuid.uuid4())
                 result = asyncio.run(
                     run_gig_quality_analysis_for_all_niches(
                         run_id=run_id,
@@ -489,10 +515,10 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
 
         from src.analysis.review_analyzer import run_review_analysis_for_all_niches
 
-        run_id = str(uuid.uuid4())
         session_factory = create_session_factory(engine)
         try:
             with get_session(session_factory) as db_session:
+                run_id = _resolve_existing_run_id(db_session) or str(uuid.uuid4())
                 result = asyncio.run(
                     run_review_analysis_for_all_niches(
                         run_id=run_id,
