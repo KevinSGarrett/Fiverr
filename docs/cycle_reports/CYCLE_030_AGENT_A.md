@@ -129,7 +129,7 @@
 | 12 | PASS | Artifact checks run; cycle report created; no forbidden artifacts staged in Agent A scope. |
 | 13 | PASS | Final `_FEATURE_FLAGS` state verified and documented. |
 | 14 | PASS | Workflow smoke and unit-suite runs complete (`82` keyword-expansion tests, `1707` full unit tests). |
-| 15 | IN PROGRESS | Scoped staging/commit/final SHA freeze pending final commit step. |
+| 15 | PASS | Scoped commit completed: `feat(collection): W2 Step 2g embedding generation + selector spec aliases [Agent A Cycle 030]` with handoff code SHA frozen. |
 
 ## Targeted Test Counts
 - `python -m pytest -q tests/unit/test_keyword_expansion.py -k "embedding" --no-header` => `8 passed`
@@ -153,7 +153,7 @@
 - Staging hygiene target: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` in commit scope
 
 ## Final Agent Commit SHA
-- `PENDING_COMMIT_SHA`
+- `983b45f6dd686ca1fd79d68c9d38fec593dd8160`
 
 ## Handoff Notes for Agent B
 - Workflow 2 Step 2g is now real and enabled:
