@@ -93,7 +93,9 @@ async def run_reddit_signals_collection(
         }
 
     try:
-        import praw  # type: ignore[import-not-found]
+        import importlib
+
+        praw = importlib.import_module("praw")
     except Exception as exc:  # pragma: no cover - guarded by dependency check tests
         raise RuntimeError("praw is required for Reddit collection. Install praw>=7.7,<8.0.") from exc
 
