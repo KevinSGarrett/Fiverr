@@ -20,6 +20,7 @@ from src.collection.workflows.keyword_expansion import (
     _deduplicate_keywords,
     _extract_cached_keywords,
     _extract_relevant_keywords,
+    _fetch_fiverr_autocomplete,
     _fetch_google_suggest,
     _generate_embeddings,
     _is_session,
@@ -58,12 +59,14 @@ class _AsyncCache:
 def _set_feature_flags(
     monkeypatch,
     *,
+    step_2a: bool = True,
     step_2c: bool = True,
     step_2d: bool = True,
     step_2f: bool = False,
     step_2g: bool = True,
 ):
     updated = dict(_FEATURE_FLAGS)
+    updated["step_2a_fiverr_autocomplete"] = step_2a
     updated["step_2c_llm_generation"] = step_2c
     updated["step_2d_llm_relevance_filter"] = step_2d
     updated["step_2f_llm_intent_classification"] = step_2f
@@ -193,6 +196,189 @@ def test_fetch_google_suggest_uses_query_params(monkeypatch) -> None:
     assert result == ["result"]
     assert captured["url"] == "https://suggestqueries.google.com/complete/search"
     assert captured["params"] == {"q": "ai & ml+dev #1", "client": "firefox"}
+
+
+def _build_autocomplete_item(
+    text: str,
+    *,
+    with_text_element: bool = False,
+) -> AsyncMock:
+    item = AsyncMock()
+    if with_text_element:
+        text_el = AsyncMock()
+        text_el.inner_text = AsyncMock(return_value=text)
+        item.query_selector = AsyncMock(return_value=text_el)
+        item.inner_text = AsyncMock(return_value="unused")
+    else:
+        item.query_selector = AsyncMock(return_value=None)
+        item.inner_text = AsyncMock(return_value=text)
+    return item
+
+
+def _build_autocomplete_page(
+    *,
+    initial_items: list[AsyncMock] | None = None,
+    fallback_items: list[AsyncMock] | None = None,
+    goto_error: Exception | None = None,
+) -> tuple[AsyncMock, AsyncMock]:
+    page = AsyncMock()
+    page.goto = AsyncMock(side_effect=goto_error) if goto_error else AsyncMock()
+    if fallback_items is None:
+        page.query_selector_all = AsyncMock(return_value=initial_items or [])
+    else:
+        page.query_selector_all = AsyncMock(side_effect=[initial_items or [], fallback_items])
+    search_box = AsyncMock()
+    search_box.click = AsyncMock()
+    page.query_selector = AsyncMock(return_value=search_box)
+    page.keyboard = SimpleNamespace(type=AsyncMock())
+    page.wait_for_timeout = AsyncMock()
+    page.close = AsyncMock()
+    return page, search_box
+
+
+def test_fetch_fiverr_autocomplete_returns_suggestions() -> None:
+    item = _build_autocomplete_item("  AI logo design  ", with_text_element=True)
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == [{"text": "AI logo design", "position": 1}]
+    session_manager.new_page.assert_awaited_once()
+
+
+def test_fetch_fiverr_autocomplete_approach_b_keypress() -> None:
+    item = _build_autocomplete_item("fallback suggestion")
+    page, search_box = _build_autocomplete_page(initial_items=[], fallback_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "seed term",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == [{"text": "fallback suggestion", "position": 1}]
+    search_box.click.assert_awaited_once()
+    page.keyboard.type.assert_awaited_once_with("seed term", delay=100)
+    page.wait_for_timeout.assert_awaited_once_with(1000)
+
+
+def test_fetch_fiverr_autocomplete_caps_at_10() -> None:
+    items = [_build_autocomplete_item(f"kw-{idx}") for idx in range(15)]
+    page, _search_box = _build_autocomplete_page(initial_items=items)
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert len(result) == 10
+    assert result[0]["position"] == 1
+    assert result[-1]["position"] == 10
+    assert result[-1]["text"] == "kw-9"
+
+
+def test_fetch_fiverr_autocomplete_timeout_returns_empty() -> None:
+    page, _search_box = _build_autocomplete_page(goto_error=TimeoutError("timeout"))
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    result = _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    assert result == []
+
+
+def test_fetch_fiverr_autocomplete_calls_pacing() -> None:
+    item = _build_autocomplete_item("keyword")
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    pacing_manager.wait.assert_awaited_once_with("fiverr_search", dry_run=False)
+
+
+def test_fetch_fiverr_autocomplete_closes_page_on_success() -> None:
+    item = _build_autocomplete_item("keyword")
+    page, _search_box = _build_autocomplete_page(initial_items=[item])
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    page.close.assert_awaited_once()
+
+
+def test_fetch_fiverr_autocomplete_closes_page_on_error() -> None:
+    page, _search_box = _build_autocomplete_page(goto_error=RuntimeError("boom"))
+    session_manager = AsyncMock()
+    session_manager.new_page = AsyncMock(return_value=page)
+    pacing_manager = AsyncMock()
+    pacing_manager.wait = AsyncMock()
+
+    _run(
+        _fetch_fiverr_autocomplete(
+            "ai",
+            "ai_saas",
+            session_manager,
+            pacing_manager,
+        )
+    )
+
+    page.close.assert_awaited_once()
 
 
 def test_safe_pacing_wait_without_wait_method() -> None:
@@ -805,6 +991,82 @@ def test_run_expansion_skips_llm_when_flags_false(monkeypatch) -> None:
 
     assert result["keywords_queued"] == 1
     llm_client.complete.assert_not_called()
+
+
+def test_run_expansion_step2a_autocomplete_enabled(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=True, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
+    google_mock = AsyncMock(return_value=["google keyword"])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2a-on",
+                    db=None,
+                    session_manager=AsyncMock(),
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert result["sources"]["fiverr_autocomplete"] == 1
+    assert result["autocomplete_count"] == 1
+    assert result["keywords_queued"] == 2
+    autocomplete_mock.assert_awaited_once()
+
+
+def test_run_expansion_step2a_autocomplete_no_session_manager(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=True, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
+    google_mock = AsyncMock(return_value=["google keyword"])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2a-no-session",
+                    db=None,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert result["sources"]["fiverr_autocomplete"] == 0
+    assert result["autocomplete_count"] == 0
+    autocomplete_mock.assert_not_awaited()
+
+
+def test_run_expansion_step2a_autocomplete_disabled(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2a=False, step_2c=False, step_2d=False, step_2f=False, step_2g=False)
+    autocomplete_mock = AsyncMock(return_value=[{"text": "fiverr keyword", "position": 1}])
+    google_mock = AsyncMock(return_value=["google keyword"])
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_fiverr_autocomplete", new=autocomplete_mock):
+        with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=google_mock):
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2a-off",
+                    db=None,
+                    session_manager=AsyncMock(),
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                )
+            )
+
+    assert result["sources"]["fiverr_autocomplete"] == 0
+    assert result["autocomplete_count"] == 0
+    autocomplete_mock.assert_not_awaited()
 
 
 def test_run_expansion_dry_run_unchanged(monkeypatch) -> None:

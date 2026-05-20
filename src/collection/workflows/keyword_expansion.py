@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Protocol, cast
+from urllib.parse import quote
 
 import httpx
 
@@ -21,7 +22,7 @@ _STAGE02_TEMPLATE_RENDERER = TemplateRenderer(
 )
 
 _FEATURE_FLAGS: dict[str, bool] = {
-    "step_2a_fiverr_autocomplete": False,
+    "step_2a_fiverr_autocomplete": True,
     "step_2c_llm_generation": True,
     "step_2d_llm_relevance_filter": True,
     "step_2f_llm_intent_classification": True,
@@ -558,6 +559,63 @@ async def _safe_pacing_wait(pacing_manager: Any, pacing_key: str, *, dry_run: bo
     await wait_fn(pacing_key, dry_run=dry_run)
 
 
+async def _fetch_fiverr_autocomplete(
+    seed: str,
+    niche_id: str,
+    session_manager: Any,
+    pacing_manager: Any,
+) -> list[dict[str, Any]]:
+    """Step 2a: Collect Fiverr autocomplete suggestions for one seed."""
+    from src.collection.fiverr_selectors import (
+        AUTOCOMPLETE_ITEM,
+        AUTOCOMPLETE_ITEM_TEXT,
+        SEARCH_BOX,
+    )
+
+    cleaned_seed = seed.strip()
+    if not cleaned_seed or session_manager is None:
+        return []
+
+    page: Any = None
+    try:
+        page = await session_manager.new_page()
+        url = f"https://www.fiverr.com/search/gigs?query={quote(cleaned_seed)}"
+        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+
+        items = await page.query_selector_all(AUTOCOMPLETE_ITEM)
+        if not items:
+            search_box = await page.query_selector(SEARCH_BOX)
+            if search_box is not None:
+                await search_box.click()
+                await page.keyboard.type(cleaned_seed, delay=100)
+                await page.wait_for_timeout(1000)
+                items = await page.query_selector_all(AUTOCOMPLETE_ITEM)
+
+        suggestions: list[dict[str, Any]] = []
+        for position, item in enumerate(items[:10], start=1):
+            text_el = await item.query_selector(AUTOCOMPLETE_ITEM_TEXT)
+            raw_text = await text_el.inner_text() if text_el else await item.inner_text()
+            text = raw_text.strip() if isinstance(raw_text, str) else ""
+            if text:
+                suggestions.append({"text": text, "position": position})
+        return suggestions
+    except Exception as exc:
+        logger.warning(
+            "Fiverr autocomplete failed seed=%s niche=%s: %s",
+            cleaned_seed,
+            niche_id,
+            exc,
+        )
+        return []
+    finally:
+        if page is not None:
+            try:
+                await page.close()
+            except Exception:
+                logger.debug("Failed to close Fiverr autocomplete page.", exc_info=True)
+        await _safe_pacing_wait(pacing_manager, "fiverr_search", dry_run=False)
+
+
 async def _fetch_google_suggest(seed: str, pacing_manager: Any) -> list[str]:
     """Fetches Google Suggest completions for a seed keyword."""
     cleaned_seed = seed.strip()
@@ -696,7 +754,6 @@ async def run_keyword_expansion(
 
     `dry_run=True` is smoke-safe and performs no live browser/LLM activity.
     """
-    _ = session_manager
     if dry_run:
         return {
             "niche_id": niche_id,
@@ -721,9 +778,28 @@ async def run_keyword_expansion(
     if not _FEATURE_FLAGS["step_2g_embedding_generation"]:
         logger.warning("Workflow 2 Step 2g stubbed: embedding generation is feature-flagged off.")
 
-    fiverr_autocomplete_keywords: list[str] = []
     llm_generated_keywords: list[str] = []
-    _ = (fiverr_autocomplete_keywords, llm_generated_keywords)
+
+    autocomplete_keywords: list[str] = []
+    if _FEATURE_FLAGS["step_2a_fiverr_autocomplete"] and session_manager is not None:
+        for seed in seeds:
+            if not isinstance(seed, str):
+                continue
+            suggestions = await _fetch_fiverr_autocomplete(
+                seed=seed,
+                niche_id=niche_id,
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+            )
+            autocomplete_keywords.extend(
+                suggestion["text"].strip()
+                for suggestion in suggestions
+                if isinstance(suggestion, dict)
+                and isinstance(suggestion.get("text"), str)
+                and suggestion["text"].strip()
+            )
+    deduplicated_autocomplete = _deduplicate_keywords(autocomplete_keywords)
+    autocomplete_count = len(deduplicated_autocomplete)
 
     google_suggest_keywords: list[str] = []
     for seed in seeds:
@@ -734,7 +810,8 @@ async def run_keyword_expansion(
     deduplicated_google = _deduplicate_keywords(google_suggest_keywords)
     google_suggest_count = len(deduplicated_google)
 
-    combined_keywords = list(deduplicated_google)
+    combined_keywords = list(deduplicated_autocomplete)
+    combined_keywords.extend(deduplicated_google)
     if _FEATURE_FLAGS["step_2c_llm_generation"]:
         llm_generated_keywords = await _llm_generate_keywords(
             niche_id=niche_id,
@@ -791,10 +868,11 @@ async def run_keyword_expansion(
         "niche_id": niche_id,
         "keywords_queued": keywords_queued,
         "sources": {
-            "fiverr_autocomplete": 0,
+            "fiverr_autocomplete": autocomplete_count,
             "google_suggest": google_suggest_count,
             "llm_generated": len(llm_generated_keywords),
         },
+        "autocomplete_count": autocomplete_count,
         "dry_run": False,
     }
 

@@ -4,6 +4,17 @@
 LOGGED_IN_INDICATOR = "[data-testid='user-menu-button']"
 LOGGED_IN_FALLBACK = ".nav-link.user-actions"
 
+# ─── Autocomplete / search suggestions ─────────────────────────────────
+# UNVERIFIED — requires live DOM validation before first real run
+SEARCH_BOX = "[data-testid='search-bar-input'], input[placeholder*='Find'], input[name='query']"
+AUTOCOMPLETE_DROPDOWN = (
+    "[data-testid='search-suggestion-dropdown'], .search-suggestions, .autocomplete-dropdown"
+)
+AUTOCOMPLETE_ITEM = (
+    "[data-testid='search-suggestion-item'], .search-suggestion-item, .suggestion-item"
+)
+AUTOCOMPLETE_ITEM_TEXT = "[data-testid='search-suggestion-text'], .suggestion-text"
+
 # Search results page
 SEARCH_RESULT_COUNT = "[data-testid='results-count'], .results-count, h1.listings-perseus"
 GIG_CARD_CONTAINER = "[data-testid='gig-card-layout'], .gig-card-layout"

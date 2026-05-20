@@ -147,6 +147,35 @@ def test_keyword_expansion_dry_run() -> None:
     assert result["keywords_queued"] == 0
 
 
+def test_w2_full_pipeline_dry_run_all_flags_active() -> None:
+    all_real_flags = {
+        "step_2a_fiverr_autocomplete": True,
+        "step_2c_llm_generation": True,
+        "step_2d_llm_relevance_filter": True,
+        "step_2f_llm_intent_classification": True,
+        "step_2g_embedding_generation": True,
+    }
+    with patch("src.collection.workflows.keyword_expansion._FEATURE_FLAGS", all_real_flags):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["mvp", "roadmap"],
+                depth="standard",
+                run_id="run-w2-dry-all-flags",
+                db=None,
+                session_manager=AsyncMock(),
+                pacing_manager=AsyncMock(),
+                dry_run=True,
+                llm_client=AsyncMock(),
+            )
+        )
+
+    assert result["dry_run"] is True
+    assert result["niche_id"] == "ai_saas"
+    assert "sources" in result
+    assert set(result["sources"].keys()) == {"fiverr_autocomplete", "google_suggest", "llm_generated"}
+
+
 def test_keyword_expansion_real_path_returns_result(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fake_fetch(_seed: str, _pacing_manager: object) -> list[str]:
         return ["mvp roadmap", "MVP Roadmap"]
