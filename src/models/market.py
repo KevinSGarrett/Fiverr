@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Float,
@@ -96,6 +97,34 @@ class ClusterLabel(IntegerPrimaryKeyMixin, Base):
     opportunity_narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     keyword_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )
+
+
+class CompetitorProfile(IntegerPrimaryKeyMixin, Base):
+    """Persist Stage 10 per-niche competitor benchmark snapshots."""
+
+    __tablename__ = "competitor_profiles"
+    __table_args__ = (
+        UniqueConstraint("niche_id", "run_id", name="uq_competitor_profiles_niche_run"),
+    )
+
+    niche_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    top_gig_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    median_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mean_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_std: Mapped[float | None] = mapped_column(Float, nullable=True)
+    median_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mean_reviews: Mapped[float | None] = mapped_column(Float, nullable=True)
+    seller_level_distribution: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False, default=dict)
+    min_delivery_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_delivery_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    video_present_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    portfolio_present_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=func.now(),
@@ -280,6 +309,61 @@ def write_cluster_label(
         row.label_text = label_text
         row.opportunity_narrative = opportunity_narrative
         row.keyword_count = keyword_count
+
+    db.add(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def write_competitor_profile(
+    *,
+    niche_id: str,
+    run_id: str,
+    db: Any,
+    top_gig_count: int = 0,
+    median_price: float | None = None,
+    mean_price: float | None = None,
+    price_std: float | None = None,
+    median_rating: float | None = None,
+    mean_reviews: float | None = None,
+    seller_level_distribution: dict[str, float] | None = None,
+    min_delivery_days: int | None = None,
+    max_delivery_days: int | None = None,
+    video_present_rate: float | None = None,
+    portfolio_present_rate: float | None = None,
+    commit: bool = True,
+) -> CompetitorProfile | None:
+    """Upsert a competitor benchmark profile keyed by niche/run."""
+    if not isinstance(db, Session):
+        return None
+
+    row = (
+        db.query(CompetitorProfile)
+        .filter(
+            CompetitorProfile.niche_id == niche_id,
+            CompetitorProfile.run_id == run_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = CompetitorProfile(
+            niche_id=niche_id,
+            run_id=run_id,
+        )
+
+    row.top_gig_count = int(top_gig_count)
+    row.median_price = median_price
+    row.mean_price = mean_price
+    row.price_std = price_std
+    row.median_rating = median_rating
+    row.mean_reviews = mean_reviews
+    row.seller_level_distribution = dict(seller_level_distribution or {"UNKNOWN": 1.0})
+    row.min_delivery_days = min_delivery_days
+    row.max_delivery_days = max_delivery_days
+    row.video_present_rate = video_present_rate
+    row.portfolio_present_rate = portfolio_present_rate
 
     db.add(row)
     if commit:

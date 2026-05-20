@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
+from typing import Any
 
 from src.analysis.contracts import (
     AnalysisEvidence,
@@ -22,6 +24,17 @@ _LEVEL_SCORES: dict[str, float] = {
     "level two": 72.0,
     "top rated": 90.0,
     "pro": 96.0,
+}
+
+_COMPETITOR_LEVEL_SCORES: dict[str, float] = {
+    "no level": 10.0,
+    "new": 15.0,
+    "level 1": 45.0,
+    "level one": 45.0,
+    "level 2": 70.0,
+    "level two": 70.0,
+    "top rated": 90.0,
+    "pro": 100.0,
 }
 
 
@@ -61,6 +74,100 @@ def _extract_numeric(text: str) -> int:
     if match is None:
         return 1
     return int(match.group(1))
+
+
+def _parse_response_rate_percent(raw_value: Any) -> float:
+    if raw_value is None:
+        return 0.0
+    if isinstance(raw_value, bool):
+        return 0.0
+    if isinstance(raw_value, int | float):
+        return float(max(0.0, min(100.0, float(raw_value))))
+    if not isinstance(raw_value, str):
+        return 0.0
+
+    cleaned = raw_value.strip().replace("%", "")
+    if not cleaned:
+        return 0.0
+    try:
+        return float(max(0.0, min(100.0, float(cleaned))))
+    except ValueError:
+        return 0.0
+
+
+def _estimate_member_tenure_years(member_since: Any) -> float:
+    if not isinstance(member_since, str):
+        return 0.0
+    candidate = member_since.strip()
+    if not candidate:
+        return 0.0
+
+    # Fiverr commonly surfaces month/year strings like "Mar 2022".
+    parsed: datetime | None = None
+    for fmt in ("%b %Y", "%B %Y", "%Y-%m-%d"):
+        try:
+            parsed = datetime.strptime(candidate, fmt).replace(tzinfo=UTC)
+            break
+        except ValueError:
+            continue
+    if parsed is None:
+        return 0.0
+    now = datetime.now(UTC)
+    delta_days = max(0.0, (now - parsed).days)
+    return delta_days / 365.25
+
+
+def compute_seller_strength_score(seller_row: dict[str, Any]) -> float:
+    """Compute seller strength composite score (0-100)."""
+    level_raw = seller_row.get("seller_level")
+    if level_raw is None or not str(level_raw).strip():
+        level_component = 0.0
+    else:
+        level_value = _normalize_level(str(level_raw))
+        level_component = _COMPETITOR_LEVEL_SCORES.get(level_value, 10.0)
+
+    total_reviews_raw = seller_row.get("total_reviews")
+    total_reviews = _extract_numeric(str(total_reviews_raw)) if total_reviews_raw is not None else 0
+    review_component = float(max(0.0, min(100.0, (total_reviews / 500.0) * 100.0)))
+
+    total_gigs_raw = seller_row.get("total_gigs")
+    if total_gigs_raw is None:
+        specialization_component = 0.0
+    else:
+        total_gigs = _extract_numeric(str(total_gigs_raw))
+        if total_gigs <= 2:
+            specialization_component = 100.0
+        elif total_gigs <= 5:
+            specialization_component = 80.0
+        elif total_gigs <= 10:
+            specialization_component = 60.0
+        else:
+            specialization_component = 40.0
+
+    response_rate_component = _parse_response_rate_percent(seller_row.get("response_rate"))
+    tenure_years = _estimate_member_tenure_years(seller_row.get("member_since"))
+    tenure_component = float(max(0.0, min(100.0, (tenure_years / 7.0) * 100.0)))
+
+    weighted_score = (
+        (level_component * 0.35)
+        + (review_component * 0.30)
+        + (specialization_component * 0.15)
+        + (response_rate_component * 0.10)
+        + (tenure_component * 0.10)
+    )
+    return round(max(0.0, min(100.0, weighted_score)), 2)
+
+
+def classify_seller_tier(score: float) -> str:
+    """Classify seller strength tiers from a 0-100 score."""
+    normalized = max(0.0, min(100.0, float(score)))
+    if normalized >= 80.0:
+        return "DOMINANT"
+    if normalized >= 65.0:
+        return "STRONG"
+    if normalized >= 45.0:
+        return "MODERATE"
+    return "WEAK"
 
 
 def score_seller_strength(payload: SellerStrengthInput) -> SellerStrengthResult:

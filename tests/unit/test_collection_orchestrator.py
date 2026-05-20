@@ -48,6 +48,7 @@ def test_run_collection_dry_run_stages_run() -> None:
         "stage03_fiverr_search",
         "stage04_gig_detail",
         "stage05_seller_profile",
+        "stage10_competitor_profiling",
         "stage08_autocomplete",
     ]
 
@@ -141,6 +142,33 @@ def test_stage9_skipped_at_feasibility_depth() -> None:
         for entry in result["clustering_results"]
         if isinstance(entry, dict)
     )
+
+
+def test_stage10_registered_in_pipeline() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage10-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage10_competitor_profiling" in result["stages_run"]
+
+
+def test_stage10_after_stage5() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage10-order",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    stage_order = result["stages_run"]
+    assert stage_order.index("stage10_competitor_profiling") > stage_order.index("stage05_seller_profile")
 
 
 def test_orchestrator_checkpoint_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

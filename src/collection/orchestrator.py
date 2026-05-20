@@ -130,6 +130,8 @@ async def run_collection_pipeline(
 
     Real collection (dry_run=False) remains intentionally blocked until browser wiring lands.
     """
+    from src.analysis.competitor_profiler import run_competitor_profiling_for_niche
+    from src.analysis.keyword_clusterer import run_clustering_for_niche
     from src.collection.checkpoint import CheckpointManager
     from src.collection.pacing import PacingManager
     from src.collection.workflows.autocomplete import run_autocomplete_collection
@@ -138,7 +140,6 @@ async def run_collection_pipeline(
     from src.collection.workflows.keyword_expansion import run_keyword_expansion
     from src.collection.workflows.niche_init import run_niche_initialization
     from src.collection.workflows.seller_profile import run_seller_profile_collection
-    from src.analysis.keyword_clusterer import run_clustering_for_niche
     from src.scheduler.queue_processor import QueueProcessor
 
     if not dry_run:
@@ -160,7 +161,9 @@ async def run_collection_pipeline(
         "seller_profile_jobs_run": 0,
         "autocomplete_jobs_run": 0,
         "clustering_niches_run": 0,
+        "competitor_profiling_niches_run": 0,
         "clustering_results": [],
+        "competitor_profiling_results": [],
         "errors": [],
     }
 
@@ -345,11 +348,28 @@ async def run_collection_pipeline(
     except Exception as exc:  # noqa: BLE001
         summary["errors"].append(f"Queue processing error: {exc}")
 
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        try:
+            profiling_result = await run_competitor_profiling_for_niche(
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+                config=config if isinstance(config, dict) else {},
+                llm_client=None,
+            )
+            summary["competitor_profiling_results"].append(profiling_result)
+            if profiling_result.get("profiled") is True:
+                summary["competitor_profiling_niches_run"] += 1
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 10 error ({niche_id}): {exc}")
+
     summary["stages_run"].extend(
         [
             "stage03_fiverr_search",
             "stage04_gig_detail",
             "stage05_seller_profile",
+            "stage10_competitor_profiling",
             "stage08_autocomplete",
         ]
     )

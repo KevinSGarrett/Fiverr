@@ -188,6 +188,46 @@ def _ensure_cluster_labels_table(engine: Engine) -> None:
         )
 
 
+def _ensure_competitor_profiles_table(engine: Engine) -> None:
+    """Backfill `competitor_profiles` table for legacy SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "competitor_profiles" in inspector.get_table_names():
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS competitor_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                niche_id VARCHAR(64) NOT NULL,
+                run_id VARCHAR(64) NOT NULL,
+                top_gig_count INTEGER NOT NULL DEFAULT 0,
+                median_price FLOAT,
+                mean_price FLOAT,
+                price_std FLOAT,
+                median_rating FLOAT,
+                mean_reviews FLOAT,
+                seller_level_distribution JSON NOT NULL DEFAULT '{}',
+                min_delivery_days INTEGER,
+                max_delivery_days INTEGER,
+                video_present_rate FLOAT,
+                portfolio_present_rate FLOAT,
+                collected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_competitor_profiles_niche_run UNIQUE (niche_id, run_id)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_competitor_profiles_niche_id ON competitor_profiles (niche_id)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_competitor_profiles_run_id ON competitor_profiles (run_id)"
+        )
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -241,6 +281,7 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     _ensure_keyword_cluster_id_column(active_engine)
     _ensure_cluster_assignments_table(active_engine)
     _ensure_cluster_labels_table(active_engine)
+    _ensure_competitor_profiles_table(active_engine)
     return active_engine
 
 

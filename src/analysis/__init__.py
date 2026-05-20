@@ -1,6 +1,10 @@
 """Analysis package exports for Cycle 003 dry-run engines."""
 
 from src.analysis.clustering import cluster_keywords
+from src.analysis.competitor_profiler import (
+    run_competitor_profiling_for_all_niches,
+    run_competitor_profiling_for_niche,
+)
 from src.analysis.competitors import profile_competitors
 from src.analysis.contracts import (
     AnalysisError,
@@ -59,7 +63,11 @@ from src.analysis.quality import score_gig_quality as score_gig_quality_contract
 from src.analysis.registry import build_analysis_output_registry
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
-from src.analysis.seller_strength import score_seller_strength
+from src.analysis.seller_strength import (
+    classify_seller_tier,
+    compute_seller_strength_score,
+    score_seller_strength,
+)
 from src.analysis.sellers import score_seller_strength as score_seller_strength_contract
 
 __all__ = [
@@ -89,7 +97,9 @@ __all__ = [
     "build_keyword_feature_set",
     "build_lexical_features",
     "classify_intent",
+    "classify_seller_tier",
     "cluster_keywords",
+    "compute_seller_strength_score",
     "extract_tokens",
     "load_embeddings_for_niche",
     "normalize_embeddings",
@@ -98,6 +108,8 @@ __all__ = [
     "run_analysis_dry_run",
     "run_clustering_for_all_niches",
     "run_clustering_for_niche",
+    "run_competitor_profiling_for_all_niches",
+    "run_competitor_profiling_for_niche",
     "run_dbscan",
     "run_kmeans",
     "persist_analysis_run_summary",

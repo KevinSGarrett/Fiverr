@@ -42,11 +42,13 @@ from src.models.market import (
     AutocompleteSuggestion,
     ClusterAssignment,
     ClusterLabel,
+    CompetitorProfile,
     Keyword,
     Review,
+    write_autocomplete_suggestion,
     write_cluster_assignment,
     write_cluster_label,
-    write_autocomplete_suggestion,
+    write_competitor_profile,
 )
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
@@ -80,6 +82,7 @@ __all__ = [
     "CompetitorSnapshot",
     "ClusterAssignment",
     "ClusterLabel",
+    "CompetitorProfile",
     "DiscoveryCandidate",
     "DiscoveryCycleLog",
     "DiscoveryHypothesis",
@@ -127,6 +130,7 @@ __all__ = [
     "write_autocomplete_suggestion",
     "write_cluster_assignment",
     "write_cluster_label",
+    "write_competitor_profile",
     "write_search_result",
     "write_external_signal",
     "write_seller_profile",
