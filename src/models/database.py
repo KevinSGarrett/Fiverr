@@ -42,6 +42,27 @@ def _sqlite_path_from_url(database_url: str) -> Path | None:
     return Path(raw_path)
 
 
+def _ensure_keyword_intent_class_column(engine: Engine) -> None:
+    """
+    Backfill `keywords.intent_class` for pre-existing SQLite databases.
+
+    Existing installs may predate this column. `create_all()` does not alter tables,
+    so we add the column when missing to keep Workflow 2 writes backward-compatible.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "keywords" not in inspector.get_table_names():
+        return
+    existing_columns = {column["name"] for column in inspector.get_columns("keywords")}
+    if "intent_class" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql("ALTER TABLE keywords ADD COLUMN intent_class VARCHAR(32)")
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -90,6 +111,7 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     if sqlite_path is not None:
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(active_engine)
+    _ensure_keyword_intent_class_column(active_engine)
     return active_engine
 
 

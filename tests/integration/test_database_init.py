@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from src.models.database import (
     build_engine,
     create_session_factory,
@@ -100,3 +100,20 @@ def test_initialize_database_creates_parent_data_path(tmp_path: Path) -> None:
     assert nested_db_path.exists()
     engine = build_engine(db_url)
     assert "niche_configs" in list_tables(engine)
+
+
+def test_initialize_database_backfills_keyword_intent_class_for_legacy_sqlite(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy_keyword_schema.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    engine = initialize_database(database_url=db_url)
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql("ALTER TABLE keywords DROP COLUMN intent_class")
+
+    columns_before = {column["name"] for column in inspect(engine).get_columns("keywords")}
+    assert "intent_class" not in columns_before
+
+    initialize_database(engine=engine)
+
+    columns_after = {column["name"] for column in inspect(engine).get_columns("keywords")}
+    assert "intent_class" in columns_after

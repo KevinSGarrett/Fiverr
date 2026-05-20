@@ -319,8 +319,9 @@ def test_reddit_real_writes_checkpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     _run_real_collection(seed_keywords=["alpha"], checkpoint_manager=checkpoint_manager)
     checkpoint_manager.write.assert_awaited_once()
     args = checkpoint_manager.write.await_args.args
-    assert args[0] == "run-1"
-    assert args[1] == "stage06_reddit_ai-agent"
+    assert args[0] == "stage06_reddit"
+    assert args[1] == "ai-agent"
+    assert args[2]["run_id"] == "run-1"
     assert args[2]["signals_written"] == 1
 
 

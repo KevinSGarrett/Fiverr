@@ -176,10 +176,11 @@ async def run_reddit_signals_collection(
         try:
             await _resolve_maybe_await(
                 checkpoint_manager.write(
-                    run_id,
-                    f"stage06_reddit_{niche_id}",
+                    "stage06_reddit",
+                    niche_id,
                     {
                         "niche_id": niche_id,
+                        "run_id": run_id,
                         "posts_collected": len(all_posts),
                         "signals_written": signals_written,
                     },
