@@ -177,13 +177,13 @@ Pending completion items (performed in final section updates):
 - Codex review-thread query/disposition and manual resolution
 - Final merge-gate checklist publication (report + PR comment)
 
-## Final Steward Checks (In Progress)
+## Final Steward Checks (Complete)
 
-- Final SHA freeze (`origin/cycle/028/integration`): pending
-- Confirm all 4 agent reports present: pending final check after this file creation
-- Artifact hygiene check: pending final staged-file verification
-- No-main/worktree check: pending final pre-PR confirmation
-- `SCRUM-517` final steward summary: pending final post-CI update
+- Final SHA freeze (`origin/cycle/028/integration`): `c729972e78ce58b9249394e49fb3a08ba61a319d`
+- Confirm all 4 agent reports present: PASS (`CYCLE_028_AGENT_A.md`, `CYCLE_028_AGENT_B.md`, `CYCLE_028_AGENT_C.md`, `CYCLE_028_AGENT_D.md`)
+- Artifact hygiene check: PASS (no `.env`, `*.db`, `coverage.xml`, or `data/sessions` artifacts in staged changes)
+- No-main/worktree check: PASS (active branch `cycle/028/integration`; worktree rooted at `C:/Fiverr/Fiverr`)
+- `SCRUM-517` final steward summary: posted (Cycle 028 closure + merge recommendation)
 
 ## Merge Gate Checklist
 
@@ -191,21 +191,27 @@ Pending completion items (performed in final section updates):
 MERGE GATE CHECKLIST — Cycle 028 PR #32
 ==========================================
 CODECOV:
-[ ] codecov/project: [PASS/FAIL] — [exact %]
-[ ] codecov/patch: [PASS/FAIL] — [exact %]
+[ ] codecov/project: [PASS] — [95.04%]
+[ ] codecov/patch: [PASS] — [100.0%]
 [ ] Local --cov-fail-under=90: [PASS]
-[ ] All new lines covered by tests: [YES/NO]
-  If NO, uncovered files: [list or N/A]
+[ ] All new lines covered by tests: [YES]
+  If NO, uncovered files: [N/A]
 
 CODEX:
-[ ] reviewThreads query executed: YES/NO
-[ ] Total threads found: [N]
-[ ] All threads dispositioned: [YES/N/A]
-[ ] All VALID_FIXED threads have regression tests: [YES/N/A]
-[ ] All threads manually resolved with reply: [YES/N/A]
-[ ] Zero unresolved threads: [YES/NO]
+[ ] reviewThreads query executed: YES
+[ ] Total threads found: [3]
+[ ] All threads dispositioned: [YES]
+[ ] All VALID_FIXED threads have regression tests: [YES]
+[ ] All threads manually resolved with reply: [YES]
+[ ] Zero unresolved threads: [YES]
 
 FINAL:
-[ ] PR #32 is ready to merge: [YES/NO]
-[ ] Blockers if NO: [list or N/A]
+[ ] PR #32 is ready to merge: [YES]
+[ ] Blockers if NO: [N/A]
+```
+
+## Codex Disposition Evidence (Raw Query Result)
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6DUzqf","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Scope Trends keyword lookup to the current niche**\n\n`_resolve_keyword_id` matches on keyword text only, so if the same keyword exists in multiple niches (allowed by `uq_keywords_niche_keyword`), `.first()` can return the wrong row and `run_google_trends_collection` will write signals to another niche’s keyword. This silently corrupts downstream scoring because trend signals become cross-niche; include `niche_id` in the lookup (or pass keyword IDs directly) to keep writes isolated.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED\nDecision: Scoped Google Trends keyword lookup to the current niche before resolving keyword IDs to prevent cross-niche writes.\nEvidence: File: src/collection/workflows/google_trends.py; Tests: tests/unit/test_google_trends.py::test_resolve_keyword_id_scoped_to_niche, tests/unit/test_google_trends.py::test_resolve_keyword_id_returns_none_when_niche_missing; Commit: c729972.\nResolution: Fixed with regression coverage and pushed."}]}},{"id":"PRRT_kwDOSbqwNc6DUzqh","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Encode Google Suggest query params instead of string interpolation**\n\nThe request URL is built by interpolating `cleaned_seed` directly into the query string, so reserved characters in real seeds (for example `&`, `+`, `#`) change query semantics (`&` splits params, `+` can decode as space) and fetch suggestions for the wrong term. This causes incorrect keyword expansion for common niche phrases; pass `params={\"q\": cleaned_seed, \"client\": \"firefox\"}` (or equivalent encoding) to preserve the original seed.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED\nDecision: Replaced interpolated Google Suggest URL construction with explicit query params to preserve reserved characters in seed terms.\nEvidence: File: src/collection/workflows/keyword_expansion.py; Test: tests/unit/test_keyword_expansion.py::test_fetch_google_suggest_uses_query_params; Commit: c729972.\nResolution: Fixed with regression coverage and pushed."}]}},{"id":"PRRT_kwDOSbqwNc6DUzqj","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Restrict GQS override to current top-10 gig set**\n\nThe new override computes absence rates from all `GigQualityScore` rows for a keyword, but that table is keyed by `(gig_url, run_id)`, so repeated runs accumulate multiple historical rows and can include gigs outside the current top 10. As a result, `video_absence_rate`/`portfolio_absence_rate` can drift from the ranking snapshot this calculator is supposed to score; filter `quality_rows` to the current `top_gigs` (and ideally latest run) before overriding.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Codex disposition: VALID_FIXED\nDecision: Filtered GigQualityScore override inputs to the current top-10 gig URLs so weakness rates do not drift from stale/historical rows.\nEvidence: File: src/scoring/weakness.py; Test: tests/unit/test_scoring_weakness_gqs.py::test_weakness_gqs_ignores_rows_outside_current_top10; Commit: c729972.\nResolution: Fixed with regression coverage and pushed."}]}}]}}}}}
 ```
