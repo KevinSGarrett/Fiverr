@@ -147,20 +147,29 @@ def test_keyword_expansion_dry_run() -> None:
     assert result["keywords_queued"] == 0
 
 
-def test_keyword_expansion_raises_without_dry_run() -> None:
-    with pytest.raises(NotImplementedError):
-        _run(
-            run_keyword_expansion(
-                niche_id="ai_saas",
-                seeds=["mvp"],
-                depth="standard",
-                run_id="run-8",
-                db=None,
-                session_manager=None,
-                pacing_manager=None,
-                dry_run=False,
-            )
+def test_keyword_expansion_real_path_returns_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _fake_fetch(_seed: str, _pacing_manager: object) -> list[str]:
+        return ["mvp roadmap", "MVP Roadmap"]
+
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+        _fake_fetch,
+    )
+
+    result = _run(
+        run_keyword_expansion(
+            niche_id="ai_saas",
+            seeds=["mvp"],
+            depth="standard",
+            run_id="run-8",
+            db=None,
+            session_manager=None,
+            pacing_manager=None,
+            dry_run=False,
         )
+    )
+    assert result["dry_run"] is False
+    assert result["keywords_queued"] == 1
 
 
 def test_workflow_niche_id_in_result() -> None:

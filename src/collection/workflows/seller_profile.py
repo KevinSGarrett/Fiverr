@@ -39,8 +39,62 @@ async def run_seller_profile_collection(
 
 
 def build_seller_profile_url(seller_username: str) -> str:
-    """Build the Fiverr seller profile URL."""
+    """Spec: COLLECTION_WORKFLOWS.md W5 Step 4 — fiverr.com/{username}."""
     return f"https://www.fiverr.com/{seller_username}"
+
+
+def parse_member_since(text: str | None) -> str | None:
+    """Spec: W5 Step 6 — parse 'Member since Jan 2022' to '2022-01'."""
+    import re
+
+    if not text:
+        return None
+
+    months = {
+        "jan": "01",
+        "feb": "02",
+        "mar": "03",
+        "apr": "04",
+        "may": "05",
+        "jun": "06",
+        "jul": "07",
+        "aug": "08",
+        "sep": "09",
+        "oct": "10",
+        "nov": "11",
+        "dec": "12",
+    }
+    match = re.search(r"(\w{3})\s+(\d{4})", text.lower())
+    if match:
+        return f"{match.group(2)}-{months.get(match.group(1), '01')}"
+    return None
+
+
+def parse_seller_level(level_text: str | None) -> str:
+    """Spec: W5 Step 6 — normalize seller level badge text."""
+    if not level_text:
+        return "NO_LEVEL"
+
+    normalized = level_text.lower()
+    if "top rated" in normalized or "trs" in normalized:
+        return "TRS"
+    if "level 2" in normalized:
+        return "LEVEL_2"
+    if "level 1" in normalized:
+        return "LEVEL_1"
+    if "pro" in normalized:
+        return "PRO"
+    return "NO_LEVEL"
+
+
+def parse_response_rate(text: str | None) -> int | None:
+    """Spec: W5 Step 6 — parse '98%' to 98."""
+    import re
+
+    if not text:
+        return None
+    digits = re.findall(r"\d+", text)
+    return int(digits[0]) if digits else None
 
 
 def parse_seller_profile_fields(page_data: dict[str, Any]) -> dict[str, Any]:

@@ -461,13 +461,46 @@ class GigQualityWeaknessScoreCalculator:
                     video_presence_map[row.gig_id] = bool(row.has_video)
         top10_has_video = [self._resolve_has_video(gig, video_presence_map.get(gig.id)) for gig in top_gigs]
         top10_has_portfolio = [self._resolve_has_portfolio(gig) for gig in top_gigs]
-        return {
+        signals = {
             "keyword": keyword.keyword if keyword else "",
             "video_absence_rate": self._absence_rate_from_presence(top10_has_video),
             "portfolio_absence_rate": self._absence_rate_from_presence(top10_has_portfolio),
             "top10_has_video": top10_has_video or None,
             "top10_has_portfolio": top10_has_portfolio or None,
         }
+
+        # Supplementary: when available, prefer table-backed quality signals.
+        try:
+            from src.models.gig_quality_score import GigQualityScore, get_gig_quality_scores
+
+            top_gig_urls = {
+                gig.gig_url
+                for gig in top_gigs
+                if isinstance(getattr(gig, "gig_url", None), str) and gig.gig_url
+            }
+            quality_rows_all: list[GigQualityScore] = get_gig_quality_scores(keyword_id, session)
+            quality_rows = [
+                row
+                for row in quality_rows_all
+                if isinstance(getattr(row, "gig_url", None), str) and row.gig_url in top_gig_urls
+            ]
+            if quality_rows:
+                video_known = [row.video_present for row in quality_rows if row.video_present is not None]
+                if video_known:
+                    video_absence = sum(1 for value in video_known if not value) / len(video_known)
+                    signals["video_absence_rate"] = video_absence
+                    signals["top10_has_video"] = list(video_known)
+
+                portfolio_known = [row.portfolio_count for row in quality_rows if row.portfolio_count is not None]
+                if portfolio_known:
+                    portfolio_absence = sum(1 for count in portfolio_known if count == 0) / len(portfolio_known)
+                    signals["portfolio_absence_rate"] = portfolio_absence
+
+                signals["gig_quality_score_available"] = any(row.analysis_complete for row in quality_rows)
+        except Exception:
+            pass
+
+        return signals
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
