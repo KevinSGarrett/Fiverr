@@ -650,6 +650,37 @@ def test_w3_real_keyword_only_no_jobs() -> None:
         session.close()
 
 
+def test_w3_real_enqueues_autocomplete_job_when_enabled() -> None:
+    _page, session_manager, pacing_manager = _build_real_search_mocks()
+    db = object()
+    with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", return_value=0
+    ), patch("src.collection.workflows.fiverr_search.enqueue_autocomplete_job", return_value=True) as enqueue_mock:
+        result = _run(
+            run_fiverr_search_collection(
+                keyword_id=2,
+                keyword_text="python",
+                niche_id="ai_saas",
+                depth="standard",
+                run_id="run-22a",
+                db=db,
+                session_manager=session_manager,
+                pacing_manager=pacing_manager,
+                dry_run=False,
+                enqueue_autocomplete=True,
+            )
+        )
+
+    enqueue_mock.assert_called_once_with(
+        keyword_id=2,
+        keyword_text="python",
+        niche_id="ai_saas",
+        run_id="run-22a",
+        db=db,
+    )
+    assert result["autocomplete_jobs_queued"] == 1
+
+
 def test_w3_real_closes_page_on_success() -> None:
     _page, session_manager, pacing_manager = _build_real_search_mocks()
     with patch("src.collection.workflows.fiverr_search.write_search_result"), patch(

@@ -7,6 +7,7 @@ import builtins
 from unittest.mock import AsyncMock, patch
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from src.collection import autocomplete as autocomplete_module
 from src.collection.fiverr_selectors import AUTOCOMPLETE_ITEM_TEXT
@@ -330,6 +331,74 @@ def test_write_autocomplete_suggestion() -> None:
         db.close()
 
 
+def test_write_autocomplete_suggestion_non_session_returns_none() -> None:
+    row = write_autocomplete_suggestion(
+        keyword_id=1,
+        niche_id="ai_saas",
+        suggestion_text="logo design package",
+        position=1,
+        run_id="run-non-session",
+        db=object(),
+    )
+    assert row is None
+
+
+def test_write_autocomplete_suggestion_blank_text_returns_none() -> None:
+    db, keyword_id = _make_keyword_session()
+    try:
+        row = write_autocomplete_suggestion(
+            keyword_id=keyword_id,
+            niche_id="ai_saas",
+            suggestion_text="   ",
+            position=1,
+            run_id="run-blank",
+            db=db,
+        )
+        assert row is None
+    finally:
+        db.close()
+
+
+def test_write_autocomplete_suggestion_integrity_error_without_row_returns_none(monkeypatch) -> None:
+    db, keyword_id = _make_keyword_session()
+
+    class _FakeQuery:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def filter(self, *args: object) -> _FakeQuery:
+            _ = args
+            return self
+
+        def one_or_none(self) -> None:
+            self.calls += 1
+            return None
+
+    fake_query = _FakeQuery()
+
+    def _fake_query(*args: object, **kwargs: object) -> _FakeQuery:
+        _ = (args, kwargs)
+        return fake_query
+
+    def _raise_integrity_error() -> None:
+        raise IntegrityError("INSERT INTO autocomplete_suggestions ...", {}, RuntimeError("duplicate"))
+
+    monkeypatch.setattr(db, "query", _fake_query)
+    monkeypatch.setattr(db, "commit", _raise_integrity_error)
+
+    row = write_autocomplete_suggestion(
+        keyword_id=keyword_id,
+        niche_id="ai_saas",
+        suggestion_text="logo design package",
+        position=1,
+        run_id="run-integrity-path",
+        db=db,
+    )
+    assert row is None
+    assert fake_query.calls == 2
+    db.close()
+
+
 def test_w8_model_write_unique_constraint() -> None:
     db, keyword_id = _make_keyword_session()
     try:
@@ -546,6 +615,50 @@ def test_checkpoint_write_exception_path() -> None:
             collected=False,
         )
     )
+
+
+def test_checkpoint_write_with_missing_write_fn() -> None:
+    class _NoWriteCheckpoint:
+        write = None
+
+    _run(
+        autocomplete_workflow_module._write_stage08_checkpoint(
+            _NoWriteCheckpoint(),
+            keyword_id=1,
+            niche_id="ai_saas",
+            suggestions_collected=0,
+            collected=False,
+        )
+    )
+
+
+def test_checkpoint_write_legacy_signature_awaitable_path() -> None:
+    class _LegacyAwaitableCheckpoint:
+        def __init__(self) -> None:
+            self.calls: list[tuple[object, ...]] = []
+
+        def write(self, *args: object):
+            self.calls.append(args)
+            if args and args[0] == "stage08":
+                raise TypeError("legacy signature")
+
+            async def _done() -> None:
+                return None
+
+            return _done()
+
+    checkpoint_manager = _LegacyAwaitableCheckpoint()
+    _run(
+        autocomplete_workflow_module._write_stage08_checkpoint(
+            checkpoint_manager,
+            keyword_id=4,
+            niche_id="ai_saas",
+            suggestions_collected=2,
+            collected=True,
+        )
+    )
+    assert len(checkpoint_manager.calls) == 2
+    assert checkpoint_manager.calls[1][0] == "4"
 
 
 def test_enqueue_autocomplete_job_non_session_returns_false() -> None:
