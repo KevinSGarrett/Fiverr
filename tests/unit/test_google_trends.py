@@ -71,7 +71,7 @@ def _configure_workflow_mocks(
     def _fake_write_external_signal(**kwargs: Any) -> None:
         writes.append(kwargs)
 
-    def _fake_resolve(keyword_text: str, _db: Any) -> int | None:
+    def _fake_resolve(keyword_text: str, _niche_id: str, _db: Any) -> int | None:
         if keyword_ids is None:
             return 1
         return keyword_ids.get(keyword_text)
@@ -658,7 +658,7 @@ def test_resolve_keyword_id_found() -> None:
         db.commit()
         db.refresh(keyword)
 
-        resolved = google_trends_module._resolve_keyword_id("AI agent builder", db)
+        resolved = google_trends_module._resolve_keyword_id("AI agent builder", "ai-agent", db)
         assert resolved == int(keyword.id)
     finally:
         db.close()
@@ -671,18 +671,68 @@ def test_resolve_keyword_id_missing() -> None:
         db.add(niche)
         db.commit()
 
-        resolved = google_trends_module._resolve_keyword_id("missing keyword", db)
+        resolved = google_trends_module._resolve_keyword_id("missing keyword", "ai-agent", db)
         assert resolved is None
     finally:
         db.close()
 
 
 def test_resolve_keyword_id_non_session_and_empty() -> None:
-    assert google_trends_module._resolve_keyword_id("kw", object()) is None
+    assert google_trends_module._resolve_keyword_id("kw", "niche", object()) is None
 
     db = _make_session()
     try:
-        assert google_trends_module._resolve_keyword_id("   ", db) is None
+        niche = Niche(slug="niche", name="Niche", category_path="cat/path")
+        db.add(niche)
+        db.commit()
+
+        assert google_trends_module._resolve_keyword_id("   ", "niche", db) is None
+    finally:
+        db.close()
+
+
+def test_resolve_keyword_id_scoped_to_niche() -> None:
+    db = _make_session()
+    try:
+        niche_a = Niche(slug="ai-agent", name="AI Agent", category_path="tech/ai")
+        niche_b = Niche(slug="writer", name="Writer", category_path="writing")
+        db.add_all([niche_a, niche_b])
+        db.commit()
+        db.refresh(niche_a)
+        db.refresh(niche_b)
+
+        keyword_a = Keyword(
+            niche_id=int(niche_a.id),
+            keyword="Shared Keyword",
+            normalized_keyword="shared keyword",
+        )
+        keyword_b = Keyword(
+            niche_id=int(niche_b.id),
+            keyword="Shared Keyword",
+            normalized_keyword="shared keyword",
+        )
+        db.add_all([keyword_a, keyword_b])
+        db.commit()
+        db.refresh(keyword_a)
+        db.refresh(keyword_b)
+
+        resolved_a = google_trends_module._resolve_keyword_id("Shared Keyword", "ai-agent", db)
+        resolved_b = google_trends_module._resolve_keyword_id("Shared Keyword", "writer", db)
+
+        assert resolved_a == int(keyword_a.id)
+        assert resolved_b == int(keyword_b.id)
+    finally:
+        db.close()
+
+
+def test_resolve_niche_pk_numeric_id() -> None:
+    assert google_trends_module._resolve_niche_pk("42", object()) == 42
+
+
+def test_resolve_keyword_id_returns_none_when_niche_missing() -> None:
+    db = _make_session()
+    try:
+        assert google_trends_module._resolve_keyword_id("kw", "missing-slug", db) is None
     finally:
         db.close()
 

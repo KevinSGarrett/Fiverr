@@ -473,7 +473,17 @@ class GigQualityWeaknessScoreCalculator:
         try:
             from src.models.gig_quality_score import GigQualityScore, get_gig_quality_scores
 
-            quality_rows: list[GigQualityScore] = get_gig_quality_scores(keyword_id, session)
+            top_gig_urls = {
+                gig.gig_url
+                for gig in top_gigs
+                if isinstance(getattr(gig, "gig_url", None), str) and gig.gig_url
+            }
+            quality_rows_all: list[GigQualityScore] = get_gig_quality_scores(keyword_id, session)
+            quality_rows = [
+                row
+                for row in quality_rows_all
+                if isinstance(getattr(row, "gig_url", None), str) and row.gig_url in top_gig_urls
+            ]
             if quality_rows:
                 video_known = [row.video_present for row in quality_rows if row.video_present is not None]
                 if video_known:

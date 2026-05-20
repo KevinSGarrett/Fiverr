@@ -33,10 +33,14 @@ async def _fetch_google_suggest(seed: str, pacing_manager: Any) -> list[str]:
     if not cleaned_seed:
         return []
 
-    url = f"https://suggestqueries.google.com/complete/search?q={cleaned_seed}&client=firefox"
+    url = "https://suggestqueries.google.com/complete/search"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+            resp = await client.get(
+                url,
+                params={"q": cleaned_seed, "client": "firefox"},
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
             resp.raise_for_status()
             data = resp.json()
             if not (isinstance(data, list) and len(data) > 1 and isinstance(data[1], list)):

@@ -66,12 +66,15 @@ def _insert_gqs_rows(
     session: Session,
     keyword_id: int,
     rows: list[tuple[bool | None, int | None, bool]],
+    *,
+    gig_urls: list[str] | None = None,
 ) -> None:
+    resolved_urls = gig_urls or [f"https://www.fiverr.com/gigs/{idx}" for idx in range(1, len(rows) + 1)]
     for idx, (video_present, portfolio_count, analysis_complete) in enumerate(rows, start=1):
         session.add(
             GigQualityScore(
                 keyword_id=keyword_id,
-                gig_url=f"https://www.fiverr.com/gqs/{keyword_id}/{idx}",
+                gig_url=resolved_urls[idx - 1],
                 run_id="run-gqs",
                 video_present=video_present,
                 portfolio_count=portfolio_count,
@@ -207,5 +210,27 @@ def test_weakness_gqs_none_video_skipped() -> None:
         signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
         assert signals["video_absence_rate"] == 0.5
         assert signals["top10_has_video"] == [False, True]
+    finally:
+        session.close()
+
+
+def test_weakness_gqs_ignores_rows_outside_current_top10() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(session, fallback_video=[True] * 10, fallback_portfolio=[True] * 10)
+        rows = [(False, 0, True), (False, 0, True)]
+        _insert_gqs_rows(
+            session,
+            keyword_id,
+            rows,
+            gig_urls=[
+                "https://www.fiverr.com/gigs/999",
+                "https://www.fiverr.com/gigs/1000",
+            ],
+        )
+        signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["video_absence_rate"] == 0.0
+        assert signals["portfolio_absence_rate"] == 0.0
+        assert "gig_quality_score_available" not in signals
     finally:
         session.close()

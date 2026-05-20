@@ -55,7 +55,8 @@ class _FakeAsyncClient:
     async def __aexit__(self, _exc_type, _exc, _tb) -> None:
         return None
 
-    async def get(self, _url: str, headers: dict[str, str]):
+    async def get(self, _url: str, *, params: dict[str, str], headers: dict[str, str]):
+        _ = params
         _ = headers
         if self._request_error is not None:
             raise self._request_error
@@ -124,6 +125,29 @@ def test_fetch_google_suggest_timeout(monkeypatch) -> None:
 def test_fetch_google_suggest_blank_seed_returns_empty() -> None:
     result = _run(_fetch_google_suggest("   ", pacing_manager=object()))
     assert result == []
+
+
+def test_fetch_google_suggest_uses_query_params(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _CaptureAsyncClient(_FakeAsyncClient):
+        async def get(self, _url: str, *, params: dict[str, str], headers: dict[str, str]):
+            captured["url"] = _url
+            captured["params"] = dict(params)
+            captured["headers"] = dict(headers)
+            return await super().get(_url, params=params, headers=headers)
+
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion.httpx.AsyncClient",
+        lambda *args, **kwargs: _CaptureAsyncClient(response=_FakeResponse(["seed", ["result"]])),
+    )
+    pacing_manager = AsyncMock()
+
+    result = _run(_fetch_google_suggest("ai & ml+dev #1", pacing_manager))
+
+    assert result == ["result"]
+    assert captured["url"] == "https://suggestqueries.google.com/complete/search"
+    assert captured["params"] == {"q": "ai & ml+dev #1", "client": "firefox"}
 
 
 def test_safe_pacing_wait_without_wait_method() -> None:

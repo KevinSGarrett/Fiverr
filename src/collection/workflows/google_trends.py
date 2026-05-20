@@ -77,7 +77,7 @@ async def run_google_trends_collection(
                     dataframe = None
 
                 for keyword in batch:
-                    keyword_id = _resolve_keyword_id(keyword, db)
+                    keyword_id = _resolve_keyword_id(keyword, niche_id, db)
                     if keyword_id is None:
                         continue
 
@@ -362,11 +362,24 @@ def _write_trends_checkpoint(
     temp_path.replace(checkpoint_path)
 
 
-def _resolve_keyword_id(keyword_text: str, db: Any) -> int | None:
-    """Look up `keywords.id` by keyword text. Returns None if not found."""
+def _resolve_niche_pk(niche_id: str, db: Any) -> int | None:
+    from src.models.niche import Niche
+
+    if niche_id.isdigit():
+        return int(niche_id)
+    row = db.query(Niche).filter(Niche.slug == niche_id).first()
+    return int(row.id) if row is not None else None
+
+
+def _resolve_keyword_id(keyword_text: str, niche_id: str, db: Any) -> int | None:
+    """Look up `keywords.id` by niche + keyword text. Returns None if not found."""
     from sqlalchemy.orm import Session
 
     if not isinstance(db, Session):
+        return None
+
+    niche_pk = _resolve_niche_pk(niche_id, db)
+    if niche_pk is None:
         return None
 
     cleaned = keyword_text.strip()
@@ -376,6 +389,7 @@ def _resolve_keyword_id(keyword_text: str, db: Any) -> int | None:
     row = (
         db.query(Keyword)
         .filter(
+            Keyword.niche_id == niche_pk,
             (Keyword.keyword == cleaned)
             | (Keyword.normalized_keyword == normalized)
         )
