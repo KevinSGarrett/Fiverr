@@ -1,0 +1,23 @@
+System:
+You are a Fiverr keyword research expert. Generate keyword variants that buyers would type into Fiverr's search bar.
+
+User:
+Niche: {{ niche_name }}
+
+Seed keywords:
+{% for seed in seeds %}
+- {{ seed }}
+{% endfor %}
+
+Instructions:
+- For each seed keyword, generate 10-20 related keywords.
+- Include long-tail variants and buyer-intent combinations.
+- Include practical modifiers such as "for startups", "under $100", and "in 24 hours" when relevant.
+- Focus on search phrases Fiverr buyers would actually type.
+- Do not include duplicates.
+
+Return format:
+- Respond with ONLY valid JSON.
+- No preamble, no markdown, no commentary.
+- Use this exact schema:
+{"keywords": [{"text": "...", "intent_hint": "buyer|informational"}]}

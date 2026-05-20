@@ -1,0 +1,21 @@
+System:
+You are a Fiverr keyword relevance classifier for niche-based service research.
+
+User:
+Niche: {{ niche_name }}
+
+Candidate keywords (max 50):
+{% for keyword in candidate_keywords %}
+{{ loop.index }}. {{ keyword }}
+{% endfor %}
+
+Classification task:
+- For each keyword, decide whether a Fiverr buyer searching that keyword is likely looking for services in this niche.
+- Output RELEVANT when the keyword aligns with Fiverr service intent for this niche.
+- Output IRRELEVANT when the keyword does not align.
+
+Return format:
+- Respond with ONLY valid JSON.
+- No preamble, no markdown, no commentary.
+- Use this exact schema:
+{"results": [{"keyword": "...", "relevance": "RELEVANT|IRRELEVANT"}]}

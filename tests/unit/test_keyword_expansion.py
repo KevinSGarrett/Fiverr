@@ -4,19 +4,32 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.collection.workflows.keyword_expansion import (
+    _FEATURE_FLAGS,
+    KeywordExpansionWorkflow,
+    _cache_get_keywords,
+    _cache_set_keywords,
+    _call_llm_json,
     _deduplicate_keywords,
+    _extract_cached_keywords,
+    _extract_relevant_keywords,
     _fetch_google_suggest,
     _is_session,
+    _llm_generate_keywords,
+    _llm_relevance_filter,
+    _resolve_maybe_await,
     _resolve_niche_pk,
     _safe_pacing_wait,
     _write_keywords_to_db,
     run_keyword_expansion,
+    run_keyword_expansion_stub,
 )
 from src.models.market import Keyword
 from src.models.niche import Niche
@@ -24,6 +37,32 @@ from src.models.niche import Niche
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+class _AsyncCache:
+    def __init__(self, seed_data: dict[str, object] | None = None) -> None:
+        self._store: dict[str, object] = dict(seed_data or {})
+        self.get = AsyncMock(side_effect=self._get)
+        self.set = AsyncMock(side_effect=self._set)
+
+    async def _get(self, key: str):
+        return self._store.get(key)
+
+    async def _set(self, key: str, value):
+        self._store[key] = value
+        return None
+
+
+def _set_feature_flags(
+    monkeypatch,
+    *,
+    step_2c: bool = True,
+    step_2d: bool = True,
+):
+    updated = dict(_FEATURE_FLAGS)
+    updated["step_2c_llm_generation"] = step_2c
+    updated["step_2d_llm_relevance_filter"] = step_2d
+    monkeypatch.setattr("src.collection.workflows.keyword_expansion._FEATURE_FLAGS", updated)
 
 
 class _FakeResponse:
@@ -400,3 +439,585 @@ def test_run_keyword_expansion_skips_non_string_seed() -> None:
 
     assert result["keywords_queued"] == 1
     assert fetch_mock.await_count == 1
+
+
+def test_llm_generate_keywords_returns_list(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {
+                    "keywords": [
+                        {"text": "AI chatbot for startups", "intent_hint": "buyer"},
+                        {"text": "ai chatbot consultant", "intent_hint": "buyer"},
+                    ]
+                }
+            )
+        )
+    )
+    cache = _AsyncCache()
+
+    result = _run(_llm_generate_keywords("ai_saas", ["ai chatbot"], llm_client, cache, "run-1"))
+
+    assert result == ["AI chatbot for startups", "ai chatbot consultant"]
+    llm_client.complete.assert_awaited_once()
+
+
+def test_llm_generate_keywords_cache_hit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._cache_key_for_keywords",
+        lambda *args, **kwargs: "kw-gen-cache-hit",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    cache = _AsyncCache(seed_data={"kw-gen-cache-hit": ["cached keyword"]})
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, cache, "run-1"))
+
+    assert result == ["cached keyword"]
+    llm_client.complete.assert_not_called()
+
+
+def test_llm_generate_keywords_cache_miss(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._cache_key_for_keywords",
+        lambda *args, **kwargs: "kw-gen-cache-miss",
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps({"keywords": [{"text": "keyword one", "intent_hint": "buyer"}]})
+        )
+    )
+    cache = _AsyncCache()
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, cache, "run-1"))
+
+    assert result == ["keyword one"]
+    cache.get.assert_awaited_once_with("kw-gen-cache-miss")
+    cache.set.assert_awaited_once_with("kw-gen-cache-miss", ["keyword one"])
+
+
+def test_llm_generate_keywords_json_decode_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value="{oops"))
+    cache = _AsyncCache()
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, cache, "run-1"))
+
+    assert result == []
+
+
+def test_llm_generate_keywords_api_error(caplog, monkeypatch) -> None:
+    caplog.set_level("WARNING")
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(side_effect=RuntimeError("boom")))
+    cache = _AsyncCache()
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, cache, "run-1"))
+
+    assert result == []
+    assert "LLM keyword generation failed niche=ai_saas" in caplog.text
+
+
+def test_llm_generate_keywords_empty_seeds() -> None:
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    cache = _AsyncCache()
+
+    result = _run(_llm_generate_keywords("ai_saas", [], llm_client, cache, "run-1"))
+
+    assert result == []
+    llm_client.complete.assert_not_called()
+
+
+def test_llm_generate_keywords_none_llm_client() -> None:
+    cache = _AsyncCache()
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], None, cache, "run-1"))
+    assert result == []
+
+
+def test_llm_generate_keywords_filters_empty_text(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {
+                    "keywords": [
+                        {"text": ""},
+                        {"text": "   "},
+                        {"text": "valid keyword"},
+                    ]
+                }
+            )
+        )
+    )
+    cache = _AsyncCache()
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, cache, "run-1"))
+
+    assert result == ["valid keyword"]
+
+
+def test_llm_relevance_filter_returns_relevant_only(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {
+                    "results": [
+                        {"keyword": "keep this", "relevance": "RELEVANT"},
+                        {"keyword": "drop this", "relevance": "IRRELEVANT"},
+                    ]
+                }
+            )
+        )
+    )
+    cache = _AsyncCache()
+
+    result = _run(
+        _llm_relevance_filter("ai_saas", ["keep this", "drop this"], llm_client, cache)
+    )
+
+    assert result == ["keep this"]
+
+
+def test_llm_relevance_filter_batches_50(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    batch_one = [f"keyword-{idx}" for idx in range(50)]
+    batch_two = [f"keyword-{idx}" for idx in range(50, 60)]
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            side_effect=[
+                json.dumps(
+                    {
+                        "results": [
+                            {"keyword": keyword, "relevance": "RELEVANT"} for keyword in batch_one
+                        ]
+                    }
+                ),
+                json.dumps(
+                    {
+                        "results": [
+                            {"keyword": keyword, "relevance": "RELEVANT"} for keyword in batch_two
+                        ]
+                    }
+                ),
+            ]
+        )
+    )
+    cache = _AsyncCache()
+    candidates = batch_one + batch_two
+
+    result = _run(_llm_relevance_filter("ai_saas", candidates, llm_client, cache))
+
+    assert result == candidates
+    assert llm_client.complete.await_count == 2
+
+
+def test_llm_relevance_filter_cache_hit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._cache_key_for_keywords",
+        lambda *args, **kwargs: "rel-cache-hit",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    cache = _AsyncCache(seed_data={"rel-cache-hit": ["cached keep"]})
+
+    result = _run(_llm_relevance_filter("ai_saas", ["cached keep"], llm_client, cache))
+
+    assert result == ["cached keep"]
+    llm_client.complete.assert_not_called()
+
+
+def test_llm_relevance_filter_api_error_fallback(caplog, monkeypatch) -> None:
+    caplog.set_level("WARNING")
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(side_effect=RuntimeError("llm down")))
+    cache = _AsyncCache()
+    candidates = ["one", "two"]
+
+    result = _run(_llm_relevance_filter("ai_saas", candidates, llm_client, cache))
+
+    assert result == candidates
+    assert "LLM relevance filter failed niche=ai_saas" in caplog.text
+
+
+def test_llm_relevance_filter_json_error_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value="not-json"))
+    cache = _AsyncCache()
+    candidates = ["one", "two"]
+
+    result = _run(_llm_relevance_filter("ai_saas", candidates, llm_client, cache))
+
+    assert result == candidates
+
+
+def test_llm_relevance_filter_empty_candidates() -> None:
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    cache = _AsyncCache()
+
+    result = _run(_llm_relevance_filter("ai_saas", [], llm_client, cache))
+
+    assert result == []
+    llm_client.complete.assert_not_called()
+
+
+def test_llm_relevance_filter_unknown_relevance_value(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {
+                    "results": [
+                        {"keyword": "maybe keep", "relevance": "MAYBE"},
+                        {"keyword": "def keep", "relevance": "RELEVANT"},
+                    ]
+                }
+            )
+        )
+    )
+    cache = _AsyncCache()
+
+    result = _run(_llm_relevance_filter("ai_saas", ["maybe keep", "def keep"], llm_client, cache))
+
+    assert result == ["maybe keep", "def keep"]
+
+
+def test_run_expansion_includes_llm_keywords_when_step_2c_enabled(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=True, step_2d=False)
+    fetch_mock = AsyncMock(return_value=["google keyword"])
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps({"keywords": [{"text": "llm keyword", "intent_hint": "buyer"}]})
+        )
+    )
+    with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=fetch_mock):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["seed"],
+                depth="standard",
+                run_id="run-step2c",
+                db=None,
+                session_manager=None,
+                pacing_manager=AsyncMock(),
+                dry_run=False,
+                llm_client=llm_client,
+                cache=_AsyncCache(),
+            )
+        )
+
+    assert result["sources"]["llm_generated"] == 1
+    assert result["keywords_queued"] == 2
+    llm_client.complete.assert_awaited_once()
+
+
+def test_run_expansion_applies_relevance_filter_when_step_2d_enabled(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=True)
+    fetch_mock = AsyncMock(return_value=["keep me", "drop me"])
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {
+                    "results": [
+                        {"keyword": "keep me", "relevance": "RELEVANT"},
+                        {"keyword": "drop me", "relevance": "IRRELEVANT"},
+                    ]
+                }
+            )
+        )
+    )
+    with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=fetch_mock):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["seed"],
+                depth="standard",
+                run_id="run-step2d",
+                db=None,
+                session_manager=None,
+                pacing_manager=AsyncMock(),
+                dry_run=False,
+                llm_client=llm_client,
+                cache=_AsyncCache(),
+            )
+        )
+
+    assert result["keywords_queued"] == 1
+    assert result["sources"]["llm_generated"] == 0
+
+
+def test_run_expansion_skips_llm_when_flags_false(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False)
+    fetch_mock = AsyncMock(return_value=["google only"])
+    llm_client = SimpleNamespace(complete=AsyncMock())
+
+    with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=fetch_mock):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["seed"],
+                depth="standard",
+                run_id="run-flags-off",
+                db=None,
+                session_manager=None,
+                pacing_manager=AsyncMock(),
+                dry_run=False,
+                llm_client=llm_client,
+                cache=_AsyncCache(),
+            )
+        )
+
+    assert result["keywords_queued"] == 1
+    llm_client.complete.assert_not_called()
+
+
+def test_run_expansion_dry_run_unchanged(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=True, step_2d=True)
+    fetch_mock = AsyncMock(return_value=["should not run"])
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    cache = _AsyncCache()
+    with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=fetch_mock):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["seed"],
+                depth="standard",
+                run_id="run-dry-unchanged",
+                db=None,
+                session_manager=None,
+                pacing_manager=AsyncMock(),
+                dry_run=True,
+                llm_client=llm_client,
+                cache=cache,
+            )
+        )
+
+    assert result == {
+        "niche_id": "ai_saas",
+        "keywords_queued": 0,
+        "sources": {
+            "fiverr_autocomplete": 0,
+            "google_suggest": 0,
+            "llm_generated": 0,
+        },
+        "dry_run": True,
+        "note": "Dry run: no real Playwright or LLM calls made",
+    }
+    fetch_mock.assert_not_called()
+    llm_client.complete.assert_not_called()
+    cache.get.assert_not_called()
+    cache.set.assert_not_called()
+
+
+def test_run_expansion_llm_failure_does_not_break_pipeline(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=True, step_2d=True)
+    fetch_mock = AsyncMock(return_value=["google keyword"])
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(side_effect=[RuntimeError("step2c boom"), RuntimeError("step2d boom")])
+    )
+    with patch("src.collection.workflows.keyword_expansion._fetch_google_suggest", new=fetch_mock):
+        result = _run(
+            run_keyword_expansion(
+                niche_id="ai_saas",
+                seeds=["seed"],
+                depth="standard",
+                run_id="run-llm-failure",
+                db=None,
+                session_manager=None,
+                pacing_manager=AsyncMock(),
+                dry_run=False,
+                llm_client=llm_client,
+                cache=_AsyncCache(),
+            )
+        )
+
+    assert result["dry_run"] is False
+    assert result["keywords_queued"] == 1
+    assert result["sources"]["llm_generated"] == 0
+
+
+def test_resolve_maybe_await_returns_plain_value() -> None:
+    assert _run(_resolve_maybe_await("plain")) == "plain"
+
+
+def test_extract_cached_keywords_from_dict_value_key() -> None:
+    assert _extract_cached_keywords({"keywords": [" one ", "", "two"]}, "keywords") == ["one", "two"]
+
+
+def test_cache_get_keywords_none_cache_returns_none() -> None:
+    assert _run(_cache_get_keywords(None, "key", "keywords")) is None
+
+
+def test_cache_get_keywords_handles_exception() -> None:
+    class _BrokenCache:
+        def get(self, key: str):
+            raise RuntimeError(key)
+
+    assert _run(_cache_get_keywords(_BrokenCache(), "key", "keywords")) is None
+
+
+def test_cache_set_keywords_none_cache_noop() -> None:
+    _run(_cache_set_keywords(None, "key", "keywords", ["value"]))
+
+
+def test_cache_set_keywords_typeerror_fallback_success() -> None:
+    class _FallbackCache:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, tuple[object, ...], dict[str, object]]] = []
+
+        def set(self, key: str, value, *args, **kwargs):
+            self.calls.append((key, (value, *args), kwargs))
+            if not kwargs:
+                raise TypeError("requires kwargs")
+            return None
+
+    cache = _FallbackCache()
+    _run(_cache_set_keywords(cache, "key", "keywords", ["value"]))
+
+    assert len(cache.calls) == 2
+    assert cache.calls[1][0] == "key"
+    assert cache.calls[1][2]["model"] == "gpt-4o-mini"
+
+
+def test_cache_set_keywords_typeerror_fallback_exception() -> None:
+    class _FailingFallbackCache:
+        def set(self, key: str, value, *args, **kwargs):
+            _ = (key, value, args)
+            if not kwargs:
+                raise TypeError("requires kwargs")
+            raise RuntimeError("fallback failed")
+
+    _run(_cache_set_keywords(_FailingFallbackCache(), "key", "keywords", ["value"]))
+
+
+def test_call_llm_json_typeerror_fallback_uses_no_response_format() -> None:
+    class _LegacyClient:
+        def complete(self, *, prompt: str, model: str):
+            _ = (prompt, model)
+            return '{"keywords": []}'
+
+    assert (
+        _run(_call_llm_json(_LegacyClient(), prompt="prompt", model="gpt-4o-mini"))
+        == '{"keywords": []}'
+    )
+
+
+def test_call_llm_json_uses_text_attr() -> None:
+    class _Response:
+        text = '{"keywords": []}'
+
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value=_Response()))
+    assert _run(_call_llm_json(llm_client, prompt="prompt", model="gpt-4o-mini")) == '{"keywords": []}'
+
+
+def test_call_llm_json_stringifies_non_string_response() -> None:
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value={"k": "v"}))
+    assert _run(_call_llm_json(llm_client, prompt="prompt", model="gpt-4o-mini")) == "{'k': 'v'}"
+
+
+def test_llm_generate_keywords_non_object_payload_returns_empty(caplog, monkeypatch) -> None:
+    caplog.set_level("WARNING")
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value="[]"))
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, _AsyncCache(), "run-1"))
+
+    assert result == []
+    assert "LLM keyword generation failed niche=ai_saas" in caplog.text
+
+
+def test_llm_generate_keywords_non_list_keywords_returns_empty(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value='{"keywords": {"text": "one"}}'))
+
+    result = _run(_llm_generate_keywords("ai_saas", ["seed"], llm_client, _AsyncCache(), "run-1"))
+
+    assert result == []
+
+
+def test_extract_relevant_keywords_non_list_results_returns_batch() -> None:
+    payload = {"results": "bad-shape"}
+    assert _extract_relevant_keywords(payload, ["one", "two"]) == ["one", "two"]
+
+
+def test_extract_relevant_keywords_skips_invalid_rows() -> None:
+    payload = {
+        "results": [
+            "not-dict",
+            {"keyword": 123, "relevance": "IRRELEVANT"},
+            {"keyword": "outside-batch", "relevance": "IRRELEVANT"},
+            {"keyword": "in-batch", "relevance": "RELEVANT"},
+        ]
+    }
+    assert _extract_relevant_keywords(payload, ["in-batch"]) == ["in-batch"]
+
+
+def test_llm_relevance_filter_non_object_payload_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value="[]"))
+    candidates = ["keep", "all"]
+
+    result = _run(_llm_relevance_filter("ai_saas", candidates, llm_client, _AsyncCache()))
+
+    assert result == candidates
+
+
+def test_run_keyword_expansion_stub_alias() -> None:
+    result = _run(
+        run_keyword_expansion_stub(
+            niche_id="ai_saas",
+            seeds=["seed"],
+            depth="standard",
+            run_id="run-stub",
+            db=None,
+            session_manager=None,
+            pacing_manager=None,
+            dry_run=True,
+        )
+    )
+    assert result["dry_run"] is True
+
+
+def test_keyword_expansion_workflow_run_returns_module() -> None:
+    workflow = KeywordExpansionWorkflow()
+    module = workflow.run()
+    assert hasattr(module, "__name__")
