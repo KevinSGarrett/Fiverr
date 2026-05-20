@@ -26,6 +26,21 @@ Mandatory GraphQL result (PR #34):
 
 - `PM_Pack/ref/project_plan/06_analysis/KEYWORD_CLUSTERING.md` reviewed in full.
 - `PM_Pack/ref/project_plan/03_data/SCHEMA.md` reviewed for cluster-related table definitions.
+- Extracted implementation-spec points recorded for Task 3.1:
+  - Module path: `src/analysis/keyword_clusterer.py`.
+  - `load_embeddings_for_niche(niche_id: str, db) -> tuple[list[int], np.ndarray]` filters by `niche_id`, `is_active=True`, and `embedding_vector IS NOT NULL`; returns keyword IDs + matrix; empty path returns `([], np.array([]))`.
+  - `normalize_embeddings(matrix)` uses L2 normalization (`sklearn.preprocessing.normalize(..., norm="l2")`).
+  - `run_kmeans` parameters: `n_clusters`, `init="k-means++"`, `n_init=10`, `max_iter=300`, `random_state=42`, `algorithm="lloyd"`; output labels plus inertia.
+  - `run_dbscan` parameters: `eps`, `min_samples`, `metric="euclidean"`, `n_jobs=-1`; noise labels as `-1`.
+  - Auto cluster heuristic: `ceil(sqrt(n_keywords / 2))` clamped to floor `2` and max cluster cap (`20` default / config override).
+  - LLM labeling input/output (spec): representative keywords per cluster -> concise label text (4-8 words); opportunity narrative generation is cluster-level strategic text; cache keyed by stable cluster fingerprint.
+  - Stage-9 timing: runs after keyword expansion embeddings are present; per-niche execution (no cross-niche clustering).
+  - Re-clustering trigger: no prior clusters, or >15% new unclustered embedded keywords, or clustering config change/force flag.
+  - Clustered keyword eligibility: only active keywords with non-null embeddings.
+  - Depth variant: feasibility depth skips clustering (no embeddings generated in that depth path).
+- Extracted schema points recorded for Task 3.2:
+  - `SCHEMA.md` cluster tables: `keyword_clusters` (`cluster_id`, `niche_id`, `keyword_id`, `cluster_label`, `distance_to_centroid`, `assigned_at`) and `cluster_analysis` (`cluster_id`, `niche_id`, `run_id`, `cluster_label`, `keyword_count`, `representative_keywords`, `opportunity_narrative`, plus synthesis metadata).
+  - Cycle 031 implementation stores equivalent Stage-9 persistence via `cluster_assignments` and `cluster_labels` tables (see ORM section below), while maintaining `keywords.cluster_id` updates for assignment state.
 - Observed repo delta vs prompt assumption:
   - `src/analysis/` already existed (`True`).
   - `src/analysis/__init__.py` already existed (`True`).
@@ -100,7 +115,7 @@ Mandatory GraphQL result (PR #34):
 | 15 | PASS | Jira evidence comments posted to Stage 9 story + Epic 03; cycle control status updates complete. |
 | 16 | PASS | Artifact hygiene checks and cycle report generation complete (this file). |
 | 17 | PASS | Required R-092 v2 runs completed (`test_keyword_clusterer`, regression suites, integration suite). |
-| 18 | IN PROGRESS | Scoped staging/commit freeze pending final `git add` verification + commit execution. |
+| 18 | PASS | Scoped staging verified, commit created with requested message, and handoff SHA recorded (`e7723b91ea787bb7b10958f359c558a9fc779876`). |
 
 ## Validation Evidence
 
@@ -132,7 +147,7 @@ Mandatory GraphQL result (PR #34):
 ## Final SHA
 
 - PR #34 merge SHA baseline: `f852af90ab3ad9bd32baf6bb75cd254dda17febd`.
-- Agent A Cycle 031 handoff SHA: pending Task 18 commit freeze (`git rev-parse HEAD` after scoped commit).
+- Agent A Cycle 031 handoff SHA (Task 18 freeze): `e7723b91ea787bb7b10958f359c558a9fc779876`.
 
 ## Handoff Notes for Agent B
 
