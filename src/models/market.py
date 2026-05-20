@@ -34,6 +34,7 @@ class Keyword(
     keyword: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     normalized_keyword: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    intent_class: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
     search_volume_hint: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Discovery fields — AC-1.3.8
     is_discovery: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

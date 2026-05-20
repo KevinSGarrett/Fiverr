@@ -22,6 +22,7 @@ from src.collection.workflows.keyword_expansion import (
     _extract_relevant_keywords,
     _fetch_google_suggest,
     _is_session,
+    _llm_classify_intent,
     _llm_generate_keywords,
     _llm_relevance_filter,
     _resolve_maybe_await,
@@ -58,10 +59,12 @@ def _set_feature_flags(
     *,
     step_2c: bool = True,
     step_2d: bool = True,
+    step_2f: bool = False,
 ):
     updated = dict(_FEATURE_FLAGS)
     updated["step_2c_llm_generation"] = step_2c
     updated["step_2d_llm_relevance_filter"] = step_2d
+    updated["step_2f_llm_intent_classification"] = step_2f
     monkeypatch.setattr("src.collection.workflows.keyword_expansion._FEATURE_FLAGS", updated)
 
 
@@ -999,6 +1002,270 @@ def test_llm_relevance_filter_non_object_payload_fallback(monkeypatch) -> None:
     result = _run(_llm_relevance_filter("ai_saas", candidates, llm_client, _AsyncCache()))
 
     assert result == candidates
+
+
+def test_llm_classify_intent_returns_dict_mapping(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {
+                    "results": [
+                        {"keyword": "how to write a prd", "intent_class": "INFORMATIONAL"},
+                        {"keyword": "best prd writer", "intent_class": "CONSIDERATION"},
+                    ]
+                }
+            )
+        )
+    )
+
+    result = _run(
+        _llm_classify_intent(
+            niche_id="ai_saas",
+            keywords=["how to write a prd", "best prd writer"],
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert result == {
+        "how to write a prd": "INFORMATIONAL",
+        "best prd writer": "CONSIDERATION",
+    }
+
+
+def test_llm_classify_intent_batches_50(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    batch_one = [f"kw-{idx}" for idx in range(50)]
+    batch_two = [f"kw-{idx}" for idx in range(50, 60)]
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            side_effect=[
+                json.dumps(
+                    {
+                        "results": [
+                            {"keyword": keyword, "intent_class": "HIGH_INTENT"}
+                            for keyword in batch_one
+                        ]
+                    }
+                ),
+                json.dumps(
+                    {
+                        "results": [
+                            {"keyword": keyword, "intent_class": "TRANSACTIONAL"}
+                            for keyword in batch_two
+                        ]
+                    }
+                ),
+            ]
+        )
+    )
+    result = _run(
+        _llm_classify_intent(
+            niche_id="ai_saas",
+            keywords=batch_one + batch_two,
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert llm_client.complete.await_count == 2
+    assert len(result) == 60
+    assert result["kw-0"] == "HIGH_INTENT"
+    assert result["kw-59"] == "TRANSACTIONAL"
+
+
+def test_llm_classify_intent_cache_hit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._cache_key_for_keywords",
+        lambda *args, **kwargs: "intent-cache-hit",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock())
+    cache = _AsyncCache(seed_data={"intent-cache-hit": {"cached kw": "HIGH_INTENT"}})
+
+    result = _run(_llm_classify_intent("ai_saas", ["cached kw"], llm_client, cache))
+
+    assert result == {"cached kw": "HIGH_INTENT"}
+    llm_client.complete.assert_not_called()
+
+
+def test_llm_classify_intent_invalid_class_becomes_null(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {"results": [{"keyword": "unknown intent keyword", "intent_class": "UNKNOWN"}]}
+            )
+        )
+    )
+
+    result = _run(
+        _llm_classify_intent(
+            niche_id="ai_saas",
+            keywords=["unknown intent keyword"],
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert result == {"unknown intent keyword": None}
+
+
+def test_llm_classify_intent_api_error_returns_null_map(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(side_effect=RuntimeError("llm unavailable")))
+
+    result = _run(
+        _llm_classify_intent(
+            niche_id="ai_saas",
+            keywords=["kw-1", "kw-2"],
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert result == {"kw-1": None, "kw-2": None}
+
+
+def test_llm_classify_intent_missing_kw_in_response_becomes_null(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion._render_stage02_template",
+        lambda *args, **kwargs: "prompt",
+    )
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=json.dumps(
+                {"results": [{"keyword": "present", "intent_class": "HIGH_INTENT"}]}
+            )
+        )
+    )
+
+    result = _run(
+        _llm_classify_intent(
+            niche_id="ai_saas",
+            keywords=["present", "missing"],
+            llm_client=llm_client,
+            cache=_AsyncCache(),
+        )
+    )
+
+    assert result == {"present": "HIGH_INTENT", "missing": None}
+
+
+def test_run_expansion_step2f_sets_intent_on_db_keywords(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=True)
+    session, niche = _build_keyword_session()
+    try:
+        with patch(
+            "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+            new=AsyncMock(return_value=["buy logo design", "what is logo design"]),
+        ):
+            llm_client = SimpleNamespace(
+                complete=AsyncMock(
+                    return_value=json.dumps(
+                        {
+                            "results": [
+                                {"keyword": "buy logo design", "intent_class": "TRANSACTIONAL"},
+                                {"keyword": "what is logo design", "intent_class": "INFORMATIONAL"},
+                            ]
+                        }
+                    )
+                )
+            )
+            result = _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2f-db",
+                    db=session,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                    llm_client=llm_client,
+                    cache=_AsyncCache(),
+                )
+            )
+
+        rows = session.query(Keyword).filter(Keyword.niche_id == niche.id).all()
+        intent_by_keyword = {row.keyword: row.intent_class for row in rows}
+        assert result["keywords_queued"] == 2
+        assert intent_by_keyword["buy logo design"] == "TRANSACTIONAL"
+        assert intent_by_keyword["what is logo design"] == "INFORMATIONAL"
+    finally:
+        session.close()
+
+
+def test_run_expansion_step2f_flag_false_no_classification(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False)
+    session, niche = _build_keyword_session()
+    intent_mock = AsyncMock(return_value={"buy logo design": "TRANSACTIONAL"})
+    try:
+        with patch(
+            "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+            new=AsyncMock(return_value=["buy logo design"]),
+        ):
+            with patch("src.collection.workflows.keyword_expansion._llm_classify_intent", new=intent_mock):
+                _run(
+                    run_keyword_expansion(
+                        niche_id="ai_saas",
+                        seeds=["seed"],
+                        depth="standard",
+                        run_id="run-step2f-off",
+                        db=session,
+                        session_manager=None,
+                        pacing_manager=AsyncMock(),
+                        dry_run=False,
+                        llm_client=SimpleNamespace(complete=AsyncMock()),
+                        cache=_AsyncCache(),
+                    )
+                )
+
+        rows = session.query(Keyword).filter(Keyword.niche_id == niche.id).all()
+        assert len(rows) == 1
+        assert rows[0].intent_class is None
+        intent_mock.assert_not_awaited()
+    finally:
+        session.close()
+
+
+def test_run_expansion_step2f_flag_false_skips_intent_classification(monkeypatch) -> None:
+    _set_feature_flags(monkeypatch, step_2c=False, step_2d=False, step_2f=False)
+    intent_mock = AsyncMock(return_value={"buy logo design": "TRANSACTIONAL"})
+
+    with patch(
+        "src.collection.workflows.keyword_expansion._fetch_google_suggest",
+        new=AsyncMock(return_value=["buy logo design"]),
+    ):
+        with patch("src.collection.workflows.keyword_expansion._llm_classify_intent", new=intent_mock):
+            _run(
+                run_keyword_expansion(
+                    niche_id="ai_saas",
+                    seeds=["seed"],
+                    depth="standard",
+                    run_id="run-step2f-off-intent",
+                    db=None,
+                    session_manager=None,
+                    pacing_manager=AsyncMock(),
+                    dry_run=False,
+                    llm_client=SimpleNamespace(complete=AsyncMock()),
+                    cache=_AsyncCache(),
+                )
+            )
+
+    intent_mock.assert_not_awaited()
 
 
 def test_run_keyword_expansion_stub_alias() -> None:

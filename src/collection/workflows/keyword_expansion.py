@@ -24,13 +24,20 @@ _FEATURE_FLAGS: dict[str, bool] = {
     "step_2a_fiverr_autocomplete": False,
     "step_2c_llm_generation": True,
     "step_2d_llm_relevance_filter": True,
-    "step_2f_llm_intent_classification": False,
+    "step_2f_llm_intent_classification": True,
     "step_2g_embedding_generation": False,
+}
+
+_VALID_INTENT_CLASSES = {
+    "INFORMATIONAL",
+    "CONSIDERATION",
+    "HIGH_INTENT",
+    "TRANSACTIONAL",
 }
 
 
 class KeywordExpansionLLMClient(Protocol):
-    """LLM client protocol used by Workflow 2 Step 2c/2d."""
+    """LLM client protocol used by Workflow 2 Step 2c/2d/2f."""
 
     def complete(
         self,
@@ -109,6 +116,68 @@ async def _cache_set_keywords(
             cache.set(
                 cache_key,
                 {value_key: values},
+                model="gpt-4o-mini",
+                temperature=0.0,
+                prompt_text=cache_key,
+            )
+        )
+    except Exception:
+        logger.debug("Cache set fallback failed for key '%s'.", cache_key, exc_info=True)
+
+
+def _extract_cached_intent_map(cached: Any, batch: list[str]) -> dict[str, str | None] | None:
+    payload = cached
+    if isinstance(cached, dict) and isinstance(cached.get("intent_map"), dict):
+        payload = cached["intent_map"]
+    if not isinstance(payload, dict):
+        return None
+
+    extracted: dict[str, str | None] = {}
+    for keyword in batch:
+        value = payload.get(keyword)
+        if not isinstance(value, str):
+            extracted[keyword] = None
+            continue
+        normalized = value.strip().upper()
+        extracted[keyword] = normalized if normalized in _VALID_INTENT_CLASSES else None
+    return extracted
+
+
+async def _cache_get_intent_map(
+    cache: KeywordExpansionCache | Any | None,
+    cache_key: str,
+    batch: list[str],
+) -> dict[str, str | None] | None:
+    if cache is None:
+        return None
+    try:
+        cached: Any = await _resolve_maybe_await(cache.get(cache_key))
+    except Exception:
+        return None
+    return _extract_cached_intent_map(cached, batch)
+
+
+async def _cache_set_intent_map(
+    cache: KeywordExpansionCache | Any | None,
+    cache_key: str,
+    batch_map: dict[str, str | None],
+) -> None:
+    if cache is None:
+        return
+    try:
+        await _resolve_maybe_await(cache.set(cache_key, batch_map))
+        return
+    except TypeError:
+        pass
+    except Exception:
+        logger.debug("Cache set failed for key '%s'.", cache_key, exc_info=True)
+        return
+
+    try:
+        await _resolve_maybe_await(
+            cache.set(
+                cache_key,
+                {"intent_map": batch_map},
                 model="gpt-4o-mini",
                 temperature=0.0,
                 prompt_text=cache_key,
@@ -272,6 +341,80 @@ async def _llm_relevance_filter(
     return relevant
 
 
+async def _llm_classify_intent(
+    niche_id: str,
+    keywords: list[str],
+    llm_client: KeywordExpansionLLMClient | None,
+    cache: KeywordExpansionCache | Any | None,
+) -> dict[str, str | None]:
+    """Step 2f: LLM intent classification. Returns {keyword: intent_class | None}."""
+    cleaned_keywords = [kw.strip() for kw in keywords if isinstance(kw, str) and kw.strip()]
+    if not cleaned_keywords:
+        return {}
+    if llm_client is None:
+        return {kw: None for kw in cleaned_keywords}
+
+    result: dict[str, str | None] = {}
+    for batch_start in range(0, len(cleaned_keywords), 50):
+        batch = cleaned_keywords[batch_start : batch_start + 50]
+        cache_key = _cache_key_for_keywords("intent_v1", niche_id, batch)
+        cached_batch_map = await _cache_get_intent_map(cache, cache_key, batch)
+        if cached_batch_map is not None:
+            result.update(cached_batch_map)
+            continue
+
+        prompt = _render_stage02_template(
+            "llm_intent.j2",
+            niche_name=niche_id,
+            keywords=batch,
+        )
+        try:
+            response_text = await _call_llm_json(llm_client, prompt=prompt, model="gpt-4o-mini")
+            payload = json.loads(response_text)
+            if not isinstance(payload, dict):
+                raise ValueError("LLM response was not a JSON object")
+            raw_results = payload.get("results", [])
+            if not isinstance(raw_results, list):
+                raw_results = []
+
+            batch_map: dict[str, str | None] = {keyword: None for keyword in batch}
+            for row in raw_results:
+                if not isinstance(row, dict):
+                    continue
+                keyword = row.get("keyword")
+                if not isinstance(keyword, str):
+                    continue
+                keyword_text = keyword.strip()
+                if keyword_text not in batch_map:
+                    continue
+                intent_class = row.get("intent_class")
+                if not isinstance(intent_class, str):
+                    continue
+                normalized_class = intent_class.strip().upper()
+                if normalized_class in _VALID_INTENT_CLASSES:
+                    batch_map[keyword_text] = normalized_class
+
+            for keyword, intent_class in batch_map.items():
+                if intent_class is None:
+                    logger.warning(
+                        "Intent null for kw=%s niche=%s - confidence deduction applies",
+                        keyword,
+                        niche_id,
+                    )
+        except Exception as exc:
+            logger.warning(
+                "LLM intent classification failed niche=%s batch_start=%d: %s",
+                niche_id,
+                batch_start,
+                exc,
+            )
+            batch_map = {keyword: None for keyword in batch}
+
+        await _cache_set_intent_map(cache, cache_key, batch_map)
+        result.update(batch_map)
+    return result
+
+
 async def _safe_pacing_wait(pacing_manager: Any, pacing_key: str, *, dry_run: bool) -> None:
     wait_fn = getattr(pacing_manager, "wait", None)
     if wait_fn is None:
@@ -343,7 +486,13 @@ def _resolve_niche_pk(niche_id: str, db: Any) -> int | None:
     return int(record.id)
 
 
-def _write_keywords_to_db(niche_id: str, keyword_list: list[str], db: Any) -> int:
+def _write_keywords_to_db(
+    niche_id: str,
+    keyword_list: list[str],
+    db: Any,
+    *,
+    intent_map: dict[str, str | None] | None = None,
+) -> int:
     if not _is_session(db):
         return 0
 
@@ -377,6 +526,7 @@ def _write_keywords_to_db(niche_id: str, keyword_list: list[str], db: Any) -> in
                 niche_id=niche_pk,
                 keyword=keyword_text,
                 normalized_keyword=normalized,
+                intent_class=(intent_map.get(keyword_text) if intent_map else None),
                 external_source="google_suggest",
                 source_collected_at=utc_now(),
                 metadata_json={"source": "google_suggest", "autocomplete_position": None},
@@ -467,10 +617,24 @@ async def run_keyword_expansion(
         )
 
     deduplicated_keywords = _deduplicate_keywords(combined_keywords)
+    if _FEATURE_FLAGS["step_2f_llm_intent_classification"]:
+        intent_map = await _llm_classify_intent(
+            niche_id=niche_id,
+            keywords=deduplicated_keywords,
+            llm_client=llm_client,
+            cache=cache,
+        )
+    else:
+        intent_map = {}
 
     keywords_queued = len(deduplicated_keywords)
     if _is_session(db):
-        keywords_queued = _write_keywords_to_db(niche_id, deduplicated_keywords, db)
+        keywords_queued = _write_keywords_to_db(
+            niche_id,
+            deduplicated_keywords,
+            db,
+            intent_map=intent_map,
+        )
 
     return {
         "niche_id": niche_id,

@@ -439,6 +439,7 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
                     db=db_session,
                     llm_client=None,
                     cache=None,
+                    config=config_payload if isinstance(config_payload, dict) else {},
                 )
             )
         print(f"Scoring complete: {len(scored_results)} keywords scored")

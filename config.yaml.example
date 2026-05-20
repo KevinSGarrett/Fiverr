@@ -1,0 +1,3 @@
+# Example override config for local experimentation.
+recommendations:
+  auto_generate: true

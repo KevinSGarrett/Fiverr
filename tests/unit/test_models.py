@@ -201,6 +201,16 @@ def test_keyword_unique_constraint_per_niche(tmp_path: Path) -> None:
     session.close()
 
 
+def test_keyword_intent_class_field_exists() -> None:
+    assert "intent_class" in Keyword.__table__.columns
+    assert isinstance(Keyword.__table__.columns["intent_class"].type, sqlalchemy.String)
+
+
+def test_keyword_intent_class_nullable() -> None:
+    intent_column = Keyword.__table__.columns["intent_class"]
+    assert intent_column.nullable is True
+
+
 def test_analysis_scoring_runtime_insert_and_json_roundtrip(tmp_path: Path) -> None:
     db_path = tmp_path / "analysis_scoring.db"
     db_url = f"sqlite:///{db_path.as_posix()}"
