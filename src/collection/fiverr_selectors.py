@@ -42,14 +42,32 @@ GIG_DETAIL_ORDERS_QUEUE = "[data-testid='orders-in-queue'], .orders-in-queue"
 GIG_DETAIL_READ_MORE = "[data-testid='read-more'], .read-more-btn, button.read-more"
 
 # Seller profile page
-SELLER_LEVEL_BADGE = "[data-testid='seller-level'], .seller-level"
-SELLER_MEMBER_SINCE = "[data-testid='member-since'], .member-since"
-SELLER_RESPONSE_TIME = "[data-testid='response-time'], .response-time"
-SELLER_RESPONSE_RATE = "[data-testid='response-rate'], .response-rate"
-SELLER_LANGUAGES = "[data-testid='language-item'], .language-list li"
-SELLER_BIO = "[data-testid='seller-description'], .seller-overview p"
-SELLER_REVIEW_COUNT = "[data-testid='seller-review-count'], .total-reviews"
-SELLER_GIG_COUNT = "[data-testid='gig-count'], .gigs-count"
-SELLER_GIG_TITLES = "[data-testid='seller-gig-title'], .gig-list .title"
-SELLER_PORTFOLIO_ITEMS = "[data-testid='portfolio-item'], .portfolio-item"
-SELLER_BADGES = "[data-testid='badge-item'], .badge-card"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_LEVEL_BADGE = "[data-testid='seller-level-badge'], [data-testid='seller-level'], .seller-level-badge, .seller-level"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_MEMBER_SINCE = "[data-testid='seller-member-since'], [data-testid='member-since'], .member-since"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_RESPONSE_TIME = "[data-testid='seller-response-time'], [data-testid='response-time'], .response-time"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_RESPONSE_RATE = "[data-testid='seller-response-rate'], [data-testid='response-rate'], .response-rate"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_LANGUAGES = "[data-testid='seller-language-item'], [data-testid='language-item'], .languages li, .language-list li"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_BIO = "[data-testid='seller-bio'], [data-testid='seller-description'], .seller-overview p, .seller-bio"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_TOTAL_REVIEWS = "[data-testid='seller-total-reviews'], [data-testid='seller-review-count'], .total-reviews"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_TOTAL_GIGS = "[data-testid='seller-total-gigs'], [data-testid='gig-count'], .gigs-count"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_GIG_TITLE = "[data-testid='seller-gig-title'], [data-testid='gig-title'], .gig-list .title, .gig-title"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_PORTFOLIO_ITEM = "[data-testid='seller-portfolio-item'], [data-testid='portfolio-item'], .portfolio-item"
+# UNVERIFIED — requires live DOM validation before first real run
+SELLER_BADGE = "[data-testid='seller-badge-item'], [data-testid='badge-item'], .badge-card"
+
+# Backward-compatible aliases for legacy tests/callers.
+SELLER_REVIEW_COUNT = SELLER_TOTAL_REVIEWS
+SELLER_GIG_COUNT = SELLER_TOTAL_GIGS
+SELLER_GIG_TITLES = SELLER_GIG_TITLE
+SELLER_PORTFOLIO_ITEMS = SELLER_PORTFOLIO_ITEM
+SELLER_BADGES = SELLER_BADGE

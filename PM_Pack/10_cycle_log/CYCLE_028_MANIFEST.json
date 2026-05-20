@@ -1,0 +1,56 @@
+{
+  "cycle": "028",
+  "pm_review_completed": "2026-05-19",
+  "pm_protocol_version": "v2_master_prompt",
+  "verification_audit": {
+    "all_4_reports_read": true,
+    "files_verified_on_disk": true,
+    "full_test_suite_run": false,
+    "live_github_checked": "partial (Agent D report + PR state)",
+    "live_jira_api_checked": true,
+    "spec_files_read": true,
+    "pm_pack_updated": true
+  },
+  "pr_reviewed": 31,
+  "pr_31_sha": "25293b561ab72e0f3c8cc8aa1fdc550425d8a5ba",
+  "pr_31_codex_findings": 1,
+  "pr_31_codex_all_valid_fixed": true,
+  "pr_31_codecov_patch": "100.00%",
+  "tests_on_pr_31": 1521,
+  "coverage_on_pr_31": "94.91%",
+  "live_jira_verified": {
+    "SCRUM-515": "Done",
+    "SCRUM-516": "In Progress",
+    "SCRUM-17": "In Progress",
+    "SCRUM-19": "In Progress",
+    "SCRUM-20": "In Progress",
+    "SCRUM-21": "In Progress",
+    "SCRUM-22": "In Progress",
+    "SCRUM-24": "In Progress",
+    "SCRUM-25": "In Progress",
+    "SCRUM-231": "In Review",
+    "SCRUM-148": "In Progress",
+    "SCRUM-149": "In Progress",
+    "SCRUM-151": "In Progress",
+    "SCRUM-172": "In Progress"
+  },
+  "critical_finding": "weakness.py._load_signals_from_db() uses GigVisualAnalysis not GigQualityScore despite GQS ORM existing since Cycle 027. Agent C must read actual code before wiring.",
+  "cycle_027_control_ticket": "SCRUM-516",
+  "cycle_028_control_ticket": "SCRUM-517",
+  "cycle_028_scope": {
+    "agent_a": "PR #31 gate + Workflow 2 partial real (Step 2b Google Suggest via httpx + Step 2e dedup). Spec: COLLECTION_WORKFLOWS.md W2",
+    "agent_b": "Workflow 6 Google Trends real implementation via pytrends. Spec: COLLECTION_WORKFLOWS.md W6",
+    "agent_c": "Wire weakness.py to GigQualityScore (additive, preserve GigVisualAnalysis path) + Workflow 5 helper interface. READ ACTUAL weakness.py BEFORE CODING.",
+    "agent_d": "Workflow 7 stub (Reddit via praw interface) + patch coverage + PR #32 + full checklist. Spec: COLLECTION_WORKFLOWS.md W7"
+  },
+  "spec_files_read_for_028": [
+    "COLLECTION_WORKFLOWS.md W2 (Steps 2b, 2e)",
+    "COLLECTION_WORKFLOWS.md W5 (seller profile spec)",
+    "COLLECTION_WORKFLOWS.md W6 (Google Trends, pytrends, adaptive 429)",
+    "COLLECTION_WORKFLOWS.md W7 (Reddit, praw, LLM demand intent)",
+    "SCORING_DIRECTION.md S4.8 (weakness score inputs)",
+    "src/scoring/weakness.py (actual _load_signals_from_db code read)"
+  ],
+  "target_tests": 1570,
+  "target_coverage": ">=90%"
+}

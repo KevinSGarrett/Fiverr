@@ -1,0 +1,128 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled, synchronize]
+
+jobs:
+  validate-pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate PR Title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const pattern = /^(feat|fix|refactor|test|docs|chore|style|perf|ci|build|release|hotfix|revert)(\([a-z0-9-]+\))?: .+$/;
+            const errors = [];
+            if (!pattern.test(title)) {
+              errors.push('PR title must follow: type(scope): description');
+              errors.push('Example: feat(scoring): add demand score calculator');
+            }
+            if (title.length > 72) {
+              errors.push(`PR title is ${title.length} chars (max 72)`);
+            }
+            if (title.endsWith('.')) {
+              errors.push('PR title should not end with a period');
+            }
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
+      - name: Validate PR Description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const errors = [];
+            if (body.trim().length === 0) {
+              errors.push('PR description is empty — use the PR template');
+            } else {
+              const content = body.replace(/^##.*$/gm, '').replace(/^-\s*\[.\]\s*/gm, '').trim();
+              if (content.length < 50) {
+                errors.push(`PR description too short (${content.length} chars, min 50)`);
+              }
+              if (!body.includes('## What')) {
+                errors.push("Missing '## What' section");
+              }
+              if (!body.includes('## Why')) {
+                errors.push("Missing '## Why' section");
+              }
+            }
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
+      - name: Validate Labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map(l => l.name);
+            const errors = [];
+            const typeLabels = labels.filter(l => l.startsWith('type:'));
+            const priorityLabels = labels.filter(l => l.startsWith('priority:'));
+            const scopeLabels = labels.filter(l => l.startsWith('scope:'));
+            const riskLabels = labels.filter(l => l.startsWith('risk:'));
+            if (typeLabels.length !== 1) errors.push(`Exactly 1 type label required (found ${typeLabels.length})`);
+            if (priorityLabels.length !== 1) errors.push(`Exactly 1 priority label required (found ${priorityLabels.length})`);
+            if (scopeLabels.length < 1) errors.push('At least 1 scope label required');
+            if (riskLabels.length !== 1) errors.push(`Exactly 1 risk label required (found ${riskLabels.length})`);
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n'));
+            }
+
+      - name: Calculate and Apply Size Label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 300
+            });
+            const excluded = /(\\.lock$|fixtures\/.*\\.json$|seeds\/.*\\.yaml$|__init__\\.py$|\\.md$|\\.j2$)/;
+            let total = 0;
+            for (const file of files) {
+              if (!excluded.test(file.filename)) {
+                total += file.additions + file.deletions;
+              }
+            }
+            let sizeLabel;
+            if (total <= 10) sizeLabel = 'size:XS';
+            else if (total <= 50) sizeLabel = 'size:S';
+            else if (total <= 200) sizeLabel = 'size:M';
+            else if (total <= 500) sizeLabel = 'size:L';
+            else if (total <= 1000) sizeLabel = 'size:XL';
+            else sizeLabel = 'size:XXL';
+
+            const currentLabels = context.payload.pull_request.labels.map(l => l.name);
+            for (const label of currentLabels) {
+              if (label.startsWith('size:')) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.payload.pull_request.number,
+                    name: label
+                  });
+                } catch (e) { /* label already removed */ }
+              }
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: [sizeLabel]
+            });
+
+            if (sizeLabel === 'size:XXL' && !currentLabels.includes('override:large-pr')) {
+              core.setFailed(`PR has ${total} lines changed (XXL). Split or add override:large-pr label.`);
+            }
+            if (sizeLabel === 'size:XL') {
+              core.warning(`Large PR: ${total} lines changed. Consider splitting.`);
+            }

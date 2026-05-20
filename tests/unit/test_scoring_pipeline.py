@@ -317,8 +317,9 @@ def test_score_keyword_batch_mixed_success_failure(monkeypatch: pytest.MonkeyPat
         db: Any,
         llm_client: Any,
         cache: Any,
+        config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        del profile_name, db, llm_client, cache
+        del profile_name, db, llm_client, cache, config
         if keyword_id == 2:
             raise RuntimeError("boom")
         return {"keyword_id": keyword_id, "final_score": 50.0, "tag": "MONITOR", "persisted": True}

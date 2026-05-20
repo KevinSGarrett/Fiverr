@@ -1,60 +1,89 @@
-# State Snapshot — Cycle 013
+# State Snapshot — Cycle 029
+# Updated: 2026-05-19 | All data verified via master PM protocol Parts 1-8
 
-## Purpose
+## Verified Repository State
 
-Full operating snapshot for Cycle 013 PR #10 blocker-reconciliation pass.
+- Local HEAD: cycle/028/integration (PR #32 ready to merge)
+- Tests: 1608 | Coverage: 95.04% | codecov/patch: 100%
+- Active PR: #32 → develop (OPEN, ready to merge)
 
-## Source
+## Cycle 028 Final Deliverables (All Verified On Disk)
 
-- `PM_Pack/10_cycle_log/CYCLE_013_REVIEW_AND_HANDOFF.md`
-- `PM_Pack/10_cycle_log/CYCLE_013_PM_RESPONSE.md`
-- Live local branch inspection on `cycle/012/integration`
+| Agent | Delivered | Patch Coverage |
+|---|---|---|
+| A | Workflow 2 partial real (Google Suggest + dedup) | 100% |
+| B | Workflow 6 Google Trends REAL pytrends impl | 99% |
+| C | weakness.py wired to GQS + W5 helpers | 95% / 100% |
+| D | W7 stub + 3 Codex VALID_FIXED + PR #32 | 100% |
 
-## Owner
+## Live Jira Status (All Verified — Zero Discrepancies)
 
-PM / Agent A (Documentation Steward)
+| Key | Summary | Status |
+|---|---|---|
+| SCRUM-17 | E02 Collection epic | In Progress |
+| SCRUM-18 | E03 Analysis epic | In Progress |
+| SCRUM-19 | E04 Scoring epic | In Progress |
+| SCRUM-20 | E05 Recommendations epic | In Progress |
+| SCRUM-21 | E06 Pricing epic | In Progress |
+| SCRUM-22 | E07 Discovery epic | In Progress |
+| SCRUM-23 | E08 Playbook epic | In Progress |
+| SCRUM-24 | E09 Dashboard epic | In Progress |
+| SCRUM-25 | E10 Integration epic | In Progress |
+| SCRUM-147 | W2 Keyword Expansion | In Progress |
+| SCRUM-150 | W5 Seller Profile | In Progress |
+| SCRUM-151 | W6 Google Trends | In Progress |
+| SCRUM-152 | W7 Reddit Signal | In Progress |
+| SCRUM-172 | S4.8 Weakness Score | In Progress |
+| SCRUM-231 | E10 E2E Integration | In Review |
+| SCRUM-516 | Cycle 027 control | Done |
+| SCRUM-517 | Cycle 028 control | In Progress → Done (Agent A Cycle 029) |
 
-## Update Trigger
+## Collection Workflow Implementation Status (Verified)
 
-Update when branch/PR gate, Codex blocker status, Jira control status, or local discrepancy status changes.
+| Workflow | File | Real Implementation |
+|---|---|---|
+| W1 Niche Init | niche_init.py | ✅ Real (Cycle 025) |
+| W2 Keyword Expansion | keyword_expansion.py | ⚠️ PARTIAL: Step 2b + 2e real, 2a/2c/2d/2f/2g stubs |
+| W3 Fiverr Search | fiverr_search.py | ✅ Real (Cycle 026) |
+| W4 Gig Detail | gig_detail.py | ✅ Real (Cycle 027) |
+| W5 Seller Profile | seller_profile.py | ❌ NotImplementedError (helpers ready Cycle 028) |
+| W6 Google Trends | google_trends.py | ✅ Real (Cycle 028, niche-scoped fix) |
+| W7 Reddit Signals | reddit_signals.py | ❌ Stub interface only (helpers ready Cycle 028) |
+| W8+ Autocomplete etc. | various | ❌ Mostly stubs |
 
-## Repository State
+## DB Model Inventory (Verified Complete)
 
-- Current cycle: 013
-- Date: 2026-05-15
-- Repo: `KevinSGarrett/Fiverr`
-- Local repo path: `C:\Fiverr\Fiverr`
-- Working branch while gate is open: `cycle/012/integration`
-- Base branch: `develop`
-- `main` policy: no direct pushes/merges
+| Table | Status | Fed By |
+|---|---|---|
+| keywords | ✅ Real | W2 partial (Cycle 028 Google Suggest) |
+| search_results | ✅ Real | W3 (real) |
+| gigs | ✅ Real | W3 (cards) + W4 (detail) |
+| sellers | ✅ Real | W5 (stub) |
+| external_signals | ✅ Real | W6 (real Google Trends) |
+| gig_quality_scores | ✅ Real | (awaiting LLM analysis writes) |
+| keyword_scores | ✅ Real | Scoring engine |
+| price_analyses | ✅ Real | Pricing engine |
+| jobs | ✅ Real | QueueProcessor |
+| discovery_candidates | ✅ Real | Discovery engine |
 
-## PR Gate Status
+## Cycle 029 Primary Scope (Applying R-090 Task Sizing)
 
-- Active gate: PR #10 (`cycle/012/integration` -> `develop`)
-- Live state: open and mergeable, CI green, `codecov/project` green
-- Merge blocker: unresolved Codex threads still present
-- Required before merge:
-  - resolve/fix Codex findings with evidence
-  - reconcile local discrepancy between tracked and untracked PM Pack files
-  - deliver or formally disposition missing `docs/cycle_reports/CYCLE_012_AGENT_A.md`
-  - keep Jira AC/DoD evidence conservative (no premature Done transitions)
+| Agent | Scope (4-6 meaningful tasks, complexity-tiered) | Tier Mix |
+|---|---|---|
+| A | PR #32 gate + branch cleanup + W5 Seller Profile REAL Playwright impl | 1 MEDIUM + 1 LARGE + 1 SMALL |
+| B | W2 Step 2c + 2d (LLM keyword generation + relevance filter) | 1 LARGE + 1 SMALL |
+| C | W2 Step 2f (LLM intent classification) + recommendations.py wiring | 1 MEDIUM + 1 SMALL |
+| D | W7 Reddit REAL praw implementation + PR #33 + checklist | 1 LARGE + 1 MEDIUM + 1 SMALL |
 
-## Known Codex Findings
+## Verified Gaps Carried to Cycle 029 (From Live Code + Spec Review)
 
-1. P1 required-file mismatch (`PM_Pack/00_index/MASTER_INDEX.md` references files not committed).
-2. P1 Agent C template path mismatch (`PM_Pack/09_templates/AGENT_PROMPT_C.md`).
-3. P2 prompt threshold mismatch (`PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md`).
-
-## Jira Control Keys
-
-- `SCRUM-256` (Cycle 013 control ticket)
-- `SCRUM-255` (missing Agent A artifact and follow-up evidence)
-- `SCRUM-254` (board-first protocol governance)
-- `SCRUM-250` (cycle/story mapping governance)
-- `SCRUM-252` (Cursor-agent Jira operations governance)
-
-## Security Snapshot
-
-- Local archive included `.env` and must be treated as secret.
-- `.gitignore` already excludes `.env`, `.env.*`, runtime DB/cache artifacts, and logs.
-- `coverage.xml` is local generated output and must remain unstaged.
+1. **HIGH**: Workflow 5 (Seller Profile) real implementation missing.
+   Helpers built in Cycle 028 (parse_seller_level, parse_member_since, etc.).
+   Spec: COLLECTION_WORKFLOWS.md Workflow 5 — Stage 5.
+2. **HIGH**: Workflow 2 LLM steps 2c (keyword generation), 2d (relevance filter),
+   2f (intent classification) still feature-flagged stubs.
+   Spec: COLLECTION_WORKFLOWS.md Workflow 2, gpt-4o-mini batched prompts.
+3. **HIGH**: Workflow 7 (Reddit) real praw implementation needed.
+   Helpers ready (Cycle 028). Requires REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET.
+4. **MEDIUM**: Workflow 2 Step 2a (Fiverr Autocomplete) requires authenticated session — defer
+5. **MEDIUM**: No real Fiverr authentication has ever occurred — selectors unvalidated

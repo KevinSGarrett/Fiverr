@@ -1,0 +1,36 @@
+{
+  "cycle": "026",
+  "created_at": "2026-05-18T00:00:00.000000",
+  "pr_reviewed": 29,
+  "pr_29_state": "ready_to_merge",
+  "pr_29_sha": "3f5816a3ed4994750c42e83995f05de0232cfb9c",
+  "pr_29_codex_findings": 2,
+  "pr_29_all_valid_fixed": true,
+  "pr_29_codecov_patch": "100.00%",
+  "tests_on_pr_29": 1347,
+  "coverage_on_pr_29": "94.69%",
+  "cycle_025_control_ticket": "SCRUM-514",
+  "cycle_026_control_ticket": "SCRUM-515",
+  "scope_gap_from_cycle_025": [
+    "SearchResult ORM never built — Agent A Cycle 025 pivoted to CheckpointManager",
+    "Workflow 3 real implementation never built — Agent B Cycle 025 pivoted to RetryHandler",
+    "Gig ORM never built",
+    "Seller ORM never built"
+  ],
+  "cycle_026_scope": {
+    "agent_a": "PR #29 gate + SearchResult ORM (search_results table + write_search_result helper)",
+    "agent_b": "Workflow 3 real Playwright implementation (non-dry_run gig card extraction + DB write)",
+    "agent_c": "Gig ORM model (gigs table + write_gig_card helper + get_gigs_for_keyword)",
+    "agent_d": "Seller ORM model + comprehensive patch coverage + PR #30 + full checklist"
+  },
+  "target_tests": 1405,
+  "target_coverage": ">=90%",
+  "jira_keys_cycle_026": [
+    "SCRUM-514 (Done after PR #29 merge)",
+    "SCRUM-515 (create as Cycle 026 control)",
+    "SCRUM-141 (SearchResult advance)",
+    "SCRUM-148 (Workflow 3 real impl)",
+    "SCRUM-149 (Gig Detail / Gig model)",
+    "SCRUM-150 (Seller Profile / Seller model)"
+  ]
+}

@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    name: Tag Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from commit message
+        id: version
+        run: |
+          MSG=$(git log -1 --pretty=%B)
+          echo "commit_message=$MSG" >> $GITHUB_OUTPUT
+          # Try to extract version pattern like v0.1.0
+          VERSION=$(echo "$MSG" | grep -oP 'v\d+\.\d+\.\d+' | head -1 || echo "")
+          if [ -z "$VERSION" ]; then
+            echo "No version tag found in commit message, skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.commit_message }}
+          generate_release_notes: true
+          prerelease: ${{ !startsWith(steps.version.outputs.version, 'v1.') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

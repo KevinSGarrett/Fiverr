@@ -1,0 +1,204 @@
+# Trend Score
+# Fiverr Research System — Wave 6, Score 9
+
+**Status:** Complete | **Range:** 0–100 | **Direction:** Higher = better | **Weight:** 5% (default), 25% (trend_chaser) | **Depth:** standard, full
+
+---
+
+## What It Measures
+Whether the demand for this keyword is growing, flat, or declining. Higher score = rising demand trend = strategic entry timing.
+
+This score is particularly important for the trend_chaser profile (used in Q2 by the Priya persona) — it identifies niches that are growing fast and may peak soon.
+
+---
+
+## Data Inputs
+
+| Component | Source | Field | Weight |
+|---|---|---|---|
+| Google Trends 12-month average score | external_signals (google_trends) | trends_12mo_score | 40% |
+| Trend slope (direction and magnitude) | external_signals (google_trends) | trends_slope | 40% |
+| 3-month vs 12-month comparison (acceleration) | external_signals (google_trends) | trends_3mo_score, trends_12mo_score | 20% |
+
+---
+
+## Full Python Formula
+
+```python
+SLOPE_SCORES = {
+    "STRONGLY_RISING":    100,
+    "RISING":              80,
+    "FLAT":                40,
+    "DECLINING":           15,
+    "STRONGLY_DECLINING":   0,
+}
+
+def calculate_trend_score(keyword_id: int, db) -> float | None:
+    """
+    Calculates the Trend Score (0–100).
+    Returns None if Google Trends data is unavailable.
+    """
+    keyword = db.query(Keyword).filter(Keyword.id == keyword_id).first()
+    niche = db.query(NicheConfig).filter(NicheConfig.niche_id == keyword.niche_id).first()
+    depth = niche.current_depth
+
+    if depth in ("keyword_only", "feasibility"):
+        return None
+
+    trends = get_external_signal(keyword_id, "google_trends", db)
+    if not trends:
+        # Fallback to niche-level trends if no per-keyword data
+        trends = get_external_signal_for_niche(keyword.niche_id, "google_trends", db)
+    if not trends:
+        return None
+
+    components = {}
+    weighted_sum = 0.0
+    weight_used = 0.0
+
+    # Component 1: 12-Month Average Score (40%)
+    if trends.trends_12mo_score is not None:
+        # Google Trends score is 0–100 directly
+        baseline_score = trends.trends_12mo_score
+        components["12mo_baseline"] = {
+            "value": baseline_score,
+            "weight": 0.40,
+        }
+        weighted_sum += baseline_score * 0.40
+        weight_used += 0.40
+
+    # Component 2: Trend Slope (40%)
+    if trends.trends_slope:
+        slope_score = SLOPE_SCORES.get(trends.trends_slope, 40)
+        components["slope"] = {
+            "value": float(slope_score),
+            "weight": 0.40,
+            "slope_classification": trends.trends_slope,
+        }
+        weighted_sum += slope_score * 0.40
+        weight_used += 0.40
+
+    # Component 3: Acceleration (3mo vs 12mo) (20%)
+    if (trends.trends_3mo_score is not None
+            and trends.trends_12mo_score is not None
+            and trends.trends_12mo_score > 0):
+        # Acceleration: positive when recent 3 months are stronger than 12-month average
+        acceleration_ratio = trends.trends_3mo_score / trends.trends_12mo_score
+        # 1.0 = no change; 1.2 = 20% acceleration; 0.8 = 20% deceleration
+        if acceleration_ratio >= 1.30:
+            acceleration_score = 100.0  # Strong acceleration
+        elif acceleration_ratio >= 1.10:
+            acceleration_score = 75.0   # Moderate acceleration
+        elif acceleration_ratio >= 0.95:
+            acceleration_score = 50.0   # Stable
+        elif acceleration_ratio >= 0.80:
+            acceleration_score = 25.0   # Moderate deceleration
+        else:
+            acceleration_score = 5.0    # Strong deceleration
+        components["acceleration"] = {
+            "value": acceleration_score,
+            "weight": 0.20,
+            "ratio": round(acceleration_ratio, 3),
+            "trends_3mo": trends.trends_3mo_score,
+            "trends_12mo": trends.trends_12mo_score,
+        }
+        weighted_sum += acceleration_score * 0.20
+        weight_used += 0.20
+
+    if weight_used < 0.40:
+        return None
+
+    trend_score = weighted_sum / weight_used
+    return round(min(100.0, max(0.0, trend_score)), 2)
+```
+
+---
+
+## Missing Data Handling
+
+| Component | Required Status | If Missing |
+|---|---|---|
+| 12-month score | DEGRADED | Score may compute from slope alone; confidence −0.10 |
+| Slope | DEGRADED | Score may compute from baseline alone; confidence −0.10 |
+| Acceleration | OPTIONAL | Doesn't compute if 3mo or 12mo is missing |
+
+If Google Trends data is completely unavailable (OQ-004 adaptive pacing escalation triggered DEAD_LETTER), this score returns None and Confidence Modifier reduces by 0.15.
+
+---
+
+## LLM Input Handling
+
+This score is **not LLM-driven**. It uses raw Google Trends numerical data. The slope classification (RISING/FLAT/DECLINING/etc.) is calculated in Wave 4 collection using `numpy.polyfit()` on the weekly time series — no LLM involvement.
+
+The optional `trend_narrative` field on cluster_analysis is generated by gpt-4o-mini in Stage 14 (Reporting), but that's a downstream description of the score, not an input to the score itself.
+
+---
+
+## Depth-Tier Behavior
+
+| Depth | Behavior |
+|---|---|
+| full | Full calculation with all 3 components |
+| standard | Full calculation with all 3 components |
+| feasibility | **NOT AVAILABLE** — returns None |
+| keyword_only | **NOT AVAILABLE** — returns None |
+
+Google Trends is still collected at all depths (it's a niche-level data source), but the Trend Score is only computed at standard and full depths to keep the scoring system depth-tier consistent.
+
+---
+
+## Score Interpretation
+
+| Trend Score | Meaning |
+|---|---|
+| 0–20 | Strongly declining — market is shrinking, late-stage opportunity |
+| 21–40 | Mild decline or weak baseline — exercise caution |
+| 41–60 | Stable demand — established market, sustainable but not growing |
+| 61–80 | Rising demand — favorable timing for entry |
+| 81–100 | Strong growth — peak entry window, may not last |
+
+---
+
+## Example Calculation
+
+**Keyword:** "AI SaaS PRD" (per-keyword Trends data unavailable; using niche-level)
+
+From Wave 4 Google Trends collection (niche-level):
+- trends_12mo_score: 58
+- trends_3mo_score: 71
+- trends_slope: "RISING"
+
+Calculation:
+```
+baseline_score = 58
+slope_score = 80 (RISING)
+acceleration_ratio = 71 / 58 = 1.224 → acceleration_score = 75.0
+
+weighted_sum = (58 × 0.40) + (80 × 0.40) + (75.0 × 0.20)
+             = 23.20 + 32.00 + 15.00
+             = 70.20
+trend_score = 70.20
+```
+
+Result: **Trend Score = 70.20** → "Rising demand" tier.
+
+For the trend_chaser profile (25% weight), this score significantly boosts the keyword's Final Recommendation Score.
+
+---
+
+## Why Trend Score Matters Strategically
+
+The user's 9-niche portfolio targets categories at different points in the trend cycle:
+
+| Niche | Expected Trend Stage |
+|---|---|
+| MCP Server Integration | Early growth (Trend Score 80+) — new technology, peak window starting |
+| AI Agent Development | Early-to-mid growth (Trend Score 70–90) — growing rapidly through 2026 |
+| AI Tool / LLM App Integration | Mid-growth (Trend Score 60–80) — established but expanding |
+| PRD / AI SaaS MVP Roadmap | Mature/stable (Trend Score 50–70) — consistent demand |
+| Python Automation | Mature (Trend Score 40–60) — flat but persistent demand |
+| Workflow Automation | Mid-growth (Trend Score 55–75) — rising as SMBs adopt |
+
+A high Trend Score in MCP Server Integration would indicate the technology has reached peak buyer awareness — time to publish if other gates are met.
+
+A high Trend Score in PRD would be unusual (it's a mature category) and would suggest a temporary surge worth investigating.

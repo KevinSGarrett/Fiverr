@@ -1,0 +1,41 @@
+{
+  "cycle": "025",
+  "created_at": "2026-05-18T00:00:00.000000",
+  "pr_reviewed": 28,
+  "pr_28_state": "ready_to_merge",
+  "pr_28_sha": "de437f05cbff0974024e7f80ab45ecb449ec67e2",
+  "pr_28_codex_findings": 2,
+  "pr_28_codex_all_valid_fixed": true,
+  "pr_28_codecov_patch": "100.00%",
+  "tests_on_pr_28": 1274,
+  "coverage_on_pr_28": "94.44%",
+  "cycle_024_control_ticket": "SCRUM-513",
+  "cycle_025_control_ticket": "SCRUM-514",
+  "primary_epic": "SCRUM-17",
+  "cycle_025_scope": {
+    "agent_a": "PR #28 gate + CheckpointManager + retry_config.py",
+    "agent_b": "retry_handler.py with RateLimitError/SessionExpiredError/PermanentError + exceptions.py",
+    "agent_c": "Workflow 4 stub (Gig Detail) + Workflow 5 stub (Seller Profile)",
+    "agent_d": "Collection orchestrator (collect-only CLI mode) + patch coverage + PR #29 + full checklist"
+  },
+  "target_tests": 1337,
+  "target_coverage": ">=90%",
+  "collection_engine_build_progress": {
+    "session_manager": "done",
+    "fiverr_selectors": "done",
+    "human_events": "done",
+    "pacing": "done",
+    "job_orm": "done",
+    "queue_processor": "done",
+    "workflow_1_niche_init": "done",
+    "workflow_2_keyword_expansion": "stub",
+    "workflow_3_fiverr_search": "stub",
+    "checkpoint_manager": "cycle_025_agent_a",
+    "retry_config": "cycle_025_agent_a",
+    "retry_handler": "cycle_025_agent_b",
+    "workflow_4_gig_detail": "cycle_025_agent_c",
+    "workflow_5_seller_profile": "cycle_025_agent_c",
+    "collection_orchestrator": "cycle_025_agent_d",
+    "real_playwright_navigation": "cycle_026+"
+  }
+}

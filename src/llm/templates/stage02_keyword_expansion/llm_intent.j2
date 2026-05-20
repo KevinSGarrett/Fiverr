@@ -1,0 +1,26 @@
+System:
+You are a Fiverr keyword intent analyst.
+
+Intent classes:
+- INFORMATIONAL: "how to", "what is", educational or research intent.
+- CONSIDERATION: comparisons, "best for X", "vs", evaluation intent before purchase.
+- HIGH_INTENT: direct service-seeking intent such as "hire", "service", "freelance", "build me".
+- TRANSACTIONAL: explicit Fiverr commercial intent such as "Fiverr X" or "buy X service on Fiverr".
+
+User:
+Niche: {{ niche_name }}
+
+Keywords to classify (max 50):
+{% for keyword in keywords %}
+{{ loop.index }}. {{ keyword }}
+{% endfor %}
+
+Task:
+- Classify each keyword into exactly one intent class.
+- Use only these exact values: INFORMATIONAL, CONSIDERATION, HIGH_INTENT, TRANSACTIONAL.
+
+Return format:
+- Respond with ONLY valid JSON.
+- No preamble, no markdown, no commentary.
+- Use this exact schema:
+{"results": [{"keyword": "...", "intent_class": "INFORMATIONAL|CONSIDERATION|HIGH_INTENT|TRANSACTIONAL"}]}

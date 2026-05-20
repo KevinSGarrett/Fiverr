@@ -1,0 +1,36 @@
+{
+  "cycle": "024",
+  "created_at": "2026-05-18T00:00:00.000000",
+  "pr_reviewed": 27,
+  "pr_27_state": "ready_to_merge",
+  "pr_27_sha": "da92638fac9cb0ed15a0e3c2d71aeca4ee9dad64",
+  "pr_27_codex_findings": 3,
+  "pr_27_codex_all_valid_fixed": true,
+  "pr_27_codecov_patch": "100.00%",
+  "tests_on_pr_27": 1161,
+  "coverage_on_pr_27": "94.08%",
+  "cycle_023_control_ticket": "SCRUM-512",
+  "cycle_024_control_ticket": "SCRUM-513",
+  "primary_epic": "SCRUM-17",
+  "pivot_reason": "E02 Collection is the single highest-ROI remaining investment. Project is ~38% complete end-to-end. Without real Fiverr data, all downstream pipeline (scoring/recommendations/pricing) is theoretical.",
+  "cycle_024_scope": {
+    "agent_a": "PR #27 gate + SessionManager + fiverr_selectors.py + human_events.py",
+    "agent_b": "Job ORM model (jobs table) + QueueProcessor sequential v1",
+    "agent_c": "PacingManager + Workflow 1 (Niche Init) + Workflow 2 stub",
+    "agent_d": "Workflow 3 stub (Fiverr Search) + patch coverage + PR #28 + full checklist"
+  },
+  "testing_constraints": [
+    "NO real Playwright browser in tests — use AsyncMock/MagicMock",
+    "headed login flow guarded by config.playwright.require_login",
+    "data/sessions/ must be gitignored",
+    "all workflow functions accept dry_run=True parameter"
+  ],
+  "target_tests": 1225,
+  "target_coverage": ">=90%",
+  "prompt_audit": [
+    {"agent": "A", "task_count": 24, "status": "PLANNED"},
+    {"agent": "B", "task_count": 16, "status": "PLANNED"},
+    {"agent": "C", "task_count": 16, "status": "PLANNED"},
+    {"agent": "D", "task_count": 22, "status": "PLANNED"}
+  ]
+}

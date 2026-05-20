@@ -56,6 +56,8 @@ OPPORTUNITY_TAGS: list[tuple[str, float, float]] = [
     ("PASS", 0.0, 20.0),
 ]
 
+_AUTO_RECOMMENDATION_TAGS = {"STRONG_GO", "CONDITIONAL_GO"}
+
 SCORING_PROFILES: dict[str, dict[str, float]] = {
     "default": _normalized_profile({
         "demand": 0.20,
@@ -241,6 +243,7 @@ async def score_keyword(
     db: Any,
     llm_client: Any,
     cache: Any,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run full keyword scoring pipeline, compute final score, and persist result."""
     profile_weights = SCORING_PROFILES.get(profile_name)
@@ -378,6 +381,19 @@ async def score_keyword(
         score_depth=score_depth,
         db=db,
     )
+    await _maybe_auto_generate_recommendation(
+        keyword_id=keyword_id,
+        keyword_text=keyword_text,
+        niche_id=niche_id,
+        tag=tag,
+        final_score=final_score,
+        scores=scores,
+        score_components=score_components,
+        db=db,
+        llm_client=llm_client,
+        cache=cache,
+        config=config,
+    )
 
     return {
         "keyword_id": keyword_id,
@@ -407,6 +423,7 @@ async def score_keyword_batch(
     db: Any,
     llm_client: Any,
     cache: Any,
+    config: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Sequentially score keywords and return per-keyword success/failure payloads."""
     if not keyword_ids:
@@ -421,6 +438,7 @@ async def score_keyword_batch(
                 db=db,
                 llm_client=llm_client,
                 cache=cache,
+                config=config,
             )
             results.append(result)
         except Exception as exc:  # noqa: BLE001
@@ -626,3 +644,81 @@ def _score_value(result: Any) -> float | None:
     if result is None:
         return None
     return getattr(result, "score_value", None)
+
+
+def _auto_recommendation_enabled(config: dict[str, Any] | None) -> bool:
+    if not isinstance(config, dict):
+        return True
+    recommendation_config = config.get("recommendations", {})
+    if not isinstance(recommendation_config, dict):
+        return True
+    return bool(recommendation_config.get("auto_generate", True))
+
+
+async def _maybe_auto_generate_recommendation(
+    *,
+    keyword_id: int,
+    keyword_text: str,
+    niche_id: int | None,
+    tag: str,
+    final_score: float,
+    scores: dict[str, float | None],
+    score_components: dict[str, Any],
+    db: Any,
+    llm_client: Any,
+    cache: Any,
+    config: dict[str, Any] | None,
+) -> None:
+    if tag not in _AUTO_RECOMMENDATION_TAGS:
+        return
+    if not _auto_recommendation_enabled(config):
+        return
+
+    try:
+        from src.recommendations.context import RecommendationContext
+        from src.recommendations.eligibility import should_regenerate_recommendation
+        from src.recommendations.storage import write_recommendation
+        from src.recommendations.tasks import generate_recommendation
+
+        should_regen = True
+        if hasattr(db, "query"):
+            try:
+                should_regen = should_regenerate_recommendation(keyword_id, final_score, db)
+            except Exception:
+                should_regen = True
+        if not should_regen:
+            return
+
+        resolved_niche_id = niche_id if niche_id is not None else 0
+        context = RecommendationContext(
+            keyword_id=keyword_id,
+            keyword_text=keyword_text,
+            niche_id=resolved_niche_id,
+            niche_name=str(resolved_niche_id) if resolved_niche_id else "Unknown",
+            tag=tag,
+            final_score=final_score,
+            demand_score=scores.get("demand_score"),
+            competition_score=scores.get("competition_score"),
+            opportunity_score=scores.get("opportunity_score"),
+            feasibility_score=scores.get("feasibility_score"),
+            profitability_score=scores.get("profitability_score"),
+            score_components=score_components,
+        )
+        recommendation_data = await generate_recommendation(
+            keyword_id=keyword_id,
+            context=context,
+            llm_client=llm_client,
+            cache=cache,
+            db=db,
+        )
+        wrote = write_recommendation(
+            keyword_id=keyword_id,
+            run_id="auto-score",
+            context=context,
+            recommendation_data=recommendation_data,
+            db=db,
+        )
+        if not wrote:
+            logger.warning("Auto-recommendation persistence failed keyword=%s tag=%s", keyword_id, tag)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Auto-recommendation failed keyword=%s tag=%s: %s", keyword_id, tag, exc)
