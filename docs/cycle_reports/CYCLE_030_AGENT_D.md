@@ -90,14 +90,13 @@
   - Result: `1824 passed`, total coverage `95.12%`
 
 ## Task 10 — Jira Reconciliation
-- Verified via JQL:
-  - `SCRUM-518` -> `Done` (match)
-  - `SCRUM-519` -> `In Progress` (match)
-  - `SCRUM-17` -> `In Progress` (match)
-  - `SCRUM-147` -> `In Review` (match acceptable target)
-  - `SCRUM-150` -> `In Progress` (match)
-  - `SCRUM-152` -> `In Progress` (match)
-  - `SCRUM-231` -> `In Review` (match)
+- `SCRUM-518` verified as `Done` — match
+- `SCRUM-519` verified as `In Progress` — match
+- `SCRUM-17` verified as `In Progress` — match
+- `SCRUM-147` verified as `In Review` — match
+- `SCRUM-150` verified as `In Progress` — match
+- `SCRUM-152` verified as `In Progress` — match
+- `SCRUM-231` verified as `In Review` — match
 - No stale status corrections required.
 
 ## Task 11 — Story/Epic Evidence and Ledger
