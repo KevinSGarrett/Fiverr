@@ -202,10 +202,10 @@ FINAL:
 
 ## Task 14 - SHA Freeze / Hygiene
 
-- Canonical remote SHA (`origin/cycle/031/integration`): `9b2a564ac4f4a4e7b86882a3b288ff3e5be31148`
+- Canonical remote SHA (`origin/cycle/031/integration`): `6cf663a77590c006b5658478969ee22556668a46`
 - Cycle 031 reports present: `CYCLE_031_AGENT_A.md`, `CYCLE_031_AGENT_B.md`, `CYCLE_031_AGENT_C.md`, `CYCLE_031_AGENT_D.md`.
 - `git status --short` artifact hygiene check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` files staged.
 
 ## Final SHA
 
-`9b2a564ac4f4a4e7b86882a3b288ff3e5be31148`
+`6cf663a77590c006b5658478969ee22556668a46`
