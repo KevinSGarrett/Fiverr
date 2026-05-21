@@ -124,7 +124,7 @@ class SaturationScoreCalculator:
             analysis_signal = get_saturation_signal(keyword_id, resolved_run_id, db)
             if analysis_signal is not None:
                 clamped_signal = round(min(100.0, max(0.0, analysis_signal)), 2)
-                source_evidence = (
+                analysis_source_evidence = (
                     [f"saturation_scores.saturation_score[{resolved_run_id}]"]
                     if resolved_run_id
                     else ["saturation_scores.saturation_score"]
@@ -144,7 +144,7 @@ class SaturationScoreCalculator:
                     confidence_breakdown={},
                     confidence_reason="Saturation score loaded from persisted Stage 13 analysis output.",
                     missing_data_warnings=[],
-                    source_evidence=source_evidence,
+                    source_evidence=analysis_source_evidence,
                     explanation_text=(
                         "Higher saturation means lower strategic upside. Composite usage is inverted: "
                         "(100 - saturation_score) * 0.05."

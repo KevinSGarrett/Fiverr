@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.models import Base, Keyword, Niche
+from src.scoring.contracts import FeasibilityScoreResult, WeaknessScoreResult
 from src.scoring.pipeline import (
     DEPTH_SCORE_AVAILABILITY,
     SCORING_PROFILES,
@@ -145,6 +146,90 @@ def test_depth_standard_allows_all(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     result = asyncio.run(score_keyword(101, "default", FakePipelineDB("standard"), None, None))
     assert result["scores"]["feasibility_score"] is not None
     assert result["scores"]["trend_score"] is not None
+
+
+def test_score4_higher_when_low_weakness_detected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.scoring import pipeline
+
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", tmp_path)
+
+    def _fixed_feasibility(
+        self: Any,
+        keyword_id: int,
+        db: Any,
+        config: dict[str, Any] | None = None,
+    ) -> FeasibilityScoreResult:
+        del self, db, config
+        return FeasibilityScoreResult(keyword_id=keyword_id, score_value=60.0)
+
+    def _low_weakness(
+        self: Any,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> WeaknessScoreResult:
+        del self, db, llm_client, cache
+        return WeaknessScoreResult(keyword_id=keyword_id, score_value=20.0)
+
+    def _high_weakness(
+        self: Any,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> WeaknessScoreResult:
+        del self, db, llm_client, cache
+        return WeaknessScoreResult(keyword_id=keyword_id, score_value=80.0)
+
+    monkeypatch.setattr(pipeline.NewSellerFeasibilityCalculator, "calculate", _fixed_feasibility)
+    monkeypatch.setattr(pipeline.GigQualityWeaknessScoreCalculator, "calculate", _low_weakness)
+    low_payload = asyncio.run(score_keyword(901, "default", FakePipelineDB("standard"), None, None))
+
+    monkeypatch.setattr(pipeline.GigQualityWeaknessScoreCalculator, "calculate", _high_weakness)
+    high_payload = asyncio.run(score_keyword(901, "default", FakePipelineDB("standard"), None, None))
+
+    assert low_payload["scores"]["feasibility_score"] is not None
+    assert high_payload["scores"]["feasibility_score"] is not None
+    assert low_payload["scores"]["feasibility_score"] > high_payload["scores"]["feasibility_score"]
+
+
+def test_score4_lower_when_high_weakness_detected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.scoring import pipeline
+
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", tmp_path)
+
+    def _fixed_feasibility(
+        self: Any,
+        keyword_id: int,
+        db: Any,
+        config: dict[str, Any] | None = None,
+    ) -> FeasibilityScoreResult:
+        del self, keyword_id, db, config
+        return FeasibilityScoreResult(score_value=60.0)
+
+    def _high_weakness(
+        self: Any,
+        keyword_id: int,
+        db: Any,
+        llm_client: Any | None = None,
+        cache: Any | None = None,
+    ) -> WeaknessScoreResult:
+        del self, keyword_id, db, llm_client, cache
+        return WeaknessScoreResult(score_value=90.0)
+
+    monkeypatch.setattr(pipeline.NewSellerFeasibilityCalculator, "calculate", _fixed_feasibility)
+    monkeypatch.setattr(pipeline.GigQualityWeaknessScoreCalculator, "calculate", _high_weakness)
+    payload = asyncio.run(score_keyword(902, "default", FakePipelineDB("standard"), None, None))
+
+    assert payload["scores"]["feasibility_score"] is not None
+    assert payload["scores"]["feasibility_score"] < 60.0
 
 
 def test_calculate_weighted_composite_all_present() -> None:

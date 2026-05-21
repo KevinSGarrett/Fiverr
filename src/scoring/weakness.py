@@ -12,6 +12,174 @@ from sqlalchemy.orm import Session
 from src.models import Gig, GigVisualAnalysis, Keyword, SearchResult
 from src.scoring.contracts import ScoreComponent, WeaknessScoreResult
 
+_WEAKNESS_FLAG_PENALTIES: dict[str, float] = {
+    "NO_VIDEO": 25.0,
+    "NO_PORTFOLIO": 20.0,
+    "THIN_DESCRIPTION": 35.0,
+    "NO_FAQ": 20.0,
+}
+
+_WEAKNESS_FLAG_ALIASES: dict[str, str] = {
+    "NO_VIDEO": "NO_VIDEO",
+    "VIDEO_ABSENT": "NO_VIDEO",
+    "VIDEO_MISSING": "NO_VIDEO",
+    "NO_PORTFOLIO": "NO_PORTFOLIO",
+    "PORTFOLIO_ABSENT": "NO_PORTFOLIO",
+    "PORTFOLIO_MISSING": "NO_PORTFOLIO",
+    "THIN_DESCRIPTION": "THIN_DESCRIPTION",
+    "DESCRIPTION_THIN": "THIN_DESCRIPTION",
+    "NO_FAQ": "NO_FAQ",
+    "FAQ_ABSENT": "NO_FAQ",
+    "MISSING_FAQ": "NO_FAQ",
+}
+
+
+def _normalize_weakness_flags(raw_flags: Any) -> list[str]:
+    if not isinstance(raw_flags, list):
+        return []
+
+    normalized: list[str] = []
+    for raw_flag in raw_flags:
+        if not isinstance(raw_flag, str):
+            continue
+        cleaned = raw_flag.strip().upper().replace("-", "_").replace(" ", "_")
+        canonical = _WEAKNESS_FLAG_ALIASES.get(cleaned)
+        if canonical:
+            normalized.append(canonical)
+    return sorted(set(normalized))
+
+
+def compute_weakness_penalty_from_flags(weakness_flags: list[str]) -> float:
+    """Return a 0–100 penalty score derived from normalized Stage 11 weakness flags."""
+    normalized_flags = _normalize_weakness_flags(weakness_flags)
+    if not normalized_flags:
+        return 0.0
+    penalty = sum(_WEAKNESS_FLAG_PENALTIES.get(flag, 0.0) for flag in normalized_flags)
+    return round(min(100.0, max(0.0, penalty)), 2)
+
+
+def get_gig_quality_weakness_input(
+    gig_url: str,
+    niche_id: str,
+    run_id: str,
+    db: Any,
+) -> dict[str, Any]:
+    """
+    Return first-class gig weakness inputs.
+
+    Priority:
+    1) Stage 11 `GigQualityAnalysis` for this gig/run.
+    2) Legacy `GigQualityScore` for this gig/run.
+    3) Empty payload when neither table has data.
+    """
+    if not isinstance(db, Session):
+        return {}
+    normalized_url = gig_url.strip()
+    if not normalized_url:
+        return {}
+
+    normalized_niche = niche_id.strip()
+    normalized_run = run_id.strip()
+
+    try:
+        from src.models.gig_quality_score import GigQualityScore
+        from src.models.market import GigQualityAnalysis
+    except Exception:
+        return {}
+
+    # First-class read path: Stage 11 analysis.
+    analysis_row = None
+    if normalized_run:
+        analysis_row = (
+            db.query(GigQualityAnalysis)
+            .filter(
+                GigQualityAnalysis.gig_url == normalized_url,
+                GigQualityAnalysis.run_id == normalized_run,
+            )
+            .order_by(GigQualityAnalysis.analyzed_at.desc())
+            .first()
+        )
+    if analysis_row is None and normalized_niche:
+        analysis_row = (
+            db.query(GigQualityAnalysis)
+            .filter(
+                GigQualityAnalysis.gig_url == normalized_url,
+                GigQualityAnalysis.niche_id == normalized_niche,
+            )
+            .order_by(GigQualityAnalysis.analyzed_at.desc())
+            .first()
+        )
+    if analysis_row is None:
+        analysis_row = (
+            db.query(GigQualityAnalysis)
+            .filter(GigQualityAnalysis.gig_url == normalized_url)
+            .order_by(GigQualityAnalysis.analyzed_at.desc())
+            .first()
+        )
+
+    if analysis_row is not None:
+        weakness_flags = _normalize_weakness_flags(getattr(analysis_row, "weakness_flags", []))
+        return {
+            "source": "gig_quality_analysis",
+            "gig_url": normalized_url,
+            "run_id": str(getattr(analysis_row, "run_id", "") or ""),
+            "rubric_score": float(getattr(analysis_row, "rubric_score", 0.0)),
+            "video_absent": bool(getattr(analysis_row, "video_absent", False)),
+            "portfolio_absent": bool(getattr(analysis_row, "portfolio_absent", False)),
+            "weakness_flags": weakness_flags,
+            "weakness_penalty_score": compute_weakness_penalty_from_flags(weakness_flags),
+        }
+
+    # Legacy fallback: Stage 7 quality score.
+    gqs_row = None
+    if normalized_run:
+        gqs_row = (
+            db.query(GigQualityScore)
+            .filter(
+                GigQualityScore.gig_url == normalized_url,
+                GigQualityScore.run_id == normalized_run,
+            )
+            .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
+            .first()
+        )
+    if gqs_row is None:
+        gqs_row = (
+            db.query(GigQualityScore)
+            .filter(GigQualityScore.gig_url == normalized_url)
+            .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
+            .first()
+        )
+    if gqs_row is None:
+        return {}
+
+    fallback_flags: list[str] = []
+    video_absent = None
+    if getattr(gqs_row, "video_present", None) is not None:
+        video_absent = not bool(gqs_row.video_present)
+        if video_absent:
+            fallback_flags.append("NO_VIDEO")
+
+    portfolio_absent = None
+    portfolio_count = getattr(gqs_row, "portfolio_count", None)
+    if portfolio_count is not None:
+        portfolio_absent = bool(portfolio_count <= 0)
+        if portfolio_absent:
+            fallback_flags.append("NO_PORTFOLIO")
+
+    normalized_flags = _normalize_weakness_flags(fallback_flags)
+    payload: dict[str, Any] = {
+        "source": "gig_quality_score",
+        "gig_url": normalized_url,
+        "run_id": str(getattr(gqs_row, "run_id", "") or ""),
+        "weakness_flags": normalized_flags,
+        "weakness_penalty_score": compute_weakness_penalty_from_flags(normalized_flags),
+    }
+    if isinstance(video_absent, bool):
+        payload["video_absent"] = video_absent
+    if isinstance(portfolio_absent, bool):
+        payload["portfolio_absent"] = portfolio_absent
+    return payload
+
 
 class GigQualityWeaknessScoreCalculator:
     """Calculate competitor weakness/opportunity from quality and collection signals."""
@@ -19,6 +187,7 @@ class GigQualityWeaknessScoreCalculator:
     DEFAULT_WEIGHT = 0.10
     _DESCRIPTION_QUALITY_INV_WEIGHT = 0.15
     _WEAKNESS_COUNT_WEIGHT = 0.20
+    _WEAKNESS_FLAG_PENALTY_WEIGHT = 0.20
     _VIDEO_ABSENCE_WEIGHT = 0.15
     _PORTFOLIO_ABSENCE_WEIGHT = 0.15
     _THUMBNAIL_QUALITY_INV_WEIGHT = 0.10
@@ -89,6 +258,18 @@ class GigQualityWeaknessScoreCalculator:
             weighted_sum += weakness_count_score * self._WEAKNESS_COUNT_WEIGHT
             total_weight_available += self._WEAKNESS_COUNT_WEIGHT
             source_evidence.append("llm.weakness_count_per_gig")
+
+        weakness_flag_penalty = self._resolve_weakness_flags_penalty(signals)
+        if weakness_flag_penalty is not None:
+            raw_flags = signals.get("weakness_flags_by_gig", signals.get("weakness_flags", []))
+            score_components["weakness_flags_penalty"] = ScoreComponent(
+                value=weakness_flag_penalty,
+                weight=self._WEAKNESS_FLAG_PENALTY_WEIGHT,
+                raw=raw_flags,
+            )
+            weighted_sum += weakness_flag_penalty * self._WEAKNESS_FLAG_PENALTY_WEIGHT
+            total_weight_available += self._WEAKNESS_FLAG_PENALTY_WEIGHT
+            source_evidence.append("gig_quality_analysis.weakness_flags")
 
         video_absence_rate = self._resolve_absence_rate(signals, "video_absence_rate", "top10_has_video")
         if video_absence_rate is not None:
@@ -400,6 +581,25 @@ class GigQualityWeaknessScoreCalculator:
         present_count = sum(1 for value in known_presence if value)
         return 1.0 - (present_count / len(known_presence))
 
+    def _resolve_weakness_flags_penalty(self, signals: dict[str, Any]) -> float | None:
+        explicit_penalty = self._as_float(signals.get("weakness_flag_penalty"))
+        if explicit_penalty is not None:
+            return max(0.0, min(100.0, explicit_penalty))
+
+        flags_by_gig = signals.get("weakness_flags_by_gig")
+        if isinstance(flags_by_gig, list):
+            penalties: list[float] = []
+            for raw_flags in flags_by_gig:
+                if isinstance(raw_flags, list):
+                    penalties.append(compute_weakness_penalty_from_flags(raw_flags))
+            if penalties:
+                return round(sum(penalties) / len(penalties), 2)
+
+        raw_flags = signals.get("weakness_flags")
+        if isinstance(raw_flags, list):
+            return compute_weakness_penalty_from_flags(raw_flags)
+        return None
+
     @staticmethod
     def _llm_description_quality_stub() -> float | None:
         return None
@@ -440,14 +640,14 @@ class GigQualityWeaknessScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        top_gigs = (
-            session.query(Gig)
-            .join(SearchResult, SearchResult.gig_id == Gig.id)
+        top_results = (
+            session.query(SearchResult)
             .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
             .order_by(SearchResult.rank.asc())
             .all()
         )
-        gig_ids = [gig.id for gig in top_gigs]
+        top_gigs = [result.gig for result in top_results if result.gig is not None]
+        gig_ids = [gig.id for gig in top_gigs if gig.id is not None]
         video_presence_map: dict[int, bool] = {}
         if gig_ids:
             visual_rows = (
@@ -461,7 +661,7 @@ class GigQualityWeaknessScoreCalculator:
                     video_presence_map[row.gig_id] = bool(row.has_video)
         top10_has_video = [self._resolve_has_video(gig, video_presence_map.get(gig.id)) for gig in top_gigs]
         top10_has_portfolio = [self._resolve_has_portfolio(gig) for gig in top_gigs]
-        signals = {
+        signals: dict[str, Any] = {
             "keyword": keyword.keyword if keyword else "",
             "video_absence_rate": self._absence_rate_from_presence(top10_has_video),
             "portfolio_absence_rate": self._absence_rate_from_presence(top10_has_portfolio),
@@ -469,69 +669,95 @@ class GigQualityWeaknessScoreCalculator:
             "top10_has_portfolio": top10_has_portfolio or None,
         }
 
-        quality_rows_present = False
-        # Supplementary: when available, prefer table-backed quality signals.
+        niche_hint = ""
+        if keyword is not None:
+            keyword_niche = getattr(keyword, "niche", None)
+            niche_slug = getattr(keyword_niche, "slug", None)
+            if isinstance(niche_slug, str) and niche_slug.strip():
+                niche_hint = niche_slug.strip()
+            elif getattr(keyword, "niche_id", None) is not None:
+                niche_hint = str(keyword.niche_id)
+
         try:
-            from src.models.gig_quality_score import GigQualityScore, get_gig_quality_scores
+            weakness_inputs_by_gig: list[dict[str, Any]] = []
+            seen_urls: set[str] = set()
+            for result in top_results:
+                gig = result.gig
+                if gig is None:
+                    continue
+                gig_url = getattr(gig, "gig_url", None)
+                if not isinstance(gig_url, str):
+                    continue
+                normalized_url = gig_url.strip()
+                if not normalized_url or normalized_url in seen_urls:
+                    continue
+                seen_urls.add(normalized_url)
+                weakness_input = get_gig_quality_weakness_input(
+                    gig_url=normalized_url,
+                    niche_id=niche_hint,
+                    run_id=str(getattr(result, "run_id", "") or ""),
+                    db=session,
+                )
+                if weakness_input:
+                    weakness_inputs_by_gig.append(weakness_input)
 
-            top_gig_urls = {
-                gig.gig_url
-                for gig in top_gigs
-                if isinstance(getattr(gig, "gig_url", None), str) and gig.gig_url
-            }
-            quality_rows_all: list[GigQualityScore] = get_gig_quality_scores(keyword_id, session)
-            quality_rows = [
-                row
-                for row in quality_rows_all
-                if isinstance(getattr(row, "gig_url", None), str) and row.gig_url in top_gig_urls
-            ]
-            if quality_rows:
-                quality_rows_present = True
-                video_known = [row.video_present for row in quality_rows if row.video_present is not None]
-                if video_known:
-                    video_absence = sum(1 for value in video_known if not value) / len(video_known)
-                    signals["video_absence_rate"] = video_absence
-                    signals["top10_has_video"] = list(video_known)
+            if weakness_inputs_by_gig:
+                video_absence_values = [
+                    value
+                    for value in (
+                        weakness_input.get("video_absent") for weakness_input in weakness_inputs_by_gig
+                    )
+                    if isinstance(value, bool)
+                ]
+                if video_absence_values:
+                    signals["video_absence_rate"] = sum(
+                        1 for value in video_absence_values if value
+                    ) / len(video_absence_values)
+                    signals["top10_has_video"] = [not value for value in video_absence_values]
 
-                portfolio_known = [row.portfolio_count for row in quality_rows if row.portfolio_count is not None]
-                if portfolio_known:
-                    portfolio_absence = sum(1 for count in portfolio_known if count == 0) / len(portfolio_known)
-                    signals["portfolio_absence_rate"] = portfolio_absence
+                portfolio_absence_values = [
+                    value
+                    for value in (
+                        weakness_input.get("portfolio_absent") for weakness_input in weakness_inputs_by_gig
+                    )
+                    if isinstance(value, bool)
+                ]
+                if portfolio_absence_values:
+                    signals["portfolio_absence_rate"] = sum(
+                        1 for value in portfolio_absence_values if value
+                    ) / len(portfolio_absence_values)
 
-                signals["gig_quality_score_available"] = any(row.analysis_complete for row in quality_rows)
+                flags_by_gig = [
+                    _normalize_weakness_flags(weakness_input.get("weakness_flags", []))
+                    for weakness_input in weakness_inputs_by_gig
+                ]
+                if flags_by_gig:
+                    flattened_flags = [flag for flag_list in flags_by_gig for flag in flag_list]
+                    signals["weakness_flags_by_gig"] = flags_by_gig
+                    signals["weakness_flags"] = flattened_flags
+                    signals["weakness_flag_penalty"] = round(
+                        (
+                            sum(
+                                compute_weakness_penalty_from_flags(flag_list)
+                                for flag_list in flags_by_gig
+                            )
+                            / len(flags_by_gig)
+                        ),
+                        2,
+                    )
+
+                if any(
+                    weakness_input.get("source") == "gig_quality_analysis"
+                    for weakness_input in weakness_inputs_by_gig
+                ):
+                    signals["gig_quality_analysis_available"] = True
+                if any(
+                    weakness_input.get("source") == "gig_quality_score"
+                    for weakness_input in weakness_inputs_by_gig
+                ):
+                    signals["gig_quality_score_available"] = True
         except Exception:
             pass
-
-        # Stage 11 table fallback when Stage 7 rows are unavailable.
-        if not quality_rows_present:
-            try:
-                from src.models.market import GigQualityAnalysis
-
-                analysis_rows = (
-                    session.query(GigQualityAnalysis)
-                    .filter(GigQualityAnalysis.gig_url.in_(top_gig_urls))
-                    .order_by(GigQualityAnalysis.analyzed_at.desc())
-                    .all()
-                )
-                latest_by_url: dict[str, Any] = {}
-                for analysis_row in analysis_rows:
-                    gig_url = getattr(analysis_row, "gig_url", None)
-                    if isinstance(gig_url, str) and gig_url not in latest_by_url:
-                        latest_by_url[gig_url] = analysis_row
-                scoped_rows = list(latest_by_url.values())
-                if scoped_rows:
-                    video_absence = sum(
-                        1 for row in scoped_rows if bool(getattr(row, "video_absent", False))
-                    ) / len(scoped_rows)
-                    portfolio_absence = sum(
-                        1 for row in scoped_rows if bool(getattr(row, "portfolio_absent", False))
-                    ) / len(scoped_rows)
-                    signals["video_absence_rate"] = video_absence
-                    signals["portfolio_absence_rate"] = portfolio_absence
-                    signals["top10_has_video"] = [not bool(getattr(row, "video_absent", False)) for row in scoped_rows]
-                    signals["gig_quality_analysis_available"] = True
-            except Exception:
-                pass
 
         return signals
 
