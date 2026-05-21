@@ -107,7 +107,9 @@ Score 4 Stage-8 signal extraction applied:
 
 ## Final SHA
 
-- Pending scoped commit in Task 18.
+- Agent B scoped integration commit (Task 18.3):
+  - `3b5c9d2cce4b509c9be89805e92a28ab23c6f07e`
+- Branch for handoff: `cycle/032/integration`
 
 ## Handoff Notes for Agent C
 
