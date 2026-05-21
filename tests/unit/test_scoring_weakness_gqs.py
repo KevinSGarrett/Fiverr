@@ -478,8 +478,73 @@ def test_weakness_returns_empty_when_requested_run_has_no_rows() -> None:
         session.close()
 
 
+def test_weakness_uses_niche_fallback_when_run_id_not_provided() -> None:
+    session = _new_session()
+    try:
+        _seed_keyword(session)
+        session.add(
+            GigQualityAnalysis(
+                gig_url="https://www.fiverr.com/gigs/1",
+                niche_id="weakness-niche",
+                run_id="run-stage11",
+                rubric_score=74.0,
+                video_absent=True,
+                portfolio_absent=False,
+                description_thin=False,
+                faq_absent=True,
+                thumbnail_quality_flag=False,
+                weakness_flags=["NO_VIDEO", "NO_FAQ"],
+            )
+        )
+        session.commit()
+
+        payload = get_gig_quality_weakness_input(
+            gig_url="https://www.fiverr.com/gigs/1",
+            niche_id="weakness-niche",
+            run_id="",
+            db=session,
+        )
+        assert payload["source"] == "gig_quality_analysis"
+        assert payload["weakness_penalty_score"] == 45.0
+    finally:
+        session.close()
+
+
+def test_weakness_helper_returns_empty_for_blank_url_or_non_session_db() -> None:
+    session = _new_session()
+    try:
+        assert get_gig_quality_weakness_input("", "weakness-niche", "legacy", session) == {}
+    finally:
+        session.close()
+    assert get_gig_quality_weakness_input("https://www.fiverr.com/gigs/1", "weakness-niche", "legacy", {}) == {}
+
+
+def test_resolve_weakness_flags_penalty_prefers_explicit_and_clamps() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    assert calculator._resolve_weakness_flags_penalty({"weakness_flag_penalty": 120.0}) == 100.0
+    assert calculator._resolve_weakness_flags_penalty({"weakness_flag_penalty": -5.0}) == 0.0
+
+
+def test_resolve_weakness_flags_penalty_averages_per_gig_flags() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    value = calculator._resolve_weakness_flags_penalty(
+        {
+            "weakness_flags_by_gig": [
+                ["NO_VIDEO"],
+                ["NO_PORTFOLIO", "NO_FAQ"],
+            ]
+        }
+    )
+    assert value == 32.5
+    assert calculator._resolve_weakness_flags_penalty({"weakness_flags": ["NO_FAQ"]}) == 20.0
+
+
 def test_penalty_no_flags_returns_zero() -> None:
     assert compute_weakness_penalty_from_flags([]) == 0.0
+
+
+def test_penalty_normalizes_aliases_and_deduplicates() -> None:
+    assert compute_weakness_penalty_from_flags(["video absent", "VIDEO_MISSING", "no-faq"]) == 45.0
 
 
 def test_penalty_all_flags_returns_max() -> None:

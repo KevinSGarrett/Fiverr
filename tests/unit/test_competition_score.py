@@ -10,7 +10,7 @@ import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.config import ConfigLoader
-from src.models import Base, Keyword, Niche, write_competitor_profile
+from src.models import Base, Gig, Keyword, Niche, SearchResult, Seller, write_competitor_profile
 from src.scoring.competition import (
     CompetitionScoreCalculator,
     compute_seller_level_competition_signal,
@@ -127,6 +127,36 @@ def _build_session() -> tuple[Session, Niche, Keyword]:
     return session, niche, keyword
 
 
+def _seed_competition_rows(session: Session, keyword_id: int, *, run_id: str) -> None:
+    for rank in range(1, 4):
+        seller = Seller(
+            seller_handle=f"profile_seller_{rank}",
+            level="Level 1" if rank == 1 else "Level 2",
+            metadata_json={"is_pro": rank == 3},
+        )
+        session.add(seller)
+        session.flush()
+        gig = Gig(
+            seller_id=seller.id,
+            title=f"Competition gig {rank}",
+            normalized_title=f"competition gig {rank}",
+            starting_price=35.0 + (rank * 5),
+            review_count=40 + (rank * 20),
+        )
+        session.add(gig)
+        session.flush()
+        session.add(
+            SearchResult(
+                keyword_id=keyword_id,
+                rank=rank,
+                gig_id=gig.id,
+                title=gig.title,
+                run_id=run_id,
+            )
+        )
+    session.commit()
+
+
 def test_competitor_profile_inputs_returns_dict() -> None:
     session, _niche, _keyword = _build_session()
     try:
@@ -206,6 +236,58 @@ def test_competition_score_fallback_when_no_profile() -> None:
         config=_competition_config(use_competitor_profile=False),
     )
     assert with_guard.score_value == without_guard.score_value
+
+
+def test_competition_profile_derives_llm_rating_and_gap_adjustment_note() -> None:
+    calculator = CompetitionScoreCalculator()
+    profile = {
+        "mean_reviews": 350.0,
+        "median_price": 90.0,
+        "seller_level_distribution": {"TRS": 0.6, "L1": 0.4},
+        "new_seller_gap": {"gap_flags": ["LOW_VIDEO_PRESENCE"]},
+    }
+    result = calculator.calculate(
+        KEYWORD_ID,
+        FakeScoringDB(
+            competition_inputs={
+                KEYWORD_ID: {
+                    **_base_competition_inputs(),
+                    "llm_competitor_strength_rating": None,
+                    "competitor_profile": profile,
+                }
+            }
+        ),
+        config=_competition_config(use_competitor_profile=True),
+    )
+    llm_component = result.score_components["llm_competitor_strength"]
+    assert llm_component.note is not None
+    assert "LOW_VIDEO_PRESENCE" in llm_component.note
+    assert isinstance(llm_component.raw, float | int)
+
+
+def test_competition_score_session_path_applies_competitor_profile() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="run-profile-db")
+        write_competitor_profile(
+            niche_id="test_niche",
+            run_id="run-profile-db",
+            db=session,
+            top_gig_count=3,
+            median_price=140.0,
+            mean_reviews=820.0,
+            seller_level_distribution={"TOP_RATED": 0.8, "LEVEL_2": 0.2},
+            new_seller_gap={"gap_flags": ["LOW_VIDEO_PRESENCE"]},
+        )
+        result = CompetitionScoreCalculator().calculate(
+            keyword.id,
+            session,
+            config=_competition_config(use_competitor_profile=True),
+        )
+        assert result.score_components["avg_reviews"].raw == 820.0
+        assert "competitor_profiles.mean_reviews" in result.source_evidence
+    finally:
+        session.close()
 
 
 def test_seller_level_top_rated_raises_score() -> None:
@@ -441,6 +523,50 @@ def test_feasibility_score_applies_profile_gap_boost() -> None:
     assert boosted.score_value is not None
     assert boosted.score_value > baseline.score_value
     assert "profile_gap_boost" in boosted.score_components
+
+
+def test_feasibility_score_derives_gap_boost_from_inline_profile_flags() -> None:
+    calculator = NewSellerFeasibilityCalculator()
+    result = calculator.calculate(
+        KEYWORD_ID,
+        FakeScoringDB(
+            feasibility_inputs={
+                KEYWORD_ID: {
+                    **_base_feasibility_inputs(),
+                    "competitor_profile": {
+                        "new_seller_gap": {
+                            "gap_flags": ["LOW_VIDEO_PRESENCE", "LOW_PORTFOLIO_PRESENCE"],
+                        }
+                    },
+                }
+            }
+        ),
+        config=_feasibility_config(),
+    )
+    assert result.score_components["profile_gap_boost"].value == 20.0
+
+
+def test_feasibility_score_session_path_applies_profile_gap_flags() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="run-feasibility-db")
+        write_competitor_profile(
+            niche_id="test_niche",
+            run_id="run-feasibility-db",
+            db=session,
+            new_seller_gap={
+                "gap_flags": ["LOW_VIDEO_PRESENCE", "HIGH_PRICE_VARIANCE"],
+            },
+        )
+        result = NewSellerFeasibilityCalculator().calculate(
+            keyword.id,
+            session,
+            config=_feasibility_config(gap_boost_per_flag=12.0, max_gap_boost=30.0),
+        )
+        assert result.score_components["profile_gap_boost"].value == 24.0
+        assert "competitor_profiles.new_seller_gap.gap_flags" in result.source_evidence
+    finally:
+        session.close()
 
 
 def test_top_rated_dominant_returns_high_signal() -> None:

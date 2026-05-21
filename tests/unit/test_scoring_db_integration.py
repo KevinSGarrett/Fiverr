@@ -271,6 +271,44 @@ def test_saturation_signal_does_not_fallback_to_different_run() -> None:
     session.close()
 
 
+def test_saturation_signal_non_session_paths_handle_valid_and_invalid_values() -> None:
+    class _SignalProvider:
+        @staticmethod
+        def get_saturation_signal(_keyword_id: int, _run_id: str) -> str:
+            return "66.5"
+
+    class _BadSignalProvider:
+        @staticmethod
+        def get_saturation_signal(_keyword_id: int, _run_id: str) -> str:
+            return "not-a-number"
+
+    class _InputsProvider:
+        @staticmethod
+        def get_saturation_inputs(_keyword_id: int) -> dict[str, float]:
+            return {"saturation_score": 72.0}
+
+    assert get_saturation_signal(101, "run-a", _SignalProvider()) == 66.5
+    assert get_saturation_signal(101, "run-a", _BadSignalProvider()) is None
+    assert get_saturation_signal(101, "run-a", _InputsProvider()) == 72.0
+    assert get_saturation_signal(101, "run-a", {101: {"saturation_score": 55.0}}) == 55.0
+
+
+def test_saturation_calculator_uses_mapping_run_id_for_analysis_output() -> None:
+    db_proxy = {
+        701: {
+            "run_id": "run-map-701",
+            "saturation_score": 73.4,
+        }
+    }
+    result = SaturationScoreCalculator().calculate(
+        701,
+        db_proxy,
+        config={"scoring": {"saturation": {"use_analysis_output": True}}},
+    )
+    assert result.score_value == 73.4
+    assert "saturation_scores.saturation_score[run-map-701]" in result.source_evidence
+
+
 def test_saturation_score_inverted_correctly_in_composite() -> None:
     common_scores = {
         "demand_score": 70.0,
