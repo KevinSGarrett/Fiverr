@@ -9,3 +9,8 @@ scoring:
     use_cluster_boost: true
     cluster_boost: 5.0
     min_cluster_size: 3
+  competition:
+    use_competitor_profile: true
+  feasibility:
+    gap_boost_per_flag: 10.0
+    max_gap_boost: 30.0

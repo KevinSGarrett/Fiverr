@@ -274,7 +274,7 @@ async def score_keyword(
 
     demand_result = demand_calculator.calculate(keyword_id, db, config=config) if 1 in available_scores else None
     competition_result = (
-        competition_calculator.calculate(keyword_id, db) if 2 in available_scores else None
+        competition_calculator.calculate(keyword_id, db, config=config) if 2 in available_scores else None
     )
     opportunity_result = None
     if 3 in available_scores:
@@ -283,9 +283,10 @@ async def score_keyword(
             db=db,
             demand_result=demand_result,
             competition_result=competition_result,
+            config=config,
         )
     feasibility_result = (
-        feasibility_calculator.calculate(keyword_id, db) if 4 in available_scores else None
+        feasibility_calculator.calculate(keyword_id, db, config=config) if 4 in available_scores else None
     )
     profitability_result = (
         profitability_calculator.calculate(keyword_id, db) if 5 in available_scores else None

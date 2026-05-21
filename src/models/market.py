@@ -124,6 +124,7 @@ class CompetitorProfile(IntegerPrimaryKeyMixin, Base):
     max_delivery_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     video_present_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     portfolio_present_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    new_seller_gap: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -381,6 +382,7 @@ def write_competitor_profile(
     max_delivery_days: int | None = None,
     video_present_rate: float | None = None,
     portfolio_present_rate: float | None = None,
+    new_seller_gap: dict[str, Any] | None = None,
     commit: bool = True,
 ) -> CompetitorProfile | None:
     """Upsert a competitor benchmark profile keyed by niche/run."""
@@ -412,6 +414,7 @@ def write_competitor_profile(
     row.max_delivery_days = max_delivery_days
     row.video_present_rate = video_present_rate
     row.portfolio_present_rate = portfolio_present_rate
+    row.new_seller_gap = dict(new_seller_gap or {})
 
     db.add(row)
     if commit:

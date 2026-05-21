@@ -563,6 +563,7 @@ async def run_competitor_profiling_for_niche(
         max_delivery_days=_safe_int(benchmarks.get("max_delivery_days")),
         video_present_rate=_safe_float(benchmarks.get("video_present_rate")),
         portfolio_present_rate=_safe_float(benchmarks.get("portfolio_present_rate")),
+        new_seller_gap=gap_analysis,
     )
 
     result: dict[str, Any] = {
