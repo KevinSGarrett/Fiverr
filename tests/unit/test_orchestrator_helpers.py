@@ -465,3 +465,245 @@ def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
 
     assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 1
     assert "Collection dry run failed: dry-run boom" in capsys.readouterr().out
+
+
+def test_run_pipeline_cluster_only_runs_clustering_stage(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": [{"niche_id": "ai_saas"}]})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_cluster_all(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["run_id"]
+        return {"niches_processed": 1, "niches_clustered": 1, "results": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_all_niches", _fake_cluster_all)
+
+    assert orchestrator.run_pipeline("cluster-only", config_path="config.yaml", database_url=None) == 0
+    assert "Cluster-only run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_cluster_only_returns_error_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    async def _broken_cluster_all(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("cluster boom")
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_all_niches", _broken_cluster_all)
+
+    assert orchestrator.run_pipeline("cluster-only", config_path="config.yaml", database_url=None) == 1
+    assert "Cluster-only run failed: cluster boom" in capsys.readouterr().out
+
+
+def test_resolve_existing_run_id_prefers_search_result_run() -> None:
+    class _FakeQuery:
+        def __init__(self, value: Any) -> None:
+            self._value = value
+
+        def order_by(self, *_args: Any) -> _FakeQuery:
+            return self
+
+        def limit(self, _count: int) -> _FakeQuery:
+            return self
+
+        def scalar(self) -> Any:
+            return self._value
+
+        def filter(self, *_args: Any) -> _FakeQuery:
+            return self
+
+    class _FakeSession:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def query(self, _column: Any) -> _FakeQuery:
+            self.calls += 1
+            if self.calls == 1:
+                return _FakeQuery("run-search-001")
+            return _FakeQuery("run-gig-001")
+
+    assert orchestrator._resolve_existing_run_id(_FakeSession()) == "run-search-001"
+
+
+def test_resolve_existing_run_id_falls_back_to_gig_run() -> None:
+    class _FakeQuery:
+        def __init__(self, value: Any) -> None:
+            self._value = value
+
+        def order_by(self, *_args: Any) -> _FakeQuery:
+            return self
+
+        def limit(self, _count: int) -> _FakeQuery:
+            return self
+
+        def scalar(self) -> Any:
+            return self._value
+
+        def filter(self, *_args: Any) -> _FakeQuery:
+            return self
+
+    class _FakeSession:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def query(self, _column: Any) -> _FakeQuery:
+            self.calls += 1
+            if self.calls == 1:
+                return _FakeQuery(None)
+            return _FakeQuery("run-gig-002")
+
+    assert orchestrator._resolve_existing_run_id(_FakeSession()) == "run-gig-002"
+
+
+def test_resolve_existing_run_id_returns_none_without_query() -> None:
+    assert orchestrator._resolve_existing_run_id(object()) is None
+
+
+def test_run_pipeline_profile_only_uses_existing_run_id(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": [{"niche_id": "ai_saas"}]})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_profile_all(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["run_id"] == "run-existing-123"
+        return {"niches_processed": 1, "niches_profiled": 1, "results": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_resolve_existing_run_id", lambda _db: "run-existing-123")
+    monkeypatch.setattr("src.analysis.competitor_profiler.run_competitor_profiling_for_all_niches", _fake_profile_all)
+
+    assert orchestrator.run_pipeline("profile-only", config_path="config.yaml", database_url=None) == 0
+    assert "Profile-only run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_quality_analysis_uses_existing_run_id(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": [{"niche_id": "ai_saas"}]})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_quality_all(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["run_id"] == "run-existing-456"
+        return {"niches_processed": 1, "niches_analyzed": 1, "results": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_resolve_existing_run_id", lambda _db: "run-existing-456")
+    monkeypatch.setattr("src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_all_niches", _fake_quality_all)
+
+    assert orchestrator.run_pipeline("quality-analysis", config_path="config.yaml", database_url=None) == 0
+    assert "Quality-analysis run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_review_analysis_uses_existing_run_id(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": [{"niche_id": "ai_saas"}]})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_review_all(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["run_id"] == "run-existing-789"
+        return {"niches_processed": 1, "niches_analyzed": 1, "results": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_resolve_existing_run_id", lambda _db: "run-existing-789")
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_all_niches", _fake_review_all)
+
+    assert orchestrator.run_pipeline("review-analysis", config_path="config.yaml", database_url=None) == 0
+    assert "Review-analysis run complete" in capsys.readouterr().out

@@ -43,6 +43,7 @@ class ExternalSignal(IntegerPrimaryKeyMixin, TimestampMixin, Base):
     SIGNAL_GOOGLE_TRENDS = "google_trends"
     SIGNAL_REDDIT_DEMAND = "reddit_demand"
     SIGNAL_REDDIT_ACTIVITY = "reddit_activity"
+    SIGNAL_YOUTUBE_COUNT = "youtube_count"
     SIGNAL_AUTOCOMPLETE_POSITION = "autocomplete_position"
 
     keyword_id: Mapped[int] = mapped_column(ForeignKey("keywords.id"), nullable=False, index=True)

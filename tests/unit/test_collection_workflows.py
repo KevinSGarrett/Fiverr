@@ -56,6 +56,7 @@ from src.collection.workflows.seller_profile import (
     run_seller_profile_collection,
     should_skip_seller_profile,
 )
+from src.collection.workflows.youtube_count import YoutubeCountWorkflow
 
 
 def _run(coro):
@@ -1326,6 +1327,7 @@ def test_wrapper_workflow_modules_and_pending_paths() -> None:
     assert AutocompleteWorkflow().run() is autocomplete_module
     assert GigDetailWorkflow().run() is gig_detail_module
     assert GoogleTrendsWorkflow().run() is external_signals_module
+    assert YoutubeCountWorkflow().run() is external_signals_module
     assert RedditSignalWorkflow().run() is community_signals_module
     assert SellerProfileWorkflow().run() is seller_profile_module
     with pytest.raises(NotImplementedError):

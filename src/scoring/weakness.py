@@ -469,6 +469,7 @@ class GigQualityWeaknessScoreCalculator:
             "top10_has_portfolio": top10_has_portfolio or None,
         }
 
+        quality_rows_present = False
         # Supplementary: when available, prefer table-backed quality signals.
         try:
             from src.models.gig_quality_score import GigQualityScore, get_gig_quality_scores
@@ -485,6 +486,7 @@ class GigQualityWeaknessScoreCalculator:
                 if isinstance(getattr(row, "gig_url", None), str) and row.gig_url in top_gig_urls
             ]
             if quality_rows:
+                quality_rows_present = True
                 video_known = [row.video_present for row in quality_rows if row.video_present is not None]
                 if video_known:
                     video_absence = sum(1 for value in video_known if not value) / len(video_known)
@@ -499,6 +501,37 @@ class GigQualityWeaknessScoreCalculator:
                 signals["gig_quality_score_available"] = any(row.analysis_complete for row in quality_rows)
         except Exception:
             pass
+
+        # Stage 11 table fallback when Stage 7 rows are unavailable.
+        if not quality_rows_present:
+            try:
+                from src.models.market import GigQualityAnalysis
+
+                analysis_rows = (
+                    session.query(GigQualityAnalysis)
+                    .filter(GigQualityAnalysis.gig_url.in_(top_gig_urls))
+                    .order_by(GigQualityAnalysis.analyzed_at.desc())
+                    .all()
+                )
+                latest_by_url: dict[str, Any] = {}
+                for analysis_row in analysis_rows:
+                    gig_url = getattr(analysis_row, "gig_url", None)
+                    if isinstance(gig_url, str) and gig_url not in latest_by_url:
+                        latest_by_url[gig_url] = analysis_row
+                scoped_rows = list(latest_by_url.values())
+                if scoped_rows:
+                    video_absence = sum(
+                        1 for row in scoped_rows if bool(getattr(row, "video_absent", False))
+                    ) / len(scoped_rows)
+                    portfolio_absence = sum(
+                        1 for row in scoped_rows if bool(getattr(row, "portfolio_absent", False))
+                    ) / len(scoped_rows)
+                    signals["video_absence_rate"] = video_absence
+                    signals["portfolio_absence_rate"] = portfolio_absence
+                    signals["top10_has_video"] = [not bool(getattr(row, "video_absent", False)) for row in scoped_rows]
+                    signals["gig_quality_analysis_available"] = True
+            except Exception:
+                pass
 
         return signals
 

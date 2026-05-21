@@ -45,6 +45,7 @@ def test_signal_type_constants() -> None:
     assert ExternalSignal.SIGNAL_GOOGLE_TRENDS == "google_trends"
     assert ExternalSignal.SIGNAL_REDDIT_DEMAND == "reddit_demand"
     assert ExternalSignal.SIGNAL_REDDIT_ACTIVITY == "reddit_activity"
+    assert ExternalSignal.SIGNAL_YOUTUBE_COUNT == "youtube_count"
     assert ExternalSignal.SIGNAL_AUTOCOMPLETE_POSITION == "autocomplete_position"
 
 

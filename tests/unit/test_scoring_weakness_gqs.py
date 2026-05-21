@@ -6,7 +6,7 @@ import builtins
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from src.models import Base, Gig, GigQualityScore, Keyword, Niche, SearchResult
+from src.models import Base, Gig, GigQualityAnalysis, GigQualityScore, Keyword, Niche, SearchResult
 from src.scoring.weakness import GigQualityWeaknessScoreCalculator
 
 
@@ -232,5 +232,34 @@ def test_weakness_gqs_ignores_rows_outside_current_top10() -> None:
         assert signals["video_absence_rate"] == 0.0
         assert signals["portfolio_absence_rate"] == 0.0
         assert "gig_quality_score_available" not in signals
+    finally:
+        session.close()
+
+
+def test_scoring_reads_gig_quality_analysis_output() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(session, fallback_video=[True] * 10, fallback_portfolio=[True] * 10)
+        for idx in range(1, 11):
+            session.add(
+                GigQualityAnalysis(
+                    gig_url=f"https://www.fiverr.com/gigs/{idx}",
+                    niche_id="weakness-niche",
+                    run_id="run-stage11",
+                    rubric_score=60.0,
+                    video_absent=idx <= 6,
+                    portfolio_absent=False,
+                    description_thin=False,
+                    faq_absent=False,
+                    thumbnail_quality_flag=False,
+                    weakness_flags=["video_absent"] if idx <= 6 else [],
+                )
+            )
+        session.commit()
+
+        signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["video_absence_rate"] == 0.6
+        assert signals["portfolio_absence_rate"] == 0.0
+        assert signals["gig_quality_analysis_available"] is True
     finally:
         session.close()

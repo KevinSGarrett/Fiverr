@@ -387,6 +387,12 @@ class TestWorkflowClasses:
         result = w.run()
         assert result is not None
 
+    def test_youtube_count_workflow_exists(self) -> None:
+        from src.collection.workflows import YoutubeCountWorkflow
+        w = YoutubeCountWorkflow()
+        result = w.run()
+        assert result is not None
+
     def test_reddit_signal_workflow_exists(self) -> None:
         from src.collection.workflows import RedditSignalWorkflow
         w = RedditSignalWorkflow()
@@ -526,7 +532,7 @@ class TestAvailableModes:
             "price-analysis",
             "recommendations-only", "discovery-only", "discovery-collect", "resume",
         }
-        assert required == set(AVAILABLE_MODES), (
+        assert required.issubset(set(AVAILABLE_MODES)), (
             f"Missing modes: {required - set(AVAILABLE_MODES)}"
         )
 

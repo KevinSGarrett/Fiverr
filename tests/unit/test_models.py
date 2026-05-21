@@ -21,7 +21,17 @@ from src.models.database import (
     initialize_database,
 )
 from src.models.external_signal import ExternalSignal
-from src.models.market import Gig, Keyword, Review, SearchResult, Seller
+from src.models.market import (
+    ClusterAssignment,
+    ClusterLabel,
+    Gig,
+    GigQualityAnalysis,
+    Keyword,
+    Review,
+    ReviewAnalysis,
+    SearchResult,
+    Seller,
+)
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.registry import (
     get_missing_source_tables,
@@ -221,6 +231,100 @@ def test_keyword_embedding_vector_field_exists() -> None:
 def test_keyword_embedding_vector_nullable() -> None:
     embedding_column = Keyword.__table__.columns["embedding_vector"]
     assert embedding_column.nullable is True
+
+
+def test_cluster_assignment_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "cluster_assignment.db")
+
+    niche = Niche(slug="cluster-assignment", name="Cluster Assignment", category_path="programming-tech")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="ai agent builder", normalized_keyword="ai agent builder")
+    session.add(keyword)
+    session.flush()
+
+    assignment = ClusterAssignment(
+        keyword_id=keyword.id,
+        niche_id="cluster-assignment",
+        cluster_id=2,
+        run_id="run-cluster-assignment",
+        algorithm="kmeans",
+    )
+    session.add(assignment)
+    session.commit()
+
+    fetched = session.execute(select(ClusterAssignment)).scalar_one()
+    assert fetched.keyword_id == keyword.id
+    assert fetched.cluster_id == 2
+    assert fetched.algorithm == "kmeans"
+    assert fetched.run_id == "run-cluster-assignment"
+    session.close()
+
+
+def test_cluster_label_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "cluster_label.db")
+
+    label = ClusterLabel(
+        niche_id="cluster-label",
+        cluster_id=1,
+        run_id="run-cluster-label",
+        label_text="AI Agents - Workflow Automation",
+        opportunity_narrative="High intent buyers seek quick automation wins.",
+        keyword_count=8,
+    )
+    session.add(label)
+    session.commit()
+
+    fetched = session.execute(select(ClusterLabel)).scalar_one()
+    assert fetched.niche_id == "cluster-label"
+    assert fetched.cluster_id == 1
+    assert fetched.label_text == "AI Agents - Workflow Automation"
+    assert fetched.keyword_count == 8
+    session.close()
+
+
+def test_gig_quality_analysis_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "gig_quality_analysis.db")
+    row = GigQualityAnalysis(
+        gig_url="https://fiverr.com/gig/quality-model",
+        niche_id="test_niche",
+        run_id="run-gqa",
+        rubric_score=82.5,
+        video_absent=False,
+        portfolio_absent=False,
+        description_thin=False,
+        faq_absent=False,
+        thumbnail_quality_flag=False,
+        weakness_flags=[],
+    )
+    session.add(row)
+    session.commit()
+
+    fetched = session.execute(select(GigQualityAnalysis)).scalar_one()
+    assert fetched.gig_url == "https://fiverr.com/gig/quality-model"
+    assert fetched.rubric_score == 82.5
+    session.close()
+
+
+def test_review_analysis_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "review_analysis.db")
+    row = ReviewAnalysis(
+        gig_url="https://fiverr.com/gig/review-model",
+        niche_id="test_niche",
+        run_id="run-ra",
+        review_count=24,
+        avg_rating=4.8,
+        review_velocity=0.25,
+        sentiment_score=9.6,
+        recurring_complaints=["late_delivery"],
+    )
+    session.add(row)
+    session.commit()
+
+    fetched = session.execute(select(ReviewAnalysis)).scalar_one()
+    assert fetched.gig_url == "https://fiverr.com/gig/review-model"
+    assert fetched.review_velocity == 0.25
+    session.close()
 
 
 def test_ensure_embedding_vector_column_noop_for_non_sqlite(monkeypatch: pytest.MonkeyPatch) -> None:

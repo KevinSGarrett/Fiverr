@@ -1,6 +1,10 @@
 """Analysis package exports for Cycle 003 dry-run engines."""
 
 from src.analysis.clustering import cluster_keywords
+from src.analysis.competitor_profiler import (
+    run_competitor_profiling_for_all_niches,
+    run_competitor_profiling_for_niche,
+)
 from src.analysis.competitors import profile_competitors
 from src.analysis.contracts import (
     AnalysisError,
@@ -34,7 +38,21 @@ from src.analysis.contracts import (
     SellerStrengthResult,
 )
 from src.analysis.gig_quality import score_gig_quality
+from src.analysis.gig_quality_rubric import (
+    run_gig_quality_analysis_for_all_niches,
+    run_gig_quality_analysis_for_niche,
+)
 from src.analysis.intent import classify_intent
+from src.analysis.keyword_clusterer import (
+    compute_n_clusters,
+    load_embeddings_for_niche,
+    normalize_embeddings,
+    run_clustering_for_all_niches,
+    run_clustering_for_niche,
+    run_dbscan,
+    run_kmeans,
+    select_algorithm,
+)
 from src.analysis.keyword_features import (
     KeywordFeatureError,
     build_keyword_feature_set,
@@ -47,9 +65,17 @@ from src.analysis.orchestrator import run_analysis_dry_run
 from src.analysis.persistence import persist_analysis_run_summary
 from src.analysis.quality import score_gig_quality as score_gig_quality_contract
 from src.analysis.registry import build_analysis_output_registry
+from src.analysis.review_analyzer import (
+    run_review_analysis_for_all_niches,
+    run_review_analysis_for_niche,
+)
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
-from src.analysis.seller_strength import score_seller_strength
+from src.analysis.seller_strength import (
+    classify_seller_tier,
+    compute_seller_strength_score,
+    score_seller_strength,
+)
 from src.analysis.sellers import score_seller_strength as score_seller_strength_contract
 
 __all__ = [
@@ -75,14 +101,29 @@ __all__ = [
     "KeywordClusterInput",
     "KeywordClusterResult",
     "KeywordFeatureError",
+    "compute_n_clusters",
     "build_keyword_feature_set",
     "build_lexical_features",
     "classify_intent",
+    "classify_seller_tier",
     "cluster_keywords",
+    "compute_seller_strength_score",
     "extract_tokens",
+    "load_embeddings_for_niche",
+    "normalize_embeddings",
     "normalize_keyword",
     "profile_competitors",
     "run_analysis_dry_run",
+    "run_clustering_for_all_niches",
+    "run_clustering_for_niche",
+    "run_competitor_profiling_for_all_niches",
+    "run_competitor_profiling_for_niche",
+    "run_gig_quality_analysis_for_all_niches",
+    "run_gig_quality_analysis_for_niche",
+    "run_review_analysis_for_all_niches",
+    "run_review_analysis_for_niche",
+    "run_dbscan",
+    "run_kmeans",
     "persist_analysis_run_summary",
     "build_analysis_output_registry",
     "SaturationInput",
@@ -94,6 +135,7 @@ __all__ = [
     "score_gig_quality_contract",
     "score_seller_strength_contract",
     "score_seller_strength",
+    "select_algorithm",
     "analyze_saturation",
     "analyze_reviews",
     "ReviewAnalysisInput",

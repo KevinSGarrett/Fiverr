@@ -6,6 +6,7 @@ import asyncio
 import builtins
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -196,21 +197,60 @@ def test_w8_real_handles_timeout() -> None:
     page.goto.side_effect = TimeoutError("timeout")
     session_manager, pacing_manager = _build_managers(page)
     with patch("src.collection.workflows.autocomplete.write_autocomplete_suggestion"):
-        result = _run(
-            run_autocomplete_collection(
-                keyword_id=1,
-                keyword_text="keyword",
-                niche_id="ai_saas",
-                run_id="run-w8-6",
-                session_manager=session_manager,
-                pacing_manager=pacing_manager,
-                db=object(),
-                dry_run=False,
+        with pytest.raises(TimeoutError, match="timeout"):
+            _run(
+                run_autocomplete_collection(
+                    keyword_id=1,
+                    keyword_text="keyword",
+                    niche_id="ai_saas",
+                    run_id="run-w8-6",
+                    session_manager=session_manager,
+                    pacing_manager=pacing_manager,
+                    db=object(),
+                    dry_run=False,
+                )
             )
+    assert pacing_manager.wait.await_count == 1
+
+
+def test_w8_real_reraises_on_exception() -> None:
+    page = _build_page_with_suggestions(["one"])
+    page.goto.side_effect = RuntimeError("boom")
+    session_manager, pacing_manager = _build_managers(page)
+    with patch("src.collection.workflows.autocomplete.write_autocomplete_suggestion"):
+        with pytest.raises(RuntimeError, match="boom"):
+            _run(
+                run_autocomplete_collection(
+                    keyword_id=1,
+                    keyword_text="keyword",
+                    niche_id="ai_saas",
+                    run_id="run-w8-reraise",
+                    session_manager=session_manager,
+                    pacing_manager=pacing_manager,
+                    db=object(),
+                    dry_run=False,
+                )
+            )
+    session_manager.close_page.assert_awaited_once_with(page)
+
+
+def test_w8_dry_run_still_returns_error_dict() -> None:
+    result = _run(
+        run_autocomplete_collection(
+            keyword_id=1,
+            keyword_text="keyword",
+            niche_id="ai_saas",
+            run_id="run-w8-dry-reraise",
+            session_manager=None,
+            pacing_manager=None,
+            db=None,
+            dry_run=True,
         )
+    )
+    assert isinstance(result, dict)
+    assert result["dry_run"] is True
     assert result["collected"] is False
     assert result["suggestions_collected"] == 0
-    assert result["error"] is not None
 
 
 def test_w8_real_closes_page_on_success() -> None:
@@ -237,18 +277,19 @@ def test_w8_real_closes_page_on_error() -> None:
     page.goto.side_effect = RuntimeError("boom")
     session_manager, pacing_manager = _build_managers(page)
     with patch("src.collection.workflows.autocomplete.write_autocomplete_suggestion"):
-        _run(
-            run_autocomplete_collection(
-                keyword_id=1,
-                keyword_text="keyword",
-                niche_id="ai_saas",
-                run_id="run-w8-8",
-                session_manager=session_manager,
-                pacing_manager=pacing_manager,
-                db=object(),
-                dry_run=False,
+        with pytest.raises(RuntimeError, match="boom"):
+            _run(
+                run_autocomplete_collection(
+                    keyword_id=1,
+                    keyword_text="keyword",
+                    niche_id="ai_saas",
+                    run_id="run-w8-8",
+                    session_manager=session_manager,
+                    pacing_manager=pacing_manager,
+                    db=object(),
+                    dry_run=False,
+                )
             )
-        )
     session_manager.close_page.assert_awaited_once_with(page)
 
 
