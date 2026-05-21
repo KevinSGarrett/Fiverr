@@ -201,6 +201,11 @@ def test_competitor_profile_inputs_supports_mapping_source() -> None:
     assert payload["median_price"] == 45.0
 
 
+def test_competitor_profile_inputs_require_non_empty_ids() -> None:
+    assert get_competitor_profile_inputs("", "run-inline", {}) == {}
+    assert get_competitor_profile_inputs("test_niche", "", {}) == {}
+
+
 def test_competition_score_uses_profile_mean_reviews() -> None:
     calculator = CompetitionScoreCalculator()
     base_inputs = _base_competition_inputs()
@@ -248,6 +253,21 @@ def test_competition_score_fallback_when_no_profile() -> None:
     assert with_guard.score_value == without_guard.score_value
 
 
+def test_competition_score_can_disable_inline_profile_usage() -> None:
+    calculator = CompetitionScoreCalculator()
+    loaded = calculator._load_signals(
+        KEYWORD_ID,
+        {
+            KEYWORD_ID: {
+                **_base_competition_inputs(),
+                "competitor_profile": {"mean_reviews": 999.0},
+            }
+        },
+        config=_competition_config(use_competitor_profile=False),
+    )
+    assert "competitor_profile" not in loaded
+
+
 def test_competition_profile_derives_llm_rating_and_gap_adjustment_note() -> None:
     calculator = CompetitionScoreCalculator()
     profile = {
@@ -275,6 +295,16 @@ def test_competition_profile_derives_llm_rating_and_gap_adjustment_note() -> Non
     assert isinstance(llm_component.raw, float | int)
 
 
+def test_competition_llm_rating_adjusts_from_top_level_gap_flags() -> None:
+    calculator = CompetitionScoreCalculator()
+    rating, note = calculator._derive_profile_llm_rating(
+        profile_inputs={"gap_flags": ["low_video_presence"]},
+        existing_rating=7.0,
+    )
+    assert rating == 6.0
+    assert "LOW_VIDEO_PRESENCE" in note
+
+
 def test_competition_score_uses_mean_price_when_median_missing() -> None:
     calculator = CompetitionScoreCalculator()
     profile = {
@@ -295,6 +325,11 @@ def test_competition_score_uses_mean_price_when_median_missing() -> None:
         config=_competition_config(use_competitor_profile=True),
     )
     assert result.score_components["avg_starting_price"].raw == 155.0
+
+
+def test_seller_level_aliases_map_to_expected_signal_range() -> None:
+    signal = compute_seller_level_competition_signal({"TRS": 0.5, "L1": 0.5, "unknown": 0.0})
+    assert 50.0 <= signal <= 60.0
 
 
 def test_competition_score_session_path_applies_competitor_profile() -> None:

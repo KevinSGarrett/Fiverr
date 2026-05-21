@@ -521,3 +521,64 @@ def test_niche_context_ignores_non_positive_overrides() -> None:
     finally:
         session.close()
 
+
+def test_run_saturation_for_all_niches_counts_analyzed_results(monkeypatch) -> None:
+    async def _fake_run_for_niche(**kwargs: Any) -> dict[str, Any]:
+        niche_id = kwargs["niche_id"]
+        return {
+            "niche_id": niche_id,
+            "run_id": kwargs["run_id"],
+            "analyzed": niche_id != "niche-b",
+        }
+
+    monkeypatch.setattr(saturation_model, "run_saturation_analysis_for_niche", _fake_run_for_niche)
+    result = asyncio.run(
+        saturation_model.run_saturation_analysis_for_all_niches(
+            run_id="run-all",
+            db=None,
+            config={
+                "niches": [
+                    {"niche_id": "niche-a", "is_active": True},
+                    {"niche_id": "niche-b", "is_active": True},
+                    {"niche_id": "niche-c", "is_active": False},
+                ]
+            },
+            llm_client=None,
+        )
+    )
+    assert result["niches_processed"] == 2
+    assert result["niches_analyzed"] == 1
+
+
+def test_niche_context_uses_database_medians_when_available() -> None:
+    session = _make_session()
+    try:
+        niche = _seed_niche(session, "context-db")
+        keyword_a = _seed_keyword(session, niche, "keyword a")
+        keyword_b = _seed_keyword(session, niche, "keyword b")
+        _seed_search_result(
+            session,
+            keyword_id=keyword_a.id,
+            run_id="run-context",
+            total_result_count=400,
+            gig_cards=[
+                {"starting_price": 20.0, "gig_title": "A"},
+                {"starting_price": 40.0, "gig_title": "B"},
+            ],
+        )
+        _seed_search_result(
+            session,
+            keyword_id=keyword_b.id,
+            run_id="run-context",
+            total_result_count=800,
+            gig_cards=[
+                {"starting_price": 60.0, "gig_title": "C"},
+                {"starting_price": 80.0, "gig_title": "D"},
+            ],
+        )
+        context = saturation_model.build_niche_context("context-db", session, niche_context=None)
+        assert context["median_result_count"] == 600.0
+        assert context["historical_median_price"] == 50.0
+    finally:
+        session.close()
+
