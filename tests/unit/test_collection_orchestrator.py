@@ -287,6 +287,24 @@ def test_stage13_registered() -> None:
     assert "stage13_saturation_analysis" in result["stages_run"]
 
 
+def test_stage13_errors_are_captured_in_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _boom(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("stage13 boom")
+
+    monkeypatch.setattr("src.analysis.saturation_model.run_saturation_analysis_for_niche", _boom)
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage13-error",
+            db={},
+            config={"niches": [{"niche_id": "seo", "seed_keywords": ["seo audit"]}]},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert result["saturation_analysis_niches_run"] == 0
+    assert any("Stage 13 error (seo): stage13 boom" in error for error in result["errors"])
+
+
 def test_orchestrator_checkpoint_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     run_id = "run-checkpoint"

@@ -12,12 +12,14 @@ from src.models.market import (
     GigQualityAnalysis,
     Keyword,
     ReviewAnalysis,
+    SaturationScore,
     write_autocomplete_suggestion,
     write_cluster_assignment,
     write_cluster_label,
     write_competitor_profile,
     write_gig_quality_analysis,
     write_review_analysis,
+    write_saturation_score,
 )
 from src.models.niche import Niche
 
@@ -93,6 +95,22 @@ def test_write_helpers_return_none_when_db_is_not_session() -> None:
         avg_rating=4.5,
         review_velocity=0.2,
         sentiment_score=9.0,
+    ) is None
+    assert write_saturation_score(
+        keyword_id=1,
+        niche_id="niche",
+        run_id="run-1",
+        saturation_score=50.0,
+        count_score=10.0,
+        title_dup_score=20.0,
+        price_score=30.0,
+        overlap_score=40.0,
+        llm_class_score=50.0,
+        title_duplication_rate=0.2,
+        price_compression_rate=0.3,
+        seller_overlap_rate=0.4,
+        explanation_text="none",
+        db=object(),
     ) is None
 
 
@@ -297,5 +315,55 @@ def test_write_profile_quality_and_review_analysis_upsert_paths() -> None:
         assert len(session.scalars(select(CompetitorProfile)).all()) == 1
         assert len(session.scalars(select(GigQualityAnalysis)).all()) == 1
         assert len(session.scalars(select(ReviewAnalysis)).all()) == 1
+    finally:
+        session.close()
+
+
+def test_write_saturation_score_upserts_and_supports_commit_false() -> None:
+    session, niche, keyword = _build_session()
+    try:
+        created = write_saturation_score(
+            keyword_id=keyword.id,
+            niche_id=niche.slug,
+            run_id="run-saturation",
+            saturation_score=66.0,
+            count_score=50.0,
+            title_dup_score=60.0,
+            price_score=40.0,
+            overlap_score=30.0,
+            llm_class_score=55.0,
+            title_duplication_rate=0.4,
+            price_compression_rate=0.25,
+            seller_overlap_rate=0.2,
+            explanation_text="initial",
+            db=session,
+            commit=False,
+        )
+        assert created is not None
+        session.commit()
+        session.refresh(created)
+
+        updated = write_saturation_score(
+            keyword_id=keyword.id,
+            niche_id=niche.slug,
+            run_id="run-saturation",
+            saturation_score=72.5,
+            count_score=52.0,
+            title_dup_score=62.0,
+            price_score=42.0,
+            overlap_score=32.0,
+            llm_class_score=58.0,
+            title_duplication_rate=0.45,
+            price_compression_rate=0.3,
+            seller_overlap_rate=0.25,
+            explanation_text="updated",
+            db=session,
+            commit=True,
+        )
+        assert updated is not None
+        assert updated.id == created.id
+        assert updated.saturation_score == 72.5
+        rows = session.scalars(select(SaturationScore)).all()
+        assert len(rows) == 1
     finally:
         session.close()

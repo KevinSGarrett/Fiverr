@@ -9,11 +9,13 @@ import pytest
 from src.models.database import (
     _ensure_cluster_assignments_table,
     _ensure_cluster_labels_table,
+    _ensure_competitor_profiles_new_seller_gap_column,
     _ensure_competitor_profiles_table,
     _ensure_gig_quality_analyses_table,
     _ensure_keyword_cluster_id_column,
     _ensure_keyword_intent_class_column,
     _ensure_review_analyses_table,
+    _ensure_saturation_scores_table,
     _sqlite_path_from_url,
     drop_database_for_tests,
     get_db,
@@ -154,6 +156,91 @@ def test_ensure_backfill_tables_create_sql_when_missing(monkeypatch: pytest.Monk
         engine, connection = _make_engine()
         helper(engine)
         assert connection.exec_driver_sql.call_count >= 3
+
+
+def test_ensure_competitor_profiles_new_seller_gap_column_short_circuits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "sqlite"
+
+    missing_table_inspector = MagicMock()
+    missing_table_inspector.get_table_names.return_value = ["keywords"]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: missing_table_inspector)
+    _ensure_competitor_profiles_new_seller_gap_column(engine)
+    missing_table_inspector.get_columns.assert_not_called()
+
+    existing_column_inspector = MagicMock()
+    existing_column_inspector.get_table_names.return_value = ["competitor_profiles"]
+    existing_column_inspector.get_columns.return_value = [{"name": "id"}, {"name": "new_seller_gap"}]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: existing_column_inspector)
+    _ensure_competitor_profiles_new_seller_gap_column(engine)
+    engine.begin.assert_not_called()
+
+
+def test_ensure_competitor_profiles_new_seller_gap_column_adds_and_swallow_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "sqlite"
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["competitor_profiles"]
+    inspector.get_columns.return_value = [{"name": "id"}]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: inspector)
+
+    connection = MagicMock()
+
+    class _BeginCtx:
+        def __enter__(self):
+            return connection
+
+        def __exit__(self, *_args):
+            return False
+
+    engine.begin.return_value = _BeginCtx()
+    _ensure_competitor_profiles_new_seller_gap_column(engine)
+    connection.exec_driver_sql.assert_called_once()
+
+    connection.exec_driver_sql.reset_mock()
+    connection.exec_driver_sql.side_effect = RuntimeError("alter failed")
+    _ensure_competitor_profiles_new_seller_gap_column(engine)
+
+
+def test_ensure_saturation_scores_table_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
+    sqlite_engine = MagicMock()
+    sqlite_engine.dialect.name = "sqlite"
+    sqlite_inspector = MagicMock()
+    sqlite_inspector.get_table_names.return_value = ["saturation_scores"]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: sqlite_inspector)
+    _ensure_saturation_scores_table(sqlite_engine)
+    sqlite_engine.begin.assert_not_called()
+
+    non_sqlite_engine = MagicMock()
+    non_sqlite_engine.dialect.name = "postgresql"
+    _ensure_saturation_scores_table(non_sqlite_engine)
+    non_sqlite_engine.begin.assert_not_called()
+
+
+def test_ensure_saturation_scores_table_creates_schema_when_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "sqlite"
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = []
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: inspector)
+    connection = MagicMock()
+
+    class _BeginCtx:
+        def __enter__(self):
+            return connection
+
+        def __exit__(self, *_args):
+            return False
+
+    engine.begin.return_value = _BeginCtx()
+    _ensure_saturation_scores_table(engine)
+    assert connection.exec_driver_sql.call_count >= 4
 
 
 def test_initialize_database_creates_parent_directories(tmp_path: Path) -> None:

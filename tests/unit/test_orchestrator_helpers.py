@@ -639,6 +639,27 @@ def test_resolve_existing_run_id_handles_legacy_search_results_schema() -> None:
     assert orchestrator._resolve_existing_run_id(_FakeSession()) == "run-gig-legacy-001"
 
 
+def test_resolve_existing_run_id_returns_none_when_queries_fail() -> None:
+    class _BrokenQuery:
+        def order_by(self, *_args: Any) -> _BrokenQuery:
+            return self
+
+        def limit(self, _count: int) -> _BrokenQuery:
+            return self
+
+        def scalar(self) -> Any:
+            raise SQLAlchemyError("query failed")
+
+        def filter(self, *_args: Any) -> _BrokenQuery:
+            return self
+
+    class _FakeSession:
+        def query(self, _column: Any) -> _BrokenQuery:
+            return _BrokenQuery()
+
+    assert orchestrator._resolve_existing_run_id(_FakeSession()) is None
+
+
 def test_run_pipeline_profile_only_uses_existing_run_id(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -857,3 +878,38 @@ def test_run_pipeline_saturation_analysis_uses_existing_run_id(
 
     assert orchestrator.run_pipeline("saturation-analysis", config_path="config.yaml", database_url=None) == 0
     assert "Saturation-analysis run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_saturation_analysis_handles_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": [{"niche_id": "ai_saas"}]})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _broken_saturation_all(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("saturation boom")
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_resolve_existing_run_id", lambda _db: "run-existing-999")
+    monkeypatch.setattr("src.analysis.saturation_model.run_saturation_analysis_for_all_niches", _broken_saturation_all)
+
+    assert orchestrator.run_pipeline("saturation-analysis", config_path="config.yaml", database_url=None) == 1
+    assert "Saturation-analysis run failed: saturation boom" in capsys.readouterr().out

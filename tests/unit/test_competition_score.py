@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -685,3 +686,17 @@ def test_config_competition_profile_keys_valid(tmp_path: Path) -> None:
     assert config.scoring.competition.use_competitor_profile is True
     assert config.scoring.feasibility.gap_boost_per_flag == 10.0
     assert config.scoring.feasibility.max_gap_boost == 30.0
+
+
+def test_config_feasibility_gap_bounds_reject_invalid_values(tmp_path: Path) -> None:
+    source = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
+    source.setdefault("scoring", {})
+    source["scoring"]["feasibility"] = {
+        "gap_boost_per_flag": 20.0,
+        "max_gap_boost": 10.0,
+    }
+    config_path = tmp_path / "config_invalid_feasibility_bounds.yaml"
+    config_path.write_text(yaml.safe_dump(source), encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        ConfigLoader(config_path).load()
