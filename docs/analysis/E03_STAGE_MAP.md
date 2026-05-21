@@ -55,10 +55,29 @@ This document captures the implemented dependency contract for Epic 03 analysis 
 
 - **Current primary weakness input:** `GigQualityScore` (read by `src/scoring/weakness.py`).
 - **Stage 11 compatibility path:** `GigQualityWeaknessScoreCalculator` includes fallback reads from `gig_quality_analyses` when Stage 7 `gig_quality_scores` rows are absent.
-- **ClusterAssignment consumption:** Not consumed yet by `src/scoring/pipeline.py` or `src/scoring/orchestrator.py`.
+- **ClusterAssignment consumption:** `DemandScoreCalculator` now consumes `cluster_assignments` and `cluster_labels` as a config-gated boost signal in Cycle 032.
 - **CompetitorProfile consumption:** Not consumed yet by `src/scoring/pipeline.py` or `src/scoring/orchestrator.py`.
 - **GigQualityAnalysis consumption:** Partially consumed only through the Stage 11 fallback branch in `src/scoring/weakness.py`; not yet used as a first-class weighted input in scoring orchestration.
 - **Cycle 032 integration gap:** Promote Stage 9/10/11 table reads (`cluster_assignments`, `competitor_profiles`, `gig_quality_analyses`) into explicit scoring context inputs so E04 scoring can directly leverage E03 outputs.
+
+## E03->E04 Integration Status
+
+| E03 Output | Score Using It | Status |
+| --- | --- | --- |
+| `ClusterAssignment` / `ClusterLabel` | Score 1 — Demand Score | Cycle 032 Agent A complete (`get_cluster_demand_boost`, config-gated boost, explanation wiring) |
+| `CompetitorProfile` | Score 2 — Competition Score | Cycle 032 Agent B scope |
+| `GigQualityAnalysis` | Score 4 — Feasibility, Score 8 — GQW | Cycle 032 Agent D scope |
+| `ReviewAnalysis` | Not yet wired | Cycle 032 backlog |
+| `SaturationModel` | Score 7 — Saturation Score | Cycle 032 Agent C scope |
+
+### Cycle 032 Demand Integration Notes
+
+- Demand cluster boost defaults:
+  - `scoring.demand.use_cluster_boost = true`
+  - `scoring.demand.cluster_boost = 5.0`
+  - `scoring.demand.min_cluster_size = 3`
+- Boost rule: apply configured boost when the keyword has a non-noise cluster assignment and cluster size meets the minimum threshold; clamp final demand score to `<= 100`.
+- Explanation contract when applied: include cluster label and keyword count context so downstream score persistence retains rationale for the boost.
 
 ## Operational Notes
 

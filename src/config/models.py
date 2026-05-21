@@ -174,6 +174,14 @@ class ScoringProfileConfig(BaseModel):
         return self
 
 
+class ScoringDemandConfig(BaseModel):
+    """Runtime knobs for demand-score cluster integration behavior."""
+
+    use_cluster_boost: bool = True
+    cluster_boost: float = Field(default=5.0, ge=0.0, le=10.0)
+    min_cluster_size: int = Field(default=3, ge=1)
+
+
 class DiscoverySkillProfileConfig(BaseModel):
     primary_skills: list[str] = Field(default_factory=list, min_length=1)
     secondary_skills: list[str] = Field(default_factory=list)
@@ -250,6 +258,7 @@ class NicheConfig(BaseModel):
 
 class ScoringConfig(BaseModel):
     active_profile: str = "default"
+    demand: ScoringDemandConfig = Field(default_factory=ScoringDemandConfig)
     profiles: dict[str, ScoringProfileConfig] = Field(default_factory=dict)
     thresholds: dict[str, float] = Field(
         default_factory=lambda: {

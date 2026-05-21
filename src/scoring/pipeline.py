@@ -132,11 +132,11 @@ def validate_scoring_profile(profile_name: str, weights: dict[str, float]) -> No
 def calculate_weighted_composite(
     scores: dict[str, float | None],
     profile_weights: dict[str, float],
-) -> tuple[float, dict[str, dict[str, float | None]]]:
+) -> tuple[float, dict[str, dict[str, Any]]]:
     """Calculate weighted composite and detailed score components."""
     weighted_sum = 0.0
     weight_used = 0.0
-    components: dict[str, dict[str, float | None]] = {}
+    components: dict[str, dict[str, Any]] = {}
 
     for score_field, weight_key in _SCORE_TO_PROFILE_KEY.items():
         weight = profile_weights.get(weight_key, 0.0)
@@ -272,7 +272,7 @@ async def score_keyword(
     source_evidence: list[str] = []
     missing_data_warnings: list[str] = []
 
-    demand_result = demand_calculator.calculate(keyword_id, db) if 1 in available_scores else None
+    demand_result = demand_calculator.calculate(keyword_id, db, config=config) if 1 in available_scores else None
     competition_result = (
         competition_calculator.calculate(keyword_id, db) if 2 in available_scores else None
     )
@@ -330,6 +330,15 @@ async def score_keyword(
     confidence_breakdown = dict(confidence_modifier_calculator.last_breakdown)
 
     weighted_composite, score_components = calculate_weighted_composite(scores, profile_weights)
+    if demand_result is not None and "cluster_boost" in demand_result.score_components:
+        cluster_component = demand_result.score_components["cluster_boost"]
+        score_components["_demand_score_details"] = {
+            "value": round(cluster_component.value, 2),
+            "weight": 0.0,
+            "contribution": None,
+            "note": cluster_component.note,
+            "raw": cluster_component.raw,
+        }
     calculated_final_score = calculate_final_score(weighted_composite, confidence_modifier)
     final_payload = final_calculator.calculate(
         keyword_id=keyword_id,
@@ -459,7 +468,7 @@ async def generate_score_explanation(
     keyword_id: int,
     keyword_text: str,
     scores: dict[str, Any],
-    components: dict[str, dict[str, float | None]],
+    components: dict[str, dict[str, Any]],
     final_score: float,
     tag: str,
     llm_client: Any,
