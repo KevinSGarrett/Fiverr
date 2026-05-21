@@ -45,18 +45,20 @@ def get_saturation_signal(keyword_id: int, run_id: str, db: Any) -> float | None
     Returns `None` when no persisted saturation analysis output exists.
     """
     if isinstance(db, Session):
-        if run_id.strip():
+        normalized_run = run_id.strip()
+        if normalized_run:
             row = (
                 db.query(SaturationScore)
                 .filter(
                     SaturationScore.keyword_id == keyword_id,
-                    SaturationScore.run_id == run_id,
+                    SaturationScore.run_id == normalized_run,
                 )
                 .order_by(SaturationScore.computed_at.desc(), SaturationScore.id.desc())
                 .first()
             )
             if row is not None and row.saturation_score is not None:
                 return float(row.saturation_score)
+            return None
 
         latest_row = (
             db.query(SaturationScore)

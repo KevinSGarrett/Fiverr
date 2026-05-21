@@ -244,6 +244,33 @@ def test_saturation_signal_none_when_no_row() -> None:
     session.close()
 
 
+def test_saturation_signal_does_not_fallback_to_different_run() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    session.add(
+        SaturationScore(
+            keyword_id=keyword_id,
+            niche_id="automation",
+            run_id="old-run",
+            saturation_score=81.0,
+            count_score=80.0,
+            title_dup_score=75.0,
+            price_score=70.0,
+            overlap_score=65.0,
+            llm_class_score=60.0,
+            title_duplication_rate=0.75,
+            price_compression_rate=0.7,
+            seller_overlap_rate=0.65,
+            explanation_text="old run only",
+        )
+    )
+    session.commit()
+
+    assert get_saturation_signal(keyword_id, "current-run", session) is None
+    assert get_saturation_signal(keyword_id, "", session) == 81.0
+    session.close()
+
+
 def test_saturation_score_inverted_correctly_in_composite() -> None:
     common_scores = {
         "demand_score": 70.0,

@@ -99,7 +99,7 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityAnalysis.analyzed_at.desc())
             .first()
         )
-    if analysis_row is None and normalized_niche:
+    elif normalized_niche:
         analysis_row = (
             db.query(GigQualityAnalysis)
             .filter(
@@ -109,7 +109,7 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityAnalysis.analyzed_at.desc())
             .first()
         )
-    if analysis_row is None:
+    else:
         analysis_row = (
             db.query(GigQualityAnalysis)
             .filter(GigQualityAnalysis.gig_url == normalized_url)
@@ -142,7 +142,7 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
             .first()
         )
-    if gqs_row is None:
+    else:
         gqs_row = (
             db.query(GigQualityScore)
             .filter(GigQualityScore.gig_url == normalized_url)

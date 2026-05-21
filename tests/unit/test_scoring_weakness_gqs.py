@@ -72,6 +72,7 @@ def _insert_gqs_rows(
     rows: list[tuple[bool | None, int | None, bool]],
     *,
     gig_urls: list[str] | None = None,
+    run_id: str = "legacy",
 ) -> None:
     resolved_urls = gig_urls or [f"https://www.fiverr.com/gigs/{idx}" for idx in range(1, len(rows) + 1)]
     for idx, (video_present, portfolio_count, analysis_complete) in enumerate(rows, start=1):
@@ -79,7 +80,7 @@ def _insert_gqs_rows(
             GigQualityScore(
                 keyword_id=keyword_id,
                 gig_url=resolved_urls[idx - 1],
-                run_id="run-gqs",
+                run_id=run_id,
                 video_present=video_present,
                 portfolio_count=portfolio_count,
                 analysis_complete=analysis_complete,
@@ -249,7 +250,7 @@ def test_scoring_reads_gig_quality_analysis_output() -> None:
                 GigQualityAnalysis(
                     gig_url=f"https://www.fiverr.com/gigs/{idx}",
                     niche_id="weakness-niche",
-                    run_id="run-stage11",
+                    run_id="legacy",
                     rubric_score=60.0,
                     video_absent=idx <= 6,
                     portfolio_absent=False,
@@ -398,6 +399,81 @@ def test_weakness_first_class_outranks_legacy_path() -> None:
         assert payload["source"] == "gig_quality_analysis"
         assert payload["video_absent"] is False
         assert payload["portfolio_absent"] is False
+    finally:
+        session.close()
+
+
+def test_weakness_does_not_use_analysis_from_different_run() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(session)
+        gig_url = "https://www.fiverr.com/gigs/1"
+        session.add(
+            GigQualityAnalysis(
+                gig_url=gig_url,
+                niche_id="weakness-niche",
+                run_id="older-run",
+                rubric_score=95.0,
+                video_absent=False,
+                portfolio_absent=False,
+                description_thin=False,
+                faq_absent=False,
+                thumbnail_quality_flag=False,
+                weakness_flags=[],
+            )
+        )
+        session.add(
+            GigQualityScore(
+                keyword_id=keyword_id,
+                gig_url=gig_url,
+                run_id="current-run",
+                video_present=False,
+                portfolio_count=0,
+                analysis_complete=True,
+            )
+        )
+        session.commit()
+
+        payload = get_gig_quality_weakness_input(
+            gig_url=gig_url,
+            niche_id="weakness-niche",
+            run_id="current-run",
+            db=session,
+        )
+        assert payload["source"] == "gig_quality_score"
+        assert payload["video_absent"] is True
+        assert payload["portfolio_absent"] is True
+    finally:
+        session.close()
+
+
+def test_weakness_returns_empty_when_requested_run_has_no_rows() -> None:
+    session = _new_session()
+    try:
+        _seed_keyword(session)
+        session.add(
+            GigQualityAnalysis(
+                gig_url="https://www.fiverr.com/gigs/1",
+                niche_id="weakness-niche",
+                run_id="older-run",
+                rubric_score=85.0,
+                video_absent=True,
+                portfolio_absent=True,
+                description_thin=False,
+                faq_absent=False,
+                thumbnail_quality_flag=False,
+                weakness_flags=["NO_VIDEO", "NO_PORTFOLIO"],
+            )
+        )
+        session.commit()
+
+        payload = get_gig_quality_weakness_input(
+            gig_url="https://www.fiverr.com/gigs/1",
+            niche_id="weakness-niche",
+            run_id="current-run",
+            db=session,
+        )
+        assert payload == {}
     finally:
         session.close()
 
