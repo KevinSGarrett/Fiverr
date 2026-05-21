@@ -191,6 +191,16 @@ def test_competitor_profile_inputs_empty_when_no_profile() -> None:
         session.close()
 
 
+def test_competitor_profile_inputs_supports_mapping_source() -> None:
+    payload = get_competitor_profile_inputs(
+        "test_niche",
+        "run-inline",
+        {"competitor_profile": {"mean_reviews": 123.0, "median_price": 45.0}},
+    )
+    assert payload["mean_reviews"] == 123.0
+    assert payload["median_price"] == 45.0
+
+
 def test_competition_score_uses_profile_mean_reviews() -> None:
     calculator = CompetitionScoreCalculator()
     base_inputs = _base_competition_inputs()
@@ -263,6 +273,28 @@ def test_competition_profile_derives_llm_rating_and_gap_adjustment_note() -> Non
     assert llm_component.note is not None
     assert "LOW_VIDEO_PRESENCE" in llm_component.note
     assert isinstance(llm_component.raw, float | int)
+
+
+def test_competition_score_uses_mean_price_when_median_missing() -> None:
+    calculator = CompetitionScoreCalculator()
+    profile = {
+        "mean_reviews": 250.0,
+        "mean_price": 155.0,
+        "seller_level_distribution": {"TOP_RATED": 0.5, "LEVEL_2": 0.5},
+    }
+    result = calculator.calculate(
+        KEYWORD_ID,
+        FakeScoringDB(
+            competition_inputs={
+                KEYWORD_ID: {
+                    **_base_competition_inputs(),
+                    "competitor_profile": profile,
+                }
+            }
+        ),
+        config=_competition_config(use_competitor_profile=True),
+    )
+    assert result.score_components["avg_starting_price"].raw == 155.0
 
 
 def test_competition_score_session_path_applies_competitor_profile() -> None:

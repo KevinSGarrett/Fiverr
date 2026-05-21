@@ -424,3 +424,100 @@ def test_niche_context_overrides_defaults() -> None:
     finally:
         session.close()
 
+
+def test_run_saturation_returns_no_session_reason() -> None:
+    result = asyncio.run(
+        saturation_model.run_saturation_analysis_for_niche(
+            niche_id="missing-session",
+            run_id="run-no-session",
+            db=None,
+            config={},
+        )
+    )
+    assert result["analyzed"] is False
+    assert result["reason"] == "no_session"
+
+
+def test_run_saturation_returns_niche_not_found_reason() -> None:
+    session = _make_session()
+    try:
+        result = asyncio.run(
+            saturation_model.run_saturation_analysis_for_niche(
+                niche_id="unknown-niche",
+                run_id="run-no-niche",
+                db=session,
+                config={"niches": [{"niche_id": "unknown-niche", "is_active": True}]},
+            )
+        )
+        assert result["analyzed"] is False
+        assert result["reason"] == "niche_not_found"
+    finally:
+        session.close()
+
+
+def test_extract_niche_ids_filters_inactive_and_invalid_entries() -> None:
+    config = {
+        "niches": [
+            {"niche_id": "active-1", "is_active": True},
+            {"niche_id": "inactive-1", "is_active": False},
+            {"niche_id": " active-2 "},
+            {"niche_id": ""},
+            "invalid-row",
+        ]
+    }
+    assert saturation_model._extract_niche_ids(config) == ["active-1", "active-2"]
+
+
+def test_llm_saturation_score_cache_paths() -> None:
+    class _SyncCache:
+        @staticmethod
+        def get(_key: str) -> str:
+            return "87.5"
+
+    class _AwaitableValue:
+        def __await__(self):  # type: ignore[no-untyped-def]
+            if False:
+                yield None
+            return "90.0"
+
+    class _AsyncCache:
+        @staticmethod
+        def get(_key: str) -> _AwaitableValue:
+            return _AwaitableValue()
+
+    class _FailingCache:
+        @staticmethod
+        def get(_key: str) -> str:
+            raise RuntimeError("cache unavailable")
+
+    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_SyncCache()) == 87.5
+    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_AsyncCache()) == 50.0
+    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_FailingCache()) == 50.0
+
+
+def test_resolve_niche_pk_handles_numeric_and_slug_values() -> None:
+    session = _make_session()
+    try:
+        niche = _seed_niche(session, "resolve-niche")
+        assert saturation_model._resolve_niche_pk(str(niche.id), session) == niche.id
+        assert saturation_model._resolve_niche_pk("resolve-niche", session) == niche.id
+        assert saturation_model._resolve_niche_pk("missing", session) is None
+        assert saturation_model._resolve_niche_pk("resolve-niche", None) is None
+    finally:
+        session.close()
+
+
+def test_niche_context_ignores_non_positive_overrides() -> None:
+    session = _make_session()
+    try:
+        niche = _seed_niche(session, "context-reset")
+        context = saturation_model.build_niche_context(
+            niche.slug,
+            session,
+            niche_context={"median_result_count": 0, "historical_median_price": -5},
+        )
+        assert context["median_result_count"] == 500.0
+        assert "historical_median_price" not in context
+    finally:
+        session.close()
+

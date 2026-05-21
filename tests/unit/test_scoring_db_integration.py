@@ -309,6 +309,22 @@ def test_saturation_calculator_uses_mapping_run_id_for_analysis_output() -> None
     assert "saturation_scores.saturation_score[run-map-701]" in result.source_evidence
 
 
+def test_saturation_score_resolver_fallback_paths() -> None:
+    calculator = SaturationScoreCalculator()
+    assert calculator._resolve_title_duplication_score({"duplicate_title_count_top30": 12.0}) == 40.0
+    assert calculator._resolve_price_compression_score({"price_diversity_top30": 0.25}) == 75.0
+    assert calculator._resolve_llm_saturation_assessment({"llm_saturation_assessment": 6.4}) == 6.4
+
+
+def test_saturation_normalization_and_price_compression_helpers() -> None:
+    assert SaturationScoreCalculator._normalize_total_gig_count(0) == 0.0
+    assert SaturationScoreCalculator._normalize_ratio_or_score(0.5) == 50.0
+    assert SaturationScoreCalculator._normalize_ratio_or_score(6.0) == 60.0
+    assert SaturationScoreCalculator._normalize_ratio_or_score(140.0) == 100.0
+    assert SaturationScoreCalculator._price_compression_ratio([20.0, 20.0]) == 1.0
+    assert SaturationScoreCalculator._price_compression_ratio([10.0]) is None
+
+
 def test_saturation_score_inverted_correctly_in_composite() -> None:
     common_scores = {
         "demand_score": 70.0,
