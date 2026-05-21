@@ -13,6 +13,7 @@ from src.models import (
     GigVisualAnalysis,
     Keyword,
     Niche,
+    SaturationScore,
     SearchResult,
     Seller,
 )
@@ -23,8 +24,9 @@ from src.scoring.feasibility import NewSellerFeasibilityCalculator
 from src.scoring.intent import ConversionIntentScoreCalculator
 from src.scoring.opportunity import OpportunityScoreCalculator
 from src.scoring.orchestrator import ScoringOrchestrator
+from src.scoring.pipeline import SCORING_PROFILES, calculate_weighted_composite
 from src.scoring.profitability import ProfitabilityScoreCalculator
-from src.scoring.saturation_score import SaturationScoreCalculator
+from src.scoring.saturation_score import SaturationScoreCalculator, get_saturation_signal
 from src.scoring.trend import TrendScoreCalculator
 from src.scoring.weakness import GigQualityWeaknessScoreCalculator
 
@@ -207,3 +209,55 @@ def test_missing_keyword_id_returns_none_score_gracefully() -> None:
     result = DemandScoreCalculator().calculate(123456, session)
     assert result.score_value is None
     session.close()
+
+
+def test_saturation_signal_reads_from_analysis_table() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    session.add(
+        SaturationScore(
+            keyword_id=keyword_id,
+            niche_id="automation",
+            run_id="legacy",
+            saturation_score=77.5,
+            count_score=80.0,
+            title_dup_score=75.0,
+            price_score=70.0,
+            overlap_score=65.0,
+            llm_class_score=60.0,
+            title_duplication_rate=0.75,
+            price_compression_rate=0.7,
+            seller_overlap_rate=0.65,
+            explanation_text="integration test",
+        )
+    )
+    session.commit()
+
+    assert get_saturation_signal(keyword_id, "legacy", session) == 77.5
+    session.close()
+
+
+def test_saturation_signal_none_when_no_row() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    assert get_saturation_signal(keyword_id, "legacy", session) is None
+    session.close()
+
+
+def test_saturation_score_inverted_correctly_in_composite() -> None:
+    common_scores = {
+        "demand_score": 70.0,
+        "competition_score": 40.0,
+        "opportunity_score": 65.0,
+        "feasibility_score": 60.0,
+        "profitability_score": 55.0,
+        "intent_score": 50.0,
+        "weakness_score": 45.0,
+        "trend_score": 60.0,
+    }
+    low_saturation_scores = {**common_scores, "saturation_score": 10.0}
+    high_saturation_scores = {**common_scores, "saturation_score": 90.0}
+
+    low_value, _ = calculate_weighted_composite(low_saturation_scores, SCORING_PROFILES["default"])
+    high_value, _ = calculate_weighted_composite(high_saturation_scores, SCORING_PROFILES["default"])
+    assert low_value > high_value

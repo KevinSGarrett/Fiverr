@@ -31,6 +31,7 @@ AVAILABLE_MODES = (
     "profile-only",
     "quality-analysis",
     "review-analysis",
+    "saturation-analysis",
     "score-only",
     "analyze-only",
     "price-analysis",
@@ -47,6 +48,7 @@ STAGE_AVAILABILITY = {
     "profile-only": "Profile-only mode runs Stage 10 competitor profiling for active niches.",
     "quality-analysis": "Quality-analysis mode runs Stage 11 gig quality rubric analysis.",
     "review-analysis": "Review-analysis mode runs Stage 12 review signal analysis.",
+    "saturation-analysis": "Saturation-analysis mode runs Stage 13 saturation model analysis.",
     "score-only": "Scoring persistence foundation exists; scoring runner is not wired yet.",
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
     "price-analysis": "Run Stage 10.5 pricing analysis and recommendation calculations.",
@@ -539,6 +541,29 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             print(f"Review-analysis run failed: {exc}")
             return 1
         print(f"Review-analysis run complete: {result}")
+        return 0
+
+    if mode == "saturation-analysis":
+        import uuid
+
+        from src.analysis.saturation_model import run_saturation_analysis_for_all_niches
+
+        session_factory = create_session_factory(engine)
+        try:
+            with get_session(session_factory) as db_session:
+                run_id = _resolve_existing_run_id(db_session) or str(uuid.uuid4())
+                result = asyncio.run(
+                    run_saturation_analysis_for_all_niches(
+                        run_id=run_id,
+                        db=db_session,
+                        config=config_payload if isinstance(config_payload, dict) else {},
+                        llm_client=None,
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Saturation-analysis run failed: {exc}")
+            return 1
+        print(f"Saturation-analysis run complete: {result}")
         return 0
 
     if mode == "full":

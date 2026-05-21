@@ -47,12 +47,14 @@ from src.models.market import (
     Keyword,
     Review,
     ReviewAnalysis,
+    SaturationScore,
     write_autocomplete_suggestion,
     write_cluster_assignment,
     write_cluster_label,
     write_competitor_profile,
     write_gig_quality_analysis,
     write_review_analysis,
+    write_saturation_score,
 )
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
@@ -117,6 +119,7 @@ __all__ = [
     "ReviewAnalysis",
     "Review",
     "RunLog",
+    "SaturationScore",
     "ScoreComponent",
     "SearchResult",
     "Seller",
@@ -139,6 +142,7 @@ __all__ = [
     "write_competitor_profile",
     "write_gig_quality_analysis",
     "write_review_analysis",
+    "write_saturation_score",
     "write_search_result",
     "write_external_signal",
     "write_seller_profile",

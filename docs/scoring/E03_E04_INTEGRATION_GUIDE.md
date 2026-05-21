@@ -20,7 +20,10 @@ This guide is the anchor reference for wiring Epic 03 analysis outputs into Epic
   - `src/scoring/feasibility.py` now reads `CompetitorProfile.new_seller_gap.gap_flags` via `get_feasibility_gap_signal(...)`.
   - Config keys: `scoring.feasibility.gap_boost_per_flag`, `scoring.feasibility.max_gap_boost`.
 - **Score 8 (GQW):** GigQualityAnalysis integration — Cycle 032 Agent D scope.
-- **Score 7 (Saturation):** SaturationModel output wiring — after Cycle 032 Agent C deliverable is available.
+- **Score 7 (Saturation):** SaturationModel output wiring — DONE (Cycle 032 Agent C).
+  - Stage 13 writes `saturation_scores`.
+  - `src/scoring/saturation_score.py` now reads persisted saturation analysis output via `get_saturation_signal(...)`.
+  - Composite usage remains inverted (`100 - saturation_score`).
 
 ## Implementation Principle
 

@@ -293,7 +293,7 @@ async def score_keyword(
     )
     intent_result = intent_calculator.calculate(keyword_id, db) if 6 in available_scores else None
     saturation_result = (
-        saturation_calculator.calculate(keyword_id, db) if 7 in available_scores else None
+        saturation_calculator.calculate(keyword_id, db, config=config) if 7 in available_scores else None
     )
     weakness_result = weakness_calculator.calculate(keyword_id, db) if 8 in available_scores else None
     trend_result = trend_calculator.calculate(keyword_id, db) if 9 in available_scores else None

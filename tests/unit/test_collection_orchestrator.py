@@ -55,6 +55,7 @@ def test_run_collection_dry_run_stages_run() -> None:
         "stage10_competitor_profiling",
         "stage11_gig_quality_analysis",
         "stage12_review_analysis",
+        "stage13_saturation_analysis",
     ]
 
 
@@ -171,6 +172,7 @@ def test_orchestrator_stage_sequence_correct() -> None:
         "stage10_competitor_profiling",
         "stage11_gig_quality_analysis",
         "stage12_review_analysis",
+        "stage13_saturation_analysis",
     ]
 
 
@@ -270,6 +272,19 @@ def test_stage12_runs_after_stage4() -> None:
     )
     stage_order = result["stages_run"]
     assert stage_order.index("stage12_review_analysis") > stage_order.index("stage04_gig_detail")
+
+
+def test_stage13_registered() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage13-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage13_saturation_analysis" in result["stages_run"]
 
 
 def test_orchestrator_checkpoint_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

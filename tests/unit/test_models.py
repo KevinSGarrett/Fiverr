@@ -29,8 +29,10 @@ from src.models.market import (
     Keyword,
     Review,
     ReviewAnalysis,
+    SaturationScore,
     SearchResult,
     Seller,
+    write_saturation_score,
 )
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.registry import (
@@ -324,6 +326,95 @@ def test_review_analysis_model(tmp_path: Path) -> None:
     fetched = session.execute(select(ReviewAnalysis)).scalar_one()
     assert fetched.gig_url == "https://fiverr.com/gig/review-model"
     assert fetched.review_velocity == 0.25
+    session.close()
+
+
+def test_saturation_score_model(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "saturation_score_model.db")
+
+    niche = Niche(slug="saturation-model", name="Saturation Model", category_path="programming-tech")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="python scraper", normalized_keyword="python scraper")
+    session.add(keyword)
+    session.flush()
+
+    row = SaturationScore(
+        keyword_id=keyword.id,
+        niche_id="saturation-model",
+        run_id="run-saturation-model",
+        saturation_score=62.5,
+        count_score=70.0,
+        title_dup_score=60.0,
+        price_score=55.0,
+        overlap_score=50.0,
+        llm_class_score=65.0,
+        title_duplication_rate=0.6,
+        price_compression_rate=0.55,
+        seller_overlap_rate=0.5,
+        explanation_text="Test saturation row.",
+    )
+    session.add(row)
+    session.commit()
+
+    fetched = session.execute(select(SaturationScore)).scalar_one()
+    assert fetched.keyword_id == keyword.id
+    assert fetched.run_id == "run-saturation-model"
+    assert fetched.saturation_score == 62.5
+    session.close()
+
+
+def test_write_saturation_score_upsert(tmp_path: Path) -> None:
+    session, _ = _init_session(tmp_path, "saturation_score_upsert.db")
+
+    niche = Niche(slug="saturation-upsert", name="Saturation Upsert", category_path="programming-tech")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="automation scripts", normalized_keyword="automation scripts")
+    session.add(keyword)
+    session.commit()
+    session.refresh(keyword)
+
+    first = write_saturation_score(
+        keyword_id=keyword.id,
+        niche_id="saturation-upsert",
+        run_id="run-upsert",
+        saturation_score=58.0,
+        count_score=50.0,
+        title_dup_score=55.0,
+        price_score=60.0,
+        overlap_score=45.0,
+        llm_class_score=65.0,
+        title_duplication_rate=0.55,
+        price_compression_rate=0.6,
+        seller_overlap_rate=0.45,
+        explanation_text="initial",
+        db=session,
+    )
+    assert first is not None
+
+    second = write_saturation_score(
+        keyword_id=keyword.id,
+        niche_id="saturation-upsert",
+        run_id="run-upsert",
+        saturation_score=72.0,
+        count_score=70.0,
+        title_dup_score=75.0,
+        price_score=65.0,
+        overlap_score=60.0,
+        llm_class_score=80.0,
+        title_duplication_rate=0.75,
+        price_compression_rate=0.65,
+        seller_overlap_rate=0.6,
+        explanation_text="updated",
+        db=session,
+    )
+    assert second is not None
+
+    rows = session.execute(select(SaturationScore)).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].saturation_score == 72.0
+    assert rows[0].explanation_text == "updated"
     session.close()
 
 

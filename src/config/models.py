@@ -201,6 +201,12 @@ class ScoringFeasibilityConfig(BaseModel):
         return self
 
 
+class ScoringSaturationConfig(BaseModel):
+    """Runtime knobs for saturation-score Stage 13 integration behavior."""
+
+    use_analysis_output: bool = True
+
+
 class DiscoverySkillProfileConfig(BaseModel):
     primary_skills: list[str] = Field(default_factory=list, min_length=1)
     secondary_skills: list[str] = Field(default_factory=list)
@@ -280,6 +286,7 @@ class ScoringConfig(BaseModel):
     demand: ScoringDemandConfig = Field(default_factory=ScoringDemandConfig)
     competition: ScoringCompetitionConfig = Field(default_factory=ScoringCompetitionConfig)
     feasibility: ScoringFeasibilityConfig = Field(default_factory=ScoringFeasibilityConfig)
+    saturation: ScoringSaturationConfig = Field(default_factory=ScoringSaturationConfig)
     profiles: dict[str, ScoringProfileConfig] = Field(default_factory=dict)
     thresholds: dict[str, float] = Field(
         default_factory=lambda: {

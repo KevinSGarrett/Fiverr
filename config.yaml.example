@@ -14,3 +14,5 @@ scoring:
   feasibility:
     gap_boost_per_flag: 10.0
     max_gap_boost: 30.0
+  saturation:
+    use_analysis_output: true

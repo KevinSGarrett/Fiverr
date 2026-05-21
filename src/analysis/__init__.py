@@ -71,6 +71,10 @@ from src.analysis.review_analyzer import (
 )
 from src.analysis.reviews import analyze_reviews
 from src.analysis.saturation import analyze_saturation
+from src.analysis.saturation_model import (
+    run_saturation_analysis_for_all_niches,
+    run_saturation_analysis_for_niche,
+)
 from src.analysis.seller_strength import (
     classify_seller_tier,
     compute_seller_strength_score,
@@ -137,6 +141,8 @@ __all__ = [
     "score_seller_strength",
     "select_algorithm",
     "analyze_saturation",
+    "run_saturation_analysis_for_all_niches",
+    "run_saturation_analysis_for_niche",
     "analyze_reviews",
     "ReviewAnalysisInput",
     "ReviewAnalysisResult",
