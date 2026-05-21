@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 import src.orchestrator as orchestrator
 
@@ -599,6 +600,43 @@ def test_resolve_existing_run_id_falls_back_to_gig_run() -> None:
 
 def test_resolve_existing_run_id_returns_none_without_query() -> None:
     assert orchestrator._resolve_existing_run_id(object()) is None
+
+
+def test_resolve_existing_run_id_handles_legacy_search_results_schema() -> None:
+    class _SearchQuery:
+        def order_by(self, *_args: Any) -> _SearchQuery:
+            return self
+
+        def limit(self, _count: int) -> _SearchQuery:
+            return self
+
+        def scalar(self) -> Any:
+            raise SQLAlchemyError("no such column: search_results.run_id")
+
+    class _GigQuery:
+        def order_by(self, *_args: Any) -> _GigQuery:
+            return self
+
+        def limit(self, _count: int) -> _GigQuery:
+            return self
+
+        def scalar(self) -> Any:
+            return "run-gig-legacy-001"
+
+        def filter(self, *_args: Any) -> _GigQuery:
+            return self
+
+    class _FakeSession:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def query(self, _column: Any) -> _SearchQuery | _GigQuery:
+            self.calls += 1
+            if self.calls == 1:
+                return _SearchQuery()
+            return _GigQuery()
+
+    assert orchestrator._resolve_existing_run_id(_FakeSession()) == "run-gig-legacy-001"
 
 
 def test_run_pipeline_profile_only_uses_existing_run_id(

@@ -77,7 +77,7 @@ This document captures the implemented dependency contract for Epic 03 analysis 
   - `scoring.demand.cluster_boost = 5.0`
   - `scoring.demand.min_cluster_size = 3`
 - Boost rule: apply configured boost when the keyword has a non-noise cluster assignment and cluster size meets the minimum threshold; clamp final demand score to `<= 100`.
-- Explanation contract when applied: include cluster label and keyword count context so downstream score persistence retains rationale for the boost.
+- Explanation contract when applied: include cluster label, keyword count, and `ClusterLabel.opportunity_narrative` context so downstream score persistence retains rationale for the boost.
 
 ## Operational Notes
 

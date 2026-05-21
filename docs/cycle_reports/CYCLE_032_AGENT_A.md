@@ -34,6 +34,47 @@ Mandatory review-thread query output (verbatim):
   - Cluster membership acts as an additional demand confidence proxy when direct demand signals are incomplete.
   - Retains backward compatibility via config flag.
 
+## Score 1 Spec Extraction (Task 3)
+
+Score 1 (Demand Score) default weight is **20%** in the composite profile.
+
+Seven in-score inputs from `SCORING_DIRECTION.md`:
+
+1. Fiverr search result count (Stage 3) -> 25%
+2. Fiverr autocomplete position (Stage 2) -> 20%
+3. Google Trends 12-month score (Stage 6) -> 25%
+4. Google search result count (Stage 6) -> 10%
+5. Reddit post volume (Stage 6) -> 10%
+6. YouTube search result count (Stage 6) -> 5%
+7. LLM demand intent signal from Reddit parse (Stage 6) -> 5%
+
+Demand normalization direction:
+
+- Min-max normalization to 0-100 within keyword universe per niche per run.
+
+Missing-data confidence deductions:
+
+- Google Trends unavailable -> confidence `-0.15`
+- Reddit unavailable -> confidence `-0.05`
+
+E03 integration point:
+
+- `ClusterAssignment` / `ClusterLabel.keyword_count` used as a first-class demand boost proxy when cluster membership is sufficiently strong.
+- `ClusterLabel.opportunity_narrative` is now included in demand explanation text when boost applies.
+
+## Scoring Pipeline Call-Chain Snapshot (Task 7)
+
+`score_keyword()` orchestrates:
+
+- Score calculators present: Demand, Competition, Opportunity, Feasibility, Profitability, Intent, Saturation, Weakness, Trend, Confidence Modifier, Final Recommendation.
+- Persisted per-keyword score outputs currently include score fields for Demand/Competition/Opportunity/Feasibility/Profitability/Intent/Saturation/Weakness/Trend + final score and metadata.
+- E03 consumption status in this cycle:
+  - `ClusterAssignment` -> Demand Score (**implemented**)
+  - `CompetitorProfile` -> Competition Score (**Agent B scope**)
+  - `GigQualityAnalysis` -> Feasibility/GQW (**Agent D scope**)
+  - `ReviewAnalysis` -> not yet wired
+  - `SaturationModel` -> Agent C scope
+
 ## Cluster Boost Function Contract
 
 ```python
@@ -56,17 +97,18 @@ Config keys:
   - `pytest -q tests/unit/test_scoring.py --no-header` -> `138 passed`
   - `pytest -q tests/unit/test_scoring_pipeline.py tests/unit/test_scoring.py --no-header` -> `180 passed`
   - `pytest -q tests/unit/test_keyword_clusterer.py --no-header` -> `36 passed`
+  - `pytest -q tests/unit/test_orchestrator_helpers.py --no-header` -> `28 passed`
 - Quality gates:
-  - `python -m ruff check src/scoring/ tests/unit/test_demand_score.py` -> pass
-  - `python -m mypy src/scoring/demand.py src/scoring/pipeline.py src/config/models.py` -> pass
+  - `python -m ruff check src/scoring/ src/orchestrator.py tests/unit/test_demand_score.py tests/unit/test_orchestrator_helpers.py` -> pass
+  - `python -m mypy src/scoring/demand.py src/scoring/pipeline.py src/config/models.py src/orchestrator.py` -> pass
 - Runtime/CLI:
-  - Pass: `phase2-smoke`, `collect-only`, `recommendations-only`, `config-check`
-  - Stage-mode commands pass with a fresh initialized DB URL.
-  - Local default DB has pre-existing schema drift (`search_results.run_id` missing) unrelated to Agent A score-change delta.
+  - Pass: `cluster-only`, `profile-only`, `quality-analysis`, `review-analysis`, `collect-only`, `recommendations-only`, `config-check`, `phase2-smoke`
+  - Added legacy-schema-safe run-id resolver fallback so stage-mode commands do not fail when older local DBs lack `search_results.run_id`.
 
 ## Final SHA
 
-- Pending commit in Cycle 032 branch.
+- `6ace57de043e5910c980b074a6bd2dfe200eaa1a` (initial Agent A Cycle 032 demand integration commit)
+- Follow-up hardening commit added on `cycle/032/integration`; use current branch `HEAD` for final freeze.
 
 ## Handoff Notes for Agent B
 

@@ -163,6 +163,7 @@ def test_demand_score_explanation_includes_cluster_label() -> None:
     )
     result = calculator.calculate(KEYWORD_ID, db, _cluster_config(cluster_boost=5.0))
     assert "Keyword belongs to cluster 'Automation Demand'" in result.explanation_text
+    assert "Cluster opportunity narrative: High-intent automation requests cluster together." in result.explanation_text
 
 
 def test_demand_score_explanation_empty_when_no_cluster() -> None:
@@ -176,8 +177,10 @@ def test_demand_boost_zero_for_unclustered_keyword() -> None:
     calculator = DemandScoreCalculator()
     db = FakeDemandDB(demand_inputs={KEYWORD_ID: _base_demand_inputs()})
     result = calculator.calculate(KEYWORD_ID, db, _cluster_config())
+    baseline = calculator.calculate(KEYWORD_ID, db, _cluster_config(use_cluster_boost=False))
     assert result.score_components.get("cluster_boost") is None
     assert get_cluster_demand_boost(KEYWORD_ID, db, _cluster_config()) == 0.0
+    assert result.score_value == baseline.score_value
 
 
 def test_demand_boost_applied_for_well_clustered_keyword() -> None:

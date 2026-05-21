@@ -8,6 +8,7 @@ This guide is the anchor reference for wiring Epic 03 analysis outputs into Epic
 
 - **Score 1 (Demand):** ClusterAssignment boost — DONE (Cycle 032 Agent A).
   - `src/scoring/demand.py` applies a config-gated boost when cluster membership is strong enough.
+  - Demand explanation includes cluster label/size and `ClusterLabel.opportunity_narrative` when available.
   - Config keys: `scoring.demand.use_cluster_boost`, `scoring.demand.cluster_boost`, `scoring.demand.min_cluster_size`.
 - **Score 2 (Competition):** CompetitorProfile benchmarks — Cycle 032 Agent B scope.
   - Confirmed Score 2 spec input: "LLM competitor strength rating (cluster synthesis)" from `SCORING_DIRECTION.md`.

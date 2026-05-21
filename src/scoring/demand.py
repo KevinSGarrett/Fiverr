@@ -316,10 +316,17 @@ class DemandScoreCalculator:
             label_text = cluster_context.get("label_text")
             if not isinstance(label_text, str) or not label_text.strip():
                 label_text = f"cluster-{_coerce_int(cluster_context.get('cluster_id'), 0)}"
+            opportunity_narrative = cluster_context.get("opportunity_narrative")
+            if not isinstance(opportunity_narrative, str) or not opportunity_narrative.strip():
+                opportunity_narrative = ""
             cluster_explanation = (
                 f"Keyword belongs to cluster '{label_text}' ({keyword_count} related keywords). "
                 f"Cluster membership boosts demand signal by {cluster_boost:.1f}."
             )
+            if opportunity_narrative:
+                cluster_explanation = (
+                    f"{cluster_explanation} Cluster opportunity narrative: {opportunity_narrative.strip()}."
+                )
             score_components["cluster_boost"] = ScoreComponent(
                 value=cluster_boost,
                 weight=0.0,

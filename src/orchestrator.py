@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.config import ConfigLoader
 from src.models.database import (
     create_session_factory,
@@ -66,19 +68,25 @@ def _resolve_existing_run_id(db_session: Any) -> str | None:
     if not hasattr(db_session, "query"):
         return None
 
-    latest_search_run = (
-        db_session.query(SearchResult.run_id).order_by(SearchResult.collected_at.desc()).limit(1).scalar()
-    )
+    try:
+        latest_search_run = (
+            db_session.query(SearchResult.run_id).order_by(SearchResult.collected_at.desc()).limit(1).scalar()
+        )
+    except SQLAlchemyError:
+        latest_search_run = None
     if isinstance(latest_search_run, str) and latest_search_run.strip():
         return latest_search_run.strip()
 
-    latest_gig_run = (
-        db_session.query(Gig.run_id)
-        .filter(Gig.run_id.isnot(None))
-        .order_by(Gig.created_at.desc())
-        .limit(1)
-        .scalar()
-    )
+    try:
+        latest_gig_run = (
+            db_session.query(Gig.run_id)
+            .filter(Gig.run_id.isnot(None))
+            .order_by(Gig.created_at.desc())
+            .limit(1)
+            .scalar()
+        )
+    except SQLAlchemyError:
+        latest_gig_run = None
     if isinstance(latest_gig_run, str) and latest_gig_run.strip():
         return latest_gig_run.strip()
 
