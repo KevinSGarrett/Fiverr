@@ -83,6 +83,7 @@ Result:
 - `pytest --cov`: `2062 passed`
 - Global coverage: `93.96%`
 - Clock time (full block): `401.03s` (~6m41s)
+- Performance vs Cycle 031 target (`6.54 min`): `+0.14 min` (~+9s), slightly slower but within expected variance.
 
 Per-module `<90%` from term-missing output:
 
@@ -175,7 +176,7 @@ Stale status corrections required: none.
 ## Task 15 — Artifact Hygiene and SHA Freeze
 
 - Canonical remote SHA captured with `git rev-parse origin/cycle/032/integration`:
-  - `9a0732cf7d63eccaca3568b5664545f35716c22e`
+  - `25a640ecc060e116bf996aa814c06d23ed0b2071`
 - Cycle 032 reports present/readable:
   - `docs/cycle_reports/CYCLE_032_AGENT_A.md`
   - `docs/cycle_reports/CYCLE_032_AGENT_B.md`
@@ -260,4 +261,4 @@ FINAL:
 
 ## Final SHA
 
-`9a0732cf7d63eccaca3568b5664545f35716c22e`
+`25a640ecc060e116bf996aa814c06d23ed0b2071`
