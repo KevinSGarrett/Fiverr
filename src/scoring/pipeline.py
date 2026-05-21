@@ -15,6 +15,7 @@ from src.models import Keyword
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
+from src.scoring.contracts import ScoreComponent
 from src.scoring.demand import DemandScoreCalculator
 from src.scoring.feasibility import NewSellerFeasibilityCalculator
 from src.scoring.final import FinalRecommendationScoreCalculator
@@ -132,11 +133,11 @@ def validate_scoring_profile(profile_name: str, weights: dict[str, float]) -> No
 def calculate_weighted_composite(
     scores: dict[str, float | None],
     profile_weights: dict[str, float],
-) -> tuple[float, dict[str, dict[str, float | None]]]:
+) -> tuple[float, dict[str, dict[str, Any]]]:
     """Calculate weighted composite and detailed score components."""
     weighted_sum = 0.0
     weight_used = 0.0
-    components: dict[str, dict[str, float | None]] = {}
+    components: dict[str, dict[str, Any]] = {}
 
     for score_field, weight_key in _SCORE_TO_PROFILE_KEY.items():
         weight = profile_weights.get(weight_key, 0.0)
@@ -237,6 +238,44 @@ def detect_red_flags_from_scores(
     return flags
 
 
+def _apply_weakness_feedback_to_feasibility(
+    feasibility_result: Any | None,
+    weakness_result: Any | None,
+) -> None:
+    """
+    Adjust Score 4 using Score 8 output.
+
+    Lower weakness_score values (stronger competitors) raise feasibility slightly, while
+    higher weakness_score values reduce it. This keeps Score 4 responsive to Score 8
+    without replacing the core feasibility inputs.
+    """
+    if feasibility_result is None or weakness_result is None:
+        return
+
+    feasibility_score = _score_value(feasibility_result)
+    weakness_score = _score_value(weakness_result)
+    if feasibility_score is None or weakness_score is None:
+        return
+
+    # Center around 50 to keep adjustment bounded to +/- 7.5 points.
+    adjustment = round((50.0 - weakness_score) * 0.15, 2)
+    adjusted_score = round(min(100.0, max(0.0, feasibility_score + adjustment)), 2)
+    feasibility_result.score_value = adjusted_score
+
+    score_components = getattr(feasibility_result, "score_components", None)
+    if isinstance(score_components, dict):
+        score_components["weakness_feedback"] = ScoreComponent(
+            value=adjusted_score,
+            weight=0.0,
+            raw={"weakness_score": weakness_score, "adjustment": adjustment},
+            note="Score 4 adjusted using Score 8 weakness signal.",
+        )
+
+    source_evidence = getattr(feasibility_result, "source_evidence", None)
+    if isinstance(source_evidence, list):
+        source_evidence.append("score8.weakness_score")
+
+
 async def score_keyword(
     keyword_id: int,
     profile_name: str,
@@ -272,9 +311,9 @@ async def score_keyword(
     source_evidence: list[str] = []
     missing_data_warnings: list[str] = []
 
-    demand_result = demand_calculator.calculate(keyword_id, db) if 1 in available_scores else None
+    demand_result = demand_calculator.calculate(keyword_id, db, config=config) if 1 in available_scores else None
     competition_result = (
-        competition_calculator.calculate(keyword_id, db) if 2 in available_scores else None
+        competition_calculator.calculate(keyword_id, db, config=config) if 2 in available_scores else None
     )
     opportunity_result = None
     if 3 in available_scores:
@@ -283,18 +322,20 @@ async def score_keyword(
             db=db,
             demand_result=demand_result,
             competition_result=competition_result,
+            config=config,
         )
     feasibility_result = (
-        feasibility_calculator.calculate(keyword_id, db) if 4 in available_scores else None
+        feasibility_calculator.calculate(keyword_id, db, config=config) if 4 in available_scores else None
     )
     profitability_result = (
         profitability_calculator.calculate(keyword_id, db) if 5 in available_scores else None
     )
     intent_result = intent_calculator.calculate(keyword_id, db) if 6 in available_scores else None
     saturation_result = (
-        saturation_calculator.calculate(keyword_id, db) if 7 in available_scores else None
+        saturation_calculator.calculate(keyword_id, db, config=config) if 7 in available_scores else None
     )
     weakness_result = weakness_calculator.calculate(keyword_id, db) if 8 in available_scores else None
+    _apply_weakness_feedback_to_feasibility(feasibility_result, weakness_result)
     trend_result = trend_calculator.calculate(keyword_id, db) if 9 in available_scores else None
 
     for result in (
@@ -330,6 +371,15 @@ async def score_keyword(
     confidence_breakdown = dict(confidence_modifier_calculator.last_breakdown)
 
     weighted_composite, score_components = calculate_weighted_composite(scores, profile_weights)
+    if demand_result is not None and "cluster_boost" in demand_result.score_components:
+        cluster_component = demand_result.score_components["cluster_boost"]
+        score_components["_demand_score_details"] = {
+            "value": round(cluster_component.value, 2),
+            "weight": 0.0,
+            "contribution": None,
+            "note": cluster_component.note,
+            "raw": cluster_component.raw,
+        }
     calculated_final_score = calculate_final_score(weighted_composite, confidence_modifier)
     final_payload = final_calculator.calculate(
         keyword_id=keyword_id,
@@ -459,7 +509,7 @@ async def generate_score_explanation(
     keyword_id: int,
     keyword_text: str,
     scores: dict[str, Any],
-    components: dict[str, dict[str, float | None]],
+    components: dict[str, dict[str, Any]],
     final_score: float,
     tag: str,
     llm_client: Any,

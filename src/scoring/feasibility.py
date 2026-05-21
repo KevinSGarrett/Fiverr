@@ -8,8 +8,119 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import SearchResult
+from src.models import CompetitorProfile, Keyword, Niche, SearchResult
 from src.scoring.contracts import FeasibilityScoreResult, ScoreComponent
+
+_SUPPORTED_GAP_FLAGS = {"LOW_VIDEO_PRESENCE", "LOW_PORTFOLIO_PRESENCE", "HIGH_PRICE_VARIANCE"}
+_DEFAULT_GAP_BOOST_PER_FLAG = 10.0
+_DEFAULT_MAX_GAP_BOOST = 30.0
+
+
+def _coerce_float(value: Any, default: float) -> float:
+    if value is None or isinstance(value, bool):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _feasibility_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {}
+    scoring_cfg = config.get("scoring")
+    if not isinstance(scoring_cfg, Mapping):
+        return {}
+    feasibility_cfg = scoring_cfg.get("feasibility")
+    if not isinstance(feasibility_cfg, Mapping):
+        return {}
+    return dict(feasibility_cfg)
+
+
+def _normalize_gap_flags(raw_flags: Any) -> list[str]:
+    if not isinstance(raw_flags, list):
+        return []
+    normalized: list[str] = []
+    for raw_flag in raw_flags:
+        if not isinstance(raw_flag, str):
+            continue
+        cleaned = raw_flag.strip().upper().replace("-", "_").replace(" ", "_")
+        if cleaned:
+            normalized.append(cleaned)
+    return normalized
+
+
+def _extract_gap_flags_from_profile(profile_payload: Mapping[str, Any]) -> list[str]:
+    gap_payload = profile_payload.get("new_seller_gap")
+    raw_flags: Any = None
+    if isinstance(gap_payload, Mapping):
+        raw_flags = gap_payload.get("gap_flags")
+    if raw_flags is None:
+        raw_flags = profile_payload.get("gap_flags")
+    return _normalize_gap_flags(raw_flags)
+
+
+def _get_feasibility_gap_signal_details(
+    niche_id: str,
+    run_id: str,
+    db: Any,
+    config: dict[str, Any] | None = None,
+) -> tuple[float, list[str]]:
+    if not niche_id.strip() or not run_id.strip():
+        return 0.0, []
+
+    if isinstance(db, Session):
+        profile = (
+            db.query(CompetitorProfile)
+            .filter(
+                CompetitorProfile.niche_id == niche_id,
+                CompetitorProfile.run_id == run_id,
+            )
+            .one_or_none()
+        )
+        if profile is None:
+            return 0.0, []
+        profile_payload: Mapping[str, Any] = (
+            profile.new_seller_gap if isinstance(profile.new_seller_gap, Mapping) else {}
+        )
+        normalized_flags = _extract_gap_flags_from_profile({"new_seller_gap": profile_payload})
+    elif hasattr(db, "get_competitor_profile_inputs"):
+        loaded = db.get_competitor_profile_inputs(niche_id, run_id)
+        normalized_flags = _extract_gap_flags_from_profile(dict(loaded or {}))
+    else:
+        normalized_flags = []
+
+    matched_flags = sorted({flag for flag in normalized_flags if flag in _SUPPORTED_GAP_FLAGS})
+    if not matched_flags:
+        return 0.0, []
+
+    feasibility_cfg = _feasibility_config(config)
+    gap_boost_per_flag = max(
+        0.0,
+        _coerce_float(feasibility_cfg.get("gap_boost_per_flag"), _DEFAULT_GAP_BOOST_PER_FLAG),
+    )
+    max_gap_boost = max(
+        0.0,
+        _coerce_float(feasibility_cfg.get("max_gap_boost"), _DEFAULT_MAX_GAP_BOOST),
+    )
+    boost_value = min(max_gap_boost, gap_boost_per_flag * len(matched_flags))
+    return round(max(0.0, boost_value), 2), matched_flags
+
+
+def get_feasibility_gap_signal(
+    niche_id: str,
+    run_id: str,
+    db: Any,
+    config: dict[str, Any] | None = None,
+) -> float:
+    """Return 0.0–30.0 feasibility boost from CompetitorProfile gap flags."""
+    boost, _ = _get_feasibility_gap_signal_details(
+        niche_id=niche_id,
+        run_id=run_id,
+        db=db,
+        config=config,
+    )
+    return boost
 
 
 class NewSellerFeasibilityCalculator:
@@ -24,9 +135,14 @@ class NewSellerFeasibilityCalculator:
 
     _TIER2_KEYWORD_MARKERS = ("python", "ai tool", "ai agent", "workflow", "scraping")
 
-    def calculate(self, keyword_id: int, db: Any) -> FeasibilityScoreResult:
+    def calculate(
+        self,
+        keyword_id: int,
+        db: Any,
+        config: dict[str, Any] | None = None,
+    ) -> FeasibilityScoreResult:
         """Calculate a feasibility score payload for the provided keyword."""
-        signals = self._load_signals(keyword_id, db)
+        signals = self._load_signals(keyword_id, db, config=config)
         score_components: dict[str, ScoreComponent] = {}
         missing_data_warnings: list[str] = []
         source_evidence: list[str] = []
@@ -105,6 +221,23 @@ class NewSellerFeasibilityCalculator:
             confidence_breakdown["missing_llm_entry_gap"] = -0.10
             missing_data_warnings.append("llm_not_implemented: missing LLM entry gap assessment.")
 
+        profile_gap_boost, profile_gap_flags = self._resolve_gap_signal(
+            signals=signals,
+            db=db,
+            config=config,
+        )
+        if profile_gap_boost > 0.0:
+            score_components["profile_gap_boost"] = ScoreComponent(
+                value=profile_gap_boost,
+                weight=0.0,
+                raw=profile_gap_flags,
+                note=(
+                    "CompetitorProfile new_seller_gap flags boosted feasibility "
+                    "for exploitable market weaknesses."
+                ),
+            )
+            source_evidence.append("competitor_profiles.new_seller_gap.gap_flags")
+
         niche_tier = self._resolve_niche_tier(signals)
         if total_weight_available < 0.30:
             return FeasibilityScoreResult(
@@ -122,11 +255,17 @@ class NewSellerFeasibilityCalculator:
                 niche_tier=niche_tier,
             )
 
-        feasibility_score = round(min(100.0, max(0.0, weighted_sum / total_weight_available)), 2)
+        baseline_score = weighted_sum / total_weight_available
+        feasibility_score = round(min(100.0, max(0.0, baseline_score + profile_gap_boost)), 2)
         tier_note = (
             "Tier 2 context: this signal is emphasized for new-seller entry decisions."
             if niche_tier == "tier2_standard"
             else "Tier 1 context: feasibility is informative but not dominant."
+        )
+        gap_note = (
+            " CompetitorProfile gap flags contributed an entry-opportunity boost."
+            if profile_gap_boost > 0.0
+            else ""
         )
         return FeasibilityScoreResult(
             keyword_id=keyword_id,
@@ -142,7 +281,7 @@ class NewSellerFeasibilityCalculator:
             source_evidence=source_evidence,
             explanation_text=(
                 "Feasibility reflects entry accessibility for a new seller by combining level mix,"
-                f" review barrier, price diversity, and LLM weakness/gap signals. {tier_note}"
+                f" review barrier, price diversity, and LLM weakness/gap signals. {tier_note}{gap_note}"
             ),
             total_weight_available=total_weight_available,
             default_weight=self.DEFAULT_WEIGHT,
@@ -217,21 +356,59 @@ class NewSellerFeasibilityCalculator:
             return max(0.0, min(100.0, raw_score * 10.0))
         return max(0.0, min(100.0, raw_score))
 
-    def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
+    def _load_signals(
+        self,
+        keyword_id: int,
+        db: Any,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if db is None:
             return {}
         if isinstance(db, Session):
-            return self._load_signals_from_db(keyword_id, db)
+            return self._load_signals_from_db(keyword_id, db, config=config)
+        loaded: dict[str, Any] = {}
         if hasattr(db, "get_feasibility_inputs"):
             loaded = db.get_feasibility_inputs(keyword_id)
-            return dict(loaded or {})
-        if isinstance(db, Mapping):
+            if isinstance(loaded, Mapping):
+                loaded = dict(loaded)
+        elif isinstance(db, Mapping):
             loaded = db.get(keyword_id, db)
             if isinstance(loaded, Mapping):
-                return dict(loaded)
-        return {}
+                loaded = dict(loaded)
 
-    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+        if not loaded:
+            return {}
+
+        inline_profile = loaded.get("competitor_profile")
+        if isinstance(inline_profile, Mapping):
+            inline_flags = _extract_gap_flags_from_profile(dict(inline_profile))
+            if inline_flags:
+                feasibility_cfg = _feasibility_config(config)
+                gap_boost_per_flag = max(
+                    0.0,
+                    _coerce_float(
+                        feasibility_cfg.get("gap_boost_per_flag"),
+                        _DEFAULT_GAP_BOOST_PER_FLAG,
+                    ),
+                )
+                max_gap_boost = max(
+                    0.0,
+                    _coerce_float(feasibility_cfg.get("max_gap_boost"), _DEFAULT_MAX_GAP_BOOST),
+                )
+                loaded["feasibility_gap_signal"] = min(
+                    max_gap_boost,
+                    gap_boost_per_flag * len({flag for flag in inline_flags if flag in _SUPPORTED_GAP_FLAGS}),
+                )
+                loaded["feasibility_gap_flags"] = inline_flags
+        return loaded
+
+    def _load_signals_from_db(
+        self,
+        keyword_id: int,
+        session: Session,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
         top_results = (
             session.query(SearchResult)
             .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
@@ -249,7 +426,7 @@ class NewSellerFeasibilityCalculator:
         ]
         prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
         price_diversity = self._compute_price_diversity(prices)
-        return {
+        payload: dict[str, Any] = {
             "level1_or_new_ratio_top10": (
                 (accessible_count / len(seller_levels)) if seller_levels else None
             ),
@@ -259,6 +436,35 @@ class NewSellerFeasibilityCalculator:
             "top10_prices": prices or None,
             "llm_gig_quality_weakness_avg_top10": None,
         }
+
+        profile_niche_id: str | None = None
+        if keyword is not None:
+            niche = session.query(Niche).filter(Niche.id == keyword.niche_id).first()
+            if niche is not None and isinstance(niche.slug, str) and niche.slug.strip():
+                profile_niche_id = niche.slug.strip()
+
+        profile_run_id = next(
+            (
+                result.run_id.strip()
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip()
+            ),
+            None,
+        )
+        if profile_niche_id is not None and profile_run_id is not None:
+            payload["_profile_niche_id"] = profile_niche_id
+            payload["_profile_run_id"] = profile_run_id
+            gap_boost, gap_flags = _get_feasibility_gap_signal_details(
+                niche_id=profile_niche_id,
+                run_id=profile_run_id,
+                db=session,
+                config=config,
+            )
+            if gap_boost > 0.0:
+                payload["feasibility_gap_signal"] = gap_boost
+                payload["feasibility_gap_flags"] = gap_flags
+
+        return payload
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
@@ -279,3 +485,31 @@ class NewSellerFeasibilityCalculator:
         variance = sum((price - avg_price) ** 2 for price in prices) / len(prices)
         std_dev = math.sqrt(variance)
         return max(0.0, min(1.0, std_dev / avg_price))
+
+    def _resolve_gap_signal(
+        self,
+        *,
+        signals: dict[str, Any],
+        db: Any,
+        config: dict[str, Any] | None = None,
+    ) -> tuple[float, list[str]]:
+        explicit_boost = self._as_float(signals.get("feasibility_gap_signal"))
+        explicit_flags = _normalize_gap_flags(signals.get("feasibility_gap_flags"))
+        feasibility_cfg = _feasibility_config(config)
+        max_gap_boost = max(
+            0.0,
+            _coerce_float(feasibility_cfg.get("max_gap_boost"), _DEFAULT_MAX_GAP_BOOST),
+        )
+        if explicit_boost is not None:
+            return min(max_gap_boost, max(0.0, explicit_boost)), explicit_flags
+
+        niche_id = signals.get("_profile_niche_id")
+        run_id = signals.get("_profile_run_id")
+        if not isinstance(niche_id, str) or not isinstance(run_id, str):
+            return 0.0, []
+        return _get_feasibility_gap_signal_details(
+            niche_id=niche_id,
+            run_id=run_id,
+            db=db,
+            config=config,
+        )

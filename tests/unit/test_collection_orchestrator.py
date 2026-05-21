@@ -55,6 +55,7 @@ def test_run_collection_dry_run_stages_run() -> None:
         "stage10_competitor_profiling",
         "stage11_gig_quality_analysis",
         "stage12_review_analysis",
+        "stage13_saturation_analysis",
     ]
 
 
@@ -171,6 +172,7 @@ def test_orchestrator_stage_sequence_correct() -> None:
         "stage10_competitor_profiling",
         "stage11_gig_quality_analysis",
         "stage12_review_analysis",
+        "stage13_saturation_analysis",
     ]
 
 
@@ -270,6 +272,37 @@ def test_stage12_runs_after_stage4() -> None:
     )
     stage_order = result["stages_run"]
     assert stage_order.index("stage12_review_analysis") > stage_order.index("stage04_gig_detail")
+
+
+def test_stage13_registered() -> None:
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage13-registered",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert "stage13_saturation_analysis" in result["stages_run"]
+
+
+def test_stage13_errors_are_captured_in_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _boom(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("stage13 boom")
+
+    monkeypatch.setattr("src.analysis.saturation_model.run_saturation_analysis_for_niche", _boom)
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-stage13-error",
+            db={},
+            config={"niches": [{"niche_id": "seo", "seed_keywords": ["seo audit"]}]},
+            session_manager=None,
+            dry_run=True,
+        )
+    )
+    assert result["saturation_analysis_niches_run"] == 0
+    assert any("Stage 13 error (seo): stage13 boom" in error for error in result["errors"])
 
 
 def test_orchestrator_checkpoint_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -215,6 +215,7 @@ def _ensure_competitor_profiles_table(engine: Engine) -> None:
                 max_delivery_days INTEGER,
                 video_present_rate FLOAT,
                 portfolio_present_rate FLOAT,
+                new_seller_gap JSON NOT NULL DEFAULT '{}',
                 collected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT uq_competitor_profiles_niche_run UNIQUE (niche_id, run_id)
             )
@@ -226,6 +227,28 @@ def _ensure_competitor_profiles_table(engine: Engine) -> None:
         connection.exec_driver_sql(
             "CREATE INDEX IF NOT EXISTS ix_competitor_profiles_run_id ON competitor_profiles (run_id)"
         )
+
+
+def _ensure_competitor_profiles_new_seller_gap_column(engine: Engine) -> None:
+    """Backfill `competitor_profiles.new_seller_gap` for legacy SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "competitor_profiles" not in inspector.get_table_names():
+        return
+    existing_columns = {column["name"] for column in inspector.get_columns("competitor_profiles")}
+    if "new_seller_gap" in existing_columns:
+        return
+
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE competitor_profiles ADD COLUMN new_seller_gap JSON NOT NULL DEFAULT '{}'"
+            )
+    except Exception:
+        # Guard legacy initialization flows where schema introspection can race.
+        return
 
 
 def _ensure_gig_quality_analyses_table(engine: Engine) -> None:
@@ -306,6 +329,50 @@ def _ensure_review_analyses_table(engine: Engine) -> None:
         )
 
 
+def _ensure_saturation_scores_table(engine: Engine) -> None:
+    """Backfill `saturation_scores` table for legacy SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "saturation_scores" in inspector.get_table_names():
+        return
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS saturation_scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                keyword_id INTEGER NOT NULL,
+                niche_id VARCHAR(64) NOT NULL,
+                run_id VARCHAR(64) NOT NULL,
+                saturation_score FLOAT NOT NULL DEFAULT 50.0,
+                count_score FLOAT NOT NULL DEFAULT 0.0,
+                title_dup_score FLOAT NOT NULL DEFAULT 0.0,
+                price_score FLOAT NOT NULL DEFAULT 0.0,
+                overlap_score FLOAT NOT NULL DEFAULT 0.0,
+                llm_class_score FLOAT NOT NULL DEFAULT 50.0,
+                title_duplication_rate FLOAT NOT NULL DEFAULT 0.0,
+                price_compression_rate FLOAT NOT NULL DEFAULT 0.0,
+                seller_overlap_rate FLOAT NOT NULL DEFAULT 0.0,
+                explanation_text TEXT,
+                computed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_saturation_scores_keyword_run UNIQUE (keyword_id, run_id),
+                FOREIGN KEY(keyword_id) REFERENCES keywords (id)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_saturation_scores_keyword_id ON saturation_scores (keyword_id)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_saturation_scores_niche_id ON saturation_scores (niche_id)"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_saturation_scores_run_id ON saturation_scores (run_id)"
+        )
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -360,8 +427,10 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     _ensure_cluster_assignments_table(active_engine)
     _ensure_cluster_labels_table(active_engine)
     _ensure_competitor_profiles_table(active_engine)
+    _ensure_competitor_profiles_new_seller_gap_column(active_engine)
     _ensure_gig_quality_analyses_table(active_engine)
     _ensure_review_analyses_table(active_engine)
+    _ensure_saturation_scores_table(active_engine)
     return active_engine
 
 

@@ -8,8 +8,201 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import ExternalSignal, Keyword, SearchResult
+from src.models import ClusterAssignment, ClusterLabel, ExternalSignal, Keyword, SearchResult
 from src.scoring.contracts import DemandScoreResult, ScoreComponent
+
+_DEFAULT_CLUSTER_BOOST = 5.0
+_DEFAULT_MIN_CLUSTER_SIZE = 3
+
+
+def _coerce_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _coerce_float(value: Any, default: float) -> float:
+    if isinstance(value, bool) or value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_int(value: Any, default: int) -> int:
+    if isinstance(value, bool) or value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _demand_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {}
+    scoring_cfg = config.get("scoring")
+    if not isinstance(scoring_cfg, Mapping):
+        return {}
+    demand_cfg = scoring_cfg.get("demand")
+    if not isinstance(demand_cfg, Mapping):
+        return {}
+    return dict(demand_cfg)
+
+
+def _extract_cluster_context(payload: Mapping[str, Any]) -> dict[str, Any] | None:
+    cluster_id = payload.get("cluster_id")
+    if cluster_id is None:
+        return None
+    return {
+        "cluster_id": cluster_id,
+        "keyword_count": payload.get("cluster_keyword_count", payload.get("keyword_count")),
+        "label_text": payload.get("cluster_label_text", payload.get("label_text")),
+        "opportunity_narrative": payload.get(
+            "cluster_opportunity_narrative",
+            payload.get("opportunity_narrative"),
+        ),
+    }
+
+
+def _load_cluster_context_from_session(keyword_id: int, session: Session) -> dict[str, Any] | None:
+    assignment = (
+        session.query(ClusterAssignment)
+        .filter(ClusterAssignment.keyword_id == keyword_id)
+        .order_by(ClusterAssignment.assigned_at.desc(), ClusterAssignment.id.desc())
+        .first()
+    )
+    if assignment is None:
+        return None
+
+    cluster_id = int(assignment.cluster_id)
+    if cluster_id < 0:
+        return {
+            "cluster_id": cluster_id,
+            "keyword_count": 0,
+            "label_text": None,
+            "opportunity_narrative": None,
+            "niche_id": assignment.niche_id,
+            "run_id": assignment.run_id,
+        }
+
+    label = (
+        session.query(ClusterLabel)
+        .filter(
+            ClusterLabel.niche_id == assignment.niche_id,
+            ClusterLabel.cluster_id == cluster_id,
+            ClusterLabel.run_id == assignment.run_id,
+        )
+        .order_by(ClusterLabel.created_at.desc(), ClusterLabel.id.desc())
+        .first()
+    )
+    if label is None:
+        label = (
+            session.query(ClusterLabel)
+            .filter(
+                ClusterLabel.niche_id == assignment.niche_id,
+                ClusterLabel.cluster_id == cluster_id,
+            )
+            .order_by(ClusterLabel.created_at.desc(), ClusterLabel.id.desc())
+            .first()
+        )
+
+    keyword_count = (
+        int(label.keyword_count)
+        if label is not None and label.keyword_count is not None
+        else session.query(ClusterAssignment)
+        .filter(
+            ClusterAssignment.niche_id == assignment.niche_id,
+            ClusterAssignment.cluster_id == cluster_id,
+            ClusterAssignment.run_id == assignment.run_id,
+        )
+        .count()
+    )
+    return {
+        "cluster_id": cluster_id,
+        "keyword_count": keyword_count,
+        "label_text": label.label_text if label is not None else None,
+        "opportunity_narrative": label.opportunity_narrative if label is not None else None,
+        "niche_id": assignment.niche_id,
+        "run_id": assignment.run_id,
+    }
+
+
+def _load_cluster_context(keyword_id: int, db: Any) -> dict[str, Any] | None:
+    if db is None:
+        return None
+
+    if isinstance(db, Session):
+        try:
+            return _load_cluster_context_from_session(keyword_id, db)
+        except Exception:
+            return None
+
+    if hasattr(db, "get_cluster_assignment"):
+        loaded = db.get_cluster_assignment(keyword_id)
+        if isinstance(loaded, Mapping):
+            return dict(loaded)
+
+    if hasattr(db, "get_demand_inputs"):
+        loaded = db.get_demand_inputs(keyword_id)
+        if isinstance(loaded, Mapping):
+            extracted = _extract_cluster_context(loaded)
+            if extracted is not None:
+                return extracted
+
+    if isinstance(db, Mapping):
+        loaded = db.get(keyword_id, db)
+        if isinstance(loaded, Mapping):
+            return _extract_cluster_context(loaded)
+
+    return None
+
+
+def _compute_cluster_demand_boost(
+    keyword_id: int,
+    db: Any,
+    config: dict[str, Any] | None,
+) -> tuple[float, dict[str, Any] | None]:
+    demand_cfg = _demand_config(config)
+    use_cluster_boost = _coerce_bool(demand_cfg.get("use_cluster_boost"), True)
+    if not use_cluster_boost:
+        return 0.0, None
+
+    cluster_context = _load_cluster_context(keyword_id, db)
+    if cluster_context is None:
+        return 0.0, None
+
+    cluster_id = _coerce_int(cluster_context.get("cluster_id"), -1)
+    if cluster_id < 0:
+        return 0.0, cluster_context
+
+    min_cluster_size = max(1, _coerce_int(demand_cfg.get("min_cluster_size"), _DEFAULT_MIN_CLUSTER_SIZE))
+    keyword_count = max(0, _coerce_int(cluster_context.get("keyword_count"), 0))
+    if keyword_count < min_cluster_size:
+        return 0.0, cluster_context
+
+    configured_boost = _coerce_float(demand_cfg.get("cluster_boost"), _DEFAULT_CLUSTER_BOOST)
+    boost = max(0.0, min(10.0, configured_boost))
+    if boost <= 0.0:
+        return 0.0, cluster_context
+
+    normalized_context = dict(cluster_context)
+    normalized_context["cluster_id"] = cluster_id
+    normalized_context["keyword_count"] = keyword_count
+    return boost, normalized_context
+
+
+def get_cluster_demand_boost(keyword_id: int, db: Any, config: dict[str, Any] | None) -> float:
+    """Returns 0.0–10.0 demand boost based on cluster membership and cluster size."""
+    boost, _ = _compute_cluster_demand_boost(keyword_id, db, config)
+    return boost
 
 
 class DemandScoreCalculator:
@@ -20,7 +213,12 @@ class DemandScoreCalculator:
     _TRENDS_WEIGHT = 0.20
     _REDDIT_WEIGHT = 0.10
 
-    def calculate(self, keyword_id: int, db: Any) -> DemandScoreResult:
+    def calculate(
+        self,
+        keyword_id: int,
+        db: Any,
+        config: dict[str, Any] | None = None,
+    ) -> DemandScoreResult:
         """Calculate a demand score payload for the provided keyword."""
         signals = self._load_signals(keyword_id, db)
         score_components: dict[str, ScoreComponent] = {}
@@ -110,14 +308,51 @@ class DemandScoreCalculator:
                 total_weight_available=total_weight_available,
             )
 
-        demand_score = weighted_sum / total_weight_available
-        demand_score = round(min(100.0, max(0.0, demand_score)), 2)
+        base_demand_score = weighted_sum / total_weight_available
+        cluster_boost, cluster_context = _compute_cluster_demand_boost(keyword_id, db, config)
+        cluster_explanation = ""
+        if cluster_boost > 0.0 and cluster_context is not None:
+            keyword_count = max(0, _coerce_int(cluster_context.get("keyword_count"), 0))
+            label_text = cluster_context.get("label_text")
+            if not isinstance(label_text, str) or not label_text.strip():
+                label_text = f"cluster-{_coerce_int(cluster_context.get('cluster_id'), 0)}"
+            opportunity_narrative = cluster_context.get("opportunity_narrative")
+            if not isinstance(opportunity_narrative, str) or not opportunity_narrative.strip():
+                opportunity_narrative = ""
+            cluster_explanation = (
+                f"Keyword belongs to cluster '{label_text}' ({keyword_count} related keywords). "
+                f"Cluster membership boosts demand signal by {cluster_boost:.1f}."
+            )
+            if opportunity_narrative:
+                cluster_explanation = (
+                    f"{cluster_explanation} Cluster opportunity narrative: {opportunity_narrative.strip()}."
+                )
+            score_components["cluster_boost"] = ScoreComponent(
+                value=cluster_boost,
+                weight=0.0,
+                raw=cluster_context.get("cluster_id"),
+                note=cluster_explanation,
+            )
+            source_evidence.extend(
+                [
+                    "cluster_assignments.cluster_id",
+                    "cluster_labels.keyword_count",
+                ]
+            )
+
+        demand_score = round(min(100.0, max(0.0, base_demand_score + cluster_boost)), 2)
         confidence_modifier = max(0.0, 1.0 + sum(confidence_breakdown.values()))
         confidence_reason = (
             "Demand calculated from available components with deductions for missing external signals."
             if confidence_breakdown
             else "Demand calculated with full component coverage."
         )
+        explanation_text = (
+            "Demand combines Fiverr volume/autocomplete with Google Trends and Reddit intent"
+            " signals where available."
+        )
+        if cluster_explanation:
+            explanation_text = f"{explanation_text} {cluster_explanation}"
         return DemandScoreResult(
             keyword_id=keyword_id,
             score_value=demand_score,
@@ -127,10 +362,7 @@ class DemandScoreCalculator:
             confidence_reason=confidence_reason,
             missing_data_warnings=missing_data_warnings,
             source_evidence=source_evidence,
-            explanation_text=(
-                "Demand combines Fiverr volume/autocomplete with Google Trends and Reddit intent"
-                " signals where available."
-            ),
+            explanation_text=explanation_text,
             total_weight_available=total_weight_available,
         )
 

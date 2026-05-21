@@ -244,6 +244,20 @@ def review_analysis_command(config_path: str, database_url: str | None) -> None:
     )
 
 
+@cli.command("saturation-analysis")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def saturation_analysis_command(config_path: str, database_url: str | None) -> None:
+    """Run Stage 13 saturation model analysis for all niches."""
+    raise SystemExit(
+        run_pipeline(
+            mode="saturation-analysis",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=database_url,
+        )
+    )
+
+
 @cli.command("recommendations-only")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")

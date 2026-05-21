@@ -13,6 +13,7 @@ from src.models import (
     GigVisualAnalysis,
     Keyword,
     Niche,
+    SaturationScore,
     SearchResult,
     Seller,
 )
@@ -23,8 +24,9 @@ from src.scoring.feasibility import NewSellerFeasibilityCalculator
 from src.scoring.intent import ConversionIntentScoreCalculator
 from src.scoring.opportunity import OpportunityScoreCalculator
 from src.scoring.orchestrator import ScoringOrchestrator
+from src.scoring.pipeline import SCORING_PROFILES, calculate_weighted_composite
 from src.scoring.profitability import ProfitabilityScoreCalculator
-from src.scoring.saturation_score import SaturationScoreCalculator
+from src.scoring.saturation_score import SaturationScoreCalculator, get_saturation_signal
 from src.scoring.trend import TrendScoreCalculator
 from src.scoring.weakness import GigQualityWeaknessScoreCalculator
 
@@ -207,3 +209,136 @@ def test_missing_keyword_id_returns_none_score_gracefully() -> None:
     result = DemandScoreCalculator().calculate(123456, session)
     assert result.score_value is None
     session.close()
+
+
+def test_saturation_signal_reads_from_analysis_table() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    session.add(
+        SaturationScore(
+            keyword_id=keyword_id,
+            niche_id="automation",
+            run_id="legacy",
+            saturation_score=77.5,
+            count_score=80.0,
+            title_dup_score=75.0,
+            price_score=70.0,
+            overlap_score=65.0,
+            llm_class_score=60.0,
+            title_duplication_rate=0.75,
+            price_compression_rate=0.7,
+            seller_overlap_rate=0.65,
+            explanation_text="integration test",
+        )
+    )
+    session.commit()
+
+    assert get_saturation_signal(keyword_id, "legacy", session) == 77.5
+    session.close()
+
+
+def test_saturation_signal_none_when_no_row() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    assert get_saturation_signal(keyword_id, "legacy", session) is None
+    session.close()
+
+
+def test_saturation_signal_does_not_fallback_to_different_run() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    session.add(
+        SaturationScore(
+            keyword_id=keyword_id,
+            niche_id="automation",
+            run_id="old-run",
+            saturation_score=81.0,
+            count_score=80.0,
+            title_dup_score=75.0,
+            price_score=70.0,
+            overlap_score=65.0,
+            llm_class_score=60.0,
+            title_duplication_rate=0.75,
+            price_compression_rate=0.7,
+            seller_overlap_rate=0.65,
+            explanation_text="old run only",
+        )
+    )
+    session.commit()
+
+    assert get_saturation_signal(keyword_id, "current-run", session) is None
+    assert get_saturation_signal(keyword_id, "", session) == 81.0
+    session.close()
+
+
+def test_saturation_signal_non_session_paths_handle_valid_and_invalid_values() -> None:
+    class _SignalProvider:
+        @staticmethod
+        def get_saturation_signal(_keyword_id: int, _run_id: str) -> str:
+            return "66.5"
+
+    class _BadSignalProvider:
+        @staticmethod
+        def get_saturation_signal(_keyword_id: int, _run_id: str) -> str:
+            return "not-a-number"
+
+    class _InputsProvider:
+        @staticmethod
+        def get_saturation_inputs(_keyword_id: int) -> dict[str, float]:
+            return {"saturation_score": 72.0}
+
+    assert get_saturation_signal(101, "run-a", _SignalProvider()) == 66.5
+    assert get_saturation_signal(101, "run-a", _BadSignalProvider()) is None
+    assert get_saturation_signal(101, "run-a", _InputsProvider()) == 72.0
+    assert get_saturation_signal(101, "run-a", {101: {"saturation_score": 55.0}}) == 55.0
+
+
+def test_saturation_calculator_uses_mapping_run_id_for_analysis_output() -> None:
+    db_proxy = {
+        701: {
+            "run_id": "run-map-701",
+            "saturation_score": 73.4,
+        }
+    }
+    result = SaturationScoreCalculator().calculate(
+        701,
+        db_proxy,
+        config={"scoring": {"saturation": {"use_analysis_output": True}}},
+    )
+    assert result.score_value == 73.4
+    assert "saturation_scores.saturation_score[run-map-701]" in result.source_evidence
+
+
+def test_saturation_score_resolver_fallback_paths() -> None:
+    calculator = SaturationScoreCalculator()
+    assert calculator._resolve_title_duplication_score({"duplicate_title_count_top30": 12.0}) == 40.0
+    assert calculator._resolve_price_compression_score({"price_diversity_top30": 0.25}) == 75.0
+    assert calculator._resolve_llm_saturation_assessment({"llm_saturation_assessment": 6.4}) == 6.4
+
+
+def test_saturation_normalization_and_price_compression_helpers() -> None:
+    assert SaturationScoreCalculator._normalize_total_gig_count(0) == 0.0
+    assert SaturationScoreCalculator._normalize_ratio_or_score(0.5) == 50.0
+    assert SaturationScoreCalculator._normalize_ratio_or_score(6.0) == 60.0
+    assert SaturationScoreCalculator._normalize_ratio_or_score(140.0) == 100.0
+    assert SaturationScoreCalculator._price_compression_ratio([20.0, 20.0]) == 1.0
+    assert SaturationScoreCalculator._price_compression_ratio([10.0]) is None
+
+
+def test_saturation_score_inverted_correctly_in_composite() -> None:
+    common_scores = {
+        "demand_score": 70.0,
+        "competition_score": 40.0,
+        "opportunity_score": 65.0,
+        "feasibility_score": 60.0,
+        "profitability_score": 55.0,
+        "intent_score": 50.0,
+        "weakness_score": 45.0,
+        "trend_score": 60.0,
+    }
+    low_saturation_scores = {**common_scores, "saturation_score": 10.0}
+    high_saturation_scores = {**common_scores, "saturation_score": 90.0}
+
+    low_value, _ = calculate_weighted_composite(low_saturation_scores, SCORING_PROFILES["default"])
+    high_value, _ = calculate_weighted_composite(high_saturation_scores, SCORING_PROFILES["default"])
+    assert low_value > high_value

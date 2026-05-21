@@ -124,6 +124,7 @@ class CompetitorProfile(IntegerPrimaryKeyMixin, Base):
     max_delivery_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     video_present_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     portfolio_present_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    new_seller_gap: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -173,6 +174,37 @@ class ReviewAnalysis(IntegerPrimaryKeyMixin, Base):
     sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     recurring_complaints: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     analyzed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )
+
+
+class SaturationScore(IntegerPrimaryKeyMixin, Base):
+    """Persist Stage 13 saturation analysis rows per keyword/run."""
+
+    __tablename__ = "saturation_scores"
+    __table_args__ = (
+        UniqueConstraint("keyword_id", "run_id", name="uq_saturation_scores_keyword_run"),
+    )
+
+    keyword_id: Mapped[int] = mapped_column(ForeignKey("keywords.id"), nullable=False, index=True)
+    niche_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    saturation_score: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    count_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    title_dup_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    price_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    overlap_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    llm_class_score: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+
+    title_duplication_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    price_compression_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    seller_overlap_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    explanation_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=func.now(),
@@ -381,6 +413,7 @@ def write_competitor_profile(
     max_delivery_days: int | None = None,
     video_present_rate: float | None = None,
     portfolio_present_rate: float | None = None,
+    new_seller_gap: dict[str, Any] | None = None,
     commit: bool = True,
 ) -> CompetitorProfile | None:
     """Upsert a competitor benchmark profile keyed by niche/run."""
@@ -412,6 +445,7 @@ def write_competitor_profile(
     row.max_delivery_days = max_delivery_days
     row.video_present_rate = video_present_rate
     row.portfolio_present_rate = portfolio_present_rate
+    row.new_seller_gap = dict(new_seller_gap or {})
 
     db.add(row)
     if commit:
@@ -500,6 +534,61 @@ def write_review_analysis(
     row.review_velocity = max(0.0, float(review_velocity))
     row.sentiment_score = sentiment_score
     row.recurring_complaints = sorted(set(str(item) for item in (recurring_complaints or [])))
+
+    db.add(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def write_saturation_score(
+    *,
+    keyword_id: int,
+    niche_id: str,
+    run_id: str,
+    saturation_score: float,
+    count_score: float,
+    title_dup_score: float,
+    price_score: float,
+    overlap_score: float,
+    llm_class_score: float,
+    title_duplication_rate: float,
+    price_compression_rate: float,
+    seller_overlap_rate: float,
+    explanation_text: str | None,
+    db: Any,
+    computed_at: datetime | None = None,
+    commit: bool = True,
+) -> SaturationScore | None:
+    """Upsert Stage 13 saturation analysis row by keyword/run key."""
+    if not isinstance(db, Session):
+        return None
+
+    row = (
+        db.query(SaturationScore)
+        .filter(
+            SaturationScore.keyword_id == keyword_id,
+            SaturationScore.run_id == run_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = SaturationScore(keyword_id=keyword_id, run_id=run_id, niche_id=niche_id)
+
+    row.niche_id = niche_id
+    row.saturation_score = float(saturation_score)
+    row.count_score = float(count_score)
+    row.title_dup_score = float(title_dup_score)
+    row.price_score = float(price_score)
+    row.overlap_score = float(overlap_score)
+    row.llm_class_score = float(llm_class_score)
+    row.title_duplication_rate = float(title_duplication_rate)
+    row.price_compression_rate = float(price_compression_rate)
+    row.seller_overlap_rate = float(seller_overlap_rate)
+    row.explanation_text = explanation_text
+    if computed_at is not None:
+        row.computed_at = computed_at
 
     db.add(row)
     if commit:

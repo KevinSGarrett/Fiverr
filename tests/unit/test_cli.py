@@ -66,6 +66,7 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "profile-only" in result.output
     assert "quality-analysis" in result.output
     assert "review-analysis" in result.output
+    assert "saturation-analysis" in result.output
     assert "analysis-dry-run" in result.output
     assert "phase2-smoke" in result.output
 
@@ -400,3 +401,24 @@ def test_review_analysis_calls_pipeline(monkeypatch: pytest.MonkeyPatch) -> None
     result = runner.invoke(cli, ["review-analysis", "--config-path", "config.yaml"])
     assert result.exit_code == 0
     assert captured["mode"] == "review-analysis"
+
+
+def test_saturation_analysis_cli_exists() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["saturation-analysis", "--help"])
+    assert result.exit_code == 0
+    assert "Run Stage 13 saturation model analysis for all niches." in result.output
+
+
+def test_saturation_analysis_calls_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    def _fake_run_pipeline(**kwargs: Any) -> int:
+        captured["mode"] = str(kwargs.get("mode"))
+        return 0
+
+    monkeypatch.setattr(run_module, "run_pipeline", _fake_run_pipeline)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["saturation-analysis", "--config-path", "config.yaml"])
+    assert result.exit_code == 0
+    assert captured["mode"] == "saturation-analysis"

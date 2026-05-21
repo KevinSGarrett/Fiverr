@@ -33,10 +33,15 @@ class OpportunityScoreCalculator:
         db: Any,
         demand_result: DemandScoreResult | None = None,
         competition_result: CompetitionScoreResult | None = None,
+        config: dict[str, Any] | None = None,
     ) -> OpportunityScoreResult:
         """Calculate opportunity score using weighted demand minus weighted competition."""
         demand_payload = demand_result or self._demand_calculator.calculate(keyword_id, db)
-        competition_payload = competition_result or self._competition_calculator.calculate(keyword_id, db)
+        competition_payload = competition_result or self._competition_calculator.calculate(
+            keyword_id,
+            db,
+            config=config,
+        )
 
         demand_score = demand_payload.score_value
         competition_score = competition_payload.score_value

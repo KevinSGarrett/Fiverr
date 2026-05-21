@@ -4,3 +4,15 @@ recommendations:
 reddit:
   enabled: false            # set true when credentials are configured
   max_posts_per_seed: 25    # matches praw search limit per call
+scoring:
+  demand:
+    use_cluster_boost: true
+    cluster_boost: 5.0
+    min_cluster_size: 3
+  competition:
+    use_competitor_profile: true
+  feasibility:
+    gap_boost_per_flag: 10.0
+    max_gap_boost: 30.0
+  saturation:
+    use_analysis_output: true

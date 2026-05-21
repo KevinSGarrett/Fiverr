@@ -174,6 +174,39 @@ class ScoringProfileConfig(BaseModel):
         return self
 
 
+class ScoringDemandConfig(BaseModel):
+    """Runtime knobs for demand-score cluster integration behavior."""
+
+    use_cluster_boost: bool = True
+    cluster_boost: float = Field(default=5.0, ge=0.0, le=10.0)
+    min_cluster_size: int = Field(default=3, ge=1)
+
+
+class ScoringCompetitionConfig(BaseModel):
+    """Runtime knobs for competition-score Stage 10 profile integration."""
+
+    use_competitor_profile: bool = True
+
+
+class ScoringFeasibilityConfig(BaseModel):
+    """Runtime knobs for feasibility-score Stage 10 gap-signal integration."""
+
+    gap_boost_per_flag: float = Field(default=10.0, ge=0.0, le=30.0)
+    max_gap_boost: float = Field(default=30.0, ge=0.0, le=30.0)
+
+    @model_validator(mode="after")
+    def validate_gap_boost_bounds(self) -> ScoringFeasibilityConfig:
+        if self.max_gap_boost < self.gap_boost_per_flag:
+            raise ValueError("scoring.feasibility.max_gap_boost must be >= gap_boost_per_flag.")
+        return self
+
+
+class ScoringSaturationConfig(BaseModel):
+    """Runtime knobs for saturation-score Stage 13 integration behavior."""
+
+    use_analysis_output: bool = True
+
+
 class DiscoverySkillProfileConfig(BaseModel):
     primary_skills: list[str] = Field(default_factory=list, min_length=1)
     secondary_skills: list[str] = Field(default_factory=list)
@@ -250,6 +283,10 @@ class NicheConfig(BaseModel):
 
 class ScoringConfig(BaseModel):
     active_profile: str = "default"
+    demand: ScoringDemandConfig = Field(default_factory=ScoringDemandConfig)
+    competition: ScoringCompetitionConfig = Field(default_factory=ScoringCompetitionConfig)
+    feasibility: ScoringFeasibilityConfig = Field(default_factory=ScoringFeasibilityConfig)
+    saturation: ScoringSaturationConfig = Field(default_factory=ScoringSaturationConfig)
     profiles: dict[str, ScoringProfileConfig] = Field(default_factory=dict)
     thresholds: dict[str, float] = Field(
         default_factory=lambda: {

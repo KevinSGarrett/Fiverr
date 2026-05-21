@@ -10,8 +10,92 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import Gig, Keyword, SearchResult
+from src.models import Gig, Keyword, SaturationScore, SearchResult
 from src.scoring.contracts import SaturationScoreResult, ScoreComponent
+
+
+def _coerce_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _saturation_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {}
+    scoring_cfg = config.get("scoring")
+    if not isinstance(scoring_cfg, Mapping):
+        return {}
+    saturation_cfg = scoring_cfg.get("saturation")
+    if not isinstance(saturation_cfg, Mapping):
+        return {}
+    return dict(saturation_cfg)
+
+
+def get_saturation_signal(keyword_id: int, run_id: str, db: Any) -> float | None:
+    """
+    Return Stage 13 saturation score for keyword/run when available.
+
+    Returns `None` when no persisted saturation analysis output exists.
+    """
+    if isinstance(db, Session):
+        normalized_run = run_id.strip()
+        if normalized_run:
+            row = (
+                db.query(SaturationScore)
+                .filter(
+                    SaturationScore.keyword_id == keyword_id,
+                    SaturationScore.run_id == normalized_run,
+                )
+                .order_by(SaturationScore.computed_at.desc(), SaturationScore.id.desc())
+                .first()
+            )
+            if row is not None and row.saturation_score is not None:
+                return float(row.saturation_score)
+            return None
+
+        latest_row = (
+            db.query(SaturationScore)
+            .filter(SaturationScore.keyword_id == keyword_id)
+            .order_by(SaturationScore.computed_at.desc(), SaturationScore.id.desc())
+            .first()
+        )
+        if latest_row is not None and latest_row.saturation_score is not None:
+            return float(latest_row.saturation_score)
+        return None
+
+    if hasattr(db, "get_saturation_signal"):
+        loaded = db.get_saturation_signal(keyword_id, run_id)
+        try:
+            return None if loaded is None else float(loaded)
+        except (TypeError, ValueError):
+            return None
+
+    if hasattr(db, "get_saturation_inputs"):
+        loaded = db.get_saturation_inputs(keyword_id)
+        if isinstance(loaded, Mapping):
+            raw_value = loaded.get("saturation_score")
+            try:
+                return None if raw_value is None else float(raw_value)
+            except (TypeError, ValueError):
+                return None
+
+    if isinstance(db, Mapping):
+        loaded = db.get(keyword_id, db)
+        if isinstance(loaded, Mapping):
+            raw_value = loaded.get("saturation_score")
+            try:
+                return None if raw_value is None else float(raw_value)
+            except (TypeError, ValueError):
+                return None
+
+    return None
 
 
 class SaturationScoreCalculator:
@@ -30,8 +114,48 @@ class SaturationScoreCalculator:
         db: Any,
         llm_client: Any | None = None,
         cache: Any | None = None,
+        config: dict[str, Any] | None = None,
     ) -> SaturationScoreResult:
         """Calculate a saturation score payload for the provided keyword."""
+        use_analysis_output = _coerce_bool(
+            _saturation_config(config).get("use_analysis_output"),
+            True,
+        )
+        if use_analysis_output:
+            resolved_run_id = self._resolve_run_id(keyword_id, db) or ""
+            analysis_signal = get_saturation_signal(keyword_id, resolved_run_id, db)
+            if analysis_signal is not None:
+                clamped_signal = round(min(100.0, max(0.0, analysis_signal)), 2)
+                analysis_source_evidence = (
+                    [f"saturation_scores.saturation_score[{resolved_run_id}]"]
+                    if resolved_run_id
+                    else ["saturation_scores.saturation_score"]
+                )
+                return SaturationScoreResult(
+                    keyword_id=keyword_id,
+                    score_value=clamped_signal,
+                    score_components={
+                        "analysis_output": ScoreComponent(
+                            value=clamped_signal,
+                            weight=1.0,
+                            raw=analysis_signal,
+                            note="Loaded from Stage 13 saturation analysis output.",
+                        )
+                    },
+                    confidence_modifier=1.0,
+                    confidence_breakdown={},
+                    confidence_reason="Saturation score loaded from persisted Stage 13 analysis output.",
+                    missing_data_warnings=[],
+                    source_evidence=analysis_source_evidence,
+                    explanation_text=(
+                        "Higher saturation means lower strategic upside. Composite usage is inverted: "
+                        "(100 - saturation_score) * 0.05."
+                    ),
+                    total_weight_available=1.0,
+                    default_weight=self.DEFAULT_WEIGHT,
+                    is_inverted=True,
+                )
+
         signals = self._load_signals(keyword_id, db)
         score_components: dict[str, ScoreComponent] = {}
         missing_data_warnings: list[str] = []
@@ -39,6 +163,11 @@ class SaturationScoreCalculator:
         confidence_breakdown: dict[str, float] = {}
         weighted_sum = 0.0
         total_weight_available = 0.0
+
+        if use_analysis_output:
+            missing_data_warnings.append(
+                "saturation_analysis_output_missing: falling back to rule-based saturation signals."
+            )
 
         total_gig_count = self._as_float(signals.get("total_gig_count"))
         if total_gig_count is not None:
@@ -187,6 +316,37 @@ class SaturationScoreCalculator:
         if value < 0.0 or value > 100.0:
             return None
         return value
+
+    def _resolve_run_id(self, keyword_id: int, db: Any) -> str | None:
+        if isinstance(db, Session):
+            try:
+                row = (
+                    db.query(SearchResult.run_id)
+                    .filter(SearchResult.keyword_id == keyword_id)
+                    .order_by(SearchResult.collected_at.desc(), SearchResult.id.desc())
+                    .first()
+                )
+            except Exception:
+                row = None
+            if row and isinstance(row[0], str) and row[0].strip():
+                return row[0].strip()
+            return None
+
+        if hasattr(db, "get_saturation_inputs"):
+            loaded = db.get_saturation_inputs(keyword_id)
+            if isinstance(loaded, Mapping):
+                run_id = loaded.get("run_id")
+                if isinstance(run_id, str) and run_id.strip():
+                    return run_id.strip()
+
+        if isinstance(db, Mapping):
+            loaded = db.get(keyword_id, db)
+            if isinstance(loaded, Mapping):
+                run_id = loaded.get("run_id")
+                if isinstance(run_id, str) and run_id.strip():
+                    return run_id.strip()
+
+        return None
 
     def _resolve_title_duplication_score(self, signals: dict[str, Any]) -> float | None:
         duplication_rate = self._as_float(signals.get("title_duplication_rate"))

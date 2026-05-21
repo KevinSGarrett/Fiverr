@@ -134,6 +134,7 @@ async def run_collection_pipeline(
     from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_niche
     from src.analysis.keyword_clusterer import run_clustering_for_niche
     from src.analysis.review_analyzer import run_review_analysis_for_niche
+    from src.analysis.saturation_model import run_saturation_analysis_for_niche
     from src.collection.checkpoint import CheckpointManager
     from src.collection.pacing import PacingManager
     from src.collection.workflows.autocomplete import run_autocomplete_collection
@@ -172,6 +173,7 @@ async def run_collection_pipeline(
         "competitor_profiling_niches_run": 0,
         "gig_quality_analysis_niches_run": 0,
         "review_analysis_niches_run": 0,
+        "saturation_analysis_niches_run": 0,
         "google_trends_results": [],
         "reddit_signals_results": [],
         "youtube_count_results": [],
@@ -179,6 +181,7 @@ async def run_collection_pipeline(
         "competitor_profiling_results": [],
         "gig_quality_analysis_results": [],
         "review_analysis_results": [],
+        "saturation_analysis_results": [],
         "errors": [],
     }
 
@@ -519,11 +522,29 @@ async def run_collection_pipeline(
         except Exception as exc:  # noqa: BLE001
             summary["errors"].append(f"Stage 12 error ({niche_id}): {exc}")
 
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        try:
+            saturation_result = await run_saturation_analysis_for_niche(
+                niche_id=niche_id,
+                run_id=run_id,
+                db=db,
+                config=config if isinstance(config, dict) else {},
+                niche_context=None,
+                llm_client=None,
+            )
+            summary["saturation_analysis_results"].append(saturation_result)
+            if saturation_result.get("analyzed") is True:
+                summary["saturation_analysis_niches_run"] += 1
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 13 error ({niche_id}): {exc}")
+
     summary["stages_run"].extend(
         [
             "stage10_competitor_profiling",
             "stage11_gig_quality_analysis",
             "stage12_review_analysis",
+            "stage13_saturation_analysis",
         ]
     )
     return summary
