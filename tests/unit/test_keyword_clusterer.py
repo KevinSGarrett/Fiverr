@@ -10,10 +10,24 @@ from unittest.mock import AsyncMock
 import numpy as np
 from sqlalchemy import select
 from src.analysis.keyword_clusterer import (
+    _cache_get,
+    _cache_set,
+    _cluster_labels_cache_key,
+    _coerce_float,
+    _coerce_int,
+    _coerce_label_payload,
+    _dbscan_config,
+    _extract_niche_ids,
     _generate_cluster_labels,
+    _keyword_text_map,
+    _resolve_depth_for_niche,
+    _resolve_maybe_await,
+    _resolve_niche_pk,
+    _safe_float_vector,
     compute_n_clusters,
     load_embeddings_for_niche,
     normalize_embeddings,
+    run_clustering_for_all_niches,
     run_clustering_for_niche,
     run_dbscan,
     run_kmeans,
@@ -123,6 +137,191 @@ def test_compute_n_clusters_clamped_at_min() -> None:
 
 def test_compute_n_clusters_clamped_at_max() -> None:
     assert compute_n_clusters(10_000, {"analysis": {"max_clusters": 5}}) == 5
+
+
+def test_safe_float_vector_handles_invalid_inputs() -> None:
+    assert _safe_float_vector("[1, 2, 3]") == [1.0, 2.0, 3.0]
+    assert _safe_float_vector("not-json") is None
+    assert _safe_float_vector([1, True]) is None
+    assert _safe_float_vector({"vector": [1, 2]}) is None
+    assert _safe_float_vector([]) is None
+
+
+def test_coerce_helpers_cover_mixed_types() -> None:
+    assert _coerce_int(True, 7) == 7
+    assert _coerce_int(4.9, 7) == 4
+    assert _coerce_int("12.3", 7) == 12
+    assert _coerce_int("bad", 7) == 7
+
+    assert _coerce_float(False, 2.5) == 2.5
+    assert _coerce_float(4, 2.5) == 4.0
+    assert _coerce_float("9.25", 2.5) == 9.25
+    assert _coerce_float("bad", 2.5) == 2.5
+
+
+def test_depth_and_niche_extract_helpers_filter_invalid_entries() -> None:
+    config = {
+        "niches": [
+            {"niche_id": "alpha", "depth": "Feasibility"},
+            {"niche_id": "beta", "is_active": False},
+            {"niche_id": "gamma"},
+            "invalid-entry",
+        ]
+    }
+    assert _resolve_depth_for_niche("alpha", config) == "feasibility"
+    assert _resolve_depth_for_niche("unknown", config) == "standard"
+    assert _extract_niche_ids(config) == ["alpha", "gamma"]
+
+
+def test_keyword_text_map_returns_empty_without_session() -> None:
+    assert _keyword_text_map([1, 2], object()) == {}
+
+
+def test_resolve_niche_pk_handles_numeric_non_session_and_query_error(monkeypatch) -> None:
+    assert _resolve_niche_pk("42", object()) == 42
+    assert _resolve_niche_pk("slug", object()) is None
+
+    session, niche = _build_session()
+    try:
+        assert _resolve_niche_pk("ai_saas", session) == niche.id
+
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("db unavailable")
+
+        monkeypatch.setattr(session, "query", _boom)
+        assert _resolve_niche_pk("ai_saas", session) is None
+    finally:
+        session.close()
+
+
+def test_load_embeddings_skips_malformed_and_mismatched_vectors() -> None:
+    session, niche = _build_session()
+    try:
+        good = _insert_keyword(session, niche, "good vector", [0.1, 0.2, 0.3])
+        _insert_keyword(session, niche, "mismatch vector", [0.4, 0.5])
+        malformed = Keyword(
+            niche_id=niche.id,
+            keyword="broken vector",
+            normalized_keyword="broken vector",
+            embedding_vector="not-json",
+            external_source="seed",
+            metadata_json={},
+        )
+        session.add(malformed)
+        session.commit()
+
+        ids, matrix = load_embeddings_for_niche("ai_saas", session)
+        assert ids == [good.id]
+        assert matrix.shape == (1, 3)
+    finally:
+        session.close()
+
+
+def test_cache_helpers_handle_failures_and_typeerror_fallback() -> None:
+    class _CacheWithFallback:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        async def get(self, _key: str) -> str:
+            return "payload"
+
+        async def set(self, key: str, value: object, **kwargs: object) -> None:
+            self.calls.append({"key": key, "value": value, **kwargs})
+            if "model" not in kwargs:
+                raise TypeError("requires model args")
+
+    class _BrokenCache:
+        async def get(self, _key: str) -> None:
+            raise RuntimeError("cache get failed")
+
+        async def set(self, _key: str, _value: object, **_kwargs: object) -> None:
+            raise RuntimeError("cache set failed")
+
+    cache = _CacheWithFallback()
+    assert _run(_cache_get(cache, "key")) == "payload"
+    _run(_cache_set(cache, "key", {"label": "x"}))
+    assert len(cache.calls) == 2
+    assert cache.calls[-1]["model"] == "gpt-4o-mini"
+
+    broken = _BrokenCache()
+    assert _run(_cache_get(broken, "key")) is None
+    _run(_cache_set(broken, "key", {"label": "x"}))
+
+
+def test_coerce_label_payload_handles_json_dict_text_and_invalid() -> None:
+    assert _coerce_label_payload('{"label":"Alpha","opportunity_narrative":"Opportunity"}') == {
+        "label": "Alpha",
+        "opportunity_narrative": "Opportunity",
+    }
+    assert _coerce_label_payload('{"label":"", "opportunity_narrative":"  "}') == {
+        "label": None,
+        "opportunity_narrative": None,
+    }
+    assert _coerce_label_payload("[1,2,3]") == {"label": None, "opportunity_narrative": None}
+    assert _coerce_label_payload("Direct Label") == {
+        "label": "Direct Label",
+        "opportunity_narrative": None,
+    }
+
+
+def test_cluster_label_cache_key_is_deterministic_for_same_content() -> None:
+    key_one = _cluster_labels_cache_key("niche", {1: ["beta", "alpha"], 0: ["zeta"]})
+    key_two = _cluster_labels_cache_key("niche", {0: ["zeta"], 1: ["alpha", "beta"]})
+    assert key_one == key_two
+
+
+def test_resolve_maybe_await_handles_awaitable_and_plain() -> None:
+    async def _value() -> int:
+        return 7
+
+    assert _run(_resolve_maybe_await(_value())) == 7
+    assert _run(_resolve_maybe_await("plain")) == "plain"
+
+
+def test_generate_labels_uses_valid_cached_payload() -> None:
+    cache = SimpleNamespace(
+        get=AsyncMock(
+            return_value={
+                "0": {"label": "Cached Label", "opportunity_narrative": "Cached narrative"},
+            }
+        )
+    )
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value='{"label":"Fresh","opportunity_narrative":"Fresh"}'))
+
+    result = _run(
+        _generate_cluster_labels(
+            niche_id="ai_saas",
+            clusters={0: ["ai agent"]},
+            llm_client=llm_client,
+            cache=cache,
+        )
+    )
+    assert result[0]["label"] == "Cached Label"
+    assert llm_client.complete.await_count == 0
+
+
+def test_generate_labels_ignores_bad_cache_then_reads_object_text() -> None:
+    cache = SimpleNamespace(get=AsyncMock(return_value={"bad-key": {"label": "x"}}), set=AsyncMock())
+    llm_client = SimpleNamespace(
+        complete=AsyncMock(
+            return_value=SimpleNamespace(text='{"label":"Fresh Label","opportunity_narrative":"Fresh narrative"}')
+        )
+    )
+    result = _run(
+        _generate_cluster_labels(
+            niche_id="ai_saas",
+            clusters={0: ["ai agent"]},
+            llm_client=llm_client,
+            cache=cache,
+        )
+    )
+    assert result[0]["label"] == "Fresh Label"
+
+
+def test_dbscan_config_supports_legacy_keys() -> None:
+    eps, min_samples = _dbscan_config({"clustering": {"dbscan_eps": "0.45", "dbscan_min_samples": "5"}})
+    assert eps == 0.45
+    assert min_samples == 5
 
 
 def test_generate_labels_returns_label_per_cluster() -> None:
@@ -399,3 +598,38 @@ def test_run_dbscan_returns_labels() -> None:
     labels, inertia = run_dbscan(matrix, eps=0.25, min_samples=2)
     assert labels.shape[0] == 3
     assert inertia is None
+
+
+def test_run_clustering_for_all_niches_aggregates_results(monkeypatch) -> None:
+    async def _fake_run_clustering_for_niche(
+        niche_id: str,
+        run_id: str,  # noqa: ARG001
+        db: object,  # noqa: ARG001
+        config: dict[str, object],  # noqa: ARG001
+        llm_client: object | None = None,  # noqa: ARG001
+        cache: object | None = None,  # noqa: ARG001
+    ) -> dict[str, object]:
+        return {"niche_id": niche_id, "clustered": niche_id == "alpha"}
+
+    monkeypatch.setattr(
+        "src.analysis.keyword_clusterer.run_clustering_for_niche",
+        _fake_run_clustering_for_niche,
+    )
+
+    result = _run(
+        run_clustering_for_all_niches(
+            run_id="run-all-cluster",
+            db=object(),
+            config={
+                "niches": [
+                    {"niche_id": "alpha", "is_active": True},
+                    {"niche_id": "beta", "is_active": True},
+                    {"niche_id": "inactive", "is_active": False},
+                ]
+            },
+            llm_client=None,
+            cache=None,
+        )
+    )
+    assert result["niches_processed"] == 2
+    assert result["niches_clustered"] == 1

@@ -8,11 +8,21 @@ import json
 import pandas as pd
 from sqlalchemy import select
 from src.analysis.competitor_profiler import (
+    _coerce_float,
+    _coerce_int,
+    _extract_delivery_days,
+    _extract_niche_ids,
+    _extract_price,
+    _resolve_top_competitor_gigs,
+    _resolve_top_n_per_keyword,
+    _safe_float,
+    _safe_int,
     compute_market_benchmarks,
     compute_new_seller_gap,
     compute_seller_level_distribution,
     extract_top_n_competitor_gigs,
     load_gig_data_for_niche,
+    run_competitor_profiling_for_all_niches,
     run_competitor_profiling_for_niche,
 )
 from src.analysis.seller_strength import classify_seller_tier, compute_seller_strength_score
@@ -409,6 +419,137 @@ def test_compute_new_seller_gap_low_video_flagged() -> None:
     assert gap["opportunity_score"] > 0.0
 
 
+def test_numeric_and_config_helpers_cover_edge_paths() -> None:
+    assert _coerce_int(True, 9) == 9
+    assert _coerce_int(8.7, 9) == 8
+    assert _coerce_int("12.4", 9) == 12
+    assert _coerce_int("bad", 9) == 9
+
+    assert _coerce_float(False, 3.5) == 3.5
+    assert _coerce_float(8, 3.5) == 8.0
+    assert _coerce_float("6.2", 3.5) == 6.2
+    assert _coerce_float("bad", 3.5) == 3.5
+
+    assert _safe_float("1,200.5") == 1200.5
+    assert _safe_float("bad") is None
+    assert _safe_int("15") == 15
+    assert _safe_int(None) is None
+
+    assert _resolve_top_n_per_keyword(None) == 20
+    assert _resolve_top_n_per_keyword({"analysis": {"top_gigs_per_keyword": 7}}) == 7
+    assert _resolve_top_competitor_gigs({"competitor_profiling": {"top_competitor_gigs": "4"}}) == 4
+    assert _resolve_top_competitor_gigs({"competitor_profiling": {"top_competitor_gigs": 0}}) == 1
+
+
+def test_extract_helper_functions_handle_fallbacks() -> None:
+    assert _extract_delivery_days(None) is None
+    assert _extract_delivery_days([{"delivery_days": "5"}, {"delivery_days": 3}]) == 3
+    assert _extract_price("99", []) == 99.0
+    assert _extract_price(None, [{"price": "75"}, {"price": 80}]) == 75.0
+    assert _extract_price(None, "not-a-list") is None
+
+
+def test_extract_niche_ids_filters_inactive_and_invalid_entries() -> None:
+    config = {
+        "niches": [
+            {"niche_id": "active-a", "is_active": True},
+            {"niche_id": "inactive-a", "is_active": False},
+            {"niche_id": "active-b"},
+            "not-a-dict",
+            {"niche_id": "  "},
+        ]
+    }
+    assert _extract_niche_ids(config) == ["active-a", "active-b"]
+
+
+def test_compute_new_seller_gap_applies_all_flags() -> None:
+    gap = compute_new_seller_gap(
+        {
+            "video_present_rate": 0.1,
+            "portfolio_present_rate": 0.1,
+            "price_std": 50.0,
+        },
+        {
+            "competitor_profiling": {
+                "video_present_rate_threshold": 0.5,
+                "portfolio_present_rate_threshold": 0.5,
+                "price_std_threshold": 20.0,
+            }
+        },
+    )
+    assert set(gap["gap_flags"]) == {"low_video_presence", "low_portfolio_presence", "high_price_variance"}
+    assert gap["opportunity_score"] == 100.0
+
+
+def test_seller_level_distribution_returns_unknown_for_empty_or_missing_column() -> None:
+    assert compute_seller_level_distribution(pd.DataFrame()) == {"UNKNOWN": 1.0}
+    assert compute_seller_level_distribution(pd.DataFrame({"other": [1, 2]})) == {"UNKNOWN": 1.0}
+
+
+def test_extract_top_n_competitor_gigs_handles_minimal_columns() -> None:
+    gig_df = pd.DataFrame(
+        {
+            "gig_url": ["g1"],
+            "seller_username": ["s1"],
+            "price": [10.0],
+            "rating": [None],
+            "review_count": [None],
+            "queue": [0],
+            "delivery_days": [None],
+            "has_video": [False],
+            "portfolio_count": [0],
+        }
+    )
+    result = extract_top_n_competitor_gigs(gig_df, n=1)
+    assert len(result) == 1
+    assert result[0]["gig_url"] == "g1"
+    assert "quality_rank_score" in result[0]
+
+
+def test_load_gig_data_respects_top_n_per_keyword() -> None:
+    session, niche = _build_session()
+    try:
+        keyword = _seed_keyword(session, niche, "single keyword", [0.1, 0.2, 0.3])
+        _seed_gig(
+            session,
+            keyword=keyword,
+            run_id="run-top-n",
+            gig_url="https://fiverr.com/gig/top-1",
+            seller_username="seller_1",
+            rank=1,
+            price=30.0,
+            rating=4.7,
+            review_count=10,
+            has_video=True,
+            portfolio_count=1,
+            delivery_days=2,
+        )
+        _seed_gig(
+            session,
+            keyword=keyword,
+            run_id="run-top-n",
+            gig_url="https://fiverr.com/gig/top-2",
+            seller_username="seller_2",
+            rank=2,
+            price=40.0,
+            rating=4.6,
+            review_count=8,
+            has_video=False,
+            portfolio_count=0,
+            delivery_days=4,
+        )
+        frame = load_gig_data_for_niche(
+            "test_niche",
+            "run-top-n",
+            session,
+            config={"competitor_profiling": {"top_gigs_per_keyword": 1}},
+        )
+        assert len(frame) == 1
+        assert frame.iloc[0]["gig_url"] == "https://fiverr.com/gig/top-1"
+    finally:
+        session.close()
+
+
 def test_run_profiling_returns_profiled_true() -> None:
     session, niche = _build_session()
     try:
@@ -610,4 +751,36 @@ def test_analysis_package_full_exports() -> None:
 
     assert callable(exported_quality)
     assert callable(exported_review)
+
+
+def test_run_profiling_for_all_niches_aggregates_results(monkeypatch) -> None:
+    async def _fake_run_competitor_profiling_for_niche(
+        niche_id: str,
+        run_id: str,  # noqa: ARG001
+        db: object,  # noqa: ARG001
+        config: dict[str, object],  # noqa: ARG001
+        llm_client: object | None = None,  # noqa: ARG001
+    ) -> dict[str, object]:
+        return {"niche_id": niche_id, "profiled": niche_id == "active-a"}
+
+    monkeypatch.setattr(
+        "src.analysis.competitor_profiler.run_competitor_profiling_for_niche",
+        _fake_run_competitor_profiling_for_niche,
+    )
+    result = _run(
+        run_competitor_profiling_for_all_niches(
+            run_id="run-all-profile",
+            db=object(),
+            config={
+                "niches": [
+                    {"niche_id": "active-a", "is_active": True},
+                    {"niche_id": "active-b", "is_active": True},
+                    {"niche_id": "inactive", "is_active": False},
+                ]
+            },
+            llm_client=None,
+        )
+    )
+    assert result["niches_processed"] == 2
+    assert result["niches_profiled"] == 1
 

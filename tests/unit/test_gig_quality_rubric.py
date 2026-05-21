@@ -6,8 +6,12 @@ import asyncio
 
 from sqlalchemy import select
 from src.analysis.gig_quality_rubric import (
+    _extract_niche_ids,
+    _safe_float,
+    _safe_int,
     compute_rubric_score,
     load_gig_quality_scores_for_niche,
+    run_gig_quality_analysis_for_all_niches,
     run_gig_quality_analysis_for_niche,
 )
 from src.models.database import create_session_factory, initialize_database
@@ -158,6 +162,28 @@ def test_rubric_weakness_flags_populated() -> None:
     assert "faq_absent" in score["weakness_flags"]
 
 
+def test_safe_numeric_helpers_cover_invalid_and_string_inputs() -> None:
+    assert _safe_int(True) is None
+    assert _safe_int("1,200") == 1200
+    assert _safe_int("bad") is None
+    assert _safe_float(False) is None
+    assert _safe_float("4.2") == 4.2
+    assert _safe_float("bad") is None
+
+
+def test_extract_niche_ids_filters_only_active_niches() -> None:
+    config = {
+        "niches": [
+            {"niche_id": "active-one", "is_active": True},
+            {"niche_id": "inactive-one", "is_active": False},
+            {"niche_id": "active-two"},
+            "not-a-dict",
+            {"niche_id": " "},
+        ]
+    }
+    assert _extract_niche_ids(config) == ["active-one", "active-two"]
+
+
 def test_load_gig_quality_returns_data() -> None:
     session, niche = _build_session()
     try:
@@ -184,6 +210,15 @@ def test_load_gig_quality_returns_data() -> None:
         rows = load_gig_quality_scores_for_niche("test_niche", "run-load", session)
         assert len(rows) == 1
         assert rows[0]["gig_url"] == gig.gig_url
+    finally:
+        session.close()
+
+
+def test_load_gig_quality_returns_empty_for_missing_niche() -> None:
+    session, _niche = _build_session()
+    try:
+        rows = load_gig_quality_scores_for_niche("missing-niche", "run-load", session)
+        assert rows == []
     finally:
         session.close()
 
@@ -373,4 +408,37 @@ def test_rubric_excludes_stale_gqs_rows() -> None:
         assert row.portfolio_absent is False
     finally:
         session.close()
+
+
+def test_run_gig_quality_analysis_for_all_niches_aggregates(monkeypatch) -> None:
+    async def _fake_run_gig_quality_analysis_for_niche(
+        niche_id: str,
+        run_id: str,  # noqa: ARG001
+        db: object,  # noqa: ARG001
+        config: dict[str, object],  # noqa: ARG001
+        llm_client: object | None = None,  # noqa: ARG001
+    ) -> dict[str, object]:
+        return {"niche_id": niche_id, "analyzed": niche_id == "active-one"}
+
+    monkeypatch.setattr(
+        "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche",
+        _fake_run_gig_quality_analysis_for_niche,
+    )
+
+    result = _run(
+        run_gig_quality_analysis_for_all_niches(
+            run_id="run-all-quality",
+            db=object(),
+            config={
+                "niches": [
+                    {"niche_id": "active-one", "is_active": True},
+                    {"niche_id": "active-two", "is_active": True},
+                    {"niche_id": "inactive", "is_active": False},
+                ]
+            },
+            llm_client=None,
+        )
+    )
+    assert result["niches_processed"] == 2
+    assert result["niches_analyzed"] == 1
 
