@@ -199,5 +199,5 @@ PR #40 is ready to merge when approved.
 
 ## Final SHA
 
-- `origin/cycle/033/integration`: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
-- Agent D final commit SHA: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
+- Task 14 freeze SHA (`git rev-parse origin/cycle/033/integration` at freeze time): `28147da8dcc585a3e53244eb4f4e419a3d89680e`
+- Post-freeze documentation commits were added on top for checklist/report closure; use PR #40 head SHA as the final merge SHA.
