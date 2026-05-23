@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.recommendations.contracts import RecommendationContext, RecommendationOutput
 
 
@@ -24,8 +26,15 @@ class RecommendationOrchestrator:
             until full E05 implementation is wired.
         """
         return RecommendationOutput(
-            niche_id=context.niche_id,
+            niche_id=str(context.niche_id),
             keyword=context.keyword,
-            run_id=context.run_id,
+            run_id=_to_optional_int(context.run_id),
             generation_complete=False,
         )
+
+
+def _to_optional_int(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None

@@ -1,7 +1,8 @@
-"""Recommendation engine contracts (Pydantic models) — E05 scaffold."""
+"""Recommendation engine contracts for Stage 13."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -99,23 +100,76 @@ class VisualRecommendations(BaseModel):
     gallery_recommendations: list[str] = Field(default_factory=list)
 
 
-class RecommendationContext(BaseModel):
-    niche_id: str
-    keyword: str
-    run_id: int | None = None
-    score_data: dict[str, Any] = Field(default_factory=dict)
-    competitor_data: dict[str, Any] = Field(default_factory=dict)
-    pricing_data: dict[str, Any] = Field(default_factory=dict)
-    visual_data: dict[str, Any] = Field(default_factory=dict)
-    review_insights: dict[str, Any] = Field(default_factory=dict)
-    external_signals: dict[str, Any] = Field(default_factory=dict)
+@dataclass(slots=True)
+class RecommendationContext:
+    """Shared context payload for recommendation generation and gating."""
+
+    # Required Stage-13 identity + score fields.
+    keyword_id: int = 0
+    keyword_text: str = ""
+    niche_id: int | str = ""
+    tag: str = "MONITOR"
+    final_score: float = 0.0
+    confidence_modifier: float = 0.5
+    demand_score: float | None = None
+    competition_score: float | None = None
+    opportunity_score: float | None = None
+    top_competitor_weaknesses: list[dict[str, Any]] = field(default_factory=list)
+    cluster_label: str | None = None
+    cluster_size: int | None = None
+    saturation_score: float | None = None
+    feasibility_score: float | None = None
+    niche_name: str = ""
+    run_id: str | int | None = None
+
+    # Optional enrichment fields used by downstream tasks.
+    reviewer_pain_points: list[str] = field(default_factory=list)
+    market_price_range: dict[str, Any] | None = None
+    top_buyer_complaints: list[str] = field(default_factory=list)
+    top_buyer_praise: list[str] = field(default_factory=list)
+    red_flag_patterns: list[str] = field(default_factory=list)
+
+    # Compatibility aliases/containers used by earlier cycles.
+    keyword: str = ""
+    score_data: dict[str, Any] = field(default_factory=dict)
+    competitor_data: dict[str, Any] = field(default_factory=dict)
+    pricing_data: dict[str, Any] = field(default_factory=dict)
+    visual_data: dict[str, Any] = field(default_factory=dict)
+    review_insights: dict[str, Any] = field(default_factory=dict)
+    external_signals: dict[str, Any] = field(default_factory=dict)
+
+    # Existing Stage-13 task context fields.
+    score_components: dict[str, Any] = field(default_factory=dict)
+    positioning_gaps: list[dict[str, Any]] | None = None
+    dominant_sellers: list[dict[str, Any]] | None = None
+
+    # Stage-12 pricing enrichment fields.
+    price_distribution: dict[str, Any] | None = None
+    price_review_correlation: dict[str, Any] | None = None
+    market_type: str | None = None
+    calculated_entry_prices: dict[str, Any] | None = None
+    calculated_price_ladder: list[dict[str, Any]] | None = None
+    new_seller_discount_pct: float | None = None
+    competitor_price_positions: list[dict[str, Any]] | None = None
+
+    def __post_init__(self) -> None:
+        if not self.keyword_text and self.keyword:
+            self.keyword_text = self.keyword
+        if not self.keyword and self.keyword_text:
+            self.keyword = self.keyword_text
+        if not self.niche_name and self.niche_id not in ("", None):
+            self.niche_name = str(self.niche_id)
 
     def completeness_ratio(self) -> float:
         optional_fields = [
-            self.score_data, self.competitor_data, self.pricing_data,
-            self.visual_data, self.review_insights, self.external_signals,
+            self.score_data,
+            self.competitor_data,
+            self.pricing_data,
+            self.visual_data,
+            self.review_insights,
+            self.external_signals,
         ]
-        populated = sum(1 for f in optional_fields if f)
+        populated = sum(1 for value in optional_fields if value)
         return populated / len(optional_fields)
 
 
@@ -142,11 +196,20 @@ class RecommendationOutput(BaseModel):
 
     def completeness_ratio(self) -> float:
         task_fields = [
-            self.gig_titles, self.tag_sets, self.package_structure,
-            self.description_outline, self.faq_entries, self.differentiation_angle,
-            self.buyer_persona, self.thumbnail_direction, self.upsell_structure,
-            self.red_flags, self.niche_viability, self.pricing_strategy,
-            self.profile_optimization, self.visual_recommendations,
+            self.gig_titles,
+            self.tag_sets,
+            self.package_structure,
+            self.description_outline,
+            self.faq_entries,
+            self.differentiation_angle,
+            self.buyer_persona,
+            self.thumbnail_direction,
+            self.upsell_structure,
+            self.red_flags,
+            self.niche_viability,
+            self.pricing_strategy,
+            self.profile_optimization,
+            self.visual_recommendations,
         ]
-        populated = sum(1 for f in task_fields if f is not None)
+        populated = sum(1 for field_value in task_fields if field_value is not None)
         return populated / len(task_fields)

@@ -38,3 +38,12 @@ E03->E04 integration is complete as of Cycle 032.
 
 - Score 3 (Opportunity) derives from Scores 1 and 2.
 - Score 5 (Profitability) remains a Cycle 033 target for further enhancement.
+
+## Cycle 033 Kickoff (E05 Start)
+
+Cycle 033 begins Epic 05 Recommendation Engine implementation.
+
+- Agent A owns S5.1 and S5.2 foundations:
+  - `src/recommendations/context_builder.py` provides context assembly from persisted scoring + analysis outputs.
+  - `src/recommendations/eligibility.py` enforces recommendation eligibility, gates, and regeneration thresholding.
+- E03 and E04 outputs now serve as first-class RecommendationContext inputs for Stage 13 recommendations generation.
