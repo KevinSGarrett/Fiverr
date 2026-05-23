@@ -973,6 +973,60 @@ def test_load_export_metadata_uses_db_and_raw_json_fallbacks() -> None:
     assert metadata.generated_at == datetime(2026, 5, 23, 15, 0, tzinfo=UTC)
 
 
+def test_load_export_metadata_prefers_keyword_sources_over_recommendation_text() -> None:
+    recommendation_row = SimpleNamespace(
+        keyword_id=601,
+        recommendation_text="generated recommendation copy",
+        niche_id=None,
+        tag="STRONG GO",
+        final_score=81.0,
+        llm_cost_usd=0.5,
+        generated_at=datetime(2026, 5, 23, 16, 0, tzinfo=UTC),
+        generation_complete=True,
+        raw_json={},
+        gig_titles=None,
+        tag_sets=None,
+        package_structure=None,
+        description_outline=None,
+        faq_entries=None,
+        differentiation_angle=None,
+        buyer_persona=None,
+        thumbnail_direction=None,
+        upsell_structure=None,
+        red_flags=None,
+        niche_viability=None,
+    )
+    keyword_row = SimpleNamespace(keyword="real keyword label", niche_id=1)
+    niche_row = SimpleNamespace(name="Automation")
+
+    class _SingleRowQuery:
+        def __init__(self, row: Any) -> None:
+            self._row = row
+
+        def filter(self, *_args: Any, **_kwargs: Any) -> Any:
+            return self
+
+        def order_by(self, *_args: Any, **_kwargs: Any) -> Any:
+            return self
+
+        def first(self) -> Any:
+            return self._row
+
+    class _FakeDb:
+        def query(self, model: Any) -> Any:
+            if model is export_module.Recommendation:
+                return _SingleRowQuery(recommendation_row)
+            if model is export_module.Keyword:
+                return _SingleRowQuery(keyword_row)
+            if model is export_module.Niche:
+                return _SingleRowQuery(niche_row)
+            raise AssertionError("unexpected model")
+
+    metadata = export_module._load_export_metadata(keyword_id=601, db=_FakeDb())
+    assert metadata is not None
+    assert metadata.keyword_text == "real keyword label"
+
+
 def test_safe_query_returns_none_when_db_query_raises() -> None:
     class _BadDb:
         def query(self, _model: Any) -> Any:

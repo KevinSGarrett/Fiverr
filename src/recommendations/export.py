@@ -414,9 +414,9 @@ def _load_export_metadata(keyword_id: int, db: Any) -> RecommendationExportMetad
         generation_complete = bool(raw_json.get("generation_complete", False))
 
     keyword_text = (
-        _as_non_empty_text(getattr(row, "recommendation_text", None))
-        or _as_non_empty_text(_mapping_value(raw_json, "keyword_text"))
+        _as_non_empty_text(_mapping_value(raw_json, "keyword_text"))
         or _lookup_keyword_text(keyword_id=keyword_id, db=db)
+        or _as_non_empty_text(getattr(row, "recommendation_text", None))
         or f"keyword-{keyword_id}"
     )
     niche_name = (
