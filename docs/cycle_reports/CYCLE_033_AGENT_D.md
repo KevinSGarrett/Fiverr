@@ -137,7 +137,7 @@ No status corrections were required.
 
 ### Task 14 Hygiene
 
-- Canonical remote SHA captured: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
+- Canonical remote SHA captured at Task 14 freeze: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
 - Cycle 033 reports confirmed present: A/B/C/D
 - `git status --short` safety check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` files staged
 - `SCRUM-522` final steward summary posted (comment `11453`)
@@ -199,5 +199,5 @@ PR #40 is ready to merge when approved.
 
 ## Final SHA
 
-- Task 14 freeze SHA (`git rev-parse origin/cycle/033/integration` at freeze time): `28147da8dcc585a3e53244eb4f4e419a3d89680e`
+- Task 14 freeze SHA (`git rev-parse origin/cycle/033/integration` at freeze-time checkpoint): `28147da8dcc585a3e53244eb4f4e419a3d89680e`
 - Post-freeze documentation commits were added on top for checklist/report closure; use PR #40 head SHA as the final merge SHA.

@@ -6,11 +6,25 @@ import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import Float, Integer, String, create_engine
+from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
 from src.models import Base, GigQualityScore, Keyword, KeywordScore, Niche
+from src.recommendations import context_builder as context_builder_module
+from src.recommendations import eligibility as eligibility_module
 from src.recommendations.pipeline import run_recommendations_pipeline
 from src.recommendations.schemas import RecommendationOutput
+
+
+class OpportunityRanking(Base):
+    """Test-only ranking model used to validate Stage 14 ranking path."""
+
+    __tablename__ = "opportunity_rankings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(64), index=True)
+    keyword_id: Mapped[int] = mapped_column(Integer, index=True)
+    tag: Mapped[str] = mapped_column(String(32))
+    final_score: Mapped[float] = mapped_column(Float)
 
 
 def _session() -> Session:
@@ -49,6 +63,14 @@ def _seed_keyword(db: Session, *, keyword_id: int, run_id: str) -> None:
         )
     )
     db.add(
+        OpportunityRanking(
+            run_id=run_id,
+            keyword_id=keyword_id,
+            tag="STRONG GO",
+            final_score=81.0,
+        )
+    )
+    db.add(
         GigQualityScore(
             keyword_id=keyword_id,
             gig_url=f"https://fiverr.com/gig/{keyword_id}",
@@ -74,6 +96,16 @@ def test_e05_pipeline_processes_three_eligible_keywords(monkeypatch: Any) -> Non
         )
     )
     save_mock = Mock(return_value="saved")
+    monkeypatch.setattr(
+        eligibility_module,
+        "_model_by_name",
+        lambda name: OpportunityRanking if name == "OpportunityRanking" else None,
+    )
+    monkeypatch.setattr(
+        context_builder_module,
+        "_model_by_name",
+        lambda name: OpportunityRanking if name == "OpportunityRanking" else None,
+    )
     monkeypatch.setattr("src.recommendations.pipeline.generate_recommendation_async", generate_mock)
     monkeypatch.setattr("src.recommendations.pipeline.save_recommendation", save_mock)
 
