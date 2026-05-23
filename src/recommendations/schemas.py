@@ -66,6 +66,10 @@ class PackageStructureOutput(RecommendationSchemaBase):
         return self
 
 
+# Backward-compatible alias used by some validation probes/docs.
+PackageStructure = PackageStructureOutput
+
+
 class DescriptionSection(RecommendationSchemaBase):
     heading: str = Field(..., min_length=3, max_length=120)
     copy_direction: str = Field(..., min_length=10, max_length=800)

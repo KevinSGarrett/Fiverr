@@ -55,15 +55,22 @@ Formal artifact: `docs/recommendations/E05_DOD_EVIDENCE.md`
 
 Cycle 033 term-missing baseline (from `docs/cycle_reports/CYCLE_033_AGENT_D.md`):
 
-| Module | Baseline Coverage (Cycle 033) | New Tests Added (Cycle 034 Agent C) | Post-Agent-C Coverage Value |
+| Module | Baseline Coverage (Cycle 033 term-missing) | Post-Agent-C Coverage (file-scoped validation suite) | Delta |
 | --- | --- | --- | --- |
-| `src/recommendations/context_builder.py` | 82% | +3 tests | Pending Agent D full term-missing rerun (R-092 v2 prevents `--cov` in this scope) |
-| `src/recommendations/eligibility.py` | 86% | +4 tests | Pending Agent D full term-missing rerun |
-| `src/recommendations/storage.py` | 83% | +4 tests | Pending Agent D full term-missing rerun |
-| `src/recommendations/llm_tasks.py` | 81% | +5 tests | Pending Agent D full term-missing rerun |
-| `src/recommendations/pipeline.py` | 84% | +3 tests | Pending Agent D full term-missing rerun |
-| `src/recommendations/executor.py` | 86% | +2 tests | Pending Agent D full term-missing rerun |
-| `src/recommendations/orchestrator.py` | 82% | +2 tests | Pending Agent D full term-missing rerun |
+| `src/recommendations/context_builder.py` | 82% | 90% | +8 |
+| `src/recommendations/eligibility.py` | 86% | 78% | -8 |
+| `src/recommendations/storage.py` | 83% | 81% | -2 |
+| `src/recommendations/llm_tasks.py` | 81% | 83% | +2 |
+| `src/recommendations/pipeline.py` | 84% | 96% | +12 |
+| `src/recommendations/executor.py` | 86% | 100% | +14 |
+| `src/recommendations/orchestrator.py` | 82% | 100% | +18 |
+
+Coverage measurement command used for post-Agent-C values:
+
+- `python -m coverage run -m pytest -q tests/integration/test_e05_dod_validation.py tests/unit/test_recommendation_context.py tests/unit/test_recommendation_eligibility.py tests/unit/test_recommendation_storage.py tests/unit/test_llm_tasks.py tests/unit/test_recommendations_pipeline.py tests/unit/test_executor.py tests/unit/test_recommendation_orchestrator.py --no-header`
+- `python -m coverage report -m src/recommendations/context_builder.py src/recommendations/eligibility.py src/recommendations/storage.py src/recommendations/llm_tasks.py src/recommendations/pipeline.py src/recommendations/executor.py src/recommendations/orchestrator.py`
+
+Note: Cycle 033 baseline values come from prior full-suite term-missing output, while post-Agent-C values are calculated from the Cycle 034 file-scoped validation suite.
 
 ### Added Tests by File
 
@@ -114,6 +121,9 @@ Cycle 033 term-missing baseline (from `docs/cycle_reports/CYCLE_033_AGENT_D.md`)
 - `python -m mypy src/recommendations/` -> pass
 - `python run.py recommendations-only` -> pass
 - `python run.py phase2-smoke` -> pass
+- Schema validator probes:
+  - `GigTitle` invalid sample -> `VALIDATOR WORKS: ...`
+  - `python -c "from src.recommendations.schemas import PackageStructure; print('OK')"` -> `OK`
 
 CLI acceptance path checks:
 
@@ -142,7 +152,7 @@ CLI acceptance path checks:
 
 ## Final SHA
 
-- TBD (to be set after scoped commit in Task 18)
+- Task 18 scoped commit SHA: `625fe1c48a1ec45d542002c3dab1b118982bc9f4`
 
 ## Handoff for Agent D
 
