@@ -234,7 +234,7 @@ FIRST LIVE RUN STRATEGY FOR AGENT B:
 - Phase 2 — Add Fiverr Search (first Playwright contact):
   - Switch to standard depth, watch for `SelectorError` on `stage03_fiverr_search`.
   - The search results page CSS selectors are the first to validate.
-  - `SEARCH_RESULT_CARD`-equivalent card-level selectors are the highest priority.
+  - `SEARCH_RESULT_CARD` is the most important selector.
 - Phase 3 — Full collection:
   - Only attempt if Phase 1 + 2 succeed without crashing.
   - Each selector failure: document, patch `fiverr_selectors.py`, retry.
