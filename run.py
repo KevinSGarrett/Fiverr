@@ -183,7 +183,7 @@ def export_command(export_format: str, input_path: str) -> None:
 )
 @click.option("--output", default=None, help="Output file path (default: stdout).")
 def export_recommendation_command(keyword_id: int, fmt: str, output: str | None) -> None:
-    """Export a recommendation as Markdown for a given keyword ID."""
+    """Export a recommendation as Markdown or JSON for a given keyword ID."""
 
     async def _run() -> int:
         format_name = fmt.strip().lower()

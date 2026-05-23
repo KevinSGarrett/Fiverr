@@ -381,6 +381,10 @@ def test_export_json_outputs_contains_all_11_fields(monkeypatch: Any) -> None:
         "niche_viability_assessment",
     }
     assert set(outputs.keys()) == expected_keys
+    assert isinstance(outputs["gig_titles"], list)
+    assert isinstance(outputs["tag_sets"], list)
+    assert isinstance(outputs["faq_entries"], list)
+    assert isinstance(outputs["upsell_structure"], list)
 
 
 def test_export_json_handles_none_output_fields(monkeypatch: Any) -> None:
@@ -413,6 +417,7 @@ def test_export_json_returns_error_when_not_found(monkeypatch: Any) -> None:
     monkeypatch.setattr(export_module, "_load_export_metadata", lambda **_kwargs: None)
     exported = asyncio.run(export_module.export_recommendation_json("101", db=object()))
     assert exported["error"] == "recommendation not found"
+    assert exported["keyword_id"] == "101"
 
 
 def test_export_json_returns_error_when_not_complete(monkeypatch: Any) -> None:
@@ -460,7 +465,9 @@ def test_json_export_roundtrip_parseable(monkeypatch: Any) -> None:
     exported = _render_json(monkeypatch, _full_output())
     reparsed = json.loads(json.dumps(exported))
     assert reparsed["metadata"]["keyword_id"] == 101
-    assert reparsed["outputs"]["gig_titles"] is not None
+    assert isinstance(reparsed["outputs"]["gig_titles"], list)
+    assert isinstance(reparsed["outputs"]["faq_entries"], list)
+    assert isinstance(reparsed["outputs"]["upsell_structure"], list)
     assert reparsed["outputs"]["package_structure"] is not None
     assert reparsed["outputs"]["niche_viability_assessment"] is not None
 

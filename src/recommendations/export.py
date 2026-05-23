@@ -89,7 +89,7 @@ async def export_recommendation_json(recommendation_id: str, db: Any) -> dict[st
     if metadata is None:
         return {
             "error": "recommendation not found",
-            "keyword_id": keyword_id,
+            "keyword_id": recommendation_id,
         }
     if not metadata.generation_complete:
         return {
@@ -101,10 +101,41 @@ async def export_recommendation_json(recommendation_id: str, db: Any) -> dict[st
     if recommendation is None:
         return {
             "error": "recommendation not found",
-            "keyword_id": keyword_id,
+            "keyword_id": recommendation_id,
         }
 
-    recommendation_payload = recommendation.model_dump(mode="json")
+    gig_titles_payload = recommendation.gig_titles.model_dump(mode="json") if recommendation.gig_titles is not None else None
+    tag_sets_payload = recommendation.tag_sets.model_dump(mode="json") if recommendation.tag_sets is not None else None
+    package_structure_payload = (
+        recommendation.package_structure.model_dump(mode="json")
+        if recommendation.package_structure is not None
+        else None
+    )
+    description_outline_payload = (
+        recommendation.description_outline.model_dump(mode="json")
+        if recommendation.description_outline is not None
+        else None
+    )
+    faq_entries_payload = recommendation.faq_entries.model_dump(mode="json") if recommendation.faq_entries is not None else None
+    differentiation_payload = (
+        recommendation.differentiation_angle.model_dump(mode="json")
+        if recommendation.differentiation_angle is not None
+        else None
+    )
+    buyer_persona_payload = (
+        recommendation.buyer_persona.model_dump(mode="json")
+        if recommendation.buyer_persona is not None
+        else None
+    )
+    thumbnail_direction_payload = (
+        recommendation.thumbnail_direction.model_dump(mode="json")
+        if recommendation.thumbnail_direction is not None
+        else None
+    )
+    upsell_payload = recommendation.upsell_structure.model_dump(mode="json") if recommendation.upsell_structure is not None else None
+    red_flags_payload = recommendation.red_flags.model_dump(mode="json") if recommendation.red_flags is not None else None
+    viability_payload = recommendation.niche_viability.model_dump(mode="json") if recommendation.niche_viability is not None else None
+
     result: dict[str, Any] = {
         "metadata": {
             "keyword_id": metadata.keyword_id,
@@ -120,17 +151,17 @@ async def export_recommendation_json(recommendation_id: str, db: Any) -> dict[st
             "export_schema_version": _EXPORT_SCHEMA_VERSION,
         },
         "outputs": {
-            "gig_titles": recommendation_payload.get("gig_titles"),
-            "tag_sets": recommendation_payload.get("tag_sets"),
-            "package_structure": recommendation_payload.get("package_structure"),
-            "description_outline": recommendation_payload.get("description_outline"),
-            "faq_entries": recommendation_payload.get("faq_entries"),
-            "differentiation_angle": recommendation_payload.get("differentiation_angle"),
-            "buyer_persona": recommendation_payload.get("buyer_persona"),
-            "thumbnail_direction": recommendation_payload.get("thumbnail_direction"),
-            "upsell_structure": recommendation_payload.get("upsell_structure"),
-            "red_flags": recommendation_payload.get("red_flags"),
-            "niche_viability_assessment": recommendation_payload.get("niche_viability"),
+            "gig_titles": gig_titles_payload.get("titles") if isinstance(gig_titles_payload, Mapping) else None,
+            "tag_sets": tag_sets_payload.get("tag_sets") if isinstance(tag_sets_payload, Mapping) else None,
+            "package_structure": package_structure_payload,
+            "description_outline": description_outline_payload,
+            "faq_entries": faq_entries_payload.get("faq_entries") if isinstance(faq_entries_payload, Mapping) else None,
+            "differentiation_angle": differentiation_payload,
+            "buyer_persona": buyer_persona_payload,
+            "thumbnail_direction": thumbnail_direction_payload,
+            "upsell_structure": upsell_payload.get("extras") if isinstance(upsell_payload, Mapping) else None,
+            "red_flags": red_flags_payload,
+            "niche_viability_assessment": viability_payload,
         },
     }
 

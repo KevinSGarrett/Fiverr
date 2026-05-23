@@ -16,6 +16,8 @@
   - spec-aligned envelope:
     - `metadata` (including `export_schema_version: "1.0"`)
     - `outputs` (all 11 recommendation task outputs)
+- Flattened wrapper payloads in JSON outputs to match export contract:
+  - `gig_titles`, `tag_sets`, `faq_entries`, and `upsell_structure` export as arrays.
 - Added ISO-8601 datetime serialization and JSON-serializability guard (`json.dumps(...)`).
 - Added `export_recommendation_json_by_keyword(...)` wrapper.
 - Added `export_all_recommendations(...)` bulk helper for run-scoped exports.
@@ -64,6 +66,7 @@
 ## Jira Evidence Posted
 
 - S5.9 story `SCRUM-186`: comment id `11495`
+- S5.9 story planning note `SCRUM-186`: comment id `11496`
 - Epic update `SCRUM-20`: comment id `11494`
 
 ## Validation Log (No Coverage Flags)
