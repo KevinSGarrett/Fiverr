@@ -137,7 +137,7 @@ No status corrections were required.
 
 ### Task 14 Hygiene
 
-- Canonical remote SHA captured: `fc6fc3ed79f44442f4d352da40690472e8c78778`
+- Canonical remote SHA captured: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
 - Cycle 033 reports confirmed present: A/B/C/D
 - `git status --short` safety check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` files staged
 - `SCRUM-522` final steward summary posted (comment `11453`)
@@ -199,5 +199,5 @@ PR #40 is ready to merge when approved.
 
 ## Final SHA
 
-- `origin/cycle/033/integration`: `fc6fc3ed79f44442f4d352da40690472e8c78778`
-- Agent D final commit SHA: `fc6fc3ed79f44442f4d352da40690472e8c78778`
+- `origin/cycle/033/integration`: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
+- Agent D final commit SHA: `28147da8dcc585a3e53244eb4f4e419a3d89680e`
