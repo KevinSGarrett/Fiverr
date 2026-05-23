@@ -167,8 +167,8 @@ No status corrections were required.
 - Baseline unit count (Task 1): `2187 passed`
 - Full audit count (Task 6 one-shot run): `2229 passed`
 - Final CI canonical count after Codex fixes: `2257 passed`
-- Final global coverage: `94.37%` (`17250` statements, `972` missed)
-- Clock time for final CI coverage run: `0:06:32`
+- Final global coverage: `94.43%` (`17250` statements, `961` missed)
+- Clock time for final CI coverage run: `0:06:25`
 
 ## Task 18 — Merge Gate Checklist (to post in PR #40)
 
@@ -176,9 +176,9 @@ No status corrections were required.
 
 #### CODECOV
 
-- [x] `codecov/project`: PASS (`94.36%`)
+- [x] `codecov/project`: PASS (`94.42%`)
 - [x] `codecov/patch`: PASS (`91.79%`, target `90.00%`)
-- [x] Local `--cov-fail-under=90`: PASS (`94.37%`)
+- [x] Local `--cov-fail-under=90`: PASS (`94.43%`)
 - [x] All new lines covered by tests: YES
 
 #### CODEX
