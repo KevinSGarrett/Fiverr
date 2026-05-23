@@ -194,6 +194,7 @@
 ## SHA / Handoff
 
 - Base SHA before Agent A scoped commit: `4d20a8cc3373521f1184be12c8f52d02652d9836`
+- Final Agent A scoped commit SHA (Task 18): `a18811aaf8b009bbf1a46344b97c836565cd19db`
 - Handoff notes for Agent B:
   - S5.1 context builder + S5.2 eligibility/gating foundation is implemented and test-covered.
   - Agent B scope: 11 LLM task implementations + Pydantic schemas.
