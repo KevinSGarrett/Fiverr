@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
@@ -125,4 +126,59 @@ def test_e05_pipeline_processes_three_eligible_keywords(monkeypatch: Any) -> Non
     assert result["failed"] == 0
     assert generate_mock.await_count == 3
     assert save_mock.call_count == 3
+    db.close()
+
+
+def test_recommendations_only_with_auto_export_writes_files(monkeypatch: Any, tmp_path: Path) -> None:
+    db = _session()
+    run_id = "run-int-e05-export"
+    _seed_keyword(db, keyword_id=901, run_id=run_id)
+    db.commit()
+
+    generate_mock = AsyncMock(
+        return_value=RecommendationOutput(
+            generation_complete=False,
+            failed_tasks=["dry_run"],
+            total_llm_cost_usd=0.09,
+        )
+    )
+    save_mock = Mock(return_value="saved")
+    export_mock = AsyncMock(return_value=("# Recommendation: keyword-901", None))
+
+    monkeypatch.setattr(
+        eligibility_module,
+        "_model_by_name",
+        lambda name: OpportunityRanking if name == "OpportunityRanking" else None,
+    )
+    monkeypatch.setattr(
+        context_builder_module,
+        "_model_by_name",
+        lambda name: OpportunityRanking if name == "OpportunityRanking" else None,
+    )
+    monkeypatch.setattr("src.recommendations.pipeline.generate_recommendation_async", generate_mock)
+    monkeypatch.setattr("src.recommendations.pipeline.save_recommendation", save_mock)
+    monkeypatch.setattr("src.recommendations.pipeline.export_recommendation_by_keyword", export_mock)
+
+    result = asyncio.run(
+        run_recommendations_pipeline(
+            run_id=run_id,
+            db=db,
+            config={
+                "recommendations": {
+                    "min_tag": "CONDITIONAL GO",
+                    "auto_export_markdown": True,
+                    "export_dir": str(tmp_path),
+                }
+            },
+            llm_client=object(),
+            cache=object(),
+            dry_run=False,
+        )
+    )
+
+    assert result["generated"] == 1
+    assert len(result["export_paths"]) == 1
+    export_path = Path(result["export_paths"][0])
+    assert export_path.exists()
+    assert export_path.read_text(encoding="utf-8") == "# Recommendation: keyword-901"
     db.close()

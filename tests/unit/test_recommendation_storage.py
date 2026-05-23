@@ -341,11 +341,13 @@ def test_storage_exports_in_package_init() -> None:
 
 
 def test_export_markdown_stub() -> None:
-    assert asyncio.run(export_recommendation_markdown("rec-1", db=None)) == ""
+    rendered = asyncio.run(export_recommendation_markdown("rec-1", db=None))
+    assert rendered.startswith("# Recommendation Export Error")
 
 
 def test_export_json_stub() -> None:
-    assert asyncio.run(export_recommendation_json("rec-1", db=None)) == {}
+    payload = asyncio.run(export_recommendation_json("rec-1", db=None))
+    assert payload["error"] == "recommendation not found"
 
 
 def test_recommendation_model_has_all_11_task_columns() -> None:

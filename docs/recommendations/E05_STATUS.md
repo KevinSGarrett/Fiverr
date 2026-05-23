@@ -11,10 +11,11 @@
 - S5.7 Storage: ✅ DONE
 - S5.8 Orchestration: ✅ DONE
 - S5.9 Markdown Export: ✅ DONE (Cycle 034, Agent A)
-- S5.9 JSON Export: ⏳ Cycle 034 (Agent B)
+- S5.9 JSON Export: ✅ DONE (Cycle 034, Agent B)
 - E05 DoD Full Validation: ⏳ Cycle 034 (Agent C)
 
 ## Notes
 
-- Recommendation exports now include a spec-aligned Markdown renderer and helper wrapper for pipeline/CLI callers.
-- `recommendations-only` remains the primary entrypoint while export CLI wiring and final DoD validation are completed.
+- Recommendation exports now include spec-aligned Markdown + JSON contracts and keyword/bulk CLI modes.
+- `run.py` now supports `export-recommendation`, `export-all-recommendations`, and `recommendations-summary`.
+- `recommendations-only` remains the primary orchestration entrypoint while Agent C completes E05 DoD validation.

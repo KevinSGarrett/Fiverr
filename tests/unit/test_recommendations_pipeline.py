@@ -127,7 +127,7 @@ def test_pipeline_generates_for_eligible_keywords(monkeypatch: Any) -> None:
     assert summary["total_cost_usd"] == 0.19
 
 
-def test_pipeline_includes_markdown_when_auto_export_enabled(monkeypatch: Any) -> None:
+def test_pipeline_includes_markdown_when_auto_export_enabled(monkeypatch: Any, tmp_path: Any) -> None:
     generated_context = _context(701)
     generate_mock = AsyncMock(return_value=_output(0.21))
     save_mock = Mock(return_value="rec-701")
@@ -145,7 +145,7 @@ def test_pipeline_includes_markdown_when_auto_export_enabled(monkeypatch: Any) -
         recommendations_pipeline.run_recommendations_pipeline(
             run_id="run-export-on",
             db=object(),
-            config={"recommendations": {"auto_export_markdown": True}},
+            config={"recommendations": {"auto_export_markdown": True, "export_dir": str(tmp_path)}},
             llm_client=object(),
             cache=object(),
             dry_run=False,
@@ -154,6 +154,8 @@ def test_pipeline_includes_markdown_when_auto_export_enabled(monkeypatch: Any) -
 
     export_mock.assert_awaited_once()
     assert summary["markdown_exports"] == {"keyword-701": "# Recommendation: keyword-701"}
+    assert len(summary["export_paths"]) == 1
+    assert "keyword_701.md" in summary["export_paths"][0]
 
 
 def test_pipeline_skips_markdown_when_auto_export_disabled(monkeypatch: Any) -> None:
@@ -182,7 +184,65 @@ def test_pipeline_skips_markdown_when_auto_export_disabled(monkeypatch: Any) -> 
     )
 
     assert summary["markdown_exports"] == {}
+    assert summary["export_paths"] == []
     assert export_mock.await_count == 0
+
+
+def test_pipeline_result_includes_export_paths(monkeypatch: Any, tmp_path: Any) -> None:
+    generated_context = _context(703)
+    generate_mock = AsyncMock(return_value=_output(0.23))
+    save_mock = Mock(return_value="rec-703")
+    export_mock = AsyncMock(return_value=("# Recommendation: keyword-703", None))
+
+    monkeypatch.setattr(recommendations_pipeline, "get_eligible_keywords", lambda *_args, **_kwargs: [_keyword_row(703)])
+    monkeypatch.setattr(recommendations_pipeline, "passes_recommendation_gates", lambda *_args, **_kwargs: (True, "ok"))
+    monkeypatch.setattr(recommendations_pipeline, "should_regenerate_recommendation", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(recommendations_pipeline, "build_recommendation_context", lambda **_kwargs: generated_context)
+    monkeypatch.setattr(recommendations_pipeline, "generate_recommendation_async", generate_mock)
+    monkeypatch.setattr(recommendations_pipeline, "save_recommendation", save_mock)
+    monkeypatch.setattr(recommendations_pipeline, "export_recommendation_by_keyword", export_mock)
+
+    summary = asyncio.run(
+        recommendations_pipeline.run_recommendations_pipeline(
+            run_id="run-export-path",
+            db=object(),
+            config={"recommendations": {"auto_export_markdown": True, "export_dir": str(tmp_path)}},
+            llm_client=object(),
+            cache=object(),
+            dry_run=False,
+        )
+    )
+
+    assert len(summary["export_paths"]) == 1
+    assert summary["export_paths"][0].endswith("keyword_703.md")
+
+
+def test_pipeline_result_empty_export_paths_when_disabled(monkeypatch: Any) -> None:
+    generated_context = _context(704)
+    generate_mock = AsyncMock(return_value=_output(0.24))
+    save_mock = Mock(return_value="rec-704")
+    export_mock = AsyncMock(return_value=("# Recommendation: keyword-704", None))
+
+    monkeypatch.setattr(recommendations_pipeline, "get_eligible_keywords", lambda *_args, **_kwargs: [_keyword_row(704)])
+    monkeypatch.setattr(recommendations_pipeline, "passes_recommendation_gates", lambda *_args, **_kwargs: (True, "ok"))
+    monkeypatch.setattr(recommendations_pipeline, "should_regenerate_recommendation", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(recommendations_pipeline, "build_recommendation_context", lambda **_kwargs: generated_context)
+    monkeypatch.setattr(recommendations_pipeline, "generate_recommendation_async", generate_mock)
+    monkeypatch.setattr(recommendations_pipeline, "save_recommendation", save_mock)
+    monkeypatch.setattr(recommendations_pipeline, "export_recommendation_by_keyword", export_mock)
+
+    summary = asyncio.run(
+        recommendations_pipeline.run_recommendations_pipeline(
+            run_id="run-export-path-disabled",
+            db=object(),
+            config={"recommendations": {"auto_export_markdown": False}},
+            llm_client=object(),
+            cache=object(),
+            dry_run=False,
+        )
+    )
+
+    assert summary["export_paths"] == []
 
 
 def test_pipeline_returns_summary_counts(monkeypatch: Any) -> None:
@@ -232,6 +292,7 @@ def test_pipeline_returns_summary_counts(monkeypatch: Any) -> None:
         "failed": 1,
         "total_cost_usd": 0.12,
         "markdown_exports": {},
+        "export_paths": [],
     }
 
 

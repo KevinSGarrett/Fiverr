@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,17 +13,34 @@ from src.recommendations.schemas import RecommendationOutput
 from src.recommendations.storage import get_recommendation
 
 _ERROR_MARKDOWN_TITLE = "# Recommendation Export Error"
+_EXPORT_SCHEMA_VERSION = "1.0"
+_OUTPUT_FIELD_NAMES: tuple[str, ...] = (
+    "gig_titles",
+    "tag_sets",
+    "package_structure",
+    "description_outline",
+    "faq_entries",
+    "differentiation_angle",
+    "buyer_persona",
+    "thumbnail_direction",
+    "upsell_structure",
+    "red_flags",
+    "niche_viability",
+)
 
 
 @dataclass(slots=True)
 class RecommendationExportMetadata:
+    keyword_id: int
     keyword_text: str
+    niche_id: str | None
     tag: str
     final_score: float
     niche_name: str
     generated_at: datetime | None
     llm_cost_usd: float
     generation_complete: bool
+    completeness_ratio: float
 
 
 async def export_recommendation_markdown(recommendation_id: str, db: Any) -> str:
@@ -59,9 +77,135 @@ async def export_recommendation_by_keyword(
 
 
 async def export_recommendation_json(recommendation_id: str, db: Any) -> dict[str, Any]:
-    """Exports recommendation as JSON dict. Stub returns {}."""
-    del recommendation_id, db
-    return {}
+    """Exports a recommendation as a JSON-serializable dict per output format spec."""
+    keyword_id = _parse_keyword_id(recommendation_id)
+    if keyword_id is None:
+        return {
+            "error": "recommendation not found",
+            "keyword_id": recommendation_id,
+        }
+
+    metadata = _load_export_metadata(keyword_id=keyword_id, db=db)
+    if metadata is None:
+        return {
+            "error": "recommendation not found",
+            "keyword_id": keyword_id,
+        }
+    if not metadata.generation_complete:
+        return {
+            "error": "generation not complete",
+            "completeness": metadata.completeness_ratio,
+        }
+
+    recommendation = get_recommendation(keyword_id=keyword_id, db=db)
+    if recommendation is None:
+        return {
+            "error": "recommendation not found",
+            "keyword_id": keyword_id,
+        }
+
+    recommendation_payload = recommendation.model_dump(mode="json")
+    result: dict[str, Any] = {
+        "metadata": {
+            "keyword_id": metadata.keyword_id,
+            "keyword_text": metadata.keyword_text,
+            "niche_id": metadata.niche_id,
+            "niche_name": metadata.niche_name,
+            "tag": metadata.tag,
+            "final_score": metadata.final_score,
+            "generation_complete": metadata.generation_complete,
+            "completeness_ratio": _safe_completeness_ratio(recommendation),
+            "llm_cost_usd": metadata.llm_cost_usd,
+            "generated_at": metadata.generated_at.isoformat() if metadata.generated_at is not None else None,
+            "export_schema_version": _EXPORT_SCHEMA_VERSION,
+        },
+        "outputs": {
+            "gig_titles": recommendation_payload.get("gig_titles"),
+            "tag_sets": recommendation_payload.get("tag_sets"),
+            "package_structure": recommendation_payload.get("package_structure"),
+            "description_outline": recommendation_payload.get("description_outline"),
+            "faq_entries": recommendation_payload.get("faq_entries"),
+            "differentiation_angle": recommendation_payload.get("differentiation_angle"),
+            "buyer_persona": recommendation_payload.get("buyer_persona"),
+            "thumbnail_direction": recommendation_payload.get("thumbnail_direction"),
+            "upsell_structure": recommendation_payload.get("upsell_structure"),
+            "red_flags": recommendation_payload.get("red_flags"),
+            "niche_viability_assessment": recommendation_payload.get("niche_viability"),
+        },
+    }
+
+    json.dumps(result)
+    return result
+
+
+async def export_recommendation_json_by_keyword(
+    keyword_id: int,
+    niche_id: str,
+    run_id: str,
+    db: Any,
+) -> tuple[dict[str, Any], str | None]:
+    """Returns (json_dict, error_message_or_none)."""
+    del niche_id, run_id
+    payload = await export_recommendation_json(recommendation_id=str(keyword_id), db=db)
+    error = payload.get("error")
+    if isinstance(error, str):
+        return {}, error
+    return payload, None
+
+
+async def export_all_recommendations(
+    run_id: str,
+    fmt: str,
+    db: Any,
+    config: Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    """Export all complete recommendations for a run_id keyed by keyword text."""
+    del config
+    normalized_format = fmt.strip().lower()
+    if normalized_format not in {"markdown", "json"}:
+        return {}
+
+    run_id_text = str(run_id).strip()
+    if not run_id_text:
+        return {}
+
+    query = _safe_query(db, Recommendation)
+    if query is None:
+        return {}
+
+    rows = query.filter(Recommendation.generation_complete.is_(True)).order_by(Recommendation.created_at.desc()).all()
+    exported: dict[str, Any] = {}
+    seen_keyword_ids: set[int] = set()
+
+    for row in rows:
+        if not bool(getattr(row, "generation_complete", False)):
+            continue
+        if not _row_matches_run_id(row=row, run_id=run_id_text):
+            continue
+
+        keyword_id = _to_optional_int(getattr(row, "keyword_id", None))
+        if keyword_id is None or keyword_id <= 0:
+            continue
+        if keyword_id in seen_keyword_ids:
+            continue
+        seen_keyword_ids.add(keyword_id)
+
+        metadata = _load_export_metadata(keyword_id=keyword_id, db=db)
+        keyword_label = metadata.keyword_text if metadata is not None else f"keyword-{keyword_id}"
+
+        if normalized_format == "markdown":
+            markdown = await export_recommendation_markdown(recommendation_id=str(keyword_id), db=db)
+            if _is_error_markdown(markdown):
+                continue
+            exported[keyword_label] = markdown
+            continue
+
+        json_payload = await export_recommendation_json(recommendation_id=str(keyword_id), db=db)
+        if isinstance(json_payload.get("error"), str):
+            continue
+        exported[keyword_label] = json_payload
+
+    return exported
 
 
 def _render_markdown(recommendation: RecommendationOutput, metadata: RecommendationExportMetadata) -> str:
@@ -255,18 +399,23 @@ def _load_export_metadata(keyword_id: int, db: Any) -> RecommendationExportMetad
         getattr(row, "llm_cost_usd", None),
         _to_float(_mapping_value(raw_json, "total_llm_cost_usd"), _to_float(_mapping_value(raw_json, "llm_cost_usd"), 0.0)),
     )
+    niche_id = _as_non_empty_text(getattr(row, "niche_id", None)) or _as_non_empty_text(_mapping_value(raw_json, "niche_id"))
     generated_at = _coerce_datetime(getattr(row, "generated_at", None))
     if generated_at is None:
         generated_at = _coerce_datetime(_mapping_value(raw_json, "generated_at"))
+    completeness_ratio = _calculate_completeness_ratio(row=row, raw_json=raw_json)
 
     return RecommendationExportMetadata(
+        keyword_id=keyword_id,
         keyword_text=keyword_text,
+        niche_id=niche_id,
         tag=tag,
         final_score=final_score,
         niche_name=niche_name,
         generated_at=generated_at,
         llm_cost_usd=llm_cost_usd,
         generation_complete=generation_complete,
+        completeness_ratio=completeness_ratio,
     )
 
 
@@ -351,6 +500,32 @@ def _mapping_value(value: Any, key: str) -> Any:
     return value.get(key)
 
 
+def _calculate_completeness_ratio(row: Any, raw_json: Any) -> float:
+    present = 0
+    for field_name in _OUTPUT_FIELD_NAMES:
+        field_value = getattr(row, field_name, None)
+        if field_value is None and isinstance(raw_json, Mapping):
+            field_value = raw_json.get(field_name)
+        if field_value is not None:
+            present += 1
+    ratio = present / len(_OUTPUT_FIELD_NAMES)
+    if ratio < 0:
+        return 0.0
+    if ratio > 1:
+        return 1.0
+    return ratio
+
+
+def _row_matches_run_id(row: Any, run_id: str) -> bool:
+    row_run_id_text = _as_non_empty_text(getattr(row, "run_id_text", None))
+    if row_run_id_text == run_id:
+        return True
+
+    row_run_id = _to_optional_int(getattr(row, "run_id", None))
+    requested_run_id = _to_optional_int(run_id)
+    return requested_run_id is not None and row_run_id == requested_run_id
+
+
 def _safe_completeness_ratio(recommendation: RecommendationOutput) -> float:
     ratio = recommendation.completeness_ratio()
     if ratio < 0:
@@ -381,4 +556,6 @@ __all__ = [
     "export_recommendation_markdown",
     "export_recommendation_by_keyword",
     "export_recommendation_json",
+    "export_recommendation_json_by_keyword",
+    "export_all_recommendations",
 ]
