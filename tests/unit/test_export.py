@@ -7,7 +7,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import run as run_module
@@ -755,3 +755,257 @@ def test_recommendations_summary_output_format(monkeypatch: Any) -> None:
 
     assert result.exit_code == 0
     assert "STRONG GO: 5, CONDITIONAL GO: 3, total: 10, complete: 8, incomplete: 2" in result.output
+
+
+def test_export_markdown_returns_error_for_invalid_keyword_id() -> None:
+    markdown = asyncio.run(export_module.export_recommendation_markdown("not-a-keyword-id", db=object()))
+    assert markdown.startswith("# Recommendation Export Error")
+    assert "Invalid recommendation id" in markdown
+
+
+def test_export_markdown_returns_error_when_payload_unavailable(monkeypatch: Any) -> None:
+    monkeypatch.setattr(export_module, "_load_export_metadata", lambda **_kwargs: _metadata())
+    monkeypatch.setattr(export_module, "get_recommendation", lambda **_kwargs: None)
+    markdown = asyncio.run(export_module.export_recommendation_markdown("101", db=object()))
+    assert markdown.startswith("# Recommendation Export Error")
+    assert "payload unavailable" in markdown
+
+
+def test_export_json_returns_error_for_invalid_keyword_id() -> None:
+    exported = asyncio.run(export_module.export_recommendation_json("bad-keyword-id", db=object()))
+    assert exported["error"] == "recommendation not found"
+    assert exported["keyword_id"] == "bad-keyword-id"
+
+
+def test_export_all_returns_empty_dict_for_invalid_inputs(monkeypatch: Any) -> None:
+    invalid_format = asyncio.run(
+        export_module.export_all_recommendations(
+            run_id="run-1",
+            fmt="xml",
+            db=object(),
+            config={},
+        )
+    )
+    assert invalid_format == {}
+
+    blank_run_id = asyncio.run(
+        export_module.export_all_recommendations(
+            run_id="   ",
+            fmt="markdown",
+            db=object(),
+            config={},
+        )
+    )
+    assert blank_run_id == {}
+
+    monkeypatch.setattr(export_module, "_safe_query", lambda *_args, **_kwargs: None)
+    missing_query = asyncio.run(
+        export_module.export_all_recommendations(
+            run_id="run-1",
+            fmt="markdown",
+            db=object(),
+            config={},
+        )
+    )
+    assert missing_query == {}
+
+
+def test_export_all_skips_duplicates_invalid_rows_and_error_payloads(monkeypatch: Any) -> None:
+    rows = [
+        SimpleNamespace(keyword_id=31, run_id_text="run-dupe", run_id=None, generation_complete=True),
+        SimpleNamespace(keyword_id=31, run_id_text="run-dupe", run_id=None, generation_complete=True),
+        SimpleNamespace(keyword_id=0, run_id_text="run-dupe", run_id=None, generation_complete=True),
+        SimpleNamespace(keyword_id=32, run_id_text="run-dupe", run_id=None, generation_complete=True),
+    ]
+
+    metadata_by_keyword = {
+        31: export_module.RecommendationExportMetadata(
+            keyword_id=31,
+            keyword_text="keyword-31",
+            niche_id="1",
+            tag="STRONG GO",
+            final_score=80.0,
+            niche_name="Niche 1",
+            generated_at=datetime(2026, 5, 23, 12, 0, tzinfo=UTC),
+            llm_cost_usd=0.1,
+            generation_complete=True,
+            completeness_ratio=1.0,
+        ),
+        32: export_module.RecommendationExportMetadata(
+            keyword_id=32,
+            keyword_text="keyword-32",
+            niche_id="1",
+            tag="STRONG GO",
+            final_score=81.0,
+            niche_name="Niche 1",
+            generated_at=datetime(2026, 5, 23, 12, 1, tzinfo=UTC),
+            llm_cost_usd=0.1,
+            generation_complete=True,
+            completeness_ratio=1.0,
+        ),
+    }
+
+    async def _fake_markdown(recommendation_id: str, db: Any) -> str:
+        del db
+        if recommendation_id == "31":
+            return "# Recommendation Export Error\n\nRecommendation failed."
+        return f"# Recommendation: {recommendation_id}"
+
+    async def _fake_json(recommendation_id: str, db: Any) -> dict[str, Any]:
+        del db
+        if recommendation_id == "31":
+            return {"error": "recommendation not found", "keyword_id": recommendation_id}
+        return {"metadata": {"keyword_id": int(recommendation_id)}, "outputs": {}}
+
+    monkeypatch.setattr(export_module, "_safe_query", lambda *_args, **_kwargs: _FakeQuery(rows))
+    monkeypatch.setattr(export_module, "_load_export_metadata", lambda keyword_id, db: metadata_by_keyword[keyword_id])
+    monkeypatch.setattr(export_module, "export_recommendation_markdown", _fake_markdown)
+    monkeypatch.setattr(export_module, "export_recommendation_json", _fake_json)
+
+    markdown_exported = asyncio.run(
+        export_module.export_all_recommendations(
+            run_id="run-dupe",
+            fmt="markdown",
+            db=object(),
+            config={},
+        )
+    )
+    assert markdown_exported == {"keyword-32": "# Recommendation: 32"}
+
+    json_exported = asyncio.run(
+        export_module.export_all_recommendations(
+            run_id="run-dupe",
+            fmt="json",
+            db=object(),
+            config={},
+        )
+    )
+    assert json_exported == {"keyword-32": {"metadata": {"keyword_id": 32}, "outputs": {}}}
+
+
+def test_render_helpers_cover_missing_and_empty_sections() -> None:
+    missing_all = RecommendationOutput()
+    assert "_Gig Title Options not available" in export_module._render_gig_titles_section(missing_all)
+    assert "_Differentiation Angle not available" in export_module._render_differentiation_section(missing_all)
+    assert "_FAQ not available" in export_module._render_faq_section(missing_all)
+    assert "_Buyer Persona not available" in export_module._render_buyer_persona_section(missing_all)
+    assert "_Thumbnail Direction not available" in export_module._render_thumbnail_direction_section(missing_all)
+    assert "_Red Flags not available" in export_module._render_red_flags_section(missing_all)
+
+    empty_differentiation = SimpleNamespace(
+        differentiation_angle=SimpleNamespace(positioning_statement="Positioning statement", differentiators=[]),
+    )
+    assert "No tactical actions were generated." in export_module._render_differentiation_section(
+        cast(Any, empty_differentiation)
+    )
+
+    empty_red_flags = SimpleNamespace(red_flags=SimpleNamespace(red_flags=[]))
+    assert export_module._render_red_flags_section(cast(Any, empty_red_flags)) == "No critical red flags were generated."
+
+
+def test_load_export_metadata_uses_db_and_raw_json_fallbacks() -> None:
+    recommendation_row = SimpleNamespace(
+        keyword_id=501,
+        recommendation_text="   ",
+        niche_id=None,
+        tag=None,
+        final_score=None,
+        llm_cost_usd=None,
+        generated_at=None,
+        generation_complete=False,
+        raw_json={
+            "generation_complete": True,
+            "keyword_text": "   ",
+            "niche_name": "   ",
+            "tag": "",
+            "final_score": "86.7",
+            "total_llm_cost_usd": "0.987",
+            "niche_id": "",
+            "generated_at": "2026-05-23T15:00:00+00:00",
+            "gig_titles": {"titles": []},
+        },
+        gig_titles={"titles": []},
+        tag_sets=None,
+        package_structure=None,
+        description_outline=None,
+        faq_entries=None,
+        differentiation_angle=None,
+        buyer_persona=None,
+        thumbnail_direction=None,
+        upsell_structure=None,
+        red_flags=None,
+        niche_viability=None,
+    )
+    keyword_row = SimpleNamespace(keyword="Fallback keyword text", niche_id=7)
+    niche_row = SimpleNamespace(name="Fallback niche name")
+
+    class _SingleRowQuery:
+        def __init__(self, row: Any) -> None:
+            self._row = row
+
+        def filter(self, *_args: Any, **_kwargs: Any) -> Any:
+            return self
+
+        def order_by(self, *_args: Any, **_kwargs: Any) -> Any:
+            return self
+
+        def first(self) -> Any:
+            return self._row
+
+    class _FakeDb:
+        def query(self, model: Any) -> Any:
+            if model is export_module.Recommendation:
+                return _SingleRowQuery(recommendation_row)
+            if model is export_module.Keyword:
+                return _SingleRowQuery(keyword_row)
+            if model is export_module.Niche:
+                return _SingleRowQuery(niche_row)
+            raise AssertionError("unexpected model")
+
+    metadata = export_module._load_export_metadata(keyword_id=501, db=_FakeDb())
+    assert metadata is not None
+    assert metadata.keyword_text == "Fallback keyword text"
+    assert metadata.niche_name == "Fallback niche name"
+    assert metadata.tag == "UNKNOWN"
+    assert metadata.final_score == 86.7
+    assert metadata.generation_complete is True
+    assert metadata.llm_cost_usd == 0.987
+    assert metadata.generated_at == datetime(2026, 5, 23, 15, 0, tzinfo=UTC)
+
+
+def test_safe_query_returns_none_when_db_query_raises() -> None:
+    class _BadDb:
+        def query(self, _model: Any) -> Any:
+            raise RuntimeError("query failed")
+
+    assert export_module._safe_query(_BadDb(), export_module.Recommendation) is None
+
+
+def test_lookup_niche_name_fallback_paths() -> None:
+    class _NoQueryDb:
+        pass
+
+    raw_string_row = SimpleNamespace(niche_id="custom-niche")
+    assert export_module._lookup_niche_name(raw_string_row, keyword_id=1, db=_NoQueryDb()) == "custom-niche"
+
+    numeric_row = SimpleNamespace(niche_id=9)
+    assert export_module._lookup_niche_name(numeric_row, keyword_id=1, db=_NoQueryDb()) == "9"
+
+
+def test_row_match_and_completeness_and_error_message_helpers() -> None:
+    row = SimpleNamespace(run_id_text=None, run_id=7)
+    assert export_module._row_matches_run_id(row, "7") is True
+
+    class _TooHigh:
+        def completeness_ratio(self) -> float:
+            return 1.4
+
+    class _TooLow:
+        def completeness_ratio(self) -> float:
+            return -0.2
+
+    assert export_module._safe_completeness_ratio(cast(Any, _TooHigh())) == 1.0
+    assert export_module._safe_completeness_ratio(cast(Any, _TooLow())) == 0.0
+
+    assert export_module._extract_error_message("single-line error") == "single-line error"
+    assert export_module._extract_error_message("") == "Recommendation export failed."

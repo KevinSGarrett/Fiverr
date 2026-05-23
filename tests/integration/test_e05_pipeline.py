@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, Mock
@@ -12,8 +13,11 @@ from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
 from src.models import Base, GigQualityScore, Keyword, KeywordScore, Niche
 from src.recommendations import context_builder as context_builder_module
 from src.recommendations import eligibility as eligibility_module
+from src.recommendations.contracts import RecommendationContext
+from src.recommendations.export import export_recommendation_json, export_recommendation_markdown
 from src.recommendations.pipeline import run_recommendations_pipeline
 from src.recommendations.schemas import RecommendationOutput
+from src.recommendations.storage import save_recommendation
 
 
 class OpportunityRanking(Base):
@@ -79,6 +83,199 @@ def _seed_keyword(db: Session, *, keyword_id: int, run_id: str) -> None:
             analysis_complete=True,
         )
     )
+
+
+def _complete_output() -> RecommendationOutput:
+    return RecommendationOutput.model_validate(
+        {
+            "gig_titles": {
+                "titles": [
+                    {
+                        "title": f"I will build automation workflow package option {index} with clear delivery scope",
+                        "positioning_angle": "outcome-driven",
+                        "character_count": 77,
+                        "primary_keyword_present": True,
+                    }
+                    for index in range(1, 6)
+                ]
+            },
+            "tag_sets": {
+                "tag_sets": [
+                    ["python automation", "workflow setup", "api scripts", "ops support", "task cleanup"],
+                    ["automation audit", "crm workflow", "business ops", "fast delivery", "integration help"],
+                    ["zapier flow", "notion setup", "saas operations", "custom scripts", "process design"],
+                    ["ops automation", "workflow map", "growth systems", "delivery plan", "automation expert"],
+                    ["team workflow", "process optimization", "task system", "backend support", "automation"],
+                ]
+            },
+            "package_structure": {
+                "basic": {
+                    "name": "Starter Automation",
+                    "price": 95,
+                    "deliverables": ["scope review", "single workflow"],
+                    "delivery_days": 3,
+                    "revisions": 1,
+                },
+                "standard": {
+                    "name": "Core Automation Build",
+                    "price": 225,
+                    "deliverables": ["workflow map", "two workflows", "handoff notes"],
+                    "delivery_days": 5,
+                    "revisions": 2,
+                },
+                "premium": {
+                    "name": "Automation System Package",
+                    "price": 395,
+                    "deliverables": ["full workflow map", "four workflows", "training guide"],
+                    "delivery_days": 7,
+                    "revisions": 3,
+                },
+            },
+            "description_outline": {
+                "sections": [
+                    {
+                        "heading": "Outcome Hook",
+                        "copy_direction": "Lead with reduced manual work and predictable delivery outcomes.",
+                        "proof_elements": ["before-after summary"],
+                        "estimated_words": 50,
+                    },
+                    {
+                        "heading": "Scope",
+                        "copy_direction": "List exactly what is delivered at each milestone.",
+                        "proof_elements": ["milestone list"],
+                        "estimated_words": 50,
+                    },
+                    {
+                        "heading": "Process",
+                        "copy_direction": "Explain implementation checkpoints and communication rhythm.",
+                        "proof_elements": ["timeline", "status updates"],
+                        "estimated_words": 50,
+                    },
+                    {
+                        "heading": "Next Step",
+                        "copy_direction": "Close with required buyer inputs and onboarding steps.",
+                        "proof_elements": ["onboarding checklist"],
+                        "estimated_words": 50,
+                    },
+                ]
+            },
+            "faq_entries": {
+                "faq_entries": [
+                    {
+                        "question": "Can this work with my existing tools?",
+                        "answer": "Yes. I map your stack first and only implement compatible workflow steps.",
+                        "addresses_complaint": "tool fit",
+                    },
+                    {
+                        "question": "What do you need to start?",
+                        "answer": "I need process notes, access level, and the target outcome to start safely.",
+                        "addresses_complaint": "onboarding clarity",
+                    },
+                    {
+                        "question": "Do revisions include workflow tweaks?",
+                        "answer": "Yes. Package revisions include agreed workflow adjustments within scope.",
+                        "addresses_complaint": "revision policy",
+                    },
+                    {
+                        "question": "How fast can you deliver?",
+                        "answer": "Delivery depends on scope, but each package includes clear timeline milestones.",
+                        "addresses_complaint": "timeline certainty",
+                    },
+                    {
+                        "question": "What is excluded from this service?",
+                        "answer": "Unrelated product development is excluded so delivery stays focused.",
+                        "addresses_complaint": "scope clarity",
+                    },
+                ]
+            },
+            "differentiation_angle": {
+                "positioning_statement": (
+                    "Most competitors provide generic automation offers. This package emphasizes documented "
+                    "handoff, practical implementation checkpoints, and reliable communication from kickoff."
+                ),
+                "differentiators": [
+                    {
+                        "action": "Send a structured implementation roadmap before work starts.",
+                        "competitor_weakness_exploited": "Competitors often start without clear onboarding.",
+                        "buyer_pain_addressed": "Buyers are unsure what happens after ordering.",
+                    }
+                ],
+                "one_sentence_pitch": "I turn messy recurring tasks into reliable automation workflows.",
+            },
+            "buyer_persona": {
+                "name": "Alex",
+                "role": "Operations Manager",
+                "company_stage": "Early growth SaaS",
+                "pain_points": ["manual handoffs", "unclear ownership"],
+                "budget_range": "$150-$500",
+                "decision_trigger": "Delivery issues are slowing down customer onboarding.",
+                "where_they_search": "Fiverr and operations communities",
+                "what_makes_them_buy": "Clear scope, confidence, and predictable updates.",
+            },
+            "thumbnail_direction": {
+                "concept": "Show before-versus-after process clarity with simple visual hierarchy.",
+                "style": "Dark base palette with bright accent markers",
+                "elements_to_include": ["workflow icons", "timeline", "checklist"],
+                "elements_to_avoid": ["busy stock photos"],
+                "differentiation_note": "Highlight concrete outcome metrics rather than generic promises.",
+            },
+            "upsell_structure": {
+                "extras": [
+                    {
+                        "name": "Priority update",
+                        "price": 25,
+                        "description": "Priority response and update cycle within agreed scope.",
+                    },
+                    {
+                        "name": "Post-launch tuning",
+                        "price": 45,
+                        "description": "Optimization review after launch week based on usage feedback.",
+                    },
+                ]
+            },
+            "red_flags": {
+                "red_flags": [
+                    {
+                        "flag_type": "trust_gap",
+                        "description": "Top competitors have extensive social proof and long review history.",
+                        "severity": "MEDIUM",
+                        "mitigation": "Lead with proof assets and specific onboarding deliverables.",
+                    }
+                ],
+                "overall_risk_level": "MEDIUM",
+                "proceed_recommendation": "Proceed with focused positioning and evidence-first messaging.",
+            },
+            "niche_viability": {
+                "viability_assessment": (
+                    "Demand and buyer intent remain healthy in this niche, and competitor gaps in onboarding "
+                    "clarity create room for differentiated, process-first offers."
+                ),
+                "timing_assessment": "Timing is favorable while buyer demand remains stable.",
+                "risk_summary": "Main risk is competing against established sellers with stronger authority.",
+                "blunt_recommendation": "Enter with narrow scope and proof-based messaging now.",
+            },
+            "generation_complete": True,
+            "total_llm_cost_usd": 0.321,
+        }
+    )
+
+
+def _seed_complete_recommendation(db: Session, *, keyword_id: int, run_id: str) -> None:
+    _seed_keyword(db, keyword_id=keyword_id, run_id=run_id)
+    db.commit()
+
+    context = RecommendationContext(
+        keyword_id=keyword_id,
+        keyword_text=f"keyword-{keyword_id}",
+        niche_id="1",
+        niche_name="Automation",
+        run_id=run_id,
+        tag="STRONG GO",
+        final_score=84.2,
+        confidence_modifier=0.88,
+        top_competitor_weaknesses=[],
+    )
+    save_recommendation(context=context, output=_complete_output(), db=db)
 
 
 def test_e05_pipeline_processes_three_eligible_keywords(monkeypatch: Any) -> None:
@@ -181,4 +378,46 @@ def test_recommendations_only_with_auto_export_writes_files(monkeypatch: Any, tm
     export_path = Path(result["export_paths"][0])
     assert export_path.exists()
     assert export_path.read_text(encoding="utf-8") == "# Recommendation: keyword-901"
+    db.close()
+
+
+def test_markdown_export_end_to_end_with_complete_recommendation() -> None:
+    db = _session()
+    run_id = "run-int-e05-export-md"
+    keyword_id = 981
+    _seed_complete_recommendation(db, keyword_id=keyword_id, run_id=run_id)
+
+    markdown = asyncio.run(export_recommendation_markdown(str(keyword_id), db=db))
+
+    assert markdown.startswith("# Recommendation:")
+    assert "## Viability Assessment" in markdown
+    assert "## Gig Title Options" in markdown
+    assert "## Packages" in markdown
+    assert "## Differentiation Angle" in markdown
+    assert "## FAQ" in markdown
+    assert "## Buyer Persona" in markdown
+    assert "## Thumbnail Direction" in markdown
+    assert "## Red Flags" in markdown
+    assert "**Completeness:** 100%" in markdown
+    db.close()
+
+
+def test_json_export_end_to_end_with_complete_recommendation() -> None:
+    db = _session()
+    run_id = "run-int-e05-export-json"
+    keyword_id = 982
+    _seed_complete_recommendation(db, keyword_id=keyword_id, run_id=run_id)
+
+    exported = asyncio.run(export_recommendation_json(str(keyword_id), db=db))
+    serialized = json.dumps(exported, indent=2)
+
+    assert "metadata" in exported
+    assert "outputs" in exported
+    assert exported["metadata"]["keyword_id"] == keyword_id
+    assert exported["metadata"]["generation_complete"] is True
+    assert isinstance(exported["outputs"]["gig_titles"], list)
+    assert isinstance(exported["outputs"]["tag_sets"], list)
+    assert isinstance(exported["outputs"]["faq_entries"], list)
+    assert isinstance(exported["outputs"]["upsell_structure"], list)
+    assert serialized.startswith("{")
     db.close()

@@ -77,7 +77,7 @@ def test_export_recommendation_command_exists() -> None:
     result = runner.invoke(cli, ["export-recommendation", "--help"])
     assert result.exit_code == 0
     assert "--keyword-id INTEGER" in result.output
-    assert "Export a recommendation as Markdown for a given keyword ID." in result.output
+    assert "Export a recommendation as Markdown or JSON for a given keyword ID." in result.output
 
 
 def test_foundation_gate_succeeds_with_temp_sqlite_db(tmp_path: Path) -> None:

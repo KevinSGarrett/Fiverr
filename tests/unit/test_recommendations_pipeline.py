@@ -461,6 +461,42 @@ def test_recommendations_only_dry_run(monkeypatch: Any) -> None:
     assert save_mock.call_count == 0
 
 
+def test_recommendations_only_dry_run_produces_summary_dict(monkeypatch: Any) -> None:
+    generate_mock = AsyncMock(side_effect=AssertionError("LLM should not run in dry-run mode"))
+    save_mock = Mock(side_effect=AssertionError("Persistence should not run in dry-run mode"))
+
+    monkeypatch.setattr(recommendations_pipeline, "get_eligible_keywords", lambda *_args, **_kwargs: [_keyword_row(991)])
+    monkeypatch.setattr(recommendations_pipeline, "passes_recommendation_gates", lambda *_args, **_kwargs: (True, "ok"))
+    monkeypatch.setattr(recommendations_pipeline, "should_regenerate_recommendation", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(recommendations_pipeline, "build_recommendation_context", lambda **kwargs: _context(kwargs["keyword_id"]))
+    monkeypatch.setattr(recommendations_pipeline, "generate_recommendation_async", generate_mock)
+    monkeypatch.setattr(recommendations_pipeline, "save_recommendation", save_mock)
+
+    summary = asyncio.run(
+        recommendations_pipeline.run_recommendations_pipeline(
+            run_id="run-dry-summary",
+            db=object(),
+            config={},
+            llm_client=object(),
+            cache=object(),
+            dry_run=True,
+        )
+    )
+
+    assert isinstance(summary, dict)
+    assert summary["run_id"] == "run-dry-summary"
+    assert summary["eligible"] == 1
+    assert summary["gates_passed"] == 1
+    assert summary["generated"] == 1
+    assert summary["skipped"] == 0
+    assert summary["failed"] == 0
+    assert summary["total_cost_usd"] == 0.0
+    assert summary["markdown_exports"] == {}
+    assert summary["export_paths"] == []
+    assert generate_mock.await_count == 0
+    assert save_mock.call_count == 0
+
+
 def test_recommendations_only_calls_pipeline(monkeypatch: Any) -> None:
     called_with: dict[str, Any] = {}
 

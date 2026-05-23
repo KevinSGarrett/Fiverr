@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import Any
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import (
@@ -381,3 +385,88 @@ def test_should_regenerate_when_latest_recommendation_is_incomplete() -> None:
 
     assert eligibility.should_regenerate_recommendation(141, 82.1, db) is True
     db.close()
+
+
+def test_get_eligible_keywords_skips_invalid_and_missing_keyword_rows(monkeypatch: Any) -> None:
+    db = _session()
+    monkeypatch.setattr(
+        eligibility,
+        "_load_ranking_rows",
+        lambda **_kwargs: [
+            SimpleNamespace(keyword_id=0, tag="STRONG GO", final_score=90.0),
+            SimpleNamespace(keyword_id=999, tag="STRONG GO", final_score=91.0),
+        ],
+    )
+
+    rows = eligibility.get_eligible_keywords("run-missing-keywords", db, _config())
+    assert rows == []
+    db.close()
+
+
+def test_should_regenerate_returns_true_when_query_missing_or_score_unavailable(monkeypatch: Any) -> None:
+    assert eligibility.should_regenerate_recommendation(1, 75.0, object()) is True
+
+    class _Query:
+        def filter(self, *_args: Any, **_kwargs: Any) -> Any:
+            return self
+
+        def order_by(self, *_args: Any, **_kwargs: Any) -> Any:
+            return self
+
+        def all(self) -> list[Any]:
+            return [SimpleNamespace(generation_complete=True, created_at=datetime.now(UTC), raw_json={})]
+
+    monkeypatch.setattr(eligibility, "_safe_query", lambda *_args, **_kwargs: _Query())
+    monkeypatch.setattr(eligibility, "_extract_recommendation_score", lambda _row: None)
+
+    assert eligibility.should_regenerate_recommendation(2, 80.0, object()) is True
+
+
+def test_private_helpers_handle_invalid_inputs_and_missing_query_paths() -> None:
+    assert eligibility._to_optional_float("bad-float") is None
+    assert eligibility._to_optional_int("bad-int") is None
+    assert eligibility._safe_query(object(), Keyword) is None
+    assert eligibility._query_first(object(), Keyword, Keyword.id == 1) is None
+    assert eligibility._latest_keyword_score(1, object()) is None
+    assert eligibility._query_latest_final_score(1, object()) is None
+    assert eligibility._load_final_score_rows("run-1", object()) == []
+    assert eligibility._has_any_final_scores(object()) is False
+    assert eligibility._has_gig_analysis(1, object()) is False
+
+
+def test_private_extractors_cover_raw_json_and_default_branches(monkeypatch: Any) -> None:
+    assert eligibility._extract_confidence_modifier(SimpleNamespace(raw_json={"confidence_modifier": "0.65"})) == 0.65
+    assert eligibility._is_recommendation_disabled_for_niche(1, flags=[]) is False
+
+    monkeypatch.setattr(
+        eligibility,
+        "_query_latest_final_score",
+        lambda _keyword_id, _db: SimpleNamespace(raw_json="not-a-dict"),
+    )
+    assert eligibility._resolve_demand_score(1, {}, object()) is None
+
+    incomplete_row = SimpleNamespace(generation_complete=None, raw_json={})
+    assert eligibility._is_generation_complete(incomplete_row) is True
+
+    score_row = SimpleNamespace(score_at_generation=None, final_score=None, confidence=None, raw_json=[])
+    assert eligibility._extract_recommendation_score(score_row) is None
+
+    generated = datetime(2026, 5, 23, 12, 0, tzinfo=UTC)
+    generated_row = SimpleNamespace(generated_at=generated, created_at=None, raw_json={})
+    assert eligibility._extract_recommendation_generated_at(generated_row) == generated
+
+    raw_generated_row = SimpleNamespace(
+        generated_at=None,
+        created_at=None,
+        raw_json={"generated_at": "2026-05-23T14:00:00+00:00"},
+    )
+    assert eligibility._extract_recommendation_generated_at(raw_generated_row) == datetime(
+        2026,
+        5,
+        23,
+        14,
+        0,
+        tzinfo=UTC,
+    )
+
+    assert eligibility._latest_competitor_analysis_timestamp(99, object()) is None
