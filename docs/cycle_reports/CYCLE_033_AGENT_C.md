@@ -35,6 +35,56 @@
 - Posted S5.4 planning comment:
   - `SCRUM-181` comment `11447`
 
+### Template Contract Matrix (Task 2.1 + 2.2)
+
+1. `gig_titles.j2`
+   - Context vars: `niche_name`, `keyword_text`, `cluster_label`, `total_result_count`, `competition_score`, `demand_score`, `top_competitor_weaknesses`
+   - Output JSON: `{"titles":[{"title","positioning_angle","character_count","primary_keyword_present"}]}`
+   - Constraints: 5 variants, starts with `I will`, 60-80 chars, differentiated angles
+2. `tag_sets.j2`
+   - Context vars: `niche_name`, `keyword_text`, `cluster_label`, `top_competitor_weaknesses`
+   - Output JSON: `{"tag_sets":[["tag1","tag2","tag3","tag4","tag5"], ...]}`
+   - Constraints: 5 sets, each set length 5, per-set intent angle differentiation
+3. `package_structure.j2`
+   - Context vars: `niche_name`, `keyword_text`, `starter_price_basic`, `starter_price_standard`, `starter_price_premium`, `top_competitor_weaknesses`, `hard_exclusions`
+   - Output JSON: `{"basic":{...},"standard":{...},"premium":{...}}`
+   - Constraints: ascending prices, realistic delivery/revisions, scoped deliverables
+4. `description_outline.j2`
+   - Context vars: `niche_name`, `keyword_text`, `tag`, `final_score`, `cluster_label`, `top_competitor_weaknesses`, `top_buyer_complaints`, `hard_exclusions`
+   - Output JSON: `{"sections":[{"heading","copy_direction","proof_elements","estimated_words"}]}`
+   - Constraints: 5-7 sections, hook/about_service/what_you_get/why_me/cta coverage, 400-600 total word guidance
+5. `faq_entries.j2`
+   - Context vars: `niche_name`, `keyword_text`, `top_buyer_complaints`, `hard_exclusions`
+   - Output JSON: `{"faq_entries":[{"question","answer","addresses_complaint"}]}`
+   - Constraints: 5-7 entries, buyer-voiced questions, complaint + scope + revision coverage
+6. `differentiation_angle.j2`
+   - Context vars: `keyword_text`, `niche_name`, `top_competitor_weaknesses`, `top_buyer_complaints`, `positioning_gaps`, `cluster_synthesis_narrative`
+   - Output JSON: `{"positioning_statement","differentiators":[...],"one_sentence_pitch"}`
+   - Constraints: evidence-based, 3-5 tactical actions, 100-200 word statement
+7. `buyer_persona.j2`
+   - Context vars: `keyword_text`, `niche_name`, `total_result_count`, `trends_slope`, `reddit_intent_score`, `top_buyer_praise`
+   - Output JSON: `{"name","role","company_stage","pain_points","budget_range","decision_trigger","where_they_search","what_makes_them_buy"}`
+   - Constraints: one concrete primary persona with buyer motivations/pain points
+8. `thumbnail_direction.j2`
+   - Context vars: `niche_name`, `keyword_text`, `thumbnail_class_distribution`
+   - Output JSON: `{"concept","style","elements_to_include","elements_to_avoid","differentiation_note"}`
+   - Constraints: clear concept + visual differentiation guidance
+9. `upsell_structure.j2`
+   - Context vars: `niche_name`, `starter_price_basic`, `starter_price_premium`, `competitor_extras`
+   - Output JSON: `{"extras":[{"name","price","description"}]}`
+   - Constraints: exactly 3 extras in template instructions, includes order-requirement phrasing within description
+10. `red_flags.j2`
+    - Context vars: `keyword_text`, `niche_name`, `demand_score`, `competition_score`, `opportunity_score`, `feasibility_score`, `trend_score`, `confidence_modifier`, `tag`, `cluster_synthesis_narrative`
+    - Output JSON: `{"red_flags":[{"flag_type","description","severity","mitigation"}],"overall_risk_level","proceed_recommendation"}`
+    - Constraints: 3-5 specific risks, non-generic mitigation actions
+11. `niche_viability.j2`
+    - Context vars: `keyword_text`, `niche_name`, `cluster_label`, `tag`, `final_score`, `demand_score`, `competition_score`, `opportunity_score`, `feasibility_score`, `profitability_score`, `weakness_score`, `trend_score`, `saturation_score`, `cluster_synthesis_narrative`, `opportunity_narrative`
+    - Output JSON: `{"viability_assessment","timing_assessment","risk_summary","blunt_recommendation"}`
+    - Constraints: 100-300 words for viability assessment + explicit timing/risk/directive fields
+
+Mismatch audit outcome:
+- No schema mismatches remained after implementation; templates were aligned to Agent B Pydantic envelopes.
+
 ## Task 3 / 4 / 9 / 13 — S5.4 Templates + Validation + Fallbacks
 
 ### Implemented
@@ -181,3 +231,11 @@
   - S5.6 async concurrent task execution (`asyncio.gather` orchestration path)
   - S5.8 recommendations-only full pipeline orchestration
   - final cycle audit, merge-gate validation, and freeze SHA
+
+## Task 18 — Scoped Commit + SHA Freeze
+
+- Staged scope verified with `git diff --cached --name-only` (Agent C files only).
+- Commit message used:
+  - `feat(recommendations): E05 S5.4 Jinja2 templates (11) + S5.7 storage [Agent C Cycle 033]`
+- Commit SHA (initial Agent C freeze):
+  - `bc71a92310514a3681c2c0ebdf98ca7bfb4b4ae1`
