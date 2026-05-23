@@ -166,11 +166,40 @@ Left unchanged:
 
 ## Task 10 - Codex Thread Disposition (PR #41)
 
-Status: pending until PR #41 exists.
-
-Raw query payload and disposition table will be captured after PR creation:
+Query used (verbatim command):
 
 - `gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{id isResolved isOutdated comments(first:5){nodes{author{login}body}}}}}}}' -f owner=KevinSGarrett -f name=Fiverr -F number=41`
+
+Raw JSON output (verbatim, first run):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EVMWO","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Resolve keyword label from keyword table, not recommendation_text**\n\n`_load_export_metadata` currently prefers `Recommendation.recommendation_text` as `keyword_text`, but that column is populated by `save_recommendation` with generated recommendation copy (for example the blunt recommendation or a generic fallback), not the original keyword. In bulk export this causes mislabeled exports and can overwrite/drop entries when multiple rows share the same generated text because `export_all_recommendations` keys results by this label before writing files. Please source the label from `Keyword.keyword` (or raw payload keyword field) before falling back to recommendation text.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
+```
+
+Disposition table:
+
+| Thread ID | Assessment | Disposition | Action Taken |
+| --- | --- | --- | --- |
+| `PRRT_kwDOSbqwNc6EVMWO` | VALID_FIXED | fixed | Implemented `src/recommendations/export.py` fallback order fix (`raw_json.keyword_text` -> `Keyword.keyword` -> `Recommendation.recommendation_text`), added regression test `test_load_export_metadata_prefers_keyword_sources_over_recommendation_text`, committed as `3f6b076`, pushed, CI green, replied and resolved. |
+
+Raw JSON output (verbatim, confirmation run after disposition):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EVMWO","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Resolve keyword label from keyword table, not recommendation_text**\n\n`_load_export_metadata` currently prefers `Recommendation.recommendation_text` as `keyword_text`, but that column is populated by `save_recommendation` with generated recommendation copy (for example the blunt recommendation or a generic fallback), not the original keyword. In bulk export this causes mislabeled exports and can overwrite/drop entries when multiple rows share the same generated text because `export_all_recommendations` keys results by this label before writing files. Please source the label from `Keyword.keyword` (or raw payload keyword field) before falling back to recommendation text.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in 3f6b076. `_load_export_metadata` now resolves `keyword_text` from `raw_json.keyword_text` first, then `Keyword.keyword`, and only falls back to `Recommendation.recommendation_text` when those canonical sources are unavailable. Added regression test `test_load_export_metadata_prefers_keyword_sources_over_recommendation_text` in `tests/unit/test_export.py` to prevent mislabeled/overwritten bulk exports. Local regression suite passed (`pytest -q tests/unit/test_export.py --no-header`)."}]}}]}}}}}
+```
+
+Result: all threads dispositioned and `isResolved=true`.
+
+## Task 12 - SHA Freeze and Artifact Hygiene
+
+- `git rev-parse origin/cycle/034/integration` -> `3f6b076622d873958340ef98b6089a276490b15a`
+- Confirmed all cycle reports present:
+  - `docs/cycle_reports/CYCLE_034_AGENT_A.md`
+  - `docs/cycle_reports/CYCLE_034_AGENT_B.md`
+  - `docs/cycle_reports/CYCLE_034_AGENT_C.md`
+  - `docs/cycle_reports/CYCLE_034_AGENT_D.md`
+- `git status --short` hygiene check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` artifacts staged in Agent D commits.
+- Posted final steward summary to `SCRUM-523` (`comment id 11508`).
 
 ## Task 17 - Cycle 035 Prep
 
@@ -185,16 +214,39 @@ Included:
 
 ## Task 18 - Merge Gate Checklist
 
-Will be finalized and posted in:
+MERGE GATE CHECKLIST - Cycle 034 PR #41
+==========================================
+CODECOV:
+- [x] codecov/project: PASS - 94.79%
+- [x] codecov/patch: PASS - 95.21% (>= 90%)
+- [x] Local `--cov-fail-under=90`: PASS (94.79%)
+- [x] All new lines covered by tests: YES
+  - If NO, uncovered files: N/A
 
-- this report (post-PR #41 CI/Codex completion)
-- PR #41 comment (mandatory gate post)
+CODEX:
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: 1
+- [x] All threads dispositioned: YES
+- [x] All VALID_FIXED threads have regression tests: YES
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
 
-Current local gate state:
+E05 DOD GATE:
+- [x] AC1 (recommendations-only generates for STRONG GO + CONDITIONAL GO): PASS
+- [x] AC2 (all 11 tasks produce valid output or safe partial): PASS
+- [x] AC3 (eligibility gates block low-confidence): PASS
+- [x] AC4 (recommendations include all required sections): PASS
+- [x] AC5 (stored and exportable as Markdown and JSON): PASS
 
-- Local `--cov-fail-under=90`: PASS (`94.79%`)
-- Recommendation modules all `>=90%`: YES
-- E05 DoD criteria AC1-AC5: PASS
+RECOMMENDATION COVERAGE:
+- [x] All `src/recommendations/` modules >= 90%: YES
+  - If NO, list modules still below 90%: N/A
+
+FINAL:
+- [x] PR #41 is ready to merge: YES
+- [x] Blockers if NO: N/A
+
+Final statement: PR #41 is ready to merge when approved.
 
 ## Canonical Final Test Count / Coverage
 
@@ -207,4 +259,4 @@ Cycle 035 is the next 5-cycle periodic deep branch cleanup boundary per R-091. C
 
 ## Final SHA
 
-- Pending final commit in Agent D scope.
+- `3f6b076622d873958340ef98b6089a276490b15a`
