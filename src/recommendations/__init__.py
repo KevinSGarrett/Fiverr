@@ -19,7 +19,6 @@ from src.recommendations.contracts import (
     PackageTier,
     PricingStrategy,
     ProfileOptimization,
-    RecommendationOutput,
     RedFlagsAssessment,
     TagSet,
     ThumbnailDirection,
@@ -30,13 +29,43 @@ from src.recommendations.contracts import (
 from src.recommendations.contracts import (
     RecommendationContext as RecommendationContractContext,
 )
+from src.recommendations.contracts import (
+    RecommendationOutput as ContractRecommendationOutput,
+)
 from src.recommendations.eligibility import (
     get_eligible_keywords,
     passes_recommendation_gates,
     should_regenerate_recommendation,
 )
+from src.recommendations.llm_tasks import (
+    task_buyer_persona,
+    task_description_outline,
+    task_differentiation_angle,
+    task_faq_entries,
+    task_gig_titles,
+    task_niche_viability,
+    task_package_structure,
+    task_red_flags,
+    task_tag_sets,
+    task_thumbnail_direction,
+    task_upsell_structure,
+)
 from src.recommendations.orchestrator import RecommendationOrchestrator
 from src.recommendations.run import run_recommendations_stage
+from src.recommendations.schemas import (
+    BuyerPersonaOutput,
+    DescriptionOutlineOutput,
+    DifferentiationAngleOutput,
+    FaqEntriesOutput,
+    GigTitlesOutput,
+    NicheViabilityOutput,
+    PackageStructureOutput,
+    RecommendationOutput,
+    RedFlagsOutput,
+    TagSetsOutput,
+    ThumbnailDirectionOutput,
+    UpsellStructureOutput,
+)
 from src.recommendations.storage import write_recommendation
 from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
@@ -70,6 +99,7 @@ __all__ = [
     "RecommendationContext",
     "RecommendationOrchestrator",
     "run_recommendations_stage",
+    "ContractRecommendationOutput",
     "RecommendationOutput",
     "TagSet",
     "ThumbnailDirection",
@@ -95,4 +125,26 @@ __all__ = [
     "generate_red_flags",
     "generate_niche_viability",
     "generate_recommendation",
+    "GigTitlesOutput",
+    "TagSetsOutput",
+    "PackageStructureOutput",
+    "DescriptionOutlineOutput",
+    "FaqEntriesOutput",
+    "DifferentiationAngleOutput",
+    "BuyerPersonaOutput",
+    "ThumbnailDirectionOutput",
+    "UpsellStructureOutput",
+    "RedFlagsOutput",
+    "NicheViabilityOutput",
+    "task_gig_titles",
+    "task_tag_sets",
+    "task_package_structure",
+    "task_description_outline",
+    "task_faq_entries",
+    "task_differentiation_angle",
+    "task_buyer_persona",
+    "task_thumbnail_direction",
+    "task_upsell_structure",
+    "task_red_flags",
+    "task_niche_viability",
 ]
