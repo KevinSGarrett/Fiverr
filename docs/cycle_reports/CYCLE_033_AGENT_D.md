@@ -177,7 +177,7 @@ No status corrections were required.
 #### CODECOV
 
 - [x] `codecov/project`: PASS (`94.36%`)
-- [x] `codecov/patch`: PASS (`90.83%`, target `90.00%`)
+- [x] `codecov/patch`: PASS (`91.79%`, target `90.00%`)
 - [x] Local `--cov-fail-under=90`: PASS (`94.37%`)
 - [x] All new lines covered by tests: YES
 
