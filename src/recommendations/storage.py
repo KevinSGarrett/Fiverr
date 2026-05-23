@@ -134,14 +134,16 @@ def get_recommendation(keyword_id: int, db: Any) -> RecommendationOutput | None:
 
     rows = query.filter(Recommendation.keyword_id == keyword_id).order_by(Recommendation.created_at.desc()).all()
     for row in rows:
-        if not bool(getattr(row, "generation_complete", False)):
+        raw_json = getattr(row, "raw_json", {})
+        generation_complete = _is_row_generation_complete(row=row, raw_json=raw_json)
+        if not generation_complete:
             continue
         payload: dict[str, Any] = {
             field_name: getattr(row, field_name, None)
             for field_name in _STAGE13_OUTPUT_FIELDS
         }
-        payload["generation_complete"] = bool(getattr(row, "generation_complete", False))
-        payload["failed_tasks"] = _extract_failed_tasks(getattr(row, "raw_json", {}))
+        payload["generation_complete"] = generation_complete
+        payload["failed_tasks"] = _extract_failed_tasks(raw_json)
         payload["total_llm_cost_usd"] = _to_float(getattr(row, "llm_cost_usd", 0.0), 0.0)
         try:
             return RecommendationOutput.model_validate(payload)
@@ -374,6 +376,15 @@ def _extract_failed_tasks(raw_json: Any) -> list[str]:
     if not isinstance(failed_tasks, list):
         return []
     return [task for task in failed_tasks if isinstance(task, str) and task.strip()]
+
+
+def _is_row_generation_complete(row: Any, raw_json: Any) -> bool:
+    explicit_complete = getattr(row, "generation_complete", None)
+    if isinstance(explicit_complete, bool) and explicit_complete:
+        return True
+    if isinstance(raw_json, Mapping) and "generation_complete" in raw_json:
+        return bool(raw_json.get("generation_complete"))
+    return bool(explicit_complete)
 
 
 def _derive_recommendation_text_from_output(output: RecommendationOutput) -> str:

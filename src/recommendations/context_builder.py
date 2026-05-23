@@ -28,17 +28,25 @@ def build_recommendation_context(
     """Assemble recommendation context from scoring + analysis persistence layers."""
     keyword = _query_first(db, Keyword, Keyword.id == keyword_id)
     score_row = _latest_keyword_score(keyword_id, db)
-    if keyword is None or score_row is None:
+    final_score_row = _query_latest_final_score(keyword_id, db)
+    if keyword is None or (score_row is None and final_score_row is None):
         return None
 
     resolved_niche_id = niche_id if niche_id is not None else getattr(keyword, "niche_id", None)
     resolved_niche_name = _resolve_niche_name(resolved_niche_id, db)
     ranking_row = _latest_opportunity_ranking(keyword_id=keyword_id, run_id=run_id, db=db)
 
-    tag = _normalize_tag(getattr(ranking_row, "tag", None) or getattr(score_row, "tag", None))
+    tag = _normalize_tag(
+        getattr(ranking_row, "tag", None)
+        or getattr(score_row, "tag", None)
+        or _extract_tag_from_final_score(final_score_row)
+    )
     final_score = _to_float(
         getattr(ranking_row, "final_score", None),
-        default=_to_float(getattr(score_row, "final_score", None), default=0.0),
+        default=_to_float(
+            getattr(score_row, "final_score", None),
+            default=_to_float(getattr(final_score_row, "final_score", None), default=0.0),
+        ),
     )
     cluster_label, cluster_size = _load_cluster_context(
         keyword_id=keyword_id,
@@ -66,20 +74,20 @@ def build_recommendation_context(
         tag=tag,
         final_score=final_score,
         confidence_modifier=confidence_modifier,
-        demand_score=_to_optional_float(getattr(score_row, "demand_score", None)),
-        competition_score=_to_optional_float(getattr(score_row, "competition_score", None)),
-        opportunity_score=_to_optional_float(getattr(score_row, "opportunity_score", None)),
-        feasibility_score=_to_optional_float(getattr(score_row, "feasibility_score", None)),
-        saturation_score=_to_optional_float(getattr(score_row, "saturation_score", None)),
+        demand_score=_resolve_score_metric(score_row, final_score_row, "demand_score"),
+        competition_score=_resolve_score_metric(score_row, final_score_row, "competition_score"),
+        opportunity_score=_resolve_score_metric(score_row, final_score_row, "opportunity_score"),
+        feasibility_score=_resolve_score_metric(score_row, final_score_row, "feasibility_score"),
+        saturation_score=_resolve_score_metric(score_row, final_score_row, "saturation_score"),
         top_competitor_weaknesses=competitor_weaknesses,
         cluster_label=cluster_label,
         cluster_size=cluster_size,
         score_data={
-            "demand_score": _to_optional_float(getattr(score_row, "demand_score", None)),
-            "competition_score": _to_optional_float(getattr(score_row, "competition_score", None)),
-            "opportunity_score": _to_optional_float(getattr(score_row, "opportunity_score", None)),
-            "feasibility_score": _to_optional_float(getattr(score_row, "feasibility_score", None)),
-            "saturation_score": _to_optional_float(getattr(score_row, "saturation_score", None)),
+            "demand_score": _resolve_score_metric(score_row, final_score_row, "demand_score"),
+            "competition_score": _resolve_score_metric(score_row, final_score_row, "competition_score"),
+            "opportunity_score": _resolve_score_metric(score_row, final_score_row, "opportunity_score"),
+            "feasibility_score": _resolve_score_metric(score_row, final_score_row, "feasibility_score"),
+            "saturation_score": _resolve_score_metric(score_row, final_score_row, "saturation_score"),
             "confidence_modifier": confidence_modifier,
         },
         competitor_data={"top_competitor_weaknesses": competitor_weaknesses},
@@ -272,6 +280,27 @@ def _normalize_tag(value: Any) -> str:
     if text is None:
         return "MONITOR"
     return text.replace("_", " ").upper()
+
+
+def _extract_tag_from_final_score(final_score_row: Any | None) -> str | None:
+    if final_score_row is None:
+        return None
+    raw = getattr(final_score_row, "raw_json", {})
+    if not isinstance(raw, dict):
+        return None
+    return _to_optional_str(raw.get("tag"))
+
+
+def _resolve_score_metric(score_row: Any | None, final_score_row: Any | None, field: str) -> float | None:
+    score_value = _to_optional_float(getattr(score_row, field, None))
+    if score_value is not None:
+        return score_value
+    if final_score_row is None:
+        return None
+    raw = getattr(final_score_row, "raw_json", {})
+    if isinstance(raw, dict):
+        return _to_optional_float(raw.get(field))
+    return None
 
 
 def _to_float(value: Any, default: float) -> float:

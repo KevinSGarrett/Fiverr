@@ -159,6 +159,15 @@ def _load_ranking_rows(run_id: str, db: Any) -> list[Any]:
             if rows:
                 return rows
 
+    final_score_rows = _load_final_score_rows(run_id=run_id, db=db)
+    if final_score_rows:
+        return final_score_rows
+
+    # If FinalScore data exists but no rows were returned for this run, avoid
+    # falling back to unscoped KeywordScore rows from unrelated runs.
+    if _has_any_final_scores(db):
+        return []
+
     keyword_score_query = _safe_query(db, KeywordScore)
     if keyword_score_query is not None:
         keyword_rows = keyword_score_query.order_by(KeywordScore.scored_at.desc()).all()
@@ -171,11 +180,16 @@ def _load_ranking_rows(run_id: str, db: Any) -> list[Any]:
         if deduped:
             return list(deduped.values())
 
+    return []
+
+
+def _load_final_score_rows(run_id: str, db: Any) -> list[Any]:
     final_score_query = _safe_query(db, FinalScore)
     if final_score_query is None:
         return []
     if str(run_id).isdigit():
         final_score_query = final_score_query.filter(FinalScore.run_id == int(run_id))
+
     final_rows = final_score_query.order_by(FinalScore.created_at.desc()).all()
     latest: dict[int, Any] = {}
     for row in final_rows:
@@ -184,6 +198,13 @@ def _load_ranking_rows(run_id: str, db: Any) -> list[Any]:
             continue
         latest[keyword_id] = row
     return list(latest.values())
+
+
+def _has_any_final_scores(db: Any) -> bool:
+    final_score_query = _safe_query(db, FinalScore)
+    if final_score_query is None:
+        return False
+    return final_score_query.first() is not None
 
 
 def _canonical_tags_at_or_above(min_tag: str) -> list[str]:

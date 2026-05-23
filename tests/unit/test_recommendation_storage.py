@@ -295,6 +295,43 @@ def test_get_recommendation_returns_none_when_missing() -> None:
     db.close()
 
 
+def test_get_recommendation_honors_raw_json_completion_flag() -> None:
+    db = _session()
+    _seed_keyword(db, 302)
+    output = _full_output()
+    payload = output.model_dump(mode="json")
+    row = Recommendation(
+        keyword_id=302,
+        run_id=1,
+        run_id_text="run-legacy",
+        recommendation_type="keyword_recommendation",
+        recommendation_text="legacy-complete",
+        generation_complete=False,
+        llm_cost_usd=0.11,
+        gig_titles=payload["gig_titles"],
+        tag_sets=payload["tag_sets"],
+        package_structure=payload["package_structure"],
+        description_outline=payload["description_outline"],
+        faq_entries=payload["faq_entries"],
+        differentiation_angle=payload["differentiation_angle"],
+        buyer_persona=payload["buyer_persona"],
+        thumbnail_direction=payload["thumbnail_direction"],
+        upsell_structure=payload["upsell_structure"],
+        red_flags=payload["red_flags"],
+        niche_viability=payload["niche_viability"],
+        raw_json={"generation_complete": True, "failed_tasks": []},
+    )
+    db.add(row)
+    db.commit()
+
+    loaded = get_recommendation(keyword_id=302, db=db)
+
+    assert loaded is not None
+    assert loaded.generation_complete is True
+    assert loaded.gig_titles is not None
+    db.close()
+
+
 def test_storage_exports_in_package_init() -> None:
     import src.recommendations as recommendations
 

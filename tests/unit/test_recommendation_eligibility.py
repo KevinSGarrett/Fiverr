@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from src.models import Base, GigQualityScore, Keyword, KeywordScore, Niche, Recommendation
+from src.models import (
+    Base,
+    FinalScore,
+    GigQualityScore,
+    Keyword,
+    KeywordScore,
+    Niche,
+    Recommendation,
+)
 from src.recommendations import eligibility
 
 
@@ -103,6 +111,26 @@ def test_get_eligible_keywords_skips_disabled_niche() -> None:
         db,
         _config(recommendation_generation=False),
     )
+
+    assert rows == []
+    db.close()
+
+
+def test_get_eligible_keywords_skips_keyword_score_fallback_when_final_scores_exist_for_other_run() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=101, tag="STRONG GO")
+    db.add(
+        FinalScore(
+            run_id=999,
+            keyword_id=101,
+            gig_id=None,
+            final_score=74.0,
+            raw_json={"tag": "CONDITIONAL GO"},
+        )
+    )
+    db.commit()
+
+    rows = eligibility.get_eligible_keywords("1", db, _config())
 
     assert rows == []
     db.close()

@@ -9,6 +9,7 @@ from src.models import (
     ClusterAssignment,
     ClusterLabel,
     CompetitorProfile,
+    FinalScore,
     Gig,
     Keyword,
     KeywordScore,
@@ -105,6 +106,43 @@ def test_build_context_returns_none_when_no_score() -> None:
     context = build_recommendation_context(keyword_id=101, niche_id="1", run_id="run-1", db=db)
 
     assert context is None
+    db.close()
+
+
+def test_build_context_falls_back_to_final_score_when_keyword_score_missing() -> None:
+    db = _session()
+    db.add(Niche(id=1, slug="automation", name="Automation", category_path="programming-tech/automation"))
+    db.add(Keyword(id=101, niche_id=1, keyword="python automation", normalized_keyword="python automation"))
+    db.add(
+        FinalScore(
+            run_id=1,
+            keyword_id=101,
+            gig_id=None,
+            final_score=77.0,
+            raw_json={
+                "tag": "CONDITIONAL GO",
+                "demand_score": 61.0,
+                "competition_score": 42.0,
+                "opportunity_score": 70.0,
+                "feasibility_score": 59.0,
+                "saturation_score": 33.0,
+                "confidence_modifier": 0.66,
+            },
+        )
+    )
+    db.commit()
+
+    context = build_recommendation_context(keyword_id=101, niche_id="1", run_id="1", db=db)
+
+    assert context is not None
+    assert context.tag == "CONDITIONAL GO"
+    assert context.final_score == 77.0
+    assert context.demand_score == 61.0
+    assert context.competition_score == 42.0
+    assert context.opportunity_score == 70.0
+    assert context.feasibility_score == 59.0
+    assert context.saturation_score == 33.0
+    assert context.confidence_modifier == 0.66
     db.close()
 
 
