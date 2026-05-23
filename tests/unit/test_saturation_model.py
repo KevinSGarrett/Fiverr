@@ -83,6 +83,11 @@ def test_jaccard_disjoint_sets_returns_0() -> None:
     assert saturation_model.jaccard_similarity({"python"}, {"design"}) == 0.0
 
 
+def test_jaccard_returns_zero_when_any_set_empty() -> None:
+    assert saturation_model.jaccard_similarity(set(), {"python"}) == 0.0
+    assert saturation_model.jaccard_similarity({"python"}, set()) == 0.0
+
+
 def test_duplication_rate_zero_when_all_unique() -> None:
     cards = [
         {"gig_title": "I will build python scraper"},
@@ -134,6 +139,12 @@ def test_price_compression_high_for_uniform_prices() -> None:
 def test_price_compression_default_for_insufficient_data() -> None:
     cards = [{"starting_price": 15.0}, {"starting_price": 25.0}, {"starting_price": 35.0}]
     assert saturation_model.calculate_price_compression(cards, niche_context={}) == 0.3
+
+
+def test_price_compression_handles_non_positive_historical_median() -> None:
+    cards = [{"starting_price": value} for value in [20, 22, 24, 26, 28, 30]]
+    score = saturation_model.calculate_price_compression(cards, niche_context={"historical_median_price": 0.0})
+    assert 0.0 <= score <= 1.0
 
 
 def test_seller_overlap_zero_all_unique_sellers() -> None:
@@ -202,6 +213,32 @@ def test_seller_overlap_single_keyword_returns_zero() -> None:
         assert saturation_model.calculate_seller_overlap(keyword.id, "single_keyword_overlap", session) == 0.0
     finally:
         session.close()
+
+
+def test_seller_overlap_returns_zero_when_db_not_session() -> None:
+    assert saturation_model.calculate_seller_overlap(1, "any-niche", db=object()) == 0.0
+
+
+def test_seller_overlap_returns_zero_with_insufficient_keyword_sets() -> None:
+    session = _make_session()
+    try:
+        niche = _seed_niche(session, "insufficient_sets")
+        keyword_a = _seed_keyword(session, niche, "python scraper")
+        _seed_keyword(session, niche, "ai automation")
+        _seed_search_result(
+            session,
+            keyword_id=keyword_a.id,
+            run_id="run-overlap-4",
+            total_result_count=120,
+            gig_cards=[{"seller_username": "seller_a"}],
+        )
+        assert saturation_model.calculate_seller_overlap(keyword_a.id, "insufficient_sets", session) == 0.0
+    finally:
+        session.close()
+
+
+def test_get_latest_search_result_returns_none_without_session() -> None:
+    assert saturation_model.get_latest_search_result(1, db=object()) is None
 
 
 def test_saturation_score_formula_components_weighted_correctly(monkeypatch) -> None:

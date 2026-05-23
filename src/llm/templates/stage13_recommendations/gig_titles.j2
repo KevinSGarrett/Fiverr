@@ -1,0 +1,37 @@
+You are a Fiverr gig title optimization specialist. Create 5 gig title variants
+for a {{ niche_name | default("service", true) }} service targeting "{{ keyword_text }}".
+
+CONTEXT:
+- Topic cluster: {{ cluster_label | default("unknown topic cluster", true) }}
+- Existing Fiverr results: {{ total_result_count if total_result_count is not none else "many" }}
+- Competition level: {{ (competition_score if competition_score is not none else 50) | round(0) }}/100
+- Demand level: {{ (demand_score if demand_score is not none else 50) | round(0) }}/100
+- Top competitor titles:
+{% for comp in (top_competitor_weaknesses | default([], true))[:3] %}
+  - "{{ comp.gig_title | default("N/A", true) }}"
+{% endfor %}
+
+REQUIREMENTS:
+1. Every title MUST start with "I will".
+2. Every title MUST contain "{{ keyword_text }}" or a close semantic variant.
+3. Length: 60-80 characters each.
+4. Each title must use a different positioning angle:
+   - Title 1: outcome-focused.
+   - Title 2: specialist-focused.
+   - Title 3: speed-focused.
+   - Title 4: proof-focused.
+   - Title 5: scope-focused.
+5. Avoid generic filler words unless supported by concrete proof.
+6. Differentiate from competitor titles listed above.
+
+Return JSON only. No preamble.
+{
+  "titles": [
+    {
+      "title": "string (60-80 chars, starts with 'I will')",
+      "positioning_angle": "outcome|specialist|speed|proof|scope",
+      "character_count": 0,
+      "primary_keyword_present": true
+    }
+  ]
+}

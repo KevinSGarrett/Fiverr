@@ -373,6 +373,50 @@ def _ensure_saturation_scores_table(engine: Engine) -> None:
         )
 
 
+def _ensure_recommendation_columns(engine: Engine) -> None:
+    """Backfill new recommendation columns for legacy SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "recommendations" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("recommendations")}
+    additions = {
+        "run_id_text": "VARCHAR(64)",
+        "niche_id": "VARCHAR(64)",
+        "tag": "VARCHAR(32)",
+        "final_score": "FLOAT",
+        "generation_complete": "BOOLEAN NOT NULL DEFAULT 0",
+        "llm_cost_usd": "FLOAT NOT NULL DEFAULT 0.0",
+        "gig_titles": "JSON",
+        "tag_sets": "JSON",
+        "package_structure": "JSON",
+        "description_outline": "JSON",
+        "faq_entries": "JSON",
+        "differentiation_angle": "JSON",
+        "buyer_persona": "JSON",
+        "thumbnail_direction": "JSON",
+        "upsell_structure": "JSON",
+        "red_flags": "JSON",
+        "niche_viability": "JSON",
+        "generated_at": "DATETIME",
+        "score_at_generation": "FLOAT",
+    }
+
+    with engine.begin() as connection:
+        for column_name, ddl in additions.items():
+            if column_name in existing_columns:
+                continue
+            try:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE recommendations ADD COLUMN {column_name} {ddl}"
+                )
+            except Exception:
+                continue
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -431,6 +475,7 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     _ensure_gig_quality_analyses_table(active_engine)
     _ensure_review_analyses_table(active_engine)
     _ensure_saturation_scores_table(active_engine)
+    _ensure_recommendation_columns(active_engine)
     return active_engine
 
 

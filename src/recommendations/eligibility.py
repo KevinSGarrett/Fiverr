@@ -9,88 +9,90 @@ from typing import Any
 from src.models import (
     CompetitorSnapshot,
     FinalScore,
+    GigQualityScore,
     GigVisualAnalysis,
     Keyword,
+    KeywordScore,
     Recommendation,
     SearchResult,
     get_registered_model_classes,
 )
+from src.recommendations.context_builder import get_confidence_modifier
 
-_TAG_ORDER = ["STRONG_GO", "CONDITIONAL_GO", "MONITOR", "CAUTION", "PASS"]
+_TAG_ORDER = ["STRONG GO", "CONDITIONAL GO", "MONITOR", "CAUTION", "PASS"]
 
 
 def get_eligible_keywords(run_id: str, db: Any, config: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Return keyword rows eligible for recommendation generation."""
-    min_tag = str(config.get("recommendations", {}).get("min_tag", "CONDITIONAL_GO"))
-    eligible_tags = _tags_at_or_above(min_tag)
-    recommendation_flags = config.get("recommendations", {}).get("niches", {})
+    """Return keywords eligible for recommendation generation in this run."""
+    recommendations = config.get("recommendations", {}) if isinstance(config, Mapping) else {}
+    min_tag = str(recommendations.get("min_tag", "CONDITIONAL GO"))
+    eligible_tags = _canonical_tags_at_or_above(min_tag)
+    niche_flags = recommendations.get("niches", {}) if isinstance(recommendations, Mapping) else {}
 
-    ranking_model = _model_by_name("OpportunityRanking")
-    rows: list[Any]
-    if ranking_model is not None:
-        rows = (
-            db.query(ranking_model)
-            .filter(ranking_model.run_id == run_id, ranking_model.tag.in_(eligible_tags))
-            .all()
-        )
-    else:
-        final_score_query = db.query(FinalScore)
-        if str(run_id).isdigit():
-            final_score_query = final_score_query.filter(FinalScore.run_id == int(run_id))
-        fallback_rows = final_score_query.order_by(FinalScore.created_at.desc()).all()
-        latest_by_keyword: dict[int, Any] = {}
-        for row in fallback_rows:
-            keyword_id = int(getattr(row, "keyword_id", 0) or 0)
-            if keyword_id <= 0 or keyword_id in latest_by_keyword:
-                continue
-            latest_by_keyword[keyword_id] = row
-        rows = list(latest_by_keyword.values())
-
+    rows = _load_ranking_rows(run_id=run_id, db=db)
     eligible: list[dict[str, Any]] = []
     for row in rows:
-        keyword_id = int(getattr(row, "keyword_id", 0) or 0)
-        if keyword_id <= 0:
+        keyword_id = _to_optional_int(getattr(row, "keyword_id", None))
+        if keyword_id is None or keyword_id <= 0:
             continue
-        keyword = db.query(Keyword).filter(Keyword.id == keyword_id).first()
+
+        keyword = _query_first(db, Keyword, Keyword.id == keyword_id)
         if keyword is None:
             continue
-        final_score = _to_float(getattr(row, "final_score", None), default=0.0)
-        tag = _normalize_tag(getattr(row, "tag", None) or _extract_tag_from_raw(row))
+
+        tag = _canonical_tag(getattr(row, "tag", None) or _extract_tag_from_raw(row))
         if tag not in eligible_tags:
             continue
-        niche_cfg = recommendation_flags.get(str(keyword.niche_id), {})
-        if isinstance(niche_cfg, Mapping) and niche_cfg.get("recommendation_generation") is False:
+
+        if _is_recommendation_disabled_for_niche(keyword_niche_id=getattr(keyword, "niche_id", None), flags=niche_flags):
             continue
+
+        final_score = _to_float(
+            getattr(row, "final_score", None),
+            default=_to_float(getattr(row, "score_at_generation", None), default=0.0),
+        )
         eligible.append(
             {
-                "keyword_id": keyword.id,
-                "keyword_text": keyword.keyword,
-                "niche_id": keyword.niche_id,
+                "keyword_id": keyword_id,
+                "keyword_text": str(
+                    getattr(keyword, "keyword", None)
+                    or getattr(keyword, "keyword_text", None)
+                    or ""
+                ),
+                "niche_id": getattr(keyword, "niche_id", ""),
                 "tag": tag,
                 "final_score": final_score,
-                "confidence_modifier": _extract_confidence_modifier(row),
-                "force_recommended": bool(_extract_flag(keyword, "force_recommended")),
+                "confidence_modifier": get_confidence_modifier(keyword_id, db),
                 "run_id": run_id,
+                "force_recommended": bool(_extract_flag(keyword, "force_recommended")),
             }
         )
     return eligible
 
 
 def _tags_at_or_above(min_tag: str) -> list[str]:
-    normalized = _normalize_tag(min_tag)
-    if normalized not in _TAG_ORDER:
-        normalized = "CONDITIONAL_GO"
-    idx = _TAG_ORDER.index(normalized)
-    return _TAG_ORDER[: idx + 1]
+    """
+    Return tags at-or-above `min_tag`.
+
+    For compatibility with older underscore tags, the output style matches input style:
+    - "CONDITIONAL GO" -> ["STRONG GO", "CONDITIONAL GO"]
+    - "CONDITIONAL_GO" -> ["STRONG_GO", "CONDITIONAL_GO"]
+    """
+    raw_input = str(min_tag)
+    style_uses_underscore = "_" in raw_input or (" " not in raw_input and raw_input.isupper())
+    tags = _canonical_tags_at_or_above(min_tag)
+    if style_uses_underscore:
+        return [tag.replace(" ", "_") for tag in tags]
+    return tags
 
 
 def passes_recommendation_gates(keyword_data: dict[str, Any], db: Any) -> tuple[bool, str]:
-    """Evaluate recommendation gating checks."""
-    keyword_id = int(keyword_data.get("keyword_id", 0))
-    if keyword_id <= 0:
+    """Evaluate all four recommendation gates defined by the E05 spec."""
+    keyword_id = _to_optional_int(keyword_data.get("keyword_id"))
+    if keyword_id is None or keyword_id <= 0:
         return False, "Invalid keyword id."
 
-    if bool(keyword_data.get("force_recommended")):
+    if bool(keyword_data.get("force_recommended")) or is_keyword_force_recommended(keyword_id, db):
         return True, "User override — forced recommendation"
 
     confidence_modifier = _to_float(keyword_data.get("confidence_modifier"), default=0.0)
@@ -98,7 +100,7 @@ def passes_recommendation_gates(keyword_data: dict[str, Any], db: Any) -> tuple[
         return False, "Confidence modifier below 0.40 — data too unreliable for recommendations"
 
     demand_score = _resolve_demand_score(keyword_id, keyword_data, db)
-    if demand_score is None or demand_score < 20:
+    if demand_score is None or demand_score <= 20:
         return False, "Demand score missing or below 20 — insufficient buyer interest"
 
     if not _has_gig_analysis(keyword_id, db):
@@ -107,56 +109,121 @@ def passes_recommendation_gates(keyword_data: dict[str, Any], db: Any) -> tuple[
     return True, "All gates passed"
 
 
+def is_keyword_force_recommended(keyword_id: int, db: Any) -> bool:
+    """Temporary override stub for user-forced recommendation behavior."""
+    del keyword_id, db
+    return False
+
+
 def should_regenerate_recommendation(keyword_id: int, current_final_score: float, db: Any) -> bool:
-    """Return true when recommendation should be regenerated for this keyword."""
-    existing = (
-        db.query(Recommendation)
-        .filter(Recommendation.keyword_id == keyword_id)
-        .order_by(Recommendation.created_at.desc())
-        .first()
-    )
-    if existing is None:
+    """Return True when a recommendation should be regenerated."""
+    query = _safe_query(db, Recommendation)
+    if query is None:
         return True
 
-    raw = existing.raw_json if isinstance(existing.raw_json, dict) else {}
-    generation_complete = bool(raw.get("generation_complete", True))
-    if not generation_complete:
+    rows = query.filter(Recommendation.keyword_id == keyword_id).order_by(Recommendation.created_at.desc()).all()
+    if not rows:
         return True
 
-    previous_score = _to_float(raw.get("final_score"), default=_to_float(getattr(existing, "confidence", 0.0), 0.0))
-    if abs(current_final_score - previous_score) > 5.0:
+    existing_complete = next((row for row in rows if _is_generation_complete(row)), None)
+    if existing_complete is None:
         return True
 
-    latest_competitor = (
-        db.query(CompetitorSnapshot)
-        .filter(CompetitorSnapshot.keyword_id == keyword_id)
-        .order_by(CompetitorSnapshot.created_at.desc())
-        .first()
-    )
-    existing_time = _coerce_datetime(raw.get("generated_at")) or getattr(existing, "created_at", None)
-    latest_competitor_time = getattr(latest_competitor, "created_at", None)
-    if existing_time is not None and latest_competitor_time is not None and latest_competitor_time > existing_time:
+    previous_score = _extract_recommendation_score(existing_complete)
+    if previous_score is None:
         return True
+
+    if abs(current_final_score - previous_score) >= 5.0:
+        return True
+
+    latest_competitor_analysis = _latest_competitor_analysis_timestamp(keyword_id, db)
+    existing_generated_at = _extract_recommendation_generated_at(existing_complete)
+    if latest_competitor_analysis is not None:
+        if existing_generated_at is None:
+            return True
+        if latest_competitor_analysis > existing_generated_at:
+            return True
 
     return False
 
 
-def _model_by_name(name: str) -> Any | None:
-    for cls in get_registered_model_classes():
-        if cls.__name__ == name:
-            return cls
-    return None
+def _load_ranking_rows(run_id: str, db: Any) -> list[Any]:
+    ranking_model = _model_by_name("OpportunityRanking")
+    if ranking_model is not None:
+        ranking_query = _safe_query(db, ranking_model)
+        if ranking_query is not None:
+            run_column = getattr(ranking_model, "run_id", None)
+            if run_column is not None:
+                ranking_query = ranking_query.filter(run_column == str(run_id))
+            rows = ranking_query.all()
+            if rows:
+                return rows
+
+    final_score_rows = _load_final_score_rows(run_id=run_id, db=db)
+    if final_score_rows:
+        return final_score_rows
+
+    # If FinalScore data exists but no rows were returned for this run, avoid
+    # falling back to unscoped KeywordScore rows from unrelated runs.
+    if _has_any_final_scores(db):
+        return []
+
+    keyword_score_query = _safe_query(db, KeywordScore)
+    if keyword_score_query is not None:
+        keyword_rows = keyword_score_query.order_by(KeywordScore.scored_at.desc()).all()
+        deduped: dict[int, Any] = {}
+        for row in keyword_rows:
+            keyword_id = _to_optional_int(getattr(row, "keyword_id", None))
+            if keyword_id is None or keyword_id in deduped:
+                continue
+            deduped[keyword_id] = row
+        if deduped:
+            return list(deduped.values())
+
+    return []
 
 
-def _normalize_tag(tag: Any) -> str:
-    value = str(tag or "").strip().upper().replace(" ", "_")
-    return value or "MONITOR"
+def _load_final_score_rows(run_id: str, db: Any) -> list[Any]:
+    final_score_query = _safe_query(db, FinalScore)
+    if final_score_query is None:
+        return []
+    if str(run_id).isdigit():
+        final_score_query = final_score_query.filter(FinalScore.run_id == int(run_id))
+
+    final_rows = final_score_query.order_by(FinalScore.created_at.desc()).all()
+    latest: dict[int, Any] = {}
+    for row in final_rows:
+        keyword_id = _to_optional_int(getattr(row, "keyword_id", None))
+        if keyword_id is None or keyword_id in latest:
+            continue
+        latest[keyword_id] = row
+    return list(latest.values())
+
+
+def _has_any_final_scores(db: Any) -> bool:
+    final_score_query = _safe_query(db, FinalScore)
+    if final_score_query is None:
+        return False
+    return final_score_query.first() is not None
+
+
+def _canonical_tags_at_or_above(min_tag: str) -> list[str]:
+    normalized = _canonical_tag(min_tag)
+    if normalized not in _TAG_ORDER:
+        normalized = "CONDITIONAL GO"
+    index = _TAG_ORDER.index(normalized)
+    return _TAG_ORDER[: index + 1]
+
+
+def _canonical_tag(tag: Any) -> str:
+    raw = str(tag or "").strip().upper().replace("_", " ")
+    return raw or "MONITOR"
 
 
 def _extract_tag_from_raw(row: Any) -> str:
     raw = getattr(row, "raw_json", {})
     if isinstance(raw, dict):
-        return _normalize_tag(raw.get("tag"))
+        return _canonical_tag(raw.get("tag"))
     return "MONITOR"
 
 
@@ -167,46 +234,161 @@ def _extract_confidence_modifier(row: Any) -> float:
     return 1.0
 
 
+def _is_recommendation_disabled_for_niche(keyword_niche_id: Any, flags: Any) -> bool:
+    if not isinstance(flags, Mapping):
+        return False
+    niche_flag = flags.get(str(keyword_niche_id), flags.get(keyword_niche_id))
+    return isinstance(niche_flag, Mapping) and niche_flag.get("recommendation_generation") is False
+
+
 def _extract_flag(keyword: Keyword, key: str) -> Any:
-    meta = keyword.metadata_json if isinstance(keyword.metadata_json, dict) else {}
-    return meta.get(key)
+    metadata = keyword.metadata_json if isinstance(keyword.metadata_json, dict) else {}
+    return metadata.get(key)
 
 
 def _resolve_demand_score(keyword_id: int, keyword_data: dict[str, Any], db: Any) -> float | None:
-    if keyword_data.get("demand_score") is not None:
-        return _to_float(keyword_data["demand_score"], default=0.0)
-    keyword_score_model = _model_by_name("KeywordScore")
-    if keyword_score_model is not None:
-        row = db.query(keyword_score_model).filter(keyword_score_model.keyword_id == keyword_id).first()
-        if row is not None:
-            return _to_float(getattr(row, "demand_score", None), default=0.0)
-    final_row = (
-        db.query(FinalScore)
-        .filter(FinalScore.keyword_id == keyword_id)
-        .order_by(FinalScore.created_at.desc())
-        .first()
-    )
-    raw = final_row.raw_json if final_row and isinstance(final_row.raw_json, dict) else {}
-    return _to_float(raw.get("demand_score"), default=0.0) if raw else None
+    explicit_demand = _to_optional_float(keyword_data.get("demand_score"))
+    if explicit_demand is not None:
+        return explicit_demand
+
+    keyword_score_model = _model_by_name("KeywordScore") or KeywordScore
+    keyword_query = _safe_query(db, keyword_score_model)
+    keyword_row = None
+    if keyword_query is not None:
+        keyword_row = keyword_query.filter(keyword_score_model.keyword_id == keyword_id).first()
+    if keyword_row is not None:
+        keyword_score_demand = _to_optional_float(getattr(keyword_row, "demand_score", None))
+        if keyword_score_demand is not None:
+            return keyword_score_demand
+
+    final_row = _query_latest_final_score(keyword_id, db)
+    raw = getattr(final_row, "raw_json", {}) if final_row is not None else {}
+    if isinstance(raw, dict):
+        return _to_optional_float(raw.get("demand_score"))
+    return None
 
 
 def _has_gig_analysis(keyword_id: int, db: Any) -> bool:
-    gig_quality_model = _model_by_name("GigQualityScore")
-    if gig_quality_model is not None:
+    gig_quality_model = _model_by_name("GigQualityScore") or GigQualityScore
+    query = _safe_query(db, gig_quality_model)
+    if query is not None:
         count = (
-            db.query(gig_quality_model)
-            .filter(gig_quality_model.keyword_id == keyword_id, gig_quality_model.analysis_complete.is_(True))
+            query.filter(
+                gig_quality_model.keyword_id == keyword_id,
+                gig_quality_model.analysis_complete.is_(True),
+            )
             .count()
         )
-        return count > 0
-    # Fallback: visual analysis records indicate at least one analyzed gig.
+        if count > 0:
+            return True
+
+    fallback_query = _safe_query(db, GigVisualAnalysis)
+    if fallback_query is None:
+        return False
     count = (
-        db.query(GigVisualAnalysis)
-        .join(SearchResult, SearchResult.gig_id == GigVisualAnalysis.gig_id)
+        fallback_query.join(SearchResult, SearchResult.gig_id == GigVisualAnalysis.gig_id)
         .filter(SearchResult.keyword_id == keyword_id)
         .count()
     )
     return count > 0
+
+
+def _is_generation_complete(row: Any) -> bool:
+    explicit = getattr(row, "generation_complete", None)
+    if isinstance(explicit, bool):
+        return explicit
+    raw = getattr(row, "raw_json", {})
+    if isinstance(raw, dict) and "generation_complete" in raw:
+        return bool(raw.get("generation_complete"))
+    return True
+
+
+def _extract_recommendation_score(row: Any) -> float | None:
+    for value in (
+        getattr(row, "score_at_generation", None),
+        getattr(row, "final_score", None),
+        getattr(row, "confidence", None),
+    ):
+        parsed = _to_optional_float(value)
+        if parsed is not None:
+            return parsed
+
+    raw = getattr(row, "raw_json", {})
+    if isinstance(raw, dict):
+        return _to_optional_float(raw.get("final_score"))
+    return None
+
+
+def _extract_recommendation_generated_at(row: Any) -> datetime | None:
+    generated_at = _coerce_datetime(getattr(row, "generated_at", None))
+    if generated_at is not None:
+        return generated_at
+
+    created_at = _coerce_datetime(getattr(row, "created_at", None))
+    if created_at is not None:
+        return created_at
+
+    raw = getattr(row, "raw_json", {})
+    if isinstance(raw, dict):
+        return _coerce_datetime(raw.get("generated_at"))
+    return None
+
+
+def _latest_competitor_analysis_timestamp(keyword_id: int, db: Any) -> datetime | None:
+    snapshot_model = _model_by_name("CompetitorSnapshot") or CompetitorSnapshot
+    query = _safe_query(db, snapshot_model)
+    if query is None:
+        return None
+
+    keyword_column = getattr(snapshot_model, "keyword_id", None)
+    if keyword_column is not None:
+        query = query.filter(keyword_column == keyword_id)
+
+    created_at_column = getattr(snapshot_model, "created_at", None)
+    if created_at_column is not None:
+        query = query.order_by(created_at_column.desc())
+
+    row = query.first()
+    if row is None:
+        return None
+    return _coerce_datetime(getattr(row, "created_at", None))
+
+
+def _latest_keyword_score(keyword_id: int, db: Any) -> Any | None:
+    query = _safe_query(db, KeywordScore)
+    if query is None:
+        return None
+    return query.filter(KeywordScore.keyword_id == keyword_id).order_by(KeywordScore.scored_at.desc()).first()
+
+
+def _query_latest_final_score(keyword_id: int, db: Any) -> Any | None:
+    query = _safe_query(db, FinalScore)
+    if query is None:
+        return None
+    return query.filter(FinalScore.keyword_id == keyword_id).order_by(FinalScore.created_at.desc()).first()
+
+
+def _query_first(db: Any, model: Any, *predicates: Any) -> Any | None:
+    query = _safe_query(db, model)
+    if query is None:
+        return None
+    for predicate in predicates:
+        query = query.filter(predicate)
+    return query.first()
+
+
+def _safe_query(db: Any, model: Any) -> Any | None:
+    query_fn = getattr(db, "query", None)
+    if query_fn is None:
+        return None
+    return query_fn(model)
+
+
+def _model_by_name(name: str) -> Any | None:
+    for cls in get_registered_model_classes():
+        if cls.__name__ == name:
+            return cls
+    return None
 
 
 def _to_float(value: Any, default: float) -> float:
@@ -214,6 +396,20 @@ def _to_float(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _to_optional_float(value: Any) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_optional_int(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _coerce_datetime(value: Any) -> datetime | None:

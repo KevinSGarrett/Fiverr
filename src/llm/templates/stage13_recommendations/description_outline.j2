@@ -1,0 +1,42 @@
+Create a structured gig description outline for a {{ niche_name | default("service", true) }} Fiverr gig.
+
+KEYWORD: "{{ keyword_text }}"
+TAG: {{ tag }} (Final Score: {{ (final_score if final_score is not none else 0) | round(1) }})
+Topic cluster: {{ cluster_label | default("unknown topic cluster", true) }}
+
+COMPETITOR WEAKNESSES TO EXPLOIT:
+{% for comp in (top_competitor_weaknesses | default([], true))[:3] %}
+{% for weakness in (comp.weaknesses | default([], true))[:2] %}
+- {{ weakness.weakness | default("unspecified weakness", true) }} ({{ weakness.severity | default("MEDIUM", true) }})
+{% endfor %}
+{% endfor %}
+
+BUYER COMPLAINTS FROM COMPETITOR REVIEWS:
+{% for complaint in (top_buyer_complaints | default([], true))[:3] %}
+- {{ complaint }}
+{% endfor %}
+
+HARD EXCLUSIONS:
+{% for excl in hard_exclusions | default([], true) %}
+- {{ excl }}
+{% endfor %}
+
+Create 5-7 description sections. Requirements:
+1. Include these section headings (or clear equivalents): hook, about_service, what_you_get, why_me, cta.
+2. Section 1 must be benefit-led (do not open with a generic seller bio).
+3. Include a "What You Get" section with specific deliverables.
+4. Include a "What's Not Included" section using the hard exclusions above.
+5. Address at least 2 buyer complaints from the list above.
+6. Total estimated word count across all sections should be 400-600 words.
+
+Return JSON only. No preamble.
+{
+  "sections": [
+    {
+      "heading": "string",
+      "copy_direction": "string",
+      "proof_elements": ["proof item"],
+      "estimated_words": 0
+    }
+  ]
+}

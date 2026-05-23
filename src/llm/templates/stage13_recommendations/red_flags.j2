@@ -1,0 +1,29 @@
+Analyze risk factors for a new seller entering "{{ keyword_text }}" in {{ niche_name | default("this niche", true) }}.
+
+SCORES:
+- Demand: {{ (demand_score if demand_score is not none else 50) | round(1) }}/100
+- Competition: {{ (competition_score if competition_score is not none else 50) | round(1) }}/100
+- Opportunity: {{ (opportunity_score if opportunity_score is not none else 50) | round(1) }}/100
+- Feasibility: {{ (feasibility_score if feasibility_score is not none else "N/A") }}/100
+- Trend: {{ (trend_score if trend_score is not none else "N/A") }}/100
+- Confidence: {{ (confidence_modifier if confidence_modifier is not none else 0.5) | round(2) }}
+- Tag: {{ tag }}
+
+COMPETITOR FIELD:
+{{ cluster_synthesis_narrative | default("Not available", true) }}
+
+Identify 3-5 specific risk factors. Avoid generic advice.
+
+Return JSON only. No preamble.
+{
+  "red_flags": [
+    {
+      "flag_type": "string",
+      "description": "string",
+      "severity": "HIGH|MEDIUM|LOW",
+      "mitigation": "string"
+    }
+  ],
+  "overall_risk_level": "LOW|MEDIUM|HIGH",
+  "proceed_recommendation": "string (1-2 sentences)"
+}

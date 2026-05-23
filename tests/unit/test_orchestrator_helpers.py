@@ -385,7 +385,15 @@ def test_run_pipeline_recommendations_only_uses_stage_runner(
     async def _fake_stage(**kwargs: Any) -> dict[str, Any]:
         assert kwargs["run_id"]
         assert kwargs["dry_run"] is True
-        return {"generated": 1, "failed": 0}
+        return {
+            "run_id": kwargs["run_id"],
+            "eligible": 1,
+            "gates_passed": 1,
+            "generated": 1,
+            "skipped": 0,
+            "failed": 0,
+            "total_cost_usd": 0.0,
+        }
 
     monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
@@ -393,7 +401,7 @@ def test_run_pipeline_recommendations_only_uses_stage_runner(
     monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
     monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
     monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
-    monkeypatch.setattr("src.recommendations.run.run_recommendations_stage", _fake_stage)
+    monkeypatch.setattr("src.recommendations.pipeline.run_recommendations_pipeline", _fake_stage)
 
     assert orchestrator.run_pipeline("recommendations-only", config_path="config.yaml", database_url=None) == 0
     assert "Recommendations stage complete" in capsys.readouterr().out

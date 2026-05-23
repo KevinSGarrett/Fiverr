@@ -19,7 +19,6 @@ from src.recommendations.contracts import (
     PackageTier,
     PricingStrategy,
     ProfileOptimization,
-    RecommendationOutput,
     RedFlagsAssessment,
     TagSet,
     ThumbnailDirection,
@@ -30,14 +29,55 @@ from src.recommendations.contracts import (
 from src.recommendations.contracts import (
     RecommendationContext as RecommendationContractContext,
 )
+from src.recommendations.contracts import (
+    RecommendationOutput as ContractRecommendationOutput,
+)
 from src.recommendations.eligibility import (
     get_eligible_keywords,
     passes_recommendation_gates,
     should_regenerate_recommendation,
 )
+from src.recommendations.executor import generate_recommendation
+from src.recommendations.export import (
+    export_recommendation_json,
+    export_recommendation_markdown,
+)
+from src.recommendations.llm_tasks import (
+    task_buyer_persona,
+    task_description_outline,
+    task_differentiation_angle,
+    task_faq_entries,
+    task_gig_titles,
+    task_niche_viability,
+    task_package_structure,
+    task_red_flags,
+    task_tag_sets,
+    task_thumbnail_direction,
+    task_upsell_structure,
+)
 from src.recommendations.orchestrator import RecommendationOrchestrator
+from src.recommendations.pipeline import run_recommendations_pipeline
 from src.recommendations.run import run_recommendations_stage
-from src.recommendations.storage import write_recommendation
+from src.recommendations.schemas import (
+    BuyerPersonaOutput,
+    DescriptionOutlineOutput,
+    DifferentiationAngleOutput,
+    FaqEntriesOutput,
+    GigTitlesOutput,
+    NicheViabilityOutput,
+    PackageStructureOutput,
+    RecommendationOutput,
+    RedFlagsOutput,
+    TagSetsOutput,
+    ThumbnailDirectionOutput,
+    UpsellStructureOutput,
+)
+from src.recommendations.storage import (
+    get_recommendation,
+    run_save_recommendations,
+    save_recommendation,
+    write_recommendation,
+)
 from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
     generate_buyer_persona,
@@ -47,11 +87,13 @@ from src.recommendations.tasks import (
     generate_gig_titles,
     generate_niche_viability,
     generate_package_structure,
-    generate_recommendation,
     generate_red_flags,
     generate_tag_sets,
     generate_thumbnail_direction,
     generate_upsell_structure,
+)
+from src.recommendations.tasks import (
+    generate_recommendation as generate_recommendation_legacy,
 )
 
 __all__ = [
@@ -70,6 +112,8 @@ __all__ = [
     "RecommendationContext",
     "RecommendationOrchestrator",
     "run_recommendations_stage",
+    "run_recommendations_pipeline",
+    "ContractRecommendationOutput",
     "RecommendationOutput",
     "TagSet",
     "ThumbnailDirection",
@@ -82,6 +126,11 @@ __all__ = [
     "passes_recommendation_gates",
     "should_regenerate_recommendation",
     "write_recommendation",
+    "save_recommendation",
+    "get_recommendation",
+    "run_save_recommendations",
+    "export_recommendation_markdown",
+    "export_recommendation_json",
     "RECOMMENDATION_FIELD_NAMES",
     "generate_gig_titles",
     "generate_tag_sets",
@@ -95,4 +144,27 @@ __all__ = [
     "generate_red_flags",
     "generate_niche_viability",
     "generate_recommendation",
+    "generate_recommendation_legacy",
+    "GigTitlesOutput",
+    "TagSetsOutput",
+    "PackageStructureOutput",
+    "DescriptionOutlineOutput",
+    "FaqEntriesOutput",
+    "DifferentiationAngleOutput",
+    "BuyerPersonaOutput",
+    "ThumbnailDirectionOutput",
+    "UpsellStructureOutput",
+    "RedFlagsOutput",
+    "NicheViabilityOutput",
+    "task_gig_titles",
+    "task_tag_sets",
+    "task_package_structure",
+    "task_description_outline",
+    "task_faq_entries",
+    "task_differentiation_angle",
+    "task_buyer_persona",
+    "task_thumbnail_direction",
+    "task_upsell_structure",
+    "task_red_flags",
+    "task_niche_viability",
 ]
