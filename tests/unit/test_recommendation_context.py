@@ -17,6 +17,7 @@ from src.models import (
     Recommendation,
     SearchResult,
 )
+from src.recommendations import context_builder
 from src.recommendations.context_builder import (
     build_recommendation_context,
     get_confidence_modifier,
@@ -144,6 +145,17 @@ def test_build_context_falls_back_to_final_score_when_keyword_score_missing() ->
     assert context.saturation_score == 33.0
     assert context.confidence_modifier == 0.66
     db.close()
+
+
+def test_extract_tag_from_final_score_returns_none_for_non_mapping_raw_json() -> None:
+    row = type("FinalScoreRow", (), {"raw_json": "not-a-dict"})()
+    assert context_builder._extract_tag_from_final_score(row) is None
+
+
+def test_resolve_score_metric_returns_none_without_final_score_data() -> None:
+    row = type("FinalScoreRow", (), {"raw_json": "invalid"})()
+    assert context_builder._resolve_score_metric(None, None, "demand_score") is None
+    assert context_builder._resolve_score_metric(None, row, "demand_score") is None
 
 
 def test_build_context_includes_cluster_data() -> None:

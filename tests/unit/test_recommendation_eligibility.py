@@ -136,6 +136,44 @@ def test_get_eligible_keywords_skips_keyword_score_fallback_when_final_scores_ex
     db.close()
 
 
+def test_load_ranking_rows_prefers_run_scoped_opportunity_rows_when_present(monkeypatch) -> None:
+    class _RunColumn:
+        def __eq__(self, other: object) -> tuple[str, object]:
+            return ("run_id_eq", other)
+
+    class _RankingModel:
+        run_id = _RunColumn()
+
+    class _Query:
+        def __init__(self) -> None:
+            self.filters: list[tuple[str, object]] = []
+            self.rows = [object()]
+
+        def filter(self, predicate: tuple[str, object]) -> _Query:
+            self.filters.append(predicate)
+            return self
+
+        def all(self) -> list[object]:
+            return self.rows
+
+    query = _Query()
+    monkeypatch.setattr(
+        eligibility,
+        "_model_by_name",
+        lambda name: _RankingModel if name == "OpportunityRanking" else None,
+    )
+    monkeypatch.setattr(
+        eligibility,
+        "_safe_query",
+        lambda _db, model: query if model is _RankingModel else None,
+    )
+
+    rows = eligibility._load_ranking_rows("run-123", db=object())
+
+    assert rows == query.rows
+    assert query.filters == [("run_id_eq", "run-123")]
+
+
 def test_gate1_fails_low_confidence() -> None:
     db = _session()
     _seed_keyword_with_score(db, keyword_id=101, demand_score=60.0)
