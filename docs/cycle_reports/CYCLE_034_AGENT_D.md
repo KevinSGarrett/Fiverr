@@ -120,8 +120,8 @@ Canonical final command:
 
 Final canonical metrics:
 
-- Total tests: `2362 passed`
-- Global coverage: `94.79%`
+- Total tests: `2368 passed`
+- Global coverage: `94.86%`
 - Coverage gate: PASS
 - Recommendation modules: all `>=90%` (see table above)
 
@@ -245,9 +245,9 @@ Included:
 MERGE GATE CHECKLIST - Cycle 034 PR #41
 ==========================================
 CODECOV:
-- [x] codecov/project: PASS - 94.79%
+- [x] codecov/project: PASS - 94.86%
 - [x] codecov/patch: PASS - 95.21% (>= 90%)
-- [x] Local `--cov-fail-under=90`: PASS (94.79%)
+- [x] Local `--cov-fail-under=90`: PASS (94.86%)
 - [x] All new lines covered by tests: YES
   - If NO, uncovered files: N/A
 
@@ -279,7 +279,7 @@ Final statement: PR #41 is ready to merge when approved.
 ## Canonical Final Test Count / Coverage
 
 - Baseline unit sweep (Task 1): `1 failed, 2272 passed` (blocker fixed)
-- Final canonical run (Task 5): `2362 passed`, global coverage `94.79%`
+- Final canonical run (Task 5): `2368 passed`, global coverage `94.86%`
 
 ## Cycle 035 Reminder
 
@@ -287,4 +287,4 @@ Cycle 035 is the next 5-cycle periodic deep branch cleanup boundary per R-091. C
 
 ## Final SHA
 
-- `94fd08413304157617a2a8f83baf72a2060d0fec`
+- Task 12 freeze SHA: `94fd08413304157617a2a8f83baf72a2060d0fec`
