@@ -360,6 +360,28 @@ def test_save_recommendation_rolls_back_on_commit_failure(monkeypatch: pytest.Mo
     db.close()
 
 
+def test_save_recommendation_swallow_rollback_error_and_re_raise_commit_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db = _session()
+    _seed_keyword(db, 402)
+    context = _context(402, "run-rollback-failure")
+    output = _full_output()
+
+    def _raise_commit() -> None:
+        raise RuntimeError("commit failed")
+
+    def _raise_rollback() -> None:
+        raise RuntimeError("rollback failed")
+
+    monkeypatch.setattr(db, "commit", _raise_commit)
+    monkeypatch.setattr(db, "rollback", _raise_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        save_recommendation(context=context, output=output, db=db)
+    db.close()
+
+
 def test_run_save_recommendations_counts_failed_when_save_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     context = _context(501, "run-save-fail")
     output = _full_output()
@@ -445,6 +467,7 @@ def test_storage_helper_branches_cover_fallback_paths() -> None:
     now = datetime.now(UTC)
     assert storage._coerce_datetime(now) is now
     assert storage._coerce_datetime("not-a-date") is None
+    assert storage._coerce_datetime(123) is None
     assert storage._safe_query(SimpleNamespace(), Recommendation) is None
     assert (
         storage._safe_query(
