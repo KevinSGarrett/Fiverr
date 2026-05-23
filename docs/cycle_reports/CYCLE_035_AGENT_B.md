@@ -124,6 +124,7 @@ Gap status:
 - Additional bypass experiments:
   - headed Playwright + stealth plugin (`playwright-stealth`)
   - session-backed and non-session-backed browser contexts
+  - HTTP browser-fingerprint client (`curl-cffi`, Chrome impersonation)
   - MCP browser-run checks against the same URLs
   - result: PXCR challenge persisted across all reproducible attempts
 

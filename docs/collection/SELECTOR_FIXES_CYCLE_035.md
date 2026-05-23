@@ -22,6 +22,8 @@ No selector values were updated because every tested Fiverr page returned a Peri
 | Stage 4 — Gig Detail (direct URL test) | `https://www.fiverr.com/pastorwillrice/voice-and-produce-a-professional-intro-for-your-podcast` | `GIG_DETAIL_TITLE`, `GIG_DETAIL_DESCRIPTION`, `GIG_DETAIL_RATING`, `GIG_DETAIL_REVIEW_COUNT` | `PXCR` block page; all selectors returned 0 nodes |
 | Stage 4 — Gig Detail (direct URL test) | `https://www.fiverr.com/bashir_expert1/migrate-move-transfer-or-backup-wordpress-site-super-fast` | `GIG_DETAIL_TITLE`, `GIG_DETAIL_DESCRIPTION`, `GIG_DETAIL_RATING`, `GIG_DETAIL_REVIEW_COUNT` | `PXCR` block page; all selectors returned 0 nodes |
 | Stage 8 — Autocomplete | `https://www.fiverr.com/search/gigs?query=ai%20customer%20support%20knowledge%20base` | `SEARCH_BOX`, `AUTOCOMPLETE_ITEM`, `AUTOCOMPLETE_ITEM_TEXT` | `PXCR` block page; 0 suggestions collected |
+| Additional diagnostics — HTTP impersonation (`curl-cffi`) | Search and gig detail URLs above | Stage 3/4 selectors listed above | HTTP 403 with `PXCR` content; confirms block is not specific to Playwright-only requests |
+| Additional diagnostics — MCP browser check | `https://www.fiverr.com/search/gigs?query=logo%20design` | `GIG_CARD_CONTAINER`, `GIG_CARD_LINK`, `GIG_CARD_PRICE` | Browser snapshot title `It needs a human touch`; no scrapeable gig-card DOM exposed |
 
 ## Next validation attempt requirements
 
