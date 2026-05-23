@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from src.models import (
+    CompetitorSnapshot,
     FinalScore,
     GigQualityScore,
     GigVisualAnalysis,
@@ -132,7 +133,18 @@ def should_regenerate_recommendation(keyword_id: int, current_final_score: float
     if previous_score is None:
         return True
 
-    return abs(current_final_score - previous_score) >= 5.0
+    if abs(current_final_score - previous_score) >= 5.0:
+        return True
+
+    latest_competitor_analysis = _latest_competitor_analysis_timestamp(keyword_id, db)
+    existing_generated_at = _extract_recommendation_generated_at(existing_complete)
+    if latest_competitor_analysis is not None:
+        if existing_generated_at is None:
+            return True
+        if latest_competitor_analysis > existing_generated_at:
+            return True
+
+    return False
 
 
 def _load_ranking_rows(run_id: str, db: Any) -> list[Any]:
@@ -284,6 +296,41 @@ def _extract_recommendation_score(row: Any) -> float | None:
     if isinstance(raw, dict):
         return _to_optional_float(raw.get("final_score"))
     return None
+
+
+def _extract_recommendation_generated_at(row: Any) -> datetime | None:
+    generated_at = _coerce_datetime(getattr(row, "generated_at", None))
+    if generated_at is not None:
+        return generated_at
+
+    created_at = _coerce_datetime(getattr(row, "created_at", None))
+    if created_at is not None:
+        return created_at
+
+    raw = getattr(row, "raw_json", {})
+    if isinstance(raw, dict):
+        return _coerce_datetime(raw.get("generated_at"))
+    return None
+
+
+def _latest_competitor_analysis_timestamp(keyword_id: int, db: Any) -> datetime | None:
+    snapshot_model = _model_by_name("CompetitorSnapshot") or CompetitorSnapshot
+    query = _safe_query(db, snapshot_model)
+    if query is None:
+        return None
+
+    keyword_column = getattr(snapshot_model, "keyword_id", None)
+    if keyword_column is not None:
+        query = query.filter(keyword_column == keyword_id)
+
+    created_at_column = getattr(snapshot_model, "created_at", None)
+    if created_at_column is not None:
+        query = query.order_by(created_at_column.desc())
+
+    row = query.first()
+    if row is None:
+        return None
+    return _coerce_datetime(getattr(row, "created_at", None))
 
 
 def _latest_keyword_score(keyword_id: int, db: Any) -> Any | None:

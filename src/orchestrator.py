@@ -389,14 +389,14 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
     engine = initialize_database(database_url=normalized_url)
 
     if mode == "recommendations-only":
-        from src.recommendations.run import run_recommendations_stage
+        from src.recommendations.pipeline import run_recommendations_pipeline
 
         run_id = timestamp_stamp()
         try:
             session_factory = create_session_factory(engine)
             with get_session(session_factory) as db_session:
                 result = asyncio.run(
-                    run_recommendations_stage(
+                    run_recommendations_pipeline(
                         run_id=run_id,
                         db=db_session,
                         config=config_payload,

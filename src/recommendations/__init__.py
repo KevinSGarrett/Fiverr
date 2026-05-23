@@ -37,6 +37,7 @@ from src.recommendations.eligibility import (
     passes_recommendation_gates,
     should_regenerate_recommendation,
 )
+from src.recommendations.executor import generate_recommendation
 from src.recommendations.export import (
     export_recommendation_json,
     export_recommendation_markdown,
@@ -55,6 +56,7 @@ from src.recommendations.llm_tasks import (
     task_upsell_structure,
 )
 from src.recommendations.orchestrator import RecommendationOrchestrator
+from src.recommendations.pipeline import run_recommendations_pipeline
 from src.recommendations.run import run_recommendations_stage
 from src.recommendations.schemas import (
     BuyerPersonaOutput,
@@ -85,11 +87,13 @@ from src.recommendations.tasks import (
     generate_gig_titles,
     generate_niche_viability,
     generate_package_structure,
-    generate_recommendation,
     generate_red_flags,
     generate_tag_sets,
     generate_thumbnail_direction,
     generate_upsell_structure,
+)
+from src.recommendations.tasks import (
+    generate_recommendation as generate_recommendation_legacy,
 )
 
 __all__ = [
@@ -108,6 +112,7 @@ __all__ = [
     "RecommendationContext",
     "RecommendationOrchestrator",
     "run_recommendations_stage",
+    "run_recommendations_pipeline",
     "ContractRecommendationOutput",
     "RecommendationOutput",
     "TagSet",
@@ -139,6 +144,7 @@ __all__ = [
     "generate_red_flags",
     "generate_niche_viability",
     "generate_recommendation",
+    "generate_recommendation_legacy",
     "GigTitlesOutput",
     "TagSetsOutput",
     "PackageStructureOutput",
