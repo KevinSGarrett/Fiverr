@@ -34,6 +34,83 @@ def test_logging_filter_redacts_api_key_patterns() -> None:
     assert "[REDACTED" in message
 
 
+def test_logging_filter_redacts_tuple_args() -> None:
+    filt = RedactingFilter()
+    record = logging.LogRecord(
+        name="tuple-args",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="token=%s other=%s",
+        args=("sk-abc123def456ghi789", "api_key=tuple_secret_1234"),
+        exc_info=None,
+    )
+
+    filt.filter(record)
+    assert isinstance(record.args, tuple)
+    assert "sk-abc123def456ghi789" not in str(record.args[0])
+    assert "tuple_secret_1234" not in str(record.args[1])
+    assert "[REDACTED" in str(record.args[1])
+
+
+def test_logging_filter_redacts_dict_args() -> None:
+    filt = RedactingFilter()
+    record = logging.LogRecord(
+        name="dict-args",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="token=%(token)s",
+        args=({"token": "api_key=dict_secret_1234"},),
+        exc_info=None,
+    )
+
+    filt.filter(record)
+    assert isinstance(record.args, dict)
+    assert "dict_secret_1234" not in str(record.args["token"])
+    assert "[REDACTED]" in str(record.args["token"])
+
+
+def test_logging_filter_leaves_list_args_unchanged() -> None:
+    filt = RedactingFilter()
+    original_args = ["api_key=list_secret_1234"]
+    record = logging.LogRecord(
+        name="list-args",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="token sk-abc123def456ghi789",
+        args=(),
+        exc_info=None,
+    )
+    record.args = original_args
+
+    filt.filter(record)
+    assert record.args is original_args
+    assert "list_secret_1234" in str(record.args[0])
+    assert "sk-abc123def456ghi789" not in str(record.msg)
+
+
+def test_configure_logging_adds_redacting_filter_and_debug_level() -> None:
+    from src.utils.logging import configure_logging
+
+    configure_logging(log_level="debug", redact_secrets=True)
+    root_logger = logging.getLogger()
+    assert root_logger.level == logging.DEBUG
+    assert len(root_logger.handlers) == 1
+    assert any(isinstance(filt, RedactingFilter) for filt in root_logger.handlers[0].filters)
+
+
+def test_configure_logging_uses_info_for_invalid_level_without_redaction() -> None:
+    from src.utils.logging import configure_logging
+
+    configure_logging(log_level="not-a-level", redact_secrets=False)
+    root_logger = logging.getLogger()
+    assert root_logger.level == logging.INFO
+    assert len(root_logger.handlers) == 1
+    assert all(not isinstance(filt, RedactingFilter) for filt in root_logger.handlers[0].filters)
+
+
 def test_ensure_dir_creates_nested_directory(tmp_path: Path) -> None:
     nested = tmp_path / "one" / "two" / "three"
     resolved = ensure_dir(nested)

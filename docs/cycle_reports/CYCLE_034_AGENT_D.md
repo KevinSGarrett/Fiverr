@@ -138,6 +138,34 @@ Final canonical metrics:
   - `src/collection/orchestrator.py` has no `stage14_recommendations`
   - Documented status: Stage 14 recommendations remains standalone post-export DoD phase
 
+## Task 15 - Optional Best-Effort Coverage Improvement
+
+Task 15.1 term-missing checks for pre-existing low-coverage modules:
+
+- `src/collection/safety.py`: 40% (`23-31`)
+- `src/utils/logging.py`: 55% (`27-31, 37-48`) baseline before Task 15.2 additions
+- `src/collection/playwright_check.py`: 50% (`14-28`)
+- `src/utils/json.py`: 69% (`11-14`)
+
+Task 15.2 module selected for improvement: `src/utils/logging.py` (preferred target).
+
+Added targeted gap tests in `tests/unit/test_utils.py`:
+
+- `test_logging_filter_redacts_tuple_args`
+- `test_logging_filter_redacts_dict_args`
+- `test_logging_filter_leaves_list_args_unchanged`
+- `test_configure_logging_adds_redacting_filter_and_debug_level`
+- `test_configure_logging_uses_info_for_invalid_level_without_redaction`
+
+Targeted verification:
+
+- `pytest -q --cov=src.utils.logging --cov-report=term-missing --cov-fail-under=0 tests/unit/test_utils.py --no-header`
+- Result: `src/utils/logging.py` improved from `55%` to `100%`.
+
+Task 15.3 respected: recommendation-module coverage work remained intact and unchanged.
+
+Task 15.4: improvement documented in this report.
+
 ## Task 7 - Jira Reconciliation
 
 Reconciliation query confirmed:
@@ -192,7 +220,7 @@ Result: all threads dispositioned and `isResolved=true`.
 
 ## Task 12 - SHA Freeze and Artifact Hygiene
 
-- `git rev-parse origin/cycle/034/integration` -> `23d03d3a3758b671153585cb9eb1b4a35deb6a5c`
+- `git rev-parse origin/cycle/034/integration` -> `94fd08413304157617a2a8f83baf72a2060d0fec`
 - Confirmed all cycle reports present:
   - `docs/cycle_reports/CYCLE_034_AGENT_A.md`
   - `docs/cycle_reports/CYCLE_034_AGENT_B.md`
@@ -259,4 +287,4 @@ Cycle 035 is the next 5-cycle periodic deep branch cleanup boundary per R-091. C
 
 ## Final SHA
 
-- `23d03d3a3758b671153585cb9eb1b4a35deb6a5c`
+- `94fd08413304157617a2a8f83baf72a2060d0fec`
