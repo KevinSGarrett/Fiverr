@@ -1,0 +1,15 @@
+Provide thumbnail creative direction for a {{ niche_name | default("service", true) }} Fiverr gig: "{{ keyword_text }}".
+
+Competitor thumbnail distribution:
+{% for class_name, count in (thumbnail_class_distribution | default({}, true)).items() %}
+- {{ class_name }}: {{ count }} gigs
+{% endfor %}
+
+Return JSON only. No preamble.
+{
+  "concept": "string (1-2 sentence visual concept)",
+  "style": "string (color scheme and aesthetic)",
+  "elements_to_include": ["list of 3-4 visual elements"],
+  "elements_to_avoid": ["list of 2-3 things to avoid"],
+  "differentiation_note": "string"
+}

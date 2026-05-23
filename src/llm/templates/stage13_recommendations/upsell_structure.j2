@@ -1,0 +1,20 @@
+Design exactly 3 gig extras (upsells) for a {{ niche_name | default("service", true) }} gig in the
+$ {{ starter_price_basic }}-$ {{ starter_price_premium }} baseline range.
+
+Competitor extras observed:
+{% for extra in (competitor_extras | default([], true))[:10] %}
+- {{ extra.name | default("extra", true) }}: ${{ extra.price | default("N/A", true) }}
+{% endfor %}
+
+Each extra should mention any key order requirement inside the description sentence.
+
+Return JSON only. No preamble.
+{
+  "extras": [
+    {
+      "name": "string (2-5 words)",
+      "price": 0,
+      "description": "string (one sentence including relevant order requirement)"
+    }
+  ]
+}

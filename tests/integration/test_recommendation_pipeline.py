@@ -19,7 +19,10 @@ from src.models import (
 )
 from src.recommendations.context_builder import build_recommendation_context
 from src.recommendations.contracts import RecommendationContext
-from src.recommendations.eligibility import passes_recommendation_gates
+from src.recommendations.eligibility import (
+    passes_recommendation_gates,
+    should_regenerate_recommendation,
+)
 from src.recommendations.schemas import (
     BuyerPersonaOutput,
     DescriptionOutlineOutput,
@@ -34,6 +37,7 @@ from src.recommendations.schemas import (
     ThumbnailDirectionOutput,
     UpsellStructureOutput,
 )
+from src.recommendations.storage import get_recommendation, save_recommendation
 
 
 def _session() -> Session:
@@ -360,3 +364,114 @@ def test_recommendation_pipeline_full_mock_llm_task_run() -> None:
     output = RecommendationOutput.model_validate(task_results)
     assert output.generation_complete is True
 
+
+def test_recommendation_pipeline_full_mock_save_and_load() -> None:
+    db = _session()
+    db.add(Niche(id=1, slug="automation", name="Automation", category_path="programming-tech/automation"))
+    db.add(
+        Keyword(
+            id=202,
+            niche_id=1,
+            keyword="python automation assistant",
+            normalized_keyword="python automation assistant",
+        )
+    )
+    db.add(
+        KeywordScore(
+            keyword_id=202,
+            scoring_profile="default",
+            score_depth="standard",
+            demand_score=73.0,
+            competition_score=44.0,
+            opportunity_score=71.0,
+            feasibility_score=65.0,
+            saturation_score=38.0,
+            final_score=80.0,
+            confidence_modifier=0.86,
+            tag="STRONG GO",
+        )
+    )
+    db.add(ClusterAssignment(keyword_id=202, niche_id="1", cluster_id=5, run_id="run-int-save"))
+    db.add(
+        ClusterLabel(
+            niche_id="1",
+            cluster_id=5,
+            run_id="run-int-save",
+            label_text="Automation Assistants",
+            keyword_count=11,
+        )
+    )
+    db.add(
+        CompetitorProfile(
+            niche_id="1",
+            run_id="run-int-save",
+            top_gig_count=5,
+            new_seller_gap={
+                "top_competitor_weaknesses": [
+                    {"gig_title": "I will automate operations", "weaknesses": [{"weakness": "slow communication"}]}
+                ]
+            },
+        )
+    )
+    db.add(
+        GigQualityScore(
+            keyword_id=202,
+            gig_url="https://fiverr.com/gig/202",
+            run_id="run-int-save",
+            analysis_complete=True,
+        )
+    )
+    db.commit()
+
+    context = build_recommendation_context(keyword_id=202, niche_id="1", run_id="run-int-save", db=db)
+    assert context is not None
+
+    passes, reason = passes_recommendation_gates(
+        {
+            "keyword_id": context.keyword_id,
+            "confidence_modifier": context.confidence_modifier,
+            "demand_score": context.demand_score,
+        },
+        db,
+    )
+    assert passes is True
+    assert reason == "All gates passed"
+    assert should_regenerate_recommendation(context.keyword_id, context.final_score, db) is True
+
+    mocked = _mocked_output_models()
+    task_mocks = {name: AsyncMock(return_value=model) for name, model in mocked.items()}
+
+    async def _run_all() -> dict[str, object]:
+        return {
+            "gig_titles": await task_mocks["gig_titles"](context, None, None),
+            "tag_sets": await task_mocks["tag_sets"](context, None, None),
+            "package_structure": await task_mocks["package_structure"](context, None, None),
+            "description_outline": await task_mocks["description_outline"](context, None, None),
+            "faq_entries": await task_mocks["faq_entries"](context, None, None),
+            "differentiation_angle": await task_mocks["differentiation_angle"](context, None, None),
+            "buyer_persona": await task_mocks["buyer_persona"](context, None, None),
+            "thumbnail_direction": await task_mocks["thumbnail_direction"](context, None, None),
+            "upsell_structure": await task_mocks["upsell_structure"](context, None, None),
+            "red_flags": await task_mocks["red_flags"](context, None, None),
+            "niche_viability": await task_mocks["niche_viability"](context, None, None),
+        }
+
+    task_results = asyncio.run(_run_all())
+    output = RecommendationOutput.model_validate(
+        {
+            **task_results,
+            "generation_complete": True,
+            "total_llm_cost_usd": 0.11,
+        }
+    )
+
+    recommendation_id = save_recommendation(context=context, output=output, db=db)
+    assert recommendation_id
+
+    loaded = get_recommendation(keyword_id=context.keyword_id, db=db)
+    assert loaded is not None
+    assert loaded.generation_complete is True
+    assert loaded.total_llm_cost_usd == 0.11
+    assert loaded.gig_titles is not None
+    assert loaded.niche_viability is not None
+    db.close()

@@ -37,6 +37,10 @@ from src.recommendations.eligibility import (
     passes_recommendation_gates,
     should_regenerate_recommendation,
 )
+from src.recommendations.export import (
+    export_recommendation_json,
+    export_recommendation_markdown,
+)
 from src.recommendations.llm_tasks import (
     task_buyer_persona,
     task_description_outline,
@@ -66,7 +70,12 @@ from src.recommendations.schemas import (
     ThumbnailDirectionOutput,
     UpsellStructureOutput,
 )
-from src.recommendations.storage import write_recommendation
+from src.recommendations.storage import (
+    get_recommendation,
+    run_save_recommendations,
+    save_recommendation,
+    write_recommendation,
+)
 from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
     generate_buyer_persona,
@@ -112,6 +121,11 @@ __all__ = [
     "passes_recommendation_gates",
     "should_regenerate_recommendation",
     "write_recommendation",
+    "save_recommendation",
+    "get_recommendation",
+    "run_save_recommendations",
+    "export_recommendation_markdown",
+    "export_recommendation_json",
     "RECOMMENDATION_FIELD_NAMES",
     "generate_gig_titles",
     "generate_tag_sets",

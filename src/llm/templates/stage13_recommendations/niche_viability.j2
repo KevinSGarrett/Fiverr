@@ -1,0 +1,41 @@
+Write a strategic niche viability assessment for "{{ keyword_text }}" in {{ niche_name | default("this niche", true) }}.
+
+TAG: {{ tag }}
+FINAL SCORE: {{ (final_score if final_score is not none else 0) | round(1) }}/100
+Topic cluster: {{ cluster_label | default("unknown topic cluster", true) }}
+
+ALL SCORES:
+- Demand: {{ (demand_score if demand_score is not none else "N/A") }}/100
+- Competition: {{ (competition_score if competition_score is not none else "N/A") }}/100 (lower = weaker competition)
+- Opportunity: {{ (opportunity_score if opportunity_score is not none else "N/A") }}/100
+- Feasibility: {{ (feasibility_score if feasibility_score is not none else "N/A") }}/100
+- Profitability: {{ (profitability_score if profitability_score is not none else "N/A") }}/100
+- Weakness: {{ (weakness_score if weakness_score is not none else "N/A") }}/100 (higher = more exploitable)
+- Trend: {{ (trend_score if trend_score is not none else "N/A") }}/100
+- Saturation: {{ (saturation_score if saturation_score is not none else "N/A") }}/100 (lower = less saturated)
+
+COMPETITIVE LANDSCAPE:
+{{ cluster_synthesis_narrative | default("Not available", true) }}
+
+OPPORTUNITY CONTEXT:
+{{ opportunity_narrative | default("Not available", true) }}
+
+{% if tag == "STRONG GO" %}
+Frame this as an actionable opportunity and include what to do now.
+{% else %}
+Frame this as a conditional opportunity and describe prerequisites before acting.
+{% endif %}
+
+Write a 100-300 word strategic assessment covering:
+1. Why this opportunity exists now (reference score values).
+2. Timing considerations.
+3. Primary risk and mitigation.
+4. Blunt recommendation: enter now / prepare first / avoid.
+
+Return JSON only. No preamble.
+{
+  "viability_assessment": "string (100-300 words)",
+  "timing_assessment": "string (1-2 sentences)",
+  "risk_summary": "string (1-2 sentences)",
+  "blunt_recommendation": "string (1 sentence)"
+}

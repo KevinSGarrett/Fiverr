@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 _MODEL_NAME = "gpt-4o-mini"
 _FENCED_BLOCK_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.IGNORECASE | re.DOTALL)
 _DEFAULT_PROMPT_FIELDS: dict[str, Any] = {
+    "cluster_label": "unknown topic cluster",
+    "cluster_size": 0,
     "total_result_count": None,
     "starter_price_basic": 0,
     "starter_price_standard": 0,
@@ -214,6 +216,8 @@ def context_to_dict(context: RecommendationContext) -> dict[str, Any]:
     template_context: dict[str, Any] = {
         "niche_name": getattr(context, "niche_name", "") or "",
         "keyword_text": getattr(context, "keyword_text", "") or "",
+        "cluster_label": getattr(context, "cluster_label", None),
+        "cluster_size": getattr(context, "cluster_size", None),
         "tag": getattr(context, "tag", "MONITOR") or "MONITOR",
         "final_score": _coerce_float(getattr(context, "final_score", 0.0)) or 0.0,
         "confidence_modifier": _coerce_float(getattr(context, "confidence_modifier", 0.0)) or 0.0,

@@ -1,0 +1,24 @@
+Generate 5 tag set options for a Fiverr gig in the {{ niche_name | default("service", true) }} niche.
+Primary keyword: "{{ keyword_text }}"
+Topic cluster: {{ cluster_label | default("unknown topic cluster", true) }}
+
+Each set must have exactly 5 tags. Tags must be 2-25 characters each.
+
+Competitor tags observed:
+{% for comp in (top_competitor_weaknesses | default([], true))[:5] %}
+{% if comp.tags %}  - {{ comp.tags | join(", ") }}{% endif %}
+{% endfor %}
+
+Create 5 sets with different angles:
+Set 1: Service-type focused
+Set 2: Deliverable-type focused
+Set 3: Buyer-type focused
+Set 4: Tool/technology focused
+Set 5: Industry/use-case focused
+
+Return JSON only. No preamble.
+{
+  "tag_sets": [
+    ["tag1", "tag2", "tag3", "tag4", "tag5"]
+  ]
+}

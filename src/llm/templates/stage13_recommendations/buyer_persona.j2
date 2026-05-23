@@ -1,0 +1,21 @@
+Create a buyer persona for someone searching "{{ keyword_text }}" on Fiverr in {{ niche_name | default("this niche", true) }}.
+
+DEMAND SIGNALS:
+- Fiverr results: {{ total_result_count if total_result_count is not none else "many" }}
+- Google Trends direction: {{ trends_slope | default("unknown", true) }}
+- Reddit demand intent: {{ reddit_intent_score if reddit_intent_score is not none else "unknown" }}/10
+{% if top_buyer_praise | default([], true) %}
+- What buyers praise in reviews: {{ (top_buyer_praise | default([], true)) | join(", ") }}
+{% endif %}
+
+Return JSON only. No preamble.
+{
+  "name": "string",
+  "role": "string",
+  "company_stage": "string",
+  "pain_points": ["list of 3-4 pain points"],
+  "budget_range": "string ($X-$Y)",
+  "decision_trigger": "string",
+  "where_they_search": "string",
+  "what_makes_them_buy": "string"
+}

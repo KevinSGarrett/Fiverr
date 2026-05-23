@@ -1,0 +1,42 @@
+You are a Fiverr competitive positioning strategist. Create a differentiation
+angle for a new seller entering the "{{ keyword_text }}" market in {{ niche_name | default("this niche", true) }}.
+
+TOP COMPETITOR WEAKNESSES (from gig quality analysis):
+{% for comp in (top_competitor_weaknesses | default([], true))[:5] %}
+{{ loop.index }}. "{{ comp.gig_title | default("Competitor listing", true) }}" - Weaknesses:
+{% for weakness in comp.weaknesses | default([], true) %}
+   - {{ weakness.weakness | default("unspecified", true) }} ({{ weakness.severity | default("MEDIUM", true) }}): {{ weakness.description | default("No description provided", true) }}
+{% endfor %}
+{% endfor %}
+
+BUYER COMPLAINTS FROM COMPETITOR REVIEWS:
+{% for complaint in top_buyer_complaints | default([], true) %}
+- {{ complaint }}
+{% endfor %}
+
+POSITIONING GAPS IDENTIFIED:
+{% for gap in positioning_gaps | default([], true) %}
+- {{ gap.gap | default("gap", true) }}: {{ gap.evidence | default("no evidence supplied", true) }}
+{% endfor %}
+
+COMPETITIVE LANDSCAPE SYNTHESIS:
+{{ cluster_synthesis_narrative | default("Not available", true) }}
+
+Create a specific evidence-based differentiation strategy. Requirements:
+1. Reference concrete competitor weaknesses.
+2. Connect each weakness to a buyer pain point.
+3. Provide 3-5 tactical actions.
+4. Positioning statement must be 100-200 words.
+
+Return JSON only. No preamble.
+{
+  "positioning_statement": "string (100-200 words)",
+  "differentiators": [
+    {
+      "action": "...",
+      "competitor_weakness_exploited": "...",
+      "buyer_pain_addressed": "..."
+    }
+  ],
+  "one_sentence_pitch": "string"
+}

@@ -1,0 +1,37 @@
+Design a 3-tier Fiverr package structure for a {{ niche_name | default("service", true) }} gig.
+
+KEYWORD: "{{ keyword_text }}"
+PRICING GUIDANCE (from niche config):
+- Basic: ~$ {{ starter_price_basic }}
+- Standard: ~$ {{ starter_price_standard }}
+- Premium: ~$ {{ starter_price_premium }}
+
+COMPETITOR PACKAGES (top 3 gigs):
+{% for comp in (top_competitor_weaknesses | default([], true))[:3] %}
+{% if comp.packages %}
+  {{ comp.gig_title | default("Competitor gig", true) }}:
+  {% for pkg in comp.packages %}
+    - {{ pkg.name }}: ${{ pkg.price }} - {{ pkg.deliverables | join(", ") }} ({{ pkg.delivery_days }}d, {{ pkg.revisions }} rev)
+  {% endfor %}
+{% endif %}
+{% endfor %}
+
+HARD EXCLUSIONS (must NOT be listed as deliverables):
+{% for excl in hard_exclusions | default([], true) %}
+- {{ excl }}
+{% endfor %}
+
+REQUIREMENTS:
+1. Each tier must have a distinct named scope.
+2. Deliverables must be specific and countable.
+3. Basic = entry-level quick win. Standard = complete core deliverable. Premium = complete solution plus extras.
+4. Prices should stay within approximately +/-15% of guidance.
+5. Delivery days must be realistic (Basic 2-4d, Standard 4-7d, Premium 7-14d typical).
+6. Revisions should increase by tier (typically 1/2/3).
+
+Return JSON only. No preamble.
+{
+  "basic": {"name": "...", "price": 0, "deliverables": ["..."], "delivery_days": 0, "revisions": 0},
+  "standard": {"name": "...", "price": 0, "deliverables": ["..."], "delivery_days": 0, "revisions": 0},
+  "premium": {"name": "...", "price": 0, "deliverables": ["..."], "delivery_days": 0, "revisions": 0}
+}
