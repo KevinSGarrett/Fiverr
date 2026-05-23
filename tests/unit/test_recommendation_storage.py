@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
+from types import SimpleNamespace
 
+import pytest
+import src.recommendations.storage as storage
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import Base, Keyword, Niche, Recommendation
@@ -322,3 +326,155 @@ def test_recommendation_model_has_all_11_task_columns() -> None:
         "niche_viability",
     }
     assert expected_columns.issubset(set(Recommendation.__table__.columns.keys()))
+
+
+def test_save_recommendation_raises_when_db_has_no_query_support() -> None:
+    class _NoQuery:
+        pass
+
+    with pytest.raises(ValueError):
+        save_recommendation(context=_context(), output=_full_output(), db=_NoQuery())
+
+
+def test_save_recommendation_rolls_back_on_commit_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = _session()
+    _seed_keyword(db, 401)
+    context = _context(401, "run-rollback")
+    output = _full_output()
+    rollback_called = {"value": False}
+    original_rollback = db.rollback
+
+    def _raise_commit() -> None:
+        raise RuntimeError("commit failed")
+
+    def _mark_rollback() -> None:
+        rollback_called["value"] = True
+        original_rollback()
+
+    monkeypatch.setattr(db, "commit", _raise_commit)
+    monkeypatch.setattr(db, "rollback", _mark_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        save_recommendation(context=context, output=output, db=db)
+    assert rollback_called["value"] is True
+    db.close()
+
+
+def test_run_save_recommendations_counts_failed_when_save_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    context = _context(501, "run-save-fail")
+    output = _full_output()
+
+    def _boom(*_args: object, **_kwargs: object) -> str:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(storage, "save_recommendation", _boom)
+    summary = run_save_recommendations(eligible_keywords=[context], outputs=[output], db=object())
+
+    assert summary == {"saved": 0, "failed": 1, "skipped": 0}
+
+
+def test_get_recommendation_returns_none_when_db_has_no_query() -> None:
+    class _NoQuery:
+        pass
+
+    assert get_recommendation(keyword_id=77, db=_NoQuery()) is None
+
+
+def test_get_recommendation_skips_incomplete_and_invalid_rows() -> None:
+    incomplete = SimpleNamespace(
+        generation_complete=False,
+        raw_json={},
+        llm_cost_usd=0.1,
+    )
+    invalid = SimpleNamespace(
+        generation_complete=True,
+        gig_titles={"bad": "shape"},
+        tag_sets=None,
+        package_structure=None,
+        description_outline=None,
+        faq_entries=None,
+        differentiation_angle=None,
+        buyer_persona=None,
+        thumbnail_direction=None,
+        upsell_structure=None,
+        red_flags=None,
+        niche_viability=None,
+        raw_json={},
+        llm_cost_usd=0.2,
+    )
+
+    class _Query:
+        def __init__(self, rows: list[object]) -> None:
+            self._rows = rows
+
+        def filter(self, *_args: object, **_kwargs: object) -> _Query:
+            return self
+
+        def order_by(self, *_args: object, **_kwargs: object) -> _Query:
+            return self
+
+        def all(self) -> list[object]:
+            return self._rows
+
+    db = SimpleNamespace(query=lambda _model: _Query([incomplete, invalid]))
+    assert get_recommendation(keyword_id=88, db=db) is None
+
+
+def test_load_existing_recommendation_prefers_numeric_run_id() -> None:
+    db = _session()
+    _seed_keyword(db, 601)
+    row = Recommendation(
+        keyword_id=601,
+        run_id=123,
+        run_id_text="run-text",
+        recommendation_type="keyword_recommendation",
+        recommendation_text="hello",
+        generation_complete=True,
+    )
+    db.add(row)
+    db.commit()
+
+    loaded = storage._load_existing_recommendation(keyword_id=601, run_id_int=123, run_id_text="other-run", db=db)
+
+    assert loaded is not None
+    assert loaded.id == row.id
+    db.close()
+
+
+def test_storage_helper_branches_cover_fallback_paths() -> None:
+    now = datetime.now(UTC)
+    assert storage._coerce_datetime(now) is now
+    assert storage._coerce_datetime("not-a-date") is None
+    assert storage._safe_query(SimpleNamespace(), Recommendation) is None
+    assert (
+        storage._safe_query(
+            SimpleNamespace(query=lambda _model: (_ for _ in ()).throw(RuntimeError("query failed"))),
+            Recommendation,
+        )
+        is None
+    )
+    assert storage._coerce_recommendation_output(1234) is None
+    assert storage._extract_failed_tasks("bad-json") == []
+    assert storage._extract_failed_tasks({"failed_tasks": "not-a-list"}) == []
+
+
+def test_iter_pairs_and_context_extraction_from_mapping() -> None:
+    context = _context(701, "run-map")
+    pairs = list(
+        storage._iter_context_output_pairs(
+            eligible_keywords=[{"context": context}, {"not_context": True}],
+            outputs={701: "payload"},
+        )
+    )
+
+    assert pairs[0] == (context, "payload")
+    assert pairs[1] == (None, None)
+
+
+def test_derive_recommendation_text_from_output_fallbacks() -> None:
+    output = _full_output()
+    output.niche_viability = None
+    assert storage._derive_recommendation_text_from_output(output) == output.differentiation_angle.one_sentence_pitch
+
+    output.differentiation_angle = None
+    assert storage._derive_recommendation_text_from_output(output) == "Generated recommendation package"

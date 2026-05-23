@@ -342,3 +342,31 @@ def test_niche_viability_edge_case_extra_field_ignored() -> None:
     parsed = NicheViabilityOutput.model_validate(payload)
     assert not hasattr(parsed, "unknown")
 
+
+def test_gig_titles_reject_title_without_i_will_prefix() -> None:
+    payload = _valid_gig_titles_payload()
+    payload["titles"][0]["title"] = "We build automation workflows quickly"
+    with pytest.raises(ValidationError):
+        GigTitlesOutput.model_validate(payload)
+
+
+def test_tag_sets_reject_tags_outside_allowed_length() -> None:
+    payload = _valid_tag_sets_payload()
+    payload["tag_sets"][0][0] = "x"
+    with pytest.raises(ValidationError):
+        TagSetsOutput.model_validate(payload)
+
+
+def test_package_structure_rejects_non_ascending_standard_price() -> None:
+    payload = _valid_package_structure_payload()
+    payload["standard"]["price"] = payload["basic"]["price"]
+    with pytest.raises(ValidationError):
+        PackageStructureOutput.model_validate(payload)
+
+
+def test_package_structure_rejects_non_ascending_premium_price() -> None:
+    payload = _valid_package_structure_payload()
+    payload["premium"]["price"] = payload["standard"]["price"]
+    with pytest.raises(ValidationError):
+        PackageStructureOutput.model_validate(payload)
+
