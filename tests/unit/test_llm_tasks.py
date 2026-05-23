@@ -435,6 +435,33 @@ def test_task_uses_cache_hit() -> None:
     assert cache.set.await_count == 0
 
 
+def test_task_cache_miss_then_hit_across_calls() -> None:
+    class _Cache:
+        def __init__(self) -> None:
+            self._payloads: dict[str, str] = {}
+
+        async def get(self, cache_key: str) -> str | None:
+            return self._payloads.get(cache_key)
+
+        async def set(self, cache_key: str, payload: str) -> None:
+            self._payloads[cache_key] = payload
+
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value=json.dumps(_gig_titles_payload())))
+    cache = _Cache()
+    with patch("src.recommendations.llm_tasks.load_template", return_value=_TemplateStub()):
+        first = asyncio.run(task_gig_titles(_context(), llm_client, cache=cache))
+        second = asyncio.run(task_gig_titles(_context(), llm_client, cache=cache))
+
+    assert first is not None
+    assert second is not None
+    assert llm_client.complete.await_count == 1
+
+
+def test_task_returns_none_when_llm_client_is_none() -> None:
+    result = asyncio.run(task_gig_titles(_context(), llm_client=None, cache=None))
+    assert result is None
+
+
 def test_context_to_dict_includes_all_required_fields() -> None:
     mapped = context_to_dict(_context())
     required_fields = {
@@ -488,6 +515,15 @@ def test_parse_strips_markdown_fences() -> None:
     assert validate_and_parse_llm_response(raw) == {"value": 1}
 
 
+def test_parse_nested_markdown_fences_returns_none() -> None:
+    raw = """```json
+```json
+{"value": 1}
+```
+```"""
+    assert validate_and_parse_llm_response(raw) is None
+
+
 def test_parse_returns_none_on_invalid_json() -> None:
     assert validate_and_parse_llm_response("not-json") is None
 
@@ -500,6 +536,10 @@ def test_estimate_cost_returns_float() -> None:
     cost = estimate_llm_cost("prompt text", "response text", "gpt-4o-mini")
     assert isinstance(cost, float)
     assert cost >= 0.0
+
+
+def test_estimate_cost_with_empty_strings_is_zero() -> None:
+    assert estimate_llm_cost("", "", "gpt-4o-mini") == 0.0
 
 
 def test_estimate_cost_gpt4o_mini_pricing() -> None:

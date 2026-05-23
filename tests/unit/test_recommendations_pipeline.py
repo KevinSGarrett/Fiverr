@@ -74,6 +74,52 @@ def test_pipeline_skips_keywords_that_fail_gates(monkeypatch: Any) -> None:
     assert summary["failed"] == 0
 
 
+def test_pipeline_with_zero_eligible_keywords_returns_empty_result(monkeypatch: Any) -> None:
+    monkeypatch.setattr(recommendations_pipeline, "get_eligible_keywords", lambda *_args, **_kwargs: [])
+
+    summary = asyncio.run(
+        recommendations_pipeline.run_recommendations_pipeline(
+            run_id="run-zero-eligible",
+            db=object(),
+            config={},
+            llm_client=None,
+            cache=None,
+            dry_run=False,
+        )
+    )
+
+    assert summary["eligible"] == 0
+    assert summary["gates_passed"] == 0
+    assert summary["generated"] == 0
+    assert summary["skipped"] == 0
+    assert summary["failed"] == 0
+
+
+def test_pipeline_where_all_keywords_fail_gates(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        recommendations_pipeline,
+        "get_eligible_keywords",
+        lambda *_args, **_kwargs: [_keyword_row(711), _keyword_row(712), _keyword_row(713)],
+    )
+    monkeypatch.setattr(recommendations_pipeline, "passes_recommendation_gates", lambda *_args, **_kwargs: (False, "gate fail"))
+
+    summary = asyncio.run(
+        recommendations_pipeline.run_recommendations_pipeline(
+            run_id="run-all-gates-fail",
+            db=object(),
+            config={},
+            llm_client=None,
+            cache=None,
+            dry_run=False,
+        )
+    )
+
+    assert summary["eligible"] == 3
+    assert summary["gates_passed"] == 0
+    assert summary["generated"] == 0
+    assert summary["skipped"] == 3
+
+
 def test_pipeline_skips_unchanged_scores(monkeypatch: Any) -> None:
     monkeypatch.setattr(recommendations_pipeline, "get_eligible_keywords", lambda *_args, **_kwargs: [_keyword_row(201)])
     monkeypatch.setattr(recommendations_pipeline, "passes_recommendation_gates", lambda *_args, **_kwargs: (True, "ok"))
@@ -94,6 +140,33 @@ def test_pipeline_skips_unchanged_scores(monkeypatch: Any) -> None:
     assert summary["gates_passed"] == 1
     assert summary["generated"] == 0
     assert summary["skipped"] == 1
+    assert summary["failed"] == 0
+
+
+def test_pipeline_skips_all_keywords_when_regeneration_not_needed(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        recommendations_pipeline,
+        "get_eligible_keywords",
+        lambda *_args, **_kwargs: [_keyword_row(721), _keyword_row(722)],
+    )
+    monkeypatch.setattr(recommendations_pipeline, "passes_recommendation_gates", lambda *_args, **_kwargs: (True, "ok"))
+    monkeypatch.setattr(recommendations_pipeline, "should_regenerate_recommendation", lambda *_args, **_kwargs: False)
+
+    summary = asyncio.run(
+        recommendations_pipeline.run_recommendations_pipeline(
+            run_id="run-all-skip-regeneration",
+            db=object(),
+            config={},
+            llm_client=None,
+            cache=None,
+            dry_run=False,
+        )
+    )
+
+    assert summary["eligible"] == 2
+    assert summary["gates_passed"] == 2
+    assert summary["generated"] == 0
+    assert summary["skipped"] == 2
     assert summary["failed"] == 0
 
 

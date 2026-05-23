@@ -288,6 +288,23 @@ def test_generate_recommendation_partial_failure_still_returns(monkeypatch: Any)
     assert set(result.failed_tasks) == {"tag_sets", "red_flags"}
 
 
+def test_generate_recommendation_partial_succeeds_with_six_of_eleven_tasks(monkeypatch: Any) -> None:
+    outputs = _valid_outputs()
+    _patch_all_task_functions(monkeypatch, outputs)
+    monkeypatch.setattr(executor, "task_tag_sets", AsyncMock(return_value=None))
+    monkeypatch.setattr(executor, "task_description_outline", AsyncMock(return_value=None))
+    monkeypatch.setattr(executor, "task_differentiation_angle", AsyncMock(return_value=None))
+    monkeypatch.setattr(executor, "task_thumbnail_direction", AsyncMock(return_value=None))
+    monkeypatch.setattr(executor, "task_red_flags", AsyncMock(return_value=None))
+
+    result = executor.generate_recommendation(_context(), llm_client=object(), cache=object())
+
+    assert isinstance(result, RecommendationOutput)
+    assert len(result.failed_tasks) == 5
+    assert result.completeness_ratio() == 6 / 11
+    assert result.generation_complete is False
+
+
 def test_generate_recommendation_marks_generation_complete_when_all_succeed(monkeypatch: Any) -> None:
     _patch_all_task_functions(monkeypatch, _valid_outputs())
 
@@ -334,3 +351,15 @@ def test_track_llm_costs_falls_back_when_explicit_cost_is_invalid() -> None:
     total = executor.track_llm_costs([output], _context())
 
     assert total == 0.012
+
+
+def test_track_llm_costs_sums_multiple_task_outputs() -> None:
+    outputs = [
+        type("OutputA", (), {"cost_usd": "0.25"})(),
+        type("OutputB", (), {"cost_usd": 0.4})(),
+        None,
+    ]
+
+    total = executor.track_llm_costs(outputs, _context())
+
+    assert total == 0.65

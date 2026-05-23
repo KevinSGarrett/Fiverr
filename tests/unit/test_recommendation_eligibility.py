@@ -102,6 +102,19 @@ def test_get_eligible_keywords_filters_by_tag() -> None:
     db.close()
 
 
+def test_get_eligible_keywords_with_mixed_tag_keywords() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=111, tag="STRONG_GO")
+    _seed_keyword_with_score(db, keyword_id=112, tag="CONDITIONAL GO")
+    _seed_keyword_with_score(db, keyword_id=113, tag="MONITOR")
+
+    rows = eligibility.get_eligible_keywords("run-1", db, _config(min_tag="CONDITIONAL GO"))
+
+    assert {row["keyword_id"] for row in rows} == {111, 112}
+    assert {row["tag"] for row in rows} == {"STRONG GO", "CONDITIONAL GO"}
+    db.close()
+
+
 def test_get_eligible_keywords_skips_disabled_niche() -> None:
     db = _session()
     _seed_keyword_with_score(db, keyword_id=101, niche_id=1, tag="STRONG GO")
@@ -174,6 +187,18 @@ def test_load_ranking_rows_prefers_run_scoped_opportunity_rows_when_present(monk
     assert query.filters == [("run_id_eq", "run-123")]
 
 
+def test_load_ranking_rows_falls_back_to_latest_keyword_scores_when_no_final_scores() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=121, final_score=81.0)
+    _seed_keyword_with_score(db, keyword_id=122, final_score=77.0)
+
+    rows = eligibility._load_ranking_rows("run-missing", db=db)
+
+    assert len(rows) == 2
+    assert {row.keyword_id for row in rows} == {121, 122}
+    db.close()
+
+
 def test_gate1_fails_low_confidence() -> None:
     db = _session()
     _seed_keyword_with_score(db, keyword_id=101, demand_score=60.0)
@@ -230,6 +255,30 @@ def test_gate3_fails_no_gig_quality_analysis() -> None:
 
     assert ok is False
     assert "No gig quality analysis" in reason
+    db.close()
+
+
+def test_gate3_passes_when_any_gig_quality_row_is_complete() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=131, demand_score=65.0)
+    _add_gig_quality(db, keyword_id=131, analysis_complete=False)
+    db.add(
+        GigQualityScore(
+            keyword_id=131,
+            gig_url="https://fiverr.com/gig/131-alt",
+            run_id="run-2",
+            analysis_complete=True,
+        )
+    )
+    db.commit()
+
+    ok, reason = eligibility.passes_recommendation_gates(
+        {"keyword_id": 131, "confidence_modifier": 0.9, "demand_score": 65.0},
+        db,
+    )
+
+    assert ok is True
+    assert reason == "All gates passed"
     db.close()
 
 
@@ -310,4 +359,25 @@ def test_regenerate_when_score_changed_5_points() -> None:
     db.commit()
 
     assert eligibility.should_regenerate_recommendation(101, 85.0, db) is True
+    db.close()
+
+
+def test_should_regenerate_when_latest_recommendation_is_incomplete() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=141)
+    db.add(
+        Recommendation(
+            keyword_id=141,
+            run_id=1,
+            run_id_text="run-1",
+            recommendation_type="keyword_recommendation",
+            recommendation_text="incomplete payload",
+            final_score=82.0,
+            score_at_generation=82.0,
+            generation_complete=False,
+        )
+    )
+    db.commit()
+
+    assert eligibility.should_regenerate_recommendation(141, 82.1, db) is True
     db.close()
