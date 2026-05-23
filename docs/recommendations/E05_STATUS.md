@@ -1,6 +1,6 @@
 # E05 Recommendation Engine Status
 
-## Cycle 033 Completion
+## Cycle 034 Snapshot
 
 - S5.1 Context Builder: ✅ DONE
 - S5.2 Eligibility/Gating: ✅ DONE
@@ -10,15 +10,11 @@
 - S5.6 Async Execution: ✅ DONE
 - S5.7 Storage: ✅ DONE
 - S5.8 Orchestration: ✅ DONE
-- S5.9 Export (Markdown + JSON): ⏳ Cycle 034
+- S5.9 Markdown Export: ✅ DONE (Cycle 034, Agent A)
+- S5.9 JSON Export: ⏳ Cycle 034 (Agent B)
+- E05 DoD Full Validation: ⏳ Cycle 034 (Agent C)
 
 ## Notes
 
-- Recommendations are currently orchestrated through standalone `recommendations-only` mode.
-- Collection orchestration still ends at Stage 13 saturation analysis; Stage 14 recommendations integration is planned for Cycle 034.
-
-## Cycle 034 Priorities
-
-1. Complete S5.9 export implementation (Markdown + JSON outputs).
-2. Run full E05 Definition-of-Done validation against cycle gates.
-3. Expand recommendation integration tests across standalone and collection-linked execution paths.
+- Recommendation exports now include a spec-aligned Markdown renderer and helper wrapper for pipeline/CLI callers.
+- `recommendations-only` remains the primary entrypoint while export CLI wiring and final DoD validation are completed.

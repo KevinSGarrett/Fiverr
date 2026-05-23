@@ -56,3 +56,8 @@ Cycle 033 begins Epic 05 Recommendation Engine implementation.
 - Stage naming clarification:
   - Collection orchestrator still ends at `stage13_saturation_analysis`.
   - Recommendation generation currently runs as a standalone `recommendations-only` pipeline and is not yet registered as a collection Stage 14.
+
+## Cycle 034 E05 Export Update
+
+- S5.9 Markdown export is now implemented (Cycle 034 Agent A).
+- Remaining Cycle 034 export scope is JSON export + full CLI wiring (Agent B) and final E05 DoD validation (Agent C).

@@ -179,20 +179,23 @@ class RecommendationOutput(RecommendationSchemaBase):
         return self
 
     def _all_llm_outputs_present(self) -> bool:
-        return all(
-            value is not None
-            for value in (
-                self.gig_titles,
-                self.tag_sets,
-                self.package_structure,
-                self.description_outline,
-                self.faq_entries,
-                self.differentiation_angle,
-                self.buyer_persona,
-                self.thumbnail_direction,
-                self.upsell_structure,
-                self.red_flags,
-                self.niche_viability,
-            )
-        )
+        return self.completeness_ratio() >= 1.0
+
+    def completeness_ratio(self) -> float:
+        """Returns 0.0-1.0 indicating what proportion of LLM outputs are present."""
+        fields = [
+            self.gig_titles,
+            self.tag_sets,
+            self.package_structure,
+            self.description_outline,
+            self.faq_entries,
+            self.differentiation_angle,
+            self.buyer_persona,
+            self.thumbnail_direction,
+            self.upsell_structure,
+            self.red_flags,
+            self.niche_viability,
+        ]
+        present = sum(1 for field_value in fields if field_value is not None)
+        return present / len(fields)
 

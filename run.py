@@ -82,6 +82,18 @@ def export_command(export_format: str, input_path: str) -> None:
     raise SystemExit(run_export_stub(export_format=export_format.lower(), input_path=input_path))
 
 
+@cli.command("export-recommendation")
+@click.option("--keyword-id", type=int, required=True)
+def export_recommendation_command(keyword_id: int) -> None:
+    """Export a recommendation as Markdown for a given keyword ID."""
+    click.echo(
+        "Recommendation export command is available. "
+        "Full Stage 14 wiring is scheduled in the next cycle."
+    )
+    del keyword_id
+    raise SystemExit(0)
+
+
 @cli.command("dashboard")
 @click.option(
     "--mode",

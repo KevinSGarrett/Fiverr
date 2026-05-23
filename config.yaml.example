@@ -1,6 +1,8 @@
 # Example override config for local experimentation.
 recommendations:
   auto_generate: true
+  auto_export_markdown: false  # Set to true to write Markdown on each generation
+  min_tag: "CONDITIONAL GO"
 reddit:
   enabled: false            # set true when credentials are configured
   max_posts_per_seed: 25    # matches praw search limit per call

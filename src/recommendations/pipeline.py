@@ -12,6 +12,7 @@ from src.recommendations.eligibility import (
     should_regenerate_recommendation,
 )
 from src.recommendations.executor import generate_recommendation_async
+from src.recommendations.export import export_recommendation_by_keyword
 from src.recommendations.storage import save_recommendation
 
 
@@ -26,6 +27,8 @@ async def run_recommendations_pipeline(
 ) -> dict[str, Any]:
     """Execute full E05 recommendation orchestration for one run."""
     config_payload = config if isinstance(config, Mapping) else {}
+    recommendations_config = _recommendations_config(config_payload)
+    auto_export_markdown = bool(recommendations_config.get("auto_export_markdown", False))
     eligible_keywords = get_eligible_keywords(run_id, db, config_payload)
     summary: dict[str, Any] = {
         "run_id": str(run_id),
@@ -35,6 +38,7 @@ async def run_recommendations_pipeline(
         "skipped": 0,
         "failed": 0,
         "total_cost_usd": 0.0,
+        "markdown_exports": {},
     }
 
     for keyword_data in eligible_keywords:
@@ -75,6 +79,16 @@ async def run_recommendations_pipeline(
                 cache=cache,
             )
             save_recommendation(context=context, output=output, db=db)
+            if auto_export_markdown:
+                markdown, export_error = await export_recommendation_by_keyword(
+                    keyword_id=keyword_id,
+                    niche_id=str(context.niche_id),
+                    run_id=str(run_id),
+                    db=db,
+                )
+                if export_error is None and markdown:
+                    keyword_label = context.keyword_text.strip() or str(keyword_id)
+                    summary["markdown_exports"][keyword_label] = markdown
             summary["generated"] += 1
             summary["total_cost_usd"] += float(output.total_llm_cost_usd)
         except Exception:
@@ -99,6 +113,13 @@ def _to_float(value: Any, *, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _recommendations_config(config_payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    section = config_payload.get("recommendations", {})
+    if isinstance(section, Mapping):
+        return section
+    return {}
 
 
 __all__ = ["run_recommendations_pipeline"]

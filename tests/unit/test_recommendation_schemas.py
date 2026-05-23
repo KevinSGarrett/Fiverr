@@ -370,3 +370,30 @@ def test_package_structure_rejects_non_ascending_premium_price() -> None:
     with pytest.raises(ValidationError):
         PackageStructureOutput.model_validate(payload)
 
+
+def test_gig_title_must_start_with_i_will_validator() -> None:
+    payload = _valid_gig_titles_payload()
+    payload["titles"][0]["title"] = "Build your automation workflow quickly"
+    with pytest.raises(ValidationError):
+        GigTitlesOutput.model_validate(payload)
+
+
+def test_package_structure_price_ordering_enforced() -> None:
+    payload = _valid_package_structure_payload()
+    payload["standard"]["price"] = payload["basic"]["price"] - 1
+    with pytest.raises(ValidationError):
+        PackageStructureOutput.model_validate(payload)
+
+
+def test_completeness_ratio_returns_correct_fraction() -> None:
+    assert RecommendationOutput().completeness_ratio() == 0.0
+
+    partial = RecommendationOutput.model_validate(
+        {
+            "gig_titles": _valid_gig_titles_payload(),
+            "tag_sets": _valid_tag_sets_payload(),
+            "package_structure": _valid_package_structure_payload(),
+        }
+    )
+    assert partial.completeness_ratio() == pytest.approx(3 / 11)
+
