@@ -69,6 +69,15 @@ Focused branch-gap tests were added in scope modules after the single full cover
   - `test_pipeline_marks_failed_when_keyword_id_is_invalid`
   - `test_pipeline_marks_failed_when_generation_raises`
   - `test_pipeline_coercion_helpers_handle_invalid_values`
+- `tests/unit/test_recommendation_context.py`
+  - `test_build_context_falls_back_to_final_score_when_keyword_score_missing`
+  - `test_extract_tag_from_final_score_returns_none_for_non_mapping_raw_json`
+  - `test_resolve_score_metric_returns_none_without_final_score_data`
+- `tests/unit/test_recommendation_eligibility.py`
+  - `test_get_eligible_keywords_skips_keyword_score_fallback_when_final_scores_exist_for_other_run`
+  - `test_load_ranking_rows_prefers_run_scoped_opportunity_rows_when_present`
+- `tests/unit/test_recommendation_storage.py`
+  - `test_get_recommendation_honors_raw_json_completion_flag`
 
 Verification command:
 
@@ -115,14 +124,23 @@ No status corrections were required.
 ### Raw Result (verbatim)
 
 ```json
-PENDING: populate after Task 13 PR #40 Codex GraphQL query.
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EQqON","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Restrict keyword-score fallback to the requested run**\n\nWhen `OpportunityRanking` rows are unavailable, `_load_ranking_rows` immediately returns the latest `KeywordScore` per keyword without any run scoping. That bypasses the run-scoped `FinalScore` fallback and makes a single recommendations run process keywords from unrelated historical runs, which can trigger unnecessary LLM generations and overwrite recommendation state for the wrong run context.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in `src/recommendations/eligibility.py` by making `_load_ranking_rows` prefer run-scoped `FinalScore` rows and returning no fallback rows when any `FinalScore` data exists outside the requested run. Added regressions in `tests/unit/test_recommendation_eligibility.py` (`test_get_eligible_keywords_skips_keyword_score_fallback_when_final_scores_exist_for_other_run` and `test_load_ranking_rows_prefers_run_scoped_opportunity_rows_when_present`). CI is green, including coverage gates."}]}},{"id":"PRRT_kwDOSbqwNc6EQqOO","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Fall back when KeywordScore is missing in context builder**\n\n`build_recommendation_context` hard-fails when `KeywordScore` is absent, even though eligibility can still admit keywords via `FinalScore` fallback. In that data shape, pipeline entries pass eligibility but then always fail at context build, so recommendations never generate for otherwise valid legacy runs that only have `FinalScore`/analysis data.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Addressed by updating `build_recommendation_context` to allow context construction when `KeywordScore` is missing but a `FinalScore` row exists. Tag and metric fields now fall back through `FinalScore.raw_json` where needed. Added regression coverage in `tests/unit/test_recommendation_context.py` (`test_build_context_falls_back_to_final_score_when_keyword_score_missing`) plus helper-branch tests for the new fallback paths. CI and coverage checks pass."}]}},{"id":"PRRT_kwDOSbqwNc6EQqOP","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Honor raw completion flag when loading saved recommendations**\n\n`get_recommendation` skips any row whose `generation_complete` column is false, but existing records migrated from earlier schema versions can have completion only in `raw_json` while the new column defaults to false. Those historically complete recommendations become unreadable through this API even though their payload is valid.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in `src/recommendations/storage.py` by honoring `raw_json[generation_complete]` when loading rows where the ORM `generation_complete` column is false for legacy records. Added regression test `test_get_recommendation_honors_raw_json_completion_flag` in `tests/unit/test_recommendation_storage.py` to ensure historically complete payloads remain readable."}]}}]}}}}}
 ```
 
 ### Disposition Table
 
 | Thread ID | Disposition | Action | Regression Test | Resolved |
 | --- | --- | --- | --- | --- |
-| PENDING | PENDING | PENDING | PENDING | PENDING |
+| `PRRT_kwDOSbqwNc6EQqON` | VALID_FIXED | Scoped `_load_ranking_rows` fallback to run-aware data | `test_get_eligible_keywords_skips_keyword_score_fallback_when_final_scores_exist_for_other_run`; `test_load_ranking_rows_prefers_run_scoped_opportunity_rows_when_present` | ✅ |
+| `PRRT_kwDOSbqwNc6EQqOO` | VALID_FIXED | Allowed context build via `FinalScore` fallback when `KeywordScore` missing | `test_build_context_falls_back_to_final_score_when_keyword_score_missing`; helper fallback tests | ✅ |
+| `PRRT_kwDOSbqwNc6EQqOP` | VALID_FIXED | Honored `raw_json.generation_complete` for legacy rows in `get_recommendation` | `test_get_recommendation_honors_raw_json_completion_flag` | ✅ |
+
+### Task 14 Hygiene
+
+- Canonical remote SHA captured: `fc6fc3ed79f44442f4d352da40690472e8c78778`
+- Cycle 033 reports confirmed present: A/B/C/D
+- `git status --short` safety check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` files staged
+- `SCRUM-522` final steward summary posted (comment `11453`)
 
 ## Stage Numbering Clarification (Task 17)
 
@@ -147,9 +165,10 @@ PENDING: populate after Task 13 PR #40 Codex GraphQL query.
 ## Canonical Coverage/Test Snapshot
 
 - Baseline unit count (Task 1): `2187 passed`
-- Full audit count (Task 6): `2229 passed`
-- Global coverage (Task 6): `93.96%`
-- Clock time for canonical full coverage run: `0:06:33`
+- Full audit count (Task 6 one-shot run): `2229 passed`
+- Final CI canonical count after Codex fixes: `2257 passed`
+- Final global coverage: `94.37%` (`17250` statements, `972` missed)
+- Clock time for final CI coverage run: `0:06:32`
 
 ## Task 18 — Merge Gate Checklist (to post in PR #40)
 
@@ -157,26 +176,28 @@ PENDING: populate after Task 13 PR #40 Codex GraphQL query.
 
 #### CODECOV
 
-- [ ] `codecov/project`: PENDING
-- [ ] `codecov/patch`: PENDING (must be >= 90%)
-- [x] Local `--cov-fail-under=90`: PASS (`93.96%`)
-- [ ] All new lines covered by tests: PENDING final CI/codecov confirmation
+- [x] `codecov/project`: PASS (`94.36%`)
+- [x] `codecov/patch`: PASS (`90.83%`, target `90.00%`)
+- [x] Local `--cov-fail-under=90`: PASS (`94.37%`)
+- [x] All new lines covered by tests: YES
 
 #### CODEX
 
-- [ ] reviewThreads query executed: PENDING
-- [ ] Total threads found: PENDING
-- [ ] All threads dispositioned: PENDING
-- [ ] All VALID_FIXED threads have regression tests: PENDING
-- [ ] All threads manually resolved with reply: PENDING
-- [ ] Zero unresolved threads: PENDING
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: `3`
+- [x] All threads dispositioned: YES
+- [x] All VALID_FIXED threads have regression tests: YES
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
 
 #### FINAL
 
-- [ ] PR #40 is ready to merge: PENDING
-- [ ] Blockers if NO: PENDING
+- [x] PR #40 is ready to merge: YES
+- [x] Blockers if NO: N/A
+
+PR #40 is ready to merge when approved.
 
 ## Final SHA
 
-- `origin/cycle/033/integration`: PENDING Task 14 freeze
-- Agent D final commit SHA: PENDING Task 12
+- `origin/cycle/033/integration`: `fc6fc3ed79f44442f4d352da40690472e8c78778`
+- Agent D final commit SHA: `fc6fc3ed79f44442f4d352da40690472e8c78778`
