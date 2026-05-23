@@ -180,4 +180,4 @@ Gap status:
 ## 9) Final SHA
 
 - Scoped Task-18 commit SHA: `802fde143e0e9f90f674cdf530a6bf7799c596d9`
-- Current branch handoff SHA: `a4599b03419ba14e31ff10e4b8dbe8f03f1e61b6`
+- Post-task alignment commits were added after the scoped freeze to keep patched session behavior and tests consistent.
