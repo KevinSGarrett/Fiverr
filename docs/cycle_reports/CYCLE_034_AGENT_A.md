@@ -74,10 +74,42 @@ Cycle 034 scope uses standard cleanup only (no deep sweep).
   - estimated LLM cost (USD)
   - completeness percentage (added in implementation per Task 16)
 
+### Section-to-schema field mapping
+
+- Header: `keyword_text`, `tag`, `final_score`, `niche_name`
+- Viability Assessment: `RecommendationOutput.niche_viability.viability_assessment`
+- Gig Title Options: `RecommendationOutput.gig_titles.titles[*].title`
+- Packages table:
+  - `RecommendationOutput.package_structure.basic`
+  - `RecommendationOutput.package_structure.standard`
+  - `RecommendationOutput.package_structure.premium`
+  - tier fields: `price`, `deliverables`, `delivery_days`, `revisions`
+- Differentiation Angle:
+  - `RecommendationOutput.differentiation_angle.positioning_statement`
+  - tactical list from `RecommendationOutput.differentiation_angle.differentiators[*].action`
+- FAQ:
+  - `RecommendationOutput.faq_entries.faq_entries[*].question`
+  - `RecommendationOutput.faq_entries.faq_entries[*].answer`
+- Buyer Persona:
+  - `RecommendationOutput.buyer_persona.name`, `role`, `company_stage`
+  - `pain_points`, `budget_range`, `decision_trigger`
+- Thumbnail Direction:
+  - `RecommendationOutput.thumbnail_direction.concept`, `style`
+  - `elements_to_include`, `elements_to_avoid`, `differentiation_note`
+- Red Flags:
+  - `RecommendationOutput.red_flags.red_flags[*].severity`
+  - `RecommendationOutput.red_flags.red_flags[*].description`
+  - `RecommendationOutput.red_flags.red_flags[*].mitigation`
+- Footer metadata:
+  - timestamp from recommendation row `generated_at`
+  - cost from `llm_cost_usd` / `total_llm_cost_usd`
+  - completeness from `RecommendationOutput.completeness_ratio()`
+
 ### Validator requirements checked from spec
 
 - Gig title validator: must start with `"I will"` (enforced)
 - Package price ordering validator (enforced)
+- Description outline total estimated words 200-1000 (enforced)
 - FAQ count range (5-7) (enforced)
 - `RecommendationOutput.completeness_ratio()` present and returns `0.0` for empty output
 
@@ -99,19 +131,19 @@ Cycle 034 scope uses standard cleanup only (no deep sweep).
     - `recommendations.auto_export_markdown: false`
     - `recommendations.min_tag: "CONDITIONAL GO"`
 - Tests added/updated:
-  - `tests/unit/test_export.py` (13 tests)
+  - `tests/unit/test_export.py` (14 tests)
   - `tests/unit/test_recommendations_pipeline.py` (auto-export coverage)
   - `tests/unit/test_recommendation_schemas.py` (validator + completeness tests)
   - `tests/unit/test_cli.py` (export-recommendation command test)
 
 ## Validation Log (No Coverage Flags)
 
-- `pytest -q tests/unit/test_export.py --no-header` -> `13 passed`
+- `pytest -q tests/unit/test_export.py --no-header` -> `14 passed`
 - `pytest -q tests/unit/test_recommendations_pipeline.py --no-header` -> `13 passed`
 - `pytest -q tests/unit/test_recommendation_templates.py --no-header` -> `17 passed`
 - `pytest -q tests/unit/test_recommendation_context.py tests/unit/test_recommendation_eligibility.py --no-header` -> `30 passed`
 - `pytest -q tests/integration/test_e05_pipeline.py --no-header` -> `1 passed`
-- `pytest -q tests/unit/test_recommendation_schemas.py --no-header` -> `26 passed`
+- `pytest -q tests/unit/test_recommendation_schemas.py --no-header` -> `27 passed`
 - `pytest -q tests/unit/test_cli.py --no-header` -> `32 passed`
 - `python -m ruff check ...` -> pass
 - `python -m mypy src/recommendations/export.py src/recommendations/pipeline.py` -> pass
@@ -128,7 +160,7 @@ Cycle 034 scope uses standard cleanup only (no deep sweep).
 
 ## Final SHA
 
-- Working branch head after Agent A implementation commit: `TBD_AFTER_COMMIT`
+- Working branch head after Agent A implementation commit: `f9a015ea946e7302ca1a74700ba7ee3adf1c721d`
 
 ## Agent B Handoff
 

@@ -82,8 +82,8 @@ def _render_markdown(recommendation: RecommendationOutput, metadata: Recommendat
     generated_label = metadata.generated_at.strftime("%Y-%m-%d %H:%M") if metadata.generated_at is not None else "N/A"
     output_sections.append("---")
     output_sections.append(
-        f"_Generated: {generated_label} | Estimated LLM Cost: ${llm_cost_usd:.4f} | "
-        f"Completeness: {_safe_completeness_ratio(recommendation):.0%}_"
+        f"_Generated: {generated_label} | Estimated LLM Cost: ${llm_cost_usd:.4f}_\n"
+        f"**Completeness:** {_safe_completeness_ratio(recommendation):.0%}"
     )
     return "\n\n".join(output_sections)
 
@@ -190,7 +190,7 @@ def _render_red_flags_section(recommendation: RecommendationOutput) -> str:
 
     lines: list[str] = []
     for red_flag in red_flags.red_flags:
-        lines.append(f"- ⚠ {red_flag.severity}: {red_flag.description}")
+        lines.append(f"⚠ {red_flag.severity}: {red_flag.description}")
         lines.append(f"  → {red_flag.mitigation}")
     return "\n".join(lines)
 

@@ -76,6 +76,13 @@ class DescriptionSection(RecommendationSchemaBase):
 class DescriptionOutlineOutput(RecommendationSchemaBase):
     sections: list[DescriptionSection] = Field(..., min_length=4, max_length=8)
 
+    @model_validator(mode="after")
+    def _total_word_estimate_reasonable(self) -> DescriptionOutlineOutput:
+        total_estimated_words = sum(section.estimated_words for section in self.sections)
+        if total_estimated_words < 200 or total_estimated_words > 1000:
+            raise ValueError(f"Total estimated words {total_estimated_words} outside 200-1000 range.")
+        return self
+
 
 class FAQEntry(RecommendationSchemaBase):
     question: str = Field(..., min_length=8, max_length=220)

@@ -259,7 +259,14 @@ def test_export_markdown_handles_none_package(monkeypatch: Any) -> None:
 
 def test_export_markdown_includes_footer(monkeypatch: Any) -> None:
     markdown = _render_markdown(monkeypatch, _full_output())
-    assert "_Generated: 2026-05-23 12:34 | Estimated LLM Cost: $0.4321 | Completeness: 100%_" in markdown
+    assert "_Generated: 2026-05-23 12:34 | Estimated LLM Cost: $0.4321_" in markdown
+    assert "**Completeness:** 100%" in markdown
+
+
+def test_export_markdown_red_flags_match_spec_format(monkeypatch: Any) -> None:
+    markdown = _render_markdown(monkeypatch, _full_output())
+    assert "⚠ MEDIUM: Top sellers in this niche have strong review volume and authority." in markdown
+    assert "  → Lead with proof-rich assets and a narrower positioning angle." in markdown
 
 
 def test_export_markdown_returns_error_when_not_found(monkeypatch: Any) -> None:

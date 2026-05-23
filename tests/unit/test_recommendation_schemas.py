@@ -385,6 +385,14 @@ def test_package_structure_price_ordering_enforced() -> None:
         PackageStructureOutput.model_validate(payload)
 
 
+def test_description_outline_total_word_estimate_reasonable_validator() -> None:
+    payload = _valid_description_outline_payload()
+    for section in payload["sections"]:
+        section["estimated_words"] = 20
+    with pytest.raises(ValidationError):
+        DescriptionOutlineOutput.model_validate(payload)
+
+
 def test_completeness_ratio_returns_correct_fraction() -> None:
     assert RecommendationOutput().completeness_ratio() == 0.0
 
