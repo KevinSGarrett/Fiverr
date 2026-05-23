@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from src.collection import fiverr_selectors as selectors
 
 # Focus on selectors exercised in live-cycle workflows.

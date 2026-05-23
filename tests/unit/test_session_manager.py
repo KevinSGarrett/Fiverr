@@ -175,7 +175,9 @@ def test_load_or_login_session_expired(tmp_path: Path) -> None:
 def test_verify_session_success() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     page = MagicMock()
+    page.url = "https://www.fiverr.com/"
     page.goto = AsyncMock()
+    page.content = AsyncMock(return_value="<html>ok</html>")
     page.query_selector = AsyncMock(side_effect=[MagicMock()])
     page.close = AsyncMock()
     context = MagicMock()
@@ -188,7 +190,9 @@ def test_verify_session_success() -> None:
 def test_verify_session_failure() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     page = MagicMock()
+    page.url = "https://example.com/"
     page.goto = AsyncMock()
+    page.content = AsyncMock(return_value="<html>not fiverr</html>")
     page.query_selector = AsyncMock(side_effect=[None, None])
     page.close = AsyncMock()
     context = MagicMock()
@@ -215,7 +219,9 @@ def test_context_manager_enter_exit() -> None:
 def test_verify_session_uses_fallback_selector() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     page = MagicMock()
+    page.url = "https://example.com/"
     page.goto = AsyncMock()
+    page.content = AsyncMock(return_value="<html>not fiverr</html>")
     page.query_selector = AsyncMock(side_effect=[None, MagicMock()])
     page.close = AsyncMock()
     context = MagicMock()
@@ -335,6 +341,8 @@ def test_verify_session_on_page_handles_exception() -> None:
 def test_verify_session_on_page_uses_fallback() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     page = MagicMock()
+    page.url = "https://example.com/profile"
+    page.content = AsyncMock(return_value="<html>fallback check</html>")
     page.query_selector = AsyncMock(side_effect=[None, MagicMock()])
     assert _run(sm._verify_session_on_page(page)) is True
 
@@ -343,7 +351,8 @@ def test_browser_args_and_context_options_shape() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     args = sm._browser_args()
     options = sm._context_options()
-    assert "--no-sandbox" in args
+    assert "--disable-blink-features=AutomationControlled" in args
+    assert "--disable-extensions" not in args
     assert options["locale"] == "en-US"
     assert isinstance(options["viewport"], dict)
 
@@ -492,7 +501,7 @@ def test_headed_login_flow_chmod_oserror(monkeypatch: pytest.MonkeyPatch, tmp_pa
     context.storage_state.assert_awaited_once()
 
 
-def test_headed_login_flow_raises_after_attempts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_headed_login_flow_saves_without_verify_loop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     session_path = tmp_path / "fiverr_session.json"
     sm = SessionManager(
         {
@@ -501,12 +510,14 @@ def test_headed_login_flow_raises_after_attempts(monkeypatch: pytest.MonkeyPatch
         }
     )
     monkeypatch.setattr("builtins.input", lambda _prompt: "")
+    monkeypatch.setattr(session_module.os, "chmod", lambda _path, _mode: None)
 
     page = MagicMock()
     page.goto = AsyncMock()
     page.close = AsyncMock()
     context = MagicMock()
     context.new_page = AsyncMock(return_value=page)
+    context.storage_state = AsyncMock()
     context.close = AsyncMock()
     browser = MagicMock()
     browser.new_context = AsyncMock(return_value=context)
@@ -518,7 +529,7 @@ def test_headed_login_flow_raises_after_attempts(monkeypatch: pytest.MonkeyPatch
     starter = MagicMock()
     starter.start = AsyncMock(return_value=playwright_instance)
     monkeypatch.setattr(session_module, "async_playwright", lambda: starter)
-    sm._verify_session_on_page = AsyncMock(return_value=False)
+    sm._load_session_headless = AsyncMock(return_value=MagicMock())
 
-    with pytest.raises(SessionLoginError, match="Failed to verify Fiverr login"):
-        _run(sm._headed_login_flow())
+    _run(sm._headed_login_flow())
+    context.storage_state.assert_awaited_once()

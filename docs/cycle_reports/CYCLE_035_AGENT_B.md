@@ -121,6 +121,11 @@ Gap status:
 - Pacing profile in effect:
   - from `collection.pacing.*` in `config.yaml`
   - no measurable effect against immediate PXCR challenge responses
+- Additional bypass experiments:
+  - headed Playwright + stealth plugin (`playwright-stealth`)
+  - session-backed and non-session-backed browser contexts
+  - MCP browser-run checks against the same URLs
+  - result: PXCR challenge persisted across all reproducible attempts
 
 ## 6) Tests and quality checks
 
@@ -149,6 +154,29 @@ Gap status:
   - run analysis in reduced/diagnostic mode only, or use seeded test data fallback.
   - do not assume Stage 4/5 real Fiverr payloads exist in this DB snapshot.
 
-## 8) Final SHA
+## 8) Task-by-task completion matrix
 
-- Final SHA: `TBD (set after scoped Agent B commit)`
+| Task | Status | Notes |
+| --- | --- | --- |
+| 1 | Complete | Preflight/session/config/foundation checks and required doc review completed. |
+| 2 | Complete with runtime constraint | Keyword expansion ran live workflow path; LLM provider remained in test-safe shell mode in this branch. |
+| 3 | Complete with blocker evidence | Stage 3 executed and wrote SearchResult rows; PXCR blocking documented at URL/page-content level. |
+| 4 | Blocked by upstream anti-bot | Stage 4 gate unmet and direct gig-URL attempts also PXCR-blocked, preventing selector validation/data extraction. |
+| 5 | Blocked by upstream anti-bot | Stage 5 depends on Stage 4 outputs; no seller profile collection possible with current PXCR block state. |
+| 6 | Complete | Selector-fix artifact created with explicit no-change table and blocking evidence. |
+| 7 | Complete | Selector unit test file added and executed under no-coverage command contract. |
+| 8 | Complete with environment-based skip | Stage 6a and 6c executed; 6b skipped due missing Reddit credentials as allowed. |
+| 9 | Complete with blocker evidence | Stage 8 executed; autocomplete remained zero due PXCR block page and documented accordingly. |
+| 10 | Complete | `collection_debug.py` output and manual ORM count query recorded. |
+| 11 | Complete | Ruff, mypy, collect-only, phase2-smoke all passed. |
+| 12 | Complete | S2.2 story discovered (`SCRUM-142`), Jira evidence posted, Epic update posted, ledger updated. |
+| 13 | Complete | Dry-run unaffected tests executed and passing. |
+| 14 | Complete | Rate-limit/anti-bot observations documented for run tuning. |
+| 15 | Complete | Cycle report created with required sections; session artifact remained uncommitted. |
+| 16 | Complete | Local operator summary created in gitignored `data/reports/`. |
+| 17 | Complete | Handoff minimum checks executed and explicit FAIL status documented for Agent C planning. |
+| 18 | Complete | Scoped Agent B commit created and SHA frozen. |
+
+## 9) Final SHA
+
+- Final SHA: `802fde143e0e9f90f674cdf530a6bf7799c596d9`
