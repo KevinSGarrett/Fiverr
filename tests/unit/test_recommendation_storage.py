@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 import src.recommendations.storage as storage
@@ -273,6 +274,20 @@ def test_run_save_recommendations_returns_counts() -> None:
     db.close()
 
 
+def test_run_save_recommendations_handles_mixed_context_output_mapping() -> None:
+    db = _session()
+    _seed_keyword(db, 211)
+    _seed_keyword(db, 212)
+    _seed_keyword(db, 213)
+    contexts = [{"context": _context(211, "run-map")}, {"context": _context(212, "run-map")}, {"context": _context(213, "run-map")}]
+    outputs = {211: _full_output(), "212": {"total_llm_cost_usd": -1}}
+
+    summary = run_save_recommendations(eligible_keywords=contexts, outputs=outputs, db=db)
+
+    assert summary == {"saved": 1, "failed": 1, "skipped": 1}
+    db.close()
+
+
 def test_get_recommendation_returns_output() -> None:
     db = _session()
     _seed_keyword(db, 301)
@@ -292,6 +307,27 @@ def test_get_recommendation_returns_output() -> None:
 def test_get_recommendation_returns_none_when_missing() -> None:
     db = _session()
     assert get_recommendation(keyword_id=9999, db=db) is None
+    db.close()
+
+
+def test_get_recommendation_returns_none_for_incomplete_row() -> None:
+    db = _session()
+    _seed_keyword(db, 303)
+    db.add(
+        Recommendation(
+            keyword_id=303,
+            run_id=1,
+            run_id_text="run-incomplete",
+            recommendation_type="keyword_recommendation",
+            recommendation_text="incomplete",
+            generation_complete=False,
+            llm_cost_usd=0.01,
+            raw_json={},
+        )
+    )
+    db.commit()
+
+    assert get_recommendation(keyword_id=303, db=db) is None
     db.close()
 
 
@@ -341,11 +377,13 @@ def test_storage_exports_in_package_init() -> None:
 
 
 def test_export_markdown_stub() -> None:
-    assert asyncio.run(export_recommendation_markdown("rec-1", db=None)) == ""
+    rendered = asyncio.run(export_recommendation_markdown("rec-1", db=None))
+    assert rendered.startswith("# Recommendation Export Error")
 
 
 def test_export_json_stub() -> None:
-    assert asyncio.run(export_recommendation_json("rec-1", db=None)) == {}
+    payload = asyncio.run(export_recommendation_json("rec-1", db=None))
+    assert payload["error"] == "recommendation not found"
 
 
 def test_recommendation_model_has_all_11_task_columns() -> None:
@@ -419,6 +457,32 @@ def test_save_recommendation_swallow_rollback_error_and_re_raise_commit_error(
     db.close()
 
 
+def test_save_recommendation_upserts_existing_keyword_run_row() -> None:
+    db = _session()
+    _seed_keyword(db, 403)
+    context = _context(403, "run-upsert")
+
+    first_output = _full_output(generation_complete=False)
+    first_output.total_llm_cost_usd = 0.02
+    second_output = _full_output(generation_complete=True)
+    second_output.total_llm_cost_usd = 0.13
+
+    first_id = save_recommendation(context=context, output=first_output, db=db)
+    second_id = save_recommendation(context=context, output=second_output, db=db)
+
+    rows = (
+        db.query(Recommendation)
+        .filter(Recommendation.keyword_id == 403, Recommendation.run_id_text == "run-upsert")
+        .all()
+    )
+
+    assert first_id == second_id
+    assert len(rows) == 1
+    assert rows[0].generation_complete is True
+    assert rows[0].llm_cost_usd == 0.13
+    db.close()
+
+
 def test_run_save_recommendations_counts_failed_when_save_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     context = _context(501, "run-save-fail")
     output = _full_output()
@@ -466,10 +530,10 @@ def test_get_recommendation_skips_incomplete_and_invalid_rows() -> None:
         def __init__(self, rows: list[object]) -> None:
             self._rows = rows
 
-        def filter(self, *_args: object, **_kwargs: object) -> _Query:
+        def filter(self, *_args: object, **_kwargs: object) -> Any:
             return self
 
-        def order_by(self, *_args: object, **_kwargs: object) -> _Query:
+        def order_by(self, *_args: object, **_kwargs: object) -> Any:
             return self
 
         def all(self) -> list[object]:
@@ -534,6 +598,7 @@ def test_iter_pairs_and_context_extraction_from_mapping() -> None:
 def test_derive_recommendation_text_from_output_fallbacks() -> None:
     output = _full_output()
     output.niche_viability = None
+    assert output.differentiation_angle is not None
     assert storage._derive_recommendation_text_from_output(output) == output.differentiation_angle.one_sentence_pitch
 
     output.differentiation_angle = None

@@ -11,6 +11,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import src.recommendations.llm_tasks as llm_tasks_module
 from src.recommendations.contracts import RecommendationContext
 from src.recommendations.llm_tasks import (
     context_to_dict,
@@ -435,6 +436,33 @@ def test_task_uses_cache_hit() -> None:
     assert cache.set.await_count == 0
 
 
+def test_task_cache_miss_then_hit_across_calls() -> None:
+    class _Cache:
+        def __init__(self) -> None:
+            self._payloads: dict[str, str] = {}
+
+        async def get(self, cache_key: str) -> str | None:
+            return self._payloads.get(cache_key)
+
+        async def set(self, cache_key: str, payload: str) -> None:
+            self._payloads[cache_key] = payload
+
+    llm_client = SimpleNamespace(complete=AsyncMock(return_value=json.dumps(_gig_titles_payload())))
+    cache = _Cache()
+    with patch("src.recommendations.llm_tasks.load_template", return_value=_TemplateStub()):
+        first = asyncio.run(task_gig_titles(_context(), llm_client, cache=cache))
+        second = asyncio.run(task_gig_titles(_context(), llm_client, cache=cache))
+
+    assert first is not None
+    assert second is not None
+    assert llm_client.complete.await_count == 1
+
+
+def test_task_returns_none_when_llm_client_is_none() -> None:
+    result = asyncio.run(task_gig_titles(_context(), llm_client=None, cache=None))
+    assert result is None
+
+
 def test_context_to_dict_includes_all_required_fields() -> None:
     mapped = context_to_dict(_context())
     required_fields = {
@@ -488,6 +516,15 @@ def test_parse_strips_markdown_fences() -> None:
     assert validate_and_parse_llm_response(raw) == {"value": 1}
 
 
+def test_parse_nested_markdown_fences_returns_none() -> None:
+    raw = """```json
+```json
+{"value": 1}
+```
+```"""
+    assert validate_and_parse_llm_response(raw) is None
+
+
 def test_parse_returns_none_on_invalid_json() -> None:
     assert validate_and_parse_llm_response("not-json") is None
 
@@ -500,6 +537,10 @@ def test_estimate_cost_returns_float() -> None:
     cost = estimate_llm_cost("prompt text", "response text", "gpt-4o-mini")
     assert isinstance(cost, float)
     assert cost >= 0.0
+
+
+def test_estimate_cost_with_empty_strings_is_zero() -> None:
+    assert estimate_llm_cost("", "", "gpt-4o-mini") == 0.0
 
 
 def test_estimate_cost_gpt4o_mini_pricing() -> None:
@@ -555,4 +596,138 @@ def test_recommendations_package_exports_all_tasks_and_schemas() -> None:
         "RecommendationOutput",
     ]
     assert all(hasattr(recommendations, export_name) for export_name in expected_exports)
+
+
+def test_extract_response_text_supports_mapping_and_attribute_sources() -> None:
+    assert llm_tasks_module._extract_response_text({"text": "from-mapping"}) == "from-mapping"
+    assert llm_tasks_module._extract_response_text(SimpleNamespace(text="from-attr")) == "from-attr"
+    assert llm_tasks_module._extract_response_text(42) == "42"
+
+
+def test_validate_and_parse_rejects_non_object_json() -> None:
+    assert validate_and_parse_llm_response("[1, 2, 3]") is None
+
+
+def test_resolve_maybe_await_and_coerce_float_helpers() -> None:
+    assert asyncio.run(llm_tasks_module._resolve_maybe_await(7)) == 7
+    assert llm_tasks_module._coerce_float("not-a-number") is None
+
+
+def test_context_to_dict_handles_non_list_weaknesses_and_nested_scores() -> None:
+    context = RecommendationContext(
+        keyword_id=901,
+        keyword_text="python automation",
+        niche_id="1",
+        niche_name="Automation",
+        run_id="run-nested",
+        top_competitor_weaknesses="unexpected-string",  # type: ignore[arg-type]
+        market_price_range={
+            "starter_price_basic": "120",
+            "standard": {"starter_price": 230},
+            "premium": {"median": 310},
+        },
+        score_data={
+            "trend_score": {"score_value": "58.5"},
+            "profitability_score": {"score_value": 61.0},
+            "weakness_score": {"score_value": "invalid"},
+        },
+        score_components={"weakness_score": {"score_value": "44.0"}},
+    )
+
+    mapped = context_to_dict(context)
+    assert mapped["top_competitor_weaknesses"] == []
+    assert mapped["trend_score"] == 58.5
+    assert mapped["profitability_score"] == 61.0
+    assert mapped["weakness_score"] == 44.0
+    assert mapped["starter_price_basic"] == 120
+    assert mapped["starter_price_standard"] == 230
+    assert mapped["starter_price_premium"] == 310
+
+
+def test_cache_get_returns_none_on_cache_exception() -> None:
+    class _FailingCache:
+        async def get(self, _cache_key: str) -> Any:
+            raise RuntimeError("cache unavailable")
+
+    assert asyncio.run(llm_tasks_module._cache_get(_FailingCache(), "cache-key")) is None
+
+
+def test_cache_set_falls_back_after_type_error() -> None:
+    class _LegacyCache:
+        def __init__(self) -> None:
+            self.calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+        async def set(self, *args: Any, **kwargs: Any) -> None:
+            self.calls.append((args, kwargs))
+            if len(self.calls) == 1:
+                raise TypeError("legacy signature")
+
+    cache = _LegacyCache()
+    asyncio.run(llm_tasks_module._cache_set(cache, "cache-key", "payload"))
+
+    assert len(cache.calls) == 2
+    assert cache.calls[1][1]["model"] == "gpt-4o-mini"
+    assert cache.calls[1][1]["temperature"] == 0.0
+    assert cache.calls[1][1]["prompt_text"] == "cache-key"
+
+
+def test_parse_cached_payload_supports_mapping_input() -> None:
+    parsed = llm_tasks_module._parse_cached_payload(GigTitlesOutput, _gig_titles_payload())
+    assert parsed is not None
+    assert len(parsed.titles) == 5
+
+
+def test_call_llm_requires_complete_and_supports_typeerror_fallback() -> None:
+    with pytest.raises(AttributeError):
+        asyncio.run(llm_tasks_module._call_llm(object(), prompt="prompt", model="gpt-4o-mini", max_tokens=50))
+
+    class _LegacyClient:
+        def __init__(self) -> None:
+            self.calls: list[int | None] = []
+
+        def complete(self, *, prompt: str, model: str, max_tokens: int | None = None) -> Any:
+            del prompt, model
+            self.calls.append(max_tokens)
+            if max_tokens is not None:
+                raise TypeError("max_tokens not accepted")
+            return {"text": "ok"}
+
+    client = _LegacyClient()
+    response = asyncio.run(llm_tasks_module._call_llm(client, prompt="prompt", model="gpt-4o-mini", max_tokens=50))
+    assert response == "ok"
+    assert client.calls == [50, None]
+
+
+def test_execute_task_handles_parse_failures_and_invalid_cache_payloads() -> None:
+    bad_json_client = SimpleNamespace(complete=AsyncMock(return_value="not-json"))
+    with patch("src.recommendations.llm_tasks.load_template", return_value=_TemplateStub()):
+        parse_failure_result = asyncio.run(
+            llm_tasks_module._execute_task(
+                context=_context(),
+                llm_client=bad_json_client,
+                cache=None,
+                task_name="gig_titles",
+                template_file="gig_titles.j2",
+                output_model=GigTitlesOutput,
+                max_tokens=200,
+            )
+        )
+    assert parse_failure_result is None
+
+    cache = SimpleNamespace(get=AsyncMock(return_value='{"titles": []}'), set=AsyncMock())
+    good_json_client = SimpleNamespace(complete=AsyncMock(return_value=json.dumps(_gig_titles_payload())))
+    with patch("src.recommendations.llm_tasks.load_template", return_value=_TemplateStub()):
+        recovered = asyncio.run(
+            llm_tasks_module._execute_task(
+                context=_context(),
+                llm_client=good_json_client,
+                cache=cache,
+                task_name="gig_titles",
+                template_file="gig_titles.j2",
+                output_model=GigTitlesOutput,
+                max_tokens=200,
+            )
+        )
+    assert recovered is not None
+    assert good_json_client.complete.await_count == 1
 

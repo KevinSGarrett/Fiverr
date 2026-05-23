@@ -59,6 +59,7 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert result.exit_code == 0
     assert "foundation-gate" in result.output
     assert "export" in result.output
+    assert "export-recommendation" in result.output
     assert "dashboard" in result.output
     assert "collection-dry-run" in result.output
     assert "collect-only" in result.output
@@ -69,6 +70,14 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "saturation-analysis" in result.output
     assert "analysis-dry-run" in result.output
     assert "phase2-smoke" in result.output
+
+
+def test_export_recommendation_command_exists() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["export-recommendation", "--help"])
+    assert result.exit_code == 0
+    assert "--keyword-id INTEGER" in result.output
+    assert "Export a recommendation as Markdown or JSON for a given keyword ID." in result.output
 
 
 def test_foundation_gate_succeeds_with_temp_sqlite_db(tmp_path: Path) -> None:

@@ -147,6 +147,31 @@ def test_build_context_falls_back_to_final_score_when_keyword_score_missing() ->
     db.close()
 
 
+def test_build_context_uses_final_score_metrics_when_keyword_score_metric_missing() -> None:
+    db = _session()
+    _seed_keyword_and_score(db, confidence_modifier=0.72, tag="")
+    score_row = db.query(KeywordScore).filter(KeywordScore.keyword_id == 101).first()
+    assert score_row is not None
+    score_row.demand_score = None
+    db.add(
+        FinalScore(
+            run_id=1,
+            keyword_id=101,
+            gig_id=None,
+            final_score=79.0,
+            raw_json={"tag": "CONDITIONAL GO", "demand_score": 58.0},
+        )
+    )
+    db.commit()
+
+    context = build_recommendation_context(keyword_id=101, niche_id="1", run_id="run-1", db=db)
+
+    assert context is not None
+    assert context.tag == "CONDITIONAL GO"
+    assert context.demand_score == 58.0
+    db.close()
+
+
 def test_extract_tag_from_final_score_returns_none_for_non_mapping_raw_json() -> None:
     row = type("FinalScoreRow", (), {"raw_json": "not-a-dict"})()
     assert context_builder._extract_tag_from_final_score(row) is None
@@ -202,6 +227,26 @@ def test_get_confidence_modifier_defaults_when_missing() -> None:
     db.close()
 
 
+def test_get_confidence_modifier_defaults_when_final_score_confidence_is_none() -> None:
+    db = _session()
+    _seed_keyword_and_score(db, confidence_modifier=None)
+    db.add(
+        FinalScore(
+            run_id=1,
+            keyword_id=101,
+            gig_id=None,
+            final_score=77.0,
+            raw_json={"confidence_modifier": None},
+        )
+    )
+    db.commit()
+
+    confidence = get_confidence_modifier(101, db)
+
+    assert confidence == 0.5
+    db.close()
+
+
 def test_build_context_uses_search_result_titles_when_profile_missing() -> None:
     db = _session()
     _seed_keyword_and_score(db)
@@ -235,6 +280,20 @@ def test_build_context_falls_back_to_search_result_title() -> None:
 
     assert context is not None
     assert context.top_competitor_weaknesses[0]["gig_title"] == "Fallback search title"
+    db.close()
+
+
+def test_build_context_handles_cluster_assignment_without_cluster_label() -> None:
+    db = _session()
+    _seed_keyword_and_score(db)
+    db.add(ClusterAssignment(keyword_id=101, niche_id="1", cluster_id=99, run_id="run-1"))
+    db.commit()
+
+    context = build_recommendation_context(keyword_id=101, niche_id="1", run_id="run-1", db=db)
+
+    assert context is not None
+    assert context.cluster_label is None
+    assert context.cluster_size is None
     db.close()
 
 

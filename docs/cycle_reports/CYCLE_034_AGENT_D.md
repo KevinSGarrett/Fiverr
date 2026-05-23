@@ -1,0 +1,290 @@
+# Cycle 034 Agent D Report
+
+## Scope
+
+- Branch: `cycle/034/integration`
+- Objective: complete final E05 audit, raise recommendation-module coverage to `>=90%`, perform Jira reconciliation, and prepare PR #41 merge-gate evidence.
+- Rule profile: R-092 v2 Tier 2 respected for the required single comprehensive `pytest --cov=src` baseline run.
+
+## Task 1 - Preflight / Baseline
+
+- Preflight:
+  - Branch: `cycle/034/integration`
+  - `git pull origin cycle/034/integration` -> already up to date.
+  - Cycle reports read in full:
+    - `docs/cycle_reports/CYCLE_034_AGENT_A.md`
+    - `docs/cycle_reports/CYCLE_034_AGENT_B.md`
+    - `docs/cycle_reports/CYCLE_034_AGENT_C.md`
+- Deliverable checks:
+  - `python run.py export-recommendation --format markdown --help` -> pass
+  - `python run.py export-all-recommendations --help` -> pass
+  - `python run.py recommendations-summary --help` -> pass
+  - `docs/recommendations/E05_DOD_EVIDENCE.md` -> present
+  - `tests/integration/test_e05_dod_validation.py` -> present
+- First full baseline:
+  - `pytest -q tests/unit/ --no-header` -> `1 failed, 2272 passed`
+  - Blocker found: stale CLI expectation in `tests/unit/test_cli.py::test_export_recommendation_command_exists`
+  - Fix applied: updated help-text assertion for Markdown+JSON wording.
+  - Blocker verification rerun: targeted test passed.
+
+## Task 2 - E05 DoD Criteria Verification
+
+- Evidence doc read fully: `docs/recommendations/E05_DOD_EVIDENCE.md`
+- Referenced criterion tests re-run with file-scoped `-k` selectors.
+
+| AC / Criterion | Verification | Status |
+| --- | --- | --- |
+| AC1 recommendations-only generates for STRONG GO + CONDITIONAL GO | `test_recommendations_only_generates_for_strong_go_keywords`, `test_recommendations_only_generates_for_conditional_go_keywords` | PASS |
+| AC2 valid structured outputs or safe partial | `test_failed_task_does_not_crash_pipeline`, `test_all_11_outputs_present_when_all_tasks_succeed`, `test_generate_recommendation_partial_succeeds_with_six_of_eleven_tasks` | PASS |
+| AC3 eligibility gates and override behavior | `test_eligibility_gates_block_low_confidence`, `test_eligibility_gates_block_low_demand`, `test_force_override_bypasses_gates`, `test_score_change_threshold` | PASS |
+| AC4 required recommendation sections where data exists | full-output integration plus context/LLM task assertions in referenced suites | PASS |
+| AC5 persistence + Markdown/JSON exportability | `test_partial_output_persisted_with_generation_complete_false`, `test_markdown_export_produces_non_empty_string`, `test_json_export_is_serializable`, `test_cost_tracking_present` | PASS |
+
+Result: all 5 E05 criteria PASS; no partial criteria remained.
+
+## Task 3 - Single Comprehensive Coverage Baseline (R-092 Tier 2)
+
+Validation block executed once:
+
+- `python -m ruff check .` -> pass
+- `python -m mypy src` -> pass
+- `pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90` -> pass
+
+Captured metrics:
+
+- Total tests: `2335 passed`
+- Global coverage: `94.20%`
+- Coverage-run clock time: `395s`
+- Full validation block clock time: `397s`
+
+Recommendation-module baseline from this single full run:
+
+| Module | Coverage | Missing lines |
+| --- | --- | --- |
+| `src/recommendations/context_builder.py` | 90% | `117, 124, 134, 146, 158, 168, 207, 222-224, 240, 245, 258, 267, 274, 281, 287, 316-317` |
+| `src/recommendations/eligibility.py` | 88% | `37, 41, 122, 134, 143, 178, 183, 189, 206, 233, 239, 268, 287, 303, 319, 325, 331-334, 341, 358-361, 367, 374, 383, 404-405, 411-412` |
+| `src/recommendations/executor.py` | 100% | none |
+| `src/recommendations/export.py` | 81% | `60, 102, 197, 201, 205, 215, 219, 221, 230, 236, 276, 298, 302-303, 312, 328, 344, 361, 364, 385, 398, 405, 409, 414, 436, 456, 459-460, 464-470, 477-481, 483, 487, 490, 497-498, 513, 520-525, 530, 539, 544, 546, 555-557, 563, 565, 581-583` |
+| `src/recommendations/llm_tasks.py` | 84% | `75-80, 99, 119, 125-126, 156, 164, 171, 189, 202, 268-269, 278-294, 299, 302-304, 316, 319-320, 342-343` |
+| `src/recommendations/orchestrator.py` | 100% | none |
+| `src/recommendations/pipeline.py` | 96% | `131, 147-148, 161` |
+| `src/recommendations/storage.py` | 100% | none |
+| `src/recommendations/schemas.py` | 100% | none |
+| `src/recommendations/template_validation.py` | 100% | none |
+
+## Task 4 - Gap Tests to >=90%
+
+Targeted file-scoped coverage checks run for below-threshold modules:
+
+- `pytest -q --cov=src.recommendations.eligibility --cov-report=term-missing tests/unit/test_recommendation_eligibility.py --no-header`
+- `pytest -q --cov=src.recommendations.export --cov-report=term-missing tests/unit/test_export.py --no-header`
+- `pytest -q --cov=src.recommendations.llm_tasks --cov-report=term-missing tests/unit/test_llm_tasks.py --no-header`
+
+New/expanded tests were added in:
+
+- `tests/unit/test_recommendation_eligibility.py`
+- `tests/unit/test_export.py`
+- `tests/unit/test_llm_tasks.py`
+- `tests/integration/test_e05_pipeline.py`
+- `tests/unit/test_recommendations_pipeline.py`
+- `tests/unit/test_collection_orchestrator.py`
+- `tests/unit/test_cli.py`
+
+Required new named tests delivered:
+
+- `test_markdown_export_end_to_end_with_complete_recommendation`
+- `test_json_export_end_to_end_with_complete_recommendation`
+- `test_recommendations_only_dry_run_produces_summary_dict`
+- `test_collect_only_does_not_break_with_new_cli_modes`
+
+Per-module recommendation coverage before vs after Agent D gap work:
+
+| Module | Before (Task 3 single run) | After (final canonical) |
+| --- | --- | --- |
+| `src/recommendations/context_builder.py` | 90% | 90% |
+| `src/recommendations/eligibility.py` | 88% | 98% |
+| `src/recommendations/executor.py` | 100% | 100% |
+| `src/recommendations/export.py` | 81% | 96% |
+| `src/recommendations/llm_tasks.py` | 84% | 97% |
+| `src/recommendations/orchestrator.py` | 100% | 100% |
+| `src/recommendations/pipeline.py` | 96% | 96% |
+| `src/recommendations/storage.py` | 100% | 100% |
+| `src/recommendations/schemas.py` | 100% | 100% |
+| `src/recommendations/template_validation.py` | 100% | 100% |
+
+## Task 5 - Final Canonical Coverage
+
+Canonical final command:
+
+- `pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
+
+Final canonical metrics:
+
+- Total tests: `2368 passed`
+- Global coverage: `94.86%`
+- Coverage gate: PASS
+- Recommendation modules: all `>=90%` (see table above)
+
+## Task 6 + Task 14 + Task 16 CLI / Orchestration Validation
+
+- `python run.py recommendations-only` -> pass (dry-run summary output)
+- `python run.py recommendations-only --help` -> pass
+- `python run.py export-recommendation --keyword-id 999 --format markdown` -> graceful handled error
+- `python run.py export-recommendation --keyword-id 999 --format json` -> graceful handled error
+- `python run.py export-all-recommendations` -> graceful handled empty-run error
+- Pipeline mode checks:
+  - `collect-only`, `cluster-only`, `profile-only`, `quality-analysis`, `review-analysis`, `saturation-analysis` -> all pass
+- Stage 14 orchestration verification:
+  - `src/collection/orchestrator.py` has no `stage14_recommendations`
+  - Documented status: Stage 14 recommendations remains standalone post-export DoD phase
+
+## Task 15 - Optional Best-Effort Coverage Improvement
+
+Task 15.1 term-missing checks for pre-existing low-coverage modules:
+
+- `src/collection/safety.py`: 40% (`23-31`)
+- `src/utils/logging.py`: 55% (`27-31, 37-48`) baseline before Task 15.2 additions
+- `src/collection/playwright_check.py`: 50% (`14-28`)
+- `src/utils/json.py`: 69% (`11-14`)
+
+Task 15.2 module selected for improvement: `src/utils/logging.py` (preferred target).
+
+Added targeted gap tests in `tests/unit/test_utils.py`:
+
+- `test_logging_filter_redacts_tuple_args`
+- `test_logging_filter_redacts_dict_args`
+- `test_logging_filter_leaves_list_args_unchanged`
+- `test_configure_logging_adds_redacting_filter_and_debug_level`
+- `test_configure_logging_uses_info_for_invalid_level_without_redaction`
+
+Targeted verification:
+
+- `pytest -q --cov=src.utils.logging --cov-report=term-missing --cov-fail-under=0 tests/unit/test_utils.py --no-header`
+- Result: `src/utils/logging.py` improved from `55%` to `100%`.
+
+Task 15.3 respected: recommendation-module coverage work remained intact and unchanged.
+
+Task 15.4: improvement documented in this report.
+
+## Task 7 - Jira Reconciliation
+
+Reconciliation query confirmed:
+
+- `SCRUM-522` Done
+- `SCRUM-523` In Progress
+- `SCRUM-17` In Progress
+- `SCRUM-19` In Progress
+- `SCRUM-20` In Progress
+- `SCRUM-18` Done
+- `SCRUM-231` In Review
+- `SCRUM-178` through `SCRUM-184` initially In Progress
+
+After DoD PASS (5/5), transitioned to In Review:
+
+- `SCRUM-178`, `SCRUM-179`, `SCRUM-180`, `SCRUM-181`, `SCRUM-182`, `SCRUM-184`
+
+Left unchanged:
+
+- `SCRUM-183` remains In Progress
+
+## Task 8 - Epic Progress + Ledger
+
+- Posted comprehensive E05 progress comment on `SCRUM-20` (`comment id 11507`)
+- Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with Cycle 034 Agent D rows.
+
+## Task 10 - Codex Thread Disposition (PR #41)
+
+Query used (verbatim command):
+
+- `gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:50){nodes{id isResolved isOutdated comments(first:5){nodes{author{login}body}}}}}}}' -f owner=KevinSGarrett -f name=Fiverr -F number=41`
+
+Raw JSON output (verbatim, first run):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EVMWO","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Resolve keyword label from keyword table, not recommendation_text**\n\n`_load_export_metadata` currently prefers `Recommendation.recommendation_text` as `keyword_text`, but that column is populated by `save_recommendation` with generated recommendation copy (for example the blunt recommendation or a generic fallback), not the original keyword. In bulk export this causes mislabeled exports and can overwrite/drop entries when multiple rows share the same generated text because `export_all_recommendations` keys results by this label before writing files. Please source the label from `Keyword.keyword` (or raw payload keyword field) before falling back to recommendation text.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
+```
+
+Disposition table:
+
+| Thread ID | Assessment | Disposition | Action Taken |
+| --- | --- | --- | --- |
+| `PRRT_kwDOSbqwNc6EVMWO` | VALID_FIXED | fixed | Implemented `src/recommendations/export.py` fallback order fix (`raw_json.keyword_text` -> `Keyword.keyword` -> `Recommendation.recommendation_text`), added regression test `test_load_export_metadata_prefers_keyword_sources_over_recommendation_text`, committed as `3f6b076`, pushed, CI green, replied and resolved. |
+
+Raw JSON output (verbatim, confirmation run after disposition):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EVMWO","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Resolve keyword label from keyword table, not recommendation_text**\n\n`_load_export_metadata` currently prefers `Recommendation.recommendation_text` as `keyword_text`, but that column is populated by `save_recommendation` with generated recommendation copy (for example the blunt recommendation or a generic fallback), not the original keyword. In bulk export this causes mislabeled exports and can overwrite/drop entries when multiple rows share the same generated text because `export_all_recommendations` keys results by this label before writing files. Please source the label from `Keyword.keyword` (or raw payload keyword field) before falling back to recommendation text.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in 3f6b076. `_load_export_metadata` now resolves `keyword_text` from `raw_json.keyword_text` first, then `Keyword.keyword`, and only falls back to `Recommendation.recommendation_text` when those canonical sources are unavailable. Added regression test `test_load_export_metadata_prefers_keyword_sources_over_recommendation_text` in `tests/unit/test_export.py` to prevent mislabeled/overwritten bulk exports. Local regression suite passed (`pytest -q tests/unit/test_export.py --no-header`)."}]}}]}}}}}
+```
+
+Result: all threads dispositioned and `isResolved=true`.
+
+## Task 12 - SHA Freeze and Artifact Hygiene
+
+- `git rev-parse origin/cycle/034/integration` -> `94fd08413304157617a2a8f83baf72a2060d0fec`
+- Confirmed all cycle reports present:
+  - `docs/cycle_reports/CYCLE_034_AGENT_A.md`
+  - `docs/cycle_reports/CYCLE_034_AGENT_B.md`
+  - `docs/cycle_reports/CYCLE_034_AGENT_C.md`
+  - `docs/cycle_reports/CYCLE_034_AGENT_D.md`
+- `git status --short` hygiene check: no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` artifacts staged in Agent D commits.
+- Posted final steward summary to `SCRUM-523` (`comment id 11508`).
+
+## Task 17 - Cycle 035 Prep
+
+Created: `PM_Pack/10_cycle_log/CYCLE_035_PREP_NOTES.md`
+
+Included:
+
+- Current remote cycle branch count and branch list
+- Candidate cleanup set (Cycle 029 and older)
+- Required Cycle 035 Agent A merged-check/delete procedure
+- Explicit do-not-delete notes for active/unmerged branches
+
+## Task 18 - Merge Gate Checklist
+
+MERGE GATE CHECKLIST - Cycle 034 PR #41
+==========================================
+CODECOV:
+- [x] codecov/project: PASS - 94.86%
+- [x] codecov/patch: PASS - 95.21% (>= 90%)
+- [x] Local `--cov-fail-under=90`: PASS (94.86%)
+- [x] All new lines covered by tests: YES
+  - If NO, uncovered files: N/A
+
+CODEX:
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: 1
+- [x] All threads dispositioned: YES
+- [x] All VALID_FIXED threads have regression tests: YES
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
+
+E05 DOD GATE:
+- [x] AC1 (recommendations-only generates for STRONG GO + CONDITIONAL GO): PASS
+- [x] AC2 (all 11 tasks produce valid output or safe partial): PASS
+- [x] AC3 (eligibility gates block low-confidence): PASS
+- [x] AC4 (recommendations include all required sections): PASS
+- [x] AC5 (stored and exportable as Markdown and JSON): PASS
+
+RECOMMENDATION COVERAGE:
+- [x] All `src/recommendations/` modules >= 90%: YES
+  - If NO, list modules still below 90%: N/A
+
+FINAL:
+- [x] PR #41 is ready to merge: YES
+- [x] Blockers if NO: N/A
+
+Final statement: PR #41 is ready to merge when approved.
+
+## Canonical Final Test Count / Coverage
+
+- Baseline unit sweep (Task 1): `1 failed, 2272 passed` (blocker fixed)
+- Final canonical run (Task 5): `2368 passed`, global coverage `94.86%`
+
+## Cycle 035 Reminder
+
+Cycle 035 is the next 5-cycle periodic deep branch cleanup boundary per R-091. Cleanup prep notes are captured in `PM_Pack/10_cycle_log/CYCLE_035_PREP_NOTES.md` for Agent A execution.
+
+## Final SHA
+
+- Task 12 freeze SHA: `94fd08413304157617a2a8f83baf72a2060d0fec`

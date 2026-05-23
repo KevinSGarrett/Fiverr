@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
+from typing import Any
 
 import click
 from src.collection.session_manager import SessionManager, validate_session_file
 from src.config import ConfigLoader
+from src.models import Recommendation
+from src.models.database import (
+    create_session_factory,
+    get_session,
+    initialize_database,
+    normalize_database_url,
+)
 from src.orchestrator import (
     AVAILABLE_MODES,
     normalize_cli_config_path,
@@ -22,11 +31,91 @@ from src.orchestrator import (
     run_pipeline,
     run_smoke_checks,
 )
+from src.recommendations.export import (
+    export_all_recommendations,
+    export_recommendation_by_keyword,
+    export_recommendation_json_by_keyword,
+)
 
 
 @click.group()
 def cli() -> None:
     """Fiverr research system CLI."""
+
+
+def _load_recommendation_config(config_path: str = "config.yaml") -> dict[str, Any]:
+    config = ConfigLoader(normalize_cli_config_path(config_path)).load()
+    if hasattr(config, "model_dump"):
+        payload = config.model_dump()
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def _recommendation_db_session(database_url: str | None = None) -> Any:
+    normalized_url = normalize_database_url(database_url)
+    engine = initialize_database(database_url=normalized_url)
+    session_factory = create_session_factory(engine)
+    return get_session(session_factory)
+
+
+def _resolve_latest_recommendation_run_id(db: Any) -> str | None:
+    query_fn = getattr(db, "query", None)
+    if query_fn is None:
+        return None
+
+    try:
+        row = (
+            query_fn(Recommendation)
+            .filter(Recommendation.generation_complete.is_(True))
+            .order_by(Recommendation.created_at.desc())
+            .first()
+        )
+    except Exception:
+        return None
+    if row is None:
+        return None
+
+    run_id_text = getattr(row, "run_id_text", None)
+    if isinstance(run_id_text, str) and run_id_text.strip():
+        return run_id_text.strip()
+
+    run_id = getattr(row, "run_id", None)
+    if run_id is not None:
+        return str(run_id)
+    return None
+
+
+def _safe_export_filename(keyword_text: str) -> str:
+    filtered = [
+        character.lower()
+        if character.isalnum()
+        else "_"
+        for character in keyword_text.strip()
+    ]
+    safe_name = "".join(filtered).strip("_")
+    while "__" in safe_name:
+        safe_name = safe_name.replace("__", "_")
+    return safe_name or "keyword"
+
+
+def _recommendation_summary_counts(db: Any) -> dict[str, int]:
+    query = db.query(Recommendation)
+    total = int(query.count())
+    complete = int(query.filter(Recommendation.generation_complete.is_(True)).count())
+    strong_go = int(query.filter(Recommendation.tag == "STRONG GO").count()) + int(
+        query.filter(Recommendation.tag == "STRONG_GO").count()
+    )
+    conditional_go = int(query.filter(Recommendation.tag == "CONDITIONAL GO").count()) + int(
+        query.filter(Recommendation.tag == "CONDITIONAL_GO").count()
+    )
+    return {
+        "strong_go": strong_go,
+        "conditional_go": conditional_go,
+        "total": total,
+        "complete": complete,
+        "incomplete": max(total - complete, 0),
+    }
 
 
 @cli.command("init-db")
@@ -80,6 +169,124 @@ def foundation_gate_command(config_path: str, database_url: str) -> None:
 def export_command(export_format: str, input_path: str) -> None:
     """Validate export command surface for future Epic 09 implementation."""
     raise SystemExit(run_export_stub(export_format=export_format.lower(), input_path=input_path))
+
+
+@cli.command("export-recommendation")
+@click.option("--keyword-id", type=int, required=True, help="Keyword ID to export.")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["markdown", "json"], case_sensitive=False),
+    default="markdown",
+    show_default=True,
+    help="Export format.",
+)
+@click.option("--output", default=None, help="Output file path (default: stdout).")
+def export_recommendation_command(keyword_id: int, fmt: str, output: str | None) -> None:
+    """Export a recommendation as Markdown or JSON for a given keyword ID."""
+
+    async def _run() -> int:
+        format_name = fmt.strip().lower()
+        with _recommendation_db_session() as db:
+            if format_name == "markdown":
+                content, error = await export_recommendation_by_keyword(
+                    keyword_id=keyword_id,
+                    niche_id="",
+                    run_id="",
+                    db=db,
+                )
+                if error is not None:
+                    click.echo(f"ERROR: {error}", err=True)
+                    return 1
+                result = content
+            else:
+                payload, error = await export_recommendation_json_by_keyword(
+                    keyword_id=keyword_id,
+                    niche_id="",
+                    run_id="",
+                    db=db,
+                )
+                if error is not None:
+                    click.echo(f"ERROR: {error}", err=True)
+                    return 1
+                result = json.dumps(payload, indent=2)
+
+        if output:
+            output_path = Path(output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(result, encoding="utf-8")
+            click.echo(f"Exported to {output_path}")
+            return 0
+
+        click.echo(result)
+        return 0
+
+    raise SystemExit(asyncio.run(_run()))
+
+
+@cli.command("export-all-recommendations")
+@click.option("--run-id", required=False, default=None, help="Run ID to export (defaults to latest recommendation run).")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["markdown", "json"], case_sensitive=False),
+    default="markdown",
+    show_default=True,
+    help="Export format.",
+)
+@click.option("--output-dir", default="data/exports", show_default=True, help="Directory for output files.")
+def export_all_recommendations_command(run_id: str | None, fmt: str, output_dir: str) -> None:
+    """Export all complete recommendations for one run."""
+
+    async def _run() -> int:
+        config_payload = _load_recommendation_config()
+        format_name = fmt.strip().lower()
+        with _recommendation_db_session() as db:
+            resolved_run_id = run_id.strip() if isinstance(run_id, str) and run_id.strip() else None
+            if resolved_run_id is None:
+                resolved_run_id = _resolve_latest_recommendation_run_id(db)
+            if resolved_run_id is None:
+                click.echo("ERROR: no completed recommendation run found.", err=True)
+                return 1
+
+            exported = await export_all_recommendations(
+                run_id=resolved_run_id,
+                fmt=format_name,
+                db=db,
+                config=config_payload,
+            )
+
+        export_dir = Path(output_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        extension = ".md" if format_name == "markdown" else ".json"
+        written_count = 0
+        for keyword_text, payload in exported.items():
+            filename = f"{_safe_export_filename(keyword_text)}{extension}"
+            target_path = export_dir / filename
+            if format_name == "markdown":
+                content = str(payload)
+            else:
+                content = json.dumps(payload, indent=2)
+            target_path.write_text(content, encoding="utf-8")
+            written_count += 1
+
+        click.echo(f"Exported {written_count} recommendation(s) to {export_dir}")
+        return 0
+
+    raise SystemExit(asyncio.run(_run()))
+
+
+@cli.command("recommendations-summary")
+def recommendations_summary_command() -> None:
+    """Report recommendation totals and completion counts."""
+
+    with _recommendation_db_session() as db:
+        counts = _recommendation_summary_counts(db)
+
+    click.echo(
+        "STRONG GO: {strong_go}, CONDITIONAL GO: {conditional_go}, total: {total}, complete: {complete}, "
+        "incomplete: {incomplete}".format(**counts)
+    )
 
 
 @cli.command("dashboard")

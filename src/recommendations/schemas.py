@@ -66,6 +66,10 @@ class PackageStructureOutput(RecommendationSchemaBase):
         return self
 
 
+# Backward-compatible alias used by some validation probes/docs.
+PackageStructure = PackageStructureOutput
+
+
 class DescriptionSection(RecommendationSchemaBase):
     heading: str = Field(..., min_length=3, max_length=120)
     copy_direction: str = Field(..., min_length=10, max_length=800)
@@ -75,6 +79,13 @@ class DescriptionSection(RecommendationSchemaBase):
 
 class DescriptionOutlineOutput(RecommendationSchemaBase):
     sections: list[DescriptionSection] = Field(..., min_length=4, max_length=8)
+
+    @model_validator(mode="after")
+    def _total_word_estimate_reasonable(self) -> DescriptionOutlineOutput:
+        total_estimated_words = sum(section.estimated_words for section in self.sections)
+        if total_estimated_words < 200 or total_estimated_words > 1000:
+            raise ValueError(f"Total estimated words {total_estimated_words} outside 200-1000 range.")
+        return self
 
 
 class FAQEntry(RecommendationSchemaBase):
@@ -179,20 +190,23 @@ class RecommendationOutput(RecommendationSchemaBase):
         return self
 
     def _all_llm_outputs_present(self) -> bool:
-        return all(
-            value is not None
-            for value in (
-                self.gig_titles,
-                self.tag_sets,
-                self.package_structure,
-                self.description_outline,
-                self.faq_entries,
-                self.differentiation_angle,
-                self.buyer_persona,
-                self.thumbnail_direction,
-                self.upsell_structure,
-                self.red_flags,
-                self.niche_viability,
-            )
-        )
+        return self.completeness_ratio() >= 1.0
+
+    def completeness_ratio(self) -> float:
+        """Returns 0.0-1.0 indicating what proportion of LLM outputs are present."""
+        fields = [
+            self.gig_titles,
+            self.tag_sets,
+            self.package_structure,
+            self.description_outline,
+            self.faq_entries,
+            self.differentiation_angle,
+            self.buyer_persona,
+            self.thumbnail_direction,
+            self.upsell_structure,
+            self.red_flags,
+            self.niche_viability,
+        ]
+        present = sum(1 for field_value in fields if field_value is not None)
+        return present / len(fields)
 

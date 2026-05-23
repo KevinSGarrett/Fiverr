@@ -92,6 +92,21 @@ def test_collect_only_cli_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0
 
 
+def test_collect_only_does_not_break_with_new_cli_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_run_pipeline(**kwargs: Any) -> int:
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(run_module, "run_pipeline", _fake_run_pipeline)
+    runner = CliRunner()
+    result = runner.invoke(run_module.cli, ["collect-only", "--config-path", "config.yaml"])
+
+    assert result.exit_code == 0
+    assert captured["mode"] == "collect-only"
+
+
 def test_run_collection_niches_processed() -> None:
     result = _run(
         collection_orchestrator.run_collection_pipeline(

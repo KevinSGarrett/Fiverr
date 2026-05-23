@@ -27,5 +27,18 @@ def test_orchestrator_generate_handles_non_numeric_run_id() -> None:
     assert output.generation_complete is False
 
 
+def test_orchestrator_generate_coerces_numeric_run_id() -> None:
+    output = RecommendationOrchestrator().generate(_context("42"))
+
+    assert output.run_id == 42
+    assert output.niche_id == "1"
+    assert output.keyword == "python automation"
+
+
 def test_to_optional_int_returns_none_for_invalid_values() -> None:
     assert _to_optional_int("invalid-int") is None
+
+
+def test_to_optional_int_handles_none_and_numeric_values() -> None:
+    assert _to_optional_int(None) is None
+    assert _to_optional_int("7") == 7
