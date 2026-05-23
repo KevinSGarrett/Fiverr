@@ -11,7 +11,8 @@ Use this checklist before Agent B runs the first live Fiverr collection attempt.
 
 2. **Validate session file health**
    - `python run.py session-check`
-   - Expected healthy path: no crash, and clear status output.
+   - Expected output: `Session is VALID. Ready for collection.`
+   - If not valid, run `python run.py relogin` and re-run `session-check`.
 
 3. **Validate config**
    - `python run.py config-check`
