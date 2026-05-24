@@ -158,6 +158,8 @@ Merge evidence:
 - Control task: `SCRUM-527` (Task) -> transitioned to **In Progress**
 - Live collection story: `SCRUM-528` (Story, parent `SCRUM-17`) -> transitioned to **In Progress**
 - Kickoff/operator gate comment on `SCRUM-527`: comment id `11578`
+- Epic setup comment on `SCRUM-17`: comment id `11579`
+- Final summary comment on `SCRUM-527`: comment id `11580`
 
 ## Branch Cleanup Log
 
@@ -220,6 +222,8 @@ Agent B is clear to run live ScrapFly collection.
 ## Commit/Push Summary
 
 - Setup commit SHA: `2010c76`
+- Report commit SHA: `1bc5561`
+- Final branch HEAD SHA after Jira closeout verification: `1bc5561`
 - Files committed in setup commit:
   - `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
   - `docs/collection/LIVE_RUN_PREFLIGHT.md`
