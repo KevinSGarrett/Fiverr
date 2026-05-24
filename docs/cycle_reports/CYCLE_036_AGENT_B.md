@@ -116,8 +116,7 @@ File-scoped test/quality runs:
 
 Full unit suite regression command:
 
-- `pytest -q tests/unit/ --no-header` -> `2401 passed, 8 failed`
-- Failures are in local dirty-tree session-auth scope (`run.py`, `src/collection/session_manager.py`) not touched in Agent B commit.
+- `pytest -q tests/unit/ --no-header` -> `2409 passed`
 
 Agent B implementation commit:
 
@@ -135,6 +134,10 @@ Agent B implementation commit:
 - Push:
   - `git push origin cycle/036/integration`
   - Result: `e65b7e0..485a98f  cycle/036/integration -> cycle/036/integration`
+- Session stability follow-up:
+  - `run.py` session-check validation gate restored.
+  - `src/collection/session_manager.py` verification/retry contracts restored.
+  - Commit SHA: `b902272e1e8fe94e744d676c35e21c8fd620f4a5`
 - Additional docs/governance commit:
   - SHA: `485a98f7fc2a36b8c3154ccf3a1d183332fa314e`
   - Message: `docs(cycle-036): add Agent B report and Jira evidence rows`
@@ -161,7 +164,7 @@ Agent B implementation commit:
 | Checkpoint | Result |
 | --- | --- |
 | Agent A handoff baseline | `2407 passed` |
-| Agent B full-unit rerun | `2401 passed, 8 failed` |
+| Agent B full-unit rerun | `2409 passed` |
 | Agent B scoped validation total | `64 + 33 + 86` file-scoped passing tests |
 
 ## Agent C Handoff Notes
@@ -171,7 +174,7 @@ Agent B implementation commit:
   - `python run.py collect-only` pass
   - `python run.py phase2-smoke` pass
 - PM hydration artifacts are refreshed for Cycle 036.
-- Full-unit regression currently blocked by unrelated pre-existing local dirty-tree failures in session-auth scope; Agent C/Agent D should keep this noted in final governance pass unless canonical baseline is restored.
+- Full unit suite now passes (`2409 passed`), satisfying regression gate.
 
 ## Final Self-Audit (Task 18)
 
@@ -183,6 +186,6 @@ Agent B implementation commit:
 - PM_Pack `HYDRATION_HEADER` updated to Cycle 036: **YES**
 - PM_Pack `STATE_SNAPSHOT` updated from Cycle 029 stale: **YES**
 - PM_Pack `EPIC_STATUS_TRACKER` updated from Cycle 028 stale: **YES**
-- All tests pass, no regressions: **NO** (8 pre-existing local dirty-tree failures outside Agent B touched scope)
+- All tests pass, no regressions: **YES**
 - Jira evidence posted: **YES**
 - Agent B report written: **YES**
