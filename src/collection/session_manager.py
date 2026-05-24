@@ -212,9 +212,12 @@ class SessionManager:
                 )
                 return True
 
-            # On fiverr.com and not on /login — valid session
+            # URL alone is not considered proof of authentication because
+            # public Fiverr pages are accessible to logged-out users.
             if "fiverr.com" in current_url:
-                return True
+                log.debug(
+                    "On Fiverr URL during verification; requiring authenticated selector signal."
+                )
 
             # Fallback: CSS selector check
             element = await page.query_selector(LOGGED_IN_INDICATOR)
@@ -326,11 +329,9 @@ class SessionManager:
         """Verify login indicators on an already open page.
 
         Strategy (most-to-least reliable):
-        1. URL check — if we're on fiverr.com and NOT on /login or a block page, we're in.
-        2. CSS selector check — falls back to LOGGED_IN_INDICATOR / LOGGED_IN_FALLBACK.
-        3. Title check — if page title contains "Fiverr" and not "Login" we accept it.
-        The URL check is the most robust because it doesn't depend on DOM selectors
-        that may change between Fiverr deployments.
+        1. Fail fast on explicit login URL.
+        2. Treat PXCR challenge pages as provisional success in headed relogin flow.
+        3. Require authenticated UI indicators (URL alone is not enough).
         """
         try:
             current_url = page.url
@@ -346,11 +347,8 @@ class SessionManager:
                 )
                 return True
 
-            # If we're anywhere on fiverr.com that is not the login page, treat as success.
-            # This covers the dashboard, home, profile page, and any post-login redirect.
             if "fiverr.com" in current_url and "/login" not in current_url:
-                log.info("Verification passed via URL check — on fiverr.com and not on /login.")
-                return True
+                log.info("On Fiverr URL; requiring authenticated selector confirmation.")
 
             # Fallback: try CSS selectors (may fail if Fiverr updates their DOM)
             element = await page.query_selector(LOGGED_IN_INDICATOR)
@@ -360,13 +358,7 @@ class SessionManager:
                 log.info("Verification passed via CSS selector.")
                 return True
 
-            # Last resort: page title check
-            title = await page.title()
-            if "fiverr" in title.lower() and "login" not in title.lower():
-                log.info("Verification passed via page title: %s", title)
-                return True
-
-            log.info("Verification failed — no login indicators found on page.")
+            log.info("Verification failed — no authenticated indicators found on page.")
             return False
         except Exception as exc:
             log.warning("Verification check raised: %s", exc)

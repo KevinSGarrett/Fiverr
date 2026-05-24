@@ -561,6 +561,20 @@ def test_verify_session_treats_pxcr_as_valid_session() -> None:
     assert _run(sm._verify_session(context)) is True
 
 
+def test_verify_session_does_not_accept_fiverr_url_without_auth_indicator() -> None:
+    sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
+    page = MagicMock()
+    page.url = "https://www.fiverr.com/"
+    page.goto = AsyncMock()
+    page.content = AsyncMock(return_value="<html>public home</html>")
+    page.query_selector = AsyncMock(side_effect=[None, None])
+    page.close = AsyncMock()
+    context = MagicMock()
+    context.new_page = AsyncMock(return_value=page)
+
+    assert _run(sm._verify_session(context)) is False
+
+
 def test_headed_login_flow_falls_back_when_chrome_channel_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -685,16 +699,17 @@ def test_verify_session_on_page_pxcr_returns_true() -> None:
     assert _run(sm._verify_session_on_page(page)) is True
 
 
-def test_verify_session_on_page_url_success_without_selectors() -> None:
+def test_verify_session_on_page_does_not_accept_url_only_signal() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     page = MagicMock()
     page.url = "https://www.fiverr.com/dashboard"
     page.content = AsyncMock(return_value="<html>dashboard</html>")
+    page.query_selector = AsyncMock(side_effect=[None, None])
 
-    assert _run(sm._verify_session_on_page(page)) is True
+    assert _run(sm._verify_session_on_page(page)) is False
 
 
-def test_verify_session_on_page_title_fallback_success() -> None:
+def test_verify_session_on_page_does_not_accept_title_only_signal() -> None:
     sm = SessionManager({"fiverr": {"session_file": "data/sessions/fiverr_session.json"}})
     page = MagicMock()
     page.url = "https://example.com/profile"
@@ -702,7 +717,7 @@ def test_verify_session_on_page_title_fallback_success() -> None:
     page.query_selector = AsyncMock(side_effect=[None, None])
     page.title = AsyncMock(return_value="Fiverr dashboard")
 
-    assert _run(sm._verify_session_on_page(page)) is True
+    assert _run(sm._verify_session_on_page(page)) is False
 
 
 def test_verify_session_on_page_title_fallback_failure() -> None:
