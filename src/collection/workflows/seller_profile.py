@@ -63,10 +63,10 @@ async def run_seller_profile_collection(
         fetch_result = await fetcher.fetch(profile_url, pacing_key="fiverr_seller_profile")
         parsed = parse_seller_profile_from_html(fetch_result.html)
 
-        seller_level = parse_seller_level(parsed.seller_level_text if hasattr(parsed, "seller_level_text") else None)
-        member_since = parse_member_since(
-            parsed.member_since_text if hasattr(parsed, "member_since_text") else None
-        )
+        seller_level = parse_seller_level(getattr(parsed, "level", None))
+        member_since = parse_member_since(getattr(parsed, "member_since", None))
+        total_reviews = getattr(parsed, "review_count", None)
+        total_gigs = getattr(parsed, "active_gig_count", None)
 
         if isinstance(db, Session):
             write_seller_profile(
@@ -75,8 +75,8 @@ async def run_seller_profile_collection(
                 seller_level=seller_level,
                 member_since=member_since,
                 response_time=getattr(parsed, "response_time", None),
-                total_reviews=getattr(parsed, "total_reviews", None),
-                total_gigs=getattr(parsed, "total_gigs", None),
+                total_reviews=total_reviews,
+                total_gigs=total_gigs,
                 db=db,
             )
 
@@ -99,8 +99,8 @@ async def run_seller_profile_collection(
             "response_rate": getattr(parsed, "response_rate", None),
             "languages": getattr(parsed, "languages", []),
             "bio_text": getattr(parsed, "bio_text", None),
-            "total_reviews": getattr(parsed, "total_reviews", None),
-            "total_gigs": getattr(parsed, "total_gigs", None),
+            "total_reviews": total_reviews,
+            "total_gigs": total_gigs,
             "active_gig_titles": getattr(parsed, "active_gig_titles", []),
             "portfolio_count": getattr(parsed, "portfolio_count", 0),
             "badges": getattr(parsed, "badges", []),

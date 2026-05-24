@@ -6,11 +6,15 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from src.collection.http_fetcher import FetchResult
 from src.collection.search_result_parser import SearchGigCard, SearchParseResult
 from src.collection.workflows.fiverr_search import run_fiverr_search_collection
 from src.collection.workflows.gig_detail import run_gig_detail_collection
 from src.collection.workflows.seller_profile import run_seller_profile_collection
+from src.models.base import Base
+from src.models.gig import Gig
 
 _SEARCH_HTML_TWO_CARDS = """
 <html><body>
@@ -47,6 +51,8 @@ _SELLER_PROFILE_HTML = """
 <div data-testid="seller-level">Level 2 Seller</div>
 <div data-testid="member-since">Jan 2022</div>
 <div data-testid="response-time">1 hour</div>
+<div data-testid="seller-review-count">321 reviews</div>
+<div data-testid="active-gig-count">12 active gigs</div>
 <div data-testid="seller-language">English</div>
 </body></html>
 """
@@ -61,6 +67,12 @@ def _fetch_result(html: str, *, url: str = "https://www.fiverr.com/test") -> Fet
         credits_used=5,
         success=True,
     )
+
+
+def _in_memory_session():
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
 
 
 @pytest.mark.asyncio
@@ -200,6 +212,46 @@ async def test_seller_profile_with_scrapfly_fetcher_returns_collected() -> None:
 
     assert result["collected"] is True
     assert result["backend"] == "scrapfly"
+    assert result["seller_level"] == "LEVEL_2"
+    assert result["member_since"] == "2022-01"
+    assert result["total_reviews"] == 321
+    assert result["total_gigs"] == 12
+
+
+@pytest.mark.asyncio
+async def test_seller_profile_fetcher_maps_parser_fields_for_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_write_seller_profile(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "src.collection.workflows.seller_profile.write_seller_profile",
+        _fake_write_seller_profile,
+    )
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_fetch_result(_SELLER_PROFILE_HTML)))
+    db = _in_memory_session()
+
+    result = await run_seller_profile_collection(
+        seller_username="sellerpersist",
+        niche_id="design",
+        run_id="run-sf-6b",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert captured["seller_level"] == "LEVEL_2"
+    assert captured["member_since"] == "2022-01"
+    assert captured["total_reviews"] == 321
+    assert captured["total_gigs"] == 12
+    assert result["total_reviews"] == 321
+    assert result["total_gigs"] == 12
 
 
 @pytest.mark.asyncio
@@ -268,6 +320,45 @@ async def test_search_parser_used_when_fetcher_provided(
 
     assert calls == ["<html>payload</html>"]
     assert result["gig_cards_collected"] == 1
+
+
+@pytest.mark.asyncio
+async def test_gig_detail_fetcher_does_not_overwrite_existing_optional_fields() -> None:
+    db = _in_memory_session()
+    gig_url = "https://www.fiverr.com/sellerone/i-will-design-a-logo"
+    db.add(
+        Gig(
+            gig_url=gig_url,
+            seller_username="sellerone",
+            tags=["legacy-tag"],
+            faq_text="Existing FAQ",
+            video_present=True,
+        )
+    )
+    db.commit()
+
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_fetch_result(_GIG_DETAIL_HTML)))
+
+    result = await run_gig_detail_collection(
+        gig_url=gig_url,
+        keyword_id=111,
+        niche_id="design",
+        depth="keyword_only",
+        run_id="run-sf-8b",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    refreshed = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+    assert refreshed.tags == ["legacy-tag"]
+    assert refreshed.faq_text == "Existing FAQ"
+    assert refreshed.video_present is True
+    assert result["tags_count"] is None
+    assert result["has_video"] is None
 
 
 @pytest.mark.asyncio

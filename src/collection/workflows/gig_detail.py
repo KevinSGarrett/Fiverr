@@ -71,9 +71,9 @@ async def run_gig_detail_collection(
             {"tier_index": i + 1, "price_text": pkg.price}
             for i, pkg in enumerate(parsed.packages)
         ]
-        tags: list[str] = []
-        faq_text = ""
-        video_present = False
+        tags: list[str] | None = None
+        faq_text: str | None = None
+        video_present: bool | None = None
         portfolio_count = parsed.image_count
         review_count = parsed.review_count
         rating = parsed.rating
@@ -94,9 +94,12 @@ async def run_gig_detail_collection(
                 gig.gig_title_full = title
                 gig.description_text = description
                 gig.packages = packages
-                gig.tags = tags
-                gig.faq_text = faq_text
-                gig.video_present = video_present
+                if tags is not None:
+                    gig.tags = tags
+                if faq_text is not None:
+                    gig.faq_text = faq_text
+                if video_present is not None:
+                    gig.video_present = video_present
                 gig.portfolio_count = portfolio_count
                 gig.review_count_exact = review_count
                 gig.rating_exact = rating
@@ -129,7 +132,7 @@ async def run_gig_detail_collection(
             "title": title,
             "description_length": len(description) if description else 0,
             "packages_count": len(packages),
-            "tags_count": len(tags),
+            "tags_count": len(tags) if tags is not None else None,
             "has_video": video_present,
             "portfolio_count": portfolio_count,
             "review_count": review_count,
