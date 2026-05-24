@@ -73,9 +73,9 @@ Command:
 
 | Module | Coverage % | Missing Lines | Status |
 | --- | --- | --- | --- |
-| `src.collection.scrapfly_client` | 91% | `176, 184-185, 197-198, 241-244, 295, 309, 312, 331` | PASS |
+| `src.collection.scrapfly_client` | 91% | `176, 184-185, 197-198, 241-244, 295, 312, 331` | PASS |
 | `src.collection.http_fetcher` | 98% | `158` | PASS |
-| `src.collection.search_result_parser` | 95% | `68-69, 174-176, 243, 250, 285-286` | PASS |
+| `src.collection.search_result_parser` | 97% | `68-69, 174-176` | PASS |
 
 ## Integration Test List (Task 3)
 
@@ -104,9 +104,9 @@ Run result: `9 passed`
 - `config.yaml.example` contains `scrapfly` block -> PASS
 - `git worktree list` single canonical entry -> PASS
 - Scoped ScrapFly test files:
-  - `pytest -q tests/unit/test_scrapfly_client.py tests/unit/test_scrapfly_workflow_integration.py --no-header` -> `118 passed`
+  - `pytest -q tests/unit/test_scrapfly_client.py tests/unit/test_scrapfly_workflow_integration.py --no-header` -> `130 passed`
 - Full unit regression:
-  - `pytest -q tests/unit/ --no-header` -> `2463 passed` (meets >=2450 gate)
+  - `pytest -q tests/unit/ --no-header` -> `2475 passed` (meets >=2450 gate)
   - Non-blocking environment note observed after completion: pytest temp-dir cleanup `PermissionError` in an `atexit` callback; run result remained successful.
 - CLI validation block:
   - `python run.py collect-only` -> PASS
@@ -124,13 +124,13 @@ Run result: `9 passed`
 
 ## Final SHA
 
-- Agent C implementation commit SHA: `caa5233753e72cc0322d66a314d7dce177b23fcd`
+- Agent C implementation commit SHA: `caa5233753e72cc0322d66a314d7dce177b23fcd`.
 
 ## Agent D Handoff Notes
 
 - ScrapFly module coverage gates satisfied:
-  - `scrapfly_client` 91%, `http_fetcher` 98%, `search_result_parser` 95%.
+  - `scrapfly_client` 91%, `http_fetcher` 98%, `search_result_parser` 97%.
 - Integration test file created and passing (`9/9`).
 - Selector validation doc updated with ScrapFly mode impact and data-testid priorities.
-- Full unit regression now at `2463 passed`; no test regressions detected.
+- Full unit regression now at `2475 passed`; no test regressions detected.
 - Jira evidence comments posted: `SCRUM-526` (`11571`), `SCRUM-17` (`11572`), `SCRUM-525` (`11573`).

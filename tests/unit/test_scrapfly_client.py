@@ -18,9 +18,11 @@ from src.collection.scrapfly_client import (
     ScrapFlyMissingKeyError,
     ScrapFlyRateLimitError,
     ScrapFlyResult,
+    ScrapFlyStats,
 )
 from src.collection.search_result_parser import (
     SearchParseResult,
+    _CardCollector,
     _extract_seller_from_url,
     _is_gig_url,
     _parse_count,
@@ -177,6 +179,32 @@ class TestScrapFlyClientFetch:
         assert result.url == "https://www.fiverr.com/search/gigs?query=logo"
 
     @pytest.mark.asyncio
+    async def test_fetch_uses_asp_false_override(self):
+        c = _client_with()
+        received: list[tuple[bool, bool]] = []
+
+        async def _fake_single_fetch(url: str, *, asp: bool, render_js: bool):
+            received.append((asp, render_js))
+            return ScrapFlyResult(url=url, html="<html/>", status_code=200, credits_used=1, asp_triggered=False, success=True)
+
+        c._single_fetch = _fake_single_fetch  # type: ignore[method-assign]
+        await c.fetch("https://www.fiverr.com/x", asp=False)
+        assert received == [(False, True)]
+
+    @pytest.mark.asyncio
+    async def test_fetch_uses_render_js_false_override(self):
+        c = _client_with()
+        received: list[tuple[bool, bool]] = []
+
+        async def _fake_single_fetch(url: str, *, asp: bool, render_js: bool):
+            received.append((asp, render_js))
+            return ScrapFlyResult(url=url, html="<html/>", status_code=200, credits_used=1, asp_triggered=False, success=True)
+
+        c._single_fetch = _fake_single_fetch  # type: ignore[method-assign]
+        await c.fetch("https://www.fiverr.com/x", render_js=False)
+        assert received == [(True, False)]
+
+    @pytest.mark.asyncio
     async def test_backend_is_scrapfly(self):
         # ScrapFlyResult itself — not FetchResult — has no backend field
         # but ScrapFlyFetcher wraps it into FetchResult with backend="scrapfly"
@@ -301,6 +329,109 @@ class TestScrapFlyClientLifecycle:
         c = _client_with()
         await c.close()
         assert c._sdk_client is None
+
+    @pytest.mark.asyncio
+    async def test_close_without_sdk_close_method_is_safe(self):
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda k: "fake")
+        c._sdk_client = object()
+        await c.close()
+        assert c._sdk_client is None
+
+    @pytest.mark.asyncio
+    async def test_context_manager_calls_log_summary_when_fetch_raises(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        closed: list[bool] = []
+        summary_called: list[bool] = []
+
+        class _ClosingSDK(_MockSDKClient):
+            async def close(self):
+                closed.append(True)
+
+        def _record_summary(_self: ScrapFlyStats):
+            summary_called.append(True)
+
+        monkeypatch.setattr(ScrapFlyStats, "log_summary", _record_summary)
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda k: "fake")
+        c._sdk_client = _ClosingSDK(_MockScrapeResult(status=429))
+
+        with pytest.raises(ScrapFlyRateLimitError):
+            async with c:
+                await c.fetch("https://www.fiverr.com/x")
+
+        assert summary_called == [True]
+        assert closed == [True]
+
+
+class TestScrapFlyClientSingleFetch:
+    @pytest.mark.asyncio
+    async def test_single_fetch_handles_missing_content_key(self, monkeypatch: pytest.MonkeyPatch):
+        class _FakeScrapeConfig:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class _FakeResponse:
+            scrape_result = {"status_code": 200, "asp_trial": False}
+            context = {"cost": {"total": 0}}
+
+        class _FakeSDK:
+            async def async_scrape(self, config):
+                _ = config
+                return _FakeResponse()
+
+        class _FakeModule:
+            ScrapeConfig = _FakeScrapeConfig
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda k: "fake")
+        c._sdk_client = _FakeSDK()
+        monkeypatch.setattr("src.collection.scrapfly_client.importlib.import_module", lambda _name: _FakeModule)
+
+        result = await c._single_fetch("https://www.fiverr.com/x", asp=True, render_js=True)
+        assert result.html == ""
+        assert result.success is False
+
+    @pytest.mark.asyncio
+    async def test_single_fetch_none_status_code_defaults_to_200(self, monkeypatch: pytest.MonkeyPatch):
+        class _FakeScrapeConfig:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class _FakeResponse:
+            scrape_result = {"content": "<html/>", "status_code": None, "asp_trial": False}
+            context = {"cost": {"total": 0}}
+
+        class _FakeSDK:
+            async def async_scrape(self, config):
+                _ = config
+                return _FakeResponse()
+
+        class _FakeModule:
+            ScrapeConfig = _FakeScrapeConfig
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda k: "fake")
+        c._sdk_client = _FakeSDK()
+        monkeypatch.setattr("src.collection.scrapfly_client.importlib.import_module", lambda _name: _FakeModule)
+
+        result = await c._single_fetch("https://www.fiverr.com/x", asp=True, render_js=True)
+        assert result.status_code == 200
+
+
+class TestScrapFlyStats:
+    def test_log_summary_emits_expected_message(self, monkeypatch: pytest.MonkeyPatch):
+        stats = ScrapFlyStats(total_requests=3, total_credits_used=30, errors=1, asp_bypasses=2, blocked=0)
+        calls: list[tuple[str, tuple[object, ...]]] = []
+
+        def _fake_info(message: str, *args: object):
+            calls.append((message, args))
+
+        monkeypatch.setattr("src.collection.scrapfly_client.log.info", _fake_info)
+        stats.log_summary()
+
+        assert len(calls) == 1
+        assert "ScrapFly session summary" in calls[0][0]
+        assert calls[0][1] == (3, 30, 1, 2)
 
 
 # ─────────────────────────────────────────────
@@ -717,6 +848,47 @@ class TestSearchResultParser:
         </div></body></html>"""
         card = parse_search_results_from_html(html).gig_cards[0]
         assert card.starting_price == 75.0
+
+    def test_pound_price_parsed(self):
+        html = """<html><body>
+        <div data-testid="gig-card-layout">
+          <div data-testid="starting-price">£89</div>
+        </div></body></html>"""
+        card = parse_search_results_from_html(html).gig_cards[0]
+        assert card.starting_price == 89.0
+
+    def test_alternate_card_testid_gig_listing_item_is_supported(self):
+        html = """<html><body>
+        <div data-testid="gig_listing_item">
+          <a href="/altseller/i-will-design-your-logo">link</a>
+          <div data-testid="gig-title">Alt card title</div>
+        </div></body></html>"""
+        result = parse_search_results_from_html(html)
+        assert len(result.gig_cards) == 1
+        assert result.gig_cards[0].gig_title == "Alt card title"
+
+    def test_malformed_html_path_adds_parse_warning(self, monkeypatch: pytest.MonkeyPatch):
+        def _boom(_self, _html: str):
+            raise RuntimeError("collector boom")
+
+        monkeypatch.setattr("src.collection.search_result_parser._CardCollector.feed", _boom)
+        result = parse_search_results_from_html("<html><body><div>broken")
+        assert any("HTML parse error" in warning for warning in result.warnings)
+
+    def test_card_collector_close_flushes_unclosed_card(self):
+        collector = _CardCollector()
+        collector.feed(
+            "<html><body><div data-testid='gig-card-layout'><div data-testid='gig-title'>Flush me</div>"
+        )
+        collector.close()
+        assert len(collector.cards) == 1
+        assert collector.cards[0].get("title") == "Flush me"
+
+    def test_card_collector_close_flushes_unclosed_count(self):
+        collector = _CardCollector()
+        collector.feed("<html><body><div data-testid='total-result-count'>234 results")
+        collector.close()
+        assert collector.total_result_count_text == "234 results"
 
 
 class TestSearchResultParserHelpers:

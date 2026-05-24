@@ -37,6 +37,7 @@ Cycle 036 focused on completing ScrapFly integration quality gates after Agent A
 ## Agent C Deliverables
 
 - Added targeted coverage gap tests in `tests/unit/test_scrapfly_client.py`.
+- Added explicit edge-case tests for all Task 2 checklist branches (ScrapFly fetch overrides, `_single_fetch` fallback handling, lifecycle close/log-summary behavior, `_CardCollector` malformed/unclosed HTML paths, and alternate `gig_listing_item` card parsing).
 - Created `tests/unit/test_scrapfly_workflow_integration.py` with 9 integration tests for fetcher paths and dry-run behavior.
 - Updated `docs/collection/SELECTOR_VALIDATION_STATUS.md` with ScrapFly selector-priority impact section.
 - Executed full ScrapFly validation sweep (imports, workflow signatures, config defaults, dependency/config markers, scoped tests, full unit suite, CLI checks).
@@ -44,7 +45,7 @@ Cycle 036 focused on completing ScrapFly integration quality gates after Agent A
 
 ## Test Count Progression
 
-`2407` (Agent A handoff) -> `2409` (Agent B handoff) -> `2463` (Agent C full `tests/unit/` regression)
+`2407` (Agent A handoff) -> `2409` (Agent B handoff) -> `2475` (Agent C full `tests/unit/` regression)
 
 ## ScrapFly Coverage Status (Agent C)
 
@@ -53,9 +54,9 @@ Coverage command:
 
 | Module | Coverage | Missing Lines | Status |
 | --- | --- | --- | --- |
-| `src.collection.scrapfly_client` | 91% | `176, 184-185, 197-198, 241-244, 295, 309, 312, 331` | PASS (>=90) |
+| `src.collection.scrapfly_client` | 91% | `176, 184-185, 197-198, 241-244, 295, 312, 331` | PASS (>=90) |
 | `src.collection.http_fetcher` | 98% | `158` | PASS (>=90) |
-| `src.collection.search_result_parser` | 95% | `68-69, 174-176, 243, 250, 285-286` | PASS (>=90) |
+| `src.collection.search_result_parser` | 97% | `68-69, 174-176` | PASS (>=90) |
 
 ## Wrong-Directory Incident Status
 
