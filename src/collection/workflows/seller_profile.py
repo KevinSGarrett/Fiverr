@@ -38,6 +38,7 @@ async def run_seller_profile_collection(
     pacing_manager: Any,
     checkpoint_manager: Any,
     dry_run: bool = True,
+    fetcher: Any | None = None,
 ) -> dict[str, Any]:
     """
     Stage 5: Seller Profile Collection Per Username.
@@ -53,6 +54,64 @@ async def run_seller_profile_collection(
             "note": "Dry run: no Playwright navigation performed",
         }
 
+    # ------------------------------------------------------------------
+    # ScrapFly / fetcher path — uses existing HTML parser, no Playwright
+    # ------------------------------------------------------------------
+    if fetcher is not None:
+        from src.collection.seller_profile import parse_seller_profile_from_html
+        profile_url = build_seller_profile_url(seller_username)
+        fetch_result = await fetcher.fetch(profile_url, pacing_key="fiverr_seller_profile")
+        parsed = parse_seller_profile_from_html(fetch_result.html)
+
+        seller_level = parse_seller_level(parsed.seller_level_text if hasattr(parsed, "seller_level_text") else None)
+        member_since = parse_member_since(
+            parsed.member_since_text if hasattr(parsed, "member_since_text") else None
+        )
+
+        if isinstance(db, Session):
+            write_seller_profile(
+                seller_username=seller_username,
+                run_id=run_id,
+                seller_level=seller_level,
+                member_since=member_since,
+                response_time=getattr(parsed, "response_time", None),
+                total_reviews=getattr(parsed, "total_reviews", None),
+                total_gigs=getattr(parsed, "total_gigs", None),
+                db=db,
+            )
+
+        if checkpoint_manager is not None:
+            await _write_stage05_checkpoint(
+                checkpoint_manager=checkpoint_manager,
+                run_id=run_id,
+                niche_id=niche_id,
+                seller_username=seller_username,
+            )
+
+        return {
+            "seller_username": seller_username,
+            "collected": True,
+            "skipped": False,
+            "dry_run": False,
+            "seller_level": seller_level,
+            "member_since": member_since,
+            "response_time": getattr(parsed, "response_time", None),
+            "response_rate": getattr(parsed, "response_rate", None),
+            "languages": getattr(parsed, "languages", []),
+            "bio_text": getattr(parsed, "bio_text", None),
+            "total_reviews": getattr(parsed, "total_reviews", None),
+            "total_gigs": getattr(parsed, "total_gigs", None),
+            "active_gig_titles": getattr(parsed, "active_gig_titles", []),
+            "portfolio_count": getattr(parsed, "portfolio_count", 0),
+            "badges": getattr(parsed, "badges", []),
+            "profile_url": profile_url,
+            "backend": fetch_result.backend,
+            "fetch_warnings": getattr(parsed, "warnings", []),
+        }
+
+    # ------------------------------------------------------------------
+    # Playwright path (unchanged)
+    # ------------------------------------------------------------------
     if (
         not hasattr(session_manager, "new_page")
         or not hasattr(session_manager, "close_page")

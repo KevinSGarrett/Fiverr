@@ -6,6 +6,20 @@ recommendations:
 reddit:
   enabled: false            # set true when credentials are configured
   max_posts_per_seed: 25    # matches praw search limit per call
+collection:
+  scrapfly:
+    # ScrapFly API settings for PerimeterX bypass on Fiverr collection pages.
+    # Set enabled: true and add SCRAPFLY_API_KEY to .env to activate.
+    # When enabled, ScrapFly replaces Playwright for page fetching (Stages 3/4/5/8).
+    # All existing HTML parsers remain unchanged - only the HTTP transport changes.
+    enabled: false             # Set true when SCRAPFLY_API_KEY is in .env
+    asp: true                  # Anti Scraping Protection - handles PerimeterX
+    render_js: true            # Full JS render required for React SPA
+    country: "US"              # Residential exit node location
+    auto_scroll: true          # Triggers lazy-loaded gig images
+    max_retries: 3
+    timeout_seconds: 60
+    cost_budget_credits: null  # Optional hard cap per run (e.g. 5000)
 scoring:
   demand:
     use_cluster_boost: true

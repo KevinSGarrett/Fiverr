@@ -80,11 +80,31 @@ class PacingConfig(BaseModel):
     human_events: bool = False
 
 
+class ScrapFlyCollectionConfig(BaseModel):
+    """ScrapFly API settings for PerimeterX bypass.
+
+    Set enabled=True and export SCRAPFLY_API_KEY=scp-live-... to activate.
+    When enabled, collection workflows use ScrapFly instead of Playwright
+    for page fetching; all existing HTML parsers are untouched.
+    """
+
+    enabled: bool = False
+    api_key_env_var: str = "SCRAPFLY_API_KEY"
+    asp: bool = True
+    render_js: bool = True
+    country: str = "US"
+    auto_scroll: bool = True
+    max_retries: int = 3
+    timeout_seconds: int = 60
+    cost_budget_credits: int | None = None
+
+
 class CollectionConfig(BaseModel):
     pacing: dict[str, PacingConfig] = Field(default_factory=dict)
     retry_limit: int = Field(default=3, ge=0)
     checkpoint_interval: int = Field(default=50, ge=1)
     proxy_enabled: bool = False
+    scrapfly: ScrapFlyCollectionConfig = Field(default_factory=ScrapFlyCollectionConfig)
 
     @model_validator(mode="after")
     def validate_pacing_profiles(self) -> CollectionConfig:

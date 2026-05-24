@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import UTC, datetime
 from types import ModuleType
 from typing import Any
 from urllib.parse import urlparse
@@ -35,6 +36,7 @@ async def run_gig_detail_collection(
     pacing_manager: Any,
     checkpoint_manager: Any,
     dry_run: bool = True,
+    fetcher: Any | None = None,
 ) -> dict[str, Any]:
     """
     Stage 4: Gig Detail Collection Per Gig URL.
@@ -54,7 +56,94 @@ async def run_gig_detail_collection(
             "note": "Dry run: no Playwright navigation performed",
         }
 
-    from datetime import UTC, datetime
+    # ------------------------------------------------------------------
+    # ScrapFly / fetcher path — uses existing HTML parser, no Playwright
+    # ------------------------------------------------------------------
+    if fetcher is not None:
+        from src.collection.gig_detail import parse_gig_detail_from_html
+        detail_url = build_gig_detail_url(gig_url)
+        fetch_result = await fetcher.fetch(detail_url, pacing_key="fiverr_gig_detail")
+        parsed = parse_gig_detail_from_html(fetch_result.html)
+
+        title = parsed.title
+        description = parsed.description
+        packages = [
+            {"tier_index": i + 1, "price_text": pkg.price}
+            for i, pkg in enumerate(parsed.packages)
+        ]
+        tags: list[str] = []
+        faq_text = ""
+        video_present = False
+        portfolio_count = parsed.image_count
+        review_count = parsed.review_count
+        rating = parsed.rating
+        starting_price = _parse_starting_price(packages)
+        seller_username = _extract_seller_username_from_gig_url(gig_url)
+        seller_queued = False
+
+        from sqlalchemy.orm import Session
+
+        from src.models.gig import Gig
+        if isinstance(db, Session):
+            from sqlalchemy import inspect as sa_inspect
+
+            from src.models.job import Job
+
+            gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
+            if gig:
+                gig.gig_title_full = title
+                gig.description_text = description
+                gig.packages = packages
+                gig.tags = tags
+                gig.faq_text = faq_text
+                gig.video_present = video_present
+                gig.portfolio_count = portfolio_count
+                gig.review_count_exact = review_count
+                gig.rating_exact = rating
+                gig.starting_price = starting_price
+                gig.detail_collected = True
+                gig.detail_collected_at = datetime.now(UTC)
+                seller_username = gig.seller_username or seller_username
+            if depth != "keyword_only" and db.bind is not None and sa_inspect(db.bind).has_table("jobs"):
+                db.add(
+                    Job(
+                        job_id=f"seller_profile_{uuid.uuid4().hex[:12]}",
+                        run_id=run_id,
+                        job_type="SELLER_PROFILE",
+                        stage=5,
+                        niche_id=niche_id,
+                        priority="STANDARD",
+                        status="QUEUED",
+                        payload={"seller_username": seller_username, "niche_id": niche_id},
+                        created_at=datetime.now(UTC),
+                    )
+                )
+                seller_queued = True
+                db.commit()
+
+        return {
+            "gig_url": gig_url,
+            "keyword_id": keyword_id,
+            "collected": True,
+            "detail_collected": True,
+            "title": title,
+            "description_length": len(description) if description else 0,
+            "packages_count": len(packages),
+            "tags_count": len(tags),
+            "has_video": video_present,
+            "portfolio_count": portfolio_count,
+            "review_count": review_count,
+            "rating": rating,
+            "starting_price": starting_price,
+            "seller_queued": seller_queued,
+            "dry_run": False,
+            "backend": fetch_result.backend,
+            "fetch_warnings": parsed.warnings,
+        }
+
+    # ------------------------------------------------------------------
+    # Playwright path (unchanged)
+    # ------------------------------------------------------------------
 
     from sqlalchemy.orm import Session
 
