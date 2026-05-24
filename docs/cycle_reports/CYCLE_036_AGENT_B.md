@@ -126,7 +126,7 @@ Agent B implementation commit:
 ### Task 9 — Jira Evidence Posted
 
 - `SCRUM-17`: comment `11566`
-- `SCRUM-525`: comment `11567`
+- `SCRUM-525`: comments `11567` and follow-up `11569`
 - `SCRUM-526`: comment `11568`
 
 ### Task 10-18 — Push, Hygiene, and Final Audit
@@ -134,6 +134,9 @@ Agent B implementation commit:
 - Push:
   - `git push origin cycle/036/integration`
   - Result: `e65b7e0..485a98f  cycle/036/integration -> cycle/036/integration`
+- Final push:
+  - Result: `c6d6e51..5b2f269  cycle/036/integration -> cycle/036/integration`
+  - Final SHA: `5b2f269f2dd5c1df29215858353c064388bfc45a`
 - Session stability follow-up:
   - `run.py` session-check validation gate restored.
   - `src/collection/session_manager.py` verification/retry contracts restored.
