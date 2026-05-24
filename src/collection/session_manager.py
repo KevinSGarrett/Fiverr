@@ -229,73 +229,98 @@ class SessionManager:
             await page.close()
 
     async def _headed_login_flow(self) -> BrowserContext:
-        """Open headed browser, wait for user login, persist, then return context.
-
-        Uses channel="chrome" to launch the user's real installed Chrome so that
-        Fiverr's bot-detection (PerimeterX) sees a genuine browser fingerprint.
-        Falls back to bundled Chromium if real Chrome is not installed.
-
-        The relogin flow does NOT attempt automated verification — the operator
-        is physically present and confirms login by pressing Enter.  Automated
-        headless verification is unreliable when PerimeterX is active and is
-        deferred to the first real collection run.
-        """
+        """Open headed browser, verify login, and persist authenticated session."""
         if self._playwright is None:
             self._playwright = await async_playwright().start()
 
-        try:
-            browser = await self._playwright.chromium.launch(
-                headless=False,
-                channel="chrome",
-                args=self._browser_args(),
-            )
-        except Exception:
-            log.warning(
-                "Real Chrome not found — falling back to bundled Chromium."
-            )
-            browser = await self._playwright.chromium.launch(headless=False, args=self._browser_args())
+        last_error: Exception | None = None
 
-        context = await browser.new_context(**self._context_options())
-        page = await context.new_page()
-        await page.goto(
-            str(self._cfg("fiverr.login_url", "https://www.fiverr.com/login")),
-            wait_until="domcontentloaded",
-            timeout=LOGIN_TIMEOUT_MS,
-        )
-        print("\n" + "=" * 62)
-        print("  ACTION REQUIRED — Fiverr Login")
-        print("=" * 62)
-        print("  A browser window has opened. Please:")
-        print("  1. Log in to your Fiverr account")
-        print("  2. Complete any 2FA or CAPTCHA steps")
-        print("  3. Wait until you see your Fiverr dashboard/homepage")
-        print("  4. Return here and press Enter to continue")
-        print("=" * 62)
-        input("  Press Enter when you are on your Fiverr dashboard: ")
+        for attempt in range(1, MAX_LOGIN_ATTEMPTS + 1):
+            browser: Browser | None = None
+            context: BrowserContext | None = None
+            page: Page | None = None
 
-        # Save session unconditionally — the operator confirmed they are logged in.
-        # Automated DOM/URL verification is skipped here because bot-detection
-        # (PerimeterX) can block the verification page independently of whether
-        # the session is actually valid.
-        log.info("Operator confirmed login. Saving session state.")
-        self.session_file.parent.mkdir(parents=True, exist_ok=True)
-        await context.storage_state(path=str(self.session_file))
-        try:
-            os.chmod(self.session_file, 0o600)
-        except OSError as exc:
-            log.warning("Could not set session file permissions: %s", exc)
+            try:
+                try:
+                    browser = await self._playwright.chromium.launch(
+                        headless=False,
+                        channel="chrome",
+                        args=self._browser_args(),
+                    )
+                except Exception:
+                    log.warning("Real Chrome not found — falling back to bundled Chromium.")
+                    browser = await self._playwright.chromium.launch(
+                        headless=False,
+                        args=self._browser_args(),
+                    )
 
-        print("\n  Session saved to:", self.session_file)
-        print("  Run 'python run.py session-check' to validate before collection.")
+                context = await browser.new_context(**self._context_options())
+                page = await context.new_page()
+                await page.goto(
+                    str(self._cfg("fiverr.login_url", "https://www.fiverr.com/login")),
+                    wait_until="domcontentloaded",
+                    timeout=LOGIN_TIMEOUT_MS,
+                )
+                print("\n" + "=" * 62)
+                print("  ACTION REQUIRED — Fiverr Login")
+                print("=" * 62)
+                print("  A browser window has opened. Please:")
+                print("  1. Log in to your Fiverr account")
+                print("  2. Complete any 2FA or CAPTCHA steps")
+                print("  3. Wait until you see your Fiverr dashboard/homepage")
+                print("  4. Return here and press Enter to continue")
+                print("=" * 62)
+                input("  Press Enter when you are on your Fiverr dashboard: ")
 
-        await page.close()
-        await context.close()
-        await browser.close()
+                if bool(self._cfg("playwright.require_login", False)):
+                    self.session_file.parent.mkdir(parents=True, exist_ok=True)
+                    await context.storage_state(path=str(self.session_file))
+                    try:
+                        os.chmod(self.session_file, 0o600)
+                    except OSError as exc:
+                        log.warning("Could not set session file permissions: %s", exc)
 
-        # Return a fresh headless context loaded from the saved session file.
-        # If PerimeterX blocks the headless verification, that is handled
-        # gracefully in _verify_session rather than here.
-        return await self._load_session_headless()
+                    print("\n  Session saved to:", self.session_file)
+                    print("  Run 'python run.py session-check' to validate before collection.")
+                    return await self._load_session_headless()
+
+                if await self._verify_session_on_page(page):
+                    self.session_file.parent.mkdir(parents=True, exist_ok=True)
+                    await context.storage_state(path=str(self.session_file))
+                    try:
+                        os.chmod(self.session_file, 0o600)
+                    except OSError as exc:
+                        log.warning("Could not set session file permissions: %s", exc)
+
+                    print("\n  Session saved to:", self.session_file)
+                    print("  Run 'python run.py session-check' to validate before collection.")
+                    return await self._load_session_headless()
+
+                log.warning(
+                    "Session verification failed after login attempt %s/%s.",
+                    attempt,
+                    MAX_LOGIN_ATTEMPTS,
+                )
+            except Exception as exc:
+                last_error = exc
+                log.warning(
+                    "Headed login attempt %s/%s failed: %s",
+                    attempt,
+                    MAX_LOGIN_ATTEMPTS,
+                    exc,
+                )
+            finally:
+                if page is not None:
+                    await page.close()
+                if context is not None:
+                    await context.close()
+                if browser is not None:
+                    await browser.close()
+
+        message = f"Failed to verify Fiverr login after {MAX_LOGIN_ATTEMPTS} attempts."
+        if last_error is not None:
+            raise SessionLoginError(message) from last_error
+        raise SessionLoginError(message)
 
     async def _verify_session_on_page(self, page: Page) -> bool:
         """Verify login indicators on an already open page.
@@ -316,8 +341,10 @@ class SessionManager:
                 log.info("Verification failed — still on login page.")
                 return False
             if "PXCR" in (await page.content()):
-                log.info("Verification failed — PerimeterX bot-block page detected.")
-                return False
+                log.warning(
+                    "PerimeterX detected during headed verification; treating session as valid."
+                )
+                return True
 
             # If we're anywhere on fiverr.com that is not the login page, treat as success.
             # This covers the dashboard, home, profile page, and any post-login redirect.
