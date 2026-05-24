@@ -1,3 +1,13 @@
+# Active Story AC/DoD Ledger
+
+## Cycle 036 Rows (Agent C)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 036) | DoD Remaining / Gaps | Tests / Validation | Branch | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-526` | In Progress | `tests/unit/test_scrapfly_client.py`, `tests/unit/test_scrapfly_workflow_integration.py`, `docs/collection/SELECTOR_VALIDATION_STATUS.md`, `docs/cycle_reports/CYCLE_036_AGENT_C.md`, Jira comment `11571` | Closed ScrapFly coverage gate by raising `http_fetcher` to `98%` while sustaining `scrapfly_client` (`91%`) and `search_result_parser` (`95%`), added 9 workflow integration tests validating fetcher and dry-run behavior, and posted explicit Cycle 036 acceptance criteria evidence. | Story closure still depends on Agent D final PR governance, Codecov verification, and final merge checklist completion. | Coverage audit command passes (`>=90%` all three modules), `pytest -q tests/unit/test_scrapfly_workflow_integration.py --no-header` (`9 passed`), combined scoped run (`118 passed`), full unit regression (`2463 passed`), CLI validation (`collect-only`, `phase2-smoke`, `config-check`) pass. | `cycle/036/integration` | Keep `In Progress`; carry to Agent D for final PR gate and transition recommendation. |
+| `SCRUM-17` | In Progress | Epic evidence summary posted from Agent C validation bundle (ScrapFly coverage + integration + docs + regression outputs) | Advanced E02 by providing quantified ScrapFly verification evidence for parser/fetcher workflow paths and selector-priority shift in ScrapFly mode. | Epic remains open until merge governance completes and live enabled-run evidence is finalized in follow-on cycle operations. | Agent C validation block: `2463 passed` full unit suite; ScrapFly module coverage all `>=90%`; CLI smoke/collect checks pass. | `cycle/036/integration` | Keep `In Progress`; include final Agent C SHA in epic comment and proceed with Agent D closure. |
+| `SCRUM-525` | In Progress | Agent C report + PM cycle log + targeted test/doc updates for Cycle 036 control checkpoint | Advanced cycle control with coverage-gap remediation, integration test completion, selector-impact documentation, and full validation sweep evidence for handoff readiness. | Final cycle closure requires Agent D merge-governance checklist, PR checks, and merge SHA posting. | Agent C mandatory sweep complete: preflight pass, scoped tests pass, full regression (`2463 passed`), CLI checks pass, Jira AC comment posted to `SCRUM-526`. | `cycle/036/integration` | Keep `In Progress`; post final completion comment with Agent C commit SHA after push. |
+
 ## Cycle 036 Rows (Agent B)
 
 | Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 036) | DoD Remaining / Gaps | Tests / Validation | Branch | Next Action |
@@ -35,7 +45,8 @@
 | `SCRUM-147` | In Progress | Live Jira reconciliation query (`searchJiraIssuesUsingJql`) | Verified status matches expected In Progress state for Workflow 2 story. | Step 2a auth and Step 2g embeddings remain. | Reconciliation check pass. | `cycle/029/integration` | Continue remaining W2 tasks in follow-on cycle. |
 | `SCRUM-150` | In Progress | Live Jira reconciliation query (`searchJiraIssuesUsingJql`) | Verified status matches expected In Progress state for Workflow 5 story. | Live authenticated selector validation remains. | Reconciliation check pass. | `cycle/029/integration` | Continue live DOM validation evidence path. |
 | `SCRUM-231` | In Review | Live Jira reconciliation query; progress comment `11251` | Verified status matches expected In Review state and posted integration progress update noting collection layer is now substantially real. | Authenticated live collect-only evidence still required before Done. | Reconciliation check pass. | `cycle/029/integration` | Keep in review until live runtime evidence is posted. |
-# Active Story AC/DoD Ledger (Cycle 014)
+
+## Active Story AC/DoD Ledger (Cycle 014)
 
 ## Ledger Rules
 

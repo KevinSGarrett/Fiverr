@@ -21,6 +21,10 @@ from src.collection.scrapfly_client import (
 )
 from src.collection.search_result_parser import (
     SearchParseResult,
+    _extract_seller_from_url,
+    _is_gig_url,
+    _parse_count,
+    _parse_price,
     parse_search_results_from_html,
 )
 
@@ -345,6 +349,16 @@ class TestScrapFlyFetcher:
         await fetcher.fetch("https://www.fiverr.com/x", pacing_key="fiverr_gig_detail")
         assert received_key == ["fiverr_gig_detail"]
 
+    @pytest.mark.asyncio
+    async def test_supports_zero_credits_used(self):
+        class _ZeroCreditsClient:
+            async def fetch(self, url, **_kw):
+                return ScrapFlyResult(url, "<html/>", 200, 0, False, True)
+
+        fetcher = ScrapFlyFetcher(_ZeroCreditsClient())
+        result = await fetcher.fetch("https://www.fiverr.com/x")
+        assert result.credits_used == 0
+
 
 # ─────────────────────────────────────────────
 # PlaywrightFetcher — PageFetcher protocol
@@ -374,6 +388,58 @@ class TestPlaywrightFetcher:
         assert result.html == "<html>playwright content</html>"
         assert result.backend == "playwright"
         assert result.credits_used == 0
+
+    @pytest.mark.asyncio
+    async def test_calls_pacing_wait_with_dry_run_false(self):
+        called: list[tuple[str, bool]] = []
+
+        class _FakePage:
+            async def goto(self, *_a, **_kw):
+                return None
+
+            async def content(self):
+                return "<html>ok</html>"
+
+        class _FakeSession:
+            async def new_page(self):
+                return _FakePage()
+
+            async def close_page(self, _page):
+                return None
+
+        class _Pacing:
+            async def wait(self, key: str, dry_run: bool = True):
+                called.append((key, dry_run))
+
+        fetcher = PlaywrightFetcher(_FakeSession(), pacing_manager=_Pacing())
+        await fetcher.fetch("https://www.fiverr.com/x", pacing_key="fiverr_search")
+        assert called == [("fiverr_search", False)]
+
+    @pytest.mark.asyncio
+    async def test_falls_back_when_pacing_wait_rejects_dry_run_kwarg(self):
+        called: list[str] = []
+
+        class _FakePage:
+            async def goto(self, *_a, **_kw):
+                return None
+
+            async def content(self):
+                return "<html>ok</html>"
+
+        class _FakeSession:
+            async def new_page(self):
+                return _FakePage()
+
+            async def close_page(self, _page):
+                return None
+
+        class _LegacyPacing:
+            async def wait(self, key: str):
+                called.append(key)
+
+        fetcher = PlaywrightFetcher(_FakeSession(), pacing_manager=_LegacyPacing())
+        await fetcher.fetch("https://www.fiverr.com/x", pacing_key="fiverr_search")
+        assert called == ["fiverr_search"]
 
 
 # ─────────────────────────────────────────────
@@ -427,6 +493,17 @@ class TestBuildFetcher:
 
         result = build_fetcher(scrapfly_client=_SF(), prefer_scrapfly=False)
         assert isinstance(result, ScrapFlyFetcher)
+
+    def test_playwright_fetcher_receives_pacing_manager(self):
+        class _SM:
+            async def new_page(self): pass
+
+            async def close_page(self, p): pass
+
+        pacing = object()
+        result = build_fetcher(session_manager=_SM(), pacing_manager=pacing)
+        assert isinstance(result, PlaywrightFetcher)
+        assert result._pacing is pacing
 
 
 # ─────────────────────────────────────────────
@@ -640,3 +717,94 @@ class TestSearchResultParser:
         </div></body></html>"""
         card = parse_search_results_from_html(html).gig_cards[0]
         assert card.starting_price == 75.0
+
+
+class TestSearchResultParserHelpers:
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("$25", 25.0),
+            ("€75", 75.0),
+            ("£89", 89.0),
+            ("From $1,250", 1250.0),
+            ("Only €1,299.99 today", 1299.99),
+            ("starting at £9.50", 9.5),
+            ("$0", 0.0),
+            ("€12,000", 12000.0),
+        ],
+    )
+    def test_parse_price_valid_cases(self, text: str, expected: float):
+        assert _parse_price(text) == expected
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            None,
+            "",
+            "Free",
+            "N/A",
+            "USD",
+            "starts soon",
+        ],
+    )
+    def test_parse_price_invalid_cases(self, text: str | None):
+        assert _parse_price(text) is None
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("1,234 results", 1234),
+            ("234 results", 234),
+            ("Results: 5", 5),
+            ("0 results", 0),
+            ("Top 99 gigs", 99),
+            ("10,001 matches", 10001),
+        ],
+    )
+    def test_parse_count_valid_cases(self, text: str, expected: int):
+        assert _parse_count(text) == expected
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            None,
+            "",
+            "No numeric value",
+            "results unavailable",
+        ],
+    )
+    def test_parse_count_invalid_cases(self, text: str | None):
+        assert _parse_count(text) is None
+
+    @pytest.mark.parametrize(
+        ("href", "expected"),
+        [
+            ("https://www.fiverr.com/alice/i-will-build-a-site", True),
+            ("/alice/i-will-build-a-site", True),
+            ("https://www.fiverr.com/search/gigs?query=logo", False),
+            ("/search/gigs?query=logo", False),
+            ("https://www.fiverr.com/categories/graphics-design", True),
+            ("https://example.com/alice/i-will-build-a-site", False),
+            ("https://www.fiverr.com/alice", False),
+            ("", False),
+        ],
+    )
+    def test_is_gig_url_cases(self, href: str, expected: bool):
+        assert _is_gig_url(href) is expected
+
+    @pytest.mark.parametrize(
+        ("href", "expected"),
+        [
+            ("https://www.fiverr.com/alice/i-will-build-a-site", "alice"),
+            ("https://www.fiverr.com/search/gigs?query=logo", None),
+            ("https://www.fiverr.com/categories/graphics-design", None),
+            ("https://www.fiverr.com/gigs/business", None),
+            ("https://www.fiverr.com/login", None),
+            ("https://www.fiverr.com/register", None),
+            ("https://www.fiverr.com/about", None),
+            ("https://www.fiverr.com/help", None),
+            ("https://www.fiverr.com/pro_seller/i-will-do-seo", "pro_seller"),
+        ],
+    )
+    def test_extract_seller_from_url_cases(self, href: str, expected: str | None):
+        assert _extract_seller_from_url(href) == expected
