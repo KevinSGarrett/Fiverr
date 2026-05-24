@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import run as run_module
@@ -72,17 +73,144 @@ def test_run_collection_dry_run_no_errors() -> None:
     assert result["errors"] == []
 
 
-def test_run_collection_raises_without_dry_run() -> None:
-    with pytest.raises(NotImplementedError):
-        _run(
-            collection_orchestrator.run_collection_pipeline(
-                run_id="run-non-dry",
-                db={},
-                config={},
-                session_manager=None,
-                dry_run=False,
-            )
+def test_orchestrator_scrapfly_disabled_uses_playwright_fetcher(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel_fetcher = object()
+    session_manager = object()
+
+    monkeypatch.setattr(
+        "src.collection.workflows.niche_init.run_niche_initialization",
+        AsyncMock(return_value={"niches_processed": 0, "niche_specs": []}),
+    )
+    stage3_mock = AsyncMock(return_value={})
+    stage4_mock = AsyncMock(return_value={})
+    stage5_mock = AsyncMock(return_value={})
+    monkeypatch.setattr("src.collection.workflows.fiverr_search.run_fiverr_search_collection", stage3_mock)
+    monkeypatch.setattr("src.collection.workflows.gig_detail.run_gig_detail_collection", stage4_mock)
+    monkeypatch.setattr("src.collection.workflows.seller_profile.run_seller_profile_collection", stage5_mock)
+    monkeypatch.setattr(
+        "src.collection.workflows.autocomplete.run_autocomplete_collection",
+        AsyncMock(return_value={}),
+    )
+
+    build_fetcher_mock = Mock(return_value=sentinel_fetcher)
+    scrapfly_ctor = Mock()
+    monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", build_fetcher_mock)
+    monkeypatch.setattr("src.collection.scrapfly_client.ScrapFlyClient", scrapfly_ctor)
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-sf-disabled",
+            db={},
+            config={"collection": {"scrapfly": {"enabled": False}}, "niches": []},
+            session_manager=session_manager,
+            dry_run=False,
         )
+    )
+
+    assert result["errors"] == []
+    scrapfly_ctor.assert_not_called()
+    build_fetcher_mock.assert_called_once()
+    assert build_fetcher_mock.call_args.kwargs["session_manager"] is session_manager
+    assert build_fetcher_mock.call_args.kwargs["scrapfly_client"] is None
+    assert build_fetcher_mock.call_args.kwargs["prefer_scrapfly"] is False
+    stage3_call = stage3_mock.await_args
+    stage4_call = stage4_mock.await_args
+    stage5_call = stage5_mock.await_args
+    assert stage3_call is not None
+    assert stage4_call is not None
+    assert stage5_call is not None
+    assert stage3_call.kwargs["fetcher"] is sentinel_fetcher
+    assert stage4_call.kwargs["fetcher"] is sentinel_fetcher
+    assert stage5_call.kwargs["fetcher"] is sentinel_fetcher
+    assert stage3_call.kwargs["dry_run"] is False
+    assert stage4_call.kwargs["dry_run"] is False
+    assert stage5_call.kwargs["dry_run"] is False
+
+
+def test_orchestrator_scrapfly_enabled_uses_scrapfly_fetcher(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel_fetcher = object()
+    session_manager = object()
+
+    monkeypatch.setattr(
+        "src.collection.workflows.niche_init.run_niche_initialization",
+        AsyncMock(return_value={"niches_processed": 0, "niche_specs": []}),
+    )
+    stage3_mock = AsyncMock(return_value={})
+    stage4_mock = AsyncMock(return_value={})
+    stage5_mock = AsyncMock(return_value={})
+    monkeypatch.setattr("src.collection.workflows.fiverr_search.run_fiverr_search_collection", stage3_mock)
+    monkeypatch.setattr("src.collection.workflows.gig_detail.run_gig_detail_collection", stage4_mock)
+    monkeypatch.setattr("src.collection.workflows.seller_profile.run_seller_profile_collection", stage5_mock)
+    monkeypatch.setattr(
+        "src.collection.workflows.autocomplete.run_autocomplete_collection",
+        AsyncMock(return_value={}),
+    )
+
+    build_fetcher_mock = Mock(return_value=sentinel_fetcher)
+    sf_client = Mock()
+    sf_client.open = AsyncMock()
+    sf_client.close = AsyncMock()
+    sf_client.stats = SimpleNamespace(total_requests=3, total_credits_used=75)
+    scrapfly_ctor = Mock(return_value=sf_client)
+    monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", build_fetcher_mock)
+    monkeypatch.setattr("src.collection.scrapfly_client.ScrapFlyClient", scrapfly_ctor)
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-sf-enabled",
+            db={},
+            config={"collection": {"scrapfly": {"enabled": True}}, "niches": []},
+            session_manager=session_manager,
+            dry_run=False,
+        )
+    )
+
+    assert result["errors"] == []
+    scrapfly_ctor.assert_called_once()
+    sf_config = scrapfly_ctor.call_args.args[0]
+    assert sf_config.api_key_env_var == "SCRAPFLY_API_KEY"
+    sf_client.open.assert_awaited_once()
+    sf_client.close.assert_awaited_once()
+    build_fetcher_mock.assert_called_once()
+    assert build_fetcher_mock.call_args.kwargs["scrapfly_client"] is sf_client
+    assert build_fetcher_mock.call_args.kwargs["prefer_scrapfly"] is True
+    stage3_call = stage3_mock.await_args
+    stage4_call = stage4_mock.await_args
+    stage5_call = stage5_mock.await_args
+    assert stage3_call is not None
+    assert stage4_call is not None
+    assert stage5_call is not None
+    assert stage3_call.kwargs["fetcher"] is sentinel_fetcher
+    assert stage4_call.kwargs["fetcher"] is sentinel_fetcher
+    assert stage5_call.kwargs["fetcher"] is sentinel_fetcher
+    assert stage3_call.kwargs["dry_run"] is False
+    assert stage4_call.kwargs["dry_run"] is False
+    assert stage5_call.kwargs["dry_run"] is False
+
+
+def test_orchestrator_dry_run_never_opens_scrapfly_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    build_fetcher_mock = Mock(return_value=object())
+    sf_client = Mock()
+    sf_client.open = AsyncMock()
+    scrapfly_ctor = Mock(return_value=sf_client)
+    monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", build_fetcher_mock)
+    monkeypatch.setattr("src.collection.scrapfly_client.ScrapFlyClient", scrapfly_ctor)
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-sf-dry",
+            db={},
+            config={"collection": {"scrapfly": {"enabled": True}}, "niches": []},
+            session_manager=object(),
+            dry_run=True,
+        )
+    )
+
+    assert result["errors"] == []
+    scrapfly_ctor.assert_not_called()
+    build_fetcher_mock.assert_not_called()
 
 
 def test_collect_only_cli_smoke(monkeypatch: pytest.MonkeyPatch) -> None:

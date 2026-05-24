@@ -48,3 +48,17 @@ Use this checklist before Agent B runs the first live Fiverr collection attempt.
 ## PXCR Awareness
 
 If Fiverr pages return empty content with no explicit selector exception, inspect rendered content for `PXCR` indicators (PerimeterX bot-block). This is often a browser fingerprint condition, not necessarily an IP ban.
+
+## ScrapFly Mode (Recommended for PXCR environments)
+
+- **Prerequisites**
+  - Set `SCRAPFLY_API_KEY` in `.env`.
+  - Set `collection.scrapfly.enabled: true` in `config.yaml`.
+- **Verify ScrapFly is active**
+  - Run `python run.py config-check` and confirm `collection.scrapfly.enabled` resolves to `true`.
+- **Expected behavior**
+  - ScrapFly performs JS rendering and handles PerimeterX bypass on collection pages.
+- **Credit monitoring**
+  - Watch logs for `ScrapFly session: requests=N credits=N`.
+- **Fallback**
+  - Set `collection.scrapfly.enabled: false` to return to Playwright transport.

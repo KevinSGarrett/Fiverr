@@ -12,9 +12,9 @@ Env var: SCRAPFLY_API_KEY=scp-live-...
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
-import importlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -172,7 +172,8 @@ class ScrapFlyClient:
             )
 
         try:
-            _SDK = getattr(importlib.import_module("scrapfly"), "ScrapflyClient")
+            scrapfly_module = importlib.import_module("scrapfly")
+            _SDK = scrapfly_module.ScrapflyClient
         except ImportError as exc:
             raise ImportError(
                 "scrapfly-sdk is not installed.\n"
@@ -304,7 +305,8 @@ class ScrapFlyClient:
     ) -> ScrapFlyResult:
         """Execute one ScrapFly API call and normalise the response."""
         try:
-            ScrapeConfig = getattr(importlib.import_module("scrapfly"), "ScrapeConfig")
+            scrapfly_module = importlib.import_module("scrapfly")
+            ScrapeConfig = scrapfly_module.ScrapeConfig
         except ImportError as exc:
             if self._sdk_client is None:
                 raise ImportError("scrapfly-sdk not installed") from exc
