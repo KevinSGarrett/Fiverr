@@ -38,6 +38,7 @@ Cycle 037 Agent C executed independent live-data validation and downstream analy
 - Re-ran mandatory preflight in canonical repo and confirmed one-worktree state.
 - Validated DB handoff counts against Agent B report (no discrepancy).
 - Executed Codex P1 independent probes and raw SQLite verification.
+- Added explicit Task 2.4 seller-profile regression spec test for live markup drift.
 - Ran Stage 9/10/11/13 and scoring pipeline commands on live DB.
 - Executed recommendation generation check and root-cause analysis.
 - Completed required file-scoped tests, full unit suite, and full repository regression.
@@ -45,6 +46,7 @@ Cycle 037 Agent C executed independent live-data validation and downstream analy
   - `SCRUM-528`: comment `11587`
   - `SCRUM-20`: comment `11588`
   - `SCRUM-527`: comment `11589`
+  - `SCRUM-527`: follow-up completion patch `11590`
 
 ## Codex P1 Verification Status (Agent C Independent)
 
@@ -52,6 +54,7 @@ Cycle 037 Agent C executed independent live-data validation and downstream analy
   - Evidence: `gigs=0`, `detail_collected=0`, no persisted gig detail rows in live DB.
 - `SELLER_PROFILE_P1`: `STILL_BROKEN`
   - Evidence: seller rows exist (`19`), but sampled fields remain sparse (`member_since=None`, `total_reviews=None`, `total_gigs=None` with `seller_level=NO_LEVEL`).
+  - Regression spec: `test_seller_profile_live_markup_drift_regression_spec` (`xfail`, documents expected corrected behavior).
 
 ## Adaptive Path Decision
 

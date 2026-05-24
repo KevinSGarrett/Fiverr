@@ -255,6 +255,46 @@ async def test_seller_profile_fetcher_maps_parser_fields_for_persistence(
 
 
 @pytest.mark.asyncio
+@pytest.mark.xfail(
+    reason=(
+        "Cycle 037 live seller markup drift: parser currently misses alternate "
+        "testids for member_since/review_count/active_gig_count."
+    ),
+    strict=False,
+)
+async def test_seller_profile_live_markup_drift_regression_spec() -> None:
+    # Regression spec for the observed live failure mode where seller rows are created
+    # but key profile fields remain null. This test documents expected behavior once
+    # parser support for alternate live testids is implemented.
+    live_drift_html = """
+    <html><body>
+    <div data-testid="seller-overview-level">Level 2 Seller</div>
+    <div data-testid="seller-member-since">Jan 2022</div>
+    <div data-testid="seller-reviews-count">321 reviews</div>
+    <div data-testid="seller-active-gigs">12 active gigs</div>
+    </body></html>
+    """
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_fetch_result(live_drift_html)))
+
+    result = await run_seller_profile_collection(
+        seller_username="sellerdrift",
+        niche_id="design",
+        run_id="run-sf-6c",
+        db=object(),
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert result["seller_level"] == "LEVEL_2"
+    assert result["member_since"] == "2022-01"
+    assert result["total_reviews"] == 321
+    assert result["total_gigs"] == 12
+
+
+@pytest.mark.asyncio
 async def test_seller_profile_dry_run_ignores_fetcher() -> None:
     fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_fetch_result(_SELLER_PROFILE_HTML)))
 
