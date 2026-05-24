@@ -201,7 +201,7 @@ ScrapFly credits observed:
 
 - Collection/live-run code+docs commit: `7325e3a`
 - Agent B report + ledger commit: `225a4d2`
-- Final branch HEAD SHA: `<set after final cleanup commit>`
+- Final branch HEAD SHA: `0dd078c`
 
 ## Agent C Handoff
 
