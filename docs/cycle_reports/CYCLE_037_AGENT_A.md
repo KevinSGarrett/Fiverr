@@ -223,7 +223,6 @@ Agent B is clear to run live ScrapFly collection.
 
 - Setup commit SHA: `2010c76`
 - Report commit SHA: `1bc5561`
-- Final branch HEAD SHA after Jira closeout verification: `1bc5561`
 - Files committed in setup commit:
   - `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
   - `docs/collection/LIVE_RUN_PREFLIGHT.md`
