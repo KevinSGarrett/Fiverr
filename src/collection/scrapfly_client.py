@@ -193,7 +193,9 @@ class ScrapFlyClient:
             closer = getattr(self._sdk_client, "close", None)
             if closer is not None:
                 try:
-                    await closer()
+                    maybe_coro = closer()
+                    if hasattr(maybe_coro, "__await__"):
+                        await maybe_coro
                 except Exception as exc:
                     log.warning("ScrapFly close error (ignored): %s", exc)
             self._sdk_client = None
@@ -320,6 +322,7 @@ class ScrapFlyClient:
 
         cfg = ScrapeConfig(
             url=url,
+            retry=False,
             asp=asp,
             render_js=render_js,
             country=self._config.country,
