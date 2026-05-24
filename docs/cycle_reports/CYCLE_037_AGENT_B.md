@@ -34,7 +34,7 @@ Canonical repo: `C:\Fiverr\Fiverr`
 ## Task 1 - ScrapFly Key Verification + Live Run Gate
 
 - KEY_PRESENT: `yes` (`SCRAPFLY_API_KEY` found in `.env`)
-- ENABLED_IN_CONFIG: `no` (no explicit `collection.scrapfly.enabled` in `config.yaml`)
+- ENABLED_IN_CONFIG: `yes` (`collection.scrapfly.enabled: true` present in `config.yaml`)
 - Runtime key load probe:
   - `KEY_LEN: 41`
   - `KEY_PREFIX: scp-live`
@@ -181,6 +181,10 @@ ScrapFly credits observed:
   - `pytest -q tests/unit/ --no-header`
   - `2477 passed`
   - Note: pytest emitted a post-run temp-dir cleanup `PermissionError` in `atexit`; tests themselves passed with zero failures.
+- full repository suite regression:
+  - `pytest -q --no-header`
+  - `2541 passed`
+  - This run satisfies the cycle completion standard threshold (`>=2541`, zero failures).
 
 ## Task 17 - Ruff + Mypy
 
@@ -196,8 +200,8 @@ ScrapFly credits observed:
 ## Commits
 
 - Collection/live-run code+docs commit: `7325e3a`
-- Agent B report + ledger commit: `<this commit>`
-- Final branch HEAD SHA: `<set to report commit SHA after commit>`
+- Agent B report + ledger commit: `225a4d2`
+- Final branch HEAD SHA: `<set after final cleanup commit>`
 
 ## Agent C Handoff
 
@@ -220,5 +224,6 @@ ScrapFly credits observed:
 - `SELECTOR_VALIDATION_STATUS.md` updated: YES
 - DB count table written: YES
 - All tests pass, no regressions: YES (full unit `2477 passed`)
+- All tests pass, no regressions: YES (full repo `2541 passed`)
 - Jira evidence posted: YES
 - Agent B report committed: PENDING

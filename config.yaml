@@ -28,6 +28,15 @@ collection:
   retry_limit: 3
   checkpoint_interval: 50
   proxy_enabled: false
+  scrapfly:
+    enabled: true
+    api_key_env_var: SCRAPFLY_API_KEY
+    asp: true
+    render_js: true
+    country: US
+    auto_scroll: true
+    max_retries: 3
+    timeout_seconds: 60
   pacing:
     fiverr_search:
       base_delay_seconds: 4
