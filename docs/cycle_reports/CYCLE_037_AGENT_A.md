@@ -230,7 +230,7 @@ Agent B is clear to run live ScrapFly collection.
 
 ## Final SHA
 
-- Final branch HEAD SHA: `a463ef0`
+- Final branch HEAD SHA: `2e3c482`
 
 ## Final Self-Audit (Task 18)
 
