@@ -130,6 +130,25 @@ Agent B implementation commit:
 - `SCRUM-525`: comment `11567`
 - `SCRUM-526`: comment `11568`
 
+### Task 10-18 — Push, Hygiene, and Final Audit
+
+- Push:
+  - `git push origin cycle/036/integration`
+  - Result: `e65b7e0..485a98f  cycle/036/integration -> cycle/036/integration`
+- Additional docs/governance commit:
+  - SHA: `485a98f7fc2a36b8c3154ccf3a1d183332fa314e`
+  - Message: `docs(cycle-036): add Agent B report and Jira evidence rows`
+- Git hygiene:
+  - `git status --short` confirmed no `.env`, `*.db`, `coverage.xml`, or `data/sessions/` staged by Agent B commits.
+  - `git log --all --full-history -- ".env"` returned no results.
+- Canonical directory/worktree checks:
+  - `Get-Location` -> `C:\Fiverr\Fiverr`
+  - `git worktree list` -> single entry
+- Runtime checks:
+  - `python run.py config-check` -> pass
+  - `python run.py collect-only` -> pass
+  - `python run.py phase2-smoke` -> pass
+
 ## Additional Cycle Artifacts
 
 - Updated `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` with Cycle 036 Agent B rows for:
@@ -153,3 +172,17 @@ Agent B implementation commit:
   - `python run.py phase2-smoke` pass
 - PM hydration artifacts are refreshed for Cycle 036.
 - Full-unit regression currently blocked by unrelated pre-existing local dirty-tree failures in session-auth scope; Agent C/Agent D should keep this noted in final governance pass unless canonical baseline is restored.
+
+## Final Self-Audit (Task 18)
+
+- Get-Location = `C:\Fiverr\Fiverr`: **YES**
+- `git worktree list` = 1 entry: **YES**
+- Orchestrator wired (`build_fetcher` called): **YES**
+- ScrapFly integration doc created: **YES**
+- README updated: **YES**
+- PM_Pack `HYDRATION_HEADER` updated to Cycle 036: **YES**
+- PM_Pack `STATE_SNAPSHOT` updated from Cycle 029 stale: **YES**
+- PM_Pack `EPIC_STATUS_TRACKER` updated from Cycle 028 stale: **YES**
+- All tests pass, no regressions: **NO** (8 pre-existing local dirty-tree failures outside Agent B touched scope)
+- Jira evidence posted: **YES**
+- Agent B report written: **YES**
