@@ -136,7 +136,7 @@ Evidence comments posted:
 - `SCRUM-17` collection evidence: comment `11525`
 - `SCRUM-19` scoring evidence: comment `11522`
 - `SCRUM-20` comprehensive E05 live status: comment `11524`
-- `SCRUM-524` final steward summary: comment `11526`
+- `SCRUM-524` final steward summary: comments `11526` and `11527` (SHA correction)
 - S5 stories final review comments:
   - `SCRUM-178` -> `11520`
   - `SCRUM-179` -> `11517`
@@ -289,7 +289,7 @@ Final statement:
 ## 17) Final SHA Freeze and Artifact Hygiene
 
 - Canonical branch SHA:
-  - `git rev-parse origin/cycle/035/integration` -> `6600fe99b83ae610876395435ce310c9767f5dfe`
+  - `git rev-parse origin/cycle/035/integration` -> `fc14a7c0c5c4a0bb5ddd3bcca1b6075c5143449b`
 - Cycle report presence checks:
   - `docs/cycle_reports/CYCLE_035_AGENT_A.md` -> True
   - `docs/cycle_reports/CYCLE_035_AGENT_B.md` -> True
@@ -300,4 +300,4 @@ Final statement:
   - `git log --all --full-history -- ".env"` -> no hits
 - Final status note:
   - `git status --short` shows only pre-existing untracked `data/reports/` artifacts (not staged/committed)
-- SCRUM-524 final steward summary posted: comment `11526`
+- SCRUM-524 final steward summary posted: comments `11526` and `11527`
