@@ -220,7 +220,8 @@ Targeted and regression commands executed:
 - `pytest -q tests/unit/test_scrapfly_client.py --no-header` -> `59 passed`
 - `pytest -q tests/unit/test_seller_profile.py --no-header` -> `52 passed`
 - `pytest -q tests/unit/test_collection_workflows.py --no-header` -> `86 passed`
-- `pytest -q tests/unit/ --no-header` -> `2402 passed`
+- `pytest -q tests/unit/test_scrapfly_client.py --no-header` (final) -> `64 passed`
+- `pytest -q tests/unit/ --no-header` (final) -> `2407 passed`
 
 Quality/type checks:
 
@@ -243,8 +244,8 @@ Transitions / creations:
 
 Evidence comments posted:
 
-- `SCRUM-526` comment ID: `11561`
-- `SCRUM-525` comment ID: `11562`
+- `SCRUM-526` comment IDs: `11561`, `11565`
+- `SCRUM-525` comment IDs: `11562`, `11564`
 - `SCRUM-17` comment ID: `11563`
 
 ## Final SHA

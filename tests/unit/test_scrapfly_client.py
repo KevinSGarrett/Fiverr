@@ -567,6 +567,47 @@ class TestSearchResultParser:
         assert card.gig_url is not None
         assert "alexcreative" in card.gig_url
 
+    def test_relative_gig_href_is_normalized_to_absolute(self):
+        html = """<html><body>
+        <div data-testid="gig-card-layout">
+          <a href="/reluser/i-will-build-your-app">link</a>
+        </div></body></html>"""
+        card = parse_search_results_from_html(html).gig_cards[0]
+        assert card.gig_url == "https://www.fiverr.com/reluser/i-will-build-your-app"
+
+    def test_absolute_gig_href_is_preserved(self):
+        html = """<html><body>
+        <div data-testid="gig-card-layout">
+          <a href="https://www.fiverr.com/absuser/i-will-build-your-app">link</a>
+        </div></body></html>"""
+        card = parse_search_results_from_html(html).gig_cards[0]
+        assert card.gig_url == "https://www.fiverr.com/absuser/i-will-build-your-app"
+
+    def test_non_gig_search_href_is_not_used_as_gig_url(self):
+        html = """<html><body>
+        <div data-testid="gig-card-layout">
+          <a href="/search/gigs?query=logo">not a gig</a>
+          <div data-testid="gig-title">Card with search link</div>
+        </div></body></html>"""
+        card = parse_search_results_from_html(html).gig_cards[0]
+        assert card.gig_url is None
+
+    def test_seller_username_falls_back_to_href_when_name_missing(self):
+        html = """<html><body>
+        <div data-testid="gig-card-layout">
+          <a href="https://www.fiverr.com/fallbackseller/i-will-code">link</a>
+        </div></body></html>"""
+        card = parse_search_results_from_html(html).gig_cards[0]
+        assert card.seller_username == "fallbackseller"
+
+    def test_total_result_count_parses_without_comma(self):
+        html = """<html><body>
+        <div data-testid="total-result-count">432 results for keyword</div>
+        <div data-testid="gig-card-layout"><div data-testid="gig-title">Any</div></div>
+        </body></html>"""
+        result = parse_search_results_from_html(html)
+        assert result.total_result_count == 432
+
     def test_missing_price_returns_none(self):
         html = """<html><body>
         <div data-testid="gig-card-layout">
