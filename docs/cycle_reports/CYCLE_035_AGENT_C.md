@@ -19,6 +19,7 @@ Live DB: `sqlite:///data/cycle035_live.db`
     - `>=10 keywords`: FAIL (`2`)
     - `>=3 gigs`: FAIL (`0`)
 - `python scripts/collection_debug.py` against default DB (`sqlite:///data/fiverr_research.db`) showed all zeros, so all Agent C stage commands were explicitly run against `sqlite:///data/cycle035_live.db`.
+- `python scripts/collection_debug.py` with `DATABASE_URL=sqlite:///data/cycle035_live.db` confirmed live counts (`keywords=2`, `search_results=2`, `gigs=0`, `sellers=0`, `external_signals=4`).
 - `OPENAI_API_KEY` presence check: **set** in runtime.
 
 ## 2) Live DB Start Snapshot (Agent C)
@@ -170,6 +171,10 @@ Required cycle assessment sentence:
 - No complete recommendation rows were generated, so qualitative review of generated outputs was not possible this cycle.
 - Quality assessment deferred to next live run that yields at least one eligible (`STRONG GO`/`CONDITIONAL GO`) keyword and persisted recommendation.
 
+Overall assessment (required):
+
+> The pipeline is **partially functional** for real data.
+
 ## 9) Blockers for Full Production Run (Cycle 036 Input)
 
 1. **Collection depth blocker (critical):** Stage 3/4/5/8 still constrained by PXCR anti-bot pages in live runtime.
@@ -177,6 +182,13 @@ Required cycle assessment sentence:
 3. **Embedding dependency blocker:** Stage 9 clustering requires non-null keyword embeddings.
 4. **Recommendation eligibility blocker:** no GO/CONDITIONAL tags and low demand prevent generation.
 5. **Niche coverage blocker:** current live DB contains only one niche row; full 9-niche run cannot be validated yet.
+
+Full production run preconditions (all 9 niches, full depth):
+
+- **Selectors stable enough?** Not yet for live Fiverr target pages; runtime is still receiving PXCR challenge pages.
+- **Pacing adequate to avoid bans?** Current pacing settings are in place, but PXCR blocks occurred immediately, so pacing effectiveness could not be validated in a normal content path.
+- **API keys configured?** `OPENAI_API_KEY` present; Reddit credentials were previously missing in Agent B run context.
+- **Any zero-row stages that block scoring/recommendations?** Yes — `gigs`, `sellers`, `gig_quality_analyses`, and `review_analyses` remain zero, which suppresses downstream scoring strength and recommendation eligibility.
 
 ## 10) Jira Evidence Updates
 
