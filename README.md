@@ -37,6 +37,18 @@ playwright install chromium
 `.env` is never committed. Browser/session artifacts are local runtime files and are git-ignored
 (for example: `playwright/.auth/`, `storage_state.json`, `*.session`, `data/sessions/`).
 
+### PerimeterX Bypass (ScrapFly)
+
+Fiverr can return PerimeterX challenge pages that block headless browser collection.
+You can optionally route collection transport through ScrapFly for managed bypass:
+
+1. Add `SCRAPFLY_API_KEY` to `.env`.
+2. Set `collection.scrapfly.enabled: true` in `config.yaml`.
+3. Run `python run.py collect-only`.
+
+This is optional. When disabled, the system keeps the existing Playwright fallback behavior.
+For full setup and architecture details, see `docs/collection/SCRAPFLY_INTEGRATION.md`.
+
 ## Running
 
 Cycle 002 provides import-safe scaffolding and validation contracts. It does not provide a fully

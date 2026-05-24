@@ -42,6 +42,22 @@ No selectors are currently annotated as `UNVERIFIED` for W4 in `fiverr_selectors
 | `SELLER_PORTFOLIO_ITEM` | `[data-testid='seller-portfolio-item'], [data-testid='portfolio-item'], .portfolio-item` | W5 | Pending live DOM validation in browser run | No |
 | `SELLER_BADGE` | `[data-testid='seller-badge-item'], [data-testid='badge-item'], .badge-card` | W5 | Pending live DOM validation in browser run | No |
 
+## ScrapFly Mode - Impact on Selector Validation
+
+ScrapFly mode changes selector validation priorities because workflows can parse fully rendered HTML without using browser-side Playwright CSS selectors.
+
+- ScrapFly returns rendered page HTML, so parsing runs through `search_result_parser.py` and `gig_detail.py` data-testid extraction paths.
+- The 15 currently unverified Playwright CSS selectors (all `AUTOCOMPLETE_*` and `SELLER_*` entries above) are not used when ScrapFly fetcher mode is active.
+- In ScrapFly mode, search parsing currently inspects these `data-testid` values:
+  - Card containers: `gig-card-layout`, `gig_listing_item`, `gig-card`
+  - Card fields: `gig-title`, `seller-name`, `seller-level`, `review-count`, `starting-price`, `price`
+  - Sponsored markers: `sponsored-badge`, `promoted-badge`, `ad-badge`
+  - Result count: `total-result-count`
+- Validation status for ScrapFly HTML parsing markers remains pending against live ScrapFly-fetched pages:
+  `gig-card-layout`, `gig-title`, `seller-name`, `seller-level`, `review-count`, `starting-price`, `sponsored-badge`, `total-result-count`.
+
+Conclusion: once operators enable ScrapFly, selector validation focus should shift from Playwright CSS selectors to HTML `data-testid` stability in ScrapFly response payloads.
+
 ## Agent B Validation Logging Rule
 
 For every selector failure or empty extraction:

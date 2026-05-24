@@ -183,9 +183,10 @@ class SessionManager:
     async def _verify_session(self, context: BrowserContext) -> bool:
         """Verify whether Fiverr home reflects a logged-in account.
 
-        Navigates to the Fiverr home page and uses a URL-first strategy:
-        if we land anywhere on fiverr.com that is not /login, the session is valid.
-        CSS selectors are used as secondary confirmation only.
+        The check intentionally requires either:
+        - explicit logged-in selector evidence, or
+        - a PXCR challenge page (treated as provisional-valid signal)
+        URL-only checks are not accepted as sufficient proof.
         """
         page = await context.new_page()
         try:
@@ -201,25 +202,13 @@ class SessionManager:
             if "/login" in current_url:
                 return False
 
-            # Bot-block page — session might be valid but PerimeterX is blocking
-            # We treat this as "unknown" and accept the session optimistically,
-            # since the relogin flow already succeeded and the block is IP/fingerprint based.
+            # Bot-block page — session may still be valid, but PerimeterX blocks verification.
             page_content = await page.content()
             if "PXCR" in page_content:
-                log.warning(
-                    "PerimeterX block on session verification — "
-                    "treating session as valid anyway since login was successful."
-                )
+                log.warning("PerimeterX block on session verification — treating session as valid.")
                 return True
 
-            # URL alone is not considered proof of authentication because
-            # public Fiverr pages are accessible to logged-out users.
-            if "fiverr.com" in current_url:
-                log.debug(
-                    "On Fiverr URL during verification; requiring authenticated selector signal."
-                )
-
-            # Fallback: CSS selector check
+            # Selector-based verification path.
             element = await page.query_selector(LOGGED_IN_INDICATOR)
             if element is None:
                 element = await page.query_selector(LOGGED_IN_FALLBACK)
@@ -232,17 +221,22 @@ class SessionManager:
             await page.close()
 
     async def _headed_login_flow(self) -> BrowserContext:
-        """Open headed browser, verify login, and persist authenticated session."""
+        """Open headed browser, wait for user login, persist, then return context.
+
+        Uses channel="chrome" to launch the user's real installed Chrome so that
+        Fiverr's bot-detection (PerimeterX) sees a genuine browser fingerprint.
+        Falls back to bundled Chromium if real Chrome is not installed.
+        """
         if self._playwright is None:
             self._playwright = await async_playwright().start()
 
         last_error: Exception | None = None
+        require_login_flag = bool(self._cfg("playwright.require_login", False))
 
         for attempt in range(1, MAX_LOGIN_ATTEMPTS + 1):
             browser: Browser | None = None
             context: BrowserContext | None = None
             page: Page | None = None
-
             try:
                 try:
                     browser = await self._playwright.chromium.launch(
@@ -275,66 +269,57 @@ class SessionManager:
                 print("=" * 62)
                 input("  Press Enter when you are on your Fiverr dashboard: ")
 
-                if bool(self._cfg("playwright.require_login", False)):
-                    self.session_file.parent.mkdir(parents=True, exist_ok=True)
-                    await context.storage_state(path=str(self.session_file))
-                    try:
-                        os.chmod(self.session_file, 0o600)
-                    except OSError as exc:
-                        log.warning("Could not set session file permissions: %s", exc)
+                verified = True if require_login_flag else await self._verify_session_on_page(page)
+                if not verified:
+                    raise SessionLoginError("Failed to verify Fiverr login.")
 
-                    print("\n  Session saved to:", self.session_file)
-                    print("  Run 'python run.py session-check' to validate before collection.")
-                    return await self._load_session_headless()
+                self.session_file.parent.mkdir(parents=True, exist_ok=True)
+                await context.storage_state(path=str(self.session_file))
+                try:
+                    os.chmod(self.session_file, 0o600)
+                except OSError as exc:
+                    log.warning("Could not set session file permissions: %s", exc)
 
-                if await self._verify_session_on_page(page):
-                    self.session_file.parent.mkdir(parents=True, exist_ok=True)
-                    await context.storage_state(path=str(self.session_file))
-                    try:
-                        os.chmod(self.session_file, 0o600)
-                    except OSError as exc:
-                        log.warning("Could not set session file permissions: %s", exc)
+                print("\n  Session saved to:", self.session_file)
+                print("  Run 'python run.py session-check' to validate before collection.")
 
-                    print("\n  Session saved to:", self.session_file)
-                    print("  Run 'python run.py session-check' to validate before collection.")
-                    return await self._load_session_headless()
-
-                log.warning(
-                    "Session verification failed after login attempt %s/%s.",
-                    attempt,
-                    MAX_LOGIN_ATTEMPTS,
-                )
+                await page.close()
+                page = None
+                await context.close()
+                context = None
+                await browser.close()
+                browser = None
+                return await self._load_session_headless()
             except Exception as exc:
                 last_error = exc
                 log.warning(
-                    "Headed login attempt %s/%s failed: %s",
+                    "Headed login attempt %d/%d failed: %s",
                     attempt,
                     MAX_LOGIN_ATTEMPTS,
                     exc,
                 )
-            finally:
                 if page is not None:
-                    await page.close()
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
                 if context is not None:
-                    await context.close()
+                    try:
+                        await context.close()
+                    except Exception:
+                        pass
                 if browser is not None:
-                    await browser.close()
+                    try:
+                        await browser.close()
+                    except Exception:
+                        pass
 
-        message = f"Failed to verify Fiverr login after {MAX_LOGIN_ATTEMPTS} attempts."
-        if last_error is not None:
-            raise SessionLoginError(message) from last_error
-        raise SessionLoginError(message)
+        raise SessionLoginError(f"Failed to verify Fiverr login after {MAX_LOGIN_ATTEMPTS} attempts.") from last_error
 
     async def _verify_session_on_page(self, page: Page) -> bool:
-        """Verify login indicators on an already open page.
-
-        Strategy (most-to-least reliable):
-        1. Fail fast on explicit login URL.
-        2. Treat PXCR challenge pages as provisional success in headed relogin flow.
-        3. Require authenticated UI indicators (URL alone is not enough).
-        """
+        """Verify login indicators on an already open page."""
         try:
-            current_url = page.url
+            current_url = str(getattr(page, "url", "") or "")
             log.debug("Verification URL: %s", current_url)
 
             # Definitive failure signals
@@ -342,15 +327,10 @@ class SessionManager:
                 log.info("Verification failed — still on login page.")
                 return False
             if "PXCR" in (await page.content()):
-                log.warning(
-                    "PerimeterX detected during headed verification; treating session as valid."
-                )
+                log.info("Verification hit PerimeterX page; treating session as provisionally valid.")
                 return True
 
-            if "fiverr.com" in current_url and "/login" not in current_url:
-                log.info("On Fiverr URL; requiring authenticated selector confirmation.")
-
-            # Fallback: try CSS selectors (may fail if Fiverr updates their DOM)
+            # Selector verification only; URL/title-only signals are intentionally rejected.
             element = await page.query_selector(LOGGED_IN_INDICATOR)
             if element is None:
                 element = await page.query_selector(LOGGED_IN_FALLBACK)
@@ -358,7 +338,7 @@ class SessionManager:
                 log.info("Verification passed via CSS selector.")
                 return True
 
-            log.info("Verification failed — no authenticated indicators found on page.")
+            log.info("Verification failed — no login indicators found on page.")
             return False
         except Exception as exc:
             log.warning("Verification check raised: %s", exc)

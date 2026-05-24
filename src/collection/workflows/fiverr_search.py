@@ -34,6 +34,7 @@ async def run_fiverr_search_collection(
     pacing_manager: Any,
     dry_run: bool = True,
     enqueue_autocomplete: bool = False,
+    fetcher: Any | None = None,
 ) -> dict[str, Any]:
     """
     Stage 3: Fiverr Search Collection Per Keyword.
@@ -53,6 +54,67 @@ async def run_fiverr_search_collection(
             "dry_run": True,
             "note": "Dry run: no real Playwright navigation performed",
         }
+
+    # ------------------------------------------------------------------
+    # ScrapFly / fetcher path
+    # ------------------------------------------------------------------
+    if fetcher is not None:
+        from src.collection.search_result_parser import parse_search_results_from_html
+
+        url = build_fiverr_search_url(keyword_text)
+        fetch_result = await fetcher.fetch(url, pacing_key="fiverr_search")
+        parsed = parse_search_results_from_html(fetch_result.html)
+
+        parsed_gig_cards = [
+            {
+                "position": card.position,
+                "gig_url": card.gig_url,
+                "gig_title": card.gig_title,
+                "seller_username": card.seller_username,
+                "seller_level": card.seller_level,
+                "review_count_visible": card.review_count_visible,
+                "starting_price": card.starting_price,
+                "sponsored_flag": card.sponsored_flag,
+            }
+            for card in parsed.gig_cards
+        ]
+
+        write_search_result(
+            keyword_id=keyword_id,
+            run_id=run_id,
+            total_result_count=parsed.total_result_count,
+            pagination_depth=None,
+            gig_cards=parsed_gig_cards,
+            page_collected=1,
+            db=db,
+        )
+
+        gig_urls_queued = _queue_gig_detail_jobs(
+            keyword_id=keyword_id,
+            niche_id=niche_id,
+            run_id=run_id,
+            gig_cards=parsed_gig_cards,
+            depth=depth,
+            db=db,
+        )
+
+        return {
+            "keyword_id": keyword_id,
+            "keyword_text": keyword_text,
+            "niche_id": niche_id,
+            "total_result_count": parsed.total_result_count,
+            "gig_cards_collected": len(parsed_gig_cards),
+            "gig_urls_queued": gig_urls_queued,
+            "autocomplete_jobs_queued": 0,
+            "pages_collected": 1,
+            "dry_run": False,
+            "backend": fetch_result.backend,
+            "parse_warnings": parsed.warnings,
+        }
+
+    # ------------------------------------------------------------------
+    # Playwright path (unchanged — existing code below)
+    # ------------------------------------------------------------------
 
     url = build_fiverr_search_url(keyword_text)
     gig_cards: list[dict[str, Any]] = []

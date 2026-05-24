@@ -1,89 +1,79 @@
-# State Snapshot — Cycle 029
-# Updated: 2026-05-19 | All data verified via master PM protocol Parts 1-8
+# State Snapshot — Cycle 036
+# Updated: 2026-05-24 | Verified via PM master protocol Parts 1-8
 
 ## Verified Repository State
 
-- Local HEAD: cycle/028/integration (PR #32 ready to merge)
-- Tests: 1608 | Coverage: 95.04% | codecov/patch: 100%
-- Active PR: #32 → develop (OPEN, ready to merge)
+- Canonical working directory: `C:\Fiverr\Fiverr` (worktree incident resolved)
+- Tests: `2407` | Coverage: `94.88%` | `codecov/patch`: `100%`
+- Active branch: `cycle/036/integration`
+- PR #42 (Cycle 035): MERGED
 
-## Cycle 028 Final Deliverables (All Verified On Disk)
+## ScrapFly Integration Status (NEW — Cycle 036)
 
-| Agent | Delivered | Patch Coverage |
-|---|---|---|
-| A | Workflow 2 partial real (Google Suggest + dedup) | 100% |
-| B | Workflow 6 Google Trends REAL pytrends impl | 99% |
-| C | weakness.py wired to GQS + W5 helpers | 95% / 100% |
-| D | W7 stub + 3 Codex VALID_FIXED + PR #32 | 100% |
+| File | Status | Purpose |
+| --- | --- | --- |
+| `src/collection/scrapfly_client.py` | ✅ Committed (Agent A) | ScrapFly SDK wrapper with retries, pacing, and credit tracking |
+| `src/collection/http_fetcher.py` | ✅ Committed (Agent A) | Transport abstraction + Playwright/ScrapFly fetcher factory |
+| `src/collection/search_result_parser.py` | ✅ Committed (Agent A) | HTML parser for Fiverr search pages |
+| `tests/unit/test_scrapfly_client.py` | ✅ Committed (Agent A) | ScrapFly client unit coverage |
+| `src/config/models.py` (`ScrapFlyCollectionConfig`) | ✅ Committed (Agent A) | Config schema for ScrapFly toggles |
+| `src/collection/workflows/fiverr_search.py` | ✅ Committed (Agent A) | Stage 3 accepts `fetcher` |
+| `src/collection/workflows/gig_detail.py` | ✅ Committed (Agent A) | Stage 4 accepts `fetcher` |
+| `src/collection/workflows/seller_profile.py` | ✅ Committed (Agent A) | Stage 5 accepts `fetcher` and Playwright fix |
+| `.env.example` | ✅ Committed (Agent A) | Added `SCRAPFLY_API_KEY` template |
+| `requirements.txt` | ✅ Committed (Agent A) | Added `scrapfly-sdk>=1.3.0` |
+| `config.yaml.example` | ✅ Committed (Agent A) | Added `collection.scrapfly` config block |
+| `src/collection/orchestrator.py` | 🔄 In progress (Agent B) | Build fetcher and wire ScrapFly lifecycle into pipeline |
 
-## Live Jira Status (All Verified — Zero Discrepancies)
+## Collection Workflow Status (Updated from Cycle 028 stale snapshot)
 
-| Key | Summary | Status |
-|---|---|---|
-| SCRUM-17 | E02 Collection epic | In Progress |
-| SCRUM-18 | E03 Analysis epic | In Progress |
-| SCRUM-19 | E04 Scoring epic | In Progress |
-| SCRUM-20 | E05 Recommendations epic | In Progress |
-| SCRUM-21 | E06 Pricing epic | In Progress |
-| SCRUM-22 | E07 Discovery epic | In Progress |
-| SCRUM-23 | E08 Playbook epic | In Progress |
-| SCRUM-24 | E09 Dashboard epic | In Progress |
-| SCRUM-25 | E10 Integration epic | In Progress |
-| SCRUM-147 | W2 Keyword Expansion | In Progress |
-| SCRUM-150 | W5 Seller Profile | In Progress |
-| SCRUM-151 | W6 Google Trends | In Progress |
-| SCRUM-152 | W7 Reddit Signal | In Progress |
-| SCRUM-172 | S4.8 Weakness Score | In Progress |
-| SCRUM-231 | E10 E2E Integration | In Review |
-| SCRUM-516 | Cycle 027 control | Done |
-| SCRUM-517 | Cycle 028 control | In Progress → Done (Agent A Cycle 029) |
+| Workflow | File | Real/Stub Status | Last Updated Cycle |
+| --- | --- | --- | --- |
+| W1 Niche Init | `src/collection/workflows/niche_init.py` | ✅ Real | 025 |
+| W2 Keyword Expansion | `src/collection/workflows/keyword_expansion.py` | ⚠️ Partial-real (core path works, some advanced sub-steps still constrained) | 029-035 |
+| W3 Fiverr Search | `src/collection/workflows/fiverr_search.py` | ✅ Real, but Playwright blocked in PXCR environments | 036 (fetcher-ready from Agent A) |
+| W4 Gig Detail | `src/collection/workflows/gig_detail.py` | ✅ Real, but Playwright blocked in PXCR environments | 036 (fetcher-ready from Agent A) |
+| W5 Seller Profile | `src/collection/workflows/seller_profile.py` | ✅ Real (Playwright path fixed; fetcher-ready) | 036 |
+| W6 Google Trends | `src/collection/workflows/google_trends.py` | ✅ Real | 028+ |
+| W7 Reddit Signals | `src/collection/workflows/reddit_signals.py` | ✅ Real path, credential-dependent | 029+ |
+| W8 Autocomplete | `src/collection/workflows/autocomplete.py` | ✅ Implemented path, live reliability impacted by PXCR under Playwright | 035 |
 
-## Collection Workflow Implementation Status (Verified)
+## Live Collection Results (Cycle 035 first run)
 
-| Workflow | File | Real Implementation |
-|---|---|---|
-| W1 Niche Init | niche_init.py | ✅ Real (Cycle 025) |
-| W2 Keyword Expansion | keyword_expansion.py | ⚠️ PARTIAL: Step 2b + 2e real, 2a/2c/2d/2f/2g stubs |
-| W3 Fiverr Search | fiverr_search.py | ✅ Real (Cycle 026) |
-| W4 Gig Detail | gig_detail.py | ✅ Real (Cycle 027) |
-| W5 Seller Profile | seller_profile.py | ❌ NotImplementedError (helpers ready Cycle 028) |
-| W6 Google Trends | google_trends.py | ✅ Real (Cycle 028, niche-scoped fix) |
-| W7 Reddit Signals | reddit_signals.py | ❌ Stub interface only (helpers ready Cycle 028) |
-| W8+ Autocomplete etc. | various | ❌ Mostly stubs |
+| Stage / Output | Rows | Status |
+| --- | ---: | --- |
+| `keywords` | 2 | PASS (partial) |
+| `search_results` | 2 | PASS (partial) |
+| `gigs` | 0 | BLOCKED (PXCR) |
+| `sellers` | 0 | BLOCKED (PXCR) |
+| `external_signals` | 4 | PASS |
+| `saturation_scores` | 2 | PASS |
+| `keyword_scores` | 2 | PASS |
+| `recommendations` | 0 | BLOCKED (insufficient upstream data) |
 
-## DB Model Inventory (Verified Complete)
+## Blockers for Full Production Run
 
-| Table | Status | Fed By |
-|---|---|---|
-| keywords | ✅ Real | W2 partial (Cycle 028 Google Suggest) |
-| search_results | ✅ Real | W3 (real) |
-| gigs | ✅ Real | W3 (cards) + W4 (detail) |
-| sellers | ✅ Real | W5 (stub) |
-| external_signals | ✅ Real | W6 (real Google Trends) |
-| gig_quality_scores | ✅ Real | (awaiting LLM analysis writes) |
-| keyword_scores | ✅ Real | Scoring engine |
-| price_analyses | ✅ Real | Pricing engine |
-| jobs | ✅ Real | QueueProcessor |
-| discovery_candidates | ✅ Real | Discovery engine |
+1. PerimeterX blocking Stages 3/4/5/8 (ScrapFly fix in progress — Cycle 036)
+2. Reddit credentials missing (`REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`)
+3. Keyword embeddings not generated (Stage 9 clustering quality depends on embeddings)
 
-## Cycle 029 Primary Scope (Applying R-090 Task Sizing)
+## Live Jira Status
 
-| Agent | Scope (4-6 meaningful tasks, complexity-tiered) | Tier Mix |
-|---|---|---|
-| A | PR #32 gate + branch cleanup + W5 Seller Profile REAL Playwright impl | 1 MEDIUM + 1 LARGE + 1 SMALL |
-| B | W2 Step 2c + 2d (LLM keyword generation + relevance filter) | 1 LARGE + 1 SMALL |
-| C | W2 Step 2f (LLM intent classification) + recommendations.py wiring | 1 MEDIUM + 1 SMALL |
-| D | W7 Reddit REAL praw implementation + PR #33 + checklist | 1 LARGE + 1 MEDIUM + 1 SMALL |
+Current status baseline from Cycle 035 Agent D reconciliation, with Cycle 036 control additions:
 
-## Verified Gaps Carried to Cycle 029 (From Live Code + Spec Review)
-
-1. **HIGH**: Workflow 5 (Seller Profile) real implementation missing.
-   Helpers built in Cycle 028 (parse_seller_level, parse_member_since, etc.).
-   Spec: COLLECTION_WORKFLOWS.md Workflow 5 — Stage 5.
-2. **HIGH**: Workflow 2 LLM steps 2c (keyword generation), 2d (relevance filter),
-   2f (intent classification) still feature-flagged stubs.
-   Spec: COLLECTION_WORKFLOWS.md Workflow 2, gpt-4o-mini batched prompts.
-3. **HIGH**: Workflow 7 (Reddit) real praw implementation needed.
-   Helpers ready (Cycle 028). Requires REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET.
-4. **MEDIUM**: Workflow 2 Step 2a (Fiverr Autocomplete) requires authenticated session — defer
-5. **MEDIUM**: No real Fiverr authentication has ever occurred — selectors unvalidated
+| Jira Key | Status |
+| --- | --- |
+| `SCRUM-524` (Cycle 035 control) | Done |
+| `SCRUM-525` (Cycle 036 control) | In Progress |
+| `SCRUM-526` (ScrapFly story under E02) | In Progress |
+| `SCRUM-17` (E02 Collection) | In Progress |
+| `SCRUM-18` (E03 Analysis) | Done |
+| `SCRUM-19` (E04 Scoring) | In Progress |
+| `SCRUM-20` (E05 Recommendations) | In Progress |
+| `SCRUM-21` (E06 Pricing) | In Progress |
+| `SCRUM-22` (E07 Discovery) | In Progress |
+| `SCRUM-24` (E09 Dashboard) | In Progress |
+| `SCRUM-178` / `SCRUM-179` / `SCRUM-180` / `SCRUM-181` / `SCRUM-182` / `SCRUM-184` | In Review |
+| `SCRUM-183` | In Progress |
+| `SCRUM-186` | In Progress |
+| `SCRUM-231` | In Review |

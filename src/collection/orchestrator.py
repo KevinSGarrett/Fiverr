@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -32,6 +33,8 @@ from src.collection.keyword_expansion import expand_keywords
 from src.collection.queue import enqueue_search_plan
 from src.collection.search_plan import build_search_plan
 from src.collection.seller_profile import parse_seller_profile_from_html
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -128,7 +131,8 @@ async def run_collection_pipeline(
     """
     Run the Stage 1-12 dry-run orchestration contract.
 
-    Real collection (dry_run=False) remains intentionally blocked until browser wiring lands.
+    When dry_run=False, live Stage 3/4/5 workflow calls can route through
+    the configured fetch transport via the shared fetcher factory.
     """
     from src.analysis.competitor_profiler import run_competitor_profiling_for_niche
     from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_niche
@@ -136,7 +140,9 @@ async def run_collection_pipeline(
     from src.analysis.review_analyzer import run_review_analysis_for_niche
     from src.analysis.saturation_model import run_saturation_analysis_for_niche
     from src.collection.checkpoint import CheckpointManager
+    from src.collection.http_fetcher import build_fetcher
     from src.collection.pacing import PacingManager
+    from src.collection.scrapfly_client import ScrapFlyClient, ScrapFlyConfig
     from src.collection.workflows.autocomplete import run_autocomplete_collection
     from src.collection.workflows.fiverr_search import run_fiverr_search_collection
     from src.collection.workflows.gig_detail import run_gig_detail_collection
@@ -148,14 +154,42 @@ async def run_collection_pipeline(
     from src.collection.workflows.youtube_count import run_youtube_count_collection
     from src.scheduler.queue_processor import QueueProcessor
 
-    if not dry_run:
-        raise NotImplementedError(
-            "Real collection (dry_run=False) not yet implemented. "
-            "Set dry_run=True or await browser wiring in Cycle 026."
-        )
-
     pacing = PacingManager(config if isinstance(config, dict) else {})
     checkpoint_mgr = CheckpointManager(run_id, data_dir="data")
+    scrapfly_enabled = False
+    sf_client: ScrapFlyClient | None = None
+    fetcher: Any | None = None
+
+    if not dry_run:
+        scrapfly_cfg: dict[str, Any] = {}
+        if isinstance(config, dict):
+            collection_cfg = config.get("collection", {})
+            if isinstance(collection_cfg, dict):
+                raw_scrapfly_cfg = collection_cfg.get("scrapfly", {})
+                if isinstance(raw_scrapfly_cfg, dict):
+                    scrapfly_cfg = raw_scrapfly_cfg
+
+        scrapfly_enabled = bool(scrapfly_cfg.get("enabled", False))
+        if scrapfly_enabled:
+            sf_config = ScrapFlyConfig(
+                api_key_env_var=str(scrapfly_cfg.get("api_key_env_var", "SCRAPFLY_API_KEY")),
+                asp=bool(scrapfly_cfg.get("asp", True)),
+                render_js=bool(scrapfly_cfg.get("render_js", True)),
+                country=str(scrapfly_cfg.get("country", "US")),
+                auto_scroll=bool(scrapfly_cfg.get("auto_scroll", True)),
+                max_retries=int(scrapfly_cfg.get("max_retries", 3)),
+                timeout_seconds=int(scrapfly_cfg.get("timeout_seconds", 60)),
+                cost_budget_credits=scrapfly_cfg.get("cost_budget_credits"),
+            )
+            sf_client = ScrapFlyClient(sf_config, pacing_manager=pacing)
+            await sf_client.open()
+
+        fetcher = build_fetcher(
+            session_manager=session_manager,
+            scrapfly_client=sf_client,
+            pacing_manager=pacing,
+            prefer_scrapfly=scrapfly_enabled,
+        )
     summary: dict[str, Any] = {
         "run_id": run_id,
         "dry_run": dry_run,
@@ -289,7 +323,8 @@ async def run_collection_pipeline(
             db=db,
             session_manager=session_manager,
             pacing_manager=pacing,
-            dry_run=True,
+            dry_run=dry_run,
+            fetcher=fetcher,
         )
         summary["search_jobs_run"] += 1
 
@@ -304,7 +339,8 @@ async def run_collection_pipeline(
             session_manager=session_manager,
             pacing_manager=pacing,
             checkpoint_manager=checkpoint_mgr,
-            dry_run=True,
+            dry_run=dry_run,
+            fetcher=fetcher,
         )
         summary["gig_detail_jobs_run"] += 1
 
@@ -317,7 +353,8 @@ async def run_collection_pipeline(
             session_manager=session_manager,
             pacing_manager=pacing,
             checkpoint_manager=checkpoint_mgr,
-            dry_run=True,
+            dry_run=dry_run,
+            fetcher=fetcher,
         )
         summary["seller_profile_jobs_run"] += 1
 
@@ -547,6 +584,16 @@ async def run_collection_pipeline(
             "stage13_saturation_analysis",
         ]
     )
+
+    if sf_client is not None:
+        await sf_client.close()
+        stats = sf_client.stats
+        log.info(
+            "ScrapFly session: requests=%d credits=%d",
+            stats.total_requests,
+            stats.total_credits_used,
+        )
+
     return summary
 
 
