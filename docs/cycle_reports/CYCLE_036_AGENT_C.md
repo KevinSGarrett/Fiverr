@@ -118,13 +118,13 @@ Run result: `9 passed`
 - `SCRUM-526` (ScrapFly story):
   - Posted Cycle 036 acceptance criteria comment ID: `11571`
 - `SCRUM-17` (E02 Collection epic):
-  - Pending final Agent C comment until final commit SHA is available.
+  - Posted ScrapFly evidence summary comment ID: `11572`
 - `SCRUM-525` (Cycle 036 control):
-  - Pending final completion comment until final commit SHA is available.
+  - Posted Agent C completion comment ID: `11573`
 
 ## Final SHA
 
-- Pending Agent C commit.
+- Agent C implementation commit SHA: `caa5233753e72cc0322d66a314d7dce177b23fcd`
 
 ## Agent D Handoff Notes
 
@@ -133,4 +133,4 @@ Run result: `9 passed`
 - Integration test file created and passing (`9/9`).
 - Selector validation doc updated with ScrapFly mode impact and data-testid priorities.
 - Full unit regression now at `2463 passed`; no test regressions detected.
-- Jira AC comment posted on `SCRUM-526`; remaining cycle-control + epic summary comments should include final Agent C commit SHA.
+- Jira evidence comments posted: `SCRUM-526` (`11571`), `SCRUM-17` (`11572`), `SCRUM-525` (`11573`).
