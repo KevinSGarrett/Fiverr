@@ -207,7 +207,7 @@ Full suite confirmation during Agent C: `2541 passed`
 
 ## Final SHA
 
-- Final Agent C HEAD SHA: `a412e9c`
+- Final Agent C HEAD SHA: `aff22f5`
 
 ## Final Self-Audit
 
