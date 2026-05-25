@@ -350,6 +350,7 @@ Success criteria for Agent B/C chain:
 - PR #45 merge commit: `03c1d5d48e70bba29783a52b52cf300a65c0cee2`
 - Cycle 039 setup commit: `c2e3f0d`
 - Cycle 039 report commit: `25097bd`
+- Unit-baseline remediation commit: `e09c954`
 
 ## Task 14 — AC/DoD Ledger Update
 
@@ -364,7 +365,7 @@ Added Cycle 039 Agent A rows for `SCRUM-531`, `SCRUM-532`, and `SCRUM-19` with c
 Verification command output:
 
 ```text
-C:/Fiverr/Fiverr  25097bd [cycle/039/integration]
+C:/Fiverr/Fiverr  e09c954 [cycle/039/integration]
 C:\Fiverr\Fiverr
 
 origin/cycle/009/integration
@@ -386,4 +387,4 @@ Self-audit checklist:
 - [x] Top-5 scoring trace + thresholds captured for Agent B
 - [x] Unit baseline executed (`2712 passed`, satisfies `>=2640`)
 - [x] Agent A report created
-- [x] Jira evidence comments posted (`SCRUM-531`: `11617`, `SCRUM-532`: `11618`, `SCRUM-19`: `11619`)
+- [x] Jira evidence comments posted (`SCRUM-531`: `11617`, `11621`; `SCRUM-532`: `11618`, `11623`; `SCRUM-19`: `11619`, `11622`)
