@@ -99,3 +99,30 @@ For every selector failure or empty extraction:
   - Stage 4 executed, but DB `gigs` rows remained `0`, so no `detail_collected=True` rows were available for direct field-value confirmation.
 - Seller profile P1 fix (parser field mapping to persistence fields): **NEEDS INVESTIGATION**
   - Stage 5 wrote seller rows (`sellers=19`), but sampled rows show `seller_level=NO_LEVEL`, `member_since=None`, `total_reviews=None`, `total_gigs=None`, indicating profile parser/HTML mismatch in live payloads.
+
+## Cycle 038 Parser Fix Results
+
+### Extraction strategy used
+
+- **Gig detail parser:** Strategy A with structured `application/ld+json` as primary source, plus Strategy D fallback for `__NEXT_DATA__` when present.
+- **Seller profile parser:** Strategy D variant using `perseus-initial-props` JSON hydration script as primary source (live seller pages did not expose `__NEXT_DATA__`/JSON-LD), plus HTML fallbacks (`data-testid` and review-text regex).
+
+### Live HTML findings
+
+- `data/debug_gig_html.html`: `JSON-LD blocks=3`, `__NEXT_DATA__=0`, `data-testid` sparse and unstable.
+- `data/debug_seller_html.html`: `JSON-LD blocks=0`, `__NEXT_DATA__=0`, hydration data present in `script#perseus-initial-props`.
+- Seller page `data-testid` keys were minimal (`username`, `response-time`, a few controls) and insufficient alone for full profile extraction.
+
+### Fields extracted in Cycle 038
+
+| Parser | Extracted successfully | Still partially limited |
+| --- | --- | --- |
+| `parse_gig_detail_from_html` | `title`, `description`, `packages`, `review_count`, `rating`, `warnings` | `starting_price` nullable on many live gigs when no explicit package price is exposed |
+| `parse_seller_profile_from_html` | `username`, `display_name`, `level`, `member_since`, `review_count`, `active_gig_count`, `response_time` | Some sellers still omit review totals in hydration payloads; parser now marks warning instead of silent null |
+
+### Production validation verdicts (Cycle 038)
+
+- **Gig detail P1:** `CONFIRMED_FIXED`
+  - Live DB: `gigs detail_collected=20`, `title non-null=20`.
+- **Seller profile P1:** `CONFIRMED_FIXED`
+  - Live DB: `sellers with seller_level != NO_LEVEL = 17` (from `38` total sellers), with `member_since` populated for most live rows.

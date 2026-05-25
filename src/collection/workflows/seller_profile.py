@@ -276,9 +276,9 @@ def parse_seller_level(level_text: str | None) -> str:
     normalized = level_text.lower()
     if "top rated" in normalized or "trs" in normalized:
         return "TRS"
-    if "level 2" in normalized:
+    if "level 2" in normalized or "level two" in normalized or "level_two" in normalized:
         return "LEVEL_2"
-    if "level 1" in normalized:
+    if "level 1" in normalized or "level one" in normalized or "level_one" in normalized:
         return "LEVEL_1"
     if "pro" in normalized:
         return "PRO"

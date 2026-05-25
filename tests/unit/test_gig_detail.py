@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from src.collection.gig_detail import parse_gig_detail_from_html
 from src.collection.workflows.gig_detail import (
     _parse_rating,
     _parse_review_count,
@@ -415,3 +416,35 @@ def test_w4_real_queues_seller_profile_job() -> None:
         assert jobs[0].payload == {"seller_username": "seller-queue", "niche_id": "niche"}
     finally:
         db.close()
+
+
+def test_parse_gig_detail_from_html_extracts_title_from_next_data() -> None:
+    html = """
+    <html><body>
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"gig":{"gigTitle":"Next Data Gig Title","description":"Detailed scope"}}}}
+    </script>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.title == "Next Data Gig Title"
+    assert parsed.description == "Detailed scope"
+
+
+def test_parse_gig_detail_from_html_extracts_packages_from_next_data() -> None:
+    html = """
+    <html><body>
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"packages":[{"name":"Basic","price":55},{"name":"Standard","price":"125"}]}}}
+    </script>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert [package.name for package in parsed.packages] == ["Basic", "Standard"]
+    assert [package.price_cents for package in parsed.packages] == [5500, 12500]
+
+
+def test_parse_gig_detail_from_html_empty_html_returns_warnings() -> None:
+    parsed = parse_gig_detail_from_html("")
+    assert parsed.title is None
+    assert any("malformed" in warning.lower() for warning in parsed.warnings)
