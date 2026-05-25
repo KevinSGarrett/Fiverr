@@ -52,8 +52,8 @@ Per-component pattern (all top keywords):
 | Stage 11 required `gig_quality_scores` rows that were never populated | `gig_quality_analyses` stayed `0`; weakness inputs absent | Partially | Stage 11 fallback to gig rows | `gig_quality_analyses` moved `0 -> 20` (support niche) |
 | Confidence modifier deductions | Composite multiplied by low confidence (`0.2111` to `0.5833`) | Partially | Data enrichment required | Typical top keyword confidence `0.5833`; many keywords `0.2111` |
 | Demand signal sparsity | Demand stayed low for top keywords | Partially | Stage 3/Signals expansion required | Top demand values `4.92-14.02`; top keywords have only one search row each |
-| Search-result normalization gap (`rank`/`gig_id` null in all rows) | Feasibility/Profitability/Weakness remained unfed (`None`) during scoring | No (full fix) | Pipeline/data-model repair | `search_results_rank_null=14`, `search_results_gig_id_null=14`, `search_results_with_gig_cards_blob=14` |
-| Keyword coverage gap | Most keywords scored as zero due no upstream records | No (full fix) | Collection breadth + linking | `97` keywords, only `12` with search rows, `10` with gigs |
+| Search-result normalization gap (`rank`/`gig_id` null in all rows) | Feasibility/Profitability/Weakness remained unfed (`None`) during scoring | No (full fix) | Pipeline/data-model repair | Before expansion: `rank_null=14`, `gig_id_null=14`; after expansion: `rank_null=30`, `gig_id_null=30` |
+| Keyword coverage gap | Most keywords scored as zero due no upstream records | Partial | Stage 3 expansion + linking | Search-result keyword coverage improved `12 -> 28`, but score-ready links still missing |
 
 ## Fixes Applied in Cycle 039
 
@@ -75,6 +75,11 @@ Per-component pattern (all top keywords):
 5. Re-ran full scoring:
    - `97` keywords rescored
    - Tags remained all `PASS`
+6. Executed Task 6 Stage 3 expansion against existing DB keywords:
+   - Search results rows: `14 -> 30`
+   - Search-result keyword coverage: `12 -> 28`
+   - New rows still persisted with `rank`/`gig_id` null
+   - Post-expansion scoring rerun: unchanged (`GO=0`, `CONDITIONAL_GO=0`, `PASS=97`)
 
 ## Top-5 Score Trace (After Fixes)
 
@@ -106,6 +111,11 @@ Interpretation: scores are far below `CONDITIONAL_GO` (`60`) and `STRONG_GO` (`8
 
 - Before Cycle 039 fixes: effectively blocked (no qualifying tags)
 - After fixes and full rerun:
+  - `run.py recommendations-only` output:
+    - `eligible=0`
+    - `gates_passed=0`
+    - `generated=0`
+- After Task 6 Stage 3 expansion + fresh scoring rerun:
   - `run.py recommendations-only` output:
     - `eligible=0`
     - `gates_passed=0`

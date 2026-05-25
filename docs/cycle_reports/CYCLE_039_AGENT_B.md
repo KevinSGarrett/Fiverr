@@ -2,7 +2,7 @@
 
 Date: 2026-05-25  
 Branch: `cycle/039/integration`  
-Run ID (live DB): `cycle038_agentb_live`  
+Run IDs: `cycle038_agentb_live` (baseline), `cycle039_agentb_stage3_expand` (Task 6 expansion)  
 Database: `sqlite:///data/cycle037_live.db`
 
 ## Scope
@@ -79,8 +79,8 @@ Recommendation eligibility requires `STRONG_GO` or `CONDITIONAL_GO`.
 | Missing gig quality coverage | Weakness path unfed for most niches | Partial | Stage 11 load fallback | `gig_quality_analyses 0 -> 20` (support niche only) |
 | Confidence deductions under sparse data | Multiplicative down-weight of composite | Partial | Data enrichment + linkage | confidence avg `0.2506` |
 | Demand under threshold | Recommendation gate fail | Partial | More coverage/signals | top demand `4.92..14.02` |
-| SearchResult normalization gap (`rank/gig_id` null) | Feasibility/profitability/weakness remain `None` | No (full) | Upstream model/pipeline repair | `search_results=14`, `rank_null=14`, `gig_id_null=14` |
-| Keyword coverage gap | `87/97` keywords score near-zero | No (full) | Collection breadth + linkage | `keywords_with_search_results=12`, `keywords_with_gigs=10` |
+| SearchResult normalization gap (`rank/gig_id` null) | Feasibility/profitability/weakness remain `None` | No (full) | Upstream model/pipeline repair | Before expansion: `search_results=14`, `rank_null=14`, `gig_id_null=14`; after expansion: `search_results=30`, `rank_null=30`, `gig_id_null=30` |
+| Keyword coverage gap | `87/97` keywords score near-zero | Partial | Collection breadth + linkage | Stage 3 expansion improved coverage `keywords_with_search_results=12 -> 28`, but score-ready linking is still absent |
 
 ## 3) Stage 4 Fresh Collection Validation (Task 2)
 
@@ -95,14 +95,19 @@ Conclusion: Stage 4 price parser fix is production-effective for standard gig pa
 
 ## 4) Stage 11 Quality Analysis Investigation (Task 3)
 
-Current quality-analysis command output:
+Quality-analysis command outputs observed:
 
-- `niches_processed=9`
-- `niches_analyzed=1`
-- Support niche analyzed with `gigs_analyzed=20`
-- Remaining niches emit `reason=no_gig_quality_scores`
+- Baseline run context (`run_id=cycle038_agentb_live`):
+  - `niches_processed=9`
+  - `niches_analyzed=1`
+  - Support niche analyzed with `gigs_analyzed=20`
+  - Remaining niches emit `reason=no_gig_quality_scores`
+- Post-Task-6 Stage 3 expansion context (`run_id=cycle039_agentb_stage3_expand`):
+  - `niches_processed=9`
+  - `niches_analyzed=0`
+  - All niches emit `reason=no_gig_quality_scores`
 
-Interpretation: quality stage is no longer globally broken but remains coverage-limited by upstream linkage/inputs for most niches.
+Interpretation: quality stage is partially improved, but still tightly coupled to run-scoped upstream artifacts; newer search-only runs without linked gig-quality inputs yield no Stage 11 outputs.
 
 ## 5) Confidence Investigation + Calibration Read (Task 4)
 
@@ -131,13 +136,31 @@ Histogram:
 
 Verdict: this is a data-coverage/normalization issue, not a near-threshold calibration issue.
 
-## 7) Targeted Niche Expansion Decision (Task 6)
+## 7) Targeted Niche Expansion Execution (Task 6)
 
-Task 6 was evaluated against current blockers. Investigation indicates adding Stage 3 volume alone is unlikely to unlock GO tags until SearchResult-to-gig normalization is repaired (current rows persist `gig_cards` blobs but not `rank/gig_id` linkage). Recommended carry-forward is to fix normalization first, then execute expansion.
+Task 6 was executed directly on live DB keywords via Stage 3 search collection:
+
+- Target reached: `search_results 14 -> 30` (`+16`)
+- Keyword coverage improved: `12 -> 28` keywords with search rows
+- All added Stage 3 rows still persisted with `rank`/`gig_id` null
+
+Post-expansion checks:
+
+- Re-ran full scoring: `GO=0`, `CONDITIONAL_GO=0`, `PASS=97` (unchanged)
+- Score range remained: min `0.00`, max `18.54`, avg `1.72`
+- Confidence range remained: `0.2111 .. 0.5833` (avg `0.2506`)
+
+Interpretation: expansion increased row volume/coverage, but without score-ready SearchResult linkage the composite output does not improve.
 
 ## 8) Recommendations Attempt (Task 7)
 
 `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`:
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+
+After Task 6 expansion and fresh scoring rerun, recommendations were run again:
 
 - `eligible=0`
 - `gates_passed=0`
@@ -175,10 +198,10 @@ Note: pytest emits a known Windows temp cleanup warning (`WinError 5`) after suc
 
 ## 11) Jira Evidence Posted (Tasks 11-14)
 
-- `SCRUM-532`: comment `11624`
-- `SCRUM-19`: comment `11626`
-- `SCRUM-20`: comment `11625`
-- `SCRUM-531`: comment `11627`
+- `SCRUM-532`: comments `11624`, `11630`
+- `SCRUM-19`: comments `11626`, `11629`
+- `SCRUM-20`: comments `11625`, `11631`
+- `SCRUM-531`: comments `11627`, `11628`, `11632`
 
 ## 12) AC/DoD Ledger Update (Task 17)
 
