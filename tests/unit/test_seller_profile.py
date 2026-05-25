@@ -601,3 +601,19 @@ def test_seller_profile_dry_run_preserved() -> None:
     assert result["collected"] is False
     assert result["fields_collected"] == []
     assert result["dry_run"] is True
+
+
+def test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration() -> None:
+    html = """
+    <html><body>
+      <script id="perseus-initial-props" type="application/json">
+        {"reviewsData":{"selling_reviews":{"total_count":0}}}
+      </script>
+      <div>12 Reviews</div>
+      <script type="application/ld+json">
+        {"aggregateRating":{"reviewCount":"45"}}
+      </script>
+    </body></html>
+    """
+    parsed = seller_profile_module.parse_seller_profile_from_html(html)
+    assert parsed.review_count == 0

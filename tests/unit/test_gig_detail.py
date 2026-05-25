@@ -453,6 +453,35 @@ def test_parse_gig_detail_from_html_extracts_packages_from_next_data() -> None:
     assert [package.price_cents for package in parsed.packages] == [5500, 12500]
 
 
+def test_parse_gig_detail_from_html_extracts_nested_price_object() -> None:
+    html = """
+    <html><body>
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"packages":[{"name":"Basic","price":{"amount":55,"currency":"USD"}}]}}}
+    </script>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert len(parsed.packages) == 1
+    assert parsed.packages[0].price == "$55"
+    assert parsed.packages[0].price_cents == 5500
+
+
+def test_parse_gig_detail_from_html_keeps_zero_review_count() -> None:
+    html = """
+    <html><body>
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"reviewCount":0}}}
+    </script>
+    <script type="application/ld+json">
+      {"@type":"Product","aggregateRating":{"reviewCount":"18"}}
+    </script>
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.review_count == 0
+
+
 def test_parse_gig_detail_from_html_empty_html_returns_warnings() -> None:
     parsed = parse_gig_detail_from_html("")
     assert parsed.title is None

@@ -366,7 +366,11 @@ def parse_seller_profile_from_html(html: str) -> SellerProfileParseResult:
             html,
             ("seller-review-count", "seller-reviews-count"),
         )
-    ) or next_data.get("review_count") or json_ld.get("review_count")
+    )
+    if review_count is None:
+        review_count = next_data.get("review_count")
+    if review_count is None:
+        review_count = json_ld.get("review_count")
     if review_count is None:
         review_count = _extract_review_count_fallback(html)
     country = _extract_text(html, "seller-country") or next_data.get("country") or json_ld.get("country")
@@ -378,7 +382,11 @@ def parse_seller_profile_from_html(html: str) -> SellerProfileParseResult:
             html,
             ("active-gig-count", "seller-active-gigs"),
         )
-    ) or next_data.get("active_gig_count") or json_ld.get("active_gig_count")
+    )
+    if active_gig_count is None:
+        active_gig_count = next_data.get("active_gig_count")
+    if active_gig_count is None:
+        active_gig_count = json_ld.get("active_gig_count")
 
     if rating is None:
         warnings.append("Seller rating was not found.")

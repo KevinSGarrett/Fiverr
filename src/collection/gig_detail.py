@@ -219,8 +219,14 @@ def _coerce_price_text(raw_price: Any, currency: Any) -> str | None:
 
 def _extract_price_text_from_payload(pkg: dict[str, Any]) -> str | None:
     for key in ("price", "amount", "startingPrice", "priceValue", "price_text"):
-        if key in pkg:
-            return _coerce_price_text(pkg.get(key), pkg.get("currency") or pkg.get("priceCurrency"))
+        if key not in pkg:
+            continue
+        raw_value = pkg.get(key)
+        if isinstance(raw_value, dict):
+            continue
+        coerced = _coerce_price_text(raw_value, pkg.get("currency") or pkg.get("priceCurrency"))
+        if coerced is not None:
+            return coerced
     nested = pkg.get("price") if isinstance(pkg.get("price"), dict) else pkg.get("priceRange")
     if isinstance(nested, dict):
         return _coerce_price_text(
@@ -402,11 +408,11 @@ def parse_gig_detail_from_html(html: str) -> GigDetailParseResult:
 
     has_faq = bool(_extract_text(html, "faq-section") or re.search(r"\bfaq\b", html, flags=re.IGNORECASE))
     rating = _extract_rating(_extract_text(html, "gig-rating")) or next_data.get("rating") or json_ld.get("rating")
-    review_count = (
-        _extract_review_count(_extract_text(html, "gig-review-count"))
-        or next_data.get("review_count")
-        or json_ld.get("review_count")
-    )
+    review_count = _extract_review_count(_extract_text(html, "gig-review-count"))
+    if review_count is None:
+        review_count = next_data.get("review_count")
+    if review_count is None:
+        review_count = json_ld.get("review_count")
 
     package_blocks = re.findall(
         r"<(?:div|section)\b[^>]*data-testid=['\"]package-card['\"][^>]*>(.*?)</(?:div|section)>",
