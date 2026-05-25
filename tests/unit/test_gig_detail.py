@@ -8,8 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from src.collection.gig_detail import parse_gig_detail_from_html
-from src.collection.gig_detail import _extract_price_text_from_payload
+from src.collection.gig_detail import _extract_price_text_from_payload, parse_gig_detail_from_html
 from src.collection.workflows.gig_detail import (
     _parse_rating,
     _parse_review_count,
