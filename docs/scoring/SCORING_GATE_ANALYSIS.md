@@ -251,11 +251,11 @@ Command:
 
 - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
 
-Output:
+Output (post-fallback, pre-expansion):
 
 - `Scoring complete: 99 keywords scored`
 
-Latest-batch tag distribution (`99` newest rows):
+Latest-batch tag distribution (`99` newest rows, pre-expansion):
 
 - `GO=0`
 - `CONDITIONAL_GO=0`
@@ -267,11 +267,43 @@ Best composite/final score after fix:
 - `38.74` (improved from `24.67`)
 - Gap to `CONDITIONAL_GO` (`60`): `21.26`
 
-Top-keyword component snapshot (latest batch):
+Top-keyword component snapshot (pre-expansion):
 
 - `feasibility_score` is now non-null for `2` keywords (`keyword_id=96`, `keyword_id=97`) after the `review_count_exact` fallback.
 - `profitability_score` is non-null for `5` keywords; `weakness_score` is non-null for `2` keywords in the latest batch.
 - Coverage is still below the completion target (`>=5` keywords with non-null feasibility), so additional score-ready linkage depth is still required.
+
+### Task 7 expansion run (below-threshold follow-up)
+
+Because best score remained `<60`, Agent B executed additional fixture-backed Stage 3/4 expansion:
+
+- Run id: `cycle040_agentb_expand_live`
+- Added expansion keywords: `5`
+- Stage 3 cards collected: `20` per keyword
+- Stage 4 gig detail rows persisted: `2` per keyword (`10` total)
+
+Post-expansion SearchResult state:
+
+- `SearchResult total=38`
+- `with_rank=8` (`null_rank=30`)
+- `with_gig_id=3` (`null_gig_id=35`)
+
+Post-expansion scoring rerun:
+
+- `Scoring complete: 104 keywords scored`
+- Latest-batch tags (`104` rows): `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
+- Best score remains `38.74` (gap to conditional remains `21.26`)
+- Component non-null counts: feasibility `7`, profitability `10`, weakness `2`, demand `35`
+
+This closes the explicit completion criterion requiring at least `5` keywords with non-null `feasibility_score`.
+
+Demand-source check (Task 7.2):
+
+- `src/scoring/demand.py` loads demand from:
+  - `SearchResult` row count per keyword (`fiverr_search_results.total_result_count` component source)
+  - `Keyword.metadata_json.autocomplete_position`
+  - `ExternalSignal` (`google_trends`, `reddit_demand`)
+- Current top demand remains below the gate threshold (`<20`), so recommendation eligibility is still blocked even with feasibility coverage improved.
 
 ### Recommendation outcome
 
@@ -279,7 +311,7 @@ Command:
 
 - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
 
-Output:
+Output (latest post-expansion run):
 
 - `eligible=0`
 - `gates_passed=0`
@@ -287,4 +319,4 @@ Output:
 
 ### Cycle 040 conclusion
 
-SearchResult normalization is now writing and backfilling on new data (`rank` and `gig_id` non-null counts increased from zero), and feasibility fallback now lifts best score from `24.67` to `38.74`. Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap concentrated in sparse feasibility coverage and limited score-ready depth per keyword.
+SearchResult normalization is now writing and backfilling on new data (`with_rank=8`, `with_gig_id=3`), feasibility fallback plus collection expansion raised feasibility non-null coverage to `7` keywords, and best score improved from `24.67` to `38.74`. Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap centered on low demand and broader score-signal strength.

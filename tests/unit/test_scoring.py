@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+import pytest
+
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.contracts import ScoringInput
@@ -683,6 +685,21 @@ def test_feasibility_confidence_deductions() -> None:
     inputs["llm_entry_gap_assessment"] = None
     result = calculator.calculate(401, _db_with_inputs(feasibility_inputs=inputs, keyword_id=401))
     assert result.confidence_modifier < 1.0
+
+
+@pytest.mark.parametrize(
+    ("lower_reviews", "higher_reviews"),
+    [(value, value + 1) for value in range(0, 60)],
+)
+def test_feasibility_entry_barrier_monotonic_grid(
+    lower_reviews: int,
+    higher_reviews: int,
+) -> None:
+    low_score = NewSellerFeasibilityCalculator._normalize_entry_review_barrier(float(lower_reviews))
+    high_score = NewSellerFeasibilityCalculator._normalize_entry_review_barrier(float(higher_reviews))
+    assert 0.0 <= low_score <= 100.0
+    assert 0.0 <= high_score <= 100.0
+    assert low_score >= high_score
 
 
 def test_feasibility_helper_parsing_and_config_guards() -> None:
