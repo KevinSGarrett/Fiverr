@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.collection.gig_detail import parse_gig_detail_from_html
+from src.collection.gig_detail import _extract_price_text_from_payload
 from src.collection.workflows.gig_detail import (
     _parse_rating,
     _parse_review_count,
@@ -465,6 +466,20 @@ def test_parse_gig_detail_from_html_extracts_nested_price_object() -> None:
     assert len(parsed.packages) == 1
     assert parsed.packages[0].price == "$55"
     assert parsed.packages[0].price_cents == 5500
+
+
+def test_extract_price_text_from_payload_returns_none_for_unmapped_payload() -> None:
+    assert _extract_price_text_from_payload({"label": "Basic"}) is None
+
+
+def test_extract_price_text_from_payload_falls_through_none_to_amount() -> None:
+    payload = {"price": None, "amount": 33, "currency": "USD"}
+    assert _extract_price_text_from_payload(payload) == "$33"
+
+
+def test_extract_price_text_from_payload_uses_nested_price_amount() -> None:
+    payload = {"price": {"amount": 22, "currency": "USD"}}
+    assert _extract_price_text_from_payload(payload) == "$22"
 
 
 def test_parse_gig_detail_from_html_keeps_zero_review_count() -> None:
