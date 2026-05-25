@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
+import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.collection.gig_detail import parse_gig_detail_from_html
@@ -375,6 +376,14 @@ def test_parse_starting_price_skips_non_string_entries() -> None:
 def test_parse_starting_price_returns_min_value() -> None:
     packages = [{"price_text": "$120"}, {"price_text": "From $1,050"}, {"price_text": "$95"}]
     assert _parse_starting_price(packages) == 95.0
+
+
+@pytest.mark.parametrize(
+    ("price_text", "expected"),
+    [(f"${value}", float(value)) for value in range(1, 51)],
+)
+def test_parse_starting_price_single_tier_matrix(price_text: str, expected: float) -> None:
+    assert _parse_starting_price([{"price_text": price_text}]) == expected
 
 
 def test_w4_real_queues_seller_profile_job() -> None:

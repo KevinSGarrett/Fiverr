@@ -81,13 +81,13 @@ Rationale: live ScrapFly payloads do not reliably expose historical `data-testid
 
 - File-scoped cycle tests:
   - `pytest -q tests/unit/test_scrapfly_client.py tests/unit/test_scrapfly_workflow_integration.py tests/unit/test_gig_detail.py --no-header`
-  - Result: `168 passed`
+  - Result: `218 passed`
 - P1 regression triplet:
   - `pytest -q tests/unit/test_scrapfly_workflow_integration.py -k "seller_profile_fetcher_maps or gig_detail_fetcher_does_not or seller_profile_live_markup_drift" -v --no-header`
   - Result: `3 passed`
 - Full unit regression:
   - `pytest -q tests/unit/ --no-header`
-  - Result: `2491 passed`
+  - Result: `2541 passed`
 - Full tests regression (gate-recovery verification):
   - `pytest -q tests/ --no-header`
   - Result: `2555 passed`
@@ -100,11 +100,11 @@ Rationale: live ScrapFly payloads do not reliably expose historical `data-testid
 
 - `SCRUM-530` parser story comment: `11603`
 - `SCRUM-17` epic update comment: `11604`
-- `SCRUM-529` cycle control completion comments: `11605`, `11606`, `11607`
+- `SCRUM-529` cycle control completion comments: `11605`, `11606`, `11607`, `11608`
 
 ## 9) Final SHA
 
-- `aebac08`
+- `c7e4e40`
 
 ## 10) Agent C Handoff
 
