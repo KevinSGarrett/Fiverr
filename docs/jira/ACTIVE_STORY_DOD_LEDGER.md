@@ -1,5 +1,13 @@
 # Active Story AC/DoD Ledger
 
+## Cycle 039 Rows (Agent A)
+
+| Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 039) | DoD Remaining / Gaps | Tests / Validation | Branch | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `SCRUM-531` | In Progress | `docs/cycle_reports/CYCLE_039_AGENT_A.md`, `PM_Pack/07_hydration/STATE_SNAPSHOT.md`, branch governance and PR merge evidence | Established Cycle 039 control with mandatory preflight execution, Codex thread verification for PR #45 (`3/3 resolved`), merged-state confirmation (`03c1d5d...`), branch cleanup (`cycle/038` removed), and `cycle/039/integration` creation/push. | Story remains open until Agent B scoring gate investigation yields at least one `GO`/`CONDITIONAL_GO` and Agent C confirms recommendation generation. | Baseline checks completed: Codex regressions pass (`3`), ScrapFly P1 regressions pass (`3`), unit baseline pass (`2576`), CLI checks pass, live DB counts match expected key totals (`keywords=97`, `gigs=189`, `sellers=38`). | `cycle/039/integration` | Keep `In Progress`; use as cycle-control anchor and enforce anti-pivot scoring-first execution. |
+| `SCRUM-532` | In Progress | New scoring-gate story under `SCRUM-19`, score-trace capture in `docs/cycle_reports/CYCLE_039_AGENT_A.md` | Created/transitioned scoring story with explicit root-cause plan for all-PASS gate and persisted top-5 score component trace showing missing feasibility/profitability/weakness contributions. | DoD blocked until scoring calibration/data-coverage remediation produces at least one `GO` or `CONDITIONAL_GO` and one downstream recommendation. | Score trace captured from `data/cycle037_live.db`; thresholds verified (`strong_go=80`, `conditional_go=60`). | `cycle/039/integration` | Keep `In Progress`; assign Agent B first-task priority and post investigation deltas back to story. |
+| `SCRUM-19` | In Progress | Epic continuity comments for scoring gate blocker and Cycle 039 kickoff | Advanced epic-level governance by formally linking the new scoring-gate story and documenting anti-pivot priority against zero-`GO`/`CONDITIONAL_GO` output state. | Epic remains open until scoring/recommendation flow is unblocked on live data and acceptance criteria are met. | Validation inherited from Cycle 039 setup bundle and scoring trace outputs. | `cycle/039/integration` | Keep `In Progress`; track Agent B remediation and Agent C recommendation re-run evidence. |
+
 ## Cycle 037 Rows (Agent A)
 
 | Jira Key | Jira Status (recommended) | Files / Evidence Scope | AC Advanced (Cycle 037) | DoD Remaining / Gaps | Tests / Validation | Branch | Next Action |
