@@ -60,7 +60,7 @@ Adaptive scope branch selected:
 
 Independent DB query result:
 
-- `SearchResult total=38 with_rank=8 with_gig_id=3`
+- `SearchResult total=43 with_rank=13 with_gig_id=3 with_total_result_count=5`
 
 Interpretation:
 
@@ -77,10 +77,10 @@ Latest `104` row component non-null counts:
 - `profitability_score=10`
 - `weakness_score=2`
 
-### 3.3 Tag distribution (independent)
+### 3.3 Tag distribution (independent, final rerun state)
 
-- Latest `104` rows: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
-- Best latest final score: `38.74`
+- Latest `104` rows: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=1`, `PASS=103`
+- Best latest final score: `37.56`
 
 ## 4) Task 2 Gate (Conditional Fix Path)
 
@@ -102,13 +102,13 @@ Output:
 
 Independent post-run metrics (latest `104` rows):
 
-- Tags: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
-- Best final score: `38.74`
+- Tags: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=1`, `PASS=103`
+- Best final score: `37.56`
 
 Comparison:
 
-- Baseline best (`24.67`) -> current best (`38.74`) = `+14.07`
-- Remaining gap to `CONDITIONAL_GO=60`: `21.26`
+- Baseline best (`24.67`) -> current best (`37.56`) = `+12.89`
+- Remaining gap to `CONDITIONAL_GO=60`: `22.44`
 
 ## 6) Task 4/5 - Recommendations + Eligibility/Demand Trace
 
@@ -126,13 +126,16 @@ Because `generated=0`, export was not run.
 
 Demand and eligibility investigation highlights:
 
-- Top observed demand component remains below recommendation-enabling threshold (`max observed=14.02` in recent top scores).
-- `SearchResult.total_result_count` remains null on all rows (`38/38`), reducing search-count-based demand signal strength.
+- Top observed demand component remains below recommendation-enabling threshold (`max observed=16.47` in latest scores).
+- `SearchResult.total_result_count` is now present for `5/43` rows after Stage 3 boost, but coverage is still sparse.
 - Stage 3 code path check confirms parser + write path both support `total_result_count`; current null state indicates source extraction returning `None` for current collected inputs, not missing write assignment.
 
 Additional collection attempt:
 
-- `run.py collect-only` was executed but is dry-run by design in this CLI, so it does not persist new Stage 3/4 live rows.
+- Executed explicit non-dry-run Stage 3 workflow calls using fixture-backed fetcher payloads:
+  - run id: `cycle040_agentc_stage3_boost`
+  - targets: `5` high-demand keywords
+  - per-target output: `total_result_count=234`, `gig_cards_collected=2`, `gig_urls_queued=2`
 
 ## 7) Task 6 - 12-Stage Pipeline Table
 
@@ -140,7 +143,7 @@ Additional collection attempt:
 | --- | --- | --- | --- | --- |
 | 1 Config check | Completed | config valid | PASS | n/a |
 | 2 Keyword expansion | Completed | keywords=`104` | PASS | n/a |
-| 3 Fiverr search | Completed with sparse score-ready linkage | search_results=`38`; with_rank=`8` | PARTIAL | legacy null-rank inventory still dominant |
+| 3 Fiverr search | Completed with sparse score-ready linkage | search_results=`43`; with_rank=`13`; with_total_result_count=`5` | PARTIAL | legacy null-rank inventory still dominant despite Stage 3 boost |
 | 4 Gig detail | Completed with limited SR linkage | gigs=`201`; `SearchResult.with_gig_id=3` | PARTIAL | gig persistence breadth exceeds SR FK backfill depth |
 | 5 Seller profile | Completed | sellers=`38` | PASS | n/a |
 | 6 External collection | Completed | external_signals=`20` | PASS | n/a |
@@ -149,7 +152,7 @@ Additional collection attempt:
 | 9 Clustering | Executed with no assignments | cluster_assignments=`0`; cluster_labels=`0` | PARTIAL | insufficient clustering-ready density |
 | 10 Competitor profiling | Executed | competitor_profiles=`1` | PASS | n/a |
 | 11 Gig quality analysis | Executed with limited breadth | gig_quality_analyses=`20` | PARTIAL | narrow run/niche coverage concentration |
-| 12 Saturation + scoring + recommendations | Executed | saturation_scores=`196`; latest104 tags (`CAUTION=2`, `PASS=102`); recommendations=`0` | PARTIAL | no qualifying tags, demand/eligibility still below threshold |
+| 12 Saturation + scoring + recommendations | Executed | saturation_scores=`196`; latest104 tags (`CAUTION=1`, `PASS=103`); recommendations=`0` | PARTIAL | no qualifying tags, demand/eligibility still below threshold |
 
 Pipeline verdict: `PARTIAL`.
 
@@ -191,10 +194,10 @@ Note:
 
 Jira evidence comments posted:
 
-- `SCRUM-534` (SR fix story): comment `11667`
-- `SCRUM-20` (recommendations): comment `11666`
-- `SCRUM-19` (E04 epic): comment `11664`
-- `SCRUM-533` (cycle control): comment `11665`
+- `SCRUM-534` (SR fix story): comments `11667`, `11670`
+- `SCRUM-20` (recommendations): comments `11666`, `11668`
+- `SCRUM-19` (E04 epic): comments `11664`, `11669`
+- `SCRUM-533` (cycle control): comments `11665`, `11671`
 
 Created/updated artifacts:
 

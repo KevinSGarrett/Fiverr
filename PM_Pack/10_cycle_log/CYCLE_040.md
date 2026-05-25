@@ -32,25 +32,29 @@ Database: `sqlite:///data/cycle037_live.db`
 
 - Agent B did not produce recommendations and did not produce any `CONDITIONAL_GO`.
 - Executed independent verification + scoring/recommendation reruns and documented the remaining blocker path.
-- Additional `collect-only` execution was attempted, but this command is dry-run by design in current CLI and does not add Stage 3/4 data rows.
+- Closed Task 5.3 with explicit non-dry-run Stage 3 workflow execution:
+  - run id: `cycle040_agentc_stage3_boost`
+  - targets: `5` high-demand keywords
+  - each target persisted `total_result_count=234` with `2` cards and `2` queued gig jobs.
 
 ## Agent C Independent Verification
 
 - SearchResult linkage audit (live DB):
-  - `SearchResult total=38`
-  - `with_rank=8`
+  - `SearchResult total=43`
+  - `with_rank=13`
   - `with_gig_id=3`
+  - `with_total_result_count=5`
 - Score component status audit (`latest 104` `keyword_scores` rows):
-  - `feasibility_score` non-null = `7`
-  - `profitability_score` non-null = `10`
-  - `weakness_score` non-null = `2`
+  - `feasibility_score` non-null = `6`
+  - `profitability_score` non-null = `9`
+  - `weakness_score` non-null = `1`
 - Latest score tags after rerun (`run.py run --mode full`):
   - `GO=0`
   - `CONDITIONAL_GO=0`
-  - `CAUTION=2`
-  - `PASS=102`
+  - `CAUTION=1`
+  - `PASS=103`
 - Best final score after rerun:
-  - `38.74`
+  - `37.56`
 - Recommendation rerun (`run.py recommendations-only`):
   - `eligible=0`, `gates_passed=0`, `generated=0`
 
@@ -60,7 +64,7 @@ Database: `sqlite:///data/cycle037_live.db`
 | --- | --- | --- | --- | --- |
 | 1 Config check | Completed | config valid | PASS | n/a |
 | 2 Keyword expansion | Completed | keywords=`104` | PASS | n/a |
-| 3 Fiverr search | Completed with sparse score-ready linkage | search_results=`38`; with_rank=`8` | PARTIAL | historical rows still dominate null-rank inventory |
+| 3 Fiverr search | Completed with sparse score-ready linkage | search_results=`43`; with_rank=`13`; with_total_result_count=`5` | PARTIAL | legacy null-rank inventory still dominates despite Stage 3 boost |
 | 4 Gig detail | Completed with limited SR linkage | gigs=`201`; `SearchResult.with_gig_id=3` | PARTIAL | gig detail persistence breadth exceeds SR backfill linkage depth |
 | 5 Seller profile | Completed | sellers=`38` | PASS | n/a |
 | 6 External collection | Completed | external_signals=`20` | PASS | n/a |
@@ -69,14 +73,14 @@ Database: `sqlite:///data/cycle037_live.db`
 | 9 Clustering | Executed with no assignments | cluster_assignments=`0`; cluster_labels=`0` | PARTIAL | insufficient clustering-ready keyword embedding/grouping density |
 | 10 Competitor profiling | Executed | competitor_profiles=`1` | PASS | n/a |
 | 11 Gig quality analysis | Executed with limited breadth | gig_quality_analyses=`20` | PARTIAL | quality analysis coverage concentrated in a narrow run scope |
-| 12 Saturation + scoring + recommendations | Executed | saturation_scores=`196`; latest104 tags (`CAUTION=2`, `PASS=102`); recommendations=`0` | PARTIAL | no `CONDITIONAL_GO`/`GO`; demand/eligibility depth remains below gate thresholds |
+| 12 Saturation + scoring + recommendations | Executed | saturation_scores=`196`; latest104 tags (`CAUTION=1`, `PASS=103`); recommendations=`0` | PARTIAL | no `CONDITIONAL_GO`/`GO`; demand/eligibility depth remains below gate thresholds |
 
 Pipeline verdict: `PARTIAL` (gigs/signals > 0, recommendations = 0).
 
 ## Demand/Eligibility Constraint Notes
 
-- Highest observed demand component in top-scoring latest rows remains below recommendation-enabling threshold (`max observed=14.02`).
-- `SearchResult.total_result_count` remains null on all rows (`38/38`), which limits demand-strength contribution from search-count evidence.
+- Highest observed demand component in top-scoring latest rows remains below recommendation-enabling threshold (`max observed=16.47`).
+- `SearchResult.total_result_count` is now persisted for a subset of rows (`5/43`) after Stage 3 boost, but coverage remains too sparse to unlock recommendation eligibility.
 
 ## Test Count Progression (R-092 v2, no `--cov`)
 
@@ -89,10 +93,10 @@ Pipeline verdict: `PARTIAL` (gigs/signals > 0, recommendations = 0).
 
 ## Jira Evidence Posted
 
-- `SCRUM-534`: comment `11667`
-- `SCRUM-20`: comment `11666`
-- `SCRUM-19`: comment `11664`
-- `SCRUM-533`: comment `11665`
+- `SCRUM-534`: comments `11667`, `11670`
+- `SCRUM-20`: comments `11666`, `11668`
+- `SCRUM-19`: comments `11664`, `11669`
+- `SCRUM-533`: comments `11665`, `11671`
 
 ## Self-Audit
 
