@@ -223,6 +223,58 @@ def test_load_gig_quality_returns_empty_for_missing_niche() -> None:
         session.close()
 
 
+def test_load_gig_quality_falls_back_to_gig_rows_without_gqs() -> None:
+    session, niche = _build_session()
+    try:
+        keyword = _seed_keyword(session, niche, "fallback quality rows")
+        gig = _seed_gig(
+            session,
+            keyword=keyword,
+            run_id="run-fallback",
+            gig_url="https://fiverr.com/gig/fallback-1",
+            rank=1,
+            description_text="Detailed fallback scope " * 8,
+            faq_text="faq fallback",
+            video_present=False,
+            portfolio_count=0,
+        )
+        rows = load_gig_quality_scores_for_niche("test_niche", "run-fallback", session)
+        assert len(rows) == 1
+        assert rows[0]["gig_url"] == gig.gig_url
+        assert rows[0]["video_present"] is False
+        assert rows[0]["description_quality_score"] is None
+    finally:
+        session.close()
+
+
+def test_load_gig_quality_falls_back_when_search_result_link_missing() -> None:
+    session, niche = _build_session()
+    try:
+        keyword = _seed_keyword(session, niche, "fallback missing search link")
+        gig = Gig(
+            gig_url="https://fiverr.com/gig/fallback-no-search",
+            keyword_id=keyword.id,
+            run_id="run-fallback-no-search",
+            seller_username="seller-fallback",
+            gig_title_full="Fallback gig",
+            description_text="Detailed fallback without search rows " * 6,
+            faq_text="faq fallback",
+            video_present=True,
+            portfolio_count=2,
+            detail_collected=True,
+        )
+        session.add(gig)
+        session.commit()
+        session.refresh(gig)
+
+        rows = load_gig_quality_scores_for_niche("test_niche", "run-fallback-no-search", session)
+        assert len(rows) == 1
+        assert rows[0]["gig_url"] == gig.gig_url
+        assert rows[0]["search_rank"] is None
+    finally:
+        session.close()
+
+
 def test_run_analysis_writes_rows() -> None:
     session, niche = _build_session()
     try:

@@ -78,7 +78,8 @@ def load_gig_quality_scores_for_niche(niche_id: str, run_id: str, db: Any) -> li
     Load run-scoped top-10 gig quality rows for one niche.
 
     Query contract:
-    - joins `gig_quality_scores` to `gigs` via `gig_url`
+    - left-joins `gig_quality_scores` to `gigs` via `gig_url`
+      (falls back to core gig fields when score rows are absent)
     - scopes to current run_id and top-10 search ranks per keyword
     """
     if not _is_session(db):
@@ -114,7 +115,7 @@ def load_gig_quality_scores_for_niche(niche_id: str, run_id: str, db: Any) -> li
                 SearchResult.run_id == run_id,
             ),
         )
-        .join(
+        .outerjoin(
             GigQualityScore,
             and_(
                 GigQualityScore.gig_url == Gig.gig_url,
@@ -132,6 +133,45 @@ def load_gig_quality_scores_for_niche(niche_id: str, run_id: str, db: Any) -> li
         )
         .all()
     )
+
+    if not rows:
+        rows = (
+            db.query(
+                Gig.gig_url.label("gig_url"),
+                Gig.keyword_id.label("keyword_id"),
+                Gig.gig_title_full.label("gig_title_full"),
+                Gig.description_text.label("description_text"),
+                Gig.faq_text.label("faq_text"),
+                Gig.video_present.label("gig_video_present"),
+                Gig.portfolio_count.label("gig_portfolio_count"),
+                Gig.thumbnail_url.label("thumbnail_url"),
+                Gig.position.label("search_rank"),
+                GigQualityScore.video_present.label("quality_video_present"),
+                GigQualityScore.portfolio_count.label("quality_portfolio_count"),
+                GigQualityScore.description_quality_score.label("description_quality_score"),
+                GigQualityScore.faq_completeness_score.label("faq_completeness_score"),
+                GigQualityScore.thumbnail_quality_score.label("thumbnail_quality_score"),
+            )
+            .join(Keyword, Keyword.id == Gig.keyword_id)
+            .outerjoin(
+                GigQualityScore,
+                and_(
+                    GigQualityScore.gig_url == Gig.gig_url,
+                    GigQualityScore.run_id == run_id,
+                ),
+            )
+            .filter(
+                Keyword.niche_id == niche_pk,
+                Gig.run_id == run_id,
+                Gig.detail_collected.is_(True),
+            )
+            .order_by(
+                Keyword.id.asc(),
+                Gig.position.asc().nullslast(),
+                Gig.id.asc(),
+            )
+            .all()
+        )
 
     if not rows:
         return []
