@@ -201,7 +201,7 @@ Note: pytest emits a known Windows temp cleanup warning (`WinError 5`) after suc
 - `SCRUM-532`: comments `11624`, `11630`
 - `SCRUM-19`: comments `11626`, `11629`
 - `SCRUM-20`: comments `11625`, `11631`
-- `SCRUM-531`: comments `11627`, `11628`, `11632`
+- `SCRUM-531`: comments `11627`, `11628`, `11632`, `11633`
 
 ## 12) AC/DoD Ledger Update (Task 17)
 
