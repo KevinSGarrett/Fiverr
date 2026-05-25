@@ -255,13 +255,6 @@ async def test_seller_profile_fetcher_maps_parser_fields_for_persistence(
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason=(
-        "Cycle 037 live seller markup drift: parser currently misses alternate "
-        "testids for member_since/review_count/active_gig_count."
-    ),
-    strict=False,
-)
 async def test_seller_profile_live_markup_drift_regression_spec() -> None:
     # Regression spec for the observed live failure mode where seller rows are created
     # but key profile fields remain null. This test documents expected behavior once

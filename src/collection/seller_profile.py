@@ -49,6 +49,15 @@ def _extract_text(html: str, test_id: str) -> str | None:
     return text or None
 
 
+def _extract_text_any(html: str, test_ids: tuple[str, ...]) -> str | None:
+    """Return first non-empty match across candidate data-testid values."""
+    for test_id in test_ids:
+        value = _extract_text(html, test_id)
+        if value:
+            return value
+    return None
+
+
 def _extract_number(value: str | None) -> int | None:
     if not value:
         return None
@@ -93,14 +102,24 @@ def parse_seller_profile_from_html(html: str) -> SellerProfileParseResult:
 
     username = _extract_text(html, "seller-username")
     display_name = _extract_text(html, "seller-display-name") or _extract_text(html, "seller-name")
-    level = _extract_text(html, "seller-level")
+    level = _extract_text_any(html, ("seller-level", "seller-overview-level"))
     rating = _extract_float(_extract_text(html, "seller-rating"))
-    review_count = _extract_number(_extract_text(html, "seller-review-count"))
+    review_count = _extract_number(
+        _extract_text_any(
+            html,
+            ("seller-review-count", "seller-reviews-count"),
+        )
+    )
     country = _extract_text(html, "seller-country")
-    member_since = _extract_text(html, "member-since")
+    member_since = _extract_text_any(html, ("member-since", "seller-member-since"))
     response_time = _extract_text(html, "response-time")
     last_delivery = _extract_text(html, "last-delivery")
-    active_gig_count = _extract_number(_extract_text(html, "active-gig-count"))
+    active_gig_count = _extract_number(
+        _extract_text_any(
+            html,
+            ("active-gig-count", "seller-active-gigs"),
+        )
+    )
 
     if rating is None:
         warnings.append("Seller rating was not found.")
