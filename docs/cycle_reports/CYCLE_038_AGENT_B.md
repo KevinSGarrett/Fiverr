@@ -100,11 +100,11 @@ Rationale: live ScrapFly payloads do not reliably expose historical `data-testid
 
 - `SCRUM-530` parser story comment: `11603`
 - `SCRUM-17` epic update comment: `11604`
-- `SCRUM-529` cycle control completion comments: `11605`, `11606`, `11607`, `11608`
+- `SCRUM-529` cycle control completion comments: `11605`, `11606`, `11607`, `11608`, `11609`
 
 ## 9) Final SHA
 
-- `c7e4e40`
+- `a6c450d`
 
 ## 10) Agent C Handoff
 
