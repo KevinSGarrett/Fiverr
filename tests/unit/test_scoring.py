@@ -6,7 +6,6 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
-
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.contracts import ScoringInput
