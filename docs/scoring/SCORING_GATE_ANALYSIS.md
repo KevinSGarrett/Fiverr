@@ -320,3 +320,72 @@ Output (latest post-expansion run):
 ### Cycle 040 conclusion
 
 SearchResult normalization is now writing and backfilling on new data (`with_rank=8`, `with_gig_id=3`), feasibility fallback plus collection expansion raised feasibility non-null coverage to `7` keywords, and best score improved from `24.67` to `38.74`. Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap centered on low demand and broader score-signal strength.
+
+## Agent C Independent Verification - Cycle 040
+
+Date: 2026-05-25  
+Branch: `cycle/040/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Agent B handoff extraction (required)
+
+- SearchResult null rank/gig_id baseline -> latest:
+  - Before Agent B fix (Agent A baseline): `SearchResult total=30`, `null_rank=30`, `null_gig_id=30`
+  - After Agent B expansion state: `SearchResult total=38`, `with_rank=8`, `with_gig_id=3` (`null_rank=30`, `null_gig_id=35`)
+- Latest score-tag distribution reported by Agent B (`104` newest rows):
+  - `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
+- Best score after Agent B fix path:
+  - `38.74` vs baseline `24.67` (`+14.07`)
+- Feasibility/profitability/weakness now non-None:
+  - `YES` (`feasibility=7`, `profitability=10`, `weakness=2` in latest `104`)
+- Recommendation outcome from Agent B:
+  - `generated=0`
+- `docs/scoring/SCORING_GATE_ANALYSIS.md` updated by Agent B:
+  - `YES`
+- Agent B final SHA at handoff:
+  - `c356b4f`
+
+### Independent verification rerun results (Agent C)
+
+- Canonical preflight rerun completed (`config-check`, branch/worktree checks, live DB debug).
+- Independent SearchResult audit:
+  - `SearchResult total=38`
+  - `with_rank=8`
+  - `with_gig_id=3`
+- Independent latest-score audit after rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - Output: `Scoring complete: 104 keywords scored`
+  - Latest `104` rows: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
+  - Best final score remains `38.74`
+- Component verification (latest `104` rows):
+  - `feasibility_score` non-null: `7`
+  - `profitability_score` non-null: `10`
+  - `weakness_score` non-null: `2`
+
+### Recommendation outcome and eligibility context
+
+- Recommendation rerun:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - Output: `eligible=0`, `gates_passed=0`, `generated=0`
+- Demand remains the dominant blocker:
+  - Highest observed demand component remains `<20` (top observed `14.02`)
+- Additional data-shape finding:
+  - `SearchResult.total_result_count` remains null on all rows (`38/38`), limiting demand-strength uplift from search-count evidence.
+- Because no `CONDITIONAL_GO` tags exist, recommendation eligibility remains blocked before downstream generation gates.
+
+### Regression validation (R-092 v2 style, no `--cov`)
+
+- File-scoped required bundle:
+  - `pytest -q tests/unit/test_gig_detail.py tests/unit/test_scoring_db_integration.py tests/unit/test_scrapfly_workflow_integration.py --no-header`
+  - Result: `132 passed`
+- Full unit suite:
+  - `pytest -q tests/unit/ --no-header`
+  - Result: `2787 passed` (zero failures)
+
+### Cycle 040 Agent C conclusion
+
+- Pipeline verdict: `PARTIAL` (gigs/signals present, recommendation generation still `0`).
+- Remaining quantified gap:
+  - Best final score `38.74`
+  - Gap to `CONDITIONAL_GO` (`60`): `21.26`
+  - Gap to `STRONG_GO` (`80`): `41.26`
