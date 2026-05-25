@@ -97,11 +97,11 @@ Rationale: live ScrapFly payloads do not reliably expose historical `data-testid
 
 - `SCRUM-530` parser story comment: `11603`
 - `SCRUM-17` epic update comment: `11604`
-- `SCRUM-529` cycle control comment: pending final SHA post (to be added after final commit/push)
+- `SCRUM-529` cycle control completion comment: `11605`
 
 ## 9) Final SHA
 
-- Pending final commit/push in this report revision.
+- `13276a4`
 
 ## 10) Agent C Handoff
 
