@@ -197,53 +197,43 @@ Transition outcome logic:
 
 ## PR #47 CI check rollup (verbatim JSON)
 
-PENDING FINAL SNAPSHOT (will be replaced after all current runs complete):
-
 ```json
-{
-  "pending": true,
-  "note": "CI reruns in progress on head 673fc3837017cb387a85c132dee2cc4f0f4e0aae"
-}
+{"headRefOid":"3fe07c97a159bacdb6efe6d204b9a2ce82386f4f","labels":[{"id":"LA_kwDOSbqwNc8AAAACjnkTxQ","name":"override:large-pr","description":"Allow XXL PR","color":"D93F0B"}],"mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","reviewDecision":"","state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-25T22:04:39Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421327370/job/77776470753","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T21:56:00Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T22:04:32Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421325864/job/77776467144","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T21:55:58Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T21:56:08Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421327386/job/77776470795","name":"Validate PR","startedAt":"2026-05-25T21:56:01Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-25T21:56:06Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421327360/job/77776470709","name":"Secret Scan","startedAt":"2026-05-25T21:56:00Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T22:04:47Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421327370/job/77777208382","name":"codecov/project","startedAt":"2026-05-25T22:04:41Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T22:04:38Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421325864/job/77777197859","name":"codecov/project","startedAt":"2026-05-25T22:04:34Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T21:56:24Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26421327360/job/77776470710","name":"Dependency Audit","startedAt":"2026-05-25T21:56:01Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T22:04:38Z","conclusion":"SUCCESS","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/47","name":"codecov/patch","startedAt":"2026-05-25T22:04:37Z","status":"COMPLETED","workflowName":""}],"title":"fix(collection): normalize SearchResult rank and gig_id","url":"https://github.com/KevinSGarrett/Fiverr/pull/47"}
 ```
 
 ## Codex GraphQL reviewThreads query (both runs, verbatim JSON)
 
-PENDING FINAL SNAPSHOT (Task 10 executes after CI green):
-
 ```json
-{
-  "run_1": "pending",
-  "run_2": "pending"
-}
+{"run_1":{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}},"run_2":{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}}
 ```
 
 ## Thread disposition table
 
 | Thread ID | Status | Disposition | Regression test added? |
 |---|---|---|---|
-| pending | pending | pending | pending |
+| none | n/a | No review threads found in either query run | n/a |
 
 ## Final SHA (Task 11)
 
-PENDING until final Agent D push and SHA freeze.
+`3fe07c97a159bacdb6efe6d204b9a2ce82386f4f`
 
 ## Merge gate checklist (Task 13)
 
 ### CODECOV
 
-- [ ] `codecov/project`: PASS — pending final CI
-- [ ] `codecov/patch`: PASS — pending final CI (target >= 90%)
+- [x] `codecov/project`: PASS (`95.19%`)
+- [x] `codecov/patch`: PASS (`100.00%`, target >= 90%)
 - [x] Local `--cov-fail-under=90`: PASS (`95.06%`)
 - [x] All new local lines covered by tests: YES (module gates >= 90)
 
 ### CODEX
 
-- [ ] reviewThreads query executed: pending
-- [ ] Total threads found: pending
-- [ ] All threads dispositioned: pending
-- [ ] All VALID_FIXED threads have regression tests: pending
-- [ ] All threads manually resolved: pending
-- [ ] Zero unresolved threads: pending
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: `0`
+- [x] All threads dispositioned: YES (none present)
+- [x] All VALID_FIXED threads have regression tests: YES (none required)
+- [x] All threads manually resolved: YES (none required)
+- [x] Zero unresolved threads: YES
 
 ### SEARCHRESULT NORMALIZATION GATE
 
@@ -289,16 +279,16 @@ PENDING until final Agent D push and SHA freeze.
 
 ### FINAL
 
-- [ ] PR #47 ready to merge: pending CI + Codex completion
-- [ ] Blockers if NO: pending
+- [x] PR #47 ready to merge: YES
+- [x] Blockers if NO: none
 
 ## Canonical coverage + pipeline snapshot
 
 - Cycle start baseline (Agent A): `2786 passed`
 - Agent D baseline (Task 2): `2787 passed`
 - R-092 Tier-2 run (Task 3): `2851 passed`, `95.06%`
-- Final PR CI: pending
-- `codecov/project`: pending | `codecov/patch`: pending
+- Final PR CI: `2858 passed`, `95.19%`
+- `codecov/project`: `95.19%` | `codecov/patch`: `100.00%`
 
 SearchResult normalization (final observed local DB):
 
