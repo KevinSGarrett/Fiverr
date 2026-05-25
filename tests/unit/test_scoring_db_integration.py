@@ -261,6 +261,45 @@ def _seed_keyword_data_without_search_links_mixed_runs(session: Session) -> int:
     return keyword.id
 
 
+def _seed_keyword_data_without_search_links_review_count_exact_only(session: Session) -> int:
+    niche = Niche(slug="automation-fallback-exact", name="Automation Fallback Exact", category_path="Programming & Tech > AI")
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation exact fallback",
+        normalized_keyword="python automation exact fallback",
+    )
+    session.add(keyword)
+    session.flush()
+
+    for rank in range(1, 4):
+        session.add(
+            Gig(
+                gig_url=f"https://www.fiverr.com/fallback-exact/{rank}",
+                keyword_id=keyword.id,
+                run_id="exact-fallback-run",
+                title=f"Exact fallback gig {rank}",
+                normalized_title=f"exact fallback gig {rank}",
+                position=rank,
+                starting_price=40.0 + (rank * 7.0),
+                review_count=None,
+                review_count_exact=rank * 5,
+                metadata_json={
+                    "premium_price": 90.0 + rank,
+                    "delivery_time_days": float(rank),
+                    "extras": [],
+                    "has_video": False,
+                    "has_portfolio": False,
+                },
+            )
+        )
+
+    session.commit()
+    return keyword.id
+
+
 def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)
@@ -322,6 +361,19 @@ def test_scoring_calculators_fallback_to_keyword_gigs_without_search_result_link
     assert feasibility_result.score_value is not None
     assert profitability_result.score_value is not None
     assert weakness_result.score_value is not None
+    session.close()
+
+
+def test_feasibility_fallback_uses_review_count_exact_when_review_count_missing() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_without_search_links_review_count_exact_only(session)
+
+    feasibility_calculator = NewSellerFeasibilityCalculator()
+    feasibility_signals = feasibility_calculator._load_signals_from_db(keyword_id, session)
+    feasibility_result = feasibility_calculator.calculate(keyword_id, session)
+
+    assert feasibility_signals["lowest_ranked_review_count_page1"] == 15.0
+    assert feasibility_result.score_value is not None
     session.close()
 
 

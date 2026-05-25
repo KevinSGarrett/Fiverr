@@ -445,11 +445,13 @@ class NewSellerFeasibilityCalculator:
         seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
         accessible_levels = {"", "none", "new", "new seller", "level 1", "level1", "1"}
         accessible_count = sum(1 for level in seller_levels if level.strip().lower() in accessible_levels)
-        review_candidates = [
-            float(gig.review_count)
-            for gig in top_gigs
-            if gig.review_count is not None
-        ]
+        review_candidates: list[float] = []
+        for gig in top_gigs:
+            review_count = gig.review_count
+            if review_count is None:
+                review_count = gig.review_count_exact
+            if review_count is not None:
+                review_candidates.append(float(review_count))
         prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
         price_diversity = self._compute_price_diversity(prices)
         payload: dict[str, Any] = {

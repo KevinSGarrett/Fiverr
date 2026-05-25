@@ -218,6 +218,10 @@ Two structural fixes were implemented to normalize `search_results` linkage for 
    - File: `src/collection/workflows/gig_detail.py`
    - Stage 4 persistence now upserts `Gig` rows when missing, persists detail fields, and backfills matching `SearchResult.gig_id` by URL identity match (including `gig_cards` URL matching and HTML-escaped URL normalization).
 
+3. **Follow-up signal fix (`feasibility` input fallback):**
+   - File: `src/scoring/feasibility.py`
+   - Feasibility signal loading now falls back to `Gig.review_count_exact` when `Gig.review_count` is null, so Stage 4-collected rows still contribute review-barrier evidence.
+
 ### Validation runs and null-count delta
 
 Baseline before fixes (Agent A handoff):
@@ -260,13 +264,14 @@ Latest-batch tag distribution (`99` newest rows):
 
 Best composite/final score after fix:
 
-- `24.67` (unchanged from prior best)
-- Gap to `CONDITIONAL_GO` (`60`): `35.33`
+- `38.74` (improved from `24.67`)
+- Gap to `CONDITIONAL_GO` (`60`): `21.26`
 
 Top-keyword component snapshot (latest batch):
 
-- Highest rows still show `feasibility_score.value=None` for top candidates.
-- `profitability_score` and `weakness_score` are present for the two `CAUTION` rows (`keyword_id=96`, `keyword_id=97`), but not broadly populated across the batch.
+- `feasibility_score` is now non-null for `2` keywords (`keyword_id=96`, `keyword_id=97`) after the `review_count_exact` fallback.
+- `profitability_score` is non-null for `5` keywords; `weakness_score` is non-null for `2` keywords in the latest batch.
+- Coverage is still below the completion target (`>=5` keywords with non-null feasibility), so additional score-ready linkage depth is still required.
 
 ### Recommendation outcome
 
@@ -282,4 +287,4 @@ Output:
 
 ### Cycle 040 conclusion
 
-SearchResult normalization is now writing and backfilling on new data (`rank` and `gig_id` non-null counts increased from zero). Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap concentrated in sparse feasibility coverage and limited score-ready depth per keyword.
+SearchResult normalization is now writing and backfilling on new data (`rank` and `gig_id` non-null counts increased from zero), and feasibility fallback now lifts best score from `24.67` to `38.74`. Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap concentrated in sparse feasibility coverage and limited score-ready depth per keyword.

@@ -183,15 +183,17 @@ Latest-batch tag distribution (`99` newest `keyword_scores` rows):
 - `CAUTION=2`
 - `PASS=97`
 
-Best score after fix:
+Best score after structural fixes + feasibility signal fallback:
 
-- `24.67` (baseline best remained unchanged)
-- Gap to `CONDITIONAL_GO=60`: `35.33`
+- `38.74` (up from `24.67`)
+- Gap to `CONDITIONAL_GO=60`: `21.26`
 
 Top component observation:
 
-- `feasibility_score` remains `None` for highest-scoring rows
-- `profitability_score` + `weakness_score` are populated for the two `CAUTION` rows but not broadly across the batch
+- Added follow-up fix in `src/scoring/feasibility.py` so review-barrier signals use `Gig.review_count_exact` when `Gig.review_count` is null.
+- `feasibility_score` is now non-null for `2` keywords (`keyword_id=96`, `keyword_id=97`).
+- `profitability_score` is non-null for `5` keywords; `weakness_score` is non-null for `2` keywords in the latest batch.
+- Completion target remains open because feasibility non-null coverage is still `<5` keywords.
 
 ## Recommendations Outcome
 
@@ -214,7 +216,7 @@ No recommendation export was triggered because no `CONDITIONAL_GO`/`GO` rows wer
 Agent C should continue from this state with focus on score-depth unlock work beyond structural SR normalization:
 
 1. Expand score-ready linkage breadth so `rank/gig_id` are populated across substantially more keyword rows (not just new inserts).
-2. Investigate and close remaining feasibility coverage gap (`feasibility_score=None` persistence despite normalized writes).
+2. Expand feasibility signal coverage from `2` to at least `5` non-null keywords (current blocker to completion criteria).
 3. Re-run scoring + recommendations immediately after additional linkage depth is established.
 4. Post final gate evidence once `CONDITIONAL_GO` appears.
 
@@ -224,8 +226,8 @@ Agent C should continue from this state with focus on score-depth unlock work be
 - SearchResult gig_id backfill implemented: **YES**
 - Both fixes validated in live DB (non-null counts improved): **YES** (`with_rank=3`, `with_gig_id=3`)
 - Scoring rerun executed and component/tag evidence captured: **YES**
-- Score improvement documented vs baseline best (`24.67`): **YES** (no uplift yet)
+- Score improvement documented vs baseline best (`24.67`): **YES** (`38.74` latest best)
 - Recommendation outcome recorded: **YES** (`generated=0`)
 - `docs/scoring/SCORING_GATE_ANALYSIS.md` updated with Cycle 040 Agent B section: **YES**
-- Full `tests/unit` run executed and passing: **YES** (`2726 passed`)
+- Full `tests/unit` run executed and passing: **YES** (`2727 passed`)
 - `config.yaml` staged with `enabled=true`: **NO**
