@@ -66,3 +66,36 @@ For every selector failure or empty extraction:
 2. Capture the URL and stage.
 3. Capture the exact exception (`SelectorError`, timeout, empty-node path).
 4. Propose replacement selector candidates in `fiverr_selectors.py`.
+
+## Cycle 037 ScrapFly Live Run Results
+
+### ScrapFly `data-testid` validation (live HTML)
+
+| Marker | Status in ScrapFly HTML | Notes |
+| --- | --- | --- |
+| `gig-card-layout` | MISSING | Not present in `data/debug_search_html.html` |
+| `gig-title` | MISSING | Not present in ScrapFly-fetched markup |
+| `seller-name` | MISSING | Not present in ScrapFly-fetched markup |
+| `starting-price` | MISSING | Not present in ScrapFly-fetched markup |
+| `total-result-count` | MISSING | Not present in ScrapFly-fetched markup |
+| `sponsored-badge` | MISSING | Not present in ScrapFly-fetched markup |
+
+### Playwright CSS selectors in ScrapFly mode
+
+- `SEARCH_BOX`, `AUTOCOMPLETE_DROPDOWN`, `AUTOCOMPLETE_ITEM`, `AUTOCOMPLETE_ITEM_TEXT`: **NOT USED IN SCRAPFLY MODE**
+- `SELLER_LEVEL_BADGE`, `SELLER_MEMBER_SINCE`, `SELLER_RESPONSE_TIME`, `SELLER_RESPONSE_RATE`: **NOT USED IN SCRAPFLY MODE**
+- `SELLER_LANGUAGES`, `SELLER_BIO`, `SELLER_TOTAL_REVIEWS`, `SELLER_TOTAL_GIGS`: **NOT USED IN SCRAPFLY MODE**
+- `SELLER_GIG_TITLE`, `SELLER_PORTFOLIO_ITEM`, `SELLER_BADGE`: **NOT USED IN SCRAPFLY MODE**
+
+### Parser actions taken
+
+- Updated `src/collection/search_result_parser.py` with a href-based fallback when Fiverr SERP no longer exposes expected `data-testid` hooks.
+- Fallback now extracts gig URLs from listing-like links (`source=gig_cards`, `referrer_gig_slug`, `context_referrer`, `pckg_id`) and preserves seller username derivation.
+- Stage 3 moved from `gig_cards_collected=0` to `gig_cards_collected=20` per keyword (via fallback), with warning retained to indicate missing `data-testid` selectors.
+
+### Codex P1 production validation (Cycle 037 live data)
+
+- Gig detail P1 fix (`tags`/`faq_text`/`video_present` overwrite guard): **NEEDS INVESTIGATION**
+  - Stage 4 executed, but DB `gigs` rows remained `0`, so no `detail_collected=True` rows were available for direct field-value confirmation.
+- Seller profile P1 fix (parser field mapping to persistence fields): **NEEDS INVESTIGATION**
+  - Stage 5 wrote seller rows (`sellers=19`), but sampled rows show `seller_level=NO_LEVEL`, `member_since=None`, `total_reviews=None`, `total_gigs=None`, indicating profile parser/HTML mismatch in live payloads.

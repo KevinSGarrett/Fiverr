@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
+from urllib.parse import parse_qs, urlparse
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -98,6 +99,46 @@ def _normalise_gig_url(href: str | None) -> str | None:
     if href.startswith("/"):
         return f"https://www.fiverr.com{href}"
     return href
+
+
+def _fallback_cards_from_hrefs(html: str, max_cards: int) -> list[dict[str, str | bool | None]]:
+    """Heuristic extraction when Fiverr removes stable data-testid hooks."""
+    cards: list[dict[str, str | bool | None]] = []
+    seen_paths: set[str] = set()
+
+    for href in _HREF_RE.findall(html):
+        if not _is_gig_url(href):
+            continue
+        normalised = _normalise_gig_url(href)
+        if not normalised:
+            continue
+
+        parsed = urlparse(normalised)
+        query = parse_qs(parsed.query)
+        # Keep likely SERP listing links; avoid generic/internal anchors.
+        if not (
+            "source" in query and any("gig_cards" in value for value in query["source"])
+            or "referrer_gig_slug" in query
+            or "context_referrer" in query
+            or "pckg_id" in query
+        ):
+            continue
+
+        key = parsed.path.strip().lower()
+        if not key or key in seen_paths:
+            continue
+        seen_paths.add(key)
+
+        cards.append(
+            {
+                "href": normalised,
+                "seller_username": _extract_seller_from_url(normalised),
+                "sponsored": False,
+            }
+        )
+        if len(cards) >= max_cards:
+            break
+    return cards
 
 
 def _as_str(value: str | bool | None) -> str | None:
@@ -287,10 +328,16 @@ def parse_search_results_from_html(
 
     raw_cards = collector.cards[:max_cards]
     if not raw_cards:
-        warnings.append(
-            "No gig cards found via data-testid. "
-            "Fiverr may have updated its markup — selectors need review."
-        )
+        raw_cards = _fallback_cards_from_hrefs(html, max_cards=max_cards)
+        if raw_cards:
+            warnings.append(
+                "No gig cards found via data-testid; used href-based fallback extraction."
+            )
+        else:
+            warnings.append(
+                "No gig cards found via data-testid. "
+                "Fiverr may have updated its markup — selectors need review."
+            )
 
     gig_cards: list[SearchGigCard] = []
     for position, raw in enumerate(raw_cards, start=1):

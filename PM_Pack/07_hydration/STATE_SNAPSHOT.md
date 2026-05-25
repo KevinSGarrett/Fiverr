@@ -1,29 +1,30 @@
-# State Snapshot — Cycle 036
+# State Snapshot — Cycle 037
 # Updated: 2026-05-24 | Verified via PM master protocol Parts 1-8
 
 ## Verified Repository State
 
 - Canonical working directory: `C:\Fiverr\Fiverr` (worktree incident resolved)
-- Tests: `2407` | Coverage: `94.88%` | `codecov/patch`: `100%`
-- Active branch: `cycle/036/integration`
-- PR #42 (Cycle 035): MERGED
+- Tests: `2541` | Coverage: `94.85%` | `codecov/patch`: `93.66%`
+- Active branch: `cycle/037/integration`
+- PR #42 (Cycle 035): MERGED | PR #43 (Cycle 036): MERGED
+- Cycle 037 live DB: `data/cycle037_live.db` (initialized)
 
-## ScrapFly Integration Status (NEW — Cycle 036)
+## ScrapFly Integration Status (NEW — Cycle 036/037)
 
 | File | Status | Purpose |
 | --- | --- | --- |
-| `src/collection/scrapfly_client.py` | ✅ Committed (Agent A) | ScrapFly SDK wrapper with retries, pacing, and credit tracking |
-| `src/collection/http_fetcher.py` | ✅ Committed (Agent A) | Transport abstraction + Playwright/ScrapFly fetcher factory |
-| `src/collection/search_result_parser.py` | ✅ Committed (Agent A) | HTML parser for Fiverr search pages |
-| `tests/unit/test_scrapfly_client.py` | ✅ Committed (Agent A) | ScrapFly client unit coverage |
-| `src/config/models.py` (`ScrapFlyCollectionConfig`) | ✅ Committed (Agent A) | Config schema for ScrapFly toggles |
-| `src/collection/workflows/fiverr_search.py` | ✅ Committed (Agent A) | Stage 3 accepts `fetcher` |
-| `src/collection/workflows/gig_detail.py` | ✅ Committed (Agent A) | Stage 4 accepts `fetcher` |
-| `src/collection/workflows/seller_profile.py` | ✅ Committed (Agent A) | Stage 5 accepts `fetcher` and Playwright fix |
-| `.env.example` | ✅ Committed (Agent A) | Added `SCRAPFLY_API_KEY` template |
-| `requirements.txt` | ✅ Committed (Agent A) | Added `scrapfly-sdk>=1.3.0` |
-| `config.yaml.example` | ✅ Committed (Agent A) | Added `collection.scrapfly` config block |
-| `src/collection/orchestrator.py` | 🔄 In progress (Agent B) | Build fetcher and wire ScrapFly lifecycle into pipeline |
+| `src/collection/scrapfly_client.py` | ✅ Committed + Codex P1 fixes applied | ScrapFly SDK wrapper with retries, pacing, and credit tracking |
+| `src/collection/http_fetcher.py` | ✅ Committed + Codex P1 fixes applied | Transport abstraction + Playwright/ScrapFly fetcher factory |
+| `src/collection/search_result_parser.py` | ✅ Committed + Codex P1 fixes applied | HTML parser for Fiverr search pages |
+| `tests/unit/test_scrapfly_client.py` | ✅ Committed + Codex P1 fixes applied | ScrapFly client unit coverage |
+| `src/config/models.py` (`ScrapFlyCollectionConfig`) | ✅ Committed + Codex P1 fixes applied | Config schema for ScrapFly toggles |
+| `src/collection/workflows/fiverr_search.py` | ✅ Committed + Codex P1 fixes applied | Stage 3 accepts `fetcher` |
+| `src/collection/workflows/gig_detail.py` | ✅ Committed + Codex P1 fixes applied | Stage 4 accepts `fetcher`; optional field overwrite bug fixed |
+| `src/collection/workflows/seller_profile.py` | ✅ Committed + Codex P1 fixes applied | Stage 5 accepts `fetcher`; parser-field persistence mapping fixed |
+| `.env.example` | ✅ Committed + Codex P1 fixes applied | Added `SCRAPFLY_API_KEY` template |
+| `requirements.txt` | ✅ Committed + Codex P1 fixes applied | Added `scrapfly-sdk>=1.3.0` |
+| `config.yaml.example` | ✅ Committed + Codex P1 fixes applied | Added `collection.scrapfly` config block |
+| `src/collection/orchestrator.py` | ✅ Committed + Codex P1 fixes applied | Fetcher factory wiring is merged and available on develop/cycle 037 |
 
 ## Collection Workflow Status (Updated from Cycle 028 stale snapshot)
 
@@ -38,7 +39,9 @@
 | W7 Reddit Signals | `src/collection/workflows/reddit_signals.py` | ✅ Real path, credential-dependent | 029+ |
 | W8 Autocomplete | `src/collection/workflows/autocomplete.py` | ✅ Implemented path, live reliability impacted by PXCR under Playwright | 035 |
 
-## Live Collection Results (Cycle 035 first run)
+## Live Collection Results
+
+Cycle 037 Agent B run pending. Cycle 035 results were last live run.
 
 | Stage / Output | Rows | Status |
 | --- | ---: | --- |

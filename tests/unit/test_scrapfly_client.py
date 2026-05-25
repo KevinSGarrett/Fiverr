@@ -225,6 +225,19 @@ class TestScrapFlyClientFetch:
         result = await fetcher.fetch("https://www.fiverr.com/x")
         assert result.backend == "scrapfly"
 
+    @pytest.mark.asyncio
+    async def test_fetch_falls_back_when_pacing_wait_rejects_dry_run_kwarg(self):
+        called: list[str] = []
+
+        class _LegacyPacing:
+            async def wait(self, key: str):
+                called.append(key)
+
+        c = _client_with()
+        c._pacing = _LegacyPacing()
+        await c.fetch("https://www.fiverr.com/x", pacing_key="fiverr_search")
+        assert called == ["fiverr_search"]
+
 
 # ─────────────────────────────────────────────
 # ScrapFlyClient — error paths
@@ -297,6 +310,20 @@ class TestScrapFlyClientErrors:
         assert result.success is True
         assert call_count == 3
 
+    @pytest.mark.asyncio
+    async def test_raises_scrapfly_error_after_retry_exhaustion(self):
+        class _AlwaysFailSDK:
+            async def async_scrape(self, _config):
+                raise RuntimeError("always failing")
+
+        c = ScrapFlyClient(
+            ScrapFlyConfig(api_key_env_var="KEY", max_retries=2, retry_wait_seconds=0.0),
+            env_provider=lambda _k: "fake",
+        )
+        c._sdk_client = _AlwaysFailSDK()
+        with pytest.raises(Exception, match="gave up after 2 attempts"):
+            await c.fetch("https://www.fiverr.com/x")
+
 
 # ─────────────────────────────────────────────
 # ScrapFlyClient — context manager
@@ -338,6 +365,17 @@ class TestScrapFlyClientLifecycle:
         assert c._sdk_client is None
 
     @pytest.mark.asyncio
+    async def test_close_ignores_close_exceptions(self):
+        class _ExplodingCloseSDK:
+            async def close(self):
+                raise RuntimeError("close boom")
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda _k: "fake")
+        c._sdk_client = _ExplodingCloseSDK()
+        await c.close()
+        assert c._sdk_client is None
+
+    @pytest.mark.asyncio
     async def test_context_manager_calls_log_summary_when_fetch_raises(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -366,6 +404,27 @@ class TestScrapFlyClientLifecycle:
 
 
 class TestScrapFlyClientSingleFetch:
+    @pytest.mark.asyncio
+    async def test_open_initialises_sdk_client_via_imported_module(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        class _FakeSDKClient:
+            def __init__(self, key: str):
+                self.key = key
+
+        class _FakeModule:
+            ScrapflyClient = _FakeSDKClient
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda _k: "fake-key")
+        monkeypatch.setattr(
+            "src.collection.scrapfly_client.importlib.import_module",
+            lambda _name: _FakeModule,
+        )
+        await c.open()
+        assert isinstance(c._sdk_client, _FakeSDKClient)
+        assert c._sdk_client.key == "fake-key"
+
     @pytest.mark.asyncio
     async def test_single_fetch_handles_missing_content_key(self, monkeypatch: pytest.MonkeyPatch):
         class _FakeScrapeConfig:
@@ -416,6 +475,42 @@ class TestScrapFlyClientSingleFetch:
 
         result = await c._single_fetch("https://www.fiverr.com/x", asp=True, render_js=True)
         assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_single_fetch_fallbacks_when_scrapfly_import_missing(self, monkeypatch: pytest.MonkeyPatch):
+        class _FakeResponse:
+            scrape_result = {"content": "<html/>", "status_code": 200, "asp_trial": False}
+            context = {"cost": {"total": 0}}
+
+        class _FakeSDK:
+            async def async_scrape(self, config):
+                assert config.retry is False
+                assert config.timeout == 60000
+                return _FakeResponse()
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda _k: "fake")
+        c._sdk_client = _FakeSDK()
+
+        def _raise_import(_name: str):
+            raise ImportError("no scrapfly module")
+
+        monkeypatch.setattr("src.collection.scrapfly_client.importlib.import_module", _raise_import)
+        result = await c._single_fetch("https://www.fiverr.com/x", asp=True, render_js=True)
+        assert result.success is True
+
+    @pytest.mark.asyncio
+    async def test_single_fetch_raises_when_sdk_client_not_initialised(self, monkeypatch: pytest.MonkeyPatch):
+        class _FakeScrapeConfig:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class _FakeModule:
+            ScrapeConfig = _FakeScrapeConfig
+
+        c = ScrapFlyClient(ScrapFlyConfig(api_key_env_var="K"), env_provider=lambda _k: "fake")
+        monkeypatch.setattr("src.collection.scrapfly_client.importlib.import_module", lambda _name: _FakeModule)
+        with pytest.raises(Exception, match="not initialized"):
+            await c._single_fetch("https://www.fiverr.com/x", asp=True, render_js=True)
 
 
 class TestScrapFlyStats:
@@ -875,6 +970,33 @@ class TestSearchResultParser:
         result = parse_search_results_from_html("<html><body><div>broken")
         assert any("HTML parse error" in warning for warning in result.warnings)
 
+    def test_href_fallback_extracts_cards_and_emits_warning(self):
+        html = """
+        <html><body>
+          <a href="https://www.fiverr.com/sellerone/i-will-do-logo?source=gig_cards&ref_ctx_id=1">one</a>
+          <a href="https://www.fiverr.com/sellertwo/i-will-do-seo?context_referrer=search">two</a>
+          <a href="https://www.fiverr.com/search/gigs?query=logo">ignore</a>
+        </body></html>
+        """
+        result = parse_search_results_from_html(html, max_cards=20)
+        assert len(result.gig_cards) == 2
+        assert any("href-based fallback extraction" in warning for warning in result.warnings)
+
+    def test_href_fallback_deduplicates_paths_and_respects_max_cards(self):
+        html = """
+        <html><body>
+          <a href="https://www.fiverr.com/sellerone/i-will-do-logo?source=gig_cards">one</a>
+          <a href="https://www.fiverr.com/sellerone/i-will-do-logo?source=gig_cards&dup=1">dup</a>
+          <a href="/sellertwo/i-will-build-site?context_referrer=search">two</a>
+          <a href="https://www.fiverr.com/sellerthree/i-will-write-copy?pckg_id=12">three</a>
+        </body></html>
+        """
+        result = parse_search_results_from_html(html, max_cards=2)
+        assert len(result.gig_cards) == 2
+        urls = [card.gig_url for card in result.gig_cards]
+        assert urls[0] == "https://www.fiverr.com/sellerone/i-will-do-logo?source=gig_cards"
+        assert urls[1] == "https://www.fiverr.com/sellertwo/i-will-build-site?context_referrer=search"
+
     def test_card_collector_close_flushes_unclosed_card(self):
         collector = _CardCollector()
         collector.feed(
@@ -889,6 +1011,14 @@ class TestSearchResultParser:
         collector.feed("<html><body><div data-testid='total-result-count'>234 results")
         collector.close()
         assert collector.total_result_count_text == "234 results"
+
+    def test_card_collector_in_count_appends_href_when_not_collecting_field(self):
+        collector = _CardCollector()
+        collector.feed(
+            "<html><body><div data-testid='total-result-count'><a href='/x'>234 results</a></div></body></html>"
+        )
+        collector.close()
+        assert collector.total_result_count_text is not None
 
 
 class TestSearchResultParserHelpers:
@@ -980,3 +1110,18 @@ class TestSearchResultParserHelpers:
     )
     def test_extract_seller_from_url_cases(self, href: str, expected: str | None):
         assert _extract_seller_from_url(href) == expected
+
+    def test_parse_price_returns_none_when_float_cast_fails(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        class _BadMatch:
+            def group(self, _index: int):
+                return "not-a-number"
+
+        class _BadRegex:
+            def search(self, _text: str):
+                return _BadMatch()
+
+        monkeypatch.setattr("src.collection.search_result_parser._PRICE_RE", _BadRegex())
+        assert _parse_price("$25") is None
