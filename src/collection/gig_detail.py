@@ -218,7 +218,17 @@ def _coerce_price_text(raw_price: Any, currency: Any) -> str | None:
 
 
 def _extract_price_text_from_payload(pkg: dict[str, Any]) -> str | None:
-    for key in ("price", "amount", "startingPrice", "priceValue", "price_text"):
+    for key in (
+        "price",
+        "amount",
+        "startingPrice",
+        "priceValue",
+        "price_text",
+        "lowPrice",
+        "minPrice",
+        "highPrice",
+        "maxPrice",
+    ):
         if key not in pkg:
             continue
         raw_value = pkg.get(key)
@@ -227,12 +237,36 @@ def _extract_price_text_from_payload(pkg: dict[str, Any]) -> str | None:
         coerced = _coerce_price_text(raw_value, pkg.get("currency") or pkg.get("priceCurrency"))
         if coerced is not None:
             return coerced
-    nested = pkg.get("price") if isinstance(pkg.get("price"), dict) else pkg.get("priceRange")
-    if isinstance(nested, dict):
-        return _coerce_price_text(
-            nested.get("amount") or nested.get("value") or nested.get("min"),
-            nested.get("currency") or nested.get("currencyCode"),
+
+    nested_candidates: list[dict[str, Any]] = []
+    for nested_key in ("price", "priceRange", "priceSpecification"):
+        nested_value = pkg.get(nested_key)
+        if isinstance(nested_value, dict):
+            nested_candidates.append(nested_value)
+        elif isinstance(nested_value, list):
+            nested_candidates.extend(
+                [candidate for candidate in nested_value if isinstance(candidate, dict)]
+            )
+
+    nested_value_keys = ("amount", "value", "price", "min", "lowPrice", "minPrice", "max", "highPrice")
+    for nested in nested_candidates:
+        raw_nested_price: Any = None
+        for nested_value_key in nested_value_keys:
+            if nested_value_key in nested:
+                raw_nested_price = nested.get(nested_value_key)
+                break
+        if raw_nested_price is None:
+            continue
+        coerced = _coerce_price_text(
+            raw_nested_price,
+            nested.get("currency")
+            or nested.get("currencyCode")
+            or nested.get("priceCurrency")
+            or pkg.get("currency")
+            or pkg.get("priceCurrency"),
         )
+        if coerced is not None:
+            return coerced
     return None
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -640,13 +641,42 @@ class GigQualityWeaknessScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        top_results = (
+        top_results: list[Any] = (
             session.query(SearchResult)
             .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        active_run_id = next(
+            (
+                result.run_id.strip()
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip()
+            ),
+            None,
+        )
+        if active_run_id is not None:
+            scoped_results = [
+                result
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip() == active_run_id
+            ]
+            if scoped_results:
+                top_results = scoped_results
         top_gigs = [result.gig for result in top_results if result.gig is not None]
+        if not top_gigs:
+            fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
+            if active_run_id is not None:
+                fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
+            top_gigs = (
+                fallback_query
+                .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                .limit(10)
+                .all()
+            )
+            top_results = [
+                SimpleNamespace(gig=gig, run_id=getattr(gig, "run_id", None)) for gig in top_gigs
+            ]
         gig_ids = [gig.id for gig in top_gigs if gig.id is not None]
         video_presence_map: dict[int, bool] = {}
         if gig_ids:

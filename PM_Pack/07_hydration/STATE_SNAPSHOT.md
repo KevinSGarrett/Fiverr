@@ -1,82 +1,35 @@
-# State Snapshot — Cycle 038
-# Updated: 2026-05-24 | Agent A cycle bootstrap refresh
+# State Snapshot — Cycle 039
+# Updated: 2026-05-25 | Agent A bootstrap
 
 ## Verified Repository State
 
-- Canonical working directory: `C:\Fiverr\Fiverr` (worktree incident resolved)
-- Tests: `2541 + 1 xfailed` (historical CI baseline) | Coverage: `94.74%`
-- Active branch: `cycle/038/integration`
-- PR #43 (Cycle 036): MERGED | PR #44 (Cycle 037): MERGED
-- Cycle 037 live DB: `data/cycle037_live.db` (keywords=`2`, gigs=`0`, sellers=`19` null-heavy)
+- Canonical working directory: `C:\Fiverr\Fiverr`
+- Active branch: `cycle/039/integration`
+- Tests: `2640` | Coverage: `94.95%` | `codecov/patch`: `93.16%`
+- PR #44: MERGED | PR #45: MERGED
+- config safety: `collection.scrapfly.enabled=false` (verified)
 
-## ScrapFly Integration Status (NEW — Cycle 036/037)
+## Live DB Baseline
 
-| File | Status | Purpose |
-| --- | --- | --- |
-| `src/collection/scrapfly_client.py` | ✅ Committed + Codex P1 fixes applied | ScrapFly SDK wrapper with retries, pacing, and credit tracking |
-| `src/collection/http_fetcher.py` | ✅ Committed + Codex P1 fixes applied | Transport abstraction + Playwright/ScrapFly fetcher factory |
-| `src/collection/search_result_parser.py` | ✅ Committed + Codex P1 fixes applied | HTML parser for Fiverr search pages |
-| `tests/unit/test_scrapfly_client.py` | ✅ Committed + Codex P1 fixes applied | ScrapFly client unit coverage |
-| `src/config/models.py` (`ScrapFlyCollectionConfig`) | ✅ Committed + Codex P1 fixes applied | Config schema for ScrapFly toggles |
-| `src/collection/workflows/fiverr_search.py` | ✅ Committed + Codex P1 fixes applied | Stage 3 accepts `fetcher` |
-| `src/collection/workflows/gig_detail.py` | ✅ Committed + Codex P1 fixes applied | Stage 4 accepts `fetcher`; optional field overwrite bug fixed |
-| `src/collection/workflows/seller_profile.py` | ✅ Committed + Codex P1 fixes applied | Stage 5 accepts `fetcher`; parser-field persistence mapping fixed |
-| `.env.example` | ✅ Committed + Codex P1 fixes applied | Added `SCRAPFLY_API_KEY` template |
-| `requirements.txt` | ✅ Committed + Codex P1 fixes applied | Added `scrapfly-sdk>=1.3.0` |
-| `config.yaml.example` | ✅ Committed + Codex P1 fixes applied | Added `collection.scrapfly` config block |
-| `src/collection/orchestrator.py` | ✅ Committed + Codex P1 fixes applied | Fetcher factory wiring is merged and available on develop/cycle 037 |
+Primary live DB for Cycle 039 setup remains `data/cycle037_live.db`.
 
-## Collection Workflow Status (Updated from Cycle 028 stale snapshot)
+| Metric | Value |
+| --- | ---: |
+| `keywords` | 97 |
+| `gigs` | 189 |
+| `sellers` | 38 |
+| `search_results` | 14 |
+| `external_signals` | 20 |
+| `keyword_scores` | 99 |
+| `recommendations` | 0 |
 
-| Workflow | File | Real/Stub Status | Last Updated Cycle |
-| --- | --- | --- | --- |
-| W1 Niche Init | `src/collection/workflows/niche_init.py` | ✅ Real | 025 |
-| W2 Keyword Expansion | `src/collection/workflows/keyword_expansion.py` | ⚠️ Partial-real (core path works, some advanced sub-steps still constrained) | 029-035 |
-| W3 Fiverr Search | `src/collection/workflows/fiverr_search.py` | ✅ Real, but Playwright blocked in PXCR environments | 036 (fetcher-ready from Agent A) |
-| W4 Gig Detail | `src/collection/workflows/gig_detail.py` | ✅ Real, but Playwright blocked in PXCR environments | 036 (fetcher-ready from Agent A) |
-| W5 Seller Profile | `src/collection/workflows/seller_profile.py` | ✅ Real (Playwright path fixed; fetcher-ready) | 036 |
-| W6 Google Trends | `src/collection/workflows/google_trends.py` | ✅ Real | 028+ |
-| W7 Reddit Signals | `src/collection/workflows/reddit_signals.py` | ✅ Real path, credential-dependent | 029+ |
-| W8 Autocomplete | `src/collection/workflows/autocomplete.py` | ✅ Implemented path, live reliability impacted by PXCR under Playwright | 035 |
+## Cycle 039 Primary Blocker
 
-## Live Collection Results
+- Scoring gate remains blocked: all current keyword scores are tagged `PASS` with zero `GO`/`CONDITIONAL_GO`.
+- Recommendation generation remains blocked until at least one score clears `GO` or `CONDITIONAL_GO`.
+- Anti-pivot rule for this cycle: Agent B starts with scoring-gate root-cause investigation.
 
-Cycle 037 live run remains the latest production-depth evidence set.
+## Codex Fixes Now on Develop (via PR #45)
 
-| Stage / Output | Rows | Status |
-| --- | ---: | --- |
-| `keywords` | 2 | PASS (partial) |
-| `search_results` | 4 | PASS (partial) |
-| `gigs` | 0 | BLOCKED (parser drift) |
-| `sellers` | 19 | PARTIAL (core fields null) |
-| `external_signals` | 0 | BLOCKED |
-| `saturation_scores` | 2 | PASS |
-| `keyword_scores` | 2 | PASS |
-| `recommendations` | 0 | BLOCKED (insufficient upstream data) |
-
-## Blockers for Full Production Run
-
-1. Primary blocker: `gig_detail` and `seller_profile` parsers still require structural HTML fallback fixes for ScrapFly Fiverr markup (no `data-testid` attributes).
-2. `test_seller_profile_live_markup_drift_regression_spec` is the cycle guardrail and must be flipped/updated by Agent B as parser behavior is corrected.
-3. Upstream sparse collection data still suppresses downstream recommendation eligibility.
-
-## Live Jira Status
-
-Current status baseline from Cycle 035 Agent D reconciliation, with Cycle 036 control additions:
-
-| Jira Key | Status |
-| --- | --- |
-| `SCRUM-524` (Cycle 035 control) | Done |
-| `SCRUM-525` (Cycle 036 control) | In Progress |
-| `SCRUM-526` (ScrapFly story under E02) | In Progress |
-| `SCRUM-17` (E02 Collection) | In Progress |
-| `SCRUM-18` (E03 Analysis) | Done |
-| `SCRUM-19` (E04 Scoring) | In Progress |
-| `SCRUM-20` (E05 Recommendations) | In Progress |
-| `SCRUM-21` (E06 Pricing) | In Progress |
-| `SCRUM-22` (E07 Discovery) | In Progress |
-| `SCRUM-24` (E09 Dashboard) | In Progress |
-| `SCRUM-178` / `SCRUM-179` / `SCRUM-180` / `SCRUM-181` / `SCRUM-182` / `SCRUM-184` | In Review |
-| `SCRUM-183` | In Progress |
-| `SCRUM-186` | In Progress |
-| `SCRUM-231` | In Review |
+- Price extraction fix for nested package price objects (`abf9625` lineage) is merged and ready for live validation.
+- Zero-review-count preservation is merged for both gig detail and seller profile parsing (`bc76d00` lineage).

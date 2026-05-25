@@ -123,6 +123,144 @@ def _seed_keyword_data(session: Session) -> int:
     return keyword.id
 
 
+def _seed_keyword_data_without_search_links(session: Session) -> int:
+    niche = Niche(slug="automation-fallback", name="Automation Fallback", category_path="Programming & Tech > AI")
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation fallback",
+        normalized_keyword="python automation fallback",
+    )
+    session.add(keyword)
+    session.flush()
+
+    for rank in range(1, 4):
+        seller = Seller(
+            seller_handle=f"fallback_seller_{rank}",
+            level="Level 1",
+            metadata_json={"is_pro": False},
+        )
+        session.add(seller)
+        session.flush()
+        session.add(
+            Gig(
+                gig_url=f"https://www.fiverr.com/fallback/{rank}",
+                keyword_id=keyword.id,
+                run_id="fallback-run",
+                seller_id=seller.id,
+                seller_username=seller.seller_handle,
+                title=f"Fallback gig {rank}",
+                normalized_title=f"fallback gig {rank}",
+                position=rank,
+                starting_price=75.0 + rank,
+                review_count=20 + rank,
+                metadata_json={
+                    "premium_price": 150.0 + rank,
+                    "delivery_time_days": float(rank),
+                    "extras": [{"name": "fast_delivery"}],
+                    "has_video": rank % 2 == 0,
+                    "has_portfolio": rank % 2 == 1,
+                },
+            )
+        )
+
+    session.commit()
+    return keyword.id
+
+
+def _seed_keyword_data_without_search_links_mixed_runs(session: Session) -> int:
+    niche = Niche(
+        slug="automation-fallback-mixed",
+        name="Automation Fallback Mixed",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation run scoped fallback",
+        normalized_keyword="python automation run scoped fallback",
+    )
+    session.add(keyword)
+    session.flush()
+
+    for rank in range(1, 3):
+        stale_seller = Seller(
+            seller_handle=f"stale_run_seller_{rank}",
+            level="Level 2",
+            metadata_json={"is_pro": True},
+        )
+        session.add(stale_seller)
+        session.flush()
+        session.add(
+            Gig(
+                gig_url=f"https://www.fiverr.com/stale/{rank}",
+                keyword_id=keyword.id,
+                run_id="stale-run",
+                seller_id=stale_seller.id,
+                seller_username=stale_seller.seller_handle,
+                title=f"Stale run gig {rank}",
+                normalized_title=f"stale run gig {rank}",
+                position=rank,
+                starting_price=800.0 + rank,
+                review_count=500 + rank,
+                metadata_json={
+                    "premium_price": 1200.0 + rank,
+                    "delivery_time_days": 30.0,
+                    "extras": [],
+                    "has_video": False,
+                    "has_portfolio": False,
+                },
+            )
+        )
+
+        active_seller = Seller(
+            seller_handle=f"active_run_seller_{rank}",
+            level="Level 1",
+            metadata_json={"is_pro": False},
+        )
+        session.add(active_seller)
+        session.flush()
+        session.add(
+            Gig(
+                gig_url=f"https://www.fiverr.com/active/{rank}",
+                keyword_id=keyword.id,
+                run_id="active-run",
+                seller_id=active_seller.id,
+                seller_username=active_seller.seller_handle,
+                title=f"Active run gig {rank}",
+                normalized_title=f"active run gig {rank}",
+                position=rank,
+                starting_price=20.0 + rank,
+                review_count=10 + rank,
+                metadata_json={
+                    "premium_price": 40.0 + rank,
+                    "delivery_time_days": 2.0,
+                    "extras": [{"name": "extra"}],
+                    "has_video": True,
+                    "has_portfolio": True,
+                },
+            )
+        )
+
+    for rank in range(1, 3):
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id="active-run",
+                rank=rank,
+                title=f"Active unlinked result {rank}",
+                gig_id=None,
+            )
+        )
+
+    session.commit()
+    return keyword.id
+
+
 def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)
@@ -170,6 +308,36 @@ def test_intent_saturation_weakness_trend_sqlalchemy_paths_return_scores() -> No
     assert SaturationScoreCalculator().calculate(keyword_id, session).score_value is not None
     assert GigQualityWeaknessScoreCalculator().calculate(keyword_id, session).score_value is not None
     assert TrendScoreCalculator().calculate(keyword_id, session).score_value is not None
+    session.close()
+
+
+def test_scoring_calculators_fallback_to_keyword_gigs_without_search_result_links() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_without_search_links(session)
+
+    feasibility_result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+    profitability_result = ProfitabilityScoreCalculator().calculate(keyword_id, session)
+    weakness_result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+
+    assert feasibility_result.score_value is not None
+    assert profitability_result.score_value is not None
+    assert weakness_result.score_value is not None
+    session.close()
+
+
+# pylint: disable=protected-access
+def test_scoring_fallback_queries_scope_to_active_run_id() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_without_search_links_mixed_runs(session)
+
+    feasibility_signals = NewSellerFeasibilityCalculator()._load_signals_from_db(keyword_id, session)
+    profitability_signals = ProfitabilityScoreCalculator()._load_signals_from_db(keyword_id, session)
+    weakness_signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+
+    assert feasibility_signals["top10_prices"] == [21.0, 22.0]
+    assert profitability_signals["avg_starting_price_top10"] == 21.5
+    assert weakness_signals["top10_has_video"] == [True, True]
+    assert weakness_signals["top10_has_portfolio"] == [True, True]
     session.close()
 
 

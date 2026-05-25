@@ -497,6 +497,16 @@ def test_extract_price_text_from_payload_uses_nested_price_amount() -> None:
     assert _extract_price_text_from_payload(payload) == "$22"
 
 
+def test_extract_price_text_from_payload_uses_low_price_fields() -> None:
+    payload = {"lowPrice": 125, "priceCurrency": "USD"}
+    assert _extract_price_text_from_payload(payload) == "$125"
+
+
+def test_extract_price_text_from_payload_uses_price_specification_low_price() -> None:
+    payload = {"priceSpecification": {"lowPrice": "80", "priceCurrency": "USD"}}
+    assert _extract_price_text_from_payload(payload) == "$80"
+
+
 def test_extract_text_returns_none_when_testid_missing() -> None:
     html = "<html><body><div data-testid='other'>value</div></body></html>"
     assert _extract_text(html, "gig-title") is None
@@ -568,6 +578,18 @@ def test_extract_from_json_ld_handles_offer_dict_and_images() -> None:
     assert parsed["title"] == "Gig LD"
     assert parsed["image_count"] == 2
     assert len(parsed["packages"]) == 1
+
+
+def test_extract_from_json_ld_uses_offer_low_price() -> None:
+    html = """
+    <script type="application/ld+json">
+      {"@type":"Product","name":"Gig LD","offers":{"@type":"AggregateOffer","lowPrice":"42","highPrice":"99","priceCurrency":"USD"}}
+    </script>
+    """
+    parsed = _extract_from_json_ld(html)
+    assert len(parsed["packages"]) == 1
+    assert parsed["packages"][0].price == "$42"
+    assert parsed["packages"][0].price_cents == 4200
 
 
 def test_extract_from_next_data_parses_core_fields_and_packages() -> None:
