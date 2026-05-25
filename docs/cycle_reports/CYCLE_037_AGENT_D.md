@@ -112,7 +112,7 @@ ScrapFly module coverage extraction:
 ## PR #44 CI Check Rollup (Task 10)
 
 ```json
-PENDING_FINAL_REFRESH
+{"mergeable":"MERGEABLE","state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-25T00:22:34Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376740338/job/77638195723","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T00:14:21Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:22:30Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376739234/job/77638192883","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T00:14:18Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:14:25Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376740341/job/77638195741","name":"Validate PR","startedAt":"2026-05-25T00:14:21Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:14:26Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376740340/job/77638195720","name":"Secret Scan","startedAt":"2026-05-25T00:14:21Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:22:39Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376740338/job/77638721942","name":"codecov/project","startedAt":"2026-05-25T00:22:36Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:22:35Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376739234/job/77638717578","name":"codecov/project","startedAt":"2026-05-25T00:22:32Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:14:38Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26376740340/job/77638195722","name":"Dependency Audit","startedAt":"2026-05-25T00:14:21Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T00:22:37Z","conclusion":"SUCCESS","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/44","name":"codecov/patch","startedAt":"2026-05-25T00:22:36Z","status":"COMPLETED","workflowName":""}]}
 ```
 
 ## Codex GraphQL Results (Task 11)
@@ -120,24 +120,24 @@ PENDING_FINAL_REFRESH
 Initial run (verbatim):
 
 ```json
-PENDING_CI_GREEN_GRAPHQL_RUN_1
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EbefU","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Keep ScrapFly disabled by default in shared config**\n\nSetting `collection.scrapfly.enabled` to `true` in the repo’s default `config.yaml` causes live collection to hard-fail in environments that do not export `SCRAPFLY_API_KEY`: `run_collection_pipeline` immediately calls `sf_client.open()` when this flag is on, and `open()` raises `ScrapFlyMissingKeyError` instead of falling back to Playwright. This turns a previously runnable default setup into a credential-gated one and can block teammates/automation that rely on the checked-in config without paid ScrapFly credentials.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
 ```
 
 Final confirmation run (verbatim):
 
 ```json
-PENDING_CI_GREEN_GRAPHQL_RUN_2
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EbefU","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Keep ScrapFly disabled by default in shared config**\n\nSetting `collection.scrapfly.enabled` to `true` in the repo’s default `config.yaml` causes live collection to hard-fail in environments that do not export `SCRAPFLY_API_KEY`: `run_collection_pipeline` immediately calls `sf_client.open()` when this flag is on, and `open()` raises `ScrapFlyMissingKeyError` instead of falling back to Playwright. This turns a previously runnable default setup into a credential-gated one and can block teammates/automation that rely on the checked-in config without paid ScrapFly credentials.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in 5c08e42: reset checked-in default `collection.scrapfly.enabled` to `false` in `config.yaml` so environments without `SCRAPFLY_API_KEY` continue to run via default paths. Validated with `python run.py config-check` and `python -m pytest -q tests/unit/test_config.py --no-header`."},{"author":{"login":"KevinSGarrett"},"body":"Correction: the fix commit on this branch is `7c010bf` (earlier reply referenced an incorrect short SHA). The default is now `collection.scrapfly.enabled: false` in `config.yaml`, with config-check and unit-config tests passing."}]}}]}}}}}
 ```
 
 ## Thread Disposition Table
 
 | Thread ID | P-level | Assessment | Action | Regression test | Commit | Resolved? |
 | --- | --- | --- | --- | --- | --- | --- |
-| `PENDING` | `PENDING` | `PENDING` | `PENDING` | `PENDING` | `PENDING` | `PENDING` |
+| `PRRT_kwDOSbqwNc6EbefU` | P1 | VALID_FIXED | Reset default ScrapFly config to disabled, replied on thread, resolved thread | `python -m pytest -q tests/unit/test_config.py --no-header` | `7c010bf` | YES |
 
 ## Final SHA Freeze (Task 12)
 
-- `origin/cycle/037/integration`: `PENDING_PUSH_SHA`
+- `origin/cycle/037/integration`: `7c010bf527861f9c5d33dfd66ff6b79808caadf6`
 
 ## Merge Gate Checklist (Task 14)
 
@@ -146,24 +146,24 @@ PENDING_CI_GREEN_GRAPHQL_RUN_2
 CODECOV:
 
 - [x] codecov/project: PASS — `94.85%` (from current PR rollup)
-- [x] codecov/patch: PASS — `SUCCESS` (`Coverage not affected when comparing 15c738d...e5d0668`)
+- [x] codecov/patch: PASS — `SUCCESS` (PR check green after Agent D coverage-gap test additions)
 - [x] Local `--cov-fail-under=90`: PASS (`94.74%`)
-- [ ] All new lines covered by tests: PENDING_FINAL_CODECOV_DIFF_CHECK
+- [x] All new lines covered by tests: YES (codecov/patch PASS)
 
 CODEX:
 
-- [ ] reviewThreads query executed: PENDING
-- [ ] Total threads found: PENDING
-- [ ] All threads dispositioned: PENDING
-- [ ] All VALID_FIXED threads have regression tests: PENDING
-- [ ] All threads manually resolved with reply: PENDING
-- [ ] Zero unresolved threads: PENDING
+- [x] reviewThreads query executed: YES
+- [x] Total threads found: `1`
+- [x] All threads dispositioned: YES
+- [x] All VALID_FIXED threads have regression tests: YES
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
 
 SCRAPFLY INTEGRATION (hold from Cycle 036):
 
-- [ ] `scrapfly_client.py` still >= 90%: NO (`87%`)
+- [x] `scrapfly_client.py` still >= 90%: YES (`99%` targeted post-gap run)
 - [x] `http_fetcher.py` still >= 90%: YES (`98%`)
-- [ ] `search_result_parser.py` still >= 90%: NO (`88%`)
+- [x] `search_result_parser.py` still >= 90%: YES (`99%` targeted post-gap run)
 - [x] `test_scrapfly_workflow_integration.py` all pass: YES
 - [x] Codex P1 gig_detail regression test passes: YES
 - [x] Codex P1 seller_profile regression test passes: YES
@@ -180,7 +180,7 @@ LIVE COLLECTION VALIDATION GATE (new for Cycle 037):
 DIRECTORY INTEGRITY GATE (permanent):
 
 - [x] `git worktree list` shows ONLY `C:\Fiverr\Fiverr`: YES
-- [ ] All 4 agent reports in `docs/cycle_reports/`: PENDING_AGENT_D_COMMIT
+- [x] All 4 agent reports in `docs/cycle_reports/`: YES
 - [x] `Get-Location = C:\Fiverr\Fiverr`: YES
 
 RECOMMENDATION COVERAGE (hold from Cycle 034):
@@ -203,8 +203,8 @@ Final statement: PR #44 is ready to merge when approved and all blockers are res
 - Cycle start baseline (Agent A): `2477 passed` unit (`2541 passed` full)
 - Agent D baseline (Task 2): `2477 passed, 1 xfailed`
 - R-092 Tier-2 run (Task 3): `2541 passed, 1 xfailed`, `94.74%` coverage
-- Final PR CI: `PENDING`
-- codecov/project: `PASS` (current rollup) | codecov/patch: `PASS`
+- Final PR CI: `PASS` (all required checks green on PR #44)
+- codecov/project: `PASS` | codecov/patch: `PASS`
 
 ScrapFly module coverage (final observed in Task 3 run):
 
@@ -222,3 +222,7 @@ Live collection summary:
 - ScrapFly gate: `OPEN`
 - Pipeline verdict: `MINIMAL`
 - Keywords: `2` | Gigs: `0` | Sellers: `19`
+
+Jira steward comment posted:
+
+- `SCRUM-527` comment id: `11591`
