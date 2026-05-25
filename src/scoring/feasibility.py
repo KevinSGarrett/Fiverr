@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import CompetitorProfile, Keyword, Niche, SearchResult
+from src.models import CompetitorProfile, Gig, Keyword, Niche, SearchResult
 from src.scoring.contracts import FeasibilityScoreResult, ScoreComponent
 
 _SUPPORTED_GAP_FLAGS = {"LOW_VIDEO_PRESENCE", "LOW_PORTFOLIO_PRESENCE", "HIGH_PRICE_VARIANCE"}
@@ -416,13 +416,21 @@ class NewSellerFeasibilityCalculator:
             .all()
         )
         top_gigs = [result.gig for result in top_results if result.gig is not None]
+        if not top_gigs:
+            top_gigs = (
+                session.query(Gig)
+                .filter(Gig.keyword_id == keyword_id)
+                .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                .limit(10)
+                .all()
+            )
         seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
         accessible_levels = {"", "none", "new", "new seller", "level 1", "level1", "1"}
         accessible_count = sum(1 for level in seller_levels if level.strip().lower() in accessible_levels)
         review_candidates = [
-            float(result.gig.review_count)
-            for result in top_results
-            if result.gig is not None and result.gig.review_count is not None
+            float(gig.review_count)
+            for gig in top_gigs
+            if gig.review_count is not None
         ]
         prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
         price_diversity = self._compute_price_diversity(prices)
@@ -451,6 +459,15 @@ class NewSellerFeasibilityCalculator:
             ),
             None,
         )
+        if profile_run_id is None:
+            profile_run_id = next(
+                (
+                    gig.run_id.strip()
+                    for gig in top_gigs
+                    if isinstance(gig.run_id, str) and gig.run_id.strip()
+                ),
+                None,
+            )
         if profile_niche_id is not None and profile_run_id is not None:
             payload["_profile_niche_id"] = profile_niche_id
             payload["_profile_run_id"] = profile_run_id

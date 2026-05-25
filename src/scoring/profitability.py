@@ -219,6 +219,14 @@ class ProfitabilityScoreCalculator:
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        if not top_gigs:
+            top_gigs = (
+                session.query(Gig)
+                .filter(Gig.keyword_id == keyword_id)
+                .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                .limit(10)
+                .all()
+            )
         starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
         premium_prices = [
             self._as_float(self._gig_meta_value(gig, "premium_price", "premium_package_price"))

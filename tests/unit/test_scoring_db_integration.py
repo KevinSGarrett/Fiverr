@@ -123,6 +123,53 @@ def _seed_keyword_data(session: Session) -> int:
     return keyword.id
 
 
+def _seed_keyword_data_without_search_links(session: Session) -> int:
+    niche = Niche(slug="automation-fallback", name="Automation Fallback", category_path="Programming & Tech > AI")
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation fallback",
+        normalized_keyword="python automation fallback",
+    )
+    session.add(keyword)
+    session.flush()
+
+    for rank in range(1, 4):
+        seller = Seller(
+            seller_handle=f"fallback_seller_{rank}",
+            level="Level 1",
+            metadata_json={"is_pro": False},
+        )
+        session.add(seller)
+        session.flush()
+        session.add(
+            Gig(
+                gig_url=f"https://www.fiverr.com/fallback/{rank}",
+                keyword_id=keyword.id,
+                run_id="fallback-run",
+                seller_id=seller.id,
+                seller_username=seller.seller_handle,
+                title=f"Fallback gig {rank}",
+                normalized_title=f"fallback gig {rank}",
+                position=rank,
+                starting_price=75.0 + rank,
+                review_count=20 + rank,
+                metadata_json={
+                    "premium_price": 150.0 + rank,
+                    "delivery_time_days": float(rank),
+                    "extras": [{"name": "fast_delivery"}],
+                    "has_video": rank % 2 == 0,
+                    "has_portfolio": rank % 2 == 1,
+                },
+            )
+        )
+
+    session.commit()
+    return keyword.id
+
+
 def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)
@@ -170,6 +217,20 @@ def test_intent_saturation_weakness_trend_sqlalchemy_paths_return_scores() -> No
     assert SaturationScoreCalculator().calculate(keyword_id, session).score_value is not None
     assert GigQualityWeaknessScoreCalculator().calculate(keyword_id, session).score_value is not None
     assert TrendScoreCalculator().calculate(keyword_id, session).score_value is not None
+    session.close()
+
+
+def test_scoring_calculators_fallback_to_keyword_gigs_without_search_result_links() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_without_search_links(session)
+
+    feasibility_result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+    profitability_result = ProfitabilityScoreCalculator().calculate(keyword_id, session)
+    weakness_result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+
+    assert feasibility_result.score_value is not None
+    assert profitability_result.score_value is not None
+    assert weakness_result.score_value is not None
     session.close()
 
 

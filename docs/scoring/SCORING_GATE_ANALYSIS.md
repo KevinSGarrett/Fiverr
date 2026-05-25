@@ -131,3 +131,67 @@ Interpretation: scores are far below `CONDITIONAL_GO` (`60`) and `STRONG_GO` (`8
    - more keywords with search rows and linked gigs (current nonzero scoring coverage is `10/97`)
 4. Re-run scoring after normalization, then reassess thresholds only if scores cluster near `60`
 5. Re-run recommendations after first `CONDITIONAL_GO` / `STRONG_GO` appears
+
+## Agent C Independent Verification (Cycle 039)
+
+### Score tag distribution (independent)
+
+- `scripts/collection_debug.py` rerun aligns with Agent B post-expansion counts:
+  - `search_results=30`, `gigs=189`, `sellers=38`, `keywords=97`, `external_signals=20`
+- Independent tag check from persisted `keyword_scores`:
+  - Global table distribution: `PASS=390`
+  - Latest scoring batch (`last 97 rows`) after Agent C fix:
+    - `GO=0`
+    - `CONDITIONAL_GO=0`
+    - `CAUTION=2`
+    - `PASS=95`
+- Adaptive scope decision:
+  - Agent B reported `generated=0` and documented a clear fix path.
+  - Agent C followed `recommendations=0 + clear path` branch and implemented the fix first.
+
+### Price extraction validation (independent)
+
+- Validation query on detail-collected gigs:
+  - `Detail collected: 20`
+  - `With non-null starting_price: 19`
+- Verdict: `CONFIRMED_IMPROVED` versus pre-fix baseline (`2/20` priced detail gigs).
+
+### Fixes applied by Agent C
+
+1. Implemented search-linkage fallback in scoring calculators so sparse/legacy `search_results` linkage no longer hard-fails component loading:
+   - `src/scoring/feasibility.py`
+   - `src/scoring/profitability.py`
+   - `src/scoring/weakness.py`
+2. Added regression coverage for no-linkage fallback path:
+   - `tests/unit/test_scoring_db_integration.py`
+3. Validation on modified scoring source:
+   - `ruff check` on modified scoring files: PASS
+   - `mypy` on modified scoring files: PASS
+
+### Post-fix scoring and recommendation rerun
+
+- Scoring rerun command:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - Result: `Scoring complete: 97 keywords scored`
+- Latest-score histogram after Agent C fix:
+  - Min: `0.00`
+  - Max: `24.67`
+  - Avg: `1.85`
+  - Buckets:
+    - `0-4`: `87`
+    - `15-19`: `8`
+    - `20-39`: `2`
+- Recommendations rerun command:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - Output:
+    - `eligible=0`
+    - `gates_passed=0`
+    - `generated=0`
+
+### Remaining quantified threshold gap
+
+- Best observed latest score: `24.67`
+- Gap to `CONDITIONAL_GO` (`60`): `35.33`
+- Gap to `STRONG_GO` (`80`): `55.33`
+- Cycle 040 prep finding:
+  - Additional score-ready top-10 coverage per keyword is still needed (ranked/linked gig evidence and richer demand/analysis inputs) to bridge the remaining `35+` point gap.
