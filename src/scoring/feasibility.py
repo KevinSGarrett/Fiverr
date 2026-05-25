@@ -415,11 +415,29 @@ class NewSellerFeasibilityCalculator:
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        active_run_id = next(
+            (
+                result.run_id.strip()
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip()
+            ),
+            None,
+        )
+        if active_run_id is not None:
+            scoped_results = [
+                result
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip() == active_run_id
+            ]
+            if scoped_results:
+                top_results = scoped_results
         top_gigs = [result.gig for result in top_results if result.gig is not None]
         if not top_gigs:
+            fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
+            if active_run_id is not None:
+                fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
             top_gigs = (
-                session.query(Gig)
-                .filter(Gig.keyword_id == keyword_id)
+                fallback_query
                 .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
                 .limit(10)
                 .all()
@@ -451,14 +469,7 @@ class NewSellerFeasibilityCalculator:
             if niche is not None and isinstance(niche.slug, str) and niche.slug.strip():
                 profile_niche_id = niche.slug.strip()
 
-        profile_run_id = next(
-            (
-                result.run_id.strip()
-                for result in top_results
-                if isinstance(result.run_id, str) and result.run_id.strip()
-            ),
-            None,
-        )
+        profile_run_id = active_run_id
         if profile_run_id is None:
             profile_run_id = next(
                 (

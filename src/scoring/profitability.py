@@ -212,17 +212,34 @@ class ProfitabilityScoreCalculator:
         return {}
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
-        top_gigs = (
-            session.query(Gig)
-            .join(SearchResult, SearchResult.gig_id == Gig.id)
+        top_results = (
+            session.query(SearchResult)
             .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        active_run_id = next(
+            (
+                result.run_id.strip()
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip()
+            ),
+            None,
+        )
+        top_gigs_query = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+        )
+        if active_run_id is not None:
+            top_gigs_query = top_gigs_query.filter(SearchResult.run_id == active_run_id)
+        top_gigs = top_gigs_query.order_by(SearchResult.rank.asc()).all()
         if not top_gigs:
+            fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
+            if active_run_id is not None:
+                fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
             top_gigs = (
-                session.query(Gig)
-                .filter(Gig.keyword_id == keyword_id)
+                fallback_query
                 .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
                 .limit(10)
                 .all()

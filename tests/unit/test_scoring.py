@@ -9,7 +9,15 @@ from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.contracts import ScoringInput
 from src.scoring.demand import DemandScoreCalculator
-from src.scoring.feasibility import NewSellerFeasibilityCalculator
+from src.scoring.feasibility import (
+    NewSellerFeasibilityCalculator,
+    _coerce_float,
+    _extract_gap_flags_from_profile,
+    _feasibility_config,
+    _get_feasibility_gap_signal_details,
+    _normalize_gap_flags,
+    get_feasibility_gap_signal,
+)
 from src.scoring.final import FinalRecommendationScoreCalculator
 from src.scoring.intent import ConversionIntentScoreCalculator
 from src.scoring.opportunity import OpportunityScoreCalculator
@@ -675,6 +683,66 @@ def test_feasibility_confidence_deductions() -> None:
     inputs["llm_entry_gap_assessment"] = None
     result = calculator.calculate(401, _db_with_inputs(feasibility_inputs=inputs, keyword_id=401))
     assert result.confidence_modifier < 1.0
+
+
+def test_feasibility_helper_parsing_and_config_guards() -> None:
+    assert _coerce_float("bad-number", 3.5) == 3.5
+    assert _feasibility_config({"scoring": {"feasibility": "invalid"}}) == {}
+    assert _normalize_gap_flags(["low video presence", 123, "HIGH-PRICE VARIANCE"]) == [
+        "LOW_VIDEO_PRESENCE",
+        "HIGH_PRICE_VARIANCE",
+    ]
+    assert _extract_gap_flags_from_profile({"gap_flags": ["low portfolio presence"]}) == [
+        "LOW_PORTFOLIO_PRESENCE"
+    ]
+
+
+def test_feasibility_gap_signal_non_session_paths_and_guards() -> None:
+    class _Provider:
+        @staticmethod
+        def get_competitor_profile_inputs(_niche_id: str, _run_id: str) -> dict[str, Any]:
+            return {"gap_flags": ["low video presence", "unsupported"]}
+
+    class _UnsupportedProvider:
+        @staticmethod
+        def get_competitor_profile_inputs(_niche_id: str, _run_id: str) -> dict[str, Any]:
+            return {"gap_flags": ["unknown-flag"]}
+
+    zero_boost, zero_flags = _get_feasibility_gap_signal_details(" ", "run-1", _Provider())
+    assert zero_boost == 0.0
+    assert zero_flags == []
+
+    boost, flags = _get_feasibility_gap_signal_details(
+        "automation",
+        "run-1",
+        _Provider(),
+        config={"scoring": {"feasibility": {"gap_boost_per_flag": "12.5", "max_gap_boost": "20"}}},
+    )
+    assert boost == 12.5
+    assert flags == ["LOW_VIDEO_PRESENCE"]
+
+    unsupported_boost = get_feasibility_gap_signal("automation", "run-1", _UnsupportedProvider())
+    assert unsupported_boost == 0.0
+    assert _get_feasibility_gap_signal_details("automation", "run-1", object()) == (0.0, [])
+
+
+# pylint: disable=protected-access
+def test_feasibility_level_price_and_misc_private_fallbacks() -> None:
+    calculator = NewSellerFeasibilityCalculator()
+
+    assert calculator._resolve_level1_ratio({"top10_seller_levels": ["new seller", "Level 2", None]}) == (
+        2 / 3
+    )
+    assert calculator._resolve_price_diversity_score({"price_diversity_top10": 120.0}) == 100.0
+    assert calculator._resolve_price_diversity_score({"top10_prices": [100.0, 120.0, 140.0]}) is not None
+    assert calculator._resolve_price_diversity_score({"top10_prices": [-10.0, -20.0]}) == 0.0
+
+    assert calculator._resolve_niche_tier({"niche_tier": "  custom_tier  "}) == "custom_tier"
+    assert calculator._normalize_llm_score(11.0) == 11.0
+    assert calculator._as_float(object()) is None
+    assert calculator._load_signals(401, None) == {}
+    assert calculator._compute_price_diversity([10.0]) is None
+    assert calculator._compute_price_diversity([0.0, 0.0]) == 0.0
 
 
 def test_profitability_all_inputs() -> None:
