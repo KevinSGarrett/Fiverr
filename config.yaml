@@ -29,7 +29,7 @@ collection:
   checkpoint_interval: 50
   proxy_enabled: false
   scrapfly:
-    enabled: true
+    enabled: false
     api_key_env_var: SCRAPFLY_API_KEY
     asp: true
     render_js: true
