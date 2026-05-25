@@ -647,3 +647,142 @@ def test_parse_seller_profile_from_html_keeps_zero_active_gig_count_from_hydrati
     """
     parsed = seller_profile_module.parse_seller_profile_from_html(html)
     assert parsed.active_gig_count == 0
+
+
+def test_extract_text_helpers_and_numeric_parsers() -> None:
+    html = '<div data-testid="seller-name">Name Here</div>'
+    assert seller_profile_module._extract_text(html, "seller-name") == "Name Here"
+    assert seller_profile_module._extract_text_any(html, ("missing", "seller-name")) == "Name Here"
+    assert seller_profile_module._extract_number("1,250 reviews") == 1250
+    assert seller_profile_module._extract_float("4.9 rating") == 4.9
+
+
+def test_extract_review_count_fallback_handles_rich_and_plain_markup() -> None:
+    rich_html = "<span>156<!-- --> </span>Reviews"
+    plain_html = "<div>42 reviews</div>"
+    assert seller_profile_module._extract_review_count_fallback(rich_html) == 156
+    assert seller_profile_module._extract_review_count_fallback(plain_html) == 42
+
+
+def test_json_script_helpers_handle_invalid_payloads() -> None:
+    invalid_next = '<script id="__NEXT_DATA__" type="application/json">{bad}</script>'
+    invalid_perseus = '<script id="perseus-initial-props" type="application/json">[1,2]</script>'
+    assert seller_profile_module._extract_next_data_payload(invalid_next) is None
+    assert seller_profile_module._extract_json_script_payload(invalid_perseus, "perseus-initial-props") is None
+
+
+def test_extract_seller_data_from_json_ld_reads_rating_and_languages() -> None:
+    html = """
+    <script type="application/ld+json">
+      {"name":"Display","aggregateRating":{"ratingValue":"4.8","reviewCount":"99"},"areaServed":"US","knowsLanguage":["English","Spanish"]}
+    </script>
+    """
+    parsed = seller_profile_module._extract_seller_data_from_json_ld(html)
+    assert parsed["display_name"] == "Display"
+    assert parsed["rating"] == 4.8
+    assert parsed["review_count"] == 99
+    assert parsed["languages"] == ["English", "Spanish"]
+
+
+def test_extract_json_ld_objects_handles_invalid_and_list_payloads() -> None:
+    html = """
+    <script type="application/ld+json">{"name":"single"}</script>
+    <script type="application/ld+json">[{"name":"from-list"}]</script>
+    <script type="application/ld+json">{broken}</script>
+    """
+    rows = seller_profile_module._extract_json_ld_objects(html)
+    names = {row.get("name") for row in rows}
+    assert "single" in names
+    assert "from-list" in names
+
+
+def test_extract_payload_helpers_return_none_for_empty_or_missing_blocks() -> None:
+    html_empty = '<script id="__NEXT_DATA__" type="application/json">   </script>'
+    html_other = "<html><body></body></html>"
+    assert seller_profile_module._extract_next_data_payload(html_empty) is None
+    assert seller_profile_module._extract_json_script_payload(html_other, "perseus-initial-props") is None
+
+
+def test_extract_seller_data_from_next_data_returns_empty_without_payloads() -> None:
+    assert seller_profile_module._extract_seller_data_from_next_data("<html></html>") == {}
+
+
+def test_extract_seller_data_from_next_data_reads_primary_and_fallback_fields() -> None:
+    html = """
+    <script id="perseus-initial-props" type="application/json">
+      {
+        "seller":{"sellerLevel":"LEVEL_TWO","approvedGigsCount":0,"user":{"name":"user_a","profile":{"displayName":"Display A"},"address":{"countryName":"Canada"},"joinedAt":1704067200,"languages":[{"code":"en"},{"code":"fr"}]}},
+        "reviewsData":{"selling_reviews":{"total_count":0}}
+      }
+    </script>
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"memberSince":"Jan 2024","responseTime":"1 hour","lastDelivery":"1 day","activeGigCount":12}}}
+    </script>
+    """
+    parsed = seller_profile_module._extract_seller_data_from_next_data(html)
+    assert parsed["username"] == "user_a"
+    assert parsed["display_name"] == "Display A"
+    assert parsed["country"] == "Canada"
+    assert parsed["review_count"] == 0
+    assert parsed["active_gig_count"] == 0
+    assert parsed["languages"] == ["en", "fr"]
+
+
+def test_extract_seller_data_from_next_data_handles_joined_at_errors_and_fallback_keys() -> None:
+    html = """
+    <script id="perseus-initial-props" type="application/json">
+      {"seller":{"user":{"joinedAt":1704067200,"languages":["bad",{"code":"es"}]}}}
+    </script>
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"sellerUsername":"user_b","displayName":"Display B","levelName":"Level Two","memberSince":"Feb 2020","responseTime":"2 hours","lastDelivery":"Yesterday","averageRating":"4.7","totalReviews":"14","activeGigCount":"0","countryName":"Brazil","spokenLanguages":["Portuguese"]}}}
+    </script>
+    """
+    parsed = seller_profile_module._extract_seller_data_from_next_data(html)
+    assert parsed["username"] == "user_b"
+    assert parsed["display_name"] == "Display B"
+    assert parsed["level"] == "Level Two"
+    assert parsed["member_since"] == "Jan 2024"
+    assert parsed["response_time"] == "2 hours"
+    assert parsed["last_delivery"] == "Yesterday"
+    assert parsed["rating"] == 4.7
+    assert parsed["review_count"] == 14
+    assert parsed["active_gig_count"] == 0
+    assert parsed["country"] == "Brazil"
+    assert parsed["languages"] == ["es"]
+
+
+def test_redact_sensitive_text_flags_email_and_token() -> None:
+    text, changed = seller_profile_module.redact_sensitive_text("reach me at test@example.com token sk_12345678901")
+    assert changed is True
+    assert "[redacted]" in text
+
+
+def test_parse_seller_profile_from_html_applies_language_fallback_and_redaction() -> None:
+    html = """
+    <html><body>
+      <script id="perseus-initial-props" type="application/json">
+        {"seller":{"user":{"name":"name@example.com","profile":{"displayName":"token sk_12345678901"},"languages":[{"code":"en"}]}}}
+      </script>
+    </body></html>
+    """
+    parsed = seller_profile_module.parse_seller_profile_from_html(html)
+    assert parsed.languages == ["en"]
+    assert any("redacted" in warning.lower() for warning in parsed.warnings)
+
+
+def test_parse_seller_profile_from_html_uses_json_ld_languages_fallback() -> None:
+    html = """
+    <html><body>
+      <script type="application/ld+json">
+        {"knowsLanguage":["German","Italian"],"aggregateRating":{"reviewCount":"4"}}
+      </script>
+    </body></html>
+    """
+    parsed = seller_profile_module.parse_seller_profile_from_html(html)
+    assert parsed.languages == ["German", "Italian"]
+
+
+def test_parse_seller_profile_from_html_handles_malformed_html() -> None:
+    parsed = seller_profile_module.parse_seller_profile_from_html("not-html")
+    assert parsed.username is None
+    assert any("malformed" in warning.lower() for warning in parsed.warnings)

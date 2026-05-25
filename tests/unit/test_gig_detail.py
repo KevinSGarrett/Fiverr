@@ -8,7 +8,23 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from src.collection.gig_detail import _extract_price_text_from_payload, parse_gig_detail_from_html
+from src.collection.gig_detail import (
+    _coerce_price_text,
+    _extract_delivery_days,
+    _extract_first_by_tag,
+    _extract_from_json_ld,
+    _extract_from_next_data,
+    _extract_json_ld_objects,
+    _extract_next_data_payload,
+    _extract_packages_from_json,
+    _extract_price_text_from_payload,
+    _extract_rating,
+    _extract_review_count,
+    _extract_text,
+    _normalize_price_to_cents,
+    _walk_json_dicts,
+    parse_gig_detail_from_html,
+)
 from src.collection.workflows.gig_detail import (
     _parse_rating,
     _parse_review_count,
@@ -479,6 +495,110 @@ def test_extract_price_text_from_payload_falls_through_none_to_amount() -> None:
 def test_extract_price_text_from_payload_uses_nested_price_amount() -> None:
     payload = {"price": {"amount": 22, "currency": "USD"}}
     assert _extract_price_text_from_payload(payload) == "$22"
+
+
+def test_extract_text_returns_none_when_testid_missing() -> None:
+    html = "<html><body><div data-testid='other'>value</div></body></html>"
+    assert _extract_text(html, "gig-title") is None
+
+
+def test_extract_first_by_tag_returns_none_when_tag_missing() -> None:
+    assert _extract_first_by_tag("<html><body></body></html>", "h1") is None
+
+
+def test_normalize_price_to_cents_rejects_invalid_amount() -> None:
+    assert _normalize_price_to_cents("$not-a-number") is None
+
+
+def test_extract_review_count_returns_none_for_non_numeric_text() -> None:
+    assert _extract_review_count("no reviews yet") is None
+
+
+def test_extract_rating_returns_none_for_out_of_pattern_text() -> None:
+    assert _extract_rating("rating unavailable") is None
+
+
+def test_extract_delivery_days_returns_none_when_pattern_missing() -> None:
+    assert _extract_delivery_days("delivery TBD") is None
+
+
+def test_extract_json_ld_objects_handles_invalid_blocks_and_graph() -> None:
+    html = """
+    <script type="application/ld+json">{"@graph":[{"@type":"Product","name":"Gig A"}]}</script>
+    <script type="application/ld+json">{invalid json}</script>
+    """
+    rows = _extract_json_ld_objects(html)
+    assert any(row.get("name") == "Gig A" for row in rows)
+
+
+def test_extract_next_data_payload_returns_none_for_invalid_or_non_dict() -> None:
+    html_invalid = '<script id="__NEXT_DATA__" type="application/json">{broken}</script>'
+    html_list = '<script id="__NEXT_DATA__" type="application/json">[1,2,3]</script>'
+    assert _extract_next_data_payload(html_invalid) is None
+    assert _extract_next_data_payload(html_list) is None
+
+
+def test_walk_json_dicts_collects_nested_dicts() -> None:
+    payload = {"a": {"b": [{"c": 1}]}}
+    rows = _walk_json_dicts(payload)
+    assert len(rows) >= 3
+
+
+def test_coerce_price_text_handles_none_and_currency_fallback() -> None:
+    assert _coerce_price_text(None, "USD") is None
+    assert _coerce_price_text("99", "USD") == "$99"
+
+
+def test_extract_packages_from_json_supports_delivery_days_and_fallback_name() -> None:
+    packages = _extract_packages_from_json(
+        [{"price": "49", "currency": "USD", "deliveryDays": 3}, {"price": {"amount": 19, "currency": "USD"}}]
+    )
+    assert len(packages) == 2
+    assert packages[0].delivery_days == 3
+    assert packages[1].price == "$19"
+
+
+def test_extract_from_json_ld_handles_offer_dict_and_images() -> None:
+    html = """
+    <script type="application/ld+json">
+      {"@type":"Product","name":"Gig LD","image":["a.png","b.png"],"offers":{"name":"Basic","price":"10","priceCurrency":"USD"}}
+    </script>
+    """
+    parsed = _extract_from_json_ld(html)
+    assert parsed["title"] == "Gig LD"
+    assert parsed["image_count"] == 2
+    assert len(parsed["packages"]) == 1
+
+
+def test_extract_from_next_data_parses_core_fields_and_packages() -> None:
+    html = """
+    <script id="__NEXT_DATA__" type="application/json">
+      {"props":{"pageProps":{"gigTitle":"ND title","description":"ND desc","reviewCount":7,"packages":[{"name":"Basic","price":"12"}]}}}
+    </script>
+    """
+    parsed = _extract_from_next_data(html)
+    assert parsed["title"] == "ND title"
+    assert parsed["review_count"] == 7
+    assert len(parsed["packages"]) == 1
+
+
+def test_parse_gig_detail_from_html_parses_package_card_markup() -> None:
+    html = """
+    <html><body>
+      <h1>Markup Gig</h1>
+      <div data-testid="seller-name">seller_x</div>
+      <div data-testid="gig-description">desc</div>
+      <div data-testid="gig-review-count">0 reviews</div>
+      <div data-testid="package-card">
+        Basic tier for starters. Price $15. Delivery in 3 day.
+      </div>
+      <img src="x.png" />
+    </body></html>
+    """
+    parsed = parse_gig_detail_from_html(html)
+    assert parsed.title == "Markup Gig"
+    assert parsed.review_count == 0
+    assert parsed.packages[0].price_cents == 1500
 
 
 def test_parse_gig_detail_from_html_keeps_zero_review_count() -> None:
