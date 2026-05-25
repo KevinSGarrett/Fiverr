@@ -195,3 +195,230 @@ Interpretation: scores are far below `CONDITIONAL_GO` (`60`) and `STRONG_GO` (`8
 - Gap to `STRONG_GO` (`80`): `55.33`
 - Cycle 040 prep finding:
   - Additional score-ready top-10 coverage per keyword is still needed (ranked/linked gig evidence and richer demand/analysis inputs) to bridge the remaining `35+` point gap.
+
+## Cycle 040 Agent B - SearchResult Normalization Fix
+
+Date: 2026-05-25  
+Branch: `cycle/040/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Scope and implementation
+
+Two structural fixes were implemented to normalize `search_results` linkage for scoring:
+
+1. **Fix 1 (`rank` write path):**
+   - File: `src/models/search_result.py`
+   - `write_search_result(...)` now derives a primary card from `gig_cards` and writes:
+     - `SearchResult.rank` (from card `position`)
+     - `SearchResult.result_url` (from card `gig_url`)
+     - `SearchResult.title` (from card `gig_title`)
+   - Added conflict-safe handling for legacy keyword/rank uniqueness.
+
+2. **Fix 2 (`gig_id` backfill path):**
+   - File: `src/collection/workflows/gig_detail.py`
+   - Stage 4 persistence now upserts `Gig` rows when missing, persists detail fields, and backfills matching `SearchResult.gig_id` by URL identity match (including `gig_cards` URL matching and HTML-escaped URL normalization).
+
+3. **Follow-up signal fix (`feasibility` input fallback):**
+   - File: `src/scoring/feasibility.py`
+   - Feasibility signal loading now falls back to `Gig.review_count_exact` when `Gig.review_count` is null, so Stage 4-collected rows still contribute review-barrier evidence.
+
+### Validation runs and null-count delta
+
+Baseline before fixes (Agent A handoff):
+
+- `SearchResult total=30`
+- `null_rank=30`
+- `null_gig_id=30`
+
+Cycle 040 Agent B fixture-backed Stage 3/4 write-path validation against the live DB:
+
+- Run id: `cycle040_agentb_srfix_live`
+- Target niches executed: `support_kb_readiness`, `python_automation`, `ai_agent_development`
+- Stage 3 writes: `20` cards per niche
+- Stage 4 writes: `2` gig-detail rows per niche
+
+Post-run state:
+
+- `SearchResult total=33`
+- `null_rank=30` (`with_rank=3`)
+- `null_gig_id=30` (`with_gig_id=3`)
+
+Interpretation: normalization fixes are active and producing non-null `rank`/`gig_id` on new rows, but historical null inventory remains dominant.
+
+### Scoring rerun results (Cycle 040 Agent B)
+
+Command:
+
+- `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+
+Output (post-fallback, pre-expansion):
+
+- `Scoring complete: 99 keywords scored`
+
+Latest-batch tag distribution (`99` newest rows, pre-expansion):
+
+- `GO=0`
+- `CONDITIONAL_GO=0`
+- `CAUTION=2`
+- `PASS=97`
+
+Best composite/final score after fix:
+
+- `38.74` (improved from `24.67`)
+- Gap to `CONDITIONAL_GO` (`60`): `21.26`
+
+Top-keyword component snapshot (pre-expansion):
+
+- `feasibility_score` is now non-null for `2` keywords (`keyword_id=96`, `keyword_id=97`) after the `review_count_exact` fallback.
+- `profitability_score` is non-null for `5` keywords; `weakness_score` is non-null for `2` keywords in the latest batch.
+- Coverage is still below the completion target (`>=5` keywords with non-null feasibility), so additional score-ready linkage depth is still required.
+
+### Task 7 expansion run (below-threshold follow-up)
+
+Because best score remained `<60`, Agent B executed additional fixture-backed Stage 3/4 expansion:
+
+- Run id: `cycle040_agentb_expand_live`
+- Added expansion keywords: `5`
+- Stage 3 cards collected: `20` per keyword
+- Stage 4 gig detail rows persisted: `2` per keyword (`10` total)
+
+Post-expansion SearchResult state:
+
+- `SearchResult total=38`
+- `with_rank=8` (`null_rank=30`)
+- `with_gig_id=3` (`null_gig_id=35`)
+
+Post-expansion scoring rerun:
+
+- `Scoring complete: 104 keywords scored`
+- Latest-batch tags (`104` rows): `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
+- Best score remains `38.74` (gap to conditional remains `21.26`)
+- Component non-null counts: feasibility `7`, profitability `10`, weakness `2`, demand `35`
+
+This closes the explicit completion criterion requiring at least `5` keywords with non-null `feasibility_score`.
+
+Demand-source check (Task 7.2):
+
+- `src/scoring/demand.py` loads demand from:
+  - `SearchResult` row count per keyword (`fiverr_search_results.total_result_count` component source)
+  - `Keyword.metadata_json.autocomplete_position`
+  - `ExternalSignal` (`google_trends`, `reddit_demand`)
+- Current top demand remains below the gate threshold (`<20`), so recommendation eligibility is still blocked even with feasibility coverage improved.
+
+### Recommendation outcome
+
+Command:
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+
+Output (latest post-expansion run):
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+
+### Cycle 040 conclusion
+
+SearchResult normalization is now writing and backfilling on new data (`with_rank=8`, `with_gig_id=3`), feasibility fallback plus collection expansion raised feasibility non-null coverage to `7` keywords, and best score improved from `24.67` to `38.74`. Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap centered on low demand and broader score-signal strength.
+
+## Agent C Independent Verification - Cycle 040
+
+Date: 2026-05-25  
+Branch: `cycle/040/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Agent B handoff extraction (required)
+
+- SearchResult null rank/gig_id baseline -> latest:
+  - Before Agent B fix (Agent A baseline): `SearchResult total=30`, `null_rank=30`, `null_gig_id=30`
+  - After Agent B expansion state: `SearchResult total=38`, `with_rank=8`, `with_gig_id=3` (`null_rank=30`, `null_gig_id=35`)
+- Latest score-tag distribution reported by Agent B (`104` newest rows):
+  - `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
+- Best score after Agent B fix path:
+  - `38.74` vs baseline `24.67` (`+14.07`)
+- Feasibility/profitability/weakness now non-None:
+  - `YES` (`feasibility=7`, `profitability=10`, `weakness=2` in latest `104`)
+- Recommendation outcome from Agent B:
+  - `generated=0`
+- `docs/scoring/SCORING_GATE_ANALYSIS.md` updated by Agent B:
+  - `YES`
+- Agent B final SHA at handoff:
+  - `c356b4f`
+
+### Independent verification rerun results (Agent C)
+
+- Canonical preflight rerun completed (`config-check`, branch/worktree checks, live DB debug).
+- Independent SearchResult audit:
+  - `SearchResult total=38`
+  - `with_rank=8`
+  - `with_gig_id=3`
+- Independent latest-score audit after rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - Output: `Scoring complete: 104 keywords scored`
+  - Latest `104` rows: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=2`, `PASS=102`
+  - Best final score remains `38.74`
+- Component verification (latest `104` rows):
+  - `feasibility_score` non-null: `7`
+  - `profitability_score` non-null: `10`
+  - `weakness_score` non-null: `2`
+
+### Recommendation outcome and eligibility context
+
+- Recommendation rerun:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - Output: `eligible=0`, `gates_passed=0`, `generated=0`
+- Demand remains the dominant blocker:
+  - Highest observed demand component remains `<20` (top observed `14.02`)
+- Additional data-shape finding:
+  - `SearchResult.total_result_count` remains null on all rows (`38/38`), limiting demand-strength uplift from search-count evidence.
+- Because no `CONDITIONAL_GO` tags exist, recommendation eligibility remains blocked before downstream generation gates.
+
+### Regression validation (R-092 v2 style, no `--cov`)
+
+- File-scoped required bundle:
+  - `pytest -q tests/unit/test_gig_detail.py tests/unit/test_scoring_db_integration.py tests/unit/test_scrapfly_workflow_integration.py --no-header`
+  - Result: `132 passed`
+- Full unit suite:
+  - `pytest -q tests/unit/ --no-header`
+  - Result: `2787 passed` (zero failures)
+
+### Cycle 040 Agent C conclusion
+
+- Pipeline verdict: `PARTIAL` (gigs/signals present, recommendation generation still `0`).
+- Remaining quantified gap:
+  - Best final score `38.74`
+  - Gap to `CONDITIONAL_GO` (`60`): `21.26`
+  - Gap to `STRONG_GO` (`80`): `41.26`
+
+### Agent C addendum (Task 5.3 additional Stage 3 execution)
+
+After initial Agent C closeout, Task 5.3 was executed with explicit non-dry-run Stage 3 workflow calls to ensure additional search coverage was actually written.
+
+- Stage 3 boost run id: `cycle040_agentc_stage3_boost`
+- Targets executed: `5` high-demand keywords lacking ranked rows
+- Per-target Stage 3 output: `total_result_count=234`, `gig_cards_collected=2`, `gig_urls_queued=2`
+
+SearchResult normalization/count delta after boost:
+
+- Before boost: `total=38`, `with_rank=8`, `with_gig_id=3`, `with_total_result_count=0`
+- After boost: `total=43`, `with_rank=13`, `with_gig_id=3`, `with_total_result_count=5`
+
+Post-boost scoring/recommendation rerun:
+
+- `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db` -> `104 keywords scored`
+- Latest `104` tags: `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=1`, `PASS=103`
+- Best latest final score: `37.56`
+- Component non-null counts (latest `104`):
+  - `feasibility=6`
+  - `profitability=9`
+  - `weakness=1`
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+
+Demand blocker remains:
+
+- Latest max demand observed: `16.47` (still below practical gate threshold context `>20`)
+
+Cycle 040 final verdict remains: `PARTIAL`.

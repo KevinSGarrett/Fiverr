@@ -74,6 +74,49 @@ Index(
 )
 
 
+def _coerce_card_position(card: dict[str, Any]) -> int | None:
+    raw_value = card.get("position")
+    if isinstance(raw_value, int) and raw_value > 0:
+        return raw_value
+    if isinstance(raw_value, str):
+        stripped = raw_value.strip()
+        if stripped.isdigit():
+            parsed = int(stripped)
+            if parsed > 0:
+                return parsed
+    return None
+
+
+def _extract_primary_card_fields(gig_cards: list[dict[str, Any]]) -> tuple[int | None, str | None, str | None]:
+    ranked_cards: list[tuple[int, dict[str, Any]]] = []
+    fallback_card: dict[str, Any] | None = None
+    for card in gig_cards:
+        if fallback_card is None:
+            fallback_card = card
+        position = _coerce_card_position(card)
+        if position is not None:
+            ranked_cards.append((position, card))
+
+    selected_card: dict[str, Any] | None = None
+    rank: int | None = None
+    if ranked_cards:
+        rank, selected_card = min(ranked_cards, key=lambda value: value[0])
+    else:
+        selected_card = fallback_card
+
+    result_url: str | None = None
+    title: str | None = None
+    if selected_card is not None:
+        raw_result_url = selected_card.get("gig_url")
+        if isinstance(raw_result_url, str) and raw_result_url.strip():
+            result_url = raw_result_url.strip()
+        raw_title = selected_card.get("gig_title")
+        if isinstance(raw_title, str) and raw_title.strip():
+            title = raw_title.strip()
+
+    return rank, result_url, title
+
+
 def write_search_result(
     keyword_id: int,
     run_id: str,
@@ -87,6 +130,7 @@ def write_search_result(
     if not isinstance(db, Session):
         return None
 
+    primary_rank, primary_result_url, primary_title = _extract_primary_card_fields(gig_cards)
     row = (
         db.query(SearchResult)
         .filter(
@@ -96,6 +140,22 @@ def write_search_result(
         )
         .one_or_none()
     )
+
+    if primary_rank is not None:
+        legacy_rank_row = (
+            db.query(SearchResult)
+            .filter(
+                SearchResult.keyword_id == keyword_id,
+                SearchResult.rank == primary_rank,
+            )
+            .one_or_none()
+        )
+        if row is None and legacy_rank_row is not None:
+            row = legacy_rank_row
+        elif row is not None and legacy_rank_row is not None and legacy_rank_row.id != row.id:
+            # Release conflicting legacy rank row before assigning this rank.
+            legacy_rank_row.rank = None
+
     if row is None:
         row = SearchResult(
             keyword_id=keyword_id,
@@ -103,10 +163,19 @@ def write_search_result(
             page_collected=page_collected,
         )
         db.add(row)
+    else:
+        row.run_id = run_id
+        row.page_collected = page_collected
 
     row.total_result_count = total_result_count
     row.pagination_depth = pagination_depth
     row.gig_cards = gig_cards
+    if primary_rank is not None:
+        row.rank = primary_rank
+    if primary_result_url is not None:
+        row.result_url = primary_result_url
+    if primary_title is not None:
+        row.title = primary_title
     db.commit()
     db.refresh(row)
     return row

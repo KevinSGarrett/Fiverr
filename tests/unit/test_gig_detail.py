@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -26,19 +27,40 @@ from src.collection.gig_detail import (
     parse_gig_detail_from_html,
 )
 from src.collection.workflows.gig_detail import (
+    _backfill_search_result_gig_id,
+    _normalize_gig_identity,
     _parse_rating,
     _parse_review_count,
     _parse_starting_price,
     _safe_inner_text,
+    _search_result_match_data,
     build_gig_detail_url,
     run_gig_detail_collection,
 )
+from src.collection.workflows.gig_detail import (
+    _coerce_card_position as _workflow_coerce_card_position,
+)
+from src.models.base import Base
 from src.models.gig import Gig
 from src.models.job import Job
+from src.models.market import Keyword, SearchResult
+from src.models.niche import Niche
 
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+_FETCHER_GIG_DETAIL_HTML = """
+<html><body>
+<h1>Fetcher Gig Title</h1>
+<div data-testid="gig-description">Fetcher description.</div>
+<section data-testid="package-card">
+  <div data-testid="package-name">Basic</div>
+  <div data-testid="package-price">$55</div>
+</section>
+</body></html>
+"""
 
 
 class _FakeNode:
@@ -340,6 +362,231 @@ def test_w4_real_no_gig_row_in_db() -> None:
             )
         )
         assert result["detail_collected"] is True
+    finally:
+        db.close()
+
+
+def test_gig_detail_collection_backfills_search_result_gig_id() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        niche = Niche(slug="backfill-niche", name="Backfill Niche", category_path="programming-tech/backfill")
+        db.add(niche)
+        db.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="backfill keyword",
+            normalized_keyword="backfill keyword",
+        )
+        db.add(keyword)
+        db.flush()
+
+        target_url = "https://www.fiverr.com/backfillseller/i-will-backfill"
+        search_row = SearchResult(
+            keyword_id=keyword.id,
+            run_id="run-backfill",
+            page_collected=1,
+            rank=1,
+            gig_cards=[{"position": 1, "gig_url": target_url}],
+        )
+        db.add(search_row)
+        db.commit()
+
+        fetcher = SimpleNamespace(
+            fetch=AsyncMock(
+                return_value=SimpleNamespace(
+                    html=_FETCHER_GIG_DETAIL_HTML,
+                    backend="scrapfly",
+                )
+            )
+        )
+        result = _run(
+            run_gig_detail_collection(
+                gig_url=target_url,
+                keyword_id=keyword.id,
+                niche_id="backfill-niche",
+                depth="keyword_only",
+                run_id="run-backfill",
+                db=db,
+                session_manager=object(),
+                pacing_manager=object(),
+                checkpoint_manager=None,
+                dry_run=False,
+                fetcher=fetcher,
+            )
+        )
+
+        db.refresh(search_row)
+        persisted_gig = db.query(Gig).filter(Gig.gig_url == target_url).one()
+        assert result["collected"] is True
+        assert search_row.gig_id == persisted_gig.id
+    finally:
+        db.close()
+
+
+def test_gig_id_backfill_matches_by_gig_url() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        niche = Niche(slug="url-match-niche", name="URL Match Niche", category_path="programming-tech/url-match")
+        db.add(niche)
+        db.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="url match keyword",
+            normalized_keyword="url match keyword",
+        )
+        db.add(keyword)
+        db.flush()
+
+        detail_url = "https://www.fiverr.com/urlseller/i-will-match-url"
+        search_row = SearchResult(
+            keyword_id=keyword.id,
+            run_id="run-url-match",
+            page_collected=1,
+            rank=2,
+            result_url=f"{detail_url}?context_referrer=search_gigs",
+            gig_cards=[],
+        )
+        db.add(search_row)
+        db.commit()
+
+        fetcher = SimpleNamespace(
+            fetch=AsyncMock(
+                return_value=SimpleNamespace(
+                    html=_FETCHER_GIG_DETAIL_HTML,
+                    backend="scrapfly",
+                )
+            )
+        )
+        _run(
+            run_gig_detail_collection(
+                gig_url=detail_url,
+                keyword_id=keyword.id,
+                niche_id="url-match-niche",
+                depth="keyword_only",
+                run_id="run-url-match",
+                db=db,
+                session_manager=object(),
+                pacing_manager=object(),
+                checkpoint_manager=None,
+                dry_run=False,
+                fetcher=fetcher,
+            )
+        )
+
+        db.refresh(search_row)
+        matched_gig = db.query(Gig).filter(Gig.gig_url == detail_url).one()
+        assert search_row.gig_id == matched_gig.id
+    finally:
+        db.close()
+
+
+def test_normalize_gig_identity_guards_non_string_and_blank() -> None:
+    assert _normalize_gig_identity(None) == ""
+    assert _normalize_gig_identity("   ") == ""
+    assert _normalize_gig_identity("https://www.fiverr.com/Seller/Service/") == "/seller/service"
+
+
+def test_workflow_coerce_card_position_accepts_numeric_string() -> None:
+    assert _workflow_coerce_card_position(" 12 ") == 12
+    assert _workflow_coerce_card_position("0") is None
+    assert _workflow_coerce_card_position("not-a-number") is None
+
+
+def test_search_result_match_data_handles_non_list_and_unusable_cards() -> None:
+    target_identity = _normalize_gig_identity("https://www.fiverr.com/matcher/i-will-match")
+    matched, matched_position, matched_url = _search_result_match_data(
+        result_url=None,
+        gig_cards={"gig_url": "https://www.fiverr.com/matcher/i-will-match"},
+        target_identity=target_identity,
+    )
+    assert matched is False
+    assert matched_position is None
+    assert matched_url is None
+
+    matched, matched_position, matched_url = _search_result_match_data(
+        result_url=None,
+        gig_cards=[
+            123,
+            {"gig_url": 456},
+            {"gig_url": "https://www.fiverr.com/matcher/other-gig"},
+        ],
+        target_identity=target_identity,
+    )
+    assert matched is False
+    assert matched_position is None
+    assert matched_url is None
+
+
+def test_backfill_search_result_gig_id_returns_zero_for_non_session_or_blank_identity() -> None:
+    assert (
+        _backfill_search_result_gig_id(keyword_id=1, gig_id=1, gig_url="/services/example", db={}) == 0
+    )
+
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        assert _backfill_search_result_gig_id(keyword_id=1, gig_id=1, gig_url="   ", db=db) == 0
+    finally:
+        db.close()
+
+
+def test_backfill_search_result_gig_id_sets_rank_and_skips_unmatched_rows() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        niche = Niche(slug="rank-backfill", name="Rank Backfill", category_path="programming-tech/rank-backfill")
+        db.add(niche)
+        db.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="rank backfill keyword",
+            normalized_keyword="rank backfill keyword",
+        )
+        db.add(keyword)
+        db.flush()
+
+        target_url = "https://www.fiverr.com/ranksetter/i-will-rank-set"
+        target_row = SearchResult(
+            keyword_id=keyword.id,
+            run_id="run-rank-backfill",
+            page_collected=1,
+            rank=None,
+            result_url=None,
+            gig_cards=[{"position": "4", "gig_url": target_url}],
+        )
+        unmatched_row = SearchResult(
+            keyword_id=keyword.id,
+            run_id="run-rank-backfill",
+            page_collected=2,
+            rank=None,
+            result_url=None,
+            gig_cards=[{"position": "2", "gig_url": "https://www.fiverr.com/other/i-will-not-match"}],
+        )
+        db.add_all([target_row, unmatched_row])
+        db.commit()
+
+        updates = _backfill_search_result_gig_id(
+            keyword_id=keyword.id,
+            gig_id=4242,
+            gig_url=target_url,
+            db=db,
+        )
+
+        db.flush()
+        db.refresh(target_row)
+        db.refresh(unmatched_row)
+        assert updates == 1
+        assert target_row.gig_id == 4242
+        assert target_row.rank == 4
+        assert target_row.result_url == target_url
+        assert unmatched_row.gig_id is None
+        assert unmatched_row.rank is None
     finally:
         db.close()
 
