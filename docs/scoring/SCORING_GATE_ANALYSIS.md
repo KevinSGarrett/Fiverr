@@ -195,3 +195,91 @@ Interpretation: scores are far below `CONDITIONAL_GO` (`60`) and `STRONG_GO` (`8
 - Gap to `STRONG_GO` (`80`): `55.33`
 - Cycle 040 prep finding:
   - Additional score-ready top-10 coverage per keyword is still needed (ranked/linked gig evidence and richer demand/analysis inputs) to bridge the remaining `35+` point gap.
+
+## Cycle 040 Agent B - SearchResult Normalization Fix
+
+Date: 2026-05-25  
+Branch: `cycle/040/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Scope and implementation
+
+Two structural fixes were implemented to normalize `search_results` linkage for scoring:
+
+1. **Fix 1 (`rank` write path):**
+   - File: `src/models/search_result.py`
+   - `write_search_result(...)` now derives a primary card from `gig_cards` and writes:
+     - `SearchResult.rank` (from card `position`)
+     - `SearchResult.result_url` (from card `gig_url`)
+     - `SearchResult.title` (from card `gig_title`)
+   - Added conflict-safe handling for legacy keyword/rank uniqueness.
+
+2. **Fix 2 (`gig_id` backfill path):**
+   - File: `src/collection/workflows/gig_detail.py`
+   - Stage 4 persistence now upserts `Gig` rows when missing, persists detail fields, and backfills matching `SearchResult.gig_id` by URL identity match (including `gig_cards` URL matching and HTML-escaped URL normalization).
+
+### Validation runs and null-count delta
+
+Baseline before fixes (Agent A handoff):
+
+- `SearchResult total=30`
+- `null_rank=30`
+- `null_gig_id=30`
+
+Cycle 040 Agent B fixture-backed Stage 3/4 write-path validation against the live DB:
+
+- Run id: `cycle040_agentb_srfix_live`
+- Target niches executed: `support_kb_readiness`, `python_automation`, `ai_agent_development`
+- Stage 3 writes: `20` cards per niche
+- Stage 4 writes: `2` gig-detail rows per niche
+
+Post-run state:
+
+- `SearchResult total=33`
+- `null_rank=30` (`with_rank=3`)
+- `null_gig_id=30` (`with_gig_id=3`)
+
+Interpretation: normalization fixes are active and producing non-null `rank`/`gig_id` on new rows, but historical null inventory remains dominant.
+
+### Scoring rerun results (Cycle 040 Agent B)
+
+Command:
+
+- `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+
+Output:
+
+- `Scoring complete: 99 keywords scored`
+
+Latest-batch tag distribution (`99` newest rows):
+
+- `GO=0`
+- `CONDITIONAL_GO=0`
+- `CAUTION=2`
+- `PASS=97`
+
+Best composite/final score after fix:
+
+- `24.67` (unchanged from prior best)
+- Gap to `CONDITIONAL_GO` (`60`): `35.33`
+
+Top-keyword component snapshot (latest batch):
+
+- Highest rows still show `feasibility_score.value=None` for top candidates.
+- `profitability_score` and `weakness_score` are present for the two `CAUTION` rows (`keyword_id=96`, `keyword_id=97`), but not broadly populated across the batch.
+
+### Recommendation outcome
+
+Command:
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+
+Output:
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+
+### Cycle 040 conclusion
+
+SearchResult normalization is now writing and backfilling on new data (`rank` and `gig_id` non-null counts increased from zero). Scoring gate outcome is still below `CONDITIONAL_GO`, with remaining gap concentrated in sparse feasibility coverage and limited score-ready depth per keyword.

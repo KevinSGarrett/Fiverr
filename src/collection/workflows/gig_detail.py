@@ -1,6 +1,7 @@
 """Gig detail workflow interfaces for Stage 4."""
 from __future__ import annotations
 
+import html
 import re
 import uuid
 from datetime import UTC, datetime
@@ -78,51 +79,26 @@ async def run_gig_detail_collection(
         review_count = parsed.review_count
         rating = parsed.rating
         starting_price = _parse_starting_price(packages)
-        seller_username = _extract_seller_username_from_gig_url(gig_url)
-        seller_queued = False
-
-        from sqlalchemy.orm import Session
-
-        from src.models.gig import Gig
-        if isinstance(db, Session):
-            from sqlalchemy import inspect as sa_inspect
-
-            from src.models.job import Job
-
-            gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
-            if gig:
-                gig.gig_title_full = title
-                gig.description_text = description
-                gig.packages = packages
-                if tags is not None:
-                    gig.tags = tags
-                if faq_text is not None:
-                    gig.faq_text = faq_text
-                if video_present is not None:
-                    gig.video_present = video_present
-                gig.portfolio_count = portfolio_count
-                gig.review_count_exact = review_count
-                gig.rating_exact = rating
-                gig.starting_price = starting_price
-                gig.detail_collected = True
-                gig.detail_collected_at = datetime.now(UTC)
-                seller_username = gig.seller_username or seller_username
-            if depth != "keyword_only" and db.bind is not None and sa_inspect(db.bind).has_table("jobs"):
-                db.add(
-                    Job(
-                        job_id=f"seller_profile_{uuid.uuid4().hex[:12]}",
-                        run_id=run_id,
-                        job_type="SELLER_PROFILE",
-                        stage=5,
-                        niche_id=niche_id,
-                        priority="STANDARD",
-                        status="QUEUED",
-                        payload={"seller_username": seller_username, "niche_id": niche_id},
-                        created_at=datetime.now(UTC),
-                    )
-                )
-                seller_queued = True
-                db.commit()
+        fallback_seller_username = _extract_seller_username_from_gig_url(gig_url)
+        _, seller_queued = _persist_gig_detail_and_backfill_search_results(
+            gig_url=gig_url,
+            keyword_id=keyword_id,
+            niche_id=niche_id,
+            depth=depth,
+            run_id=run_id,
+            db=db,
+            title=title,
+            description=description,
+            packages=packages,
+            tags=tags,
+            faq_text=faq_text,
+            video_present=video_present,
+            portfolio_count=portfolio_count,
+            review_count=review_count,
+            rating=rating,
+            starting_price=starting_price,
+            fallback_seller_username=fallback_seller_username,
+        )
 
         return {
             "gig_url": gig_url,
@@ -148,10 +124,6 @@ async def run_gig_detail_collection(
     # Playwright path (unchanged)
     # ------------------------------------------------------------------
 
-    from sqlalchemy.orm import Session
-
-    from src.models.gig import Gig
-
     detail_url = build_gig_detail_url(gig_url)
     page = await session_manager.new_page()
     try:
@@ -172,45 +144,26 @@ async def run_gig_detail_collection(
         review_count = _parse_review_count(review_count_text)
         rating = _parse_rating(rating_text)
         starting_price = _parse_starting_price(packages)
-        seller_username = _extract_seller_username_from_gig_url(gig_url)
-        seller_queued = False
-
-        if isinstance(db, Session):
-            from sqlalchemy import inspect as sa_inspect
-
-            from src.models.job import Job
-
-            gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
-            if gig:
-                gig.gig_title_full = title
-                gig.description_text = description
-                gig.packages = packages
-                gig.tags = tags
-                gig.faq_text = faq_text
-                gig.video_present = video_present
-                gig.portfolio_count = portfolio_count
-                gig.review_count_exact = review_count
-                gig.rating_exact = rating
-                gig.starting_price = starting_price
-                gig.detail_collected = True
-                gig.detail_collected_at = datetime.now(UTC)
-                seller_username = gig.seller_username or seller_username
-            if depth != "keyword_only" and db.bind is not None and sa_inspect(db.bind).has_table("jobs"):
-                db.add(
-                    Job(
-                        job_id=f"seller_profile_{uuid.uuid4().hex[:12]}",
-                        run_id=run_id,
-                        job_type="SELLER_PROFILE",
-                        stage=5,
-                        niche_id=niche_id,
-                        priority="STANDARD",
-                        status="QUEUED",
-                        payload={"seller_username": seller_username, "niche_id": niche_id},
-                        created_at=datetime.now(UTC),
-                    )
-                )
-                seller_queued = True
-                db.commit()
+        fallback_seller_username = _extract_seller_username_from_gig_url(gig_url)
+        _, seller_queued = _persist_gig_detail_and_backfill_search_results(
+            gig_url=gig_url,
+            keyword_id=keyword_id,
+            niche_id=niche_id,
+            depth=depth,
+            run_id=run_id,
+            db=db,
+            title=title,
+            description=description,
+            packages=packages,
+            tags=tags,
+            faq_text=faq_text,
+            video_present=video_present,
+            portfolio_count=portfolio_count,
+            review_count=review_count,
+            rating=rating,
+            starting_price=starting_price,
+            fallback_seller_username=fallback_seller_username,
+        )
 
         return {
             "gig_url": gig_url,
@@ -240,6 +193,185 @@ def build_gig_detail_url(gig_url: str) -> str:
     if parsed.scheme and parsed.netloc:
         return cleaned
     return f"https://www.fiverr.com{cleaned}" if cleaned.startswith("/") else cleaned
+
+
+def _normalize_gig_identity(gig_url: str | None) -> str:
+    if not isinstance(gig_url, str):
+        return ""
+    normalized_url = html.unescape(build_gig_detail_url(gig_url).strip())
+    if not normalized_url:
+        return ""
+    parsed = urlparse(normalized_url)
+    path = parsed.path.strip().rstrip("/")
+    return path.lower()
+
+
+def _coerce_card_position(value: Any) -> int | None:
+    if isinstance(value, int) and value > 0:
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            parsed = int(stripped)
+            if parsed > 0:
+                return parsed
+    return None
+
+
+def _search_result_match_data(
+    *,
+    result_url: str | None,
+    gig_cards: list[dict[str, Any]] | None,
+    target_identity: str,
+) -> tuple[bool, int | None, str | None]:
+    if isinstance(result_url, str) and _normalize_gig_identity(result_url) == target_identity:
+        return True, None, result_url
+    if not isinstance(gig_cards, list):
+        return False, None, None
+    for card in gig_cards:
+        if not isinstance(card, dict):
+            continue
+        raw_gig_url = card.get("gig_url")
+        if not isinstance(raw_gig_url, str):
+            continue
+        if _normalize_gig_identity(raw_gig_url) != target_identity:
+            continue
+        return True, _coerce_card_position(card.get("position")), raw_gig_url
+    return False, None, None
+
+
+def _backfill_search_result_gig_id(
+    *,
+    keyword_id: int,
+    gig_id: int,
+    gig_url: str,
+    db: Any,
+) -> int:
+    from sqlalchemy.orm import Session
+
+    from src.models.search_result import SearchResult
+
+    if not isinstance(db, Session):
+        return 0
+    target_identity = _normalize_gig_identity(gig_url)
+    if not target_identity:
+        return 0
+
+    rows = db.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).all()
+    updates = 0
+    for row in rows:
+        matched, matched_position, matched_url = _search_result_match_data(
+            result_url=row.result_url,
+            gig_cards=row.gig_cards,
+            target_identity=target_identity,
+        )
+        if not matched:
+            continue
+        changed = False
+        if row.gig_id != gig_id:
+            row.gig_id = gig_id
+            changed = True
+        if not row.result_url and isinstance(matched_url, str) and matched_url.strip():
+            row.result_url = matched_url.strip()
+            changed = True
+        if row.rank is None and matched_position is not None:
+            row.rank = matched_position
+            changed = True
+        if changed:
+            updates += 1
+    return updates
+
+
+def _persist_gig_detail_and_backfill_search_results(
+    *,
+    gig_url: str,
+    keyword_id: int,
+    niche_id: str,
+    depth: str,
+    run_id: str,
+    db: Any,
+    title: str | None,
+    description: str | None,
+    packages: list[dict[str, Any]],
+    tags: list[str] | None,
+    faq_text: str | None,
+    video_present: bool | None,
+    portfolio_count: int | None,
+    review_count: int | None,
+    rating: float | None,
+    starting_price: float | None,
+    fallback_seller_username: str,
+) -> tuple[str, bool]:
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy.orm import Session
+
+    from src.models.gig import Gig
+    from src.models.job import Job
+
+    seller_username = fallback_seller_username
+    seller_queued = False
+    if not isinstance(db, Session):
+        return seller_username, seller_queued
+
+    has_search_results_table = False
+    has_jobs_table = False
+    if db.bind is not None:
+        inspector = sa_inspect(db.bind)
+        has_search_results_table = inspector.has_table("search_results")
+        has_jobs_table = inspector.has_table("jobs")
+
+    gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
+    if gig is None:
+        gig = Gig(gig_url=gig_url, seller_username=fallback_seller_username)
+        db.add(gig)
+
+    gig.keyword_id = keyword_id
+    gig.run_id = run_id
+    gig.gig_title_full = title
+    gig.title = title
+    gig.description_text = description
+    gig.packages = packages
+    if tags is not None:
+        gig.tags = tags
+    if faq_text is not None:
+        gig.faq_text = faq_text
+    if video_present is not None:
+        gig.video_present = video_present
+    gig.portfolio_count = portfolio_count
+    gig.review_count_exact = review_count
+    gig.rating_exact = rating
+    gig.starting_price = starting_price
+    gig.detail_collected = True
+    gig.detail_collected_at = datetime.now(UTC)
+
+    seller_username = gig.seller_username or fallback_seller_username
+    db.flush()
+    if has_search_results_table:
+        _backfill_search_result_gig_id(
+            keyword_id=keyword_id,
+            gig_id=gig.id,
+            gig_url=gig_url,
+            db=db,
+        )
+
+    if depth != "keyword_only" and has_jobs_table:
+        db.add(
+            Job(
+                job_id=f"seller_profile_{uuid.uuid4().hex[:12]}",
+                run_id=run_id,
+                job_type="SELLER_PROFILE",
+                stage=5,
+                niche_id=niche_id,
+                priority="STANDARD",
+                status="QUEUED",
+                payload={"seller_username": seller_username, "niche_id": niche_id},
+                created_at=datetime.now(UTC),
+            )
+        )
+        seller_queued = True
+
+    db.commit()
+    return seller_username, seller_queued
 
 
 async def _safe_inner_text(page: Any, selector: str) -> str | None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -33,12 +34,27 @@ from src.collection.workflows.gig_detail import (
     build_gig_detail_url,
     run_gig_detail_collection,
 )
+from src.models.base import Base
 from src.models.gig import Gig
 from src.models.job import Job
+from src.models.market import Keyword, SearchResult
+from src.models.niche import Niche
 
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+_FETCHER_GIG_DETAIL_HTML = """
+<html><body>
+<h1>Fetcher Gig Title</h1>
+<div data-testid="gig-description">Fetcher description.</div>
+<section data-testid="package-card">
+  <div data-testid="package-name">Basic</div>
+  <div data-testid="package-price">$55</div>
+</section>
+</body></html>
+"""
 
 
 class _FakeNode:
@@ -340,6 +356,124 @@ def test_w4_real_no_gig_row_in_db() -> None:
             )
         )
         assert result["detail_collected"] is True
+    finally:
+        db.close()
+
+
+def test_gig_detail_collection_backfills_search_result_gig_id() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        niche = Niche(slug="backfill-niche", name="Backfill Niche", category_path="programming-tech/backfill")
+        db.add(niche)
+        db.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="backfill keyword",
+            normalized_keyword="backfill keyword",
+        )
+        db.add(keyword)
+        db.flush()
+
+        target_url = "https://www.fiverr.com/backfillseller/i-will-backfill"
+        search_row = SearchResult(
+            keyword_id=keyword.id,
+            run_id="run-backfill",
+            page_collected=1,
+            rank=1,
+            gig_cards=[{"position": 1, "gig_url": target_url}],
+        )
+        db.add(search_row)
+        db.commit()
+
+        fetcher = SimpleNamespace(
+            fetch=AsyncMock(
+                return_value=SimpleNamespace(
+                    html=_FETCHER_GIG_DETAIL_HTML,
+                    backend="scrapfly",
+                )
+            )
+        )
+        result = _run(
+            run_gig_detail_collection(
+                gig_url=target_url,
+                keyword_id=keyword.id,
+                niche_id="backfill-niche",
+                depth="keyword_only",
+                run_id="run-backfill",
+                db=db,
+                session_manager=object(),
+                pacing_manager=object(),
+                checkpoint_manager=None,
+                dry_run=False,
+                fetcher=fetcher,
+            )
+        )
+
+        db.refresh(search_row)
+        persisted_gig = db.query(Gig).filter(Gig.gig_url == target_url).one()
+        assert result["collected"] is True
+        assert search_row.gig_id == persisted_gig.id
+    finally:
+        db.close()
+
+
+def test_gig_id_backfill_matches_by_gig_url() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        niche = Niche(slug="url-match-niche", name="URL Match Niche", category_path="programming-tech/url-match")
+        db.add(niche)
+        db.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="url match keyword",
+            normalized_keyword="url match keyword",
+        )
+        db.add(keyword)
+        db.flush()
+
+        detail_url = "https://www.fiverr.com/urlseller/i-will-match-url"
+        search_row = SearchResult(
+            keyword_id=keyword.id,
+            run_id="run-url-match",
+            page_collected=1,
+            rank=2,
+            result_url=f"{detail_url}?context_referrer=search_gigs",
+            gig_cards=[],
+        )
+        db.add(search_row)
+        db.commit()
+
+        fetcher = SimpleNamespace(
+            fetch=AsyncMock(
+                return_value=SimpleNamespace(
+                    html=_FETCHER_GIG_DETAIL_HTML,
+                    backend="scrapfly",
+                )
+            )
+        )
+        _run(
+            run_gig_detail_collection(
+                gig_url=detail_url,
+                keyword_id=keyword.id,
+                niche_id="url-match-niche",
+                depth="keyword_only",
+                run_id="run-url-match",
+                db=db,
+                session_manager=object(),
+                pacing_manager=object(),
+                checkpoint_manager=None,
+                dry_run=False,
+                fetcher=fetcher,
+            )
+        )
+
+        db.refresh(search_row)
+        matched_gig = db.query(Gig).filter(Gig.gig_url == detail_url).one()
+        assert search_row.gig_id == matched_gig.id
     finally:
         db.close()
 

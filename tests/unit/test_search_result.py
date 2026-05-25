@@ -170,6 +170,66 @@ def test_write_search_result_orm(tmp_path: Path) -> None:
     session.close()
 
 
+def test_write_search_result_populates_rank_from_card_position(tmp_path: Path) -> None:
+    session = _build_session(tmp_path, "search_result_rank_write.db")
+    keyword_id = _seed_keyword(session)
+    row = write_search_result(
+        keyword_id=keyword_id,
+        run_id="run-rank-write",
+        total_result_count=40,
+        pagination_depth=1,
+        gig_cards=[
+            {
+                "position": 4,
+                "gig_url": "https://www.fiverr.com/seller/rank-four",
+                "gig_title": "Rank Four Gig",
+            }
+        ],
+        page_collected=1,
+        db=session,
+    )
+    assert row is not None
+    assert row.rank == 4
+    assert row.result_url == "https://www.fiverr.com/seller/rank-four"
+    assert row.title == "Rank Four Gig"
+    session.close()
+
+
+def test_search_result_rank_matches_card_position_order(tmp_path: Path) -> None:
+    session = _build_session(tmp_path, "search_result_rank_order.db")
+    keyword_id = _seed_keyword(session)
+    row = write_search_result(
+        keyword_id=keyword_id,
+        run_id="run-rank-order",
+        total_result_count=55,
+        pagination_depth=1,
+        gig_cards=[
+            {
+                "position": 5,
+                "gig_url": "https://www.fiverr.com/seller/rank-five",
+                "gig_title": "Rank Five Gig",
+            },
+            {
+                "position": 1,
+                "gig_url": "https://www.fiverr.com/seller/rank-one",
+                "gig_title": "Rank One Gig",
+            },
+            {
+                "position": 3,
+                "gig_url": "https://www.fiverr.com/seller/rank-three",
+                "gig_title": "Rank Three Gig",
+            },
+        ],
+        page_collected=1,
+        db=session,
+    )
+    assert row is not None
+    assert row.rank == 1
+    assert row.result_url == "https://www.fiverr.com/seller/rank-one"
+    assert row.title == "Rank One Gig"
+    session.close()
+
+
 def test_write_search_result_upsert(tmp_path: Path) -> None:
     session = _build_session(tmp_path, "search_result_upsert.db")
     keyword_id = _seed_keyword(session)
