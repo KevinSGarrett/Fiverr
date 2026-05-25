@@ -152,7 +152,7 @@ Status correction required: none.
 ## PR #45 CI Check Rollup (VERBATIM JSON Snapshot)
 
 ```json
-{"baseRefName":"develop","headRefName":"cycle/038/integration","mergeable":"MERGEABLE","state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:36Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520777/job/77654424980","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T04:02:10Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:51Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382519554/job/77654422105","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T04:02:09Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:02:18Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520780/job/77654424986","name":"Validate PR","startedAt":"2026-05-25T04:02:11Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:02:19Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520778/job/77654425075","name":"Secret Scan","startedAt":"2026-05-25T04:02:11Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:41Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520777/job/77655045503","name":"codecov/project","startedAt":"2026-05-25T04:10:38Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:11:00Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382519554/job/77655064761","name":"codecov/project","startedAt":"2026-05-25T04:10:54Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:02:29Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520778/job/77654425077","name":"Dependency Audit","startedAt":"2026-05-25T04:02:11Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:39Z","conclusion":"FAILURE","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/45","name":"codecov/patch","startedAt":"2026-05-25T04:10:38Z","status":"COMPLETED","workflowName":""}],"title":"fix(collection): scrapfly parser fixes for stage4/5 live collection","url":"https://github.com/KevinSGarrett/Fiverr/pull/45"}
+{"baseRefName":"develop","headRefName":"cycle/038/integration","mergeable":"MERGEABLE","state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-25T04:34:53Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383165931/job/77656222593","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T04:26:33Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:35:10Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383164974/job/77656220218","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T04:26:31Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:26:40Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383165930/job/77656222636","name":"Validate PR","startedAt":"2026-05-25T04:26:33Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:26:36Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383165929/job/77656222643","name":"Secret Scan","startedAt":"2026-05-25T04:26:33Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:34:58Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383165931/job/77656897969","name":"codecov/project","startedAt":"2026-05-25T04:34:54Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:35:15Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383164974/job/77656921669","name":"codecov/project","startedAt":"2026-05-25T04:35:12Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:26:49Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26383165929/job/77656222640","name":"Dependency Audit","startedAt":"2026-05-25T04:26:33Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:35:17Z","conclusion":"SUCCESS","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/45","name":"codecov/patch","startedAt":"2026-05-25T04:35:17Z","status":"COMPLETED","workflowName":""}],"title":"fix(collection): scrapfly parser fixes for stage4/5 live collection","url":"https://github.com/KevinSGarrett/Fiverr/pull/45"}
 ```
 
 ## Codex GraphQL (BOTH Runs, VERBATIM JSON)
@@ -185,7 +185,7 @@ Run #3 (post-fix verification):
 
 ## Final SHA
 
-`abf9625499db49dbe80560bf94b0582f92cee3f7`
+`e8f694abf5181f8beacfe9743390ed29ba12c8e9`
 
 ## Merge Gate Checklist (Task 13)
 
@@ -194,9 +194,9 @@ MERGE GATE CHECKLIST — Cycle 038 PR #45
 
 CODECOV:
 - [x] codecov/project: PASS
-- [ ] codecov/patch: FAIL (74.93% < 90%)
+- [x] codecov/patch: PASS (93.16% >= 90%)
 - [x] Local --cov-fail-under=90: PASS (93.86%)
-- [ ] All new lines covered by tests: pending CI verification
+- [x] All new lines covered by tests: YES
 
 CODEX:
 - [x] reviewThreads query executed: YES
@@ -211,8 +211,8 @@ SCRAPFLY PARSER FIX GATE (new for Cycle 038):
 - [x] parse_seller_profile_from_html extracts non-null seller_level: YES
 - [x] test_seller_profile_live_markup_drift_regression_spec: PASS
 - [x] All 3 Codex P1 regression tests PASS: YES
-- [ ] gig_detail.py >= 90% coverage: NO (78%)
-- [ ] seller_profile.py >= 90% coverage: NO (45%)
+- [x] gig_detail.py >= 90% coverage: YES (94%)
+- [x] seller_profile.py >= 90% coverage: YES (96%)
 - [x] config.yaml scrapfly.enabled: false in repo: YES
 - [x] data/cycle037_live.db NOT committed: YES
 - [x] Pipeline verdict documented: YES (`PARTIAL`)
@@ -228,11 +228,11 @@ DIRECTORY INTEGRITY GATE (permanent):
 - [x] Get-Location = C:\Fiverr\Fiverr: YES
 
 RECOMMENDATION COVERAGE (hold from Cycle 034):
-- [ ] All src/recommendations/ modules still >= 90%: not yet re-audited in this pass
+- [x] All src/recommendations/ modules still >= 90%: YES (min observed 90%)
 
 FINAL:
-- [ ] PR #45 is ready to merge: NO
-- [x] Blockers listed: codecov/patch below 90% and parser module local-coverage policy gate.
+- [x] PR #45 is ready to merge: YES
+- [x] Blockers if NO: n/a
 
 Final statement: PR #45 is ready to merge only when all checklist items are PASS/YES.
 
@@ -241,15 +241,15 @@ Final statement: PR #45 is ready to merge only when all checklist items are PASS
 - Cycle start baseline (Agent A): `2488 passed` (historical capture in Agent A report)
 - Agent D baseline (Task 2): `2541 passed`
 - R-092 Tier-2 run (Task 3): `2605 passed`, `93.86%` coverage
-- Final PR CI: pending latest run completion
-- codecov/project: PASS | codecov/patch: FAIL (74.93%)
+- Final PR CI: `2640 passed`, `94.95%`
+- codecov/project: PASS | codecov/patch: PASS (`93.16%`)
 
-ScrapFly + parser module coverage (final available local run):
+ScrapFly + parser module coverage (final CI term-missing run):
 - `src/collection/scrapfly_client.py`: 99%
 - `src/collection/http_fetcher.py`: 98%
 - `src/collection/search_result_parser.py`: 99%
-- `src/collection/gig_detail.py`: 78%
-- `src/collection/seller_profile.py`: 45%
+- `src/collection/gig_detail.py`: 94%
+- `src/collection/seller_profile.py`: 96%
 
 Codex P1 regression tests:
 - `test_seller_profile_fetcher_maps_parser_fields_for_persistence`: PASS
@@ -260,3 +260,19 @@ Live collection summary:
 - Pipeline verdict: `PARTIAL`
 - Gigs: `189`
 - Sellers with real level: `17`
+
+## Final Self-Audit (Task 18)
+
+- All 3 agent reports read in full: YES
+- All claimed files verified on disk: YES
+- Single --cov=src run completed: YES
+- Global coverage >= 90%: YES
+- gig_detail.py and seller_profile.py >= 90%: YES
+- All 3 P1 regression tests pass: YES
+- config.yaml scrapfly.enabled=false confirmed: YES
+- Codex query executed: YES
+- All threads resolved: YES
+- Worktree = 1 entry: YES
+- codecov/patch >= 90%: YES
+- PR #45 CI all green: YES
+- Merge gate checklist ALL PASS/YES: YES
