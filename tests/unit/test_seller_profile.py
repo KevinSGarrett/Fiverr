@@ -617,3 +617,33 @@ def test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration()
     """
     parsed = seller_profile_module.parse_seller_profile_from_html(html)
     assert parsed.review_count == 0
+
+
+def test_parse_seller_profile_from_html_uses_json_ld_review_count_fallback() -> None:
+    html = """
+    <html><body>
+      <script id="perseus-initial-props" type="application/json">
+        {"reviewsData":{"selling_reviews":{"total_count":null}}}
+      </script>
+      <script type="application/ld+json">
+        {"aggregateRating":{"reviewCount":"45"}}
+      </script>
+    </body></html>
+    """
+    parsed = seller_profile_module.parse_seller_profile_from_html(html)
+    assert parsed.review_count == 45
+
+
+def test_parse_seller_profile_from_html_keeps_zero_active_gig_count_from_hydration() -> None:
+    html = """
+    <html><body>
+      <script id="perseus-initial-props" type="application/json">
+        {"seller":{"approvedGigsCount":0}}
+      </script>
+      <script id="__NEXT_DATA__" type="application/json">
+        {"props":{"pageProps":{"activeGigCount":12}}}
+      </script>
+    </body></html>
+    """
+    parsed = seller_profile_module.parse_seller_profile_from_html(html)
+    assert parsed.active_gig_count == 0
