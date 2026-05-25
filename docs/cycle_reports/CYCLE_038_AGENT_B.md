@@ -104,7 +104,7 @@ Rationale: live ScrapFly payloads do not reliably expose historical `data-testid
 
 ## 9) Final SHA
 
-- `a6c450d`
+- Latest `cycle/038/integration` branch tip at Agent B handoff (resolve with `git log -1 --oneline`).
 
 ## 10) Agent C Handoff
 
