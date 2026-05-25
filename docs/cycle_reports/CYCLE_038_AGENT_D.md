@@ -152,7 +152,7 @@ Status correction required: none.
 ## PR #45 CI Check Rollup (VERBATIM JSON Snapshot)
 
 ```json
-{"baseRefName":"develop","headRefName":"cycle/038/integration","number":45,"state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-25T03:29:04Z","conclusion":"FAILURE","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26381620753/job/77651913814","name":"Validate PR","startedAt":"2026-05-25T03:29:00Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-25T03:29:07Z","conclusion":"FAILURE","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26381629907/job/77651914641","name":"Validate PR","startedAt":"2026-05-25T03:29:01Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"0001-01-01T00:00:00Z","conclusion":"","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26381620732/job/77651884909","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T03:28:38Z","status":"IN_PROGRESS","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"0001-01-01T00:00:00Z","conclusion":"","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26381583746/job/77651771917","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T03:27:12Z","status":"IN_PROGRESS","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T03:28:43Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26381620761/job/77651884773","name":"Secret Scan","startedAt":"2026-05-25T03:28:38Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T03:28:56Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26381620761/job/77651884792","name":"Dependency Audit","startedAt":"2026-05-25T03:28:38Z","status":"COMPLETED","workflowName":"Security"}],"title":"docs(cycle-038): parser fixes and Agent C evidence","url":"https://github.com/KevinSGarrett/Fiverr/pull/45"}
+{"baseRefName":"develop","headRefName":"cycle/038/integration","mergeable":"MERGEABLE","state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:36Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520777/job/77654424980","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T04:02:10Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:51Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382519554/job/77654422105","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-25T04:02:09Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:02:18Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520780/job/77654424986","name":"Validate PR","startedAt":"2026-05-25T04:02:11Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:02:19Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520778/job/77654425075","name":"Secret Scan","startedAt":"2026-05-25T04:02:11Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:41Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520777/job/77655045503","name":"codecov/project","startedAt":"2026-05-25T04:10:38Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:11:00Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382519554/job/77655064761","name":"codecov/project","startedAt":"2026-05-25T04:10:54Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:02:29Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26382520778/job/77654425077","name":"Dependency Audit","startedAt":"2026-05-25T04:02:11Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-25T04:10:39Z","conclusion":"FAILURE","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/45","name":"codecov/patch","startedAt":"2026-05-25T04:10:38Z","status":"COMPLETED","workflowName":""}],"title":"fix(collection): scrapfly parser fixes for stage4/5 live collection","url":"https://github.com/KevinSGarrett/Fiverr/pull/45"}
 ```
 
 ## Codex GraphQL (BOTH Runs, VERBATIM JSON)
@@ -169,17 +169,23 @@ Run #2:
 {"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EciDg","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Parse nested package price objects before scalar keys**\n\nWhen a package payload contains `price` as an object (for example `{\"price\": {\"amount\": 55, ...}}`), this function returns immediately from the `\"price\"` key path with `None`, so the nested-object fallback below never runs. That drops package prices for common JSON-LD / hydration shapes and propagates null `starting_price` values downstream.\n\nUseful? React with 👍 / 👎."}]}},{"id":"PRRT_kwDOSbqwNc6EciDi","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve zero review counts in gig detail parsing**\n\nUsing `or` here turns a legitimate parsed value of `0` reviews into a fallback lookup (or `None`), because `0` is falsy in Python. For gigs with zero reviews, this regresses data quality by storing missing/incorrect review counts instead of the correct `0`.\n\nUseful? React with 👍 / 👎."}]}},{"id":"PRRT_kwDOSbqwNc6EciDj","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve zero seller review counts when merging sources**\n\nThis merge logic also uses `or`, so a valid `0` extracted from markup is treated as absent and replaced by later fallbacks (or `None`). New/zero-review seller profiles will therefore be mis-recorded as missing review counts, which skews downstream analysis that distinguishes zero from unknown.\n\nUseful? React with 👍 / 👎."}]}}]}}}}}
 ```
 
+Run #3 (post-fix verification):
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EciDg","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Parse nested package price objects before scalar keys**\n\nWhen a package payload contains `price` as an object (for example `{\"price\": {\"amount\": 55, ...}}`), this function returns immediately from the `\"price\"` key path with `None`, so the nested-object fallback below never runs. That drops package prices for common JSON-LD / hydration shapes and propagates null `starting_price` values downstream.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in `abf9625`: `_extract_price_text_from_payload()` now skips dict-valued `price` during scalar-key pass and correctly falls through to nested price-object parsing. Added regression coverage in `test_extract_price_text_from_payload_uses_nested_price_amount` and related branch tests in `tests/unit/test_gig_detail.py`."}]}},{"id":"PRRT_kwDOSbqwNc6EciDi","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve zero review counts in gig detail parsing**\n\nUsing `or` here turns a legitimate parsed value of `0` reviews into a fallback lookup (or `None`), because `0` is falsy in Python. For gigs with zero reviews, this regresses data quality by storing missing/incorrect review counts instead of the correct `0`.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in `bc76d00`: gig-detail review count merge now uses explicit `None` checks instead of `or`, preserving valid `0` values. Regression test added: `test_parse_gig_detail_from_html_keeps_zero_review_count` in `tests/unit/test_gig_detail.py`."}]}},{"id":"PRRT_kwDOSbqwNc6EciDj","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve zero seller review counts when merging sources**\n\nThis merge logic also uses `or`, so a valid `0` extracted from markup is treated as absent and replaced by later fallbacks (or `None`). New/zero-review seller profiles will therefore be mis-recorded as missing review counts, which skews downstream analysis that distinguishes zero from unknown.\n\nUseful? React with 👍 / 👎."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in `bc76d00` and follow-up tests: seller-profile review count fallback merge now uses explicit `None` checks, so parsed `0` is retained. Regressions added in `tests/unit/test_seller_profile.py`, including `test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration`."}]}}]}}}}}
+```
+
 ## Thread Disposition Table
 
 | Thread ID | Severity | Disposition |
 |---|---|---|
-| `PRRT_kwDOSbqwNc6EciDg` | P1 | FIXED locally in `src/collection/gig_detail.py` + regression test `test_parse_gig_detail_from_html_extracts_nested_price_object`; pending push/reply/resolve. |
-| `PRRT_kwDOSbqwNc6EciDi` | P2 | FIXED locally in `src/collection/gig_detail.py` + regression test `test_parse_gig_detail_from_html_keeps_zero_review_count`; pending push/reply/resolve. |
-| `PRRT_kwDOSbqwNc6EciDj` | P2 | FIXED locally in `src/collection/seller_profile.py` + regression test `test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration`; pending push/reply/resolve. |
+| `PRRT_kwDOSbqwNc6EciDg` | P1 | FIXED + replied + resolved. |
+| `PRRT_kwDOSbqwNc6EciDi` | P2 | FIXED + replied + resolved (outdated after fix). |
+| `PRRT_kwDOSbqwNc6EciDj` | P2 | FIXED + replied + resolved (outdated after fix). |
 
 ## Final SHA
 
-Pending final commit/push for Agent D deltas.
+`abf9625499db49dbe80560bf94b0582f92cee3f7`
 
 ## Merge Gate Checklist (Task 13)
 
@@ -187,18 +193,18 @@ MERGE GATE CHECKLIST — Cycle 038 PR #45
 ==========================================
 
 CODECOV:
-- [ ] codecov/project: PASS — pending latest CI completion
-- [ ] codecov/patch: PASS — pending latest CI completion (target >= 90%)
+- [x] codecov/project: PASS
+- [ ] codecov/patch: FAIL (74.93% < 90%)
 - [x] Local --cov-fail-under=90: PASS (93.86%)
 - [ ] All new lines covered by tests: pending CI verification
 
 CODEX:
 - [x] reviewThreads query executed: YES
 - [x] Total threads found: 3 (latest run)
-- [ ] All threads dispositioned: in progress
+- [x] All threads dispositioned: YES
 - [x] All VALID_FIXED threads have regression tests: YES
-- [ ] All threads manually resolved with reply: pending
-- [ ] Zero unresolved threads: NO (currently 3 unresolved)
+- [x] All threads manually resolved with reply: YES
+- [x] Zero unresolved threads: YES
 
 SCRAPFLY PARSER FIX GATE (new for Cycle 038):
 - [x] parse_gig_detail_from_html extracts non-null title from ScrapFly HTML: YES
@@ -226,7 +232,7 @@ RECOMMENDATION COVERAGE (hold from Cycle 034):
 
 FINAL:
 - [ ] PR #45 is ready to merge: NO
-- [x] Blockers listed: unresolved Codex threads + parser module coverage gate + CI/codecov pending.
+- [x] Blockers listed: codecov/patch below 90% and parser module local-coverage policy gate.
 
 Final statement: PR #45 is ready to merge only when all checklist items are PASS/YES.
 
@@ -236,7 +242,7 @@ Final statement: PR #45 is ready to merge only when all checklist items are PASS
 - Agent D baseline (Task 2): `2541 passed`
 - R-092 Tier-2 run (Task 3): `2605 passed`, `93.86%` coverage
 - Final PR CI: pending latest run completion
-- codecov/project: pending | codecov/patch: pending
+- codecov/project: PASS | codecov/patch: FAIL (74.93%)
 
 ScrapFly + parser module coverage (final available local run):
 - `src/collection/scrapfly_client.py`: 99%
