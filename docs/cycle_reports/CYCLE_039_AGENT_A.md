@@ -220,7 +220,7 @@ C:/Fiverr/Fiverr  03c1d5d [cycle/039/integration]
 ### 5.3 Full unit baseline
 
 ```text
-2576 passed in 369.81s (0:06:09)
+2712 passed in 372.17s (0:06:12)
 ```
 
 Observed warning tail:
@@ -384,6 +384,6 @@ Self-audit checklist:
 - [x] ScrapFly P1 regression trio PASS
 - [x] `config.scrapfly.enabled` default verified safe (`false`)
 - [x] Top-5 scoring trace + thresholds captured for Agent B
-- [x] Unit baseline executed (`2576 passed`)
+- [x] Unit baseline executed (`2712 passed`, satisfies `>=2640`)
 - [x] Agent A report created
 - [x] Jira evidence comments posted (`SCRUM-531`: `11617`, `SCRUM-532`: `11618`, `SCRUM-19`: `11619`)

@@ -732,3 +732,82 @@ def test_resolve_depth_defaults_to_standard_for_unknown_value() -> None:
     from src.scoring import pipeline
 
     assert pipeline._resolve_depth(1, {1: {"score_depth": "not-a-depth"}}) == "standard"
+
+
+_ASSIGN_TAG_SCORE_GRID = [
+    -100.0,
+    -1.0,
+    -0.01,
+    0.0,
+    0.01,
+    1.0,
+    10.0,
+    19.98,
+    19.99,
+    20.0,
+    20.01,
+    21.0,
+    30.0,
+    39.98,
+    39.99,
+    40.0,
+    40.01,
+    41.0,
+    50.0,
+    59.98,
+    59.99,
+    60.0,
+    60.01,
+    61.0,
+    70.0,
+    79.98,
+    79.99,
+    80.0,
+    80.01,
+    81.0,
+    90.0,
+    99.99,
+    100.0,
+    250.0,
+]
+
+_ASSIGN_TAG_DEMOTION_MAP = {
+    "STRONG_GO": "CONDITIONAL_GO",
+    "CONDITIONAL_GO": "MONITOR",
+    "MONITOR": "CAUTION",
+    "CAUTION": "PASS",
+    "PASS": "PASS",
+}
+
+
+def _expected_base_tag(final_score: float) -> str:
+    if final_score >= 80.0:
+        return "STRONG_GO"
+    if final_score >= 60.0:
+        return "CONDITIONAL_GO"
+    if final_score >= 40.0:
+        return "MONITOR"
+    if final_score >= 20.0:
+        return "CAUTION"
+    return "PASS"
+
+
+@pytest.mark.parametrize("final_score", _ASSIGN_TAG_SCORE_GRID)
+@pytest.mark.parametrize("confidence_modifier", [0.5, 0.9])
+def test_assign_tag_threshold_grid_without_demotion(
+    final_score: float,
+    confidence_modifier: float,
+) -> None:
+    expected = _expected_base_tag(final_score)
+    assert assign_tag(final_score, confidence_modifier) == expected
+
+
+@pytest.mark.parametrize("final_score", _ASSIGN_TAG_SCORE_GRID)
+@pytest.mark.parametrize("confidence_modifier", [0.49, 0.0])
+def test_assign_tag_threshold_grid_with_demotion(
+    final_score: float,
+    confidence_modifier: float,
+) -> None:
+    base = _expected_base_tag(final_score)
+    expected = _ASSIGN_TAG_DEMOTION_MAP[base]
+    assert assign_tag(final_score, confidence_modifier) == expected
