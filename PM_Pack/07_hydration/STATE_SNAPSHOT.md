@@ -1,13 +1,13 @@
-# State Snapshot — Cycle 037
-# Updated: 2026-05-24 | Verified via PM master protocol Parts 1-8
+# State Snapshot — Cycle 038
+# Updated: 2026-05-24 | Agent A cycle bootstrap refresh
 
 ## Verified Repository State
 
 - Canonical working directory: `C:\Fiverr\Fiverr` (worktree incident resolved)
-- Tests: `2541` | Coverage: `94.85%` | `codecov/patch`: `93.66%`
-- Active branch: `cycle/037/integration`
-- PR #42 (Cycle 035): MERGED | PR #43 (Cycle 036): MERGED
-- Cycle 037 live DB: `data/cycle037_live.db` (initialized)
+- Tests: `2541 + 1 xfailed` (historical CI baseline) | Coverage: `94.74%`
+- Active branch: `cycle/038/integration`
+- PR #43 (Cycle 036): MERGED | PR #44 (Cycle 037): MERGED
+- Cycle 037 live DB: `data/cycle037_live.db` (keywords=`2`, gigs=`0`, sellers=`19` null-heavy)
 
 ## ScrapFly Integration Status (NEW — Cycle 036/037)
 
@@ -41,24 +41,24 @@
 
 ## Live Collection Results
 
-Cycle 037 Agent B run pending. Cycle 035 results were last live run.
+Cycle 037 live run remains the latest production-depth evidence set.
 
 | Stage / Output | Rows | Status |
 | --- | ---: | --- |
 | `keywords` | 2 | PASS (partial) |
-| `search_results` | 2 | PASS (partial) |
-| `gigs` | 0 | BLOCKED (PXCR) |
-| `sellers` | 0 | BLOCKED (PXCR) |
-| `external_signals` | 4 | PASS |
+| `search_results` | 4 | PASS (partial) |
+| `gigs` | 0 | BLOCKED (parser drift) |
+| `sellers` | 19 | PARTIAL (core fields null) |
+| `external_signals` | 0 | BLOCKED |
 | `saturation_scores` | 2 | PASS |
 | `keyword_scores` | 2 | PASS |
 | `recommendations` | 0 | BLOCKED (insufficient upstream data) |
 
 ## Blockers for Full Production Run
 
-1. PerimeterX blocking Stages 3/4/5/8 (ScrapFly fix in progress — Cycle 036)
-2. Reddit credentials missing (`REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`)
-3. Keyword embeddings not generated (Stage 9 clustering quality depends on embeddings)
+1. Primary blocker: `gig_detail` and `seller_profile` parsers still require structural HTML fallback fixes for ScrapFly Fiverr markup (no `data-testid` attributes).
+2. `test_seller_profile_live_markup_drift_regression_spec` is the cycle guardrail and must be flipped/updated by Agent B as parser behavior is corrected.
+3. Upstream sparse collection data still suppresses downstream recommendation eligibility.
 
 ## Live Jira Status
 
