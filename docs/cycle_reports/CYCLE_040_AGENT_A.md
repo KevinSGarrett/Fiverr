@@ -415,6 +415,27 @@ Updated `PM_Pack/07_hydration/STATE_SNAPSHOT.md` with:
 - Unit/full baseline >= 2786 captured: YES (full-suite reconciliation run)
 - Cycle report written: YES
 
+## Completion Re-Audit (Prompt Replay)
+
+Strict replay checks were executed after initial closeout to verify every line-item in the original prompt:
+
+- Canonical path check: PASS (`C:\Fiverr\Fiverr`)
+- Active branch/worktree check: PASS (`cycle/040/integration`, one worktree entry)
+- PR state check: PASS (`MERGED`, merge SHA unchanged)
+- Remote branch cleanup check: PASS (`origin/cycle/009/integration` retained, `cycle/039` absent)
+- Jira status/evidence checks: PASS (`SCRUM-533`, `SCRUM-534`, `SCRUM-17`, `SCRUM-19` all `In Progress` with required comments present)
+
+Prompt/runtime drift findings observed in strict replay:
+
+- Task 5.1 exact selector command now returns `0 selected` because two named regressions (`nested_price`, `zero_review`, `seller_profile_live_markup_drift`) live in adjacent files, not `test_scoring_db_integration.py`.
+- Task 5.2 exact command `pytest -q tests/unit/ --no-header` currently yields `2722 passed`; repository-wide `pytest -q --no-header` yields `2786 passed`, matching the CI baseline referenced in the prompt.
+- Task 5.4 exact command fails with `ModuleNotFoundError: No module named 'src.database'` because this repo now exposes DB utilities from `src.models.database`; null-state audit was captured via sqlite fallback and remains `total=30 | null_rank=30 | null_gig_id=30`.
+
+Reconciliation conclusion:
+
+- All actionable Cycle 040 Agent A governance/handoff tasks are complete and evidenced.
+- Remaining strict mismatches are prompt text drift versus current repository layout/API, not unfinished operational work.
+
 ## Current Head SHA
 
-- Current HEAD at report write checkpoint: `bb5b13f`
+- Current HEAD at report write checkpoint: `7f71b26`
