@@ -119,11 +119,11 @@ Phase2 smoke OK: phase2 config models
 Read in full before proceeding.
 ```
 
-## Task 1 ó PR #44 Codex Query + Merge Verification
+## Task 1 ù PR #44 Codex Query + Merge Verification
 
 ### Codex GraphQL Query Result (verbatim)
 ```json
-{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EbefU","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Keep ScrapFly disabled by default in shared config**\n\nSetting `collection.scrapfly.enabled` to `true` in the repoís default `config.yaml` causes live collection to hard-fail in environments that do not export `SCRAPFLY_API_KEY`: `run_collection_pipeline` immediately calls `sf_client.open()` when this flag is on, and `open()` raises `ScrapFlyMissingKeyError` instead of falling back to Playwright. This turns a previously runnable default setup into a credential-gated one and can block teammates/automation that rely on the checked-in config without paid ScrapFly credentials.\n\nUseful? React with ?? / ??."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in 5c08e42: reset checked-in default `collection.scrapfly.enabled` to `false` in `config.yaml` so environments without `SCRAPFLY_API_KEY` continue to run via default paths. Validated with `python run.py config-check` and `python -m pytest -q tests/unit/test_config.py --no-header`."},{"author":{"login":"KevinSGarrett"},"body":"Correction: the fix commit on this branch is `7c010bf` (earlier reply referenced an incorrect short SHA). The default is now `collection.scrapfly.enabled: false` in `config.yaml`, with config-check and unit-config tests passing."}]}}]}}}}}
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6EbefU","isResolved":true,"isOutdated":true,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Keep ScrapFly disabled by default in shared config**\n\nSetting `collection.scrapfly.enabled` to `true` in the repoùs default `config.yaml` causes live collection to hard-fail in environments that do not export `SCRAPFLY_API_KEY`: `run_collection_pipeline` immediately calls `sf_client.open()` when this flag is on, and `open()` raises `ScrapFlyMissingKeyError` instead of falling back to Playwright. This turns a previously runnable default setup into a credential-gated one and can block teammates/automation that rely on the checked-in config without paid ScrapFly credentials.\n\nUseful? React with ?? / ??."},{"author":{"login":"KevinSGarrett"},"body":"Fixed in 5c08e42: reset checked-in default `collection.scrapfly.enabled` to `false` in `config.yaml` so environments without `SCRAPFLY_API_KEY` continue to run via default paths. Validated with `python run.py config-check` and `python -m pytest -q tests/unit/test_config.py --no-header`."},{"author":{"login":"KevinSGarrett"},"body":"Correction: the fix commit on this branch is `7c010bf` (earlier reply referenced an incorrect short SHA). The default is now `collection.scrapfly.enabled: false` in `config.yaml`, with config-check and unit-config tests passing."}]}}]}}}}}
 ```
 
 Result: total threads = `1`; unresolved threads = `0`.
@@ -139,13 +139,13 @@ Already on 'develop'
 Already up to date.
 ```
 
-## Task 2 ó Jira Lifecycle
+## Task 2 ù Jira Lifecycle
 
 - Created `SCRUM-529` (Task), transitioned to `In Progress`.
 - Created `SCRUM-530` (Story, parent `SCRUM-17`), transitioned to `In Progress`.
 - Posted kickoff comment on `SCRUM-529` (comment id `11593`).
 
-## Task 3 ó Branch Cleanup
+## Task 3 ù Branch Cleanup
 
 ```text
 git branch -r | Select-String "cycle/"
@@ -157,7 +157,7 @@ origin/cycle/009/integration
 - `cycle/009/integration` retained.
 - `git remote prune origin` executed.
 
-## Task 4 ó Cycle Branch
+## Task 4 ù Cycle Branch
 
 ```text
 Switched to a new branch 'cycle/038/integration'
@@ -171,7 +171,7 @@ git branch --show-current => cycle/038/integration
 git worktree list => C:/Fiverr/Fiverr  aca93ac [cycle/038/integration]
 ```
 
-## Task 5 ó Baseline Verification
+## Task 5 ù Baseline Verification
 
 - `test_seller_profile_live_markup_drift_regression_spec`: **currently PASS** (not XFAIL) in this workspace.
 - ScrapFly safe default assertion: `ScrapFly default disabled: CONFIRMED SAFE`.
@@ -180,11 +180,11 @@ git worktree list => C:/Fiverr/Fiverr  aca93ac [cycle/038/integration]
 - Live DB counts: `{'keywords': 2, 'search_results': 4, 'gigs': 0, 'sellers': 19, 'external_signals': 0}`.
 - CLI baseline pass: `config-check`, `collect-only`, `phase2-smoke`.
 
-## Task 6 ó OPENAI Key Pre-check
+## Task 6 ù OPENAI Key Pre-check
 
-Verdict: **A** ó `OPENAI_API_KEY` present and non-placeholder; LLM keyword expansion path is configured.
+Verdict: **A** ù `OPENAI_API_KEY` present and non-placeholder; LLM keyword expansion path is configured.
 
-## Task 7 ó PM Pack Hydration Update
+## Task 7 ù PM Pack Hydration Update
 
 Updated: `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
 - Active branch now `cycle/038/integration`
@@ -200,4 +200,4 @@ Updated: `PM_Pack/07_hydration/STATE_SNAPSHOT.md`
 
 ## Final SHA
 
-`bd6b501` (Cycle 038 setup snapshot commit created before report/ledger commit)
+`5d71a7b` (latest Agent A commit on `cycle/038/integration`)
