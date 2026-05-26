@@ -358,6 +358,31 @@ def test_competition_score_session_path_applies_competitor_profile() -> None:
         session.close()
 
 
+def test_competition_score_session_falls_back_to_latest_profile_when_run_mismatch() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="run-without-profile")
+        write_competitor_profile(
+            niche_id="test_niche",
+            run_id="older-profile-run",
+            db=session,
+            top_gig_count=3,
+            median_price=130.0,
+            mean_reviews=640.0,
+            seller_level_distribution={"TOP_RATED": 0.7, "LEVEL_2": 0.3},
+            new_seller_gap={"gap_flags": []},
+        )
+        result = CompetitionScoreCalculator().calculate(
+            keyword.id,
+            session,
+            config=_competition_config(use_competitor_profile=True),
+        )
+        assert result.score_components["avg_reviews"].raw == 640.0
+        assert "competitor_profiles.mean_reviews" in result.source_evidence
+    finally:
+        session.close()
+
+
 def test_seller_level_top_rated_raises_score() -> None:
     signal = compute_seller_level_competition_signal({"TOP_RATED": 0.8, "LEVEL_1": 0.2})
     assert signal > 75.0

@@ -308,6 +308,27 @@ def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     session.close()
 
 
+def test_demand_uses_search_result_total_result_count_when_available() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword_id,
+                run_id="high-volume-run",
+                rank=99,
+                title="High volume row",
+                gig_id=None,
+                total_result_count=20000,
+            )
+        )
+        session.commit()
+        signals = DemandScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["total_result_count"] == 20000.0
+    finally:
+        session.close()
+
+
 def test_competition_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)

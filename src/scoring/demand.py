@@ -205,6 +205,26 @@ def get_cluster_demand_boost(keyword_id: int, db: Any, config: dict[str, Any] | 
     return boost
 
 
+def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> float | None:
+    """Resolve best-available marketplace result volume for a keyword."""
+    max_total_result_count = (
+        session.query(SearchResult.total_result_count)
+        .filter(
+            SearchResult.keyword_id == keyword_id,
+            SearchResult.total_result_count.isnot(None),
+        )
+        .order_by(SearchResult.total_result_count.desc())
+        .first()
+    )
+    if max_total_result_count is not None and max_total_result_count[0] is not None:
+        return float(max_total_result_count[0])
+
+    fallback_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+    if fallback_count > 0:
+        return float(fallback_count)
+    return None
+
+
 class DemandScoreCalculator:
     """Calculate demand score from Fiverr, trends, and Reddit signals."""
 
@@ -392,7 +412,7 @@ class DemandScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        total_result_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+        total_result_count = _resolve_marketplace_result_count(session, keyword_id)
         google_trends = (
             session.query(ExternalSignal)
             .filter(
@@ -413,7 +433,7 @@ class DemandScoreCalculator:
         )
         keyword_meta = keyword.metadata_json if keyword else {}
         return {
-            "total_result_count": float(total_result_count) if total_result_count > 0 else None,
+            "total_result_count": total_result_count,
             "autocomplete_position": self._as_int(keyword_meta.get("autocomplete_position")),
             "trends_12mo_score": self._signal_float(google_trends, "trends_12mo_score"),
             "reddit_demand_intent_score": self._signal_float(reddit_demand, "reddit_demand_intent_score"),
