@@ -579,3 +579,57 @@ Observed blockers:
 
 - Native Stage 3 parser fallback successfully extracted gig URLs/cards but did not reliably extract `total_result_count` in the runtime path; supplemental TRC fetch/backfill was required to hit target.
 - Legacy gig-detail replay can hit `(keyword_id, rank)` uniqueness conflicts; deterministic URL-path matching backfill avoided those updates and safely raised `gig_id` coverage.
+
+## Agent C Independent Verification - Cycle 041
+
+Date: 2026-05-26  
+Branch: `cycle/041/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Cycle 041 Agent B handoff extraction
+
+- (a) SearchResult counts after Agent B collection:
+  - `total=103`, `with_rank=72`, `with_gig_id=64`, `with_total_result_count=30`
+- (b) Score-tag distribution reported by Agent B:
+  - `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=13`, `PASS=1242`
+- (c) Best score comparison:
+  - Best observed `38.74` vs Cycle 040 baseline `37.56` (`+1.18`)
+- (d) Recommendation generated count (Agent B):
+  - `0`
+- (e) `docs/scoring/SCORING_GATE_ANALYSIS.md` updated by Agent B:
+  - `YES`
+- (f) Agent B final handoff SHA:
+  - `a103298`
+
+### Independent verification rerun (Agent C)
+
+Canonical preflight rerun completed (`Get-Location`, branch/pull/worktree checks, `config-check`, DB debug), then independent live-DB audits were executed against `sqlite:///data/cycle037_live.db`.
+
+- SearchResult audit (independent):
+  - `total=103`, `with_rank=72`, `with_gig_id=64`, `with_total_result_count=30`
+- Independent score-tag audit after Agent C reruns:
+  - `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=14`, `PASS=1370`
+- Best score after Agent C scoring rerun:
+  - `38.74` (`CAUTION`) - unchanged vs Agent B top score
+- Recommendation rerun outcome:
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+
+### Adaptive-scope evidence (collection actually ran)
+
+- Recommendation output remains `0` and no `CONDITIONAL_GO` rows are present, so additional recommendation-export branch was not triggered.
+- Collection depth evidence confirms Agent B Stage 3/4 writes landed in live DB:
+  - `search_results` run-id distribution includes `cycle041_agentb_live_stage34: 61` rows.
+- ScrapFly runtime posture:
+  - `config.yaml` at-rest default remains `collection.scrapfly.enabled: false` (safe default).
+  - `.env` contains `SCRAPFLY_API_KEY` (present, non-empty).
+  - Current shell process env had key unset; run evidence indicates prior runtime override/key-loading path was used during Agent B collection runs.
+
+### Remaining quantified gap and verdict context
+
+- Best score remains below gate:
+  - Gap to `CONDITIONAL_GO` (`60`): `21.26`
+  - Gap to `STRONG_GO` (`80`): `41.26`
+- Top-score demand component remains low (`13.1`), keeping eligibility blocked.
+- Saturation rerun succeeded:
+  - `saturation_scores=320`, average saturation `41.94`
+- Cycle 041 Agent C verdict: `PARTIAL` (collection depth is present, recommendations remain `0`).
