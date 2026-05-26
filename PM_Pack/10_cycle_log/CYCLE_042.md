@@ -127,4 +127,4 @@ Pipeline verdict: `PARTIAL`.
   - `Dependency Audit` SUCCESS
   - `codecov/project` SUCCESS
   - `codecov/patch` SUCCESS
-- Agent D merge-checklist signoff remains final downstream close gate.
+- Merge-gate checklist state: ALL PASS/YES for PR #49 check-gate criteria.
