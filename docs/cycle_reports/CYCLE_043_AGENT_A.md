@@ -49,6 +49,8 @@ Thread disposition:
   - `state`: `MERGED`
   - `mergedAt`: `2026-05-26T20:11:35Z`
   - `mergeCommit.oid`: `8286a687c0721d0107ebeaa4fcc1a258a6b35fa1`
+- Attempted prompt merge command replay:
+  - `gh pr merge 49 --merge --delete-branch` -> `Pull request KevinSGarrett/Fiverr#49 was already merged`
 - Status checks: all `SUCCESS` including `codecov/patch`.
 
 ## Jira Lifecycle Evidence
@@ -77,6 +79,14 @@ Result:
 - `14 passed, 181 deselected`
 - Includes required accumulated regression coverage selectors; no failures.
 
+Exact 10-test confirmation command:
+
+`python -m pytest -q tests/unit/test_gig_detail.py::test_extract_price_text_from_payload_uses_nested_price_amount tests/unit/test_gig_detail.py::test_parse_gig_detail_from_html_keeps_zero_review_count tests/unit/test_seller_profile.py::test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration tests/unit/test_scrapfly_workflow_integration.py::test_seller_profile_fetcher_maps_parser_fields_for_persistence tests/unit/test_scrapfly_workflow_integration.py::test_gig_detail_fetcher_does_not_overwrite_existing_optional_fields tests/unit/test_scrapfly_workflow_integration.py::test_seller_profile_live_markup_drift_regression_spec tests/unit/test_scoring_db_integration.py::test_scoring_fallback_queries_scope_to_active_run_id tests/unit/test_scoring_db_integration.py::test_scoring_fallback_queries_recover_when_latest_run_unlinked tests/unit/test_scoring_db_integration.py::test_demand_uses_search_result_total_result_count_when_available tests/unit/test_competition_score.py::test_competition_score_session_falls_back_to_latest_profile_when_run_mismatch --no-header`
+
+Exact result:
+
+- `10 passed in 1.19s`
+
 ## Unit Baseline
 
 Command:
@@ -86,6 +96,7 @@ Command:
 Result:
 
 - `2808 passed in 382.66s`
+- Recheck run: `2808 passed in 379.12s`
 
 Cycle baseline note:
 
@@ -141,7 +152,17 @@ File read in full: `src/scoring/confidence.py`
 
 ## Confidence Isolation Run (kw=97)
 
-Command used:
+Prompt-specified function call attempt:
+
+`from src.scoring.confidence import compute_confidence_score`
+
+Verbatim outcome:
+
+```text
+ImportError: cannot import name 'compute_confidence_score' from 'src.scoring.confidence'
+```
+
+Adjusted command used (per prompt note "adjust if name differs"):
 
 `get_db(database_url='sqlite:///data/cycle037_live.db')` + `ConfidenceScoreModifier.calculate_with_breakdown(keyword_id=97, run_context=None, db=db)`
 
