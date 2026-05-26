@@ -101,7 +101,24 @@ Pipeline verdict: `PARTIAL` (gigs > 0, recommendations = 0).
 - `SCRUM-536`: independent collection verification + adaptive-path outcome (comment `11700`)
 - `SCRUM-20`: recommendations stage output (`eligible=0`, `generated=0`, comment `11698`)
 - `SCRUM-19`: post-rerun score tags and best-score update (comment `11697`)
-- `SCRUM-535`: Agent C completion summary + pipeline verdict (comment `11699`)
+- `SCRUM-535`: Agent C completion summary + pipeline verdict (comments `11699`, `11701`)
+
+## Hard Gate Addendum (PR #48)
+
+- PR: `https://github.com/KevinSGarrett/Fiverr/pull/48`
+- Codex GraphQL review-thread query executed on PR #48:
+  - Result: `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}`
+- PR checks all PASS:
+  - `Validate PR` (override label path)
+  - `Lint, Typecheck, Tests, and Gates`
+  - `Secret Scan`
+  - `Dependency Audit`
+  - `codecov/project`
+  - `codecov/patch`
+- Hard gates:
+  - G-001 `codecov/patch >= 90%`: PASS (SUCCESS status on PR #48)
+  - G-002 Codex query mandatory on PR: PASS
+  - G-003 Agent D checklist: pre-validated from current pass set; formal checklist publication remains Agent D closeout scope.
 
 ## Self-Audit
 
