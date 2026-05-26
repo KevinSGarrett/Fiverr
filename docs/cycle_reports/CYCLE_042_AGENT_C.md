@@ -263,6 +263,34 @@ Completed sub-task set (18+ meaningful items):
 22. Ruff verification on modified scoring files
 23. Commit and push to `cycle/042/integration`
 
+## 12) PR hard-gate evidence (Cycle 042)
+
+PR opened:
+
+- `https://github.com/KevinSGarrett/Fiverr/pull/49`
+
+Mandatory Codex GraphQL query (G-002) executed:
+
+```json
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}
+```
+
+PR checks status on PR #49:
+
+- `Validate PR`: SUCCESS
+- `Lint, Typecheck, Tests, and Gates`: SUCCESS (both run instances)
+- `Secret Scan`: SUCCESS
+- `Dependency Audit`: SUCCESS
+- `codecov/project`: SUCCESS (both run instances)
+- `codecov/patch`: SUCCESS
+
+Hard gate trace:
+
+- G-001 (`codecov/patch >= 90%`): PASS (`codecov/patch` success on PR #49)
+- G-002 (Codex GraphQL query mandatory): PASS (query executed and recorded)
+- G-003 (Agent D merge checklist ALL PASS/YES): pending final Agent D merge-governance signoff
+- G-004 (R-092 v2 no `--cov` for Agent C runs): PASS
+
 ## Final self-audit
 
 - Independent score-component verification: YES

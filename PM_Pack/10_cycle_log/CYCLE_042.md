@@ -114,3 +114,17 @@ Pipeline verdict: `PARTIAL`.
 - `SCRUM-19`: comment `11744`
 - `SCRUM-537`: comment `11745`
 - Milestone path (`SCRUM-20`, `SCRUM-532`, `SCRUM-534`): not triggered because `generated=0`
+
+## PR Hard-Gate Snapshot
+
+- PR: `https://github.com/KevinSGarrett/Fiverr/pull/49`
+- Codex GraphQL query executed on PR #49:
+  - `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}`
+- Check rollup:
+  - `Validate PR` SUCCESS
+  - `Lint, Typecheck, Tests, and Gates` SUCCESS
+  - `Secret Scan` SUCCESS
+  - `Dependency Audit` SUCCESS
+  - `codecov/project` SUCCESS
+  - `codecov/patch` SUCCESS
+- Agent D merge-checklist signoff remains final downstream close gate.
