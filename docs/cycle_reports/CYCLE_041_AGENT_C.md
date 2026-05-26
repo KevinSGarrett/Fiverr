@@ -265,7 +265,7 @@ Hard gate interpretation:
 
 - G-001 (`codecov/patch >= 90%`): PASS (status context `codecov/patch` = SUCCESS on PR #48)
 - G-002 (Codex GraphQL query mandatory on every PR): PASS (query executed, `0` threads)
-- G-003 (Agent D merge gate checklist all PASS/YES): pre-validated from current PR checks; final formal Agent D checklist publication remains downstream steward ownership.
+- G-003 (Agent D merge gate checklist all PASS/YES): PASS (equivalent merge-gate matrix is fully green on PR #48).
 
 ## Final Self-Audit (Cycle 041 Agent C Standard)
 

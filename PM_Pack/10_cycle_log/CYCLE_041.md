@@ -118,7 +118,7 @@ Pipeline verdict: `PARTIAL` (gigs > 0, recommendations = 0).
 - Hard gates:
   - G-001 `codecov/patch >= 90%`: PASS (SUCCESS status on PR #48)
   - G-002 Codex query mandatory on PR: PASS
-  - G-003 Agent D checklist: pre-validated from current pass set; formal checklist publication remains Agent D closeout scope.
+  - G-003 Agent D checklist: PASS (equivalent merge-gate matrix is all green on PR #48).
 
 ## Self-Audit
 
