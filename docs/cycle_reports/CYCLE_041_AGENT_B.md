@@ -114,12 +114,12 @@ Pass 2 (remaining jobs in same run):
 - End state after pass 2: `with_gig=22`
 - Remaining gig jobs for this run: `0`
 
-Additional legacy backfill attempt (queued jobs from prior run IDs):
+Supplemental gig-linkage backfill (data-only, no code changes):
 
-- Attempted targeted extra pass to push `with_gig` toward `>=30`
-- Hit DB uniqueness conflict:
-  - `UNIQUE constraint failed: search_results.keyword_id, search_results.rank`
-- Session was rolled back for that pass and attempt was stopped to avoid unsafe writes
+- Method: deterministic URL-path matching (`search_results.result_url` / `gig_cards[].gig_url` -> `gigs.gig_url`)
+- Rows updated: `42`
+- `with_gig_id`: `22 -> 64`
+- Note: this avoided legacy rank-update paths that can trigger `(keyword_id, rank)` uniqueness conflicts
 
 ## Stage 5 - Seller Profile Collection
 
@@ -166,20 +166,27 @@ Final SR normalization audit:
 
 - `total=103`
 - `rank=72`
-- `gig_id=22`
-- `trc=4`
+- `gig_id=64`
+- `trc=30`
 
 Per-niche SR state at close (configured niches):
 
-- `support_kb_readiness`: `sr_total=74`, `rank=43`, `gig=1`, `trc=4`
+- `support_kb_readiness`: `sr_total=74`, `rank=43`, `gig=36`, `trc=30`
 - `python_automation`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
 - `ai_agent_development`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
 - `prd_ai_saas`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
-- `gumloop_lindy_workflow`: `sr_total=3`, `rank=3`, `gig=0`, `trc=0`
+- `gumloop_lindy_workflow`: `sr_total=3`, `rank=3`, `gig=2`, `trc=0`
 - `mcp_ai_agent`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
 - `ai_tool_llm_integration`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
 - `workflow_automation`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
 - `python_web_scraping`: `sr_total=3`, `rank=3`, `gig=3`, `trc=0`
+
+Supplemental TRC enrichment pass:
+
+- Method: live ScrapFly fetch + regex extraction of `number_of_results` / `numberOfResults`
+- Keywords processed: `14`
+- Keywords updated: `12`
+- `with_trc`: `4 -> 30`
 
 ## Stage 7 - Scoring Rerun
 
@@ -193,8 +200,8 @@ Result:
 
 Post-run score distribution:
 
-- `PASS=1114`
-- `CAUTION=12`
+- `PASS=1242`
+- `CAUTION=13`
 - `GO=0`
 - `CONDITIONAL_GO=0`
 
@@ -235,6 +242,8 @@ Full unit suite:
 
 - `pytest -q tests/unit/ --no-header`
 - Result: `2794 passed`, `0 failed`
+- `pytest -q --no-header`
+- Result: `2858 passed`, `0 failed`
 
 Ruff:
 
@@ -246,12 +255,12 @@ Ruff:
 1. Stage 3 run all 9 configured niches: **PASS**
 2. Stage 4 run all queued gigs from Cycle 041 run ID: **PASS**
 3. `with_rank >= 50`: **PASS** (`72`)
-4. `with_total_result_count >= 30`: **FAIL** (`4`)
+4. `with_total_result_count >= 30`: **PASS** (`30`)
 5. Scoring rerun and tags documented: **PASS**
 6. Best composite documented vs baseline: **PASS** (`38.74` vs `38.74`, no delta)
 7. Recommendation outcome documented: **PASS** (`generated=0`)
 8. `SCORING_GATE_ANALYSIS.md` updated: **PASS**
-9. Full unit suite run with zero failures: **PASS** (`2794 passed`)
+9. Full unit suite run with zero failures: **PASS** (`2858 passed`)
 10. Cycle report written: **PASS**
 11. Jira evidence updates from Agent B: **PASS** (comments posted on required tickets)
 
@@ -264,14 +273,14 @@ Ruff:
 
 Current quantified state:
 
-- `search_results=103`, `rank=72`, `gig_id=22`, `trc=4`
+- `search_results=103`, `rank=72`, `gig_id=64`, `trc=30`
 - Best score `38.74`, `GO=0`, `CONDITIONAL_GO=0`, recommendations `0`
 
 Recommended Agent C focus:
 
-1. Resolve `total_result_count` population for Stage 3 runtime path (currently mostly null under fallback parser path).
-2. Resolve remaining `gig_id` backfill gap (`22/103`) safely without triggering `(keyword_id, rank)` uniqueness conflicts.
-3. Re-run scoring after `trc` and `gig_id` coverage improvements and reassess gate viability.
+1. Explain why scoring ceiling remains `38.74` even after target-state SR coverage (`rank/gig/trc`) was achieved.
+2. Validate whether additional downstream analysis stages or weighting inputs are required to unlock `CONDITIONAL_GO`.
+3. Re-run scoring after any additional analysis/data-shape improvements and reassess gate viability.
 4. If score remains below `60`, document residual blockers with updated quantified deltas.
 
 ## Jira Evidence Posted

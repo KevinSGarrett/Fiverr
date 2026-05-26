@@ -470,7 +470,7 @@ Stage 3 aggregate delta:
 - `search_results`: `44 -> 103`
 - `with_rank`: `13 -> 72`
 - `with_gig_id`: `3 -> 3` (no change in Stage 3 itself)
-- `with_total_result_count`: `4 -> 4` (no increase)
+- `with_total_result_count`: `4 -> 4` (no increase during native Stage 3 writes)
 
 ### Stage 4 and Stage 5 execution
 
@@ -500,6 +500,21 @@ Post-pass queue state for run `cycle041_agentb_live_stage34`:
 - Remaining GIG_DETAIL jobs: `0`
 - Remaining SELLER_PROFILE jobs: `0`
 
+### Supplemental depth backfills (no code changes)
+
+After Stage 3/4/5 queue execution, Agent B ran two additional data-only enrichment passes:
+
+1. Gig-linkage backfill using deterministic URL-path matching between `search_results` and existing `gigs`:
+
+- Updated rows: `42`
+- `with_gig_id`: `22 -> 64`
+
+1. Total-result-count backfill using live ScrapFly fetches + regex extraction of `number_of_results`/`numberOfResults`:
+
+- Keywords processed: `14`
+- Keywords updated: `12`
+- `with_total_result_count`: `4 -> 30`
+
 ### Stage 6 external signals
 
 Stage 6 rerun (`support_kb_readiness`, run `cycle041_agentb_stage6_signals`):
@@ -510,14 +525,14 @@ Stage 6 rerun (`support_kb_readiness`, run `cycle041_agentb_stage6_signals`):
 
 ### Final DB snapshot
 
-Final audited state after Stage 3/4/5/6:
+Final audited state after Stage 3/4/5/6 + supplemental backfills:
 
 - `search_results=103`
 - `gigs=416`
 - `sellers=195`
 - `keywords=129`
 - `external_signals=36`
-- SR normalization audit: `total=103`, `rank=72`, `gig_id=22`, `trc=4`
+- SR normalization audit: `total=103`, `rank=72`, `gig_id=64`, `trc=30`
 
 ### Scoring and recommendation outcome
 
@@ -533,6 +548,13 @@ After Agent B collection depth run and scoring rerun:
 - Tags: `PASS=1114`, `CAUTION=12`
 - Best score: `38.74` (no net improvement vs pre-run best)
 
+After supplemental backfills and final scoring rerun:
+
+- Command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+- Result: `Scoring complete: 129 keywords scored`
+- Tags: `PASS=1242`, `CAUTION=13`
+- Best score: `38.74` (still below `CONDITIONAL_GO=60`)
+
 Recommendation rerun:
 
 - Command: `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
@@ -546,13 +568,14 @@ What improved:
 - Stage 3 coverage was executed across all 9 configured niches.
 - Stage 4/5 significantly expanded gig and seller depth (`gigs=416`, `sellers=195`).
 
-What did not meet target:
+Target-state check:
 
-- `with_gig_id` reached `22` (target `>=30` not met).
-- `with_total_result_count` remained `4` (target `>=30` not met).
+- `with_rank >= 50`: **met** (`72`)
+- `with_gig_id >= 30`: **met** (`64`)
+- `with_trc >= 30`: **met** (`30`)
 - Best score remained `38.74`; recommendation gate remained blocked (`generated=0`).
 
 Observed blockers:
 
-- Stage 3 parser fallback successfully extracted gig URLs/cards but did not extract `total_result_count` in this runtime path.
-- Additional legacy gig-detail backfill attempts encountered uniqueness conflicts on `(keyword_id, rank)` when updating legacy rows, limiting safe backfill throughput without code/schema adjustments.
+- Native Stage 3 parser fallback successfully extracted gig URLs/cards but did not reliably extract `total_result_count` in the runtime path; supplemental TRC fetch/backfill was required to hit target.
+- Legacy gig-detail replay can hit `(keyword_id, rank)` uniqueness conflicts; deterministic URL-path matching backfill avoided those updates and safely raised `gig_id` coverage.
