@@ -107,3 +107,10 @@ Pipeline verdict: `PARTIAL`.
 - `docs/scoring/SCORING_GATE_ANALYSIS.md` (Agent C section appended)
 - `PM_Pack/10_cycle_log/CYCLE_042.md`
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
+
+## Jira Evidence (Cycle 042 Agent C)
+
+- `SCRUM-538`: comment `11746`
+- `SCRUM-19`: comment `11744`
+- `SCRUM-537`: comment `11745`
+- Milestone path (`SCRUM-20`, `SCRUM-532`, `SCRUM-534`): not triggered because `generated=0`

@@ -182,7 +182,7 @@ Updated:
 
 Added section:
 
-- `Agent C Independent Verification - Cycle 042`
+- `Agent C Independent Verification — Cycle 042`
 
 Included:
 
@@ -227,7 +227,41 @@ Artifacts created/updated:
 - `docs/scoring/SCORING_GATE_ANALYSIS.md`
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
 
-Jira posting/transition operations were deferred in this run log and should be applied in the cycle close commit context.
+Jira evidence posted:
+
+- `SCRUM-538`: comment `11746`
+- `SCRUM-19`: comment `11744`
+- `SCRUM-537`: comment `11745`
+
+Milestone comment path to `SCRUM-20`/`SCRUM-532`/`SCRUM-534` was not triggered because `generated=0`.
+
+## 11) R-090 sub-task completion trace
+
+Completed sub-task set (18+ meaningful items):
+
+1. Canonical path hard-stop verification
+2. Branch verification
+3. Pull + worktree verification
+4. Config-check execution
+5. Agent A report intake
+6. Agent B report intake
+7. Agent B extraction matrix capture
+8. Independent top-5 component verification
+9. Independent score-tag distribution verification
+10. Adaptive path determination
+11. Additional root-cause investigation
+12. Three scorer fallback fixes implemented
+13. New regression test implemented
+14. Full scoring rerun + recording
+15. Recommendations rerun + recording
+16. 12-stage pipeline table + verdict
+17. Scoring gate analysis update
+18. File-scoped regression suite execution
+19. Full unit + canonical suite execution
+20. Jira evidence comments posted
+21. Cycle log + report + ledger updates
+22. Ruff verification on modified scoring files
+23. Commit and push to `cycle/042/integration`
 
 ## Final self-audit
 
@@ -239,3 +273,6 @@ Jira posting/transition operations were deferred in this run log and should be a
 - `SCORING_GATE_ANALYSIS.md` Agent C section added: YES
 - `PM_Pack/10_cycle_log/CYCLE_042.md` created: YES
 - File-scoped regression suite (R-092 v2, no `--cov`) passed: YES
+- Full canonical gate threshold exceeded (`2861`): YES
+- Jira evidence on required stories posted: YES
+- No staged `config.yaml` with `enabled=true`: YES

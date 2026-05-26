@@ -305,7 +305,7 @@ Demand-source check (Task 7.2):
   - `ExternalSignal` (`google_trends`, `reddit_demand`)
 - Current top demand remains below the gate threshold (`<20`), so recommendation eligibility is still blocked even with feasibility coverage improved.
 
-### Recommendation outcome
+### Recommendation outcome (Agent B)
 
 Command:
 
@@ -736,7 +736,7 @@ Component-level effect observed for live keyword traces:
 - Since best score remains `<55`, recommendation generation was not rerun in this cycle step.
 - Remaining gap is still dominated by low demand/profitability strength and confidence suppression.
 
-## Agent C Independent Verification - Cycle 042
+## Agent C Independent Verification — Cycle 042
 
 Date: 2026-05-26  
 Branch: `cycle/042/integration`  
