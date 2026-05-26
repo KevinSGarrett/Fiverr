@@ -735,3 +735,89 @@ Component-level effect observed for live keyword traces:
 
 - Since best score remains `<55`, recommendation generation was not rerun in this cycle step.
 - Remaining gap is still dominated by low demand/profitability strength and confidence suppression.
+
+## Agent C Independent Verification - Cycle 042
+
+Date: 2026-05-26  
+Branch: `cycle/042/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Independent verification of Agent B fixes
+
+- Agent B latest-batch distribution was independently reproduced:
+  - `PASS=125`, `CAUTION=4`, `GO=0`, `CONDITIONAL_GO=0` (latest 129 rows)
+- Historical best row remained:
+  - `keyword_id=97`, `38.74`, `CAUTION`
+- Latest-batch best remained:
+  - `keyword_id=96`, `37.55`, `CAUTION`
+
+Component verification summary:
+
+| Component | Baseline value (Agent A/B reference) | Cycle 042 latest verification | Verification outcome |
+| --- | --- | --- | --- |
+| demand | `13.10` (`kw=97` baseline best row) | `15.63` in isolated calc paths, but latest-batch best still constrained by low-demand rows (`kw=96 demand=4.63`) | Improved in some rows; still gating |
+| competition | `46.44` | `47.62` in isolated `kw=97` path with profile fallback | Fix behavior confirmed |
+| opportunity | `29.28` | `30.33` in isolated `kw=97` path | Upstream cascade confirmed |
+| feasibility | `100.0` baseline row | latest `kw=97` rows can still drop to `None` under sparse linkage contexts | Additional fix required |
+| profitability | `17.59` baseline row | latest `kw=97` rows can still drop to `None` under sparse linkage contexts | Additional fix required |
+| weakness | `49.4` baseline row | latest `kw=97` rows can still drop to `None` under sparse linkage contexts | Additional fix required |
+
+### Agent C additional component fixes
+
+Root cause escalated by Agent C:
+
+- In latest-run contexts with unlinked search rows, fallback lookups in three scorers remained over-scoped to active run IDs.
+- This suppressed component coverage and held some rows to `None` component values.
+
+Fixes implemented:
+
+- `src/scoring/feasibility.py`
+- `src/scoring/profitability.py`
+- `src/scoring/weakness.py`
+
+Change applied:
+
+- preserve active-run fallback first
+- if no gigs are found for active run, fallback to keyword-scoped gigs (run-agnostic)
+
+Regression coverage added:
+
+- `tests/unit/test_scoring_db_integration.py`
+  - `test_scoring_fallback_queries_recover_when_latest_run_unlinked`
+
+### Scoring rerun result (Agent C)
+
+- Command:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+- Output:
+  - `Scoring complete: 129 keywords scored`
+- Latest-batch tags:
+  - `PASS=125`, `CAUTION=4`, `GO=0`, `CONDITIONAL_GO=0`
+- Latest-batch best:
+  - `37.55` (`keyword_id=96`)
+- Historical-best remains:
+  - `38.74` (`keyword_id=97`)
+
+### Score progression chart (Cycle 039-042)
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` historical best (`37.55` latest-batch best) |
+
+### Recommendation outcome (Agent C verification)
+
+- Command:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+
+Conclusion:
+
+- Recommendation generation remains blocked (`generated=0`).
+- Conditional-go threshold is still not reached.
+- Demand and component-coverage sparsity remain the final blockers for milestone unlock.
