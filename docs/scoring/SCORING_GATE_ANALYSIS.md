@@ -705,6 +705,9 @@ Database: `sqlite:///data/cycle037_live.db`
 - Full unit suite:
   - `pytest -q tests/unit/ --no-header`
   - Result: `2796 passed`
+- Full canonical suite check:
+  - `pytest -q --no-header`
+  - Result: `2860 passed`
 - Static checks:
   - `ruff check src/scoring/demand.py src/scoring/competition.py`: PASS
   - `mypy src/scoring/demand.py src/scoring/competition.py`: PASS
@@ -723,6 +726,9 @@ Component-level effect observed for live keyword traces:
 - `kw=97` isolated calculators moved from competition/opportunity drop-out risk to populated values after fallback:
   - `competition_score` now resolves with profile fallback (`47.62` in isolated run)
   - `opportunity_score` now resolves accordingly (`30.33` in isolated run)
+- Task 4.4 sparsity audit for `kw=97`:
+  - `SaturationScore` rows: `3`
+  - `GigQualityAnalysis` rows in keyword niche: `0`
 - Cycle gate remains blocked because overall final scores are still far below `60`.
 
 ### Recommendation outcome

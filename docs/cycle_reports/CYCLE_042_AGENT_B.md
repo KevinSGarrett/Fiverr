@@ -154,6 +154,9 @@ src/scoring/weakness.py
 - Failure mode:
   - Returns `None` when demand or competition is `None`
 - `kw=97` saturation rows exist (`3` rows), but opportunity scorer does not read saturation.
+- Task 4.4 sparsity checks (`kw=97` context):
+  - `SaturationScore` rows: `3`
+  - `GigQualityAnalysis` rows for keyword niche: `0`
 
 ### Intent (`src/scoring/intent.py`)
 
@@ -243,6 +246,14 @@ Component effects observed in isolated `kw=97` calculator run after fixes:
 - competition: `47.62` (resolved with profile fallback)
 - opportunity: `30.33` (resolved through non-null competition)
 
+Task 9.2 comparison snapshot (`kw=97`, earliest vs latest row):
+
+- Demand contribution: `1.96 -> 2.34` (`+0.38`)
+- Competition contribution: `5.36 -> 5.24` (`-0.12`)
+- Opportunity contribution: `5.86 -> 6.07` (`+0.21`)
+- Intent contribution: unchanged (`2.71`)
+- Feasibility / profitability / weakness remained missing on latest `kw=97` row
+
 Outcome vs gate:
 
 - Best remains `<55`; recommendation generation gate remains blocked.
@@ -265,6 +276,9 @@ Outcome vs gate:
 - Full unit suite:
   - `pytest -q tests/unit/ --no-header`
   - Result: `2796 passed`
+- Full canonical suite check (threshold confirmation):
+  - `pytest -q --no-header`
+  - Result: `2860 passed`
 - Additional targeted modified tests:
   - `pytest -q tests/unit/test_competition_score.py tests/unit/test_scoring_db_integration.py --no-header`
   - Result: `54 passed`
@@ -280,9 +294,9 @@ Outcome vs gate:
 3. At least one component fix + regression test: **PASS** (demand + competition)
 4. Scoring rerun executed and documented: **PASS**
 5. `SCORING_GATE_ANALYSIS.md` updated: **PASS**
-6. Full unit suite run: **PASS** (`2796 passed` in `tests/unit/`)
+6. Full unit suite run: **PASS** (`2796 passed` in `tests/unit/`; canonical `2860 passed`)
 7. `CYCLE_042_AGENT_B.md` written: **PASS**
-8. Jira evidence posts (`SCRUM-538`, `SCRUM-19`, `SCRUM-537`): **PENDING in this report context**
+8. Jira evidence posts (`SCRUM-538`, `SCRUM-19`, `SCRUM-537`): **PASS** (`11738`, `11740`, `11739`)
 
 ## Handoff Notes
 
