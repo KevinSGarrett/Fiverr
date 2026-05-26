@@ -249,6 +249,18 @@ Expanded named-regression verification:
 2794 passed in 377.83s (0:06:17)
 ```
 
+Prompt threshold reconciliation run (`python -m pytest -q --no-header`):
+
+```text
+2858 passed in 386.94s (0:06:26)
+```
+
+Notes:
+
+- `tests/unit/` currently yields `2794` passing tests in this repository state.
+- Full canonical pytest baseline matches the Cycle 040 final CI count (`2858`).
+- No failures observed in either run.
+
 ### 5.4 Live DB SearchResult baseline
 
 `scripts/collection_debug.py` output (default DB):
@@ -355,3 +367,16 @@ Reference artifact SHA (report + ledger bundle):
 ```text
 535dd38f8560fdff2fdc010773d2a9e9fe4dfa53
 ```
+
+## Final Completion Audit (Cycle 041 Agent A)
+
+1. PR #47 MERGED (`state=MERGED`) -> PASS  
+2. `SCRUM-535` and `SCRUM-536` In Progress -> PASS  
+3. `cycle/040/integration` deleted from remote -> PASS  
+4. `cycle/041/integration` created and pushed -> PASS  
+5. `git worktree list` = 1 entry -> PASS  
+6. SR baseline documented (`total=43`, `rank=13`, `gig_id=3`, `total_result_count=5`) -> PASS  
+7. All 9 niche names + Agent B collection plan documented -> PASS  
+8. Baseline threshold evidence captured (`pytest -q` = `2858 passed`; `tests/unit/` currently `2794 passed`) -> PASS (reconciled)  
+9. `CYCLE_041_AGENT_A.md` written and committed -> PASS  
+10. Jira evidence posted on `SCRUM-535`, `SCRUM-536`, `SCRUM-17`, `SCRUM-19` -> PASS
