@@ -253,7 +253,7 @@ Ruff:
 8. `SCORING_GATE_ANALYSIS.md` updated: **PASS**
 9. Full unit suite run with zero failures: **PASS** (`2794 passed`)
 10. Cycle report written: **PASS**
-11. Jira evidence updates from Agent B: **PENDING** (to be posted)
+11. Jira evidence updates from Agent B: **PASS** (comments posted on required tickets)
 
 ## ScrapFly Credits
 
@@ -273,3 +273,15 @@ Recommended Agent C focus:
 2. Resolve remaining `gig_id` backfill gap (`22/103`) safely without triggering `(keyword_id, rank)` uniqueness conflicts.
 3. Re-run scoring after `trc` and `gig_id` coverage improvements and reassess gate viability.
 4. If score remains below `60`, document residual blockers with updated quantified deltas.
+
+## Jira Evidence Posted
+
+- `SCRUM-536`: comment id `11689`
+- `SCRUM-534`: comment id `11688`
+- `SCRUM-532`: comment id `11690`
+- `SCRUM-17`: comment id `11687`
+- `SCRUM-535`: comment id `11691`
+
+Transition notes:
+
+- `SCRUM-534` and `SCRUM-532` were **not** transitioned to Done because `CONDITIONAL_GO`/`GO` was not achieved and recommendations remained `0`.
