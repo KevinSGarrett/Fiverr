@@ -1,56 +1,69 @@
-# State Snapshot — Cycle 042
+# State Snapshot — Cycle 043
 
 Updated: 2026-05-26 | Agent A setup complete
 
 ## Verified Repository State
 
 - Canonical working directory: `C:\Fiverr\Fiverr`
-- Active branch: `cycle/042/integration`
-- Tests: `2858` | Coverage: `95.20%` | `codecov/patch`: `SUCCESS`
-- PR #47: MERGED | PR #48: MERGED
+- Active branch: `cycle/043/integration`
+- Tests (latest mandatory full run): `2861` | Coverage: `95.19%`
+- Current branch unit baseline: `2808 passed`
+- PR #48: MERGED | PR #49: MERGED (`8286a687c0721d0107ebeaa4fcc1a258a6b35fa1`)
 - Config safety: `collection.scrapfly.enabled=false` (verified)
 - Worktrees: `1` entry only
 
-## Live DB Baseline
+## Verified Score Breakdown (kw=97)
 
-Primary live DB remains `data/cycle037_live.db`.
+Source: `sqlite:///data/cycle037_live.db` best `keyword_scores` row.
 
-| Metric | Value |
-| --- | ---: |
-| `keywords` | 129 |
-| `gigs` | 416 |
-| `sellers` | 195 |
-| `search_results` | 103 |
-| `external_signals` | 36 |
-| `score_best` | 38.74 |
-| `score_GO` | 0 |
-| `score_CONDITIONAL_GO` | 0 |
-| `score_gap_to_conditional` | 21.26 |
+- `demand_score`: value `13.1`, contribution `1.96`
+- `competition_score`: value `46.44`, contribution `5.36`
+- `opportunity_score`: value `29.28`, contribution `5.86`
+- `feasibility_score`: value `100.0`, contribution `25.0`
+- `profitability_score`: value `17.59`, contribution `0.88`
+- `intent_score`: value `54.29`, contribution `2.71`
+- `weakness_score`: value `49.4`, contribution `9.88`
+- Weighted composite: `51.65`
+- Stored confidence modifier: `0.75`
+- Final score: `38.74` (`CAUTION`)
 
-## Key Finding
+## Confidence Module Findings (`src/scoring/confidence.py`)
 
-- Data volume hypothesis is falsified: collection targets were met in Cycle 041, yet score remains capped.
-- Weighted score bottleneck is component behavior, not ingest depth.
-- `competition + opportunity + intent` contribute only about `1` point combined despite `35%` total weight.
+- Primary class: `ConfidenceScoreModifier`
+- Public methods: `calculate()`, `calculate_with_breakdown()`
+- Confidence output is clamped to `[0.0, 1.0]`
+- Pipeline enforces final multiplier floor with `max(confidence_modifier, 0.20)`
 
-## Scoring Module Paths (Agent B setup)
+Formula:
+- `base_modifier = ((completeness * 0.50) + (freshness * 0.30) + (diversity * 0.20)) * llm_completion`
+- Then subtract deductions:
+  - missing Google Trends: `-0.15`
+  - missing gig detail: `-0.20`
+  - missing seller profiles: `-0.10`
+  - missing Reddit signals: `-0.05`
+  - incomplete gig quality: up to `-0.20` (`-0.08` per incomplete item)
+  - competitor synthesis failed: `-0.10`
+  - stale data older than `2x TTL`: `-0.15`
+  - partial depth mode (`keyword_only` or `feasibility`): `-0.25`
 
-- `src/scoring/competition.py`
-- `src/scoring/confidence.py`
-- `src/scoring/demand.py`
-- `src/scoring/final.py`
-- `src/scoring/intent.py`
-- `src/scoring/opportunity.py`
+DB tables touched by `_load_signals_from_db()`:
+- `keywords`
+- `search_results`
+- `gigs`
+- `sellers`
+- `external_signals`
+- `gig_visual_analysis` (if present)
+- `niche_config_records` (if present)
 
-## Composite Formula Snapshot
+## CM Diagnostic for kw=97
 
-- Weighted composite:
-  - `effective_value = (100 - score)` for inverse components (`competition_inv`, `saturation_inv`), else raw score.
-  - `contribution = effective_value * component_weight`
-  - `weighted_composite = weighted_sum / weight_used` (if `weight_used >= 0.50`, else `0.0`)
-- Final score:
-  - `effective_modifier = max(confidence_modifier, 0.20)`
-  - `final_score = clamp_0_100(weighted_composite * effective_modifier)`
-- Tag thresholds:
-  - `STRONG_GO >= 80`, `CONDITIONAL_GO >= 60`, `MONITOR >= 40`, `CAUTION >= 20`, else `PASS`
-  - Additional low-confidence demotion applies when `confidence_modifier < 0.5`
+- Stored score-row evidence shows prior scorer context produced `confidence_modifier=0.75`
+- Stored breakdown on best row:
+  - `base_modifier=1.0`
+  - deductions: `missing_reddit_signals=-0.05`, `llm_gig_quality_incomplete=-0.20`
+  - `remaining_modifier=0.75`
+- Direct recomputation today from live DB context returns `0.50` because:
+  - `seller_profiles_collected=False` (`-0.10`)
+  - `reddit_signals_available=False` (`-0.05`)
+  - completeness/diversity both `0.5`, reducing base to `0.65`
+- Target state for `CM=1.0`: completeness/freshness/diversity/LLM completion all `1.0` and no deduction triggers.
