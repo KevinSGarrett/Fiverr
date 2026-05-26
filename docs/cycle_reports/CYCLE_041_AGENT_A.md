@@ -350,7 +350,7 @@ chore(cycle-041): Agent A setup — PR #47 merged, collection depth run ready
 
 ## Final SHA
 
-Current HEAD after final report sync:
+Reference artifact SHA (report + ledger bundle):
 
 ```text
 535dd38f8560fdff2fdc010773d2a9e9fe4dfa53
