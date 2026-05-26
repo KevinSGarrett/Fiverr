@@ -20,7 +20,7 @@ Executed Cycle 042 Agent D merge-gate stewardship and closeout verification: can
 | Score tags (`GO/CONDITIONAL_GO/CAUTION/PASS`) | Latest-batch from Agent C: `0 / 0 / 4 / 125` |
 | Best composite progression | `24.67 -> 37.56 -> 38.74 -> 38.74` |
 | Root-cause findings + fixes applied | Agent B: demand TRC resolver + competition profile fallback; Agent C: feasibility/profitability/weakness fallback recovery for latest-unlinked runs |
-| Final SHA from Agent C report | Agent C start SHA recorded as `c7257a6`; branch currently at `3af07ed` before Agent D changes |
+| Final SHA from Agent C report | Agent C start SHA recorded as `c7257a6`; branch now at `b651dec` after Agent D closeout + CI-fix push |
 
 ## Deliverable Verification Table (Task 1.1)
 
@@ -184,7 +184,7 @@ Post-merge transition policy branch:
 ## PR #49 CI Check Rollup (VERBATIM JSON)
 
 ```json
-{"baseRefName":"develop","headRefName":"cycle/042/integration","mergeable":"MERGEABLE","number":49,"state":"OPEN","statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-26T18:51:12Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467986702/job/77933349125","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-26T18:42:41Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:52:38Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467985010/job/77933345078","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-26T18:42:40Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:42:48Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467986700/job/77933349177","name":"Validate PR","startedAt":"2026-05-26T18:42:41Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:42:46Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467986348/job/77933349084","name":"Secret Scan","startedAt":"2026-05-26T18:42:41Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:51:21Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467986702/job/77934891385","name":"codecov/project","startedAt":"2026-05-26T18:51:15Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:52:46Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467985010/job/77935155785","name":"codecov/project","startedAt":"2026-05-26T18:52:41Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:43:01Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26467986348/job/77933349094","name":"Dependency Audit","startedAt":"2026-05-26T18:42:41Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-26T18:53:57Z","conclusion":"SUCCESS","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/49","name":"codecov/patch","startedAt":"2026-05-26T18:53:56Z","status":"COMPLETED","workflowName":""}],"url":"https://github.com/KevinSGarrett/Fiverr/pull/49"}
+{"statusCheckRollup":[{"__typename":"CheckRun","completedAt":"2026-05-26T19:57:46Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471311406/job/77945236364","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-26T19:48:37Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:57:07Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471306223/job/77945216899","name":"Lint, Typecheck, Tests, and Gates","startedAt":"2026-05-26T19:48:30Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:48:44Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471310324/job/77945232734","name":"Validate PR","startedAt":"2026-05-26T19:48:37Z","status":"COMPLETED","workflowName":"PR Checks"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:48:39Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471310325/job/77945232714","name":"Secret Scan","startedAt":"2026-05-26T19:48:36Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:57:56Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471311406/job/77946832747","name":"codecov/project","startedAt":"2026-05-26T19:57:50Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:57:15Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471306223/job/77946719705","name":"codecov/project","startedAt":"2026-05-26T19:57:10Z","status":"COMPLETED","workflowName":"CI"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:48:55Z","conclusion":"SUCCESS","detailsUrl":"https://github.com/KevinSGarrett/Fiverr/actions/runs/26471310325/job/77945232716","name":"Dependency Audit","startedAt":"2026-05-26T19:48:36Z","status":"COMPLETED","workflowName":"Security"},{"__typename":"CheckRun","completedAt":"2026-05-26T19:58:24Z","conclusion":"SUCCESS","detailsUrl":"https://app.codecov.io/gh/KevinSGarrett/Fiverr/pull/49","name":"codecov/patch","startedAt":"2026-05-26T19:58:24Z","status":"COMPLETED","workflowName":""}]}
 ```
 
 ## Codex GraphQL — BOTH Runs (VERBATIM JSON)
@@ -210,7 +210,7 @@ Run 2:
 ## Final SHA (Task 11)
 
 ```text
-origin/cycle/042/integration = 3af07edf8a184b0f94b0c3356423b1d60cf53ed3
+origin/cycle/042/integration = b651decdeb6c9b022fecaf38abc33029c049f8d1
 ```
 
 ## Merge Gate Checklist (Task 13)
@@ -220,7 +220,7 @@ MERGE GATE CHECKLIST — Cycle 042 PR #49
 
 CODECOV:
 - [x] codecov/project: PASS — local comprehensive gate `95.19%` and PR check SUCCESS
-- [x] codecov/patch: PASS — `92.59%` (target `>= 90%`)
+- [x] codecov/patch: PASS — `96.29%` (target `>= 90%`)
 - [x] Local --cov-fail-under=90: PASS
 - [x] All new lines covered: YES
 
@@ -301,7 +301,7 @@ Coverage and test snapshot:
 - Agent D baseline (Task 2 initial): `2797 passed`
 - R-092 Tier-2 run (Task 3): `2861 passed | 95.19%`
 - Final PR CI: required checks all SUCCESS
-- codecov/project: PASS (status green) | codecov/patch: `92.59%`
+- codecov/project: PASS (status green) | codecov/patch: `96.29%`
 
 Scoring summary:
 - Best composite: `38.74` (C041 baseline: `38.74`)
@@ -320,6 +320,6 @@ Scoring summary:
 - `config.yaml scrapfly.enabled=false`: YES
 - Codex query executed: YES
 - All threads resolved: YES (`0` found)
-- codecov/patch >= 90%: YES (`92.59%`)
+- codecov/patch >= 90%: YES (`96.29%`)
 - PR #49 CI all green: YES
 - Merge gate checklist ALL PASS/YES: YES
