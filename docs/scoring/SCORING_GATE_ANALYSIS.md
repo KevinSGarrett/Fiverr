@@ -422,3 +422,214 @@ Demand blocker remains:
 - Latest max demand observed: `16.47` (still below practical gate threshold context `>20`)
 
 Cycle 040 final verdict remains: `PARTIAL`.
+
+## Cycle 041 Agent B - Collection Depth Expansion
+
+Date: 2026-05-26  
+Branch: `cycle/041/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Scope
+
+Cycle 041 Agent B executed a data-only expansion run (no source-code edits) focused on Stage 3/4/5/6 collection depth to improve score inputs for rank-linked and gig-linked coverage.
+
+### Baseline and target
+
+- Agent A baseline (`Task 5.4` handoff): `total=43`, `rank=13`, `gig_id=3`, `total_result_count=5`
+- Agent B pre-collection runtime baseline: `total=44`, `rank=13`, `gig_id=3`, `trc=4`
+- Target guidance for this cycle: `rank>=50`, `gig_id>=30`, `trc>=30`
+
+### Stage 3 execution (all 9 configured niches)
+
+Configured niches executed:
+
+- `support_kb_readiness`
+- `python_automation`
+- `ai_agent_development`
+- `prd_ai_saas`
+- `gumloop_lindy_workflow`
+- `mcp_ai_agent`
+- `ai_tool_llm_integration`
+- `workflow_automation`
+- `python_web_scraping`
+
+Per-niche Stage 3 outcomes from run `cycle041_agentb_live_stage34`:
+
+- `support_kb_readiness`: attempted `37`, success `37`, cards nonzero `37`
+- `python_automation`: attempted `3`, success `3`, cards nonzero `3`
+- `ai_agent_development`: attempted `3`, success `3`, cards nonzero `3`
+- `prd_ai_saas`: attempted `3`, success `3`, cards nonzero `3`
+- `gumloop_lindy_workflow`: attempted `3`, success `3`, cards nonzero `3`
+- `mcp_ai_agent`: attempted `3`, success `3`, cards nonzero `3`
+- `ai_tool_llm_integration`: attempted `3`, success `3`, cards nonzero `3`
+- `workflow_automation`: attempted `3`, success `3`, cards nonzero `3`
+- `python_web_scraping`: attempted `3`, success `3`, cards nonzero `3`
+
+Stage 3 aggregate delta:
+
+- `search_results`: `44 -> 103`
+- `with_rank`: `13 -> 72`
+- `with_gig_id`: `3 -> 3` (no change in Stage 3 itself)
+- `with_total_result_count`: `4 -> 4` (no increase during native Stage 3 writes)
+
+### Stage 4 and Stage 5 execution
+
+Stage 4 pass 1 (`cycle041_agentb_live_stage34`):
+
+- GIG_DETAIL jobs processed: `180/180` complete, `0` failed
+- `with_gig_id`: `3 -> 19`
+- Seller jobs queued by Stage 4: `180`
+
+Stage 5 pass 1:
+
+- SELLER_PROFILE jobs processed: `120/120` complete, `0` failed
+- Sellers count: `38 -> 138`
+
+Stage 4 pass 2 (remaining jobs):
+
+- GIG_DETAIL jobs processed: `35/35` complete, `0` failed
+- `with_gig_id`: `19 -> 22`
+
+Stage 5 pass 2 (remaining jobs):
+
+- SELLER_PROFILE jobs processed: `95`, complete `94`, failed `1` (ScrapFly timeout)
+- Sellers count: `138 -> 195`
+
+Post-pass queue state for run `cycle041_agentb_live_stage34`:
+
+- Remaining GIG_DETAIL jobs: `0`
+- Remaining SELLER_PROFILE jobs: `0`
+
+### Supplemental depth backfills (no code changes)
+
+After Stage 3/4/5 queue execution, Agent B ran two additional data-only enrichment passes:
+
+1. Gig-linkage backfill using deterministic URL-path matching between `search_results` and existing `gigs`:
+
+- Updated rows: `42`
+- `with_gig_id`: `22 -> 64`
+
+1. Total-result-count backfill using live ScrapFly fetches + regex extraction of `number_of_results`/`numberOfResults`:
+
+- Keywords processed: `14`
+- Keywords updated: `12`
+- `with_total_result_count`: `4 -> 30`
+
+### Stage 6 external signals
+
+Stage 6 rerun (`support_kb_readiness`, run `cycle041_agentb_stage6_signals`):
+
+- `external_signals`: `20 -> 36` (`+16`)
+- Google Trends: processed `8`, written `8`, rate-limited `False`
+- YouTube counts: processed `8`, written `8` (count parsing warnings observed for all 8 seeds)
+
+### Final DB snapshot
+
+Final audited state after Stage 3/4/5/6 + supplemental backfills:
+
+- `search_results=103`
+- `gigs=416`
+- `sellers=195`
+- `keywords=129`
+- `external_signals=36`
+- SR normalization audit: `total=103`, `rank=72`, `gig_id=64`, `trc=30`
+
+### Scoring and recommendation outcome
+
+Before Agent B run:
+
+- Tags: `PASS=986`, `CAUTION=11`
+- Best score: `38.74`
+
+After Agent B collection depth run and scoring rerun:
+
+- Command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+- Result: `Scoring complete: 129 keywords scored`
+- Tags: `PASS=1114`, `CAUTION=12`
+- Best score: `38.74` (no net improvement vs pre-run best)
+
+After supplemental backfills and final scoring rerun:
+
+- Command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+- Result: `Scoring complete: 129 keywords scored`
+- Tags: `PASS=1242`, `CAUTION=13`
+- Best score: `38.74` (still below `CONDITIONAL_GO=60`)
+
+Recommendation rerun:
+
+- Command: `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Output: `eligible=0`, `gates_passed=0`, `generated=0`
+
+### Cycle 041 Agent B conclusion
+
+What improved:
+
+- Rank-linked SearchResult coverage materially increased (`with_rank=72`, exceeding the `>=50` target).
+- Stage 3 coverage was executed across all 9 configured niches.
+- Stage 4/5 significantly expanded gig and seller depth (`gigs=416`, `sellers=195`).
+
+Target-state check:
+
+- `with_rank >= 50`: **met** (`72`)
+- `with_gig_id >= 30`: **met** (`64`)
+- `with_trc >= 30`: **met** (`30`)
+- Best score remained `38.74`; recommendation gate remained blocked (`generated=0`).
+
+Observed blockers:
+
+- Native Stage 3 parser fallback successfully extracted gig URLs/cards but did not reliably extract `total_result_count` in the runtime path; supplemental TRC fetch/backfill was required to hit target.
+- Legacy gig-detail replay can hit `(keyword_id, rank)` uniqueness conflicts; deterministic URL-path matching backfill avoided those updates and safely raised `gig_id` coverage.
+
+## Agent C Independent Verification - Cycle 041
+
+Date: 2026-05-26  
+Branch: `cycle/041/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Cycle 041 Agent B handoff extraction
+
+- (a) SearchResult counts after Agent B collection:
+  - `total=103`, `with_rank=72`, `with_gig_id=64`, `with_total_result_count=30`
+- (b) Score-tag distribution reported by Agent B:
+  - `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=13`, `PASS=1242`
+- (c) Best score comparison:
+  - Best observed `38.74` vs Cycle 040 baseline `37.56` (`+1.18`)
+- (d) Recommendation generated count (Agent B):
+  - `0`
+- (e) `docs/scoring/SCORING_GATE_ANALYSIS.md` updated by Agent B:
+  - `YES`
+- (f) Agent B final handoff SHA:
+  - `a103298`
+
+### Independent verification rerun (Agent C)
+
+Canonical preflight rerun completed (`Get-Location`, branch/pull/worktree checks, `config-check`, DB debug), then independent live-DB audits were executed against `sqlite:///data/cycle037_live.db`.
+
+- SearchResult audit (independent):
+  - `total=103`, `with_rank=72`, `with_gig_id=64`, `with_total_result_count=30`
+- Independent score-tag audit after Agent C reruns:
+  - `GO=0`, `CONDITIONAL_GO=0`, `CAUTION=14`, `PASS=1370`
+- Best score after Agent C scoring rerun:
+  - `38.74` (`CAUTION`) - unchanged vs Agent B top score
+- Recommendation rerun outcome:
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+
+### Adaptive-scope evidence (collection actually ran)
+
+- Recommendation output remains `0` and no `CONDITIONAL_GO` rows are present, so additional recommendation-export branch was not triggered.
+- Collection depth evidence confirms Agent B Stage 3/4 writes landed in live DB:
+  - `search_results` run-id distribution includes `cycle041_agentb_live_stage34: 61` rows.
+- ScrapFly runtime posture:
+  - `config.yaml` at-rest default remains `collection.scrapfly.enabled: false` (safe default).
+  - `.env` contains `SCRAPFLY_API_KEY` (present, non-empty).
+  - Current shell process env had key unset; run evidence indicates prior runtime override/key-loading path was used during Agent B collection runs.
+
+### Remaining quantified gap and verdict context
+
+- Best score remains below gate:
+  - Gap to `CONDITIONAL_GO` (`60`): `21.26`
+  - Gap to `STRONG_GO` (`80`): `41.26`
+- Top-score demand component remains low (`13.1`), keeping eligibility blocked.
+- Saturation rerun succeeded:
+  - `saturation_scores=320`, average saturation `41.94`
+- Cycle 041 Agent C verdict: `PARTIAL` (collection depth is present, recommendations remain `0`).
