@@ -350,8 +350,8 @@ chore(cycle-041): Agent A setup — PR #47 merged, collection depth run ready
 
 ## Final SHA
 
-Current HEAD after report + ledger commit:
+Current HEAD after final report sync:
 
 ```text
-446b08cb439ff0a5bf4bdde3e19604957a1fd7b1
+535dd38f8560fdff2fdc010773d2a9e9fe4dfa53
 ```
