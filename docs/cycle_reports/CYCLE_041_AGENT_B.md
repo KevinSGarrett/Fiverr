@@ -285,11 +285,11 @@ Recommended Agent C focus:
 
 ## Jira Evidence Posted
 
-- `SCRUM-536`: comment id `11689`
-- `SCRUM-534`: comment id `11688`
-- `SCRUM-532`: comment id `11690`
-- `SCRUM-17`: comment id `11687`
-- `SCRUM-535`: comment id `11691`
+- `SCRUM-536`: comment ids `11689`, `11695`
+- `SCRUM-534`: comment ids `11688`, `11694`
+- `SCRUM-532`: comment ids `11690`, `11692`
+- `SCRUM-17`: comment ids `11687`, `11693`
+- `SCRUM-535`: comment ids `11691`, `11696`
 
 Transition notes:
 
