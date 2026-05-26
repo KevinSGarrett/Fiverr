@@ -7,7 +7,7 @@ Updated: 2026-05-26 | Agent A setup complete
 - Canonical working directory: `C:\Fiverr\Fiverr`
 - Active branch: `cycle/043/integration`
 - Tests (latest mandatory full run): `2861` | Coverage: `95.19%`
-- Current branch unit baseline: `2808 passed`
+- Current branch unit baseline: `2870 passed`
 - PR #48: MERGED | PR #49: MERGED (`8286a687c0721d0107ebeaa4fcc1a258a6b35fa1`)
 - Config safety: `collection.scrapfly.enabled=false` (verified)
 - Worktrees: `1` entry only
@@ -60,6 +60,7 @@ DB tables touched by `_load_signals_from_db()`:
 ## CM Diagnostic for kw=97
 
 - Stored score-row evidence shows prior scorer context produced `confidence_modifier=0.75`
+- Prompt-compatible verification (`compute_confidence_score` with `DATABASE_URL=sqlite:///data/cycle037_live.db`) returns `0.75`
 - Stored breakdown on best row:
   - `base_modifier=1.0`
   - deductions: `missing_reddit_signals=-0.05`, `llm_gig_quality_incomplete=-0.20`

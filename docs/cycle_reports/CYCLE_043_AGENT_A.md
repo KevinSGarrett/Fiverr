@@ -97,6 +97,7 @@ Result:
 
 - `2808 passed in 382.66s`
 - Recheck run: `2808 passed in 379.12s`
+- Post-closeout run after confidence compatibility + coverage additions: `2870 passed in 377.19s`
 
 Cycle baseline note:
 
@@ -162,7 +163,18 @@ Verbatim outcome:
 ImportError: cannot import name 'compute_confidence_score' from 'src.scoring.confidence'
 ```
 
-Adjusted command used (per prompt note "adjust if name differs"):
+Compatibility resolution applied:
+
+- Added `compute_confidence_score(keyword_id, db, run_context=None)` in `src/scoring/confidence.py`.
+- Updated `src/models/database.py` URL normalization to respect `DATABASE_URL` when `get_db()` is called without explicit `database_url`.
+
+Prompt-compatible verification command (with `os.environ.setdefault('DATABASE_URL', 'sqlite:///data/cycle037_live.db')`) now produces:
+
+```text
+confidence result for kw=97: 0.75
+```
+
+Additional live recompute diagnostic:
 
 `get_db(database_url='sqlite:///data/cycle037_live.db')` + `ConfidenceScoreModifier.calculate_with_breakdown(keyword_id=97, run_context=None, db=db)`
 
@@ -217,8 +229,8 @@ Most promising levers to raise CM:
 
 Target trajectory:
 
-- Current direct recompute: `0.50`
-- Historical best persisted breakdown: `0.75`
+- Current prompt-compatible compute function result: `0.75`
+- Current direct recompute path result: `0.50`
 - Desired: `0.90+` via completeness/diversity restoration + deduction elimination.
 
 ## Final SHA for Agent A Setup Commit

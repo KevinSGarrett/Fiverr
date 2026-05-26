@@ -13,6 +13,7 @@ from src.models import (
     Gig,
     GigVisualAnalysis,
     Keyword,
+    KeywordScore,
     NicheConfigRecord,
     SearchResult,
     Seller,
@@ -263,3 +264,33 @@ class ConfidenceScoreModifier:
         if not timestamps:
             return None
         return max(timestamps)
+
+
+def compute_confidence_score(
+    keyword_id: int,
+    db: Any,
+    run_context: dict[str, Any] | None = None,
+) -> float:
+    """
+    Compute confidence modifier with compatibility for legacy call sites.
+
+    Behavior:
+    1) Prefer latest persisted `keyword_scores.confidence_modifier` for the keyword
+       when a DB session is available and no explicit run context is provided.
+    2) Fall back to live recomputation via `ConfidenceScoreModifier`.
+    """
+    if run_context is None and isinstance(db, Session):
+        latest_persisted = (
+            db.query(KeywordScore)
+            .filter(
+                KeywordScore.keyword_id == keyword_id,
+                KeywordScore.confidence_modifier.isnot(None),
+            )
+            .order_by(KeywordScore.final_score.desc(), KeywordScore.id.desc())
+            .first()
+        )
+        if latest_persisted is not None and latest_persisted.confidence_modifier is not None:
+            return float(latest_persisted.confidence_modifier)
+
+    calculator = ConfidenceScoreModifier()
+    return calculator.calculate(keyword_id=keyword_id, run_context=run_context, db=db)

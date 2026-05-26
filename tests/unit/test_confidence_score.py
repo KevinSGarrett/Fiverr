@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from src.models import Base, Keyword, Niche, NicheConfigRecord
-from src.scoring.confidence import ConfidenceScoreModifier
+from src.models import Base, Keyword, KeywordScore, Niche, NicheConfigRecord
+from src.scoring.confidence import ConfidenceScoreModifier, compute_confidence_score
 
 
 def _session() -> Session:
@@ -88,3 +90,152 @@ def test_confidence_latest_timestamp_returns_none_when_no_sources() -> None:
         assert newest is None
     finally:
         session.close()
+
+
+def test_compute_confidence_score_prefers_latest_persisted_modifier() -> None:
+    session = _session()
+    try:
+        niche = Niche(slug="persisted-score", name="Persisted Score", category_path="Programming & Tech > AI")
+        session.add(niche)
+        session.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="persisted keyword",
+            normalized_keyword="persisted keyword",
+        )
+        session.add(keyword)
+        session.flush()
+
+        session.add(
+            KeywordScore(
+                keyword_id=keyword.id,
+                scored_at=datetime.now(UTC) - timedelta(minutes=1),
+                final_score=35.0,
+                confidence_modifier=0.62,
+                tag="CAUTION",
+                score_components={},
+            )
+        )
+        session.add(
+            KeywordScore(
+                keyword_id=keyword.id,
+                scored_at=datetime.now(UTC),
+                final_score=38.0,
+                confidence_modifier=0.75,
+                tag="CAUTION",
+                score_components={},
+            )
+        )
+        session.commit()
+
+        modifier = compute_confidence_score(keyword_id=keyword.id, db=session)
+        assert modifier == 0.75
+    finally:
+        session.close()
+
+
+def test_compute_confidence_score_uses_run_context_when_provided() -> None:
+    session = _session()
+    try:
+        modifier = compute_confidence_score(
+            keyword_id=999,
+            db=session,
+            run_context={
+                "data_completeness_ratio": 1.0,
+                "data_freshness_score": 1.0,
+                "source_diversity_score": 1.0,
+                "llm_analysis_completion_ratio": 1.0,
+                "google_trends_available": True,
+                "gig_detail_collected": True,
+                "seller_profiles_collected": True,
+                "reddit_signals_available": True,
+            },
+        )
+        assert modifier == 1.0
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "default_value", "expected"),
+    [
+        (None, 0.0, 0.0),
+        ("1", 0.0, 1.0),
+        ("1.25", 0.0, 1.25),
+        ("-2", 0.0, -2.0),
+        ("nan", 5.0, float("nan")),
+        ("inf", 1.0, float("inf")),
+        ("-inf", 1.0, float("-inf")),
+        ("0", 9.0, 0.0),
+        ("0.5", 1.0, 0.5),
+        ("42", 1.0, 42.0),
+        (3.14, 0.0, 3.14),
+        (10, 0.0, 10.0),
+        (True, 0.0, 1.0),
+        (False, 0.0, 0.0),
+        (" 7 ", 0.0, 7.0),
+        ("not-a-number", 2.5, 2.5),
+        ({}, 4.0, 4.0),
+        ([], 6.0, 6.0),
+        ((), 8.0, 8.0),
+        ("", 3.0, 3.0),
+        ("+12", 0.0, 12.0),
+        ("-0.25", 0.0, -0.25),
+        ("1e2", 0.0, 100.0),
+        ("-1e-2", 0.0, -0.01),
+        ("3.1415926535", 0.0, 3.1415926535),
+        ("2.0", 5.0, 2.0),
+        ("  0.75  ", 9.0, 0.75),
+        ("5e-1", 9.0, 0.5),
+        (0, 9.0, 0.0),
+        (1, 9.0, 1.0),
+    ],
+)
+def test_confidence_as_float_parametrized(raw_value: Any, default_value: float, expected: float) -> None:
+    calculator = ConfidenceScoreModifier()
+    actual = calculator._as_float(raw_value, default_value)  # pylint: disable=protected-access
+    if expected != expected:  # NaN check
+        assert actual != actual
+    else:
+        assert actual == expected
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "default_value", "expected"),
+    [
+        (None, True, True),
+        (None, False, False),
+        (True, False, True),
+        (False, True, False),
+        ("true", False, True),
+        ("TRUE", False, True),
+        ("True", False, True),
+        ("  true  ", False, True),
+        ("1", False, True),
+        ("yes", False, True),
+        ("YES", False, True),
+        ("false", True, False),
+        ("FALSE", True, False),
+        ("False", True, False),
+        ("  false  ", True, False),
+        ("0", True, False),
+        ("no", True, False),
+        ("NO", True, False),
+        ("y", True, True),
+        ("n", False, False),
+        ("t", True, True),
+        ("f", False, False),
+        ("enabled", True, True),
+        ("disabled", False, False),
+        ("", True, True),
+        ("", False, False),
+        (0, True, True),
+        (1, False, False),
+        ({}, True, True),
+        ([], False, False),
+    ],
+)
+def test_confidence_as_bool_parametrized(raw_value: Any, default_value: bool, expected: bool) -> None:
+    calculator = ConfidenceScoreModifier()
+    actual = calculator._as_bool(raw_value, default_value)  # pylint: disable=protected-access
+    assert actual is expected

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+import os
 from pathlib import Path
 
 from sqlalchemy import Engine, inspect
@@ -19,7 +20,9 @@ DEFAULT_DATABASE_URL = "sqlite:///data/fiverr_research.db"
 
 def normalize_database_url(database_url: str | None = None) -> str:
     """Normalize database URL and fallback to project default."""
-    url = (database_url or DEFAULT_DATABASE_URL).strip()
+    env_database_url = os.getenv("DATABASE_URL")
+    resolved = database_url if database_url is not None else env_database_url
+    url = (resolved or DEFAULT_DATABASE_URL).strip()
     if not url:
         raise ValueError("Database URL cannot be blank.")
 
