@@ -6,7 +6,6 @@ from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.models import Base, Keyword, Niche, NicheConfigRecord
 from src.scoring.confidence import ConfidenceScoreModifier
 
