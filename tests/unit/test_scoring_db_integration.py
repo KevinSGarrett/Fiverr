@@ -261,6 +261,68 @@ def _seed_keyword_data_without_search_links_mixed_runs(session: Session) -> int:
     return keyword.id
 
 
+def _seed_keyword_data_with_latest_unlinked_run(session: Session) -> int:
+    niche = Niche(
+        slug="automation-latest-unlinked",
+        name="Automation Latest Unlinked",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation latest unlinked",
+        normalized_keyword="python automation latest unlinked",
+    )
+    session.add(keyword)
+    session.flush()
+
+    for rank in range(1, 3):
+        seller = Seller(
+            seller_handle=f"linked_hist_seller_{rank}",
+            level="Level 1",
+            metadata_json={"is_pro": False},
+        )
+        session.add(seller)
+        session.flush()
+        gig = Gig(
+            gig_url=f"https://www.fiverr.com/linked-hist/{rank}",
+            keyword_id=keyword.id,
+            run_id="historical-linked-run",
+            seller_id=seller.id,
+            seller_username=seller.seller_handle,
+            title=f"Historical linked gig {rank}",
+            normalized_title=f"historical linked gig {rank}",
+            position=rank,
+            starting_price=35.0 + rank,
+            review_count=15 + rank,
+            metadata_json={
+                "premium_price": 75.0 + rank,
+                "delivery_time_days": 2.0,
+                "extras": [{"name": "extra"}],
+                "has_video": rank % 2 == 0,
+                "has_portfolio": rank % 2 == 1,
+            },
+        )
+        session.add(gig)
+        session.flush()
+
+    for rank in range(1, 3):
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id="latest-unlinked-run",
+                rank=rank,
+                title=f"Latest unlinked result {rank}",
+                gig_id=None,
+            )
+        )
+
+    session.commit()
+    return keyword.id
+
+
 def _seed_keyword_data_without_search_links_review_count_exact_only(session: Session) -> int:
     niche = Niche(slug="automation-fallback-exact", name="Automation Fallback Exact", category_path="Programming & Tech > AI")
     session.add(niche)
@@ -306,6 +368,27 @@ def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     result = DemandScoreCalculator().calculate(keyword_id, session)
     assert result.score_value is not None
     session.close()
+
+
+def test_demand_uses_search_result_total_result_count_when_available() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword_id,
+                run_id="high-volume-run",
+                rank=99,
+                title="High volume row",
+                gig_id=None,
+                total_result_count=20000,
+            )
+        )
+        session.commit()
+        signals = DemandScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["total_result_count"] == 20000.0
+    finally:
+        session.close()
 
 
 def test_competition_calculator_sqlalchemy_path_returns_score() -> None:
@@ -390,6 +473,20 @@ def test_scoring_fallback_queries_scope_to_active_run_id() -> None:
     assert profitability_signals["avg_starting_price_top10"] == 21.5
     assert weakness_signals["top10_has_video"] == [True, True]
     assert weakness_signals["top10_has_portfolio"] == [True, True]
+    session.close()
+
+
+def test_scoring_fallback_queries_recover_when_latest_run_unlinked() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_with_latest_unlinked_run(session)
+
+    feasibility_result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+    profitability_result = ProfitabilityScoreCalculator().calculate(keyword_id, session)
+    weakness_result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+
+    assert feasibility_result.score_value is not None
+    assert profitability_result.score_value is not None
+    assert weakness_result.score_value is not None
     session.close()
 
 

@@ -674,6 +674,16 @@ class GigQualityWeaknessScoreCalculator:
                 .limit(10)
                 .all()
             )
+            # Latest run IDs can map to unlinked search rows; if so, recover with
+            # keyword-level gigs rather than dropping the weakness signal entirely.
+            if not top_gigs and active_run_id is not None:
+                top_gigs = (
+                    session.query(Gig)
+                    .filter(Gig.keyword_id == keyword_id)
+                    .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                    .limit(10)
+                    .all()
+                )
             top_results = [
                 SimpleNamespace(gig=gig, run_id=getattr(gig, "run_id", None)) for gig in top_gigs
             ]

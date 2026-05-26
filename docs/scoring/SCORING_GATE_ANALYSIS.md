@@ -305,7 +305,7 @@ Demand-source check (Task 7.2):
   - `ExternalSignal` (`google_trends`, `reddit_demand`)
 - Current top demand remains below the gate threshold (`<20`), so recommendation eligibility is still blocked even with feasibility coverage improved.
 
-### Recommendation outcome
+### Recommendation outcome (Agent B)
 
 Command:
 
@@ -633,3 +633,191 @@ Canonical preflight rerun completed (`Get-Location`, branch/pull/worktree checks
 - Saturation rerun succeeded:
   - `saturation_scores=320`, average saturation `41.94`
 - Cycle 041 Agent C verdict: `PARTIAL` (collection depth is present, recommendations remain `0`).
+
+## Cycle 042 Agent B - Score Component Investigation
+
+Date: 2026-05-26  
+Branch: `cycle/042/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Baseline confirmation
+
+- Agent A baseline SHA: `69a008157f6cd62c4f07404b4f840410a7d6ecb1`
+- Baseline stories: `SCRUM-537`, `SCRUM-538`
+- Baseline best score: `38.74` (`kw=97`, tag `CAUTION`)
+- Baseline unit gates from Agent A: `2858 passed` (suite), `2794 passed` (`tests/unit/`)
+
+### Source-code findings (demand / competition / opportunity / intent / confidence)
+
+- `src/scoring/demand.py`
+  - Inputs: `SearchResult.total_result_count` (or keyword row-count fallback), `Keyword.metadata_json.autocomplete_position`, `ExternalSignal(google_trends)`, `ExternalSignal(reddit_demand)`
+  - Formula: weighted average (`count=0.50`, `autocomplete=0.20`, `trends=0.20`, `reddit=0.10`) + optional cluster boost (`0-10`)
+  - Failure modes: returns `None` when available weight `<0.30`; low values when total-result-count is sparse and external signals are missing
+- `src/scoring/competition.py`
+  - Inputs: search-result volume, top-10 linked gig/seller metrics, optional Stage 10 `CompetitorProfile`
+  - Formula: weighted average across count/reviews/seller-level/100+ reviews/pro-verified/price/llm strength
+  - Failure modes: returns `None` when available weight `<0.30`; run-scoped profile miss can suppress otherwise available profile signals
+- `src/scoring/opportunity.py`
+  - Inputs: demand and competition outputs only
+  - Formula: `normalize(((demand*1.2) - (competition*0.8)))` where normalization maps `[-80,120]` to `[0,100]`
+  - Failure modes: returns `None` if demand or competition is `None`
+- `src/scoring/intent.py`
+  - Inputs: keyword text/specificity, commercial-modifier heuristic, top-10 review proof, optional LLM class, optional reddit intent
+  - Formula: weighted average (`specificity=0.25`, `commercial=0.25`, `review=0.20`, `llm=0.20`, `reddit=0.10`)
+  - Failure modes: returns `None` only when available weight `<0.30`; otherwise defaults LLM class to `CONSIDERATION`
+- `src/scoring/confidence.py` + `src/scoring/pipeline.py`
+  - Confidence is a final multiplier (`final = weighted_composite * max(confidence_modifier, 0.20)`)
+  - Missing component warnings and mode deductions can materially reduce final score
+
+### Root cause table (Cycle 042 investigation)
+
+| Component | Weight | Current Value (baseline kw97) | Current Pts | Root Cause | Fixable? | Fix Type |
+| --- | --- | --- | --- | --- | --- | --- |
+| demand | 0.15 | 13.10 | 1.96 | Volume signal was sourced from sparse row count when TRC exists elsewhere | Yes | formula/input resolver |
+| competition | 0.10 | 46.44 | 5.36 | Run-scoped profile lookup could miss available historical profile for same niche | Yes | data-link fallback |
+| opportunity | 0.20 | 29.28 | 5.86 | Cascades from competition availability/quality | Yes | indirect via competition fix |
+| intent | 0.05 | 54.29 | 2.71 | Mostly healthy; low total contribution is weight-driven | No (for large gains) | n/a |
+| confidence | N/A | 0.75 | multiplier | Final multiplier suppresses weighted composite; not in score components | Partially | broader data coverage |
+
+### Fixes implemented
+
+1. `src/scoring/demand.py`
+   - Added `_resolve_marketplace_result_count(...)` to prefer max non-null `SearchResult.total_result_count` and only fallback to row count when TRC is absent.
+2. `src/scoring/competition.py`
+   - Added marketplace-result resolver mirroring demand behavior (prefer TRC, fallback to row count).
+   - Updated `get_competitor_profile_inputs(...)` session path to fallback to latest profile for the same niche when exact `run_id` profile is missing.
+
+### Regression tests added
+
+- `tests/unit/test_scoring_db_integration.py`
+  - `test_demand_uses_search_result_total_result_count_when_available`
+- `tests/unit/test_competition_score.py`
+  - `test_competition_score_session_falls_back_to_latest_profile_when_run_mismatch`
+
+### Validation executed
+
+- Targeted modified tests:
+  - `pytest -q tests/unit/test_competition_score.py tests/unit/test_scoring_db_integration.py --no-header`
+  - Result: `54 passed`
+- Required file-scoped gate:
+  - `pytest -q tests/unit/test_scoring.py tests/unit/test_scoring_db_integration.py tests/unit/test_scoring_pipeline.py --no-header`
+  - Result: `403 passed`
+- Full unit suite:
+  - `pytest -q tests/unit/ --no-header`
+  - Result: `2796 passed`
+- Full canonical suite check:
+  - `pytest -q --no-header`
+  - Result: `2860 passed`
+- Static checks:
+  - `ruff check src/scoring/demand.py src/scoring/competition.py`: PASS
+  - `mypy src/scoring/demand.py src/scoring/competition.py`: PASS
+
+### Score distribution before/after and impact
+
+- Pre-fix baseline best (existing historical rows): `38.74` (`CAUTION`)
+- Post-fix full scoring rerun:
+  - Command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - Output: `Scoring complete: 129 keywords scored`
+  - Latest-batch tags (`last 129 rows`): `PASS=125`, `CAUTION=4`, `GO=0`, `CONDITIONAL_GO=0`
+  - Latest-batch best: `37.55` (`kw=96`, `CAUTION`)
+
+Component-level effect observed for live keyword traces:
+
+- `kw=97` isolated calculators moved from competition/opportunity drop-out risk to populated values after fallback:
+  - `competition_score` now resolves with profile fallback (`47.62` in isolated run)
+  - `opportunity_score` now resolves accordingly (`30.33` in isolated run)
+- Task 4.4 sparsity audit for `kw=97`:
+  - `SaturationScore` rows: `3`
+  - `GigQualityAnalysis` rows in keyword niche: `0`
+- Cycle gate remains blocked because overall final scores are still far below `60`.
+
+### Recommendation outcome
+
+- Since best score remains `<55`, recommendation generation was not rerun in this cycle step.
+- Remaining gap is still dominated by low demand/profitability strength and confidence suppression.
+
+## Agent C Independent Verification — Cycle 042
+
+Date: 2026-05-26  
+Branch: `cycle/042/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Independent verification of Agent B fixes
+
+- Agent B latest-batch distribution was independently reproduced:
+  - `PASS=125`, `CAUTION=4`, `GO=0`, `CONDITIONAL_GO=0` (latest 129 rows)
+- Historical best row remained:
+  - `keyword_id=97`, `38.74`, `CAUTION`
+- Latest-batch best remained:
+  - `keyword_id=96`, `37.55`, `CAUTION`
+
+Component verification summary:
+
+| Component | Baseline value (Agent A/B reference) | Cycle 042 latest verification | Verification outcome |
+| --- | --- | --- | --- |
+| demand | `13.10` (`kw=97` baseline best row) | `15.63` in isolated calc paths, but latest-batch best still constrained by low-demand rows (`kw=96 demand=4.63`) | Improved in some rows; still gating |
+| competition | `46.44` | `47.62` in isolated `kw=97` path with profile fallback | Fix behavior confirmed |
+| opportunity | `29.28` | `30.33` in isolated `kw=97` path | Upstream cascade confirmed |
+| feasibility | `100.0` baseline row | latest `kw=97` rows can still drop to `None` under sparse linkage contexts | Additional fix required |
+| profitability | `17.59` baseline row | latest `kw=97` rows can still drop to `None` under sparse linkage contexts | Additional fix required |
+| weakness | `49.4` baseline row | latest `kw=97` rows can still drop to `None` under sparse linkage contexts | Additional fix required |
+
+### Agent C additional component fixes
+
+Root cause escalated by Agent C:
+
+- In latest-run contexts with unlinked search rows, fallback lookups in three scorers remained over-scoped to active run IDs.
+- This suppressed component coverage and held some rows to `None` component values.
+
+Fixes implemented:
+
+- `src/scoring/feasibility.py`
+- `src/scoring/profitability.py`
+- `src/scoring/weakness.py`
+
+Change applied:
+
+- preserve active-run fallback first
+- if no gigs are found for active run, fallback to keyword-scoped gigs (run-agnostic)
+
+Regression coverage added:
+
+- `tests/unit/test_scoring_db_integration.py`
+  - `test_scoring_fallback_queries_recover_when_latest_run_unlinked`
+
+### Scoring rerun result (Agent C)
+
+- Command:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+- Output:
+  - `Scoring complete: 129 keywords scored`
+- Latest-batch tags:
+  - `PASS=125`, `CAUTION=4`, `GO=0`, `CONDITIONAL_GO=0`
+- Latest-batch best:
+  - `37.55` (`keyword_id=96`)
+- Historical-best remains:
+  - `38.74` (`keyword_id=97`)
+
+### Score progression chart (Cycle 039-042)
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` historical best (`37.55` latest-batch best) |
+
+### Recommendation outcome (Agent C verification)
+
+- Command:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+
+Conclusion:
+
+- Recommendation generation remains blocked (`generated=0`).
+- Conditional-go threshold is still not reached.
+- Demand and component-coverage sparsity remain the final blockers for milestone unlock.

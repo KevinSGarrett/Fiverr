@@ -12,7 +12,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.config import ConfigLoader
 from src.models import Base, ClusterAssignment, ClusterLabel, Keyword, Niche
-from src.scoring.demand import DemandScoreCalculator, get_cluster_demand_boost
+from src.scoring.demand import (
+    DemandScoreCalculator,
+    _coerce_bool,
+    _coerce_float,
+    _coerce_int,
+    _compute_cluster_demand_boost,
+    _demand_config,
+    _load_cluster_context,
+    get_cluster_demand_boost,
+)
 from src.scoring.pipeline import score_keyword
 
 KEYWORD_ID = 101
@@ -362,3 +371,58 @@ def test_config_cluster_boost_keys_valid(tmp_path: Path) -> None:
     assert config.scoring.demand.use_cluster_boost is True
     assert config.scoring.demand.cluster_boost == 6.0
     assert config.scoring.demand.min_cluster_size == 4
+
+
+def test_demand_helper_coercion_and_config_guards() -> None:
+    assert _coerce_bool("true", default=False) is True
+    assert _coerce_bool("off", default=True) is False
+    assert _coerce_bool("unknown", default=True) is True
+
+    assert _coerce_float(None, 1.5) == 1.5
+    assert _coerce_float("nan-value", 2.5) == 2.5
+    assert _coerce_int(None, 2) == 2
+    assert _coerce_int("nan-value", 3) == 3
+
+    assert _demand_config({"scoring": {"demand": "invalid"}}) == {}
+
+
+def test_demand_cluster_context_and_signal_guards(monkeypatch: Any) -> None:
+    assert _load_cluster_context(KEYWORD_ID, None) is None
+
+    def _boom(_keyword_id: int, _db: Any) -> Any:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("src.scoring.demand._load_cluster_context_from_session", _boom)
+    session, _keyword = _build_demand_session()
+    try:
+        assert _load_cluster_context(KEYWORD_ID, session) is None
+    finally:
+        session.close()
+
+    boost, context = _compute_cluster_demand_boost(
+        KEYWORD_ID,
+        {KEYWORD_ID: {"cluster_id": -1, "keyword_count": 8}},
+        _cluster_config(cluster_boost=7.0),
+    )
+    assert boost == 0.0
+    assert context is not None
+
+    zero_boost, _ = _compute_cluster_demand_boost(
+        KEYWORD_ID,
+        {KEYWORD_ID: {"cluster_id": 5, "keyword_count": 8}},
+        _cluster_config(cluster_boost=0.0),
+    )
+    assert zero_boost == 0.0
+
+    calculator = DemandScoreCalculator()
+    assert calculator._load_signals(KEYWORD_ID, {KEYWORD_ID: "invalid"}) == {}
+    assert calculator._as_float("not-a-float") is None
+    assert calculator._as_int("not-an-int") is None
+
+    class _Signal:
+        def __init__(self, raw_value_json: Any, normalized_value: Any) -> None:
+            self.raw_value_json = raw_value_json
+            self.normalized_value = normalized_value
+
+    assert calculator._signal_float(_Signal({"trends_12mo_score": None}, 3.0), "trends_12mo_score") is None
+    assert calculator._signal_float(_Signal({"trends_12mo_score": "x"}, 3.0), "trends_12mo_score") is None

@@ -153,6 +153,13 @@ def get_competitor_profile_inputs(niche_id: str, run_id: str, db: Any) -> dict[s
             .one_or_none()
         )
         if profile is None:
+            profile = (
+                db.query(CompetitorProfile)
+                .filter(CompetitorProfile.niche_id == niche_id)
+                .order_by(CompetitorProfile.collected_at.desc(), CompetitorProfile.id.desc())
+                .first()
+            )
+        if profile is None:
             return {}
         payload: dict[str, Any] = {
             "mean_reviews": profile.mean_reviews,
@@ -466,7 +473,7 @@ class CompetitionScoreCalculator:
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        total_result_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+        total_result_count = self._resolve_marketplace_result_count(session, keyword_id)
         top_gigs = (
             session.query(Gig)
             .join(SearchResult, SearchResult.gig_id == Gig.id)
@@ -482,7 +489,7 @@ class CompetitionScoreCalculator:
         pro_verified_flags = [self._is_pro_verified(seller) for seller in top_sellers]
         keyword_meta = keyword.metadata_json if keyword and isinstance(keyword.metadata_json, dict) else {}
         signals: dict[str, Any] = {
-            "total_result_count": float(total_result_count) if total_result_count > 0 else None,
+            "total_result_count": total_result_count,
             "avg_review_count_top10": (sum(review_counts) / len(review_counts)) if review_counts else None,
             "avg_seller_level_top10": (sum(normalized_levels) / len(normalized_levels)) if normalized_levels else None,
             "proportion_with_100_plus_reviews": (
@@ -551,6 +558,25 @@ class CompetitionScoreCalculator:
     @staticmethod
     def _has_value(value: Any) -> bool:
         return value is not None
+
+    @staticmethod
+    def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> float | None:
+        max_total_result_count = (
+            session.query(SearchResult.total_result_count)
+            .filter(
+                SearchResult.keyword_id == keyword_id,
+                SearchResult.total_result_count.isnot(None),
+            )
+            .order_by(SearchResult.total_result_count.desc())
+            .first()
+        )
+        if max_total_result_count is not None and max_total_result_count[0] is not None:
+            return float(max_total_result_count[0])
+
+        fallback_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
+        if fallback_count > 0:
+            return float(fallback_count)
+        return None
 
     def _seller_level_value(self, level: str | None) -> float | None:
         if not level:

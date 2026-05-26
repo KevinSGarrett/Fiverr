@@ -442,6 +442,16 @@ class NewSellerFeasibilityCalculator:
                 .limit(10)
                 .all()
             )
+            # Some latest search runs contain unlinked rows; use any keyword gigs
+            # when active-run scoped fallback cannot resolve top listings.
+            if not top_gigs and active_run_id is not None:
+                top_gigs = (
+                    session.query(Gig)
+                    .filter(Gig.keyword_id == keyword_id)
+                    .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                    .limit(10)
+                    .all()
+                )
         seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
         accessible_levels = {"", "none", "new", "new seller", "level 1", "level1", "1"}
         accessible_count = sum(1 for level in seller_levels if level.strip().lower() in accessible_levels)
