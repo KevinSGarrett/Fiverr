@@ -35,6 +35,7 @@ Source: `sqlite:///data/cycle037_live.db` best `keyword_scores` row.
 - Pipeline enforces final multiplier floor with `max(confidence_modifier, 0.20)`
 
 Formula:
+
 - `base_modifier = ((completeness * 0.50) + (freshness * 0.30) + (diversity * 0.20)) * llm_completion`
 - Then subtract deductions:
   - missing Google Trends: `-0.15`
@@ -47,6 +48,7 @@ Formula:
   - partial depth mode (`keyword_only` or `feasibility`): `-0.25`
 
 DB tables touched by `_load_signals_from_db()`:
+
 - `keywords`
 - `search_results`
 - `gigs`

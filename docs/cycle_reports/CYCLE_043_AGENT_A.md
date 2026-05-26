@@ -21,6 +21,7 @@ Confidence story: `SCRUM-540`
 10. `Read docs/cycle_reports/CYCLE_042_AGENT_D.md in full`
 
 Preflight result notes:
+
 - Canonical directory corrected to `C:\Fiverr\Fiverr` before further actions.
 - `gh pr view 49` returned `state=MERGED` (already merged before this run).
 - Required Python preflight commands and targeted pytest bundle passed.
@@ -38,6 +39,7 @@ Verbatim JSON:
 ```
 
 Thread disposition:
+
 - total threads: `0`
 - unresolved threads: `0`
 
@@ -71,6 +73,7 @@ Command:
 `python -m pytest -q tests/unit/test_gig_detail.py tests/unit/test_scoring_db_integration.py tests/unit/test_scrapfly_workflow_integration.py tests/unit/test_search_result.py tests/unit/test_competition_score.py -k "nested_price or zero_review or run_scoped or seller_profile_live_markup_drift or rank or gig_id or latest_unlinked or total_result_count or profile_fallback" -v --no-header`
 
 Result:
+
 - `14 passed, 181 deselected`
 - Includes required accumulated regression coverage selectors; no failures.
 
@@ -81,9 +84,11 @@ Command:
 `python -m pytest -q tests/unit/ --no-header`
 
 Result:
+
 - `2808 passed in 382.66s`
 
 Cycle baseline note:
+
 - Prior cycle canonical comprehensive gate remains `2861 passed | 95.19%`.
 
 ## Confidence.py Deep Read
@@ -149,6 +154,7 @@ context: {'data_completeness_ratio': 0.5, 'data_freshness_score': 1.0, 'source_d
 ```
 
 Important historical comparison:
+
 - Best persisted score row for kw=97 still stores `confidence_modifier=0.75` with breakdown:
   - `base_modifier=1.0`
   - `missing_reddit_signals=-0.05`
@@ -182,12 +188,14 @@ Best: kw=97 final=38.74 tag=CAUTION
 ## Agent B Handoff (Confidence Investigation)
 
 Most promising levers to raise CM:
+
 1. Restore `seller_profiles_collected=True` for kw=97 context path (currently false in direct recompute).
 2. Add reddit signals for kw=97 (`missing_reddit_signals` currently active).
 3. Ensure gig quality analysis population is complete enough to avoid `llm_gig_quality_incomplete` penalty.
 4. Preserve `standard` mode and freshness (already healthy in current context).
 
 Target trajectory:
+
 - Current direct recompute: `0.50`
 - Historical best persisted breakdown: `0.75`
 - Desired: `0.90+` via completeness/diversity restoration + deduction elimination.
