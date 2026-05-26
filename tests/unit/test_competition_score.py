@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import yaml
@@ -14,6 +14,9 @@ from src.config import ConfigLoader
 from src.models import Base, Gig, Keyword, Niche, SearchResult, Seller, write_competitor_profile
 from src.scoring.competition import (
     CompetitionScoreCalculator,
+    _coerce_bool,
+    _coerce_float,
+    _normalize_gap_flags,
     compute_seller_level_competition_signal,
     get_competitor_profile_inputs,
 )
@@ -725,3 +728,59 @@ def test_config_feasibility_gap_bounds_reject_invalid_values(tmp_path: Path) -> 
 
     with pytest.raises(ValueError):
         ConfigLoader(config_path).load()
+
+
+def test_competition_helper_guards_and_normalizers() -> None:
+    assert _coerce_bool("yes", default=False) is True
+    assert _coerce_bool("0", default=True) is False
+    assert _coerce_float(None, 4.0) == 4.0
+    assert _coerce_float("bad", 5.0) == 5.0
+    assert _normalize_gap_flags(["low_video_presence", 7, "  "]) == ["LOW_VIDEO_PRESENCE"]
+
+    calculator = CompetitionScoreCalculator()
+    assert calculator._normalize_count(0.0) == 0.0
+    assert calculator._normalize_review_count(0.0) == 0.0
+    assert calculator._normalize_seller_level(3) == 60.0
+    assert calculator._normalize_seller_level({"x": 1}) is None
+    assert calculator._normalize_price(0.0) == 0.0
+    assert calculator._normalize_llm_competitor_strength(50.0) == 50.0
+    assert calculator._load_signals(KEYWORD_ID, None) == {}
+    assert calculator._as_float("bad-value") is None
+    assert calculator._seller_level_value(None) is None
+    assert calculator._derive_profile_llm_rating(profile_inputs={}, existing_rating=None) == (None, "")
+
+
+def test_competition_seller_level_signal_guard_paths() -> None:
+    assert compute_seller_level_competition_signal({}) == 50.0
+    assert compute_seller_level_competition_signal({"LEVEL_1": 0.0}) == 50.0
+    assert compute_seller_level_competition_signal(cast(dict[str, float], {1: 1.0})) == 50.0
+    assert compute_seller_level_competition_signal({"TOP-TIER": 1.0}) == 95.0
+    assert compute_seller_level_competition_signal({"NOVICE": 1.0}) == 50.0
+
+
+def test_competitor_profile_inputs_supports_provider_object() -> None:
+    class _Provider:
+        @staticmethod
+        def get_competitor_profile_inputs(_niche_id: str, _run_id: str) -> dict[str, Any]:
+            return {"mean_reviews": 77.0, "median_price": 55.0}
+
+    payload = get_competitor_profile_inputs("test_niche", "run-provider", _Provider())
+    assert payload["mean_reviews"] == 77.0
+    assert payload["median_price"] == 55.0
+
+
+def test_competition_marketplace_result_count_fallback_paths() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        calculator = CompetitionScoreCalculator()
+        assert calculator._resolve_marketplace_result_count(session, keyword.id) is None
+        session.add(SearchResult(keyword_id=keyword.id, rank=1, title="fallback row", gig_id=None))
+        session.commit()
+        assert calculator._resolve_marketplace_result_count(session, keyword.id) == 1.0
+    finally:
+        session.close()
+
+
+def test_competition_is_pro_verified_requires_boolean_metadata() -> None:
+    seller = Seller(seller_handle="bool_check", metadata_json={"is_pro": "true"})
+    assert CompetitionScoreCalculator._is_pro_verified(seller) is False
