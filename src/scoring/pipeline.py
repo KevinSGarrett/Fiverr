@@ -661,18 +661,24 @@ def _build_confidence_context(
     present_scores = sum(1 for value in scores.values() if value is not None)
     reddit_warning_missing = any("reddit_not_implemented" in warning for warning in warnings)
     trends_available = scores.get("trend_score") is not None
+    gig_detail_collected = True
+    llm_quality_incomplete_count = 0
+    if not gig_detail_collected:
+        llm_quality_incomplete_count = sum(
+            1
+            for warning in warnings
+            if "llm_not_implemented" in warning and "quality" in warning.lower()
+        )
     return {
         "data_completeness_ratio": present_scores / max(1, total_scores),
         "data_freshness_score": 1.0,
         "source_diversity_score": 1.0,
         "llm_analysis_completion_ratio": 1.0,
         "google_trends_available": trends_available,
-        "gig_detail_collected": True,
+        "gig_detail_collected": gig_detail_collected,
         "seller_profiles_collected": True,
         "reddit_signals_available": not reddit_warning_missing,
-        "llm_gig_quality_incomplete_count": sum(
-            1 for warning in warnings if "llm_not_implemented" in warning
-        ),
+        "llm_gig_quality_incomplete_count": llm_quality_incomplete_count,
         "llm_competitor_synthesis_failed": any(
             "competitor" in warning and "llm_not_implemented" in warning for warning in warnings
         ),

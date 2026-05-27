@@ -261,20 +261,26 @@ class ScoringOrchestrator:
                 missing_reddit_signal = True
         reddit_signal_evidence = any("reddit" in entry.lower() for entry in source_evidence)
         reddit_warning_missing = any("reddit_not_implemented" in warning for warning in warnings)
+        gig_detail_collected = True
+        llm_quality_incomplete_count = 0
+        if not gig_detail_collected:
+            llm_quality_incomplete_count = sum(
+                1
+                for warning in warnings
+                if "llm_not_implemented" in warning and "quality" in warning.lower()
+            )
         return {
             "data_completeness_ratio": completeness_ratio,
             "data_freshness_score": 1.0,
             "source_diversity_score": 1.0,
             "llm_analysis_completion_ratio": 1.0,
             "google_trends_available": getattr(results["trend_result"], "score_value", None) is not None,
-            "gig_detail_collected": True,
+            "gig_detail_collected": gig_detail_collected,
             "seller_profiles_collected": True,
             "reddit_signals_available": (
                 reddit_signal_evidence and not missing_reddit_signal and not reddit_warning_missing
             ),
-            "llm_gig_quality_incomplete_count": sum(
-                1 for warning in warnings if "llm_not_implemented" in warning
-            ),
+            "llm_gig_quality_incomplete_count": llm_quality_incomplete_count,
             "llm_competitor_synthesis_failed": any(
                 "competitor" in warning and "llm_not_implemented" in warning
                 for warning in warnings

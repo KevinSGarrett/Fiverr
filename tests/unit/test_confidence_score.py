@@ -156,6 +156,38 @@ def test_compute_confidence_score_uses_run_context_when_provided() -> None:
         session.close()
 
 
+def test_confidence_modifier_improves_when_signals_present() -> None:
+    calculator = ConfidenceScoreModifier()
+    base_context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": False,
+        "llm_gig_quality_incomplete_count": 2.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    low_modifier, _ = calculator.calculate_with_breakdown(keyword_id=1, run_context=base_context, db=None)
+
+    improved_context = dict(base_context)
+    improved_context["reddit_signals_available"] = True
+    improved_context["llm_gig_quality_incomplete_count"] = 0.0
+    high_modifier, breakdown = calculator.calculate_with_breakdown(
+        keyword_id=1,
+        run_context=improved_context,
+        db=None,
+    )
+
+    assert low_modifier < high_modifier
+    assert high_modifier == 1.0
+    assert "missing_reddit_signals" not in breakdown
+    assert "llm_gig_quality_incomplete" not in breakdown
+
+
 @pytest.mark.parametrize(
     ("raw_value", "default_value", "expected"),
     [
