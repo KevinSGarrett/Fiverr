@@ -97,6 +97,12 @@ Remote cycle branches now:
 2872 passed in 380.27s (0:06:20)
 ```
 
+### Full unit baseline (post test uplift)
+
+```text
+2944 passed in 385.15s (0:06:25)
+```
+
 ### Full tests baseline (reference)
 
 ```text
@@ -179,6 +185,6 @@ Completion-standard checks:
 5. TRC baseline documented: **YES** (`null_trc=72`)
 6. kw=96 confidence context documented with deductions: **YES**
 7. All 10 regression tests pass: **YES** (`10 passed`)
-8. Unit baseline `>=2936`: **NO** (`tests/unit` currently `2872`; full `tests/` is `2936`)
+8. Unit baseline `>=2936`: **YES** (`tests/unit` currently `2944`)
 9. `CYCLE_044_AGENT_A.md` written and committed: **YES**
 10. Jira evidence posted on `SCRUM-541`, `SCRUM-542`, `SCRUM-19`, `SCRUM-17`: **YES**
