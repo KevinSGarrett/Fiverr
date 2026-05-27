@@ -1,68 +1,64 @@
-# State Snapshot - Cycle 045
+# State Snapshot - Cycle 046
 
 Updated: 2026-05-27 | Agent A setup complete
 
 ## Verified Repository State
 
 - Canonical working directory: `C:\Fiverr\Fiverr`
-- Active branch: `cycle/045/integration`
-- Tests: `3008` | Coverage: `95.61%` | PR #51: MERGED (merge SHA `483611c8d437f8649f5fdfb1a8a99d5e5190a180`)
-- Current local `tests/unit` baseline: `3008 passed`
+- Active branch: `cycle/046/integration`
+- PR #52 merged into `develop` at `a9cb67d8c48a35301c5b6eae12e5986c611f9504`
+- Test/coverage reference from Cycle 045 final CI: `3073 passed` | `95.55%` | `codecov/patch 90.41%`
+- Current local `tests/unit` baseline: `3012 passed` (environment baseline check)
 - Config safety: `collection.scrapfly.enabled=false` (verified)
 - Worktrees: `1` entry only
-- Jira kickoff: `SCRUM-543` (Task, In Progress), `SCRUM-544` (Story, In Progress)
+- Jira kickoff: `SCRUM-545` (Task, In Progress), `SCRUM-546` (Story, In Progress, parent `SCRUM-19`)
+
+## Stage 11 Baseline Audit
+
+Source DB: `sqlite:///data/cycle037_live.db`.
+
+- `GigQualityAnalysis` model import currently fails in this branch state: `No module named src.models.gig_quality_analysis`
+- `GigQualityScore` table rows: `0`
+- Stage 11/quality code present:
+  - `src/analysis/gig_quality.py`
+  - `src/analysis/gig_quality_rubric.py`
+  - `src/analysis/quality.py`
+  - `src/models/gig_quality_score.py`
+- Stage 11 entry points:
+  - `run.py quality-analysis`
+  - `run.py collect-only` dry-run pipeline includes `stage11_gig_quality_analysis`
+  - `run.py collect-only --help` currently exposes no `--stages` argument
 
 ## Score Baseline
 
 Source: `sqlite:///data/cycle037_live.db`.
 
-- Canonical cycle target baseline: `kw=96 final~=42`, `composite~=54.2`, `CM=0.775`
-- Current DB probe output (best row): `kw=96 final=44.22`, `composite contributions~=46.53`
-- Current profile projection probe (latest kw=96 row): `aggressive_new_seller final~=43.03` (`composite~=45.29`, `CM=0.95`)
-- Tags: `PASS=2152`, `CAUTION=259`, `MONITOR=6`
+- Current DB probe output: `Tags={'PASS': 2784, 'CAUTION': 909, 'MONITOR': 14}`
+- Best row: `kw=96 final=44.22`
+- Recommendation gate remains blocked pending Stage 11 GigQuality population
 
-## weakness.py Findings
+## Stage 11 Spec Facts for Agent B
 
-- Primary query path: `Keyword`, top-10 `SearchResult` rows (run-scoped when possible), linked `Gig`, optional `GigVisualAnalysis`, optional `GigQualityAnalysis`, legacy `GigQualityScore`.
-- Core formula: weighted average of available weakness signals, clamped `0..100`:
-  - LLM-inverted quality features (description, thumbnail, FAQ, package differentiation, niche specificity)
-  - Weakness count normalization (`raw_count * 10`)
-  - Weakness flag penalty from normalized flags (`NO_VIDEO`, `NO_PORTFOLIO`, `THIN_DESCRIPTION`, `NO_FAQ`)
-  - Video/portfolio absence rates from collected gig evidence
-- Why values like ~49 can occur even with many gigs:
-  - Score reflects exploitable competitor weaknesses, not gig volume.
-  - If top gigs have low absence rates and modest weakness flags, normalized weakness remains mid-range.
-  - Missing LLM signals fallback to stubs (`None`), reducing available high-leverage upside components.
-- To push above `70`:
-  - Increase observed weakness evidence in top gigs (`weakness_flags_by_gig`, especially high-penalty flags).
-  - Improve availability of structured weakness inputs across top results.
-  - Enable/populate LLM weakness dimensions with non-null values.
+Spec references:
 
-## profitability.py Findings
+- `PM_Pack/ref/project_plan/06_analysis/GIG_QUALITY_RUBRIC.md`
+- `PM_Pack/ref/project_plan/05_scoring/GIG_QUALITY_WEAKNESS_SCORE.md`
 
-- Primary query path: top-10 run-scoped `SearchResult` joined to `Gig` (with keyword-level fallback), using `Gig.starting_price` and `Gig.metadata_json`.
-- Required fields/signals:
-  - `avg_starting_price_top10`
-  - `avg_premium_package_price_top10` from `premium_price` / `premium_package_price`
-  - `typical_delivery_days` from `delivery_time_days` / `typical_delivery_days`
-  - extras coverage via `gig_extras` / `extras` and extras pricing (`avg_extras_price` / `extras_price`)
-  - optional `llm_upsell_potential_assessment` (currently stubbed, confidence deduction applies)
-- Why low outcomes can persist despite visible prices:
-  - Universe normalization can compress scores when prices are near lower bounds.
-  - Missing premium/extras/delivery metadata weakens weighted_sum coverage.
-  - LLM upsell component is absent by default (stub returns `None`) and applies a confidence penalty.
-- To push above `50`:
-  - Raise premium package and extras pricing coverage in metadata for top gigs.
-  - Ensure delivery-time signals and extras presence are consistently populated.
-  - Add non-null upsell potential input (or implement LLM path) to unlock remaining weight.
+Confirmed guidance:
 
-## Scoring Profile Analysis
+- Stage 11 populates per-gig quality rubric outputs with 15 criteria and `overall_weakness_score` (0-10, inverted weakness meaning)
+- LLM-driven criteria include description specificity, benefit language, proof elements, package differentiation, FAQ completeness, niche specificity (gpt-4o)
+- LLM-mini criteria include keyword targeting, title clarity, CTA strength, thumbnail class, pricing clarity, exclusions clarity (gpt-4o-mini)
+- Rule-based criteria include video presence, portfolio presence, and delivery competitiveness
+- `weakness_list` captures high/medium severity exploitability findings
+- Keyword-level weakness uses:
+  - average `overall_weakness_score` scaled to 0-100 (`70%` weight)
+  - red-flag boost (`20%` weight)
+  - exploitable distribution (`10%` weight)
 
-- Active profile: `aggressive_new_seller`
-- Available profiles:
-  - `default`
-  - `aggressive_new_seller`
-  - `profitability_focus`
-  - `trend_chaser`
-- Weight distributions recorded from `config.yaml` and validated via `ConfigLoader`.
-- Key check: `profitability_focus` does assign higher profitability weight (`0.25`) versus `default` (`0.10`) and `aggressive_new_seller` (`0.05`).
+## Weakness Scorer Verification
+
+- `src/scoring/weakness.py` source inspection confirms GigQuality lookup logic includes:
+  - Stage 11 path via `GigQualityAnalysis` query path(s)
+  - Legacy fallback via `GigQualityScore`
+- This aligns with Cycle 046 objective: populate Stage 11 records so LLM weakness dimensions stop returning null paths.
