@@ -271,3 +271,184 @@ def test_confidence_as_bool_parametrized(raw_value: Any, default_value: bool, ex
     calculator = ConfidenceScoreModifier()
     actual = calculator._as_bool(raw_value, default_value)  # pylint: disable=protected-access
     assert actual is expected
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "expected"),
+    [
+        (-10.0, 0.0),
+        (-5.0, 0.0),
+        (-1.0, 0.0),
+        (-0.5, 0.0),
+        (-0.0001, 0.0),
+        (0.0, 0.0),
+        (0.0001, 0.0001),
+        (0.01, 0.01),
+        (0.1, 0.1),
+        (0.2, 0.2),
+        (0.25, 0.25),
+        (0.3333, 0.3333),
+        (0.5, 0.5),
+        (0.6667, 0.6667),
+        (0.75, 0.75),
+        (0.9, 0.9),
+        (0.99, 0.99),
+        (0.9999, 0.9999),
+        (1.0, 1.0),
+        (1.0001, 1.0),
+        (1.1, 1.0),
+        (2.0, 1.0),
+        (5.0, 1.0),
+        (10.0, 1.0),
+    ],
+)
+def test_confidence_clamp_0_1_parametrized(raw_value: float, expected: float) -> None:
+    calculator = ConfidenceScoreModifier()
+    actual = calculator._clamp_0_1(raw_value)  # pylint: disable=protected-access
+    assert actual == expected
+
+
+@pytest.mark.parametrize(
+    ("incomplete_count", "expected_penalty"),
+    [
+        (-5.0, 0.0),
+        (-1.0, 0.0),
+        (-0.5, 0.0),
+        (0.0, 0.0),
+        (0.01, -0.0008),
+        (0.25, -0.02),
+        (0.5, -0.04),
+        (1.0, -0.08),
+        (1.5, -0.12),
+        (2.0, -0.16),
+        (2.5, -0.2),
+        (3.0, -0.2),
+        (5.0, -0.2),
+        (10.0, -0.2),
+        (100.0, -0.2),
+        (1000.0, -0.2),
+    ],
+)
+def test_confidence_llm_gig_quality_penalty_cap(
+    incomplete_count: float,
+    expected_penalty: float,
+) -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": incomplete_count,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=1, run_context=context, db=None)
+
+    if expected_penalty == 0.0:
+        assert "llm_gig_quality_incomplete" not in breakdown
+    else:
+        assert breakdown["llm_gig_quality_incomplete"] == pytest.approx(expected_penalty, abs=1e-4)
+    assert modifier == pytest.approx(1.0 + expected_penalty, abs=1e-4)
+
+
+@pytest.mark.parametrize(
+    ("age_hours", "ttl_hours", "expect_stale_penalty"),
+    [
+        (0.0, 168.0, False),
+        (10.0, 168.0, False),
+        (100.0, 168.0, False),
+        (335.9999, 168.0, False),
+        (336.0, 168.0, False),
+        (336.0001, 168.0, True),
+        (500.0, 168.0, True),
+        (1000.0, 168.0, True),
+        (1.0, 0.0, False),
+        (999.0, 0.0, False),
+        (999.0, -1.0, False),
+        (-1.0, 168.0, False),
+        (48.0, 24.0, False),
+        (48.0001, 24.0, True),
+        (2.0, 1.0, False),
+        (2.0001, 1.0, True),
+    ],
+)
+def test_confidence_stale_data_threshold_logic(
+    age_hours: float,
+    ttl_hours: float,
+    expect_stale_penalty: bool,
+) -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "data_age_hours": age_hours,
+        "data_ttl_hours": ttl_hours,
+        "mode": "standard",
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=2, run_context=context, db=None)
+
+    if expect_stale_penalty:
+        assert breakdown["data_stale_over_2x_ttl"] == -0.15
+        assert modifier == pytest.approx(0.85, abs=1e-4)
+    else:
+        assert "data_stale_over_2x_ttl" not in breakdown
+        assert modifier == pytest.approx(1.0, abs=1e-4)
+
+
+@pytest.mark.parametrize(
+    ("mode_value", "expect_mode_penalty"),
+    [
+        ("standard", False),
+        ("STANDARD", False),
+        (" standard ", False),
+        ("keyword_only", True),
+        ("KEYWORD_ONLY", True),
+        (" keyword_only ", True),
+        ("feasibility", True),
+        ("FEASIBILITY", True),
+        (" feasibility ", True),
+        ("full", False),
+        ("production", False),
+        ("keyword only", False),
+        ("", False),
+        ("   ", False),
+        (None, False),
+        ("research", False),
+    ],
+)
+def test_confidence_partial_depth_mode_penalty(mode_value: str | None, expect_mode_penalty: bool) -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": mode_value,
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=3, run_context=context, db=None)
+
+    if expect_mode_penalty:
+        assert breakdown["partial_depth_mode"] == -0.25
+        assert modifier == pytest.approx(0.75, abs=1e-4)
+    else:
+        assert "partial_depth_mode" not in breakdown
+        assert modifier == pytest.approx(1.0, abs=1e-4)

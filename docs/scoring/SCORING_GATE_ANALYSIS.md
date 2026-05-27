@@ -965,3 +965,146 @@ Database: `sqlite:///data/cycle037_live.db`
 - Since `CM=0.95` and score moved by `+5.48` vs 38.74 baseline, Agent C did **not** apply another confidence-module code patch.
 - Remaining blocker is gate eligibility/composite lift, not confidence suppression.
 - Cycle verdict remains pre-milestone with recommendation generation blocked.
+
+## Cycle 044 Agent B — Data Enrichment Run
+
+Date: 2026-05-27  
+Branch: `cycle/044/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### TRC enrichment (Stage 3 supplemental backfill)
+
+- Agent A baseline:
+  - `SearchResult total=103 with_trc=31 null_trc=72`
+- Ranked-null TRC audit before pass:
+  - `55` keyword IDs had at least one ranked row with `total_result_count=None`
+- Execution:
+  - Live ScrapFly search fetch per keyword
+  - Extraction method: regex on `numberOfResults` payload in fetched Fiverr HTML/JSON
+  - Updates persisted per-keyword (commit after each keyword)
+- Result:
+  - initial sweep: `targets=55`, `updated_keywords=54`, `untouched_keywords=1`, `failures=0`
+  - completion sweep: remaining ranked-null keyword (`kw=103`) backfilled
+  - Post-run SR TRC state: `total=103 with_trc=87 null_trc=16` (ranked-null keywords: `0`)
+
+### Stage 4/5 enrichment (gig-detail and seller profile depth)
+
+- Ranked gig-link gap before enrichment:
+  - `Ranked=72`, `ranked_with_gig=48`, `missing_gig_link=24`
+- Stage 4 targeted run (ranked rows with missing `gig_id`):
+  - Rows targeted: `21`
+  - Rows linked: `21`
+  - Post-linkage ranked state: `ranked_with_gig=73/73`, `missing_gig_link=0`
+- Seller profile baseline:
+  - `Sellers total=195 with_level=195`
+- Stage 5 targeted seller-profile pass:
+  - New seller usernames collected: `35`
+  - Post-run sellers: `total=230 with_level=230`
+  - Additional `gig.seller_id` linkage pass updated `321` gig rows
+
+### Confidence context (kw=96) before/after
+
+- Agent A baseline (`calculate_with_breakdown`):
+  - `CM=0.125`
+  - deductions: `missing_gig_detail=-0.20`, `missing_seller_profiles=-0.10`, `missing_reddit_signals=-0.05`
+- Post Stage 4/5 + kw96 rank/TRC backfill:
+  - `CM=0.775`
+  - deductions now: `missing_reddit_signals=-0.05` only
+  - `missing_gig_detail` and `missing_seller_profiles` deductions removed
+
+### Cycle 044 scoring and recommendation outcome
+
+- Full scoring rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - `Scoring complete: 129 keywords scored`
+- Tag distribution snapshot in DB:
+  - `PASS=2086`, `CAUTION=197`, `MONITOR=5`, `GO=0`, `CONDITIONAL_GO=0`
+- Best row remains:
+  - `kw=96 final=44.22 raw~46.53 CM~0.950`
+- Recommendation check:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+
+### Cycle 044 score progression
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `44.22` |
+
+## Agent C Independent Verification — Cycle 044
+
+Date: 2026-05-27  
+Branch: `cycle/044/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Required Agent B extraction (a-h)
+
+- (a) TRC enrichment: `null_trc 72 -> 16` (`with_trc 31 -> 87`)
+- (b) Seller profiles Stage 5: `total 195 -> 230`
+- (c) kw=96 confidence context after enrichment:
+  - Agent A baseline: `CM=0.125`
+  - Agent B post-enrichment recompute: `CM=0.775`
+  - active deductions after enrichment: `missing_reddit_signals=-0.05` only
+- (d) Agent B score distribution after rerun:
+  - `PASS=2086`, `CAUTION=197`, `MONITOR=5`, `GO=0`, `CONDITIONAL_GO=0`
+- (e) Best final score vs `44.22` baseline: unchanged at `44.22`
+- (f) Recommendation outcome from Agent B: `generated=0`
+- (g) `SCORING_GATE_ANALYSIS.md` updated by Agent B: `YES`
+- (h) Agent B final SHA from report intake:
+  - `581a4aaf21289b94048f172096beedceeefa6407` (merge)
+  - `27ddf7634f728beb1f2fcebec2194d6bb41cb644` (setup baseline chain)
+
+### Independent verification (Agent C)
+
+- TRC verification rerun:
+  - `SearchResult: total=103 with_trc=87 null_trc=16`
+  - kw96 TRC check: `rows=1`, `null_trc=0`, `ranked_null_trc=0`
+- Confidence breakdown verification for kw=96:
+  - `CM=0.775`
+  - `base_modifier=0.825`
+  - deductions: `missing_reddit_signals=-0.05` only
+  - seller-profile deduction (`-0.10`) is removed
+- Independent tag distribution snapshot (all score rows in table):
+  - after Agent C rerun: `PASS=2152`, `CAUTION=259`, `MONITOR=6`, `GO=0`, `CONDITIONAL_GO=0`
+
+### Why score barely moved after enrichment
+
+- Historical-high rows are still present in `keyword_scores`.
+- Common best-row inspection uses `order_by(final_score.desc())`, which continues to surface historical `44.22` rows.
+- Latest-per-keyword inspection (by max `scored_at`) shows current top candidate:
+  - `kw=96 final=42.04, CM=0.95, demand contribution=5.72`
+- Net effect: enrichment improved confidence context inputs, but recommendation eligibility remains blocked and no `CONDITIONAL_GO` was produced.
+
+### Cycle 044 Agent C scoring + recommendations
+
+- Full scoring rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - output: `Scoring complete: 129 keywords scored`
+- Recommendations rerun:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+- Demand eligibility check (`demand_score > 20`) on top rows:
+  - latest kw96 row includes `demand_score.value=38.16`
+  - gate remains blocked by overall composite/final threshold, not only demand value
+
+### Score progression C039 -> C044
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `44.22` |
+
+### Agent C adaptive-path conclusion
+
+- Remaining confidence deduction is reddit-signal coverage (`-0.05`).
+- TRC and seller-profile enrichment are independently verified and no longer primary blockers for kw96.
+- Recommendation stage remains non-productive this cycle (`generated=0`), so milestone path remains closed.
