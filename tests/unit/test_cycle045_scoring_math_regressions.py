@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 
 import pytest
 from src.scoring.profitability import ProfitabilityScoreCalculator
-from src.scoring.weakness import compute_weakness_penalty_from_flags
+from src.scoring.weakness import (
+    GigQualityWeaknessScoreCalculator,
+    compute_weakness_penalty_from_flags,
+)
 
 # pylint: disable=protected-access
 
@@ -128,3 +132,52 @@ _WEAKNESS_FLAG_CASES: list[tuple[list[str], float]] = [
 def test_weakness_flag_penalty_regression(flags: list[str], expected_penalty: float) -> None:
     """Ensure flag aliasing and additive penalty math remain stable."""
     assert compute_weakness_penalty_from_flags(flags) == expected_penalty
+
+
+def test_profitability_extract_top_card_urls_orders_dedupes_and_limits() -> None:
+    top_results = [
+        SimpleNamespace(
+            gig_cards=[
+                {"gig_url": " https://fiverr.test/gig-z ", "position": "7"},
+                {"gig_url": "https://fiverr.test/gig-a", "position": 1},
+                {"gig_url": "https://fiverr.test/gig-a", "position": 2},
+                {"gig_url": "https://fiverr.test/gig-c", "position": " 3 "},
+                {"gig_url": "https://fiverr.test/gig-x", "position": None},
+                {"gig_url": "   ", "position": 4},
+                {"gig_url": None, "position": 5},
+                {"position": 6},
+                "bad-card",
+            ]
+        )
+    ]
+
+    urls = ProfitabilityScoreCalculator._extract_top_card_urls(top_results, limit=3)
+
+    assert urls == [
+        "https://fiverr.test/gig-a",
+        "https://fiverr.test/gig-c",
+        "https://fiverr.test/gig-z",
+    ]
+
+
+def test_weakness_extract_top_card_urls_handles_mixed_cards() -> None:
+    top_results = [
+        SimpleNamespace(
+            gig_cards=[
+                {"gig_url": "https://fiverr.test/w2", "position": 2},
+                {"gig_url": "https://fiverr.test/w1", "position": "1"},
+                {"gig_url": "https://fiverr.test/w3", "position": "not-a-number"},
+                {"gig_url": "https://fiverr.test/w2", "position": 9},
+                {"gig_url": "", "position": 5},
+            ]
+        ),
+        SimpleNamespace(gig_cards=None),
+    ]
+
+    urls = GigQualityWeaknessScoreCalculator._extract_top_card_urls(top_results, limit=10)
+
+    assert urls == [
+        "https://fiverr.test/w1",
+        "https://fiverr.test/w2",
+        "https://fiverr.test/w3",
+    ]
