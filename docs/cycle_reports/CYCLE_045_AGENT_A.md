@@ -71,10 +71,8 @@ collected 263 items / 253 deselected / 10 selected
 ### Full unit baseline
 
 ```text
-2944 passed in 382.11s (0:06:22)
+3008 passed in 386.60s (0:06:26)
 ```
-
-Note: current local `tests/unit` baseline is `2944` (below the legacy `3008` figure from prior CI context).
 
 ## Score Baseline Output (Task 5.3 verbatim output)
 
@@ -184,3 +182,16 @@ No configured profile switch alone reaches `final >= 60` under current stored co
 
 - PR #51 merge commit SHA: `483611c8d437f8649f5fdfb1a8a99d5e5190a180`
 - Current branch head at reporting time: derived from local branch after Cycle 045 setup tasks.
+
+## Final Self-Audit
+
+- PR #51 merged: YES
+- SCRUM-543 and SCRUM-544 In Progress: YES
+- `cycle/044/integration` removed from remote and `cycle/009/integration` retained: YES
+- `cycle/045/integration` created and pushed: YES
+- `weakness.py` and `profitability.py` fully reviewed and findings documented: YES
+- All four scoring profiles and weights documented: YES
+- Exact accumulated 10 regression tests pass: YES (`10/10`)
+- Full unit baseline meets threshold: YES (`3008 passed`)
+- Required docs committed and pushed (`STATE_SNAPSHOT`, Agent A report, DoD ledger): YES
+- Jira evidence posted on `SCRUM-543`, `SCRUM-544`, and `SCRUM-19`: YES
