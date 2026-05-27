@@ -1,72 +1,54 @@
-# State Snapshot — Cycle 043
+# State Snapshot — Cycle 044
 
 Updated: 2026-05-26 | Agent A setup complete
 
 ## Verified Repository State
 
 - Canonical working directory: `C:\Fiverr\Fiverr`
-- Active branch: `cycle/043/integration`
-- Tests (latest mandatory full run): `2861` | Coverage: `95.19%`
-- Current branch unit baseline: `2870 passed`
-- PR #48: MERGED | PR #49: MERGED (`8286a687c0721d0107ebeaa4fcc1a258a6b35fa1`)
+- Active branch: `cycle/044/integration`
+- Tests: `2936` | Coverage: `95.61%` | PR #49 and PR #50: MERGED
+- Current local `tests/unit` baseline: `2872 passed`
 - Config safety: `collection.scrapfly.enabled=false` (verified)
 - Worktrees: `1` entry only
 
-## Verified Score Breakdown (kw=97)
+## Score Baseline
 
 Source: `sqlite:///data/cycle037_live.db` best `keyword_scores` row.
 
-- `demand_score`: value `13.1`, contribution `1.96`
-- `competition_score`: value `46.44`, contribution `5.36`
-- `opportunity_score`: value `29.28`, contribution `5.86`
-- `feasibility_score`: value `100.0`, contribution `25.0`
-- `profitability_score`: value `17.59`, contribution `0.88`
-- `intent_score`: value `54.29`, contribution `2.71`
-- `weakness_score`: value `49.4`, contribution `9.88`
-- Weighted composite: `51.65`
-- Stored confidence modifier: `0.75`
-- Final score: `38.74` (`CAUTION`)
+- Best keyword: `kw=96`
+- Final score: `44.22`
+- Raw composite: `46.53`
+- Derived confidence modifier from stored score row: `0.95`
+- Gap to `CONDITIONAL_GO (60)`: `15.78`
+- Tags: `PASS=1954`, `CAUTION=73`, `MONITOR=3`
 
-## Confidence Module Findings (`src/scoring/confidence.py`)
+## TRC Baseline (Task 5.3)
 
-- Primary class: `ConfidenceScoreModifier`
-- Public methods: `calculate()`, `calculate_with_breakdown()`
-- Confidence output is clamped to `[0.0, 1.0]`
-- Pipeline enforces final multiplier floor with `max(confidence_modifier, 0.20)`
+- `SearchResult: total=103 with_trc=31 null_trc=72`
+- Sample rows with TRC:
+  - `kw=1 rank=None trc=21426`
+  - `kw=1 rank=None trc=21426`
+  - `kw=3 rank=None trc=473`
+  - `kw=4 rank=None trc=208`
+  - `kw=6 rank=None trc=55`
 
-Formula:
+## Seller Profile Baseline (Task 5.4)
 
-- `base_modifier = ((completeness * 0.50) + (freshness * 0.30) + (diversity * 0.20)) * llm_completion`
-- Then subtract deductions:
-  - missing Google Trends: `-0.15`
-  - missing gig detail: `-0.20`
-  - missing seller profiles: `-0.10`
-  - missing Reddit signals: `-0.05`
-  - incomplete gig quality: up to `-0.20` (`-0.08` per incomplete item)
-  - competitor synthesis failed: `-0.10`
-  - stale data older than `2x TTL`: `-0.15`
-  - partial depth mode (`keyword_only` or `feasibility`): `-0.25`
+- `Sellers: total=195 with_level=195`
 
-DB tables touched by `_load_signals_from_db()`:
+## kw=96 Confidence Context (Task 5.5)
 
-- `keywords`
-- `search_results`
-- `gigs`
-- `sellers`
-- `external_signals`
-- `gig_visual_analysis` (if present)
-- `niche_config_records` (if present)
+Direct `ConfidenceScoreModifier.calculate_with_breakdown(keyword_id=96, run_context=None)` output:
 
-## CM Diagnostic for kw=97
-
-- Stored score-row evidence shows prior scorer context produced `confidence_modifier=0.75`
-- Prompt-compatible verification (`compute_confidence_score` with `DATABASE_URL=sqlite:///data/cycle037_live.db`) returns `0.75`
-- Stored breakdown on best row:
-  - `base_modifier=1.0`
-  - deductions: `missing_reddit_signals=-0.05`, `llm_gig_quality_incomplete=-0.20`
-  - `remaining_modifier=0.75`
-- Direct recomputation today from live DB context returns `0.50` because:
-  - `seller_profiles_collected=False` (`-0.10`)
-  - `reddit_signals_available=False` (`-0.05`)
-  - completeness/diversity both `0.5`, reducing base to `0.65`
-- Target state for `CM=1.0`: completeness/freshness/diversity/LLM completion all `1.0` and no deduction triggers.
+- `kw96 CM=0.125`
+- `data_completeness_ratio: 0.25`
+- `data_freshness_score: 1.0`
+- `source_diversity_score: 0.25`
+- `llm_analysis_completion_ratio: 1.0`
+- `base_modifier: 0.475`
+- Active deductions:
+  - `missing_gig_detail: -0.2`
+  - `missing_seller_profiles: -0.1`
+  - `missing_reddit_signals: -0.05`
+- `deduction_total: -0.35`
+- `remaining_modifier: 0.125`
