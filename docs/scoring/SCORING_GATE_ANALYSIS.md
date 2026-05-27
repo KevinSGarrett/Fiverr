@@ -1035,3 +1035,76 @@ Database: `sqlite:///data/cycle037_live.db`
 | 042 | `38.74` |
 | 043 | `44.22` |
 | 044 | `44.22` |
+
+## Agent C Independent Verification — Cycle 044
+
+Date: 2026-05-27  
+Branch: `cycle/044/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Required Agent B extraction (a-h)
+
+- (a) TRC enrichment: `null_trc 72 -> 16` (`with_trc 31 -> 87`)
+- (b) Seller profiles Stage 5: `total 195 -> 230`
+- (c) kw=96 confidence context after enrichment:
+  - Agent A baseline: `CM=0.125`
+  - Agent B post-enrichment recompute: `CM=0.775`
+  - active deductions after enrichment: `missing_reddit_signals=-0.05` only
+- (d) Agent B score distribution after rerun:
+  - `PASS=2086`, `CAUTION=197`, `MONITOR=5`, `GO=0`, `CONDITIONAL_GO=0`
+- (e) Best final score vs `44.22` baseline: unchanged at `44.22`
+- (f) Recommendation outcome from Agent B: `generated=0`
+- (g) `SCORING_GATE_ANALYSIS.md` updated by Agent B: `YES`
+- (h) Agent B final SHA from report intake:
+  - `581a4aaf21289b94048f172096beedceeefa6407` (merge)
+  - `27ddf7634f728beb1f2fcebec2194d6bb41cb644` (setup baseline chain)
+
+### Independent verification (Agent C)
+
+- TRC verification rerun:
+  - `SearchResult: total=103 with_trc=87 null_trc=16`
+  - kw96 TRC check: `rows=1`, `null_trc=0`, `ranked_null_trc=0`
+- Confidence breakdown verification for kw=96:
+  - `CM=0.775`
+  - `base_modifier=0.825`
+  - deductions: `missing_reddit_signals=-0.05` only
+  - seller-profile deduction (`-0.10`) is removed
+- Independent tag distribution snapshot (all score rows in table):
+  - after Agent C rerun: `PASS=2152`, `CAUTION=259`, `MONITOR=6`, `GO=0`, `CONDITIONAL_GO=0`
+
+### Why score barely moved after enrichment
+
+- Historical-high rows are still present in `keyword_scores`.
+- Common best-row inspection uses `order_by(final_score.desc())`, which continues to surface historical `44.22` rows.
+- Latest-per-keyword inspection (by max `scored_at`) shows current top candidate:
+  - `kw=96 final=42.04, CM=0.95, demand contribution=5.72`
+- Net effect: enrichment improved confidence context inputs, but recommendation eligibility remains blocked and no `CONDITIONAL_GO` was produced.
+
+### Cycle 044 Agent C scoring + recommendations
+
+- Full scoring rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - output: `Scoring complete: 129 keywords scored`
+- Recommendations rerun:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+- Demand eligibility check (`demand_score > 20`) on top rows:
+  - latest kw96 row includes `demand_score.value=38.16`
+  - gate remains blocked by overall composite/final threshold, not only demand value
+
+### Score progression C039 -> C044
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `44.22` |
+
+### Agent C adaptive-path conclusion
+
+- Remaining confidence deduction is reddit-signal coverage (`-0.05`).
+- TRC and seller-profile enrichment are independently verified and no longer primary blockers for kw96.
+- Recommendation stage remains non-productive this cycle (`generated=0`), so milestone path remains closed.
