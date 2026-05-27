@@ -117,6 +117,6 @@ Data story: `SCRUM-542`
 5. Score progression C039->C044 documented: **YES**.
 6. `SCORING_GATE_ANALYSIS.md` updated with Cycle 044 section: **YES**.
 7. Recommendation outcome documented: **YES** (`generated=0`).
-8. Full unit regression / static checks: **PENDING final execution block in this cycle branch**.
+8. Full unit regression / static checks: **YES** (`364 passed` scoped, `2944 passed` full unit, Ruff + mypy pass).
 9. `CYCLE_044_AGENT_B.md` written: **YES**.
-10. Jira evidence posts + DoD ledger update: **PENDING final Jira + ledger step in this cycle branch**.
+10. Jira evidence posts + DoD ledger update: **YES** (comments posted on `SCRUM-542`, `SCRUM-17`, `SCRUM-19`, `SCRUM-541`; ledger updated).
