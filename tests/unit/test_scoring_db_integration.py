@@ -10,6 +10,7 @@ from src.models import (
     Base,
     ExternalSignal,
     Gig,
+    GigQualityAnalysis,
     GigVisualAnalysis,
     Keyword,
     Niche,
@@ -323,6 +324,92 @@ def _seed_keyword_data_with_latest_unlinked_run(session: Session) -> int:
     return keyword.id
 
 
+def _seed_keyword_data_with_unlinked_page_cards(session: Session) -> int:
+    niche = Niche(
+        slug="automation-unlinked-cards",
+        name="Automation Unlinked Cards",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation card fallback",
+        normalized_keyword="python automation card fallback",
+    )
+    session.add(keyword)
+    session.flush()
+
+    gig_urls = [
+        "https://www.fiverr.com/cards/one",
+        "https://www.fiverr.com/cards/two",
+    ]
+    starting_prices = [40.0, 80.0]
+    delivery_days = [2.0, 6.0]
+    premium_prices = [120.0, 200.0]
+
+    for idx, gig_url in enumerate(gig_urls, start=1):
+        seller = Seller(
+            seller_handle=f"card_seller_{idx}",
+            level="Level 1",
+            metadata_json={"is_pro": False},
+        )
+        session.add(seller)
+        session.flush()
+        session.add(
+            Gig(
+                gig_url=gig_url,
+                keyword_id=keyword.id,
+                run_id="cards-run",
+                seller_id=seller.id,
+                seller_username=seller.seller_handle,
+                title=f"Card fallback gig {idx}",
+                normalized_title=f"card fallback gig {idx}",
+                position=idx,
+                starting_price=starting_prices[idx - 1],
+                review_count=10 + idx,
+                metadata_json={
+                    "premium_price": premium_prices[idx - 1],
+                    "delivery_time_days": delivery_days[idx - 1],
+                    "extras": [{"name": "expedite"}] if idx == 1 else [],
+                    "has_video": idx == 2,
+                    "has_portfolio": True,
+                },
+            )
+        )
+        session.add(
+            GigQualityAnalysis(
+                gig_url=gig_url,
+                niche_id="automation-unlinked-cards",
+                run_id="cards-run",
+                rubric_score=60.0,
+                video_absent=idx == 1,
+                portfolio_absent=False,
+                description_thin=False,
+                faq_absent=idx == 1,
+                thumbnail_quality_flag=False,
+                weakness_flags=["video_absent", "faq_absent"] if idx == 1 else ["faq_absent"],
+            )
+        )
+
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            run_id="cards-run",
+            rank=1,
+            title="Card fallback row",
+            gig_id=None,
+            gig_cards=[
+                {"position": 1, "gig_url": gig_urls[0], "starting_price": 40.0},
+                {"position": 2, "gig_url": gig_urls[1], "starting_price": 80.0},
+            ],
+        )
+    )
+    session.commit()
+    return keyword.id
+
+
 def _seed_keyword_data_without_search_links_review_count_exact_only(session: Session) -> int:
     niche = Niche(slug="automation-fallback-exact", name="Automation Fallback Exact", category_path="Programming & Tech > AI")
     session.add(niche)
@@ -358,6 +445,74 @@ def _seed_keyword_data_without_search_links_review_count_exact_only(session: Ses
             )
         )
 
+    session.commit()
+    return keyword.id
+
+
+def _seed_keyword_data_with_card_querystring_urls(session: Session) -> int:
+    niche = Niche(
+        slug="automation-card-query",
+        name="Automation Card Query",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation card query urls",
+        normalized_keyword="python automation card query urls",
+    )
+    session.add(keyword)
+    session.flush()
+
+    seller_one = Seller(seller_handle="query_card_seller_1", level="Level 1", metadata_json={"is_pro": False})
+    seller_two = Seller(seller_handle="query_card_seller_2", level="Level 1", metadata_json={"is_pro": False})
+    session.add_all([seller_one, seller_two])
+    session.flush()
+
+    gig_one = Gig(
+        gig_url="https://www.fiverr.com/query/one",
+        keyword_id=keyword.id,
+        run_id="query-cards-run",
+        seller_id=seller_one.id,
+        seller_username=seller_one.seller_handle,
+        title="Query card gig one",
+        normalized_title="query card gig one",
+        position=1,
+        starting_price=50.0,
+        review_count=12,
+        metadata_json={"premium_price": 120.0, "delivery_time_days": 2.0, "has_video": True, "has_portfolio": True},
+    )
+    gig_two = Gig(
+        gig_url="https://www.fiverr.com/query/two",
+        keyword_id=keyword.id,
+        run_id="query-cards-run",
+        seller_id=seller_two.id,
+        seller_username=seller_two.seller_handle,
+        title="Query card gig two",
+        normalized_title="query card gig two",
+        position=2,
+        starting_price=100.0,
+        review_count=16,
+        metadata_json={"premium_price": 220.0, "delivery_time_days": 5.0, "has_video": False, "has_portfolio": True},
+    )
+    session.add_all([gig_one, gig_two])
+    session.flush()
+
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            run_id="query-cards-run",
+            rank=1,
+            title="Query card sparse row",
+            gig_id=gig_one.id,
+            gig_cards=[
+                {"position": 1, "gig_url": "https://www.fiverr.com/query/one?source=gig_cards"},
+                {"position": 2, "gig_url": "https://www.fiverr.com/query/two?source=gig_cards"},
+            ],
+        )
+    )
     session.commit()
     return keyword.id
 
@@ -503,6 +658,38 @@ def test_scoring_fallback_queries_recover_when_latest_run_unlinked() -> None:
     assert profitability_result.score_value is not None
     assert weakness_result.score_value is not None
     session.close()
+
+
+def test_scoring_uses_search_result_gig_cards_when_links_sparse() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_with_unlinked_page_cards(session)
+
+    profitability_signals = ProfitabilityScoreCalculator()._load_signals_from_db(keyword_id, session)
+    weakness_signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+
+    assert profitability_signals["avg_starting_price_top10"] == 60.0
+    assert profitability_signals["avg_premium_package_price_top10"] == 160.0
+    assert profitability_signals["typical_delivery_days"] == 4.0
+    assert weakness_signals["top10_has_video"] == [False, True]
+    assert weakness_signals["top10_has_portfolio"] == [True, True]
+    assert weakness_signals["weakness_flag_penalty"] == 32.5
+    session.close()
+
+
+def test_scoring_uses_card_urls_with_querystrings_for_sparse_links() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_with_card_querystring_urls(session)
+    try:
+        profitability_signals = ProfitabilityScoreCalculator()._load_signals_from_db(keyword_id, session)
+        weakness_signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+
+        assert profitability_signals["avg_starting_price_top10"] == 75.0
+        assert profitability_signals["avg_premium_package_price_top10"] == 170.0
+        assert profitability_signals["typical_delivery_days"] == 3.5
+        assert weakness_signals["top10_has_video"] == [True, False]
+        assert weakness_signals["top10_has_portfolio"] == [True, True]
+    finally:
+        session.close()
 
 
 def test_confidence_modifier_sqlalchemy_context_returns_clamped_value() -> None:
@@ -658,7 +845,7 @@ def test_saturation_normalization_and_price_compression_helpers() -> None:
 
 
 def test_saturation_score_inverted_correctly_in_composite() -> None:
-    common_scores = {
+    common_scores: dict[str, float | None] = {
         "demand_score": 70.0,
         "competition_score": 40.0,
         "opportunity_score": 65.0,

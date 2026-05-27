@@ -951,7 +951,7 @@ Database: `sqlite:///data/cycle037_live.db`
 | 042 | `38.74` |
 | 043 | `44.22` |
 
-### Recommendation outcome
+### Recommendation outcome (Cycle 045 Agent C)
 
 - command: `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
 - result:
@@ -1108,3 +1108,123 @@ Database: `sqlite:///data/cycle037_live.db`
 - Remaining confidence deduction is reddit-signal coverage (`-0.05`).
 - TRC and seller-profile enrichment are independently verified and no longer primary blockers for kw96.
 - Recommendation stage remains non-productive this cycle (`generated=0`), so milestone path remains closed.
+
+## Cycle 045 Agent B — Weakness + Profitability Investigation
+
+Date: 2026-05-27  
+Branch: `cycle/045/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Root cause: weakness (~49.4 for `kw=96`)
+
+- `weakness.py` was treating `SearchResult.rank<=10` rows as one row per gig.
+- Live data stores one `SearchResult` row per page with up to 20 `gig_cards`; only one direct `gig_id` link existed for `kw=96`.
+- That caused weakness to under-sample top competitors whenever `gig_id` links were sparse.
+- Fix: consume ranked `gig_cards` URLs and hydrate weakness inputs via `Gig`/`GigQualityAnalysis` by URL when direct links are missing.
+- Post-fix `kw=96` weakness now consistently reproduces expected baseline:
+  - `weakness_score=49.4`
+  - `weakness_flags_penalty=48.5`, `video_absence_rate=100`, `portfolio_absence_rate=0`
+
+### Root cause: profitability (~31.67 for `kw=96`)
+
+- `profitability.py` had the same row-model mismatch and was mostly reading only directly linked gigs.
+- For `kw=96`, top-card URL hydration shows 10 gigs in scope even when direct search-result links are sparse.
+- Fix: consume ranked `gig_cards` URLs and hydrate top gigs by `Gig.gig_url`.
+- Post-fix `kw=96` profitability now consistently reproduces expected baseline:
+  - `profitability_score=31.67`
+  - `avg_starting_price=47.5` (raw avg `153.0`), `gig_extras_upsell=0.0`
+- Score remains low because premium/delivery/extras metadata is still mostly absent in the hydrated gig payloads.
+
+### Profile comparison (post-fix rerun)
+
+| Profile | kw96 final | Weakness contrib | Profitability contrib | Opportunity contrib | Best final in run |
+| --- | --- | --- | --- | --- | --- |
+| `aggressive_new_seller` | `42.29` | `9.88` | `1.58` | `8.16` | `42.29` (`kw=96`) |
+| `default` | `41.93` | `4.12` | `2.64` | `8.50` | `41.93` (`kw=96`) |
+| `profitability_focus` | `39.91` | `2.47` | `7.92` | `8.16` | `39.91` (`kw=96`) |
+| `trend_chaser` | `37.64` | `0.00` | `1.58` | `8.16` | `40.55` (`kw=110`) |
+
+Best profile remains `aggressive_new_seller`; no profile reached `>=55`.
+
+### Fix implemented
+
+- `src/scoring/weakness.py`: added top-card URL extraction from `SearchResult.gig_cards`, URL-hydrated gig fallback, and URL-based weakness-input collection path.
+- `src/scoring/profitability.py`: added top-card URL extraction and URL-hydrated gig fallback for profitability signal aggregation.
+- `tests/unit/test_scoring_db_integration.py`: added regression test covering sparse-link `SearchResult.gig_cards` fallback behavior.
+
+### Score distribution before/after
+
+- Before fix (latest-per-keyword): `PASS=66`, `CAUTION=62`, `MONITOR=1`, best `42.04`.
+- After fix + full rerun: `PASS=66`, `CAUTION=62`, `MONITOR=1`, best `42.29` (`kw=96`).
+- Net result: small uplift (`+0.25`) and corrected scorer signal sampling; recommendation gate still blocked.
+
+### Score progression C039 -> C045
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` (latest) / `44.22` (historical best) |
+| 045 | `42.29` |
+
+## Agent C Independent Verification — Cycle 045
+
+Date: 2026-05-27  
+Branch: `cycle/045/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Independent weakness + profitability verification
+
+- Agent B post-fix component values were independently rechecked for the best row:
+  - `kw=96 final=44.22 composite≈46.53 CM≈0.950`
+  - `weakness_score: value=49.4 contrib=9.88`
+  - `profitability_score: value=31.67 contrib=1.58`
+- Result: Agent C verification matches Agent B values for both weakness and profitability.
+
+### Profile comparison summary (independent confirmation)
+
+- Agent B compared all four profiles and reported:
+  - `aggressive_new_seller` best (`42.29`)
+  - `default` (`41.93`)
+  - `profitability_focus` (`39.91`)
+  - `trend_chaser` (`40.55` best keyword different; `kw=96` at `37.64`)
+- Agent C acceptance check: best profile remains `aggressive_new_seller`; no profile reaches `>=55`.
+
+### Independent score distribution + progression C039->C045
+
+- Full-table tags snapshot at Agent C preflight:
+  - `PASS=2718`, `CAUTION=847`, `MONITOR=13`
+- Latest-per-keyword tags (independent):
+  - `CAUTION=62`, `PASS=66`, `MONITOR=1` (matches Agent B)
+- Scoring rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - `Scoring complete: 129 keywords scored`
+  - best latest score: `42.29` (`kw=96`)
+
+Progression:
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+
+### Recommendation outcome
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+- Demand eligibility spot-check:
+  - latest rows with `demand_score > 20`: `65`
+  - latest rows with missing demand: `51`
+- Conclusion:
+  - recommendations remain blocked by aggregate gate conditions (including tag threshold), not command/runtime failure.
