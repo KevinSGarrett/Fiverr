@@ -161,3 +161,4 @@ Ruff:
 - Jira evidence updates posted: **YES** (`SCRUM-540`/`SCRUM-19`/`SCRUM-539`)
 - File-scoped and full unit suites completed: **YES** (`378` + `2872` passing)
 - Ruff status: **PASS for Agent C scope**; one pre-existing non-Agent-C repository issue remains in `src/models/database.py`
+- `config.yaml` safety check: **YES** (`collection.scrapfly.enabled: false` at rest)
