@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from src.scoring.profitability import ProfitabilityScoreCalculator
 from src.scoring.weakness import compute_weakness_penalty_from_flags
 
