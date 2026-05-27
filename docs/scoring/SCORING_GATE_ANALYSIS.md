@@ -731,7 +731,7 @@ Component-level effect observed for live keyword traces:
   - `GigQualityAnalysis` rows in keyword niche: `0`
 - Cycle gate remains blocked because overall final scores are still far below `60`.
 
-### Recommendation outcome
+### Recommendation outcome (Agent C)
 
 - Since best score remains `<55`, recommendation generation was not rerun in this cycle step.
 - Remaining gap is still dominated by low demand/profitability strength and confidence suppression.
@@ -916,3 +916,52 @@ Isolation rerun output:
 - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
 - Result: `eligible=0`, `gates_passed=0`, `generated=0`
 - Remaining gap to `CONDITIONAL_GO` (`60`): `15.78`
+
+## Agent C Independent Verification — Cycle 043
+
+Date: 2026-05-26  
+Branch: `cycle/043/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Independent CM verification
+
+- Agent B claim (post-fix best row): `CM=0.95`, `composite=46.53`, `final=44.22`
+- Agent C recompute command result:
+  - `Best: kw=96 final=44.22 raw=46.53 CM=0.950`
+- Discrepancy check:
+  - No discrepancy against Agent B's claimed post-fix winner metrics.
+  - Confidence is no longer the dominant blocker (`CM >= 0.85` satisfied).
+
+### Independent score-tag verification
+
+- Pre-rerun snapshot observed by Agent C:
+  - `PASS=1843`, `CAUTION=56`, `MONITOR=2`, `GO=0`, `CONDITIONAL_GO=0`
+- After Agent C mandated full rerun:
+  - command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - tags observed in DB: `PASS=1954`, `CAUTION=73`, `MONITOR=3`, `GO=0`, `CONDITIONAL_GO=0`
+  - top score remains `44.22` (`keyword_id=96`)
+
+### Score progression C039 -> C043
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+
+### Recommendation outcome
+
+- command: `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+- No exports produced; milestone path not triggered.
+
+### Adaptive-path conclusion
+
+- Since `CM=0.95` and score moved by `+5.48` vs 38.74 baseline, Agent C did **not** apply another confidence-module code patch.
+- Remaining blocker is gate eligibility/composite lift, not confidence suppression.
+- Cycle verdict remains pre-milestone with recommendation generation blocked.
