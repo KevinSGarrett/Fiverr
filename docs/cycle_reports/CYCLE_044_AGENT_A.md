@@ -97,6 +97,12 @@ Remote cycle branches now:
 2872 passed in 380.27s (0:06:20)
 ```
 
+### Full tests baseline (reference)
+
+```text
+2936 passed in 394.61s (0:06:34)
+```
+
 ### TRC baseline (Task 5.3)
 
 ```text
@@ -161,3 +167,18 @@ Raw composite~46.53 CM~0.950
 
 - PR merge SHA (Cycle 043 -> develop): `581a4aaf21289b94048f172096beedceeefa6407`
 - Agent A setup commit SHA: `27ddf7634f728beb1f2fcebec2194d6bb41cb644`
+
+## Final self-audit
+
+Completion-standard checks:
+
+1. PR #50 merged: **YES**
+2. Jira states (`SCRUM-539` Done, `SCRUM-541/542` In Progress): **YES**
+3. `cycle/043/integration` deleted from remote: **YES**
+4. `cycle/044/integration` created and pushed: **YES**
+5. TRC baseline documented: **YES** (`null_trc=72`)
+6. kw=96 confidence context documented with deductions: **YES**
+7. All 10 regression tests pass: **YES** (`10 passed`)
+8. Unit baseline `>=2936`: **NO** (`tests/unit` currently `2872`; full `tests/` is `2936`)
+9. `CYCLE_044_AGENT_A.md` written and committed: **YES**
+10. Jira evidence posted on `SCRUM-541`, `SCRUM-542`, `SCRUM-19`, `SCRUM-17`: **YES**
