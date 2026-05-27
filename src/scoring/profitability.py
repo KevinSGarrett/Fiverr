@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -244,6 +245,13 @@ class ProfitabilityScoreCalculator:
                 top_results = scoped_results
 
         top_card_urls = self._extract_top_card_urls(top_results, limit=10)
+        top_card_url_identities = {
+            identity
+            for identity in (
+                self._normalize_gig_url_identity(candidate_url) for candidate_url in top_card_urls
+            )
+            if identity is not None
+        }
         if top_card_urls:
             top_gigs_by_url_query = session.query(Gig).filter(Gig.gig_url.in_(top_card_urls))
             if active_run_id is not None:
@@ -256,6 +264,30 @@ class ProfitabilityScoreCalculator:
                 top_gigs.append(gig)
                 if gig.id is not None:
                     seen_ids.add(gig.id)
+            matched_identities = {
+                identity
+                for identity in (
+                    self._normalize_gig_url_identity(getattr(gig, "gig_url", None)) for gig in top_gigs
+                )
+                if identity is not None
+            }
+            missing_identities = top_card_url_identities - matched_identities
+            if missing_identities:
+                top_gigs_candidates_query = session.query(Gig).filter(
+                    Gig.keyword_id == keyword_id,
+                    Gig.gig_url.isnot(None),
+                )
+                if active_run_id is not None:
+                    top_gigs_candidates_query = top_gigs_candidates_query.filter(Gig.run_id == active_run_id)
+                for gig in top_gigs_candidates_query.all():
+                    gig_identity = self._normalize_gig_url_identity(getattr(gig, "gig_url", None))
+                    if gig_identity not in missing_identities:
+                        continue
+                    if gig.id in seen_ids:
+                        continue
+                    top_gigs.append(gig)
+                    if gig.id is not None:
+                        seen_ids.add(gig.id)
 
         if not top_gigs:
             fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
@@ -340,6 +372,20 @@ class ProfitabilityScoreCalculator:
             if len(deduped) >= limit:
                 break
         return deduped
+
+    @staticmethod
+    def _normalize_gig_url_identity(raw_url: Any) -> str | None:
+        if not isinstance(raw_url, str):
+            return None
+        stripped = raw_url.strip()
+        if not stripped:
+            return None
+        split = urlsplit(stripped)
+        normalized_path = unquote(split.path).strip().rstrip("/")
+        if normalized_path:
+            return normalized_path.lower()
+        base = stripped.split("?", 1)[0].split("#", 1)[0].strip().rstrip("/")
+        return base.lower() if base else None
 
     @staticmethod
     def _as_float(value: Any) -> float | None:

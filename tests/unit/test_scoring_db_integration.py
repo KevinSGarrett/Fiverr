@@ -449,6 +449,74 @@ def _seed_keyword_data_without_search_links_review_count_exact_only(session: Ses
     return keyword.id
 
 
+def _seed_keyword_data_with_card_querystring_urls(session: Session) -> int:
+    niche = Niche(
+        slug="automation-card-query",
+        name="Automation Card Query",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation card query urls",
+        normalized_keyword="python automation card query urls",
+    )
+    session.add(keyword)
+    session.flush()
+
+    seller_one = Seller(seller_handle="query_card_seller_1", level="Level 1", metadata_json={"is_pro": False})
+    seller_two = Seller(seller_handle="query_card_seller_2", level="Level 1", metadata_json={"is_pro": False})
+    session.add_all([seller_one, seller_two])
+    session.flush()
+
+    gig_one = Gig(
+        gig_url="https://www.fiverr.com/query/one",
+        keyword_id=keyword.id,
+        run_id="query-cards-run",
+        seller_id=seller_one.id,
+        seller_username=seller_one.seller_handle,
+        title="Query card gig one",
+        normalized_title="query card gig one",
+        position=1,
+        starting_price=50.0,
+        review_count=12,
+        metadata_json={"premium_price": 120.0, "delivery_time_days": 2.0, "has_video": True, "has_portfolio": True},
+    )
+    gig_two = Gig(
+        gig_url="https://www.fiverr.com/query/two",
+        keyword_id=keyword.id,
+        run_id="query-cards-run",
+        seller_id=seller_two.id,
+        seller_username=seller_two.seller_handle,
+        title="Query card gig two",
+        normalized_title="query card gig two",
+        position=2,
+        starting_price=100.0,
+        review_count=16,
+        metadata_json={"premium_price": 220.0, "delivery_time_days": 5.0, "has_video": False, "has_portfolio": True},
+    )
+    session.add_all([gig_one, gig_two])
+    session.flush()
+
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            run_id="query-cards-run",
+            rank=1,
+            title="Query card sparse row",
+            gig_id=gig_one.id,
+            gig_cards=[
+                {"position": 1, "gig_url": "https://www.fiverr.com/query/one?source=gig_cards"},
+                {"position": 2, "gig_url": "https://www.fiverr.com/query/two?source=gig_cards"},
+            ],
+        )
+    )
+    session.commit()
+    return keyword.id
+
+
 def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)
@@ -606,6 +674,22 @@ def test_scoring_uses_search_result_gig_cards_when_links_sparse() -> None:
     assert weakness_signals["top10_has_portfolio"] == [True, True]
     assert weakness_signals["weakness_flag_penalty"] == 32.5
     session.close()
+
+
+def test_scoring_uses_card_urls_with_querystrings_for_sparse_links() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_with_card_querystring_urls(session)
+    try:
+        profitability_signals = ProfitabilityScoreCalculator()._load_signals_from_db(keyword_id, session)
+        weakness_signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+
+        assert profitability_signals["avg_starting_price_top10"] == 75.0
+        assert profitability_signals["avg_premium_package_price_top10"] == 170.0
+        assert profitability_signals["typical_delivery_days"] == 3.5
+        assert weakness_signals["top10_has_video"] == [True, False]
+        assert weakness_signals["top10_has_portfolio"] == [True, True]
+    finally:
+        session.close()
 
 
 def test_confidence_modifier_sqlalchemy_context_returns_clamped_value() -> None:
