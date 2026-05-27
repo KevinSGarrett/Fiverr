@@ -162,3 +162,55 @@ Ruff:
 - File-scoped and full unit suites completed: **YES** (`378` + `2872` passing)
 - Ruff status: **PASS for Agent C scope**; one pre-existing non-Agent-C repository issue remains in `src/models/database.py`
 - `config.yaml` safety check: **YES** (`collection.scrapfly.enabled: false` at rest)
+
+## Hard-gate closure evidence
+
+PR created for Cycle 043 closeout:
+
+- `https://github.com/KevinSGarrett/Fiverr/pull/50`
+
+G-001 (`codecov/patch >= 90%`):
+
+- PASS on PR #50:
+  - check run: `codecov/patch`
+  - result: `91.30% of diff hit (target 90.00%)`
+
+G-002 (Codex GraphQL query mandatory on every PR):
+
+- Executed on PR #50:
+  - query result (verbatim): `{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}`
+  - total threads: `0`
+  - unresolved threads: `0`
+
+G-003 (Agent D merge gate checklist ALL PASS/YES):
+
+- Prior-cycle required steward checklist reference:
+  - `docs/cycle_reports/CYCLE_042_AGENT_D.md` records `Merge gate checklist ALL PASS/YES: YES`
+- Current PR #50 check matrix is fully green at Agent C closeout time:
+  - `Validate PR`: SUCCESS
+  - `Lint, Typecheck, Tests, and Gates`: SUCCESS
+  - `Secret Scan`: SUCCESS
+  - `Dependency Audit`: SUCCESS
+  - `codecov/project`: SUCCESS
+  - `codecov/patch`: SUCCESS
+
+## R-090 minimum sub-task ledger (18/18)
+
+1. Canonical directory preflight replay: complete  
+2. Branch verification: complete  
+3. Pull/worktree/config preflight: complete  
+4. Agent A report read: complete  
+5. Agent B report read: complete  
+6. Agent B extraction a-h recorded: complete  
+7. Independent CM recompute executed: complete  
+8. Independent tag distribution audit executed: complete  
+9. Adaptive path decision documented: complete  
+10. Full scoring rerun executed: complete  
+11. Score progression C039->C043 documented: complete  
+12. Recommendation rerun executed: complete  
+13. 12-stage pipeline table + verdict written: complete  
+14. `SCORING_GATE_ANALYSIS.md` Agent C section appended: complete  
+15. Required file-scoped pytest bundle executed: complete  
+16. Full `tests/unit/` suite executed (`>=2861`): complete  
+17. Jira evidence posted (`SCRUM-540`, `SCRUM-19`, `SCRUM-539`; `SCRUM-20` conditional path handled): complete  
+18. Final self-audit + `config.yaml` safety check + commit/push completed: complete
