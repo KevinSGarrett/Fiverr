@@ -965,3 +965,72 @@ Database: `sqlite:///data/cycle037_live.db`
 - Since `CM=0.95` and score moved by `+5.48` vs 38.74 baseline, Agent C did **not** apply another confidence-module code patch.
 - Remaining blocker is gate eligibility/composite lift, not confidence suppression.
 - Cycle verdict remains pre-milestone with recommendation generation blocked.
+
+## Cycle 044 Agent B — Data Enrichment Run
+
+Date: 2026-05-27  
+Branch: `cycle/044/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### TRC enrichment (Stage 3 supplemental backfill)
+
+- Agent A baseline:
+  - `SearchResult total=103 with_trc=31 null_trc=72`
+- Ranked-null TRC audit before pass:
+  - `55` keyword IDs had at least one ranked row with `total_result_count=None`
+- Execution:
+  - Live ScrapFly search fetch per keyword
+  - Extraction method: regex on `numberOfResults` payload in fetched Fiverr HTML/JSON
+  - Updates persisted per-keyword (commit after each keyword)
+- Result:
+  - `targets=55`, `updated_keywords=54`, `untouched_keywords=1`, `failures=0`
+  - Post-run SR TRC state: `total=103 with_trc=86 null_trc=17`
+
+### Stage 4/5 enrichment (gig-detail and seller profile depth)
+
+- Ranked gig-link gap before enrichment:
+  - `Ranked=72`, `ranked_with_gig=48`, `missing_gig_link=24`
+- Stage 4 targeted run (ranked rows with missing `gig_id`):
+  - Rows targeted: `21`
+  - Rows linked: `21`
+  - Post-linkage ranked state: `ranked_with_gig=73/73`, `missing_gig_link=0`
+- Seller profile baseline:
+  - `Sellers total=195 with_level=195`
+- Stage 5 targeted seller-profile pass:
+  - New seller usernames collected: `35`
+  - Post-run sellers: `total=230 with_level=230`
+  - Additional `gig.seller_id` linkage pass updated `321` gig rows
+
+### Confidence context (kw=96) before/after
+
+- Agent A baseline (`calculate_with_breakdown`):
+  - `CM=0.125`
+  - deductions: `missing_gig_detail=-0.20`, `missing_seller_profiles=-0.10`, `missing_reddit_signals=-0.05`
+- Post Stage 4/5 + kw96 rank/TRC backfill:
+  - `CM=0.775`
+  - deductions now: `missing_reddit_signals=-0.05` only
+  - `missing_gig_detail` and `missing_seller_profiles` deductions removed
+
+### Cycle 044 scoring and recommendation outcome
+
+- Full scoring rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - `Scoring complete: 129 keywords scored`
+- Tag distribution snapshot in DB:
+  - `PASS=2020`, `CAUTION=135`, `MONITOR=4`, `GO=0`, `CONDITIONAL_GO=0`
+- Best row remains:
+  - `kw=96 final=44.22 raw~46.53 CM~0.950`
+- Recommendation check:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+
+### Cycle 044 score progression
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `44.22` |
