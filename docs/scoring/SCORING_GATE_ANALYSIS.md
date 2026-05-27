@@ -887,7 +887,19 @@ Isolation rerun output:
   - best final `44.22` (`MONITOR`)
   - composite `46.53`
   - CM `0.95`
-  - tags: `PASS=1732`, `CAUTION=39`, `MONITOR=1`, `GO=0`, `CONDITIONAL_GO=0`
+  - tags: `PASS=1756`, `CAUTION=52`, `MONITOR=1`, `GO=0`, `CONDITIONAL_GO=0`
+
+### Targeted kw97 TRC enrichment attempt (Task 3.1)
+
+- Initial kw97 state: both SearchResult rows had `total_result_count=None`.
+- Ran targeted ScrapFly search fetch for query: `what is automation support`.
+- Workflow parser still returned `total_result_count=None`; parse warning indicated href-based fallback path for cards.
+- Per prompt, enrichment was completed by extracting `numberOfResults` from fetched HTML and persisting:
+  - extracted TRC: `58437`
+  - persisted to kw97 ranked row (`SearchResult.id=40`, `rank=1`)
+- Post-enrichment rerun:
+  - best score remained `44.22` (`kw=96`)
+  - kw97 demand remained above the eligibility gate floor (`20.27`), but kw97 still lacked enough non-null components to reach threshold.
 
 ### Score progression chart
 

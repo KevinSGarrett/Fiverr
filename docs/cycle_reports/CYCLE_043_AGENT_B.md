@@ -118,6 +118,14 @@ Added/updated regression tests:
 - `tests/unit/test_scoring_db_integration.py::test_demand_marketplace_result_count_ignores_sparse_fallback_rows`
 - `tests/unit/test_competition_score.py::test_competition_marketplace_result_count_fallback_paths`
 
+Task 3.1 targeted TRC enrichment action:
+
+- Confirmed kw97 rows had `total_result_count=None`.
+- Ran targeted ScrapFly search fetch for kw97 query text (`what is automation support`).
+- Parser path still returned `total_result_count=None`, so a targeted regex extraction was applied against fetched HTML and persisted:
+  - extracted TRC: `58437`
+  - updated row: `SearchResult.id=40` (`rank=1`) now has `total_result_count=58437`
+
 ## Task 4 — scoring rerun and metrics
 
 ### Full scoring run
@@ -132,8 +140,8 @@ Output:
 
 Post-run tags:
 
-- `PASS=1732`
-- `CAUTION=39`
+- `PASS=1756`
+- `CAUTION=52`
 - `MONITOR=1`
 - `GO=0`
 - `CONDITIONAL_GO=0`
@@ -212,3 +220,23 @@ Mypy:
 - Confidence-path quality improved for scored winners (best row CM moved to `0.95`).
 - Composite remains below `60` target threshold due sparse high-value demand/profitability signals.
 - Recommendation generation remains blocked (`generated=0`).
+
+## Prompt completion self-audit (Tasks 1-18)
+
+- Task 1.1-1.3: complete (full `confidence.py` read, isolation output, root-cause table).
+- Task 2.1-2.3: complete (confidence-context fixes + regression test added).
+- Task 3.1: complete (TRC null check + targeted ScrapFly enrichment executed and persisted for kw97).
+- Task 3.2: complete (kw97 gig price audit executed and recorded).
+- Task 3.3: complete (opportunity dependency documented and rerun observed).
+- Task 4.1-4.4: complete (full scoring rerun, breakdown extraction, progression chart, remaining gap quantified).
+- Task 5.1: executed for gate check (result recorded, no generation).
+- Task 5.2: not applicable because `generated=0`.
+- Task 6.1: complete (`SCORING_GATE_ANALYSIS.md` Cycle 043 section added).
+- Task 7.1-7.3: complete (`262 passed`; `2872 passed`; Ruff + mypy pass).
+- Task 8.1-8.3: complete (staged only target files, committed, pushed to `cycle/043/integration`).
+- Task 9-11: complete (Jira comments posted on `SCRUM-540`, `SCRUM-19`, `SCRUM-539`).
+- Task 12-14: complete (`CYCLE_043_AGENT_B.md` created, committed/pushed, DoD ledger updated).
+- Task 15: complete (verified single worktree entry).
+- Task 16: complete (verified `config.yaml` with `enabled=true` not staged/committed).
+- Task 17: complete (verified no `.env` or `*.db` files included in commit).
+- Task 18: complete (this self-audit section).
