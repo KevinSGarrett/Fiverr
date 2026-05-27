@@ -234,6 +234,29 @@ class ProfitabilityScoreCalculator:
         if active_run_id is not None:
             top_gigs_query = top_gigs_query.filter(SearchResult.run_id == active_run_id)
         top_gigs = top_gigs_query.order_by(SearchResult.rank.asc()).all()
+        if active_run_id is not None:
+            scoped_results = [
+                result
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip() == active_run_id
+            ]
+            if scoped_results:
+                top_results = scoped_results
+
+        top_card_urls = self._extract_top_card_urls(top_results, limit=10)
+        if top_card_urls:
+            top_gigs_by_url_query = session.query(Gig).filter(Gig.gig_url.in_(top_card_urls))
+            if active_run_id is not None:
+                top_gigs_by_url_query = top_gigs_by_url_query.filter(Gig.run_id == active_run_id)
+            top_gigs_by_url = top_gigs_by_url_query.all()
+            seen_ids = {gig.id for gig in top_gigs if gig.id is not None}
+            for gig in top_gigs_by_url:
+                if gig.id in seen_ids:
+                    continue
+                top_gigs.append(gig)
+                if gig.id is not None:
+                    seen_ids.add(gig.id)
+
         if not top_gigs:
             fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
             if active_run_id is not None:
@@ -282,6 +305,41 @@ class ProfitabilityScoreCalculator:
             ),
             "avg_extras_price": (sum(valid_extras_prices) / len(valid_extras_prices)) if valid_extras_prices else None,
         }
+
+    @staticmethod
+    def _extract_top_card_urls(top_results: list[SearchResult], limit: int) -> list[str]:
+        ranked_urls: list[tuple[int, str]] = []
+        for result in top_results:
+            cards = result.gig_cards if isinstance(result.gig_cards, list) else []
+            for card in cards:
+                if not isinstance(card, dict):
+                    continue
+                raw_url = card.get("gig_url")
+                if not isinstance(raw_url, str):
+                    continue
+                normalized_url = raw_url.strip()
+                if not normalized_url:
+                    continue
+                raw_position = card.get("position")
+                if isinstance(raw_position, int) and raw_position > 0:
+                    position = raw_position
+                elif isinstance(raw_position, str) and raw_position.strip().isdigit():
+                    position = int(raw_position.strip())
+                else:
+                    position = 10_000
+                ranked_urls.append((position, normalized_url))
+
+        ranked_urls.sort(key=lambda value: value[0])
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for _, normalized_url in ranked_urls:
+            if normalized_url in seen:
+                continue
+            seen.add(normalized_url)
+            deduped.append(normalized_url)
+            if len(deduped) >= limit:
+                break
+        return deduped
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
