@@ -180,7 +180,8 @@ No profile produced `final >= 55`.
 ### Recommendation gate status
 
 - Conditional/GO still not reached.
-- `recommendations-only` not run as unlock action because no profile/fix path achieved threshold.
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- result: `eligible=0`, `gates_passed=0`, `generated=0`
 
 ## Task 7 — scoring gate analysis doc update
 
@@ -217,4 +218,12 @@ No profile produced `final >= 55`.
 7. `SCORING_GATE_ANALYSIS.md` updated: YES  
 8. full unit >= 3008 and zero failures: YES (`3009 passed`)  
 9. `CYCLE_045_AGENT_B.md` written: YES  
-10. Jira evidence posting: pending in this session until comments are posted
+10. Jira evidence posting: YES (`SCRUM-544` comment `11832`, `SCRUM-19` comment `11831`, `SCRUM-543` comment `11833`)
+
+## Final self-audit (Tasks 16-18)
+
+- Worktree verification: `git worktree list` confirms one entry (`C:/Fiverr/Fiverr`).
+- Config safety verification:
+  - `collection.scrapfly.enabled` remains `false` in `config.yaml`.
+  - no cycle changes introduced to `config.yaml`, `.env`, or `data/*.db`.
+- R-090 meaningful sub-task count: satisfied (preflight, investigation, profile matrix, fix, regression, reruns, docs/Jira/commit/push flow).
