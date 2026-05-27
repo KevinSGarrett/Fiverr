@@ -951,7 +951,7 @@ Database: `sqlite:///data/cycle037_live.db`
 | 042 | `38.74` |
 | 043 | `44.22` |
 
-### Recommendation outcome
+### Recommendation outcome (Cycle 045 Agent C)
 
 - command: `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
 - result:
@@ -1169,3 +1169,62 @@ Best profile remains `aggressive_new_seller`; no profile reached `>=55`.
 | 043 | `44.22` |
 | 044 | `42.04` (latest) / `44.22` (historical best) |
 | 045 | `42.29` |
+
+## Agent C Independent Verification — Cycle 045
+
+Date: 2026-05-27  
+Branch: `cycle/045/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Independent weakness + profitability verification
+
+- Agent B post-fix component values were independently rechecked for the best row:
+  - `kw=96 final=44.22 composite≈46.53 CM≈0.950`
+  - `weakness_score: value=49.4 contrib=9.88`
+  - `profitability_score: value=31.67 contrib=1.58`
+- Result: Agent C verification matches Agent B values for both weakness and profitability.
+
+### Profile comparison summary (independent confirmation)
+
+- Agent B compared all four profiles and reported:
+  - `aggressive_new_seller` best (`42.29`)
+  - `default` (`41.93`)
+  - `profitability_focus` (`39.91`)
+  - `trend_chaser` (`40.55` best keyword different; `kw=96` at `37.64`)
+- Agent C acceptance check: best profile remains `aggressive_new_seller`; no profile reaches `>=55`.
+
+### Independent score distribution + progression C039->C045
+
+- Full-table tags snapshot at Agent C preflight:
+  - `PASS=2718`, `CAUTION=847`, `MONITOR=13`
+- Latest-per-keyword tags (independent):
+  - `CAUTION=62`, `PASS=66`, `MONITOR=1` (matches Agent B)
+- Scoring rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - `Scoring complete: 129 keywords scored`
+  - best latest score: `42.29` (`kw=96`)
+
+Progression:
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+
+### Recommendation outcome
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+- Demand eligibility spot-check:
+  - latest rows with `demand_score > 20`: `65`
+  - latest rows with missing demand: `51`
+- Conclusion:
+  - recommendations remain blocked by aggregate gate conditions (including tag threshold), not command/runtime failure.
