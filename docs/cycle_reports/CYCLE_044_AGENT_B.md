@@ -35,9 +35,11 @@ Data story: `SCRUM-542`
 - Extraction method:
   - regex on search payload key `numberOfResults` in fetched Fiverr HTML/embedded JSON.
 - Persisted updates:
-  - `updated_keywords=54`, `untouched_keywords=1`, `failures=0`
+  - initial sweep: `updated_keywords=54`, `untouched_keywords=1`, `failures=0`
+  - final completion sweep: remaining ranked-null keyword (`kw=103`) backfilled
 - Post-pass TRC state:
-  - `SearchResult total=103 with_trc=86 null_trc=17`
+  - `SearchResult total=103 with_trc=87 null_trc=16`
+  - ranked-null-TRC keywords remaining: `0`
 
 ## Task 2 - Seller profile stage 5 run
 
@@ -72,7 +74,7 @@ Data story: `SCRUM-542`
   - command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
   - output: `Scoring complete: 129 keywords scored`
 - Post-run tag snapshot:
-  - `PASS=2020`, `CAUTION=135`, `MONITOR=4`, `GO=0`, `CONDITIONAL_GO=0`
+  - `PASS=2086`, `CAUTION=197`, `MONITOR=5`, `GO=0`, `CONDITIONAL_GO=0`
 - Best scored row remains:
   - `kw=96 final=44.22 raw~46.53 CM~0.950`
   - no `CONDITIONAL_GO` achieved
@@ -110,7 +112,7 @@ Data story: `SCRUM-542`
 
 ## Prompt completion self-audit
 
-1. TRC enrichment run for ranked null-TRC keywords: **YES** (`54/55` keyword targets updated; TRC coverage `31 -> 86`).
+1. TRC enrichment run for ranked null-TRC keywords: **YES** (all ranked-null keywords cleared; TRC coverage `31 -> 87`, ranked-null count `0`).
 2. Stage 5 seller profile run executed: **YES** (`+35` sellers, all with level).
 3. kw96 confidence context rechecked and documented: **YES** (`0.125 -> 0.775` direct recompute).
 4. Scoring rerun and tag distribution captured: **YES**.

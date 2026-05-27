@@ -983,8 +983,9 @@ Database: `sqlite:///data/cycle037_live.db`
   - Extraction method: regex on `numberOfResults` payload in fetched Fiverr HTML/JSON
   - Updates persisted per-keyword (commit after each keyword)
 - Result:
-  - `targets=55`, `updated_keywords=54`, `untouched_keywords=1`, `failures=0`
-  - Post-run SR TRC state: `total=103 with_trc=86 null_trc=17`
+  - initial sweep: `targets=55`, `updated_keywords=54`, `untouched_keywords=1`, `failures=0`
+  - completion sweep: remaining ranked-null keyword (`kw=103`) backfilled
+  - Post-run SR TRC state: `total=103 with_trc=87 null_trc=16` (ranked-null keywords: `0`)
 
 ### Stage 4/5 enrichment (gig-detail and seller profile depth)
 
@@ -1017,7 +1018,7 @@ Database: `sqlite:///data/cycle037_live.db`
   - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
   - `Scoring complete: 129 keywords scored`
 - Tag distribution snapshot in DB:
-  - `PASS=2020`, `CAUTION=135`, `MONITOR=4`, `GO=0`, `CONDITIONAL_GO=0`
+  - `PASS=2086`, `CAUTION=197`, `MONITOR=5`, `GO=0`, `CONDITIONAL_GO=0`
 - Best row remains:
   - `kw=96 final=44.22 raw~46.53 CM~0.950`
 - Recommendation check:
