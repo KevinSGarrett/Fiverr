@@ -391,6 +391,21 @@ def test_demand_uses_search_result_total_result_count_when_available() -> None:
         session.close()
 
 
+def test_demand_marketplace_result_count_ignores_sparse_fallback_rows() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).delete()
+        session.add(SearchResult(keyword_id=keyword_id, rank=1, title="Sparse row #1", gig_id=None))
+        session.add(SearchResult(keyword_id=keyword_id, rank=2, title="Sparse row #2", gig_id=None))
+        session.commit()
+
+        signals = DemandScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["total_result_count"] is None
+    finally:
+        session.close()
+
+
 def test_competition_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)

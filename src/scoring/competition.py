@@ -573,8 +573,18 @@ class CompetitionScoreCalculator:
         if max_total_result_count is not None and max_total_result_count[0] is not None:
             return float(max_total_result_count[0])
 
-        fallback_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
-        if fallback_count > 0:
+        # Only use row-count as a coarse fallback when top-10 coverage is complete.
+        # Sparse partial rows can materially understate competition pressure.
+        fallback_count = (
+            session.query(SearchResult)
+            .filter(
+                SearchResult.keyword_id == keyword_id,
+                SearchResult.rank.isnot(None),
+                SearchResult.rank <= 10,
+            )
+            .count()
+        )
+        if fallback_count >= 10:
             return float(fallback_count)
         return None
 

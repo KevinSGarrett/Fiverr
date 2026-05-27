@@ -731,7 +731,7 @@ Component-level effect observed for live keyword traces:
   - `GigQualityAnalysis` rows in keyword niche: `0`
 - Cycle gate remains blocked because overall final scores are still far below `60`.
 
-### Recommendation outcome
+### Recommendation outcome (Agent C)
 
 - Since best score remains `<55`, recommendation generation was not rerun in this cycle step.
 - Remaining gap is still dominated by low demand/profitability strength and confidence suppression.
@@ -821,3 +821,147 @@ Conclusion:
 - Recommendation generation remains blocked (`generated=0`).
 - Conditional-go threshold is still not reached.
 - Demand and component-coverage sparsity remain the final blockers for milestone unlock.
+
+## Cycle 043 Agent B — Confidence Modifier Investigation
+
+Date: 2026-05-26  
+Branch: `cycle/043/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### confidence.py full findings
+
+- Main class/function entry points:
+  - `ConfidenceScoreModifier.calculate(keyword_id, run_context, db) -> float`
+  - `ConfidenceScoreModifier.calculate_with_breakdown(keyword_id, run_context, db) -> tuple[float, dict[str, float]]`
+  - Compatibility helper: `compute_confidence_score(keyword_id, db, run_context=None) -> float`
+- DB-backed context loads from:
+  - `keywords`, `search_results`, `gigs`, `sellers`, `external_signals`, `gig_visual_analysis`, `niche_config_records`
+- Formula:
+  - `base = ((completeness*0.50) + (freshness*0.30) + (diversity*0.20)) * llm_completion`
+  - deductions include missing trends, gig detail, seller profiles, reddit signals, LLM-quality incompleteness, competitor synthesis failure, staleness, and partial depth mode
+  - final: `clamp(base + deductions, 0.0, 1.0)`
+- CM range:
+  - confidence module output clamped to `[0.0, 1.0]`
+  - scoring pipeline still applies final-score floor multiplier `max(confidence_modifier, 0.20)`
+- Conditions observed to produce CM `0.75`:
+  - persisted-path (`compute_confidence_score`) returned latest stored row (`0.75`) for kw `97`
+  - stored deductions on that row were `missing_reddit_signals=-0.05` and `llm_gig_quality_incomplete=-0.20`
+
+### Confidence isolation and root cause table (kw=97)
+
+Isolation rerun output:
+
+- `calculate_with_breakdown` (live DB context): `0.50`
+- `compute_confidence_score` (persisted-first compatibility): `0.75`
+- live breakdown: `base_modifier=0.65`, `missing_seller_profiles=-0.10`, `missing_reddit_signals=-0.05`
+
+| Confidence sub-component | Current value | Max value | Gap | Fix possible? |
+| --- | --- | --- | --- | --- |
+| data_completeness_ratio | 0.50 | 1.00 | 0.50 | Yes (improve seller/reddit coverage) |
+| data_freshness_score | 1.00 | 1.00 | 0.00 | Already max |
+| source_diversity_score | 0.50 | 1.00 | 0.50 | Yes (add missing source classes) |
+| llm_analysis_completion_ratio | 1.00 | 1.00 | 0.00 | Already max |
+| missing_seller_profiles deduction | -0.10 | 0.00 | 0.10 | Yes (seller coverage) |
+| missing_reddit_signals deduction | -0.05 | 0.00 | 0.05 | Yes (reddit signal collection) |
+| llm_gig_quality_incomplete deduction (persisted row) | -0.20 | 0.00 | 0.20 | Yes (context mapping fix landed) |
+
+### Fixes implemented in Cycle 043 Agent B
+
+- Confidence context fix:
+  - `src/scoring/pipeline.py` and `src/scoring/orchestrator.py` now avoid applying LLM-gig-quality incompleteness penalties from generic `llm_not_implemented` warnings when gig detail is present.
+- Marketplace count fallback hardening:
+  - `src/scoring/demand.py` and `src/scoring/competition.py` now ignore sparse row-count fallback unless top-10 coverage is complete (`>=10` ranked rows), preventing misleading tiny fallback counts (`1-2`) from being treated as marketplace volume.
+- Regression tests added/updated:
+  - `tests/unit/test_confidence_score.py`: `test_confidence_modifier_improves_when_signals_present`
+  - `tests/unit/test_scoring_db_integration.py`: `test_demand_marketplace_result_count_ignores_sparse_fallback_rows`
+  - `tests/unit/test_competition_score.py`: fallback path now asserts sparse rows ignored and full top-10 fallback accepted
+
+### Before/after metrics (Cycle 043 run)
+
+- Baseline before fixes (historical best row):
+  - best final `38.74`
+  - composite `51.65`
+  - CM `0.75`
+- After Cycle 043 Agent B rerun:
+  - best keyword `96`
+  - best final `44.22` (`MONITOR`)
+  - composite `46.53`
+  - CM `0.95`
+  - tags: `PASS=1756`, `CAUTION=52`, `MONITOR=1`, `GO=0`, `CONDITIONAL_GO=0`
+
+### Targeted kw97 TRC enrichment attempt (Task 3.1)
+
+- Initial kw97 state: both SearchResult rows had `total_result_count=None`.
+- Ran targeted ScrapFly search fetch for query: `what is automation support`.
+- Workflow parser still returned `total_result_count=None`; parse warning indicated href-based fallback path for cards.
+- Per prompt, enrichment was completed by extracting `numberOfResults` from fetched HTML and persisting:
+  - extracted TRC: `58437`
+  - persisted to kw97 ranked row (`SearchResult.id=40`, `rank=1`)
+- Post-enrichment rerun:
+  - best score remained `44.22` (`kw=96`)
+  - kw97 demand remained above the eligibility gate floor (`20.27`), but kw97 still lacked enough non-null components to reach threshold.
+
+### Score progression chart
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+
+### Recommendation gate status
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result: `eligible=0`, `gates_passed=0`, `generated=0`
+- Remaining gap to `CONDITIONAL_GO` (`60`): `15.78`
+
+## Agent C Independent Verification — Cycle 043
+
+Date: 2026-05-26  
+Branch: `cycle/043/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Independent CM verification
+
+- Agent B claim (post-fix best row): `CM=0.95`, `composite=46.53`, `final=44.22`
+- Agent C recompute command result:
+  - `Best: kw=96 final=44.22 raw=46.53 CM=0.950`
+- Discrepancy check:
+  - No discrepancy against Agent B's claimed post-fix winner metrics.
+  - Confidence is no longer the dominant blocker (`CM >= 0.85` satisfied).
+
+### Independent score-tag verification
+
+- Pre-rerun snapshot observed by Agent C:
+  - `PASS=1843`, `CAUTION=56`, `MONITOR=2`, `GO=0`, `CONDITIONAL_GO=0`
+- After Agent C mandated full rerun:
+  - command: `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - tags observed in DB: `PASS=1954`, `CAUTION=73`, `MONITOR=3`, `GO=0`, `CONDITIONAL_GO=0`
+  - top score remains `44.22` (`keyword_id=96`)
+
+### Score progression C039 -> C043
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+
+### Recommendation outcome
+
+- command: `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+- No exports produced; milestone path not triggered.
+
+### Adaptive-path conclusion
+
+- Since `CM=0.95` and score moved by `+5.48` vs 38.74 baseline, Agent C did **not** apply another confidence-module code patch.
+- Remaining blocker is gate eligibility/composite lift, not confidence suppression.
+- Cycle verdict remains pre-milestone with recommendation generation blocked.

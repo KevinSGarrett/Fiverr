@@ -219,8 +219,19 @@ def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> floa
     if max_total_result_count is not None and max_total_result_count[0] is not None:
         return float(max_total_result_count[0])
 
-    fallback_count = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).count()
-    if fallback_count > 0:
+    # Only use row-count as a coarse fallback when we have broad top-result coverage.
+    # Sparse partial rows (e.g. 1-2 persisted cards) understate true marketplace volume
+    # and can suppress demand unfairly.
+    fallback_count = (
+        session.query(SearchResult)
+        .filter(
+            SearchResult.keyword_id == keyword_id,
+            SearchResult.rank.isnot(None),
+            SearchResult.rank <= 10,
+        )
+        .count()
+    )
+    if fallback_count >= 10:
         return float(fallback_count)
     return None
 

@@ -776,7 +776,19 @@ def test_competition_marketplace_result_count_fallback_paths() -> None:
         assert calculator._resolve_marketplace_result_count(session, keyword.id) is None
         session.add(SearchResult(keyword_id=keyword.id, rank=1, title="fallback row", gig_id=None))
         session.commit()
-        assert calculator._resolve_marketplace_result_count(session, keyword.id) == 1.0
+        assert calculator._resolve_marketplace_result_count(session, keyword.id) is None
+
+        for rank in range(2, 11):
+            session.add(
+                SearchResult(
+                    keyword_id=keyword.id,
+                    rank=rank,
+                    title=f"fallback row {rank}",
+                    gig_id=None,
+                )
+            )
+        session.commit()
+        assert calculator._resolve_marketplace_result_count(session, keyword.id) == 10.0
     finally:
         session.close()
 
