@@ -1,54 +1,68 @@
-# State Snapshot — Cycle 044
+# State Snapshot - Cycle 045
 
-Updated: 2026-05-26 | Agent A setup complete
+Updated: 2026-05-27 | Agent A setup complete
 
 ## Verified Repository State
 
 - Canonical working directory: `C:\Fiverr\Fiverr`
-- Active branch: `cycle/044/integration`
-- Tests: `2936` | Coverage: `95.61%` | PR #49 and PR #50: MERGED
+- Active branch: `cycle/045/integration`
+- Tests: `3008` | Coverage: `95.61%` | PR #51: MERGED (merge SHA `483611c8d437f8649f5fdfb1a8a99d5e5190a180`)
 - Current local `tests/unit` baseline: `2944 passed`
 - Config safety: `collection.scrapfly.enabled=false` (verified)
 - Worktrees: `1` entry only
+- Jira kickoff: `SCRUM-543` (Task, In Progress), `SCRUM-544` (Story, In Progress)
 
 ## Score Baseline
 
-Source: `sqlite:///data/cycle037_live.db` best `keyword_scores` row.
+Source: `sqlite:///data/cycle037_live.db`.
 
-- Best keyword: `kw=96`
-- Final score: `44.22`
-- Raw composite: `46.53`
-- Derived confidence modifier from stored score row: `0.95`
-- Gap to `CONDITIONAL_GO (60)`: `15.78`
-- Tags: `PASS=1954`, `CAUTION=73`, `MONITOR=3`
+- Canonical cycle target baseline: `kw=96 final~=42`, `composite~=54.2`, `CM=0.775`
+- Current DB probe output (best row): `kw=96 final=44.22`, `composite contributions~=46.53`
+- Current profile projection probe (latest kw=96 row): `aggressive_new_seller final~=43.03` (`composite~=45.29`, `CM=0.95`)
+- Tags: `PASS=2152`, `CAUTION=259`, `MONITOR=6`
 
-## TRC Baseline (Task 5.3)
+## weakness.py Findings
 
-- `SearchResult: total=103 with_trc=31 null_trc=72`
-- Sample rows with TRC:
-  - `kw=1 rank=None trc=21426`
-  - `kw=1 rank=None trc=21426`
-  - `kw=3 rank=None trc=473`
-  - `kw=4 rank=None trc=208`
-  - `kw=6 rank=None trc=55`
+- Primary query path: `Keyword`, top-10 `SearchResult` rows (run-scoped when possible), linked `Gig`, optional `GigVisualAnalysis`, optional `GigQualityAnalysis`, legacy `GigQualityScore`.
+- Core formula: weighted average of available weakness signals, clamped `0..100`:
+  - LLM-inverted quality features (description, thumbnail, FAQ, package differentiation, niche specificity)
+  - Weakness count normalization (`raw_count * 10`)
+  - Weakness flag penalty from normalized flags (`NO_VIDEO`, `NO_PORTFOLIO`, `THIN_DESCRIPTION`, `NO_FAQ`)
+  - Video/portfolio absence rates from collected gig evidence
+- Why values like ~49 can occur even with many gigs:
+  - Score reflects exploitable competitor weaknesses, not gig volume.
+  - If top gigs have low absence rates and modest weakness flags, normalized weakness remains mid-range.
+  - Missing LLM signals fallback to stubs (`None`), reducing available high-leverage upside components.
+- To push above `70`:
+  - Increase observed weakness evidence in top gigs (`weakness_flags_by_gig`, especially high-penalty flags).
+  - Improve availability of structured weakness inputs across top results.
+  - Enable/populate LLM weakness dimensions with non-null values.
 
-## Seller Profile Baseline (Task 5.4)
+## profitability.py Findings
 
-- `Sellers: total=195 with_level=195`
+- Primary query path: top-10 run-scoped `SearchResult` joined to `Gig` (with keyword-level fallback), using `Gig.starting_price` and `Gig.metadata_json`.
+- Required fields/signals:
+  - `avg_starting_price_top10`
+  - `avg_premium_package_price_top10` from `premium_price` / `premium_package_price`
+  - `typical_delivery_days` from `delivery_time_days` / `typical_delivery_days`
+  - extras coverage via `gig_extras` / `extras` and extras pricing (`avg_extras_price` / `extras_price`)
+  - optional `llm_upsell_potential_assessment` (currently stubbed, confidence deduction applies)
+- Why low outcomes can persist despite visible prices:
+  - Universe normalization can compress scores when prices are near lower bounds.
+  - Missing premium/extras/delivery metadata weakens weighted_sum coverage.
+  - LLM upsell component is absent by default (stub returns `None`) and applies a confidence penalty.
+- To push above `50`:
+  - Raise premium package and extras pricing coverage in metadata for top gigs.
+  - Ensure delivery-time signals and extras presence are consistently populated.
+  - Add non-null upsell potential input (or implement LLM path) to unlock remaining weight.
 
-## kw=96 Confidence Context (Task 5.5)
+## Scoring Profile Analysis
 
-Direct `ConfidenceScoreModifier.calculate_with_breakdown(keyword_id=96, run_context=None)` output:
-
-- `kw96 CM=0.125`
-- `data_completeness_ratio: 0.25`
-- `data_freshness_score: 1.0`
-- `source_diversity_score: 0.25`
-- `llm_analysis_completion_ratio: 1.0`
-- `base_modifier: 0.475`
-- Active deductions:
-  - `missing_gig_detail: -0.2`
-  - `missing_seller_profiles: -0.1`
-  - `missing_reddit_signals: -0.05`
-- `deduction_total: -0.35`
-- `remaining_modifier: 0.125`
+- Active profile: `aggressive_new_seller`
+- Available profiles:
+  - `default`
+  - `aggressive_new_seller`
+  - `profitability_focus`
+  - `trend_chaser`
+- Weight distributions recorded from `config.yaml` and validated via `ConfigLoader`.
+- Key check: `profitability_focus` does assign higher profitability weight (`0.25`) versus `default` (`0.10`) and `aggressive_new_seller` (`0.05`).
