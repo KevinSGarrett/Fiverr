@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -266,6 +267,199 @@ def test_scoring_reads_gig_quality_analysis_output() -> None:
         assert signals["video_absence_rate"] == 0.6
         assert signals["portfolio_absence_rate"] == 0.0
         assert signals["gig_quality_analysis_available"] is True
+    finally:
+        session.close()
+
+
+def _seed_run_scoped_keyword(
+    session: Session,
+    *,
+    active_run_id: str = "active-run",
+    gig_url: str = "https://www.fiverr.com/gigs/fallback-target",
+    card_url: str | None = None,
+    metadata_json: dict[str, object] | None = None,
+) -> tuple[int, str]:
+    niche = Niche(
+        slug="run-fallback-niche",
+        name="Run Fallback Niche",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="run fallback keyword",
+        normalized_keyword="run fallback keyword",
+    )
+    session.add(keyword)
+    session.flush()
+
+    gig = Gig(
+        gig_url=gig_url,
+        keyword_id=keyword.id,
+        run_id=active_run_id,
+        seller_username="run_fallback_seller",
+        metadata_json=metadata_json or {},
+    )
+    session.add(gig)
+    session.flush()
+
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            run_id=active_run_id,
+            rank=1,
+            gig_id=gig.id,
+            title="Run fallback result",
+            gig_cards=[{"gig_url": card_url or gig_url, "position": 1}],
+        )
+    )
+    session.commit()
+    return keyword.id, gig_url
+
+
+def _insert_gqa_row(
+    session: Session,
+    *,
+    gig_url: str,
+    run_id: str,
+    rubric_score: float,
+    analyzed_at: datetime | None = None,
+    weakness_flags: list[str] | None = None,
+) -> None:
+    session.add(
+        GigQualityAnalysis(
+            gig_url=gig_url,
+            niche_id="run-fallback-niche",
+            run_id=run_id,
+            rubric_score=rubric_score,
+            video_absent=False,
+            portfolio_absent=False,
+            description_thin=False,
+            faq_absent=False,
+            thumbnail_quality_flag=False,
+            weakness_flags=weakness_flags or [],
+            analyzed_at=analyzed_at or datetime.now(UTC),
+        )
+    )
+    session.commit()
+
+
+def test_weakness_uses_fallback_run_id_when_active_run_has_no_gqa_rows() -> None:
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="active-run")
+        _insert_gqa_row(
+            session,
+            gig_url=gig_url,
+            run_id="fallback-run",
+            rubric_score=30.0,
+            weakness_flags=["NO_VIDEO"],
+        )
+
+        calculator = GigQualityWeaknessScoreCalculator()
+        signals = calculator._load_signals_from_db(keyword_id, session)
+
+        assert signals["overall_weakness_score_avg"] == 7.0
+        assert signals["gig_quality_analysis_available"] is True
+    finally:
+        session.close()
+
+
+def test_weakness_returns_none_when_no_gqa_rows_in_any_run() -> None:
+    session = _new_session()
+    try:
+        keyword_id, _ = _seed_run_scoped_keyword(
+            session,
+            active_run_id="active-run",
+            metadata_json={},
+        )
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value is None
+    finally:
+        session.close()
+
+
+def test_weakness_prefers_active_run_over_fallback_when_both_have_rows() -> None:
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="active-run")
+        _insert_gqa_row(session, gig_url=gig_url, run_id="active-run", rubric_score=20.0)
+        _insert_gqa_row(session, gig_url=gig_url, run_id="fallback-run", rubric_score=90.0)
+
+        signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["overall_weakness_score_avg"] == 8.0
+    finally:
+        session.close()
+
+
+def test_weakness_fallback_selects_most_recent_available_run() -> None:
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="active-run")
+        _insert_gqa_row(
+            session,
+            gig_url=gig_url,
+            run_id="older-run",
+            rubric_score=90.0,
+            analyzed_at=datetime.now(UTC) - timedelta(days=2),
+        )
+        _insert_gqa_row(
+            session,
+            gig_url=gig_url,
+            run_id="newer-run",
+            rubric_score=40.0,
+            analyzed_at=datetime.now(UTC) - timedelta(days=1),
+        )
+
+        signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["overall_weakness_score_avg"] == 6.0
+    finally:
+        session.close()
+
+
+def test_weakness_kw3_equivalent_gets_weakness_with_fallback() -> None:
+    session = _new_session()
+    try:
+        canonical_url = "https://www.fiverr.com/gigs/fallback-target"
+        keyword_id, gig_url = _seed_run_scoped_keyword(
+            session,
+            active_run_id="active-run",
+            gig_url=canonical_url,
+            card_url=f"{canonical_url}?source=search",
+            metadata_json={},
+        )
+        _insert_gqa_row(
+            session,
+            gig_url=gig_url,
+            run_id="stage11-run",
+            rubric_score=35.0,
+            weakness_flags=["NO_FAQ"],
+        )
+
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_components["overall_weakness_score"].value == 65.0
+    finally:
+        session.close()
+
+
+def test_weakness_does_not_regress_kw96_behavior_after_fallback_added() -> None:
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="kw96-run")
+        _insert_gqa_row(session, gig_url=gig_url, run_id="kw96-run", rubric_score=46.48)
+        _insert_gqa_row(
+            session,
+            gig_url=gig_url,
+            run_id="newer-run",
+            rubric_score=10.0,
+            analyzed_at=datetime.now(UTC) + timedelta(minutes=1),
+        )
+
+        signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["overall_weakness_score_avg"] == 5.35
     finally:
         session.close()
 
