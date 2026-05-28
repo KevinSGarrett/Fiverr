@@ -157,3 +157,17 @@ Reasoning:
   - `src/scoring/competition.py` from ~`57%` to `>=92%`
   - `src/scoring/demand.py` from ~`67%` to `>=92%`
 - preserve current passing regression packs and full-suite stability while adding coverage closures.
+
+## Post-Commit Strictness Addendum
+
+Additional checks executed to satisfy full prompt completeness validation:
+
+- explicit file-scoped scoring bundle:
+  - `python -m pytest -q tests/unit/test_scoring.py tests/unit/test_scoring_db_integration.py tests/unit/test_confidence_score.py tests/unit/test_competition_score.py --no-header`
+  - result: `559 passed`
+- safety/lint gate:
+  - `python -m ruff check src/scoring/weakness.py src/scoring/demand.py src/scoring/confidence.py`
+  - result: `All checks passed`
+- worktree/config reconfirmation:
+  - `git worktree list` -> one entry
+  - `python run.py config-check` -> PASS

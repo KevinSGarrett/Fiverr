@@ -477,3 +477,41 @@ If refreshed coverage drops, prioritize re-validating any uncovered control-flow
 - `PM_Pack/10_cycle_log/CYCLE_048.md`
 - `docs/cycle_reports/CYCLE_048_AGENT_C.md`
 - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md` (Cycle 048 Agent C rows)
+
+---
+
+## 10) Strict completion matrix (Tasks 1-20)
+
+Prompt-strategy file note:
+
+- referenced path `PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md` is not present in this repo snapshot.
+- nearest strategy artifact found under `PM_Pack/ref/github/01_branching/BRANCHING_STRATEGY.md`.
+- execution proceeded against explicit task list and completion standard from the Cycle 048 Agent C prompt.
+
+Task-by-task closure:
+
+- **Task 1** (B weakness fix verification): **COMPLETE** (`kw3=46.25`, `kw96=100.0` discrepancy flagged, regression tests pass, fix commit confirmed)
+- **Task 2** (E enrichment verification): **COMPLETE** (GQA/trends/CM verified, E zero-`src/` confirmed)
+- **Task 3** (full scoring rerun): **COMPLETE** (`129` scored, kw3 components + tags captured)
+- **Task 4** (recommendations attempt): **COMPLETE** (`eligible=0`, `generated=0`, threshold gap documented)
+- **Task 5** (adaptive fix path): **COMPLETE-N/A FOR CODE CHANGE** (conditions did not require C code patch; leverage analysis documented)
+- **Task 6** (12-stage pipeline table + verdict): **COMPLETE** (`PARTIAL`)
+- **Task 7** (`SCORING_GATE_ANALYSIS.md` update): **COMPLETE**
+- **Task 8** (test gates): **COMPLETE**; file-scoped bundle rerun `559 passed`; full `tests/` rerun `3294 passed`
+- **Task 9** (cycle log): **COMPLETE** (`PM_Pack/10_cycle_log/CYCLE_048.md`)
+- **Task 10** (Jira posting): **COMPLETE** (`SCRUM-552/553/546/551` posted; `SCRUM-20` correctly skipped)
+- **Task 11** (`CYCLE_048_AGENT_C.md` with F handoff): **COMPLETE**
+- **Task 12** (verify E file zone): **COMPLETE** (all listed E commits docs-only)
+- **Task 13** (4-profile comparison): **COMPLETE** (`aggressive_new_seller` still best)
+- **Task 14** (top10 weakness breadth): **COMPLETE** (`10/10` > 0)
+- **Task 15** (kw3 profitability investigation): **COMPLETE** (specific data levers documented)
+- **Task 16** (post-reddit demand investigation): **COMPLETE** (reddit added keywords = none; demand deltas for covered set documented)
+- **Task 17** (final rerun after C code fixes): **COMPLETE-N/A FOR CODE CHANGE** (no C scoring code changes made)
+- **Task 18** (worktree/config safety + ruff): **COMPLETE** (`git worktree list` one entry; `python run.py config-check` PASS; ruff PASS on verification scope)
+- **Task 19** (DoD ledger update + commit): **COMPLETE** (ledger rows added and committed)
+- **Task 20** (final self-audit): **COMPLETE** (all required yes/no fields recorded)
+
+Final strict status:
+
+- all prompt tasks are completed or explicitly completed-as-conditional-N/A based on prompt branching logic.
+- unresolved runtime blocker remains documented: combined-state `kw96 weakness=100.0` divergence versus B expected `~53.52`.
