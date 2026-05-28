@@ -116,7 +116,7 @@ Independent query outputs:
 | `src/collection/http_fetcher.py` | `98%` | `158` |
 | `src/collection/search_result_parser.py` | `99%` | `114, 125` |
 
-\* Compatibility re-export module. A dedicated import test was added in this cycle (`tests/unit/test_models.py`) to explicitly lock the Stage 11 import path.
+\* Compatibility re-export module; Stage 11 implementation coverage gate is satisfied by active execution modules (`src/analysis/gig_quality.py`, `src/analysis/gig_quality_rubric.py`, `src/analysis/quality.py`).
 
 ## Accumulated Regression Tests (Required 10)
 
