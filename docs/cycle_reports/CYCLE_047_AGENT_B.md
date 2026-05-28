@@ -469,6 +469,10 @@ Checklist status in this report run:
 
 ## Final SHA
 
-Current pushed code-phase SHA:
+Code-phase scoring fix SHA:
 
 `b9cf83a`
+
+Current branch head after report + ledger evidence updates:
+
+`e282fb7`
