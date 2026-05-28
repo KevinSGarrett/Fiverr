@@ -121,11 +121,15 @@ def get_gig_quality_weakness_input(
 
     if analysis_row is not None:
         weakness_flags = _normalize_weakness_flags(getattr(analysis_row, "weakness_flags", []))
+        overall_weakness_score = getattr(analysis_row, "overall_weakness_score", None)
         return {
             "source": "gig_quality_analysis",
             "gig_url": normalized_url,
             "run_id": str(getattr(analysis_row, "run_id", "") or ""),
             "rubric_score": float(getattr(analysis_row, "rubric_score", 0.0)),
+            "overall_weakness_score": float(overall_weakness_score)
+            if isinstance(overall_weakness_score, int | float)
+            else None,
             "video_absent": bool(getattr(analysis_row, "video_absent", False)),
             "portfolio_absent": bool(getattr(analysis_row, "portfolio_absent", False)),
             "weakness_flags": weakness_flags,
@@ -187,6 +191,7 @@ class GigQualityWeaknessScoreCalculator:
     """Calculate competitor weakness/opportunity from quality and collection signals."""
 
     DEFAULT_WEIGHT = 0.10
+    _OVERALL_WEAKNESS_SCORE_WEIGHT = 0.70
     _DESCRIPTION_QUALITY_INV_WEIGHT = 0.15
     _WEAKNESS_COUNT_WEIGHT = 0.20
     _WEAKNESS_FLAG_PENALTY_WEIGHT = 0.20
@@ -224,6 +229,18 @@ class GigQualityWeaknessScoreCalculator:
                     signals[key] = value
                 else:
                     missing_data_warnings.append(f"{key.replace('llm_', '').replace('_score', '')}_failed")
+
+        overall_weakness_score = self._as_float(signals.get("overall_weakness_score_avg"))
+        if overall_weakness_score is not None:
+            overall_weakness_score_scaled = max(0.0, min(100.0, overall_weakness_score * 10.0))
+            score_components["overall_weakness_score"] = ScoreComponent(
+                value=overall_weakness_score_scaled,
+                weight=self._OVERALL_WEAKNESS_SCORE_WEIGHT,
+                raw=overall_weakness_score,
+            )
+            weighted_sum += overall_weakness_score_scaled * self._OVERALL_WEAKNESS_SCORE_WEIGHT
+            total_weight_available += self._OVERALL_WEAKNESS_SCORE_WEIGHT
+            source_evidence.append("gig_quality_analysis.overall_weakness_score")
 
         description_quality = self._resolve_llm_value(
             "llm_description_quality_score",
@@ -843,6 +860,20 @@ class GigQualityWeaknessScoreCalculator:
                             / len(flags_by_gig)
                         ),
                         2,
+                    )
+
+                overall_weakness_scores = [
+                    value
+                    for value in (
+                        self._as_float(weakness_input.get("overall_weakness_score"))
+                        for weakness_input in weakness_inputs_by_gig
+                    )
+                    if value is not None
+                ]
+                if overall_weakness_scores:
+                    signals["overall_weakness_score_avg"] = round(
+                        sum(overall_weakness_scores) / len(overall_weakness_scores),
+                        4,
                     )
 
                 if any(

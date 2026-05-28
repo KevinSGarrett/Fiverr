@@ -1228,3 +1228,85 @@ Progression:
   - latest rows with missing demand: `51`
 - Conclusion:
   - recommendations remain blocked by aggregate gate conditions (including tag threshold), not command/runtime failure.
+
+## Cycle 046 Agent B - Stage 11 GigQualityAnalysis Activation
+
+Date: 2026-05-27  
+Branch: `cycle/046/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Stage 11 intake and implementation path
+
+- Agent A handoff baseline (required read): `docs/cycle_reports/CYCLE_046_AGENT_A.md`
+  - Final SHA: `3ffd055cc59a20f0fdeea5d2883929e394d1ee34`
+  - Stories: `SCRUM-545` (cycle control), `SCRUM-546` (Stage 11)
+  - Full unit baseline: `3074 passed`
+- Stage 11 code path confirmed as implemented and active:
+  - CLI: `run.py quality-analysis`
+  - Orchestrator: `src/orchestrator.py` (`mode == "quality-analysis"`)
+  - Analysis runner: `src/analysis/gig_quality_rubric.py`
+  - Persistence model: `src/models/market.py` (`GigQualityAnalysis`)
+- Runtime mode observed in this cycle: deterministic/rule-based Stage 11 (no runtime LLM invocation in the Stage 11 path).
+- Compatibility bridge added in Cycle 046 Agent B:
+  - `src/models/gig_quality_analysis.py` import path
+  - derived `GigQualityAnalysis.overall_weakness_score` accessor (0-10)
+  - weakness scorer now consumes Stage 11 `overall_weakness_score` average when present
+
+### GigQualityAnalysis audit (before/after)
+
+- Pre-run state at Agent B start:
+  - `GigQualityScore total: 0`
+  - `GigQualityAnalysis` historical rows already present from prior runs:
+    - total `62`
+    - run distribution: `cycle038_agentb_live=20`, `cycle041_agentb_live_stage34=42`
+- Stage 11 execution command:
+  - `python run.py quality-analysis --database-url sqlite:///data/cycle037_live.db`
+  - output: `niches_processed=9`, `niches_analyzed=9`, `gigs_analyzed` includes `support_kb_readiness=20`
+- Post-run state:
+  - `GigQualityAnalysis total: 62` (upsert behavior on existing gig/run keys)
+  - Sample rows include populated `rubric_score` and `weakness_flags`
+  - Minimum-row criterion is satisfied (`>=5` populated rows present)
+
+### Weakness scorer verification (kw=96)
+
+- Isolation command:
+  - `GigQualityWeaknessScoreCalculator().calculate(keyword_id=96, db=db)`
+- Result:
+  - `weakness_score=48.88`
+  - components:
+    - `overall_weakness_score=48.5`
+    - `weakness_flags_penalty=48.5`
+    - `video_absence_rate=100.0`
+    - `portfolio_absence_rate=0.0`
+- Interpretation:
+  - Stage 11 remained active/populated and now flows through a first-class `overall_weakness_score` signal; the measured kw96 weakness output still did not uplift versus baseline.
+
+### Full scoring rerun after Stage 11 activation
+
+- Command:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - output: `Scoring complete: 129 keywords scored`
+- Latest-batch (`129` newest rows) distribution:
+  - `PASS=62`, `CAUTION=66`, `MONITOR=1`
+- Latest-batch best row:
+  - `keyword_id=96`
+  - `final=42.21`
+  - `weakness=48.88`
+  - `profitability=31.67`
+  - `confidence_modifier=0.95`
+- Recommendation gate status:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+  - `eligible=0`, `gates_passed=0`, `generated=0`
+
+### Score progression update
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+| 046 | `42.21` |

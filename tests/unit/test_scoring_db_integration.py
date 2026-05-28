@@ -673,7 +673,24 @@ def test_scoring_uses_search_result_gig_cards_when_links_sparse() -> None:
     assert weakness_signals["top10_has_video"] == [False, True]
     assert weakness_signals["top10_has_portfolio"] == [True, True]
     assert weakness_signals["weakness_flag_penalty"] == 32.5
+    assert weakness_signals["overall_weakness_score_avg"] == 4.0
     session.close()
+
+
+def test_gig_quality_analysis_compatibility_overall_weakness_score() -> None:
+    session = next(_session())
+    _seed_keyword_data_with_unlinked_page_cards(session)
+    try:
+        analysis_row = (
+            session.query(GigQualityAnalysis)
+            .filter(GigQualityAnalysis.run_id == "cards-run")
+            .first()
+        )
+        assert analysis_row is not None
+        assert analysis_row.rubric_score == 60.0
+        assert analysis_row.overall_weakness_score == 4.0
+    finally:
+        session.close()
 
 
 def test_scoring_uses_card_urls_with_querystrings_for_sparse_links() -> None:
