@@ -156,6 +156,19 @@ class GigQualityAnalysis(IntegerPrimaryKeyMixin, Base):
         default=func.now(),
     )
 
+    @property
+    def overall_weakness_score(self) -> float:
+        """
+        Compatibility accessor for Stage 11 weakness rubric score (0-10 scale).
+
+        Legacy Stage 11 rows store `rubric_score` on a 0-100 quality axis where
+        higher means stronger competitor quality. Weakness scoring expects a
+        0-10 weakness axis where higher means more exploitable weakness.
+        """
+        rubric = float(self.rubric_score or 0.0)
+        weakness_0_100 = max(0.0, min(100.0, 100.0 - rubric))
+        return round(weakness_0_100 / 10.0, 2)
+
 
 class ReviewAnalysis(IntegerPrimaryKeyMixin, Base):
     """Persist Stage 12 per-gig review signal analysis rows."""

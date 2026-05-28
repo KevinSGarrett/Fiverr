@@ -1213,6 +1213,26 @@ def test_trend_no_google_trends() -> None:
     assert result.confidence_breakdown["missing_google_trends"] == -0.15
 
 
+@pytest.mark.parametrize("raw_value", list(range(-50, 260, 10)))
+def test_trend_percentage_normalization_clamps_and_is_monotonic(raw_value: int) -> None:
+    score = TrendScoreCalculator._normalize_percentage_score(float(raw_value))
+    assert 0.0 <= score <= 100.0
+
+    next_value = float(raw_value + 5)
+    next_score = TrendScoreCalculator._normalize_percentage_score(next_value)
+    if (raw_value <= 1 and next_value <= 1) or (1 < raw_value <= 10 and 1 < next_value <= 10) or (raw_value > 10 and next_value > 10):
+        assert next_score >= score
+
+
+@pytest.mark.parametrize("slope", list(range(-150, 160, 10)))
+def test_trend_slope_normalization_clamps_and_is_monotonic(slope: int) -> None:
+    score = TrendScoreCalculator._normalize_slope_to_score(float(slope))
+    assert 0.0 <= score <= 100.0
+
+    next_score = TrendScoreCalculator._normalize_slope_to_score(float(slope + 1))
+    assert next_score >= score
+
+
 def test_confidence_full_data() -> None:
     modifier = ConfidenceScoreModifier()
     value = modifier.calculate(1001, _base_confidence_context(), None)
