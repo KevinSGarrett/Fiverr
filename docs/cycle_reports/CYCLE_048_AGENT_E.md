@@ -638,7 +638,8 @@ Posted content included:
 ## SECTION 15: Final SHA
 
 Final report commit SHA (initial pass): `6baa2ee7347f6b5aa169cbfbe47bfe43ed705bcb`  
-Continuation update SHA: recorded in final post-push verification block.
+Continuation update SHA: `65b6e691c8ab7f3920037fdcce510471633c9102`  
+Final verification refresh SHA: recorded in terminal verification block after final push.
 
 ---
 
