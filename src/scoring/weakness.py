@@ -938,10 +938,10 @@ class GigQualityWeaknessScoreCalculator:
                     if weakness_input:
                         weakness_inputs_by_gig.append(weakness_input)
             for result in top_results:
-                gig = result.gig
-                if gig is None:
+                result_gig = getattr(result, "gig", None)
+                if result_gig is None:
                     continue
-                raw_gig_url = getattr(gig, "gig_url", None)
+                raw_gig_url = getattr(result_gig, "gig_url", None)
                 if not isinstance(raw_gig_url, str):
                     continue
                 normalized_url = raw_gig_url.strip()
