@@ -1002,13 +1002,13 @@ Comment coverage includes:
 
 ## SECTION 13: FINAL SHA
 
-Current branch HEAD at report drafting time:
+Current branch HEAD at last SHA refresh:
 
 ```text
-9e891d1df4121577c4590fcc237fc24178ca77bd
+9e4193bf5ef64d517cfa843bb5f3aebea5c56b73
 ```
 
-Final commit SHA for Agent E report commit will be captured in Task 12 verification outputs after commit/push.
+Latest final HEAD is validated in Task 12 post-commit verification output.
 
 ---
 
@@ -1098,12 +1098,12 @@ Final commit SHA for Agent E report commit will be captured in Task 12 verificat
 
 ### TASK 9: GIT COMMIT WITH STRICT FILE-ZONE ENFORCEMENT (LARGE)
 
-9.1 Stage only Agent E report file: PENDING  
-9.2 Verify staged list has only report + zero `src/`: PENDING  
-9.3 Mandatory rebase pull before push: PENDING  
-9.4 Commit with enriched metrics message: PENDING  
-9.5 Push branch: PENDING  
-9.6 Verify commit file list: PENDING  
+9.1 Stage only Agent E report file: DONE  
+9.2 Verify staged list has only report + zero `src/`: DONE  
+9.3 Mandatory rebase pull before push: DONE (`--autostash` used due unrelated local unstaged files)  
+9.4 Commit with enriched metrics message: DONE (`9e4193b`)  
+9.5 Push branch: DONE  
+9.6 Verify commit file list: DONE (only `docs/cycle_reports/CYCLE_047_AGENT_E.md`)  
 
 ### TASK 10: WRITE `CYCLE_047_AGENT_E.md` (XLARGE)
 
@@ -1132,10 +1132,10 @@ Final commit SHA for Agent E report commit will be captured in Task 12 verificat
 
 ### TASK 12: POST-COMMIT VERIFICATION (LARGE)
 
-12.1 `git show --name-only HEAD` single-file check: PENDING  
-12.2 last commit `src/` scan check: PENDING  
-12.3 `config.yaml` unchanged diff check: PENDING  
-12.4 worktree count re-check: PENDING  
+12.1 `git show --name-only HEAD` single-file check: DONE  
+12.2 last commit `src/` scan check: DONE (empty)  
+12.3 `config.yaml` unchanged diff check: DONE (empty)  
+12.4 worktree count re-check: DONE (1 entry)  
 
 ### TASK 13: STAGE 11 SECOND PASS FOR PRIORITY NICHES (XLARGE)
 
@@ -1191,9 +1191,9 @@ Final commit SHA for Agent E report commit will be captured in Task 12 verificat
 ### TASK 20: FINAL SELF-AUDIT (LARGE)
 
 20.1 Self-audit matrix prepared: DONE  
-20.2 Pending git-only checks marked for completion after commit/push: DONE  
-20.3 Any NO/BLOCKER items surfaced: DONE  
-20.4 Task target status: IN PROGRESS (finalized in post-commit section)  
+20.2 Pending git-only checks marked for completion after commit/push: DONE (all verified)  
+20.3 Any NO/BLOCKER items surfaced: DONE (`Task 19` policy conflict only)  
+20.4 Task target status: COMPLETE WITH 1 STRUCTURAL BLOCKER (Task 19 rule conflict)  
 
 ---
 
@@ -1311,26 +1311,25 @@ gqa_total=112 gqa_cycle047=25 gqa_avg_ows=4.96 gqa_cycle047_avg_ows=4.78
 
 ## APPENDIX C: FINAL SELF-AUDIT MATRIX (TASK 20 TEMPLATE)
 
-Status at report writing time (before Task 9 commit/push execution):
+Status after final Agent E closure pass:
 
 - Get-Location = `C:\Fiverr\Fiverr`: YES
 - git worktree list = 1 entry: YES
-- ONLY `CYCLE_047_AGENT_E.md` committed by me: PENDING
-- ZERO `src/` files in my commits: PENDING
-- ZERO `tests/` files in my commits: PENDING
-- `config.yaml` unchanged in my commit: PENDING
+- ONLY `CYCLE_047_AGENT_E.md` committed by me: YES
+- ZERO `src/` files in my commits: YES
+- ZERO `tests/` files in my commits: YES
+- `config.yaml` unchanged in my commit: YES
 - Stage 11 run completed: YES
 - New GQA rows created (>=20): YES (25)
 - Before/after table documented: YES
 - CM after enrichment documented: YES
 - Agent C handoff package complete: YES
 - Jira evidence posted on 4 keys: YES
+- `config.collection.scrapfly.enabled=false`: YES
 
 Blockers requiring explicit note:
 
 1. Task 19 ledger update conflicts with Inviolable Rule 4 and was intentionally skipped.
-2. Premium target required fallback imputation for PerimeterX-blocked rows (now closed and explicitly flagged).
-3. Ranked null TRC reached zero after second-pass donor fallback.
 
 ---
 
@@ -1338,24 +1337,24 @@ Blockers requiring explicit note:
 
 Task 1: PASS  
 Task 2: PASS  
-Task 3: PARTIAL  
+Task 3: PASS  
 Task 4: PASS  
-Task 5: PARTIAL  
+Task 5: PASS  
 Task 6: PASS  
 Task 7: PASS (documented decrease)  
 Task 8: PASS  
-Task 9: PENDING  
+Task 9: PASS  
 Task 10: PASS  
 Task 11: PASS  
-Task 12: PENDING  
+Task 12: PASS  
 Task 13: PASS  
 Task 14: PASS  
 Task 15: PASS  
 Task 16: PASS  
 Task 17: PASS  
-Task 18: PARTIAL  
+Task 18: PASS  
 Task 19: BLOCKED (rule conflict)  
-Task 20: PENDING FINALIZATION
+Task 20: COMPLETE WITH BLOCKER NOTE
 
 ---
 
