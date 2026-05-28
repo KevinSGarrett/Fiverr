@@ -252,3 +252,80 @@ class _LegacyLLM:
     def complete(prompt: str, model: str) -> SimpleNamespace:
         del prompt, model
         return SimpleNamespace(text="5.0")
+
+
+def test_weakness_fallback_run_id_path_is_exercised() -> None:
+    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="active-run")
+        _insert_gqa_row(session, gig_url=gig_url, run_id="fallback-run", rubric_score=10.0)
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value > 0.0
+    finally:
+        session.close()
+
+
+def test_weakness_fallback_selects_correct_run_when_multiple_available() -> None:
+    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="active-run")
+        _insert_gqa_row(session, gig_url=gig_url, run_id="older-run", rubric_score=90.0)
+        _insert_gqa_row(session, gig_url=gig_url, run_id="newer-run", rubric_score=40.0)
+        resolved = GigQualityWeaknessScoreCalculator()._resolve_weakness_input_run_id(  # pylint: disable=protected-access
+            session,
+            active_run_id="active-run",
+            top_card_urls=[gig_url],
+            top_results=[],
+        )
+        assert resolved == "newer-run"
+    finally:
+        session.close()
+
+
+def test_weakness_active_run_takes_precedence_over_fallback() -> None:
+    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(session, active_run_id="active-run")
+        _insert_gqa_row(session, gig_url=gig_url, run_id="active-run", rubric_score=60.0)
+        _insert_gqa_row(session, gig_url=gig_url, run_id="fallback-run", rubric_score=5.0)
+        resolved = GigQualityWeaknessScoreCalculator()._resolve_weakness_input_run_id(  # pylint: disable=protected-access
+            session,
+            active_run_id="active-run",
+            top_card_urls=[gig_url],
+            top_results=[],
+        )
+        assert resolved == "active-run"
+    finally:
+        session.close()
+
+
+def test_weakness_kw3_niche_gets_weakness_score_via_fallback_run_id() -> None:
+    """kw=3-equivalent: active run has no GQA; older run has Stage 11 rows."""
+    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(
+            session,
+            active_run_id="cycle041_agentb_live_stage34",
+            gig_url="https://www.fiverr.com/gigs/6b7f9d9b-979b-4f0e-98b0-2ab3f326e72c",
+        )
+        _insert_gqa_row(
+            session,
+            gig_url=gig_url,
+            run_id="cycle038_agentb_live",
+            rubric_score=20.0,
+            weakness_flags=["video_absent", "portfolio_absent"],
+        )
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value > 0.0
+    finally:
+        session.close()

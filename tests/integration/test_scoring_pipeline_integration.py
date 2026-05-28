@@ -302,3 +302,136 @@ def test_scoring_pipeline_does_not_crash_with_minimal_data(integration_db: Sessi
     payload = _run_pipeline(integration_db, keyword_id)
     assert payload["final_score"] is not None
     assert isinstance(payload["final_score"], float)
+
+
+def test_scoring_pipeline_kw3_equivalent_gets_weakness_via_run_id_fallback(integration_db: Session) -> None:
+    keyword_id = _seed_keyword(
+        integration_db,
+        keyword_text="kw3-equivalent fallback",
+        run_id="active-run",
+        gig_count=1,
+        with_links=True,
+        with_gqa=False,
+        with_reddit=False,
+        with_trends=True,
+    )
+    top_row = (
+        integration_db.query(SearchResult)
+        .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank == 1)
+        .first()
+    )
+    assert top_row is not None and top_row.gig is not None
+    keyword = integration_db.query(Keyword).filter(Keyword.id == keyword_id).first()
+    assert keyword is not None and keyword.niche is not None
+    integration_db.add(
+        GigQualityAnalysis(
+            gig_url=top_row.gig.gig_url,
+            niche_id=keyword.niche.slug,
+            run_id="cycle_older",
+            rubric_score=15.0,
+            video_absent=True,
+            portfolio_absent=True,
+            description_thin=True,
+            faq_absent=False,
+            thumbnail_quality_flag=False,
+            weakness_flags=["video_absent", "portfolio_absent", "description_thin"],
+        )
+    )
+    integration_db.commit()
+
+    weakness_result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, integration_db)
+    assert weakness_result.score_value is not None
+    assert weakness_result.score_value > 0.0
+
+
+def test_scoring_pipeline_multiple_keywords_with_mixed_weakness_coverage(integration_db: Session) -> None:
+    kw_with_gqa = _seed_keyword(
+        integration_db,
+        keyword_text="kw with gqa",
+        run_id="mixed-gqa",
+        gig_count=2,
+        with_links=True,
+        with_gqa=True,
+        with_reddit=False,
+        with_trends=True,
+    )
+    kw_without_gqa = _seed_keyword(
+        integration_db,
+        keyword_text="kw without gqa",
+        run_id="mixed-no-gqa",
+        gig_count=0,
+        with_links=True,
+        with_gqa=False,
+        with_reddit=False,
+        with_trends=True,
+    )
+
+    with_gqa_payload = _run_pipeline(integration_db, kw_with_gqa)
+    without_gqa_payload = _run_pipeline(integration_db, kw_without_gqa)
+
+    assert with_gqa_payload["final_score"] is not None
+    assert without_gqa_payload["final_score"] is not None
+    assert with_gqa_payload["weakness_score"] is not None
+    assert without_gqa_payload["weakness_score"] is None
+
+
+def test_full_scoring_with_reddit_signal_improves_cm(integration_db: Session) -> None:
+    kw_with_reddit = _seed_keyword(
+        integration_db,
+        keyword_text="reddit cm keyword",
+        run_id="reddit-cm",
+        gig_count=2,
+        with_links=True,
+        with_gqa=True,
+        with_reddit=True,
+        with_trends=True,
+    )
+    kw_without_reddit = _seed_keyword(
+        integration_db,
+        keyword_text="no reddit cm keyword",
+        run_id="no-reddit-cm",
+        gig_count=2,
+        with_links=True,
+        with_gqa=True,
+        with_reddit=False,
+        with_trends=True,
+    )
+
+    with_reddit_cm, with_reddit_breakdown = ConfidenceScoreModifier().calculate_with_breakdown(
+        kw_with_reddit,
+        run_context={
+            "data_completeness_ratio": 1.0,
+            "data_freshness_score": 1.0,
+            "source_diversity_score": 1.0,
+            "llm_analysis_completion_ratio": 1.0,
+            "google_trends_available": True,
+            "gig_detail_collected": True,
+            "seller_profiles_collected": True,
+            "reddit_signals_available": True,
+            "llm_gig_quality_incomplete_count": 0.0,
+            "llm_competitor_synthesis_failed": False,
+            "mode": "standard",
+        },
+        db=integration_db,
+    )
+    without_reddit_cm, without_reddit_breakdown = ConfidenceScoreModifier().calculate_with_breakdown(
+        kw_without_reddit,
+        run_context={
+            "data_completeness_ratio": 1.0,
+            "data_freshness_score": 1.0,
+            "source_diversity_score": 1.0,
+            "llm_analysis_completion_ratio": 1.0,
+            "google_trends_available": True,
+            "gig_detail_collected": True,
+            "seller_profiles_collected": True,
+            "reddit_signals_available": False,
+            "llm_gig_quality_incomplete_count": 0.0,
+            "llm_competitor_synthesis_failed": False,
+            "mode": "standard",
+        },
+        db=integration_db,
+    )
+
+    assert "missing_reddit_signals" not in with_reddit_breakdown
+    assert without_reddit_breakdown["missing_reddit_signals"] == -0.05
+    assert with_reddit_cm > without_reddit_cm
