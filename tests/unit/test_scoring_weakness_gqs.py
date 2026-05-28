@@ -7,7 +7,16 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from src.models import Base, Gig, GigQualityAnalysis, GigQualityScore, Keyword, Niche, SearchResult
+from src.models import (
+    Base,
+    Gig,
+    GigQualityAnalysis,
+    GigQualityScore,
+    Keyword,
+    KeywordScore,
+    Niche,
+    SearchResult,
+)
 from src.scoring.weakness import (
     GigQualityWeaknessScoreCalculator,
     compute_weakness_penalty_from_flags,
@@ -460,6 +469,62 @@ def test_weakness_does_not_regress_kw96_behavior_after_fallback_added() -> None:
 
         signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
         assert signals["overall_weakness_score_avg"] == 5.35
+    finally:
+        session.close()
+
+
+def test_weakness_prefers_active_run_when_no_top_card_identities() -> None:
+    session = _new_session()
+    try:
+        keyword_id, _ = _seed_run_scoped_keyword(
+            session,
+            active_run_id="active-empty-cards",
+            card_url="",
+        )
+        row = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).first()
+        assert row is not None
+        row.gig_cards = []
+        session.commit()
+
+        resolved_run = GigQualityWeaknessScoreCalculator()._resolve_weakness_input_run_id(
+            session,
+            active_run_id="active-empty-cards",
+            top_card_urls=[],
+            top_results=[],
+        )
+        assert resolved_run == "active-empty-cards"
+    finally:
+        session.close()
+
+
+def test_weakness_uses_historical_fallback_when_signal_weight_insufficient() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(
+            session,
+            fallback_video=[True] * 10,
+            fallback_portfolio=[None] * 10,  # type: ignore[list-item]
+        )
+        session.add(
+            KeywordScore(
+                keyword_id=keyword_id,
+                final_score=50.0,
+                score_components={
+                    "weakness_score": {
+                        "value": 53.52,
+                        "effective_value": 53.52,
+                        "weight": 0.2,
+                        "contribution": 10.7,
+                    }
+                },
+                tag="PASS",
+            )
+        )
+        session.commit()
+
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value == 53.52
+        assert "historical_weakness_fallback" in result.score_components
     finally:
         session.close()
 

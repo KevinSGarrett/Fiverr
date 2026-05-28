@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlsplit
 from sqlalchemy.orm import Session
 
 from src.models import Gig, GigVisualAnalysis, Keyword, SearchResult
+from src.models.keyword_score import KeywordScore
 from src.scoring.contracts import ScoreComponent, WeaknessScoreResult
 
 _WEAKNESS_FLAG_PENALTIES: dict[str, float] = {
@@ -474,6 +475,33 @@ class GigQualityWeaknessScoreCalculator:
             source_evidence.append("llm.niche_specificity_score")
 
         if total_weight_available < 0.30:
+            historical_fallback = (
+                self._resolve_historical_weakness_score(keyword_id, db) if isinstance(db, Session) else None
+            )
+            if historical_fallback is not None:
+                score_components["historical_weakness_fallback"] = ScoreComponent(
+                    value=historical_fallback,
+                    weight=1.0,
+                    raw="keyword_scores.latest_non_null",
+                    note="Used latest persisted weakness when current-run signal coverage is insufficient.",
+                )
+                return WeaknessScoreResult(
+                    keyword_id=keyword_id,
+                    score_value=historical_fallback,
+                    score_components=score_components,
+                    confidence_modifier=max(0.0, 1.0 + sum(confidence_breakdown.values())),
+                    confidence_breakdown=confidence_breakdown,
+                    confidence_reason=(
+                        "Current weakness signals were sparse; used latest persisted non-null weakness score."
+                    ),
+                    missing_data_warnings=missing_data_warnings,
+                    source_evidence=source_evidence + ["keyword_scores.weakness_score.latest_non_null"],
+                    explanation_text=(
+                        "Fallback to latest persisted weakness score because current-run weakness coverage is sparse."
+                    ),
+                    total_weight_available=total_weight_available,
+                    default_weight=self.DEFAULT_WEIGHT,
+                )
             return WeaknessScoreResult(
                 keyword_id=keyword_id,
                 score_value=None,
@@ -738,21 +766,47 @@ class GigQualityWeaknessScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        top_results: list[Any] = (
+        latest_result = (
             session.query(SearchResult)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
-            .order_by(SearchResult.rank.asc())
-            .all()
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.run_id.isnot(None))
+            .order_by(SearchResult.created_at.desc(), SearchResult.id.desc())
+            .first()
         )
-        active_run_id = next(
-            (
-                result.run_id.strip()
-                for result in top_results
-                if isinstance(result.run_id, str) and result.run_id.strip()
-            ),
-            None,
+        active_run_id = ""
+        if latest_result is not None and isinstance(latest_result.run_id, str):
+            active_run_id = latest_result.run_id.strip()
+        top_results_query = session.query(SearchResult).filter(
+            SearchResult.keyword_id == keyword_id,
+            SearchResult.rank <= 10,
         )
-        if active_run_id is not None:
+        if active_run_id:
+            top_results_query = top_results_query.filter(SearchResult.run_id == active_run_id)
+        top_results: list[Any] = top_results_query.order_by(SearchResult.rank.asc()).all()
+        if not top_results and active_run_id:
+            # Preserve freshest run context even when rank values are missing/null.
+            top_results = (
+                session.query(SearchResult)
+                .filter(SearchResult.keyword_id == keyword_id, SearchResult.run_id == active_run_id)
+                .order_by(SearchResult.created_at.desc(), SearchResult.id.desc())
+                .limit(10)
+                .all()
+            )
+        if not top_results:
+            top_results = (
+                session.query(SearchResult)
+                .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+                .order_by(SearchResult.rank.asc())
+                .all()
+            )
+            active_run_id = next(
+                (
+                    result.run_id.strip()
+                    for result in top_results
+                    if isinstance(result.run_id, str) and result.run_id.strip()
+                ),
+                "",
+            )
+        if active_run_id:
             scoped_results = [
                 result
                 for result in top_results
@@ -771,7 +825,7 @@ class GigQualityWeaknessScoreCalculator:
         top_gigs = [result.gig for result in top_results if result.gig is not None]
         if top_card_urls:
             top_gigs_by_url_query = session.query(Gig).filter(Gig.gig_url.in_(top_card_urls))
-            if active_run_id is not None:
+            if active_run_id:
                 top_gigs_by_url_query = top_gigs_by_url_query.filter(Gig.run_id == active_run_id)
             top_gigs_by_url = top_gigs_by_url_query.all()
             seen_ids = {gig.id for gig in top_gigs if gig.id is not None}
@@ -794,7 +848,7 @@ class GigQualityWeaknessScoreCalculator:
                     Gig.keyword_id == keyword_id,
                     Gig.gig_url.isnot(None),
                 )
-                if active_run_id is not None:
+                if active_run_id:
                     top_gigs_candidates_query = top_gigs_candidates_query.filter(Gig.run_id == active_run_id)
                 for gig in top_gigs_candidates_query.all():
                     gig_identity = self._normalize_gig_url_identity(getattr(gig, "gig_url", None))
@@ -808,7 +862,7 @@ class GigQualityWeaknessScoreCalculator:
 
         if not top_gigs:
             fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
-            if active_run_id is not None:
+            if active_run_id:
                 fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
             top_gigs = (
                 fallback_query
@@ -818,7 +872,7 @@ class GigQualityWeaknessScoreCalculator:
             )
             # Latest run IDs can map to unlinked search rows; if so, recover with
             # keyword-level gigs rather than dropping the weakness signal entirely.
-            if not top_gigs and active_run_id is not None:
+            if not top_gigs and active_run_id:
                 top_gigs = (
                     session.query(Gig)
                     .filter(Gig.keyword_id == keyword_id)
@@ -993,15 +1047,16 @@ class GigQualityWeaknessScoreCalculator:
             )
             if identity is not None
         }
+        # When the active run has no card URLs, keep run selection anchored to the
+        # active run to avoid cross-keyword Stage 11 leakage via fallback gig rows.
+        if not target_url_identities:
+            return active_run_id
         for result in top_results:
             gig = getattr(result, "gig", None)
             gig_url = getattr(gig, "gig_url", None) if gig is not None else None
             identity = self._normalize_gig_url_identity(gig_url)
             if identity is not None:
                 target_url_identities.add(identity)
-
-        if not target_url_identities:
-            return active_run_id
 
         try:
             from src.models.market import GigQualityAnalysis
@@ -1035,6 +1090,38 @@ class GigQualityWeaknessScoreCalculator:
         if matching_runs:
             return matching_runs[0]
         return normalized_active_run or None
+
+    @staticmethod
+    def _resolve_historical_weakness_score(keyword_id: int, db: Session) -> float | None:
+        """Return latest persisted non-null weakness value for the keyword."""
+        rows = (
+            db.query(KeywordScore)
+            .filter(KeywordScore.keyword_id == keyword_id)
+            .order_by(KeywordScore.scored_at.desc(), KeywordScore.id.desc())
+            .limit(20)
+            .all()
+        )
+        observed: list[float] = []
+        for row in rows:
+            components = row.score_components if isinstance(row.score_components, dict) else {}
+            weakness_component = components.get("weakness_score", {}) if isinstance(components, dict) else {}
+            value = weakness_component.get("value") if isinstance(weakness_component, dict) else None
+            try:
+                if value is not None:
+                    observed.append(round(float(value), 2))
+            except (TypeError, ValueError):
+                continue
+        if not observed:
+            return None
+
+        latest = observed[0]
+        # Guard against transient 100.0 spikes from sparse/cross-run leakage by
+        # selecting the most recent stable prior non-extreme weakness value.
+        if latest >= 90.0:
+            for candidate in observed[1:]:
+                if 0.0 < candidate < 90.0:
+                    return candidate
+        return latest
 
     @staticmethod
     def _extract_top_card_urls(top_results: list[Any], limit: int) -> list[str]:
