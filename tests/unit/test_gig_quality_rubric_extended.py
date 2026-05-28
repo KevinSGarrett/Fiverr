@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 from sqlalchemy import select
-from src.analysis.gig_quality_rubric import compute_rubric_score, run_gig_quality_analysis_for_niche
+from src.analysis.gig_quality_rubric import (
+    _extract_niche_ids,
+    _resolve_niche_pk,
+    _safe_float,
+    _safe_int,
+    compute_rubric_score,
+    load_gig_quality_scores_for_niche,
+    run_gig_quality_analysis_for_niche,
+)
 from src.models.database import create_session_factory, initialize_database
 from src.models.gig import Gig
 from src.models.gig_quality_score import GigQualityScore
@@ -228,3 +237,122 @@ def test_gig_quality_rubric_run_id_is_stored_with_result() -> None:
         assert row.run_id == "rubric-run-id"
     finally:
         session.close()
+
+
+def test_numeric_helpers_cover_float_blank_and_object_inputs() -> None:
+    assert _safe_int(4.8) == 4
+    assert _safe_int("") is None
+    assert _safe_int(object()) is None
+    assert _safe_float("") is None
+    assert _safe_float(object()) is None
+
+
+def test_extract_niche_ids_returns_empty_when_niches_is_not_list() -> None:
+    assert _extract_niche_ids({"niches": "bad"}) == []
+
+
+def test_resolve_niche_pk_returns_none_for_non_session_db() -> None:
+    assert _resolve_niche_pk("slug-value", object()) is None
+
+
+def test_load_quality_rows_skips_duplicates_none_keyword_and_caps_top_10(monkeypatch) -> None:
+    rows = [
+        SimpleNamespace(
+            gig_url="https://fiverr.com/gig/none-keyword",
+            keyword_id=None,
+            gig_title_full="none",
+            description_text="d",
+            faq_text="f",
+            gig_video_present=True,
+            gig_portfolio_count=1,
+            thumbnail_url="https://img/x.png",
+            search_rank=1,
+            quality_video_present=True,
+            quality_portfolio_count=1,
+            description_quality_score=8.0,
+            faq_completeness_score=8.0,
+            thumbnail_quality_score=8.0,
+        ),
+        SimpleNamespace(
+            gig_url="https://fiverr.com/gig/dup",
+            keyword_id=99,
+            gig_title_full="dup",
+            description_text="d",
+            faq_text="f",
+            gig_video_present=True,
+            gig_portfolio_count=1,
+            thumbnail_url="https://img/dup.png",
+            search_rank=1,
+            quality_video_present=True,
+            quality_portfolio_count=1,
+            description_quality_score=8.0,
+            faq_completeness_score=8.0,
+            thumbnail_quality_score=8.0,
+        ),
+        SimpleNamespace(
+            gig_url="https://fiverr.com/gig/dup",
+            keyword_id=99,
+            gig_title_full="dup2",
+            description_text="d",
+            faq_text="f",
+            gig_video_present=True,
+            gig_portfolio_count=1,
+            thumbnail_url="https://img/dup2.png",
+            search_rank=2,
+            quality_video_present=True,
+            quality_portfolio_count=1,
+            description_quality_score=8.0,
+            faq_completeness_score=8.0,
+            thumbnail_quality_score=8.0,
+        ),
+    ]
+    for idx in range(12):
+        rows.append(
+            SimpleNamespace(
+                gig_url=f"https://fiverr.com/gig/kw99-{idx}",
+                keyword_id=99,
+                gig_title_full=f"title-{idx}",
+                description_text="d",
+                faq_text="f",
+                gig_video_present=True,
+                gig_portfolio_count=1,
+                thumbnail_url="https://img/u.png",
+                search_rank=idx + 1,
+                quality_video_present=True,
+                quality_portfolio_count=1,
+                description_quality_score=8.0,
+                faq_completeness_score=8.0,
+                thumbnail_quality_score=8.0,
+            )
+        )
+
+    class _FakeQuery:
+        def __init__(self, result_rows):
+            self._result_rows = result_rows
+
+        def join(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            return self
+
+        def outerjoin(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            return self
+
+        def filter(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            return self
+
+        def order_by(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            return self
+
+        def all(self):
+            return self._result_rows
+
+    class _FakeDb:
+        def query(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            return _FakeQuery(rows)
+
+    monkeypatch.setattr("src.analysis.gig_quality_rubric._is_session", lambda db: True)
+    monkeypatch.setattr("src.analysis.gig_quality_rubric._resolve_niche_pk", lambda niche_id, db: 1)
+
+    loaded = load_gig_quality_scores_for_niche("any-slug", "run-any", _FakeDb())
+    assert len(loaded) == 10
+    assert all(item["keyword_id"] == 99 for item in loaded)
+    assert len({item["gig_url"] for item in loaded}) == 10
