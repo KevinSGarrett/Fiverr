@@ -1216,7 +1216,7 @@ Progression:
 | 044 | `42.04` |
 | 045 | `42.29` |
 
-### Recommendation outcome
+### Recommendation outcome (Cycle 046 Agent C)
 
 - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
 - Result:
