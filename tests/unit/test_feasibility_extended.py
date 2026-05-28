@@ -42,6 +42,21 @@ def test_feasibility_extract_top_card_urls_skips_invalid_entries() -> None:
 def test_feasibility_normalize_gig_url_identity_falls_back_without_path() -> None:
     assert NewSellerFeasibilityCalculator._normalize_gig_url_identity("https://www.fiverr.com") == "https://www.fiverr.com"
     assert NewSellerFeasibilityCalculator._normalize_gig_url_identity("   ") is None
+    assert NewSellerFeasibilityCalculator._normalize_gig_url_identity(123) is None
+
+
+def test_feasibility_extract_top_card_urls_ignores_non_dict_cards() -> None:
+    ranked_urls = NewSellerFeasibilityCalculator._extract_top_card_urls(
+        [type("R", (), {"gig_cards": ["bad", {"position": 1, "gig_url": "https://fiverr.com/a"}]})()],
+        limit=5,
+    )
+    assert ranked_urls == ["https://fiverr.com/a"]
+
+
+def test_feasibility_price_diversity_none_for_single_price() -> None:
+    calculator = NewSellerFeasibilityCalculator()
+    score = calculator._resolve_price_diversity_score({"top10_prices": [10.0]})
+    assert score is None
 
 
 def test_feasibility_load_signals_from_db_recovers_missing_identity_candidates() -> None:
@@ -52,9 +67,10 @@ def test_feasibility_load_signals_from_db_recovers_missing_identity_candidates()
         search_row = session.execute(
             select(SearchResult).where(SearchResult.keyword_id == keyword_id)
         ).scalar_one()
+        gig_cards = search_row.gig_cards if isinstance(search_row.gig_cards, list) else []
         search_row.gig_cards = [
             {"position": idx, "gig_url": f"{card['gig_url']}?source=cards"}
-            for idx, card in enumerate(search_row.gig_cards, start=1)
+            for idx, card in enumerate(gig_cards, start=1)
         ]
         session.commit()
 

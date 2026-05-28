@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
 from sqlalchemy.orm import Session
 from src.models import Gig, GigQualityAnalysis, Keyword, Niche, SearchResult, Seller
 from src.scoring.weakness import (
     GigQualityWeaknessScoreCalculator,
+    _normalize_weakness_flags,
     compute_weakness_penalty_from_flags,
+    get_gig_quality_weakness_input,
 )
 from tests.unit.test_scoring_db_integration import (
     _seed_keyword_data_with_unlinked_page_cards,
@@ -164,3 +169,86 @@ def test_weakness_graceful_fallback_when_zero_linked_gigs() -> None:
         assert result.source_evidence
     finally:
         session.close()
+
+
+def test_weakness_normalize_flags_handles_non_list_and_non_string_entries() -> None:
+    assert _normalize_weakness_flags("bad-input") == []
+    assert _normalize_weakness_flags(["video_absent", 1, None]) == ["NO_VIDEO"]
+
+
+def test_weakness_get_input_uses_unscoped_query_when_no_run_or_niche() -> None:
+    session = next(_session())
+    try:
+        niche = Niche(slug="weakness-unscoped", name="Weakness Unscoped", category_path="Programming & Tech > AI")
+        session.add(niche)
+        session.flush()
+        row = GigQualityAnalysis(
+            gig_url="https://www.fiverr.com/weakness/unscoped",
+            niche_id=niche.slug,
+            run_id="any-run",
+            rubric_score=70.0,
+            video_absent=True,
+            portfolio_absent=False,
+            description_thin=False,
+            faq_absent=False,
+            thumbnail_quality_flag=False,
+            weakness_flags=["video_absent"],
+        )
+        session.add(row)
+        session.commit()
+
+        payload = get_gig_quality_weakness_input(
+            gig_url="https://www.fiverr.com/weakness/unscoped",
+            niche_id="",
+            run_id="",
+            db=session,
+        )
+        assert payload["source"] == "gig_quality_analysis"
+    finally:
+        session.close()
+
+
+def test_weakness_helper_paths_for_async_text_and_float_failures() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    assert calculator._as_float("not-a-number") is None
+    assert calculator._extract_llm_text("plain-response") == "plain-response"
+    assert calculator._normalize_gig_url_identity(123) is None
+    assert calculator._normalize_gig_url_identity("   ") is None
+    assert calculator._normalize_gig_url_identity("https://www.fiverr.com?x=1") == "https://www.fiverr.com"
+
+
+def test_weakness_run_async_works_when_event_loop_already_running() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+
+    async def _inside() -> float | None:
+        return calculator._run_async(calculator._get_llm_numeric_score("prompt", "gpt-4o", _FakeLLM("6.5"), None))
+
+    assert asyncio.run(_inside()) == 6.5
+
+
+def test_weakness_numeric_and_absence_resolvers_cover_edge_paths() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    assert calculator._normalize_weakness_count(0.0) == 0.0
+    assert calculator._absence_rate_from_presence([None, None]) is None
+    assert calculator._resolve_absence_rate({"top10_has_video": [None, None]}, "video_absence_rate", "top10_has_video") is None
+
+
+def test_weakness_complete_with_optional_cache_falls_back_on_type_error() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    payload = calculator._complete_with_optional_cache(_LegacyLLM(), "prompt", "gpt-4o", cache={})
+    assert payload.text == "5.0"
+
+
+class _FakeLLM:
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def complete(self, **_: object) -> SimpleNamespace:
+        return SimpleNamespace(text=self._text)
+
+
+class _LegacyLLM:
+    @staticmethod
+    def complete(prompt: str, model: str) -> SimpleNamespace:
+        del prompt, model
+        return SimpleNamespace(text="5.0")

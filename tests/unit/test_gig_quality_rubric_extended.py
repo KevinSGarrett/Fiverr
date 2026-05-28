@@ -9,8 +9,7 @@ from src.analysis.gig_quality_rubric import compute_rubric_score, run_gig_qualit
 from src.models.database import create_session_factory, initialize_database
 from src.models.gig import Gig
 from src.models.gig_quality_score import GigQualityScore
-from src.models.market import GigQualityAnalysis
-from src.models.market import Keyword
+from src.models.market import GigQualityAnalysis, Keyword
 from src.models.niche import Niche
 from src.models.search_result import SearchResult
 

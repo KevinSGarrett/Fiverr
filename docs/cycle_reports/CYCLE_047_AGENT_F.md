@@ -42,7 +42,7 @@ Extracted from Agent C handoff:
   - `9e891d1 feat(data): Cycle 047 Agent E enrichment - Stage11+Stage3/4/5`
 - `git worktree list`: single entry (`C:/Fiverr/Fiverr 8252b83 [cycle/047/integration]`)
 - `python run.py config-check`: `Config OK`
-- `python -m pytest -q tests/unit/ --no-header`: `3114 passed`
+- `python -m pytest -q tests/unit/ --no-header`: `3131 passed` (latest rerun baseline after F expansion)
 
 ## Task 1 - Coverage gap analysis table
 
@@ -50,12 +50,12 @@ Measured current coverage snapshot:
 
 | Module | Current % | Missing Lines | Target % | Priority | Status |
 |---|---:|---|---:|---|---|
-| `src/scoring/weakness.py` | 93% | 41, 46, 115, 152, 554-555, 581, 599, 648, 658, 701, 725, 781-782, 790, 806, 809, 889-890, 903, 906, 928, 934, 937, 942-943, 951-952, 972, 985, 990, 1000-1001 | 95% | HIGH | BELOW TARGET |
+| `src/scoring/weakness.py` | 97% | 152, 554-555, 648, 658, 701, 725, 781-782, 790, 806, 809, 889-890, 903, 906, 928 | 95% | HIGH | PASS |
 | `src/analysis/gig_quality_rubric.py` | BLOCKED | N/A (coverage run fails during collection) | 96% | HIGH | BLOCKED |
 | `src/models/gig_quality_analysis.py` | 100% | none | 90% | HIGH | PASS |
-| `src/scoring/intent.py` | 94% | 110-112, 230, 240-241, 270, 281, 291, 328-329 | 95% | MEDIUM | BELOW TARGET |
-| `src/collection/gig_detail.py` | 94% | 116-117, 145, 158, 168-169, 183, 211, 213, 215, 247, 259, 319, 323, 374-375, 379-381 | 96% | MEDIUM | BELOW TARGET |
-| `src/scoring/feasibility.py` | 98% | 330, 462, 484, 486, 611, 642 | 99% | HIGH | BELOW TARGET |
+| `src/scoring/intent.py` | 99% | 281 | 95% | MEDIUM | PASS |
+| `src/collection/gig_detail.py` | 98% | 145, 168-169, 183, 213, 215, 319, 323 | 96% | MEDIUM | PASS |
+| `src/scoring/feasibility.py` | 99% | 462, 484, 486 | 99% | HIGH | PASS |
 
 ### Coverage blocker details (`gig_quality_rubric.py`)
 
@@ -84,7 +84,7 @@ Added tests:
 Status:
 
 - Test file pass: yes
-- Coverage moved but remains below strict target in current snapshot (`93%`)
+- Coverage now exceeds target in latest full-unit run (`97%`)
 
 ## Task 3 - Gig quality rubric coverage expansion
 
@@ -123,9 +123,9 @@ Status:
 
 Extended tests file: `tests/unit/test_feasibility_extended.py`
 
-- Regression-focused extended tests pass: `4 passed`
-- Current measured coverage snapshot: `98%`
-- Target (`99%`) not yet met in this pass
+- Regression-focused extended tests pass: `7 passed`
+- Current measured coverage snapshot: `99%`
+- Target (`99%`) met in this pass
 
 ## Task 6 - Full integration test (collection -> scoring -> recommendations)
 
@@ -145,8 +145,8 @@ Integration scenarios implemented:
 
 ## Task 7 - Validation (unit, integration, regression, lint)
 
-- Unit only: `3114 passed`
-- Unit + integration: `3184 passed`
+- Unit only: `3131 passed`
+- Unit + integration: `3201 passed`
 - 11-node regression set: `11 passed`
 - Ruff on new/updated test files: `All checks passed`
 
@@ -168,17 +168,17 @@ Comments posted via Atlassian MCP:
 
 | Module | Target | Current | Result |
 |---|---:|---:|---|
-| `src/scoring/weakness.py` | 95% | 93% | NOT MET |
+| `src/scoring/weakness.py` | 95% | 97% | MET |
 | `src/analysis/gig_quality_rubric.py` | 96% | BLOCKED | BLOCKED |
 | `src/models/gig_quality_analysis.py` | 90% | 100% | MET |
-| `src/scoring/intent.py` | 95% | 94% | NOT MET |
-| `src/collection/gig_detail.py` | 96% | 94% | NOT MET |
-| `src/scoring/feasibility.py` | 99% | 98% | NOT MET |
+| `src/scoring/intent.py` | 95% | 99% | MET |
+| `src/collection/gig_detail.py` | 96% | 98% | MET |
+| `src/scoring/feasibility.py` | 99% | 99% | MET |
 
 ### Additional D handoff notes
 
-- Functional test stability is strong (`3184 passed` for unit+integration).
-- Coverage thresholds remain partially open due both remaining untested branches and one reproducible pytest-cov/numpy instrumentation blocker on rubric runs.
+- Functional test stability is strong (`3201 passed` for unit+integration).
+- Coverage thresholds are met for weakness/intent/gig_detail/feasibility/model; rubric remains blocked by reproducible pytest-cov/numpy instrumentation failure.
 - No source edits were made by Agent F.
 
 ## Task 14 - Verify Agent E committed no `src/` files
@@ -203,15 +203,18 @@ No `src/**` edits performed by Agent F due hard rule; results documented for fol
 - Get-Location = `C:\Fiverr\Fiverr`: **YES**
 - `git worktree list` = 1 entry: **YES**
 - ZERO `src/` files modified by F: **YES**
-- `weakness.py >= 95%`: **NO** (93%)
+- `weakness.py >= 95%`: **YES** (97%)
 - `gig_quality_rubric.py >= 96%`: **NO** (blocked)
 - `gig_quality_analysis.py >= 90%`: **YES** (100%)
+- `intent.py >= 95%`: **YES** (99%)
+- `gig_detail.py >= 96%`: **YES** (98%)
+- `feasibility.py >= 99%`: **YES** (99%)
 - Integration test file created with 6+ tests: **YES**
 - All 11 regression tests PASS: **YES**
-- Full suite passes with zero failures: **YES** (`3184 passed`)
+- Full suite passes with zero failures: **YES** (`3201 passed`)
 - Ruff clean on all new test files: **YES**
 
-## Final SHA (pre-F commit)
+## Final SHA (current local head before follow-up commit)
 
-- `8252b834149e837dbbae04e21a0b0eae51062f9d`
+- `dc706f30b9d39340b3529f36e255403e0f43865f`
 
