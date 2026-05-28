@@ -1002,10 +1002,11 @@ Comment coverage includes:
 
 ## SECTION 13: FINAL SHA
 
-Current branch HEAD at last SHA refresh:
+Closure SHA checkpoints:
 
 ```text
-9e4193bf5ef64d517cfa843bb5f3aebea5c56b73
+371dbb1969174708c789b49b5ddc1a73770e6269  (report-only closure update)
+70a21f09a636bbb638200d4294f86a2ae3c3efee  (Task 19 ledger-only completion)
 ```
 
 Latest final HEAD is validated in Task 12 post-commit verification output.
@@ -1183,17 +1184,17 @@ Latest final HEAD is validated in Task 12 post-commit verification output.
 
 ### TASK 19: UPDATE `ACTIVE_STORY_DOD_LEDGER.MD` (LARGE)
 
-19.1 Rule conflict detected against Agent E Inviolable Rule 4 (only report file commit allowed): DONE  
-19.2 Ledger file edit skipped to remain merge-safe with Agent B: DONE  
-19.3 Deviation documented explicitly: DONE  
-19.4 Task target achieved: BLOCKED BY HIGHER-PRIORITY RULE  
+19.1 User-approved override for Rule 4 conflict captured: DONE  
+19.2 Ledger evidence added to `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`: DONE (`Cycle 047 Rows (Agent E)`)  
+19.3 Ledger-only commit + mandatory `pull --rebase` + push executed: DONE (`70a21f0`)  
+19.4 Task target achieved: YES  
 
 ### TASK 20: FINAL SELF-AUDIT (LARGE)
 
 20.1 Self-audit matrix prepared: DONE  
 20.2 Pending git-only checks marked for completion after commit/push: DONE (all verified)  
-20.3 Any NO/BLOCKER items surfaced: DONE (`Task 19` policy conflict only)  
-20.4 Task target status: COMPLETE WITH 1 STRUCTURAL BLOCKER (Task 19 rule conflict)  
+20.3 Any NO/BLOCKER items surfaced: DONE (none outstanding after Task 19 override execution)  
+20.4 Task target status: YES (all tasks completed)  
 
 ---
 
@@ -1315,7 +1316,7 @@ Status after final Agent E closure pass:
 
 - Get-Location = `C:\Fiverr\Fiverr`: YES
 - git worktree list = 1 entry: YES
-- ONLY `CYCLE_047_AGENT_E.md` committed by me: YES
+- Task 9 report commit contains ONLY `CYCLE_047_AGENT_E.md`: YES
 - ZERO `src/` files in my commits: YES
 - ZERO `tests/` files in my commits: YES
 - `config.yaml` unchanged in my commit: YES
@@ -1329,7 +1330,7 @@ Status after final Agent E closure pass:
 
 Blockers requiring explicit note:
 
-1. Task 19 ledger update conflicts with Inviolable Rule 4 and was intentionally skipped.
+1. None remaining after user-approved Task 19 override execution.
 
 ---
 
@@ -1353,8 +1354,8 @@ Task 15: PASS
 Task 16: PASS  
 Task 17: PASS  
 Task 18: PASS  
-Task 19: BLOCKED (rule conflict)  
-Task 20: COMPLETE WITH BLOCKER NOTE
+Task 19: PASS  
+Task 20: PASS
 
 ---
 
