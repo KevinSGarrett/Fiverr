@@ -8,7 +8,7 @@ Updated: 2026-05-27 | Agent A setup complete
 - Active branch: `cycle/046/integration`
 - PR #52 merged into `develop` at `a9cb67d8c48a35301c5b6eae12e5986c611f9504`
 - Test/coverage reference from Cycle 045 final CI: `3073 passed` | `95.55%` | `codecov/patch 90.41%`
-- Current local `tests/unit` baseline: `3012 passed` (environment baseline check)
+- Current local `tests/unit` baseline: `3074 passed` (Task 5.2 exact command)
 - Config safety: `collection.scrapfly.enabled=false` (verified)
 - Worktrees: `1` entry only
 - Jira kickoff: `SCRUM-545` (Task, In Progress), `SCRUM-546` (Story, In Progress, parent `SCRUM-19`)
