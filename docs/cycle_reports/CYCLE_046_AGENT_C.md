@@ -36,6 +36,19 @@ Executed Agent C independent verification sequence for Cycle 046: canonical pref
    - `Tags: {'PASS': 2908, 'CAUTION': 1041, 'MONITOR': 16}`
    - `Best: 44.22`
 
+## Hard gate verification (G-001 to G-004, R-090)
+
+- `G-001` (`codecov/patch >= 90%` hard blocker):
+  - verified on merged PR `#52`: `codecov/patch` status `SUCCESS`.
+- `G-002` (Codex GraphQL query mandatory on every PR):
+  - executed GraphQL review thread query for PR `#52`; unresolved thread count confirmed `0`.
+- `G-003` (Agent D merge gate checklist all PASS/YES):
+  - verified in `docs/cycle_reports/CYCLE_045_AGENT_D.md` merge gate checklist section: all required items marked PASS/YES.
+- `G-004` (R-092 v2 pytest guardrail):
+  - file-scoped pytest bundle run without `--cov` flags: PASS (`485 passed`).
+- `R-090` (minimum 18 meaningful sub-tasks):
+  - satisfied by preflight, intake extraction, independent audits, adaptive extension, reruns, tests, Jira evidence, docs updates, lint/self-audit, and push sequence (18+ concrete actions completed).
+
 ## Task 1 - Independent Stage 11 verification
 
 ### 1.1 GigQualityAnalysis independent audit
@@ -78,6 +91,9 @@ Executed Agent C independent verification sequence for Cycle 046: canonical pref
 
 - Decision path:
   - Stage 11 is rule-based and recommendation generation remained `0`, so adaptive extension was required.
+- Prompt condition trace:
+  - `GigQualityAnalysis rows < 20` condition was not met (`62 >= 20`), so keyword-minimum condition did not force extension.
+  - top-5 score query was still executed for verification and showed repeated `kw=96` winner rows in current history ordering.
 - Coverage probe:
   - found additional analyzable rows in `run_id=cycle044_agentb_stage45_backfill`.
 - Extension run (manual Stage 11 invocation):

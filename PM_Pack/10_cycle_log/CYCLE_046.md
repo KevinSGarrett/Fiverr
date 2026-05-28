@@ -34,6 +34,14 @@ Database: `sqlite:///data/cycle037_live.db`
   - result: `niches_processed=9`, `niches_analyzed=2`, `gigs_analyzed=22`
   - post-extension Stage 11 totals: `GigQualityAnalysis total=84 with_ows=84`
 
+## Hard Gate Recheck
+
+- `G-001`: merged PR `#52` `codecov/patch` status verified as `SUCCESS`.
+- `G-002`: Codex GraphQL review-thread query re-executed for PR `#52`; unresolved threads = `0`.
+- `G-003`: Agent D merge-gate checklist re-read in `docs/cycle_reports/CYCLE_045_AGENT_D.md`; all checklist items remain PASS/YES.
+- `G-004`: Agent C file-scoped pytest run executed without `--cov` and passed.
+- `R-090`: 18+ meaningful sub-tasks satisfied in this cycle execution.
+
 ## Scoring, Recommendations, and Progression
 
 - Full rerun:
