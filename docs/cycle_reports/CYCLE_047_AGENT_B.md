@@ -473,6 +473,10 @@ Code-phase scoring fix SHA:
 
 `b9cf83a`
 
-Current branch head after report + ledger evidence updates:
+Agent B report/ledger sync SHA:
 
-`e282fb7`
+`fc2c161`
+
+Current branch head at closeout (includes parallel Agent E commit):
+
+`9e891d1`
