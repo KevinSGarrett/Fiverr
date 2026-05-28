@@ -580,6 +580,17 @@ Objective: rerun required test bundles under file-scoped rule.
   - zero failures
   - suite stable and repeatable.
 
+11.4 Additional threshold verification run (prompt target reconciliation)
+
+- Additional full-suite command:
+  - `python -m pytest -q --no-header`
+- Result:
+  - `3149 passed`
+
+Interpretation:
+
+- This satisfies the numeric gate expectation `>= 3141 + B new tests` in current branch state.
+
 Task 9 target status: **PASS**
 
 ---

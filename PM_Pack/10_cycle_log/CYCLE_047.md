@@ -153,6 +153,8 @@ Primary gap reasons:
   - `476 passed`
 - full unit suite:
   - `3085 passed`
+- full repository suite (threshold reconciliation run):
+  - `3149 passed`
 - worktree:
   - one entry
 - config:
