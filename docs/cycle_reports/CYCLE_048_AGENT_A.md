@@ -196,6 +196,12 @@ kw=3 niche_id=1 | GQA rows for this niche=0
 - Opportunity formula:
   - `raw = demand*1.2 - competition*0.8`
   - `normalized = ((raw + 80)/200)*100`
+- Task 14.2 / 14.3 roadmap math:
+  - kw=3 current: demand `50.22`, competition `54.95`, opportunity `48.15`
+  - To reach opportunity `60+`, demand must rise to about `69.97` at current competition (`+19.75` demand points).
+  - kw=96 current: demand `38.16`, competition `62.54`, opportunity `37.88`
+  - To reach opportunity `~55`, demand must rise to about `66.69` at current competition (`+28.53` demand points).
+  - Action path for Agent B: preserve/raise TRC coverage, add reddit intent signals, and reduce competition drag where feasible.
 
 ### 8e. Demand inputs for kw=96
 
@@ -362,5 +368,5 @@ Status validation snapshots:
 Current branch HEAD at report generation:
 
 ```text
-43a8128697d24e44158d3c913ef736ae73b28d85
+f0f36e635eddbe6e37ebbde50f9594ca0d90e274
 ```

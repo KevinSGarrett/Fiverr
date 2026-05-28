@@ -122,3 +122,8 @@ Then validate kw=3 URL identity coverage and niche/run alignment for gig `179` i
   - `trc=518` (plus one newer sparse row with `trc=None`)
   - `reddit signals for kw=96: 0`
   - `trends signals for kw=96: 2`
+- Opportunity uplift roadmap values (Task 14.2/14.3):
+  - kw=3 current demand `50.22` / competition `54.95` -> opportunity `48.15`
+  - kw=3 required demand for opportunity `60+`: `69.97` (delta `+19.75`)
+  - kw=96 current demand `38.16` / competition `62.54` -> opportunity `37.88`
+  - kw=96 required demand for opportunity `~55`: `66.69` (delta `+28.53`)
