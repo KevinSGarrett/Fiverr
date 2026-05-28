@@ -1660,3 +1660,266 @@ Cycle 047 Agent C reran profile comparison using temporary active-profile config
 Conclusion:
 
 - `aggressive_new_seller` remains the strongest profile for current data.
+
+## Cycle 048 Agent B
+
+Date: 2026-05-28  
+Branch: `cycle/048/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Weakness run-id fallback fix (primary deliverable)
+
+Issue observed at intake:
+
+- `kw=3` weakness resolved to `None` because Stage 11 reads stayed scoped to active run URL strings.
+- Active-run gig URLs frequently differed by query parameters/HTML escaping from historical Stage 11 rows.
+- Result: URL identity matched semantically, but exact string filters produced no rows.
+
+Code changes in `src/scoring/weakness.py`:
+
+1. Added `_resolve_weakness_input_run_id(...)`:
+   - keep existing active run preference when active run has matching rows.
+   - if active run has no matching rows, pick newest available run with Stage 11 rows for top-gig URL identities.
+2. Updated weakness signal loading path:
+   - use resolved weakness run-id for both top-card and top-result URL fetches.
+3. Added normalized URL identity fallback inside `get_gig_quality_weakness_input(...)`:
+   - Stage 11 (`GigQualityAnalysis`) lookup now falls back by normalized URL identity within run/niche/global scopes.
+   - legacy Stage 7 (`GigQualityScore`) lookup now also supports normalized URL identity fallback.
+
+Live verification:
+
+- before fix:
+  - `kw=3 weakness result: None`
+  - `kw=96 weakness result: 53.52`
+- after fix:
+  - `kw=3 weakness post-fix: 46.25`
+  - `kw=96 weakness post-fix: 53.52` (stable, no regression)
+
+### Weakness fallback regression coverage
+
+Added 6 regression tests in `tests/unit/test_scoring_weakness_gqs.py`:
+
+1. `test_weakness_uses_fallback_run_id_when_active_run_has_no_gqa_rows`
+2. `test_weakness_returns_none_when_no_gqa_rows_in_any_run`
+3. `test_weakness_prefers_active_run_over_fallback_when_both_have_rows`
+4. `test_weakness_fallback_selects_most_recent_available_run`
+5. `test_weakness_kw3_equivalent_gets_weakness_with_fallback`
+6. `test_weakness_does_not_regress_kw96_behavior_after_fallback_added`
+
+Validation command:
+
+- `python -m pytest -q tests/unit/test_scoring_weakness_gqs.py --no-header`
+- Result: `32 passed`
+
+### Full scoring rerun after weakness fix
+
+Command:
+
+- `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+- Output: `Scoring complete: 129 keywords scored`
+
+Post-rerun latest-batch distribution:
+
+- `MONITOR=15`, `CAUTION=54`, `PASS=60`
+
+`kw=3` latest component payload:
+
+- final `55.70`, CM `0.9500`, composite `~58.63`, tag `MONITOR`
+- competition `54.95` (contrib `4.50`)
+- demand `50.22` (contrib `7.53`)
+- feasibility `100.0` (contrib `25.00`)
+- intent `47.14` (contrib `2.36`)
+- opportunity `48.15` (contrib `9.63`)
+- profitability `7.14` (contrib `0.36`)
+- weakness `46.25` (contrib `9.25`)
+
+`kw=96` latest component payload:
+
+- final `51.20`, CM `0.8944`, composite `~57.23`, tag `MONITOR`
+- competition `62.54` (contrib `3.75`)
+- demand `38.16` (contrib `5.72`)
+- feasibility `99.10` (contrib `24.77`)
+- intent `54.29` (contrib `2.71`)
+- opportunity `37.88` (contrib `7.58`)
+- profitability `40.00` (contrib `2.00`)
+- weakness `53.52` (contrib `10.70`)
+
+CONDITIONAL_GO check:
+
+- keywords with final `>=60`: `0`
+- best current keyword: `kw=3 final=55.70`
+
+### Recommendations outcome
+
+Command:
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+
+Result:
+
+- `run_id=20260528_180147`
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+
+No recommendation milestone reached in Cycle 048 Agent B stage.
+
+### Demand and opportunity investigation
+
+Demand formula (`src/scoring/demand.py`):
+
+- Fiverr result count weight: `0.50`
+- autocomplete weight: `0.20`
+- Google Trends weight: `0.20`
+- Reddit intent weight: `0.10`
+
+Opportunity formula (`src/scoring/opportunity.py`):
+
+- `raw = demand*1.2 - competition*0.8`
+- `opportunity = ((raw + 80) / 200) * 100`
+
+Isolation results:
+
+- `kw=3 demand=50.22`, `competition=54.95`, `opportunity=48.15`
+- `kw=96 demand=38.16`, `competition=62.54`, `opportunity=37.88`
+
+What-if threshold math:
+
+- `kw=3` demand needed for opportunity:
+  - `55`: `61.63`
+  - `60`: `69.97`
+- `kw=96` demand needed for opportunity:
+  - `55`: `66.69`
+  - `60`: `75.03`
+
+Signal leverage summary:
+
+- Reddit helps but is not sufficient alone for `kw=96`:
+  - demand with reddit=100: `44.35`
+- Autocomplete is high leverage:
+  - `kw=96` demand with autocomplete position=1 (score 100): `60.39`
+- TRC-only path for `kw=96` is costly:
+  - reaching demand `55` without autocomplete/reddit needs count score `~98.18` (~TRC `8459`).
+
+Agent E targeting guidance from this analysis:
+
+1. prioritize autocomplete capture/normalization for near-threshold keywords.
+2. collect reddit demand intent for `kw=3` and `kw=96` to reclaim missing external-signal axis.
+3. refresh Trends for low-trends keywords (`kw=96` currently trends contribution near zero).
+4. do not rely on TRC-only uplift for `kw=96`; it is mathematically inefficient.
+
+### Confidence modifier investigation
+
+`src/scoring/confidence.py` deductions still active:
+
+- missing Google Trends: `-0.15`
+- missing gig detail: `-0.20`
+- missing seller profiles: `-0.10`
+- missing reddit signals: `-0.05`
+
+No-context run results:
+
+- `kw=3 CM(no_context)=0.9500` (only reddit deduction)
+- `kw=96 CM(no_context)=0.6167` (missing seller profiles + reddit deductions, lower completeness/diversity)
+
+Persisted scoring-row CM after full rerun:
+
+- `kw=3 CM=0.9500`
+- `kw=96 CM=0.8944`
+
+Interpretation:
+
+- current gap is context/data-shape driven (pipeline run-context richness vs direct DB reconstruction) rather than a new regression introduced by the weakness fix.
+- no additional confidence-code mutation was applied in Cycle 048 Agent B.
+
+### Feasibility/profitability/intent investigation highlights
+
+Feasibility (`kw=3`):
+
+- score `100.0`
+- component evidence: `level1_or_new_ratio=1.0` -> component value `100.0`
+- interpretation: top-ranked context for `kw=3` is dominated by Level 1/new-seller-friendly seller profile mix.
+
+Feasibility contrast (`kw=96`):
+
+- score `99.63`
+- has more mixed evidence:
+  - `level1_or_new_ratio=0.375`
+  - review barrier + price diversity + profile-gap boost combine to near-100.
+
+Profitability (`kw=3`):
+
+- score `7.14`
+- primary limiter:
+  - `avg_premium_price` contribution low
+  - `gig_extras_upsell` value `0.0` (extras presence ratio `0.0`)
+
+Intent (`kw=3`):
+
+- score `47.14`
+- currently constrained by:
+  - no explicit commercial modifier signal (`20.0` on that component)
+  - default LLM intent fallback (`CONSIDERATION` -> value `40.0`)
+
+### Keywords in 45-58 final band (Cycle 048 snapshot)
+
+Query: top rows with `45 < final <= 58` (latest 129)
+
+- `kw=3 final=55.70` (primary blocker: profitability `7.14`)
+- `kw=96 final=51.20` (primary blocker: profitability `40.0`, plus low demand/opportunity)
+- `kw=110 final=48.77` (weakness still missing)
+- `kw=28 final=45.87`
+- `kw=23 final=45.62`
+- `kw=120 final=45.59`
+
+### Stage11 reachability check after fix
+
+Post-fix weakness read check:
+
+- `kw=1: 46.25`
+- `kw=2: 72.5`
+- `kw=3: 46.25`
+- `kw=5: 46.25`
+- `kw=10: 46.25`
+
+Conclusion:
+
+- previously unreachable Stage 11 rows are now consumed across multiple non-kw96 keywords.
+
+### Pipeline health checks
+
+All required health commands passed:
+
+- `python run.py phase2-smoke`
+- `python run.py collect-only --help`
+- `python run.py quality-analysis --help`
+- `python run.py recommendations-only --help`
+
+### Score distribution before/after and progression
+
+Before Cycle 048 Agent B scoring rerun (preflight snapshot):
+
+- tags: `MONITOR=11`, `CAUTION=55`, `PASS=63`
+- `kw=3 final=49.72`, weakness `None`
+- `kw=96 final=38.87`, weakness `None` in latest persisted row
+
+After Cycle 048 Agent B rerun:
+
+- tags: `MONITOR=15`, `CAUTION=54`, `PASS=60`
+- `kw=3 final=55.70`, weakness `46.25`
+- `kw=96 final=51.20`, weakness `53.52`
+
+Progression C039 -> C048 (best final):
+
+| Cycle | Best Final |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+| 046 | `42.21` |
+| 047 | `55.21` |
+| 048 | `55.70` |

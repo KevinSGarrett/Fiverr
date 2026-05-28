@@ -82,6 +82,7 @@ def get_gig_quality_weakness_input(
 
     normalized_niche = niche_id.strip()
     normalized_run = run_id.strip()
+    normalized_identity = GigQualityWeaknessScoreCalculator._normalize_gig_url_identity(normalized_url)
 
     try:
         from src.models.gig_quality_score import GigQualityScore
@@ -101,6 +102,22 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityAnalysis.analyzed_at.desc())
             .first()
         )
+        if analysis_row is None and normalized_identity is not None:
+            run_rows = (
+                db.query(GigQualityAnalysis)
+                .filter(GigQualityAnalysis.run_id == normalized_run)
+                .order_by(GigQualityAnalysis.analyzed_at.desc(), GigQualityAnalysis.id.desc())
+                .all()
+            )
+            analysis_row = next(
+                (
+                    row
+                    for row in run_rows
+                    if GigQualityWeaknessScoreCalculator._normalize_gig_url_identity(row.gig_url)
+                    == normalized_identity
+                ),
+                None,
+            )
     elif normalized_niche:
         analysis_row = (
             db.query(GigQualityAnalysis)
@@ -111,6 +128,22 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityAnalysis.analyzed_at.desc())
             .first()
         )
+        if analysis_row is None and normalized_identity is not None:
+            niche_rows = (
+                db.query(GigQualityAnalysis)
+                .filter(GigQualityAnalysis.niche_id == normalized_niche)
+                .order_by(GigQualityAnalysis.analyzed_at.desc(), GigQualityAnalysis.id.desc())
+                .all()
+            )
+            analysis_row = next(
+                (
+                    row
+                    for row in niche_rows
+                    if GigQualityWeaknessScoreCalculator._normalize_gig_url_identity(row.gig_url)
+                    == normalized_identity
+                ),
+                None,
+            )
     else:
         analysis_row = (
             db.query(GigQualityAnalysis)
@@ -118,6 +151,21 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityAnalysis.analyzed_at.desc())
             .first()
         )
+        if analysis_row is None and normalized_identity is not None:
+            all_rows = (
+                db.query(GigQualityAnalysis)
+                .order_by(GigQualityAnalysis.analyzed_at.desc(), GigQualityAnalysis.id.desc())
+                .all()
+            )
+            analysis_row = next(
+                (
+                    row
+                    for row in all_rows
+                    if GigQualityWeaknessScoreCalculator._normalize_gig_url_identity(row.gig_url)
+                    == normalized_identity
+                ),
+                None,
+            )
 
     if analysis_row is not None:
         weakness_flags = _normalize_weakness_flags(getattr(analysis_row, "weakness_flags", []))
@@ -148,6 +196,22 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
             .first()
         )
+        if gqs_row is None and normalized_identity is not None:
+            gqs_run_rows = (
+                db.query(GigQualityScore)
+                .filter(GigQualityScore.run_id == normalized_run)
+                .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
+                .all()
+            )
+            gqs_row = next(
+                (
+                    row
+                    for row in gqs_run_rows
+                    if GigQualityWeaknessScoreCalculator._normalize_gig_url_identity(row.gig_url)
+                    == normalized_identity
+                ),
+                None,
+            )
     else:
         gqs_row = (
             db.query(GigQualityScore)
@@ -155,6 +219,21 @@ def get_gig_quality_weakness_input(
             .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
             .first()
         )
+        if gqs_row is None and normalized_identity is not None:
+            gqs_rows = (
+                db.query(GigQualityScore)
+                .order_by(GigQualityScore.analysed_at.desc(), GigQualityScore.created_at.desc())
+                .all()
+            )
+            gqs_row = next(
+                (
+                    row
+                    for row in gqs_rows
+                    if GigQualityWeaknessScoreCalculator._normalize_gig_url_identity(row.gig_url)
+                    == normalized_identity
+                ),
+                None,
+            )
     if gqs_row is None:
         return {}
 
@@ -781,6 +860,13 @@ class GigQualityWeaknessScoreCalculator:
             elif getattr(keyword, "niche_id", None) is not None:
                 niche_hint = str(keyword.niche_id)
 
+        weakness_run_id = self._resolve_weakness_input_run_id(
+            session,
+            active_run_id=active_run_id,
+            top_card_urls=top_card_urls,
+            top_results=top_results,
+        )
+
         try:
             weakness_inputs_by_gig: list[dict[str, Any]] = []
             seen_urls: set[str] = set()
@@ -792,7 +878,7 @@ class GigQualityWeaknessScoreCalculator:
                     weakness_input = get_gig_quality_weakness_input(
                         gig_url=gig_url,
                         niche_id=niche_hint,
-                        run_id=str(active_run_id or ""),
+                        run_id=weakness_run_id or "",
                         db=session,
                     )
                     if weakness_input:
@@ -811,7 +897,7 @@ class GigQualityWeaknessScoreCalculator:
                 weakness_input = get_gig_quality_weakness_input(
                     gig_url=normalized_url,
                     niche_id=niche_hint,
-                    run_id=str(getattr(result, "run_id", "") or ""),
+                    run_id=weakness_run_id or str(getattr(result, "run_id", "") or ""),
                     db=session,
                 )
                 if weakness_input:
@@ -890,6 +976,65 @@ class GigQualityWeaknessScoreCalculator:
             pass
 
         return signals
+
+    def _resolve_weakness_input_run_id(
+        self,
+        session: Session,
+        *,
+        active_run_id: str | None,
+        top_card_urls: list[str],
+        top_results: list[Any],
+    ) -> str | None:
+        """Prefer the active run, but fall back to newest matching Stage 11 run."""
+        target_url_identities = {
+            identity
+            for identity in (
+                self._normalize_gig_url_identity(candidate_url) for candidate_url in top_card_urls
+            )
+            if identity is not None
+        }
+        for result in top_results:
+            gig = getattr(result, "gig", None)
+            gig_url = getattr(gig, "gig_url", None) if gig is not None else None
+            identity = self._normalize_gig_url_identity(gig_url)
+            if identity is not None:
+                target_url_identities.add(identity)
+
+        if not target_url_identities:
+            return active_run_id
+
+        try:
+            from src.models.market import GigQualityAnalysis
+        except Exception:
+            return active_run_id
+
+        matching_runs: list[str] = []
+        seen_runs: set[str] = set()
+        analysis_rows = (
+            session.query(GigQualityAnalysis.gig_url, GigQualityAnalysis.run_id)
+            .filter(
+                GigQualityAnalysis.gig_url.isnot(None),
+                GigQualityAnalysis.run_id.isnot(None),
+            )
+            .order_by(GigQualityAnalysis.analyzed_at.desc(), GigQualityAnalysis.id.desc())
+            .all()
+        )
+        for analysis_row in analysis_rows:
+            run_id = str(getattr(analysis_row, "run_id", "") or "").strip()
+            if not run_id or run_id in seen_runs:
+                continue
+            gig_identity = self._normalize_gig_url_identity(getattr(analysis_row, "gig_url", None))
+            if gig_identity not in target_url_identities:
+                continue
+            seen_runs.add(run_id)
+            matching_runs.append(run_id)
+
+        normalized_active_run = active_run_id.strip() if isinstance(active_run_id, str) else ""
+        if normalized_active_run and normalized_active_run in seen_runs:
+            return normalized_active_run
+        if matching_runs:
+            return matching_runs[0]
+        return normalized_active_run or None
 
     @staticmethod
     def _extract_top_card_urls(top_results: list[Any], limit: int) -> list[str]:
