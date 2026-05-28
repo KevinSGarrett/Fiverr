@@ -527,10 +527,10 @@ Updated `docs/scoring/SCORING_GATE_ANALYSIS.md` with a new `Cycle 048 Agent B` s
 
 Posted comments:
 
-- `SCRUM-552`: comments `11908`, `11916`, `11920`
-- `SCRUM-546`: comments `11909`, `11918`
-- `SCRUM-551`: comments `11910`, `11919`, `11921`
-- `SCRUM-19`: comments `11911`, `11917`
+- `SCRUM-552`: comments `11908`, `11916`, `11920`, `11926`
+- `SCRUM-546`: comments `11909`, `11918`, `11929`
+- `SCRUM-551`: comments `11910`, `11919`, `11921`, `11927`
+- `SCRUM-19`: comments `11911`, `11917`, `11928`
 
 Milestone-only keys (`SCRUM-20`, `SCRUM-532`, `SCRUM-534`, `SCRUM-536`) were not posted in this run because `generated=0`.
 
@@ -614,25 +614,34 @@ No Agent E file staged.
 
 ### 15.2 Commit and push evidence
 
-- commit: `491de8a`
-- commit message: `fix(scoring): weakness run-id fallback for weakness=None keywords + opportunity investigation`
-- mandatory safety check before push:
-  - `git pull --rebase origin cycle/048/integration` -> up to date
-- push result:
-  - `cc173ab..491de8a  cycle/048/integration -> cycle/048/integration`
+Agent B commits pushed this cycle:
+
+1. `491de8a` - `fix(scoring): weakness run-id fallback for weakness=None keywords + opportunity investigation`
+2. `bfd45d4` - `docs(cycle-048): finalize Agent B post-push evidence`
+3. `21598c3` - `test(scoring): add CM regression coverage and close Cycle 048 gates`
+
+Mandatory parallel safety before every push:
+
+- `git pull --rebase origin cycle/048/integration` executed before each push event.
+
+Push refs observed:
+
+- `cc173ab..491de8a  cycle/048/integration -> cycle/048/integration`
+- `6baa2ee..bfd45d4  cycle/048/integration -> cycle/048/integration`
+- `65b6e69..21598c3  cycle/048/integration -> cycle/048/integration`
 
 ### 15.3 Post-commit validation reruns
 
 12-selector regression pack (final rerun):
 
 ```text
-20 passed, 411 deselected in 5.16s
+20 passed, 411 deselected in 4.71s
 ```
 
 Full unit suite (final rerun):
 
 ```text
-3224 passed in 400.01s
+3224 passed in 388.95s
 ```
 
 Final safety checks:
@@ -640,10 +649,11 @@ Final safety checks:
 - `git status --short --branch` clean
 - `git worktree list` single entry
 - `config.yaml` shows `scrapfly.enabled=false`
-- commit file scope check (`git show --name-only 491de8a`) matches Agent B zones only
+- commit file scope checks (`git show --name-only 491de8a`, `bfd45d4`, `21598c3`) match Agent B zones only
 
 Parallel branch note:
 
-- after Agent B push, branch HEAD advanced with Agent E commit:
-  - `6baa2ee feat(data): Cycle 048 Agent E enrichment — kw3 Stage11 + reddit + trends`
-- Agent B commit remains in history directly below latest HEAD.
+- latest branch head now reflects parallel Agent E docs update:
+  - `ac28af9 docs(data): refresh Cycle 048 Agent E final SHA tracking`
+- Agent B completion commit remains in recent history:
+  - `21598c3 test(scoring): add CM regression coverage and close Cycle 048 gates`
