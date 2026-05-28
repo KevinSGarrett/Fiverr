@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -300,7 +301,17 @@ class NewSellerFeasibilityCalculator:
         accessible_count = 0
         for raw_level in seller_levels:
             level = str(raw_level or "").strip().lower()
-            if level in {"", "none", "new", "new seller", "level 1", "level1", "1"}:
+            if level in {
+                "",
+                "none",
+                "no_level",
+                "new",
+                "new seller",
+                "level 1",
+                "level1",
+                "level_1",
+                "1",
+            }:
                 accessible_count += 1
         return accessible_count / len(seller_levels)
 
@@ -431,7 +442,72 @@ class NewSellerFeasibilityCalculator:
             ]
             if scoped_results:
                 top_results = scoped_results
+        top_card_urls = self._extract_top_card_urls(top_results, limit=10)
+        top_card_url_identities = {
+            identity
+            for identity in (
+                self._normalize_gig_url_identity(candidate_url) for candidate_url in top_card_urls
+            )
+            if identity is not None
+        }
         top_gigs = [result.gig for result in top_results if result.gig is not None]
+        if top_card_urls:
+            top_gigs_by_url_query = session.query(Gig).filter(Gig.gig_url.in_(top_card_urls))
+            if active_run_id is not None:
+                top_gigs_by_url_query = top_gigs_by_url_query.filter(Gig.run_id == active_run_id)
+            top_gigs_by_url = top_gigs_by_url_query.all()
+            seen_ids = {gig.id for gig in top_gigs if gig.id is not None}
+            for gig in top_gigs_by_url:
+                if gig.id in seen_ids:
+                    continue
+                top_gigs.append(gig)
+                if gig.id is not None:
+                    seen_ids.add(gig.id)
+            matched_identities = {
+                identity
+                for identity in (
+                    self._normalize_gig_url_identity(getattr(gig, "gig_url", None)) for gig in top_gigs
+                )
+                if identity is not None
+            }
+            missing_identities = top_card_url_identities - matched_identities
+            if missing_identities:
+                top_gigs_candidates_query = session.query(Gig).filter(
+                    Gig.keyword_id == keyword_id,
+                    Gig.gig_url.isnot(None),
+                )
+                if active_run_id is not None:
+                    top_gigs_candidates_query = top_gigs_candidates_query.filter(Gig.run_id == active_run_id)
+                for gig in top_gigs_candidates_query.all():
+                    gig_identity = self._normalize_gig_url_identity(getattr(gig, "gig_url", None))
+                    if gig_identity not in missing_identities:
+                        continue
+                    if gig.id in seen_ids:
+                        continue
+                    top_gigs.append(gig)
+                    if gig.id is not None:
+                        seen_ids.add(gig.id)
+
+            ranked_identity_order = {
+                identity: index
+                for index, identity in enumerate(
+                    (
+                        self._normalize_gig_url_identity(candidate_url) for candidate_url in top_card_urls
+                    ),
+                    start=1,
+                )
+                if identity is not None
+            }
+
+            def _rank_key(gig: Gig) -> tuple[int, int, int]:
+                identity = self._normalize_gig_url_identity(getattr(gig, "gig_url", None))
+                card_rank = ranked_identity_order.get(identity, 10_000) if identity is not None else 10_000
+                position = gig.position if isinstance(gig.position, int) else 10_000
+                gig_id = gig.id if isinstance(gig.id, int) else 10_000
+                return (card_rank, position, gig_id)
+
+            top_gigs.sort(key=_rank_key)
+            top_gigs = top_gigs[:10]
         if not top_gigs:
             fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
             if active_run_id is not None:
@@ -453,7 +529,17 @@ class NewSellerFeasibilityCalculator:
                     .all()
                 )
         seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
-        accessible_levels = {"", "none", "new", "new seller", "level 1", "level1", "1"}
+        accessible_levels = {
+            "",
+            "none",
+            "no_level",
+            "new",
+            "new seller",
+            "level 1",
+            "level1",
+            "level_1",
+            "1",
+        }
         accessible_count = sum(1 for level in seller_levels if level.strip().lower() in accessible_levels)
         review_candidates: list[float] = []
         for gig in top_gigs:
@@ -469,7 +555,7 @@ class NewSellerFeasibilityCalculator:
                 (accessible_count / len(seller_levels)) if seller_levels else None
             ),
             "top10_seller_levels": seller_levels or None,
-            "lowest_ranked_review_count_page1": review_candidates[-1] if review_candidates else None,
+            "lowest_ranked_review_count_page1": min(review_candidates) if review_candidates else None,
             "price_diversity_top10": price_diversity,
             "top10_prices": prices or None,
             "llm_gig_quality_weakness_avg_top10": None,
@@ -514,6 +600,55 @@ class NewSellerFeasibilityCalculator:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _extract_top_card_urls(top_results: list[SearchResult], limit: int) -> list[str]:
+        ranked_urls: list[tuple[int, str]] = []
+        for result in top_results:
+            cards = result.gig_cards if isinstance(result.gig_cards, list) else []
+            for card in cards:
+                if not isinstance(card, dict):
+                    continue
+                raw_url = card.get("gig_url")
+                if not isinstance(raw_url, str):
+                    continue
+                normalized_url = raw_url.strip()
+                if not normalized_url:
+                    continue
+                raw_position = card.get("position")
+                if isinstance(raw_position, int) and raw_position > 0:
+                    position = raw_position
+                elif isinstance(raw_position, str) and raw_position.strip().isdigit():
+                    position = int(raw_position.strip())
+                else:
+                    position = 10_000
+                ranked_urls.append((position, normalized_url))
+
+        ranked_urls.sort(key=lambda value: value[0])
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for _, normalized_url in ranked_urls:
+            if normalized_url in seen:
+                continue
+            seen.add(normalized_url)
+            deduped.append(normalized_url)
+            if len(deduped) >= limit:
+                break
+        return deduped
+
+    @staticmethod
+    def _normalize_gig_url_identity(raw_url: Any) -> str | None:
+        if not isinstance(raw_url, str):
+            return None
+        stripped = raw_url.strip()
+        if not stripped:
+            return None
+        split = urlsplit(stripped)
+        normalized_path = unquote(split.path).strip().rstrip("/")
+        if normalized_path:
+            return normalized_path.lower()
+        base = stripped.split("?", 1)[0].split("#", 1)[0].strip().rstrip("/")
+        return base.lower() if base else None
 
     @staticmethod
     def _compute_price_diversity(prices: list[float]) -> float | None:

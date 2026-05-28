@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import (
     Base,
+    CompetitorProfile,
     ExternalSignal,
     Gig,
     GigQualityAnalysis,
@@ -518,6 +519,146 @@ def _seed_keyword_data_with_card_querystring_urls(session: Session) -> int:
     return keyword.id
 
 
+def _seed_keyword_data_for_feasibility_high_scores(
+    session: Session,
+    *,
+    use_card_path: bool,
+    include_null_rows: bool = False,
+    keyword_id_override: int | None = None,
+    run_id: str = "feasibility-high-run",
+) -> int:
+    niche = Niche(
+        slug=f"feasibility-{run_id}",
+        name=f"Feasibility {run_id}",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+
+    keyword_kwargs = {
+        "niche_id": niche.id,
+        "keyword": f"feasibility {run_id}",
+        "normalized_keyword": f"feasibility {run_id}",
+    }
+    if keyword_id_override is not None:
+        keyword_kwargs["id"] = keyword_id_override
+
+    keyword = Keyword(**keyword_kwargs)
+    session.add(keyword)
+    session.flush()
+
+    level_values = [
+        "LEVEL_1",
+        "LEVEL_1",
+        "NO_LEVEL",
+        "LEVEL_1",
+        "LEVEL_1",
+        "LEVEL_2",
+        "LEVEL_2",
+        "LEVEL_2",
+        "TRS",
+        "LEVEL_2",
+    ]
+    starting_prices = [10.0, 20.0, 35.0, 55.0, 80.0, 120.0, 180.0, 260.0, 380.0, 520.0]
+    review_counts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    gig_urls: list[str] = []
+
+    for rank in range(1, 11):
+        seller = Seller(
+            seller_handle=f"{run_id}_seller_{rank}",
+            level=level_values[rank - 1],
+            metadata_json={"is_pro": level_values[rank - 1] == "TRS"},
+        )
+        session.add(seller)
+        session.flush()
+
+        gig_url = f"https://www.fiverr.com/{run_id}/gig-{rank}"
+        gig_urls.append(gig_url)
+        session.add(
+            Gig(
+                gig_url=gig_url,
+                keyword_id=keyword.id,
+                run_id=run_id,
+                seller_id=seller.id,
+                seller_username=seller.seller_handle,
+                title=f"Feasibility high gig {rank}",
+                normalized_title=f"feasibility high gig {rank}",
+                position=rank,
+                starting_price=starting_prices[rank - 1],
+                review_count=review_counts[rank - 1],
+                metadata_json={
+                    "has_video": rank % 2 == 0,
+                    "has_portfolio": rank % 3 != 0,
+                },
+            )
+        )
+
+    session.add(
+        CompetitorProfile(
+            niche_id=niche.slug,
+            run_id=run_id,
+            top_gig_count=10,
+            seller_level_distribution={"LEVEL_1": 0.4, "LEVEL_2": 0.5, "TRS": 0.1},
+            new_seller_gap={
+                "gap_flags": [
+                    "LOW_VIDEO_PRESENCE",
+                    "LOW_PORTFOLIO_PRESENCE",
+                    "HIGH_PRICE_VARIANCE",
+                ]
+            },
+        )
+    )
+
+    if use_card_path:
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id=run_id,
+                rank=1,
+                title="Sparse card-only row",
+                gig_id=None,
+                gig_cards=[
+                    {"position": position, "gig_url": gig_url}
+                    for position, gig_url in enumerate(gig_urls, start=1)
+                ],
+            )
+        )
+        if include_null_rows:
+            session.add(
+                SearchResult(
+                    keyword_id=keyword.id,
+                    run_id=run_id,
+                    rank=2,
+                    title="Additional sparse row",
+                    gig_id=None,
+                    gig_cards=[
+                        {"position": 1, "gig_url": gig_urls[0]},
+                        {"position": 2, "gig_url": gig_urls[1]},
+                    ],
+                )
+            )
+    else:
+        linked_gigs = (
+            session.query(Gig)
+            .filter(Gig.keyword_id == keyword.id, Gig.run_id == run_id)
+            .order_by(Gig.position.asc())
+            .all()
+        )
+        for rank, gig in enumerate(linked_gigs, start=1):
+            session.add(
+                SearchResult(
+                    keyword_id=keyword.id,
+                    run_id=run_id,
+                    rank=rank,
+                    title=f"Linked result {rank}",
+                    gig_id=gig.id,
+                )
+            )
+
+    session.commit()
+    return keyword.id
+
+
 def test_demand_calculator_sqlalchemy_path_returns_score() -> None:
     session = next(_session())
     keyword_id = _seed_keyword_data(session)
@@ -626,9 +767,116 @@ def test_feasibility_fallback_uses_review_count_exact_when_review_count_missing(
     feasibility_signals = feasibility_calculator._load_signals_from_db(keyword_id, session)
     feasibility_result = feasibility_calculator.calculate(keyword_id, session)
 
-    assert feasibility_signals["lowest_ranked_review_count_page1"] == 15.0
+    # Feasibility now uses the lowest available review barrier among top gigs.
+    assert feasibility_signals["lowest_ranked_review_count_page1"] == 5.0
     assert feasibility_result.score_value is not None
     session.close()
+
+
+def test_feasibility_returns_full_score_when_top_gigs_fully_priced() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(session, use_card_path=False, run_id="full-score")
+    try:
+        result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+        assert result.score_value == 100.0
+        assert "price_diversity" in result.score_components
+    finally:
+        session.close()
+
+
+def test_feasibility_uses_gig_card_fallback_when_direct_links_sparse() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(session, use_card_path=True, run_id="card-fallback")
+    calculator = NewSellerFeasibilityCalculator()
+    try:
+        signals = calculator._load_signals_from_db(keyword_id, session)
+        result = calculator.calculate(keyword_id, session)
+        assert signals["top10_prices"] is not None
+        assert len(signals["top10_prices"]) == 10
+        assert signals["price_diversity_top10"] is not None
+        assert result.score_value is not None
+        assert result.score_value >= 90.0
+    finally:
+        session.close()
+
+
+def test_feasibility_does_not_regress_below_90_for_fully_ranked_keyword() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(session, use_card_path=False, run_id="full-ranked")
+    try:
+        result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value >= 90.0
+    finally:
+        session.close()
+
+
+def test_feasibility_handles_mixed_null_gig_id_rows_gracefully() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(
+        session,
+        use_card_path=True,
+        include_null_rows=True,
+        run_id="mixed-null-rows",
+    )
+    try:
+        result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value >= 90.0
+    finally:
+        session.close()
+
+
+def test_feasibility_run_scoped_fallback_recovers_when_run_mismatch() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_without_search_links_mixed_runs(session)
+    calculator = NewSellerFeasibilityCalculator()
+    try:
+        signals = calculator._load_signals_from_db(keyword_id, session)
+        result = calculator.calculate(keyword_id, session)
+        assert signals["top10_prices"] == [21.0, 22.0]
+        assert result.score_value is not None
+    finally:
+        session.close()
+
+
+def test_feasibility_score_is_consistent_between_direct_and_card_path() -> None:
+    session = next(_session())
+    direct_keyword_id = _seed_keyword_data_for_feasibility_high_scores(
+        session,
+        use_card_path=False,
+        run_id="direct-path",
+    )
+    card_keyword_id = _seed_keyword_data_for_feasibility_high_scores(
+        session,
+        use_card_path=True,
+        run_id="card-path",
+    )
+    calculator = NewSellerFeasibilityCalculator()
+    try:
+        direct_result = calculator.calculate(direct_keyword_id, session)
+        card_result = calculator.calculate(card_keyword_id, session)
+        assert direct_result.score_value is not None
+        assert card_result.score_value is not None
+        assert abs(direct_result.score_value - card_result.score_value) <= 0.01
+    finally:
+        session.close()
+
+
+def test_feasibility_regression_value_above_90_for_kw96_post_fix() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(
+        session,
+        use_card_path=True,
+        keyword_id_override=96,
+        run_id="kw96-regression",
+    )
+    try:
+        result = NewSellerFeasibilityCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value >= 90.0
+    finally:
+        session.close()
 
 
 # pylint: disable=protected-access

@@ -156,6 +156,52 @@ def test_compute_confidence_score_uses_run_context_when_provided() -> None:
         session.close()
 
 
+def test_confidence_modifier_uses_current_run_context_not_none() -> None:
+    session = _session()
+    try:
+        niche = Niche(slug="context-priority", name="Context Priority", category_path="Programming & Tech > AI")
+        session.add(niche)
+        session.flush()
+        keyword = Keyword(
+            niche_id=niche.id,
+            keyword="context priority keyword",
+            normalized_keyword="context priority keyword",
+        )
+        session.add(keyword)
+        session.commit()
+
+        calculator = ConfidenceScoreModifier()
+        explicit_context = {
+            "data_completeness_ratio": 1.0,
+            "data_freshness_score": 1.0,
+            "source_diversity_score": 1.0,
+            "llm_analysis_completion_ratio": 1.0,
+            "google_trends_available": True,
+            "gig_detail_collected": True,
+            "seller_profiles_collected": True,
+            "reddit_signals_available": True,
+            "llm_gig_quality_incomplete_count": 0.0,
+            "llm_competitor_synthesis_failed": False,
+            "mode": "standard",
+        }
+
+        modifier_with_context, _ = calculator.calculate_with_breakdown(
+            keyword_id=keyword.id,
+            run_context=explicit_context,
+            db=session,
+        )
+        modifier_without_context, _ = calculator.calculate_with_breakdown(
+            keyword_id=keyword.id,
+            run_context=None,
+            db=session,
+        )
+
+        assert modifier_with_context == 1.0
+        assert modifier_with_context > modifier_without_context
+    finally:
+        session.close()
+
+
 def test_confidence_modifier_improves_when_signals_present() -> None:
     calculator = ConfidenceScoreModifier()
     base_context = {

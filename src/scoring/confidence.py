@@ -175,9 +175,11 @@ class ConfidenceScoreModifier:
             config = session.query(NicheConfigRecord).filter(NicheConfigRecord.niche_id == str(keyword.niche_id)).first()
             if config is not None and config.depth:
                 current_depth = str(config.depth)
-        available_sources = sum([google_trends_available, gig_detail_collected, seller_profiles_collected, reddit_count > 0])
-        source_diversity = min(1.0, available_sources / 4.0)
-        data_completeness = min(1.0, available_sources / 4.0)
+        # Reddit is treated as an explicit deduction signal below; excluding it from
+        # base completeness/diversity avoids double-penalizing missing Reddit data.
+        available_core_sources = sum([google_trends_available, gig_detail_collected, seller_profiles_collected])
+        source_diversity = min(1.0, available_core_sources / 3.0)
+        data_completeness = min(1.0, available_core_sources / 3.0)
         return {
             "data_completeness_ratio": data_completeness,
             "data_freshness_score": max(0.0, min(1.0, 1.0 - (data_age_hours / 168.0))),

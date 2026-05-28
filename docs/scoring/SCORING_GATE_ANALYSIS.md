@@ -1362,7 +1362,7 @@ Database: `sqlite:///data/cycle037_live.db`
 | 045 | `42.29` |
 | 046 | `42.21` |
 
-### Recommendation outcome
+### Recommendation outcome (Cycle 047)
 
 - Command:
   - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
@@ -1374,3 +1374,289 @@ Database: `sqlite:///data/cycle037_live.db`
   - rows with `demand_score > 20`: `65`
 - Conclusion:
   - recommendation generation remains blocked by overall gate/tag thresholds (no `CONDITIONAL_GO` or `GO`), not by Stage 11 runtime failure.
+
+## Cycle 047 Agent B — Feasibility Fix + LLM Weakness Investigation
+
+### Feasibility root cause and verification
+
+- Baseline from Agent A handoff (`kw=96`): feasibility isolated at `47.79` with one ranked row and missing price-diversity/LLM feasibility signals.
+- Root cause validated in live DB trace:
+  - `SearchResult` for `kw=96` had only one direct linked ranked row (`rank=1`, `gig_id=150`).
+  - That row still contained `gig_cards` (`20` card URLs), but `feasibility.py` did not use card URL fallback.
+  - Seller level normalization did not include `LEVEL_1`/`NO_LEVEL` variants, suppressing accessibility ratio.
+- Fix implemented in `src/scoring/feasibility.py`:
+  - Added `gig_cards` URL fallback + URL identity normalization path (aligned with weakness/profitability sparse-link handling).
+  - Added ranked top-card ordering and deterministic top-10 gig selection.
+  - Normalized seller level aliases for `LEVEL_1`/`NO_LEVEL`.
+  - Used lowest available review barrier (`min`) for robust page-1 entry signal extraction.
+- Post-fix isolation run (`kw=96`):
+  - `Post-fix feasibility kw=96: ... score_value=96.42 ...`
+
+### Feasibility regression coverage added
+
+- Added and passed 7 required regressions in `tests/unit/test_scoring_db_integration.py`:
+  - `test_feasibility_returns_full_score_when_top_gigs_fully_priced`
+  - `test_feasibility_uses_gig_card_fallback_when_direct_links_sparse`
+  - `test_feasibility_does_not_regress_below_90_for_fully_ranked_keyword`
+  - `test_feasibility_handles_mixed_null_gig_id_rows_gracefully`
+  - `test_feasibility_run_scoped_fallback_recovers_when_run_mismatch`
+  - `test_feasibility_score_is_consistent_between_direct_and_card_path`
+  - `test_feasibility_regression_value_above_90_for_kw96_post_fix`
+
+### Stage 11 LLM pathway investigation
+
+- `OPENAI_API_KEY` is present (`length=164`), but Stage 11 LLM mode is not wired in current implementation:
+  - `src/analysis/gig_quality_rubric.py` explicitly ignores `llm_client` (`_ = (config, llm_client)`).
+  - `run.py quality-analysis --help` exposes no LLM toggle/flag.
+  - Direct run with LLM spy client confirmed `llm_calls_observed=0`.
+- Stage 11 run attempt:
+  - `python run.py quality-analysis --database-url sqlite:///data/cycle037_live.db`
+  - Result: `niches_processed=9`, `niches_analyzed=0` for run `cycle047_agent_e_stage3_refresh` due `no_gig_quality_scores`.
+- Current rule-based Stage 11 footprint:
+  - `GigQualityAnalysis total=84`
+  - OWS (`overall_weakness_score`) min/max/avg: `4.5 / 8.0 / 4.83`
+  - Lowest-coverage niche remains `gumloop_lindy_workflow` (`2` rows); most others are `3` rows; `support_kb_readiness` has `61` rows.
+
+### Confidence modifier discrepancy investigation and resolution
+
+- Baseline discrepancy reproduced:
+  - `run_context=None => 0.775` (live DB reconstruction path)
+  - latest stored CM in `keyword_scores` was `0.95`
+- Root cause:
+  - DB reconstruction path included Reddit in base completeness/diversity and also applied Reddit deduction (`-0.05`), effectively double-penalizing missing Reddit.
+  - Pipeline scoring path uses explicit run-context and already handles Reddit via deduction, producing stored `0.95`.
+- Fix in `src/scoring/confidence.py`:
+  - Excluded Reddit from base completeness/diversity denominator (use 3 core sources), preserving Reddit as explicit deduction only.
+- Post-fix verification:
+  - `run_context=None => 0.95` (now matches stored breakdown exactly).
+- Added regression:
+  - `test_confidence_modifier_uses_current_run_context_not_none` in `tests/unit/test_confidence_score.py`.
+
+### Post-fix scoring distribution and component outcomes
+
+- Full rerun:
+  - `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+  - Output: `Scoring complete: 129 keywords scored`
+- Latest-batch tag distribution after Cycle 047 fixes:
+  - `MONITOR=15`, `CAUTION=54`, `PASS=60`
+- Best row in latest batch:
+  - `kw=3`, `final=54.84`, `composite=65.37`, `CM=0.8389`
+  - component payload includes missing profitability/weakness for this winner row.
+- Tracked target keyword (`kw=96`, all 7 components present):
+  - `final=51.00`, `composite=57.02`, `CM=0.8944`
+  - demand `38.16` (contrib `5.72`)
+  - competition `62.54` (contrib `3.75`)
+  - opportunity `37.88` (contrib `7.58`)
+  - feasibility `99.10` (contrib `24.77`)
+  - profitability `35.71` (contrib `1.79`)
+  - intent `54.29` (contrib `2.71`)
+  - weakness `53.52` (contrib `10.70`)
+
+### Recommendation outcome
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+
+### Progression C039 -> C047
+
+| Cycle | Best Final | Composite | CM | Feasibility | Weakness |
+| --- | --- | --- | --- | --- | --- |
+| 039 | `24.67` | `-` | `-` | `-` | `-` |
+| 040 | `37.56` | `-` | `-` | `-` | `-` |
+| 041 | `38.74` | `-` | `-` | `-` | `-` |
+| 042 | `38.74` | `-` | `-` | `-` | `-` |
+| 043 | `44.22` | `46.53` | `0.95` | `100.0` | `49.4` |
+| 044 | `42.04` | `-` | `-` | `48.09` | `-` |
+| 045 | `42.29` | `-` | `-` | `47.88` | `49.4` |
+| 046 | `42.21` | `45.46` | `0.95` | `47.96` | `48.88` |
+| 047 | `54.84` | `65.37` | `0.8389` | `100.0` (best row) | `N/A` (best row) |
+
+## Agent C Independent Verification - Cycle 047
+
+Date: 2026-05-27/28  
+Branch: `cycle/047/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Intake confirmation
+
+Agent C read all required upstream reports in order before any verification task:
+
+- `docs/cycle_reports/CYCLE_047_AGENT_A.md`
+- `docs/cycle_reports/CYCLE_047_AGENT_B.md`
+- `docs/cycle_reports/CYCLE_047_AGENT_E.md`
+
+### Mandatory preflight replay
+
+- location: `C:\Fiverr\Fiverr`
+- branch: `cycle/047/integration`
+- pull: up to date
+- worktree count: `1`
+- `python run.py config-check`: PASS
+
+### Independent feasibility verification (Agent B fix)
+
+- Prompt command required `FeasibilityScoreCalculator`; current module class is `NewSellerFeasibilityCalculator`.
+- Independent isolation rerun (`kw=96`) result:
+  - `99.63`
+- Agent B reported post-fix isolation:
+  - `96.42`
+- Delta:
+  - `+3.21` (within tolerance)
+
+Regression gate verification:
+
+- feasibility selector:
+  - `9 passed`
+- explicit accumulated named regressions:
+  - `11 passed`
+
+Feasibility module commit verification:
+
+- latest modifying commit:
+  - `b9cf83a fix(scoring): feasibility anomaly root cause fix + stage11 investigation`
+
+Independent fix assessment:
+
+- card-URL fallback and URL identity normalization are correct for sparse direct link conditions.
+- deterministic top-card ordering and seller-level alias handling prevent regression to low-signal paths.
+
+### Independent Agent E enrichment verification
+
+Verified against live DB:
+
+- `GigQualityAnalysis`: `84 -> 112`
+- by run:
+  - `cycle038_agentb_live: 23`
+  - `cycle041_agentb_live_stage34: 42`
+  - `cycle044_agentb_stage45_backfill: 22`
+  - `cycle047_agent_e_stage11: 25`
+- `SearchResult with_trc`: `87 -> 90` (`total=107`)
+- premium metadata (global): `0 -> 25`
+- extras metadata (global): unchanged at `0`
+- sellers: `230 -> 250`
+- CM live recompute (`run_context=None`): `0.6167`
+
+### Agent E file-zone verification
+
+Commit-scoped verification of E-related SHAs:
+
+- `9e891d1` -> docs-only
+- `9e4193b` -> docs-only
+- `371dbb1` -> docs-only
+- `70a21f0` -> docs-only (`ACTIVE_STORY_DOD_LEDGER.md`)
+- `d834ae8` -> docs-only
+
+Result:
+
+- no `src/` files in Agent E commit set.
+
+### Combined weakness verification and run-id caveat
+
+Independent combined-state weakness (`kw=96`):
+
+- `53.52`
+
+Comparative context:
+
+- baseline reference: `48.88`
+- Agent B post-fix: `53.52`
+- Agent E rerun: `53.52`
+- Agent C rerun: `53.52`
+
+Run-id consumption investigation:
+
+- active weakness run context for `kw=96` resolves to `cycle038_agentb_live`
+- some top-card URLs contain both `cycle038` and `cycle047_agent_e_stage11` GQA rows
+- current weakness read path remains run-scoped to active run, so new cycle047 rows did not produce incremental uplift in this keyword path
+
+### Definitive combined-state scoring rerun
+
+Command:
+
+- `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+
+Output:
+
+- `Scoring complete: 129 keywords scored`
+
+Latest 129 tags:
+
+- `PASS=60`
+- `CAUTION=55`
+- `MONITOR=14`
+- `CONDITIONAL_GO=0`
+- `STRONG_GO=0`
+
+Best latest row:
+
+- `keyword_id=3`
+- `final=55.21`
+- `tag=MONITOR`
+
+Tracked full-component row (`kw=96`):
+
+- final `51.20`
+- CM (stored) `0.8944`
+- demand `38.16`
+- competition `62.54`
+- opportunity `37.88`
+- feasibility `99.10`
+- profitability `40.00`
+- intent `54.29`
+- weakness `53.52`
+
+### CM context sensitivity snapshot
+
+For `kw=96`:
+
+- stored latest score row CM: `0.8944`
+- live recompute with `run_context=None`: `0.6167`
+- pipeline-like populated run_context experiment: `0.9444`
+
+Interpretation:
+
+- confidence modifier remains materially context-sensitive.
+
+### Recommendations outcome (post combined rerun)
+
+Command:
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+
+Result:
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+
+No recommendation milestone triggered in Cycle 047 Stage 3.
+
+### Score progression updated to C047
+
+| Cycle | Best Final |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+| 046 | `42.21` |
+| 047 | `55.21` |
+
+### 4-profile comparison revalidation
+
+Cycle 047 Agent C reran profile comparison using temporary active-profile config swaps:
+
+- `aggressive_new_seller`: best `55.21`
+- `default`: best `47.03`
+- `profitability_focus`: best `43.29`
+- `trend_chaser`: best `49.72`
+
+Conclusion:
+
+- `aggressive_new_seller` remains the strongest profile for current data.
