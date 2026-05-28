@@ -21,6 +21,7 @@ from src.models.database import (
     initialize_database,
 )
 from src.models.external_signal import ExternalSignal
+from src.models.gig_quality_analysis import GigQualityAnalysis as GigQualityAnalysisCompat
 from src.models.market import (
     ClusterAssignment,
     ClusterLabel,
@@ -44,6 +45,10 @@ from src.models.registry import (
 )
 from src.models.runtime import RunLog
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
+
+
+def test_gig_quality_analysis_compat_reexport_points_to_market_model() -> None:
+    assert GigQualityAnalysisCompat is GigQualityAnalysis
 
 
 def _init_session(tmp_path: Path, name: str) -> tuple[Session, Path]:
