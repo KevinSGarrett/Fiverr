@@ -204,6 +204,13 @@ Named regressions covered in this selector pass:
 
 ## SECTION 7: CLI SMOKE TESTS PASS EVIDENCE
 
+Task 5.2 baseline confirmation:
+
+```text
+python -m pytest -q --no-header
+3141 passed in 379.89s (0:06:19)
+```
+
 ```text
 run.py config-check: PASS
 run.py phase2-smoke: PASS
@@ -320,7 +327,7 @@ Reddit deduction sensitivity math:
 
 ### 8e) Test baseline count + 11 regression names
 
-- Full unit baseline from Task 5.2 run: `3077 passed`.
+- Full baseline from Task 5.2 gate run: `3141 passed`.
 - Regression names: see Section 6.
 
 ### 8f) File zone reminder (Agent B)

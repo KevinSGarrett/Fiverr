@@ -15,7 +15,8 @@ Updated: 2026-05-27 | Agent A setup in progress on branch `cycle/047/integration
 
 - Focused preflight bundle: `205 passed`
 - 11-regression selector bundle currently resolves to `16 passed` (`324 deselected`) with zero failures
-- Current full unit baseline in this environment: `3077 passed in 373.14s`
+- Current `tests/unit` baseline in this environment: `3077 passed in 373.14s`
+- Full baseline pytest run: `3141 passed in 379.89s`
 - CLI checks: `config-check`, `phase2-smoke`, `collect-only --help`, `quality-analysis --help`, `recommendations-only --help` all pass
 - `quality-analysis --help` subprocess exit code: `0`
 
