@@ -158,9 +158,9 @@ Regression node remap fix applied:
 
 Comments posted via Atlassian MCP:
 
-- `SCRUM-548` comment id: `11889`
-- `SCRUM-549` comment id: `11888`
-- `SCRUM-546` comment id: `11890`
+- `SCRUM-548` comment ids: `11889`, `11893`
+- `SCRUM-549` comment ids: `11888`, `11892`
+- `SCRUM-546` comment ids: `11890`, `11891`
 
 ## Task 10 - Agent D handoff section
 
@@ -216,5 +216,5 @@ No `src/**` edits performed by Agent F due hard rule; results documented for fol
 
 ## Final SHA
 
-- `23c20cc9cf58ff25a7420d3ff1edfd920e1f27e2`
+- `9a0fbe04e6dac72b26b4fcac8a289b34686a49e6`
 
