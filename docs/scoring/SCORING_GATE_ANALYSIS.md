@@ -1950,3 +1950,147 @@ Progression C039 -> C048 (best final):
 | 046 | `42.21` |
 | 047 | `55.21` |
 | 048 | `55.70` |
+
+---
+
+## Agent C Independent Verification - Cycle 048
+
+Date: 2026-05-28  
+Branch: `cycle/048/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Agent C preflight replay
+
+- branch sync: `git pull origin cycle/048/integration` -> up to date
+- recent history includes A/B/E commits (`6baa2ee`, `65b6e69`, `21598c3`, `ac28af9`, `e95ce28`)
+- worktree safety: single entry
+- config safety: `python run.py config-check` -> PASS (`active_profile=aggressive_new_seller`)
+
+### Agent B weakness fix verification (independent)
+
+Independent isolated weakness checks:
+
+```text
+kw=3 weakness (Agent C independent): 46.25
+kw=96 weakness (Agent C independent): 100.0
+```
+
+Interpretation:
+
+- critical goal met: `kw=3 weakness > 0` is independently confirmed (`46.25`)
+- regression warning: `kw=96` no longer matches Agent B's post-fix expected `~53.52`; current combined-state reads now resolve to a single severe weakness input (`overall_weakness_score_avg=10.0`, flags penalty `100.0`, absence rates `1.0/1.0`)
+- this is recorded as a **BLOCKER discrepancy** for downstream investigation, even though scoring/test pipelines execute successfully
+
+Weakness fix commit presence:
+
+```text
+git log --oneline -3 -- src/scoring/weakness.py
+491de8a fix(scoring): weakness run-id fallback for weakness=None keywords + opportunity investigation
+```
+
+Regression gates rerun:
+
+- `python -m pytest -q tests/unit/test_scoring_db_integration.py -k "weakness or run_id or fallback" -v --no-header`
+  - `13 passed`
+- 12-selector accumulated pack:
+  - `20 passed, 411 deselected`
+
+### Agent E enrichment verification (independent)
+
+Verified against live DB:
+
+- GQA total: `112 -> 152` (delta `+40`)
+- kw=3 niche slug (`support_kb_readiness`) rows: `67 -> 104` (delta `+37`)
+- `cycle048_agent_e_kw3` run rows: `0 -> 37`
+- external signals:
+  - google trends: `23 -> 40`
+  - reddit signals: `0 -> 0` (no new reddit rows)
+- confidence modifier parity after enrichment:
+  - `kw=3 CM=0.9500`
+  - `kw=96 CM=0.6167`
+
+E file-zone compliance (docs-only):
+
+- `git show --name-only 6baa2ee` -> `docs/cycle_reports/CYCLE_048_AGENT_E.md`
+- `git show --name-only 65b6e69` -> `docs/cycle_reports/CYCLE_048_AGENT_E.md`
+- `git show --name-only ac28af9` -> `docs/cycle_reports/CYCLE_048_AGENT_E.md`
+- no `src/` paths present in these E-related commits
+
+### Combined-state full scoring rerun (definitive Cycle 048)
+
+Command:
+
+```text
+python run.py run --mode full --database-url sqlite:///data/cycle037_live.db
+Scoring complete: 129 keywords scored
+```
+
+Latest tag mix:
+
+- `MONITOR=30`
+- `CAUTION=39`
+- `PASS=60`
+- `CONDITIONAL_GO=0`
+- `STRONG_GO=0`
+
+`kw=3` latest component row:
+
+```text
+kw=3 final=55.70 composite~58.63 weakness=46.25
+  competition_score: value=54.95 contrib=4.5
+  demand_score: value=50.22 contrib=7.53
+  feasibility_score: value=100.0 contrib=25.0
+  intent_score: value=47.14 contrib=2.36
+  opportunity_score: value=48.15 contrib=9.63
+  profitability_score: value=7.14 contrib=0.36
+  weakness_score: value=46.25 contrib=9.25
+```
+
+Additional combined-state observations:
+
+- current best keyword moved to `kw=110 final=58.66` with `weakness=100.0`, still tagged `MONITOR`
+- top-10 weakness coverage is now `10/10` keywords with weakness `> 0`
+- key gate status unchanged: no `CONDITIONAL_GO`, no `STRONG_GO`
+
+### Score progression
+
+Progression C039 -> C048 (best final):
+
+- `24.67 -> 37.56 -> 38.74 -> 38.74 -> 44.22 -> 42.04 -> 42.29 -> 42.21 -> 55.21 -> 58.66`
+
+### Agent C recommendations outcome
+
+```text
+python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db
+Recommendations stage complete: {'run_id': '20260528_195425', 'eligible': 0, 'gates_passed': 0, 'generated': 0, ...}
+```
+
+Outcome:
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+- no milestone event triggered
+
+Exact gap to threshold:
+
+- best latest final score is `58.66` -> gap to `60` is `1.34`
+- `kw=3` remains below threshold by `4.30`
+
+### Additional verification gates
+
+- full repository tests:
+  - `python -m pytest -q tests/ --no-header`
+  - `3294 passed in 395.47s`
+- profile comparison from latest 129 rows per scoring profile:
+  - `aggressive_new_seller`: best `58.66` (still strongest)
+  - `default`: best `47.03`
+  - `profitability_focus`: best `43.29`
+  - `trend_chaser`: best `49.72`
+
+### Cycle 048 Agent C verdict
+
+- 12-stage pipeline verdict: `PARTIAL (score improved but no CONDITIONAL_GO)`
+- critical objective achieved: `kw=3 weakness > 0` (confirmed at `46.25`)
+- release gate not yet achieved: recommendations still blocked (`generated=0`)
+- blocker carried forward: `kw=96` weakness divergence vs Agent B expected post-fix value
