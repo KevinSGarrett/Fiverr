@@ -5,7 +5,7 @@ from __future__ import annotations
 import builtins
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import (
     Base,
@@ -568,6 +568,74 @@ def test_weakness_historical_fallback_reads_persisted_column_value() -> None:
                 score_components={},
                 tag="PASS",
             )
+        )
+        session.commit()
+
+        resolved = GigQualityWeaknessScoreCalculator._resolve_historical_weakness_score(keyword_id, session)
+        assert resolved == 53.52
+    finally:
+        session.close()
+
+
+def test_weakness_historical_fallback_uses_stable_prior_after_extreme_latest() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(session, fallback_video=[True] * 10, fallback_portfolio=[True] * 10)
+        session.add(
+            KeywordScore(
+                keyword_id=keyword_id,
+                final_score=40.0,
+                weakness_score=100.0,
+                score_components={},
+                tag="PASS",
+                scored_at=datetime.now(UTC),
+            )
+        )
+        session.add(
+            KeywordScore(
+                keyword_id=keyword_id,
+                final_score=40.0,
+                weakness_score=53.52,
+                score_components={},
+                tag="PASS",
+                scored_at=datetime.now(UTC) + timedelta(seconds=1),
+            )
+        )
+        session.commit()
+
+        resolved = GigQualityWeaknessScoreCalculator._resolve_historical_weakness_score(keyword_id, session)
+        assert resolved == 53.52
+    finally:
+        session.close()
+
+
+def test_weakness_historical_fallback_skips_invalid_component_values() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(session, fallback_video=[True] * 10, fallback_portfolio=[True] * 10)
+        bad_row = KeywordScore(
+            keyword_id=keyword_id,
+            final_score=40.0,
+            weakness_score=12.0,
+            score_components={"weakness_score": {"value": "not-a-number"}},
+            tag="PASS",
+            scored_at=datetime.now(UTC),
+        )
+        session.add(bad_row)
+        session.add(
+            KeywordScore(
+                keyword_id=keyword_id,
+                final_score=40.0,
+                weakness_score=53.52,
+                score_components={},
+                tag="PASS",
+                scored_at=datetime.now(UTC) + timedelta(seconds=1),
+            )
+        )
+        session.commit()
+        session.execute(
+            text("UPDATE keyword_scores SET weakness_score = :bad WHERE id = :row_id"),
+            {"bad": "not-a-number", "row_id": bad_row.id},
         )
         session.commit()
 
