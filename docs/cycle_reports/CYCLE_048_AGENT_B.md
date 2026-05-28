@@ -508,10 +508,10 @@ Updated `docs/scoring/SCORING_GATE_ANALYSIS.md` with a new `Cycle 048 Agent B` s
 
 Posted comments:
 
-- `SCRUM-552`: comment `11908`
-- `SCRUM-546`: comment `11909`
-- `SCRUM-551`: comment `11910`
-- `SCRUM-19`: comment `11911`
+- `SCRUM-552`: comments `11908`, `11916`
+- `SCRUM-546`: comments `11909`, `11918`
+- `SCRUM-551`: comments `11910`, `11919`
+- `SCRUM-19`: comments `11911`, `11917`
 
 Milestone-only keys (`SCRUM-20`, `SCRUM-532`, `SCRUM-534`, `SCRUM-536`) were not posted in this run because `generated=0`.
 
@@ -534,7 +534,7 @@ Highest-leverage Cycle 049 action:
 
 ---
 
-## 13) Task 20 - Final Self-Audit (Pre-Commit Snapshot)
+## 13) Task 20 - Final Self-Audit
 
 Checklist:
 
@@ -580,9 +580,49 @@ Checklist:
 
 ## 15) Commit/Pull/Push and Post-Commit Validation
 
-This section will be finalized after:
+### 15.1 Staging scope verification
 
-1. staging scope verification,
-2. mandatory `git pull --rebase`,
-3. commit + push,
-4. final post-commit regression reruns.
+Staged file list (Agent B zone only):
+
+- `docs/cycle_reports/CYCLE_048_AGENT_B.md`
+- `docs/scoring/SCORING_GATE_ANALYSIS.md`
+- `src/scoring/weakness.py`
+- `tests/unit/test_scoring_weakness_gqs.py`
+
+No Agent E file staged.
+
+### 15.2 Commit and push evidence
+
+- commit: `491de8a`
+- commit message: `fix(scoring): weakness run-id fallback for weakness=None keywords + opportunity investigation`
+- mandatory safety check before push:
+  - `git pull --rebase origin cycle/048/integration` -> up to date
+- push result:
+  - `cc173ab..491de8a  cycle/048/integration -> cycle/048/integration`
+
+### 15.3 Post-commit validation reruns
+
+12-selector regression pack (final rerun):
+
+```text
+20 passed, 328 deselected in 4.66s
+```
+
+Full unit suite (final rerun):
+
+```text
+3141 passed in 400.47s
+```
+
+Final safety checks:
+
+- `git status --short --branch` clean
+- `git worktree list` single entry
+- `config.yaml` shows `scrapfly.enabled=false`
+- commit file scope check (`git show --name-only 491de8a`) matches Agent B zones only
+
+Parallel branch note:
+
+- after Agent B push, branch HEAD advanced with Agent E commit:
+  - `6baa2ee feat(data): Cycle 048 Agent E enrichment — kw3 Stage11 + reddit + trends`
+- Agent B commit remains in history directly below latest HEAD.
