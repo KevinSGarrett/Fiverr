@@ -174,11 +174,18 @@ OWS count=84 min=4.5 max=8.0 avg=4.8
 
 ## SECTION 6: ALL 11 REGRESSION TESTS PASS EVIDENCE
 
-Execution output:
+Selector output:
 
 ```text
 collected 340 items / 324 deselected / 16 selected
 16 passed, 324 deselected in 3.37s
+```
+
+Exact 11-name verification output:
+
+```text
+collected 11 items
+11 passed in 1.42s
 ```
 
 Named regressions covered in this selector pass:
