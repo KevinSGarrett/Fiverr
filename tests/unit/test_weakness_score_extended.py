@@ -255,7 +255,11 @@ class _LegacyLLM:
 
 
 def test_weakness_fallback_run_id_path_is_exercised() -> None:
-    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+    from tests.unit.test_scoring_weakness_gqs import (
+        _insert_gqa_row,
+        _new_session,
+        _seed_run_scoped_keyword,
+    )
 
     session = _new_session()
     try:
@@ -269,7 +273,11 @@ def test_weakness_fallback_run_id_path_is_exercised() -> None:
 
 
 def test_weakness_fallback_selects_correct_run_when_multiple_available() -> None:
-    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+    from tests.unit.test_scoring_weakness_gqs import (
+        _insert_gqa_row,
+        _new_session,
+        _seed_run_scoped_keyword,
+    )
 
     session = _new_session()
     try:
@@ -288,7 +296,11 @@ def test_weakness_fallback_selects_correct_run_when_multiple_available() -> None
 
 
 def test_weakness_active_run_takes_precedence_over_fallback() -> None:
-    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+    from tests.unit.test_scoring_weakness_gqs import (
+        _insert_gqa_row,
+        _new_session,
+        _seed_run_scoped_keyword,
+    )
 
     session = _new_session()
     try:
@@ -308,7 +320,11 @@ def test_weakness_active_run_takes_precedence_over_fallback() -> None:
 
 def test_weakness_kw3_niche_gets_weakness_score_via_fallback_run_id() -> None:
     """kw=3-equivalent: active run has no GQA; older run has Stage 11 rows."""
-    from tests.unit.test_scoring_weakness_gqs import _insert_gqa_row, _new_session, _seed_run_scoped_keyword
+    from tests.unit.test_scoring_weakness_gqs import (
+        _insert_gqa_row,
+        _new_session,
+        _seed_run_scoped_keyword,
+    )
 
     session = _new_session()
     try:
