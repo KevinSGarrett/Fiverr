@@ -1310,3 +1310,67 @@ Database: `sqlite:///data/cycle037_live.db`
 | 044 | `42.04` |
 | 045 | `42.29` |
 | 046 | `42.21` |
+
+## Agent C Independent Verification - Cycle 046
+
+Date: 2026-05-27/28  
+Branch: `cycle/046/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Stage 11 GigQualityAnalysis verification
+
+- Agent B reported:
+  - pre/post Stage 11 rows remained `62` due `(gig_url, run_id)` upsert behavior on prior run IDs.
+  - runtime path is deterministic rule-based Stage 11 (no live LLM execution body).
+- Agent C independent audit confirms Agent B values:
+  - `GigQualityAnalysis total=62 with_ows=62` before extension validation.
+  - sample `overall_weakness_score` values observed directly: `4.5`, `4.5`, `4.5`, `4.5`, `8.0`.
+- Adaptive extension executed for rule-based path breadth:
+  - manual Stage 11 run on `run_id=cycle044_agentb_stage45_backfill`
+  - result: `niches_processed=9`, `niches_analyzed=2`, `gigs_analyzed=22`
+  - post-extension total: `GigQualityAnalysis total=84 with_ows=84`
+  - run distribution now: `cycle041_agentb_live_stage34=42`, `cycle044_agentb_stage45_backfill=22`, `cycle038_agentb_live=20`.
+
+### Weakness improvement independently confirmed
+
+- Independent isolation rerun:
+  - `GigQualityWeaknessScoreCalculator().calculate(keyword_id=96, db=db)`
+  - result: `weakness=48.88` (matches Agent B exactly)
+  - key components: `overall_weakness_score=48.5`, `weakness_flags_penalty=48.5`, `video_absence_rate=100.0`, `portfolio_absence_rate=0.0`.
+- Before/after reference:
+  - pre-Stage 11 baseline cited in cycle artifacts: `49.4`
+  - post-Stage 11 verified: `48.88`
+  - interpretation: Stage 11 signal path is active, but current deterministic rubric values did not produce score uplift.
+
+### Independent score distribution and C039->C046 progression
+
+- Full-table tag snapshot (all rows):
+  - `PASS=2908`, `CAUTION=1041`, `MONITOR=16`
+- Latest-batch (`129` newest score rows) after Agent C rerun:
+  - `CAUTION=66`, `PASS=62`, `MONITOR=1`
+  - best latest row: `kw=96 final=42.21 weakness=48.88 profitability=31.67 CM=0.95`
+- Progression:
+
+| Cycle | Best score |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+| 046 | `42.21` |
+
+### Recommendation outcome
+
+- Command:
+  - `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+- Result:
+  - `eligible=0`
+  - `gates_passed=0`
+  - `generated=0`
+- Demand eligibility check (latest 129):
+  - rows with `demand_score > 20`: `65`
+- Conclusion:
+  - recommendation generation remains blocked by overall gate/tag thresholds (no `CONDITIONAL_GO` or `GO`), not by Stage 11 runtime failure.
