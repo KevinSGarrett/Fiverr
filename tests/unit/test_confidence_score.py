@@ -498,3 +498,168 @@ def test_confidence_partial_depth_mode_penalty(mode_value: str | None, expect_mo
     else:
         assert "partial_depth_mode" not in breakdown
         assert modifier == pytest.approx(1.0, abs=1e-4)
+
+
+def test_confidence_kw3_cm_matches_expected_with_full_data() -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=3, run_context=context, db=None)
+    assert modifier == 1.0
+    assert breakdown["deduction_total"] == 0.0
+    assert breakdown["remaining_modifier"] == 1.0
+
+
+def test_confidence_reddit_deduction_removed_when_signal_present() -> None:
+    calculator = ConfidenceScoreModifier()
+    base_context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": False,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    modifier_missing, breakdown_missing = calculator.calculate_with_breakdown(
+        keyword_id=3,
+        run_context=base_context,
+        db=None,
+    )
+    assert breakdown_missing["missing_reddit_signals"] == -0.05
+
+    with_reddit = dict(base_context)
+    with_reddit["reddit_signals_available"] = True
+    modifier_present, breakdown_present = calculator.calculate_with_breakdown(
+        keyword_id=3,
+        run_context=with_reddit,
+        db=None,
+    )
+    assert "missing_reddit_signals" not in breakdown_present
+    assert modifier_present == pytest.approx(modifier_missing + 0.05, abs=1e-4)
+    assert modifier_present == 1.0
+
+
+def test_confidence_seller_profiles_deduction_removed_when_collected() -> None:
+    calculator = ConfidenceScoreModifier()
+    base_context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": False,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    modifier_missing, breakdown_missing = calculator.calculate_with_breakdown(
+        keyword_id=3,
+        run_context=base_context,
+        db=None,
+    )
+    assert breakdown_missing["missing_seller_profiles"] == -0.1
+
+    with_seller_profiles = dict(base_context)
+    with_seller_profiles["seller_profiles_collected"] = True
+    modifier_present, breakdown_present = calculator.calculate_with_breakdown(
+        keyword_id=3,
+        run_context=with_seller_profiles,
+        db=None,
+    )
+    assert "missing_seller_profiles" not in breakdown_present
+    assert modifier_present == pytest.approx(modifier_missing + 0.1, abs=1e-4)
+    assert modifier_present == 1.0
+
+
+_CM_SIGNAL_DEDUCTION_MATRIX = [
+    pytest.param(
+        google_trends_available,
+        gig_detail_collected,
+        seller_profiles_collected,
+        reddit_signals_available,
+        incomplete_count,
+        id=(
+            f"trends_{google_trends_available}_detail_{gig_detail_collected}_"
+            f"seller_{seller_profiles_collected}_reddit_{reddit_signals_available}_"
+            f"incomplete_{incomplete_count}"
+        ),
+    )
+    for google_trends_available in (True, False)
+    for gig_detail_collected in (True, False)
+    for seller_profiles_collected in (True, False)
+    for reddit_signals_available in (True, False)
+    for incomplete_count in (0.0, 0.5, 1.0, 2.5, 5.0)
+]
+
+
+@pytest.mark.parametrize(
+    (
+        "google_trends_available",
+        "gig_detail_collected",
+        "seller_profiles_collected",
+        "reddit_signals_available",
+        "incomplete_count",
+    ),
+    _CM_SIGNAL_DEDUCTION_MATRIX,
+)
+def test_confidence_deduction_matrix_matches_expected(
+    google_trends_available: bool,
+    gig_detail_collected: bool,
+    seller_profiles_collected: bool,
+    reddit_signals_available: bool,
+    incomplete_count: float,
+) -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": google_trends_available,
+        "gig_detail_collected": gig_detail_collected,
+        "seller_profiles_collected": seller_profiles_collected,
+        "reddit_signals_available": reddit_signals_available,
+        "llm_gig_quality_incomplete_count": incomplete_count,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=7, run_context=context, db=None)
+
+    expected_deduction = 0.0
+    if not google_trends_available:
+        expected_deduction -= 0.15
+    if not gig_detail_collected:
+        expected_deduction -= 0.20
+    if not seller_profiles_collected:
+        expected_deduction -= 0.10
+    if not reddit_signals_available:
+        expected_deduction -= 0.05
+
+    expected_llm_penalty = max(-0.20, -(max(0.0, incomplete_count) * 0.08))
+    if expected_llm_penalty < 0.0:
+        expected_deduction += expected_llm_penalty
+        assert breakdown["llm_gig_quality_incomplete"] == pytest.approx(expected_llm_penalty, abs=1e-4)
+    else:
+        assert "llm_gig_quality_incomplete" not in breakdown
+
+    expected_modifier = max(0.0, min(1.0, 1.0 + expected_deduction))
+    assert breakdown["deduction_total"] == pytest.approx(expected_deduction, abs=1e-4)
+    assert modifier == pytest.approx(expected_modifier, abs=1e-4)

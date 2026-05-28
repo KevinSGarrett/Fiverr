@@ -1832,6 +1832,24 @@ Interpretation:
 - current gap is context/data-shape driven (pipeline run-context richness vs direct DB reconstruction) rather than a new regression introduced by the weakness fix.
 - no additional confidence-code mutation was applied in Cycle 048 Agent B.
 
+### Confidence regression tests (Task 5.5)
+
+Added in `tests/unit/test_confidence_score.py`:
+
+1. `test_confidence_kw3_cm_matches_expected_with_full_data`
+2. `test_confidence_reddit_deduction_removed_when_signal_present`
+3. `test_confidence_seller_profiles_deduction_removed_when_collected`
+
+Additional matrix coverage:
+
+- `test_confidence_deduction_matrix_matches_expected`
+- 80 parameterized combinations validating deduction totals/modifier outcomes across core signal presence states.
+
+Validation:
+
+- `python -m pytest -q tests/unit/test_confidence_score.py --no-header`
+- Result: `223 passed`
+
 ### Feasibility/profitability/intent investigation highlights
 
 Feasibility (`kw=3`):
@@ -1894,6 +1912,15 @@ All required health commands passed:
 - `python run.py collect-only --help`
 - `python run.py quality-analysis --help`
 - `python run.py recommendations-only --help`
+
+Required quality/test gates rerun after CM test additions:
+
+- file-scoped bundle: `559 passed`
+- 12-selector regression pack: `20 passed, 411 deselected`
+- full unit suite: `3224 passed`
+- static checks:
+  - `ruff check src/scoring/weakness.py src/scoring/demand.py tests/unit/test_confidence_score.py` -> pass
+  - `mypy src/scoring/weakness.py src/scoring/demand.py` -> pass
 
 ### Score distribution before/after and progression
 

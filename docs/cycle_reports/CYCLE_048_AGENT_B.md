@@ -340,6 +340,25 @@ Interpretation:
 - kw=96 runtime no-context path is still sensitive to sparse seller-profile availability, while persisted pipeline context remains higher.
 - No confidence-code patch applied in this cycle by Agent B.
 
+### 7.4 Task 5.5 CM regression tests added
+
+Added required CM test names in `tests/unit/test_confidence_score.py`:
+
+1. `test_confidence_kw3_cm_matches_expected_with_full_data`
+2. `test_confidence_reddit_deduction_removed_when_signal_present`
+3. `test_confidence_seller_profiles_deduction_removed_when_collected`
+
+Additional robustness coverage added:
+
+- `test_confidence_deduction_matrix_matches_expected` with an 80-case signal/deduction matrix (google_trends, gig_detail, seller_profiles, reddit, incomplete_count combinations).
+
+Validation:
+
+```text
+python -m pytest -q tests/unit/test_confidence_score.py --no-header
+223 passed
+```
+
 ---
 
 ## 8) Task 6 - Required Test and Quality Gates
@@ -352,7 +371,7 @@ Command:
 
 Result:
 
-- `476 passed`
+- `559 passed`
 
 ### 8.2 12 accumulated regression selectors
 
@@ -362,7 +381,7 @@ Command:
 
 Result:
 
-- `20 passed, 328 deselected`
+- `20 passed, 411 deselected`
 
 ### 8.3 Full unit suite
 
@@ -372,18 +391,18 @@ Command:
 
 Result:
 
-- `3141 passed in 383.40s`
+- `3224 passed in 400.01s`
 
 Note:
 
 - Agent A handoff cited historical `3205` baseline.
-- Current branch snapshot executes `3141` tests; no failures observed.
+- Current branch snapshot now executes `3224` unit tests with zero failures (`>=3205` threshold satisfied).
 
 ### 8.4 Ruff and mypy
 
 Commands:
 
-- `python -m ruff check src/scoring/weakness.py src/scoring/demand.py`
+- `python -m ruff check src/scoring/weakness.py src/scoring/demand.py tests/unit/test_confidence_score.py`
 - `python -m mypy src/scoring/weakness.py src/scoring/demand.py`
 
 Result:
@@ -508,9 +527,9 @@ Updated `docs/scoring/SCORING_GATE_ANALYSIS.md` with a new `Cycle 048 Agent B` s
 
 Posted comments:
 
-- `SCRUM-552`: comments `11908`, `11916`
+- `SCRUM-552`: comments `11908`, `11916`, `11920`
 - `SCRUM-546`: comments `11909`, `11918`
-- `SCRUM-551`: comments `11910`, `11919`
+- `SCRUM-551`: comments `11910`, `11919`, `11921`
 - `SCRUM-19`: comments `11911`, `11917`
 
 Milestone-only keys (`SCRUM-20`, `SCRUM-532`, `SCRUM-534`, `SCRUM-536`) were not posted in this run because `generated=0`.
@@ -548,9 +567,10 @@ Checklist:
 8. recommendation attempt documented - **YES** (`generated=0`)
 9. demand/opportunity investigation complete - **YES**
 10. confidence investigation complete - **YES**
+10a. CM required regression tests added (`3+`) - **YES**
 11. SCORING_GATE_ANALYSIS updated - **YES**
 12. 12-selector regression pack pass - **YES**
-13. full unit suite pass - **YES** (`3141 passed`)
+13. full unit suite pass - **YES** (`3224 passed`)
 14. ruff/mypy clean for requested files - **YES**
 15. Jira evidence posted on required keys - **YES**
 16. Agent E report file untouched by Agent B - **YES**
@@ -588,6 +608,7 @@ Staged file list (Agent B zone only):
 - `docs/scoring/SCORING_GATE_ANALYSIS.md`
 - `src/scoring/weakness.py`
 - `tests/unit/test_scoring_weakness_gqs.py`
+- `tests/unit/test_confidence_score.py`
 
 No Agent E file staged.
 
@@ -605,13 +626,13 @@ No Agent E file staged.
 12-selector regression pack (final rerun):
 
 ```text
-20 passed, 328 deselected in 4.66s
+20 passed, 411 deselected in 5.16s
 ```
 
 Full unit suite (final rerun):
 
 ```text
-3141 passed in 400.47s
+3224 passed in 400.01s
 ```
 
 Final safety checks:
