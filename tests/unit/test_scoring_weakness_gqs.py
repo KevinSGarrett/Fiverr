@@ -497,6 +497,33 @@ def test_weakness_prefers_active_run_when_no_top_card_identities() -> None:
         session.close()
 
 
+def test_weakness_can_use_linked_result_identity_when_cards_missing() -> None:
+    session = _new_session()
+    try:
+        keyword_id, gig_url = _seed_run_scoped_keyword(
+            session,
+            active_run_id="active-empty-cards",
+            card_url="",
+        )
+        row = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).first()
+        assert row is not None
+        row.gig_cards = []
+        session.commit()
+
+        _insert_gqa_row(session, gig_url=gig_url, run_id="fallback-run", rubric_score=40.0)
+
+        resolved_run = GigQualityWeaknessScoreCalculator()._resolve_weakness_input_run_id(
+            session,
+            active_run_id="active-empty-cards",
+            top_card_urls=[],
+            top_results=[row],
+            include_top_result_identities=True,
+        )
+        assert resolved_run == "fallback-run"
+    finally:
+        session.close()
+
+
 def test_weakness_uses_historical_fallback_when_signal_weight_insufficient() -> None:
     session = _new_session()
     try:
@@ -525,6 +552,27 @@ def test_weakness_uses_historical_fallback_when_signal_weight_insufficient() -> 
         result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
         assert result.score_value == 53.52
         assert "historical_weakness_fallback" in result.score_components
+    finally:
+        session.close()
+
+
+def test_weakness_historical_fallback_reads_persisted_column_value() -> None:
+    session = _new_session()
+    try:
+        keyword_id = _seed_keyword(session, fallback_video=[True] * 10, fallback_portfolio=[True] * 10)
+        session.add(
+            KeywordScore(
+                keyword_id=keyword_id,
+                final_score=45.0,
+                weakness_score=53.52,
+                score_components={},
+                tag="PASS",
+            )
+        )
+        session.commit()
+
+        resolved = GigQualityWeaknessScoreCalculator._resolve_historical_weakness_score(keyword_id, session)
+        assert resolved == 53.52
     finally:
         session.close()
 

@@ -880,9 +880,12 @@ class GigQualityWeaknessScoreCalculator:
                     .limit(10)
                     .all()
                 )
+            using_fallback_top_results = True
             top_results = [
                 SimpleNamespace(gig=gig, run_id=getattr(gig, "run_id", None)) for gig in top_gigs
             ]
+        else:
+            using_fallback_top_results = False
         gig_ids = [gig.id for gig in top_gigs if gig.id is not None]
         video_presence_map: dict[int, bool] = {}
         if gig_ids:
@@ -919,6 +922,7 @@ class GigQualityWeaknessScoreCalculator:
             active_run_id=active_run_id,
             top_card_urls=top_card_urls,
             top_results=top_results,
+            include_top_result_identities=not using_fallback_top_results,
         )
 
         try:
@@ -1038,6 +1042,7 @@ class GigQualityWeaknessScoreCalculator:
         active_run_id: str | None,
         top_card_urls: list[str],
         top_results: list[Any],
+        include_top_result_identities: bool = True,
     ) -> str | None:
         """Prefer the active run, but fall back to newest matching Stage 11 run."""
         target_url_identities = {
@@ -1049,14 +1054,15 @@ class GigQualityWeaknessScoreCalculator:
         }
         # When the active run has no card URLs, keep run selection anchored to the
         # active run to avoid cross-keyword Stage 11 leakage via fallback gig rows.
-        if not target_url_identities:
+        if not target_url_identities and not include_top_result_identities:
             return active_run_id
-        for result in top_results:
-            gig = getattr(result, "gig", None)
-            gig_url = getattr(gig, "gig_url", None) if gig is not None else None
-            identity = self._normalize_gig_url_identity(gig_url)
-            if identity is not None:
-                target_url_identities.add(identity)
+        if include_top_result_identities:
+            for result in top_results:
+                gig = getattr(result, "gig", None)
+                gig_url = getattr(gig, "gig_url", None) if gig is not None else None
+                identity = self._normalize_gig_url_identity(gig_url)
+                if identity is not None:
+                    target_url_identities.add(identity)
 
         try:
             from src.models.market import GigQualityAnalysis
@@ -1103,6 +1109,13 @@ class GigQualityWeaknessScoreCalculator:
         )
         observed: list[float] = []
         for row in rows:
+            try:
+                persisted_column_value = getattr(row, "weakness_score", None)
+                if persisted_column_value is not None:
+                    observed.append(round(float(persisted_column_value), 2))
+                    continue
+            except (TypeError, ValueError):
+                pass
             components = row.score_components if isinstance(row.score_components, dict) else {}
             weakness_component = components.get("weakness_score", {}) if isinstance(components, dict) else {}
             value = weakness_component.get("value") if isinstance(weakness_component, dict) else None
