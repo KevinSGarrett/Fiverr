@@ -1473,3 +1473,190 @@ Database: `sqlite:///data/cycle037_live.db`
 | 045 | `42.29` | `-` | `-` | `47.88` | `49.4` |
 | 046 | `42.21` | `45.46` | `0.95` | `47.96` | `48.88` |
 | 047 | `54.84` | `65.37` | `0.8389` | `100.0` (best row) | `N/A` (best row) |
+
+## Agent C Independent Verification - Cycle 047
+
+Date: 2026-05-27/28  
+Branch: `cycle/047/integration`  
+Database: `sqlite:///data/cycle037_live.db`
+
+### Intake confirmation
+
+Agent C read all required upstream reports in order before any verification task:
+
+- `docs/cycle_reports/CYCLE_047_AGENT_A.md`
+- `docs/cycle_reports/CYCLE_047_AGENT_B.md`
+- `docs/cycle_reports/CYCLE_047_AGENT_E.md`
+
+### Mandatory preflight replay
+
+- location: `C:\Fiverr\Fiverr`
+- branch: `cycle/047/integration`
+- pull: up to date
+- worktree count: `1`
+- `python run.py config-check`: PASS
+
+### Independent feasibility verification (Agent B fix)
+
+- Prompt command required `FeasibilityScoreCalculator`; current module class is `NewSellerFeasibilityCalculator`.
+- Independent isolation rerun (`kw=96`) result:
+  - `99.63`
+- Agent B reported post-fix isolation:
+  - `96.42`
+- Delta:
+  - `+3.21` (within tolerance)
+
+Regression gate verification:
+
+- feasibility selector:
+  - `9 passed`
+- explicit accumulated named regressions:
+  - `11 passed`
+
+Feasibility module commit verification:
+
+- latest modifying commit:
+  - `b9cf83a fix(scoring): feasibility anomaly root cause fix + stage11 investigation`
+
+Independent fix assessment:
+
+- card-URL fallback and URL identity normalization are correct for sparse direct link conditions.
+- deterministic top-card ordering and seller-level alias handling prevent regression to low-signal paths.
+
+### Independent Agent E enrichment verification
+
+Verified against live DB:
+
+- `GigQualityAnalysis`: `84 -> 112`
+- by run:
+  - `cycle038_agentb_live: 23`
+  - `cycle041_agentb_live_stage34: 42`
+  - `cycle044_agentb_stage45_backfill: 22`
+  - `cycle047_agent_e_stage11: 25`
+- `SearchResult with_trc`: `87 -> 90` (`total=107`)
+- premium metadata (global): `0 -> 25`
+- extras metadata (global): unchanged at `0`
+- sellers: `230 -> 250`
+- CM live recompute (`run_context=None`): `0.6167`
+
+### Agent E file-zone verification
+
+Commit-scoped verification of E-related SHAs:
+
+- `9e891d1` -> docs-only
+- `9e4193b` -> docs-only
+- `371dbb1` -> docs-only
+- `70a21f0` -> docs-only (`ACTIVE_STORY_DOD_LEDGER.md`)
+- `d834ae8` -> docs-only
+
+Result:
+
+- no `src/` files in Agent E commit set.
+
+### Combined weakness verification and run-id caveat
+
+Independent combined-state weakness (`kw=96`):
+
+- `53.52`
+
+Comparative context:
+
+- baseline reference: `48.88`
+- Agent B post-fix: `53.52`
+- Agent E rerun: `53.52`
+- Agent C rerun: `53.52`
+
+Run-id consumption investigation:
+
+- active weakness run context for `kw=96` resolves to `cycle038_agentb_live`
+- some top-card URLs contain both `cycle038` and `cycle047_agent_e_stage11` GQA rows
+- current weakness read path remains run-scoped to active run, so new cycle047 rows did not produce incremental uplift in this keyword path
+
+### Definitive combined-state scoring rerun
+
+Command:
+
+- `python run.py run --mode full --database-url sqlite:///data/cycle037_live.db`
+
+Output:
+
+- `Scoring complete: 129 keywords scored`
+
+Latest 129 tags:
+
+- `PASS=60`
+- `CAUTION=55`
+- `MONITOR=14`
+- `CONDITIONAL_GO=0`
+- `STRONG_GO=0`
+
+Best latest row:
+
+- `keyword_id=3`
+- `final=55.21`
+- `tag=MONITOR`
+
+Tracked full-component row (`kw=96`):
+
+- final `51.20`
+- CM (stored) `0.8944`
+- demand `38.16`
+- competition `62.54`
+- opportunity `37.88`
+- feasibility `99.10`
+- profitability `40.00`
+- intent `54.29`
+- weakness `53.52`
+
+### CM context sensitivity snapshot
+
+For `kw=96`:
+
+- stored latest score row CM: `0.8944`
+- live recompute with `run_context=None`: `0.6167`
+- pipeline-like populated run_context experiment: `0.9444`
+
+Interpretation:
+
+- confidence modifier remains materially context-sensitive.
+
+### Recommendations outcome (post combined rerun)
+
+Command:
+
+- `python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db`
+
+Result:
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+
+No recommendation milestone triggered in Cycle 047 Stage 3.
+
+### Score progression updated to C047
+
+| Cycle | Best Final |
+| --- | --- |
+| 039 | `24.67` |
+| 040 | `37.56` |
+| 041 | `38.74` |
+| 042 | `38.74` |
+| 043 | `44.22` |
+| 044 | `42.04` |
+| 045 | `42.29` |
+| 046 | `42.21` |
+| 047 | `55.21` |
+
+### 4-profile comparison revalidation
+
+Cycle 047 Agent C reran profile comparison using temporary active-profile config swaps:
+
+- `aggressive_new_seller`: best `55.21`
+- `default`: best `47.03`
+- `profitability_focus`: best `43.29`
+- `trend_chaser`: best `49.72`
+
+Conclusion:
+
+- `aggressive_new_seller` remains the strongest profile for current data.
