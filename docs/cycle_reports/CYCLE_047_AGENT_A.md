@@ -304,6 +304,20 @@ Live CM = 0.7750
   remaining_modifier: 0.775
 ```
 
+Discrepancy investigation notes for Agent B:
+
+- Stored row timestamp: `2026-05-28 00:47:31.685772` (Cycle 046 batch tail).
+- Stored context snapshot had all confidence inputs at `1.0` except reddit deduction.
+- `src/scoring/confidence.py` recent history includes `39dab91` (Cycle 043 fix), so data-shape/runtime-input drift is more likely than a brand-new formula rewrite in Cycle 047 setup.
+- No explicit `run_context` is stored in `keyword_scores`; treat this as a recomputation-context mismatch investigation.
+
+Reddit deduction sensitivity math:
+
+- Live CM with deduction: `0.775`.
+- Removing reddit penalty only: `0.775 + 0.05 = 0.825`.
+- If feasibility is restored to target composite `58.47`, then `58.47 * 0.825 = 48.24` final.
+- Conclusion: feasibility fix + reddit deduction removal alone is still insufficient for `>=60`; weakness and/or other components must also improve.
+
 ### 8e) Test baseline count + 11 regression names
 
 - Full unit baseline from Task 5.2 run: `3077 passed`.
