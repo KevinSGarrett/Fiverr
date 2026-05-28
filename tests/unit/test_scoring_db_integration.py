@@ -18,6 +18,7 @@ from src.models import (
     SearchResult,
     Seller,
 )
+from src.models.gig_quality_analysis import GigQualityAnalysis as GigQualityAnalysisCompat
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.demand import DemandScoreCalculator
@@ -691,6 +692,30 @@ def test_gig_quality_analysis_compatibility_overall_weakness_score() -> None:
         assert analysis_row.overall_weakness_score == 4.0
     finally:
         session.close()
+
+
+def test_gig_quality_analysis_wrapper_reexports_market_model() -> None:
+    assert GigQualityAnalysisCompat is GigQualityAnalysis
+
+
+def test_weakness_calculate_uses_overall_weakness_component_from_signals() -> None:
+    calculator = GigQualityWeaknessScoreCalculator()
+    keyword_id = 12345
+    db_proxy = {
+        keyword_id: {
+            "overall_weakness_score_avg": 4.0,
+            "video_absence_rate": 0.0,
+            "portfolio_absence_rate": 0.0,
+            "weakness_flag_penalty": 0.0,
+        }
+    }
+
+    result = calculator.calculate(keyword_id, db_proxy)
+
+    assert result.score_value is not None
+    assert "overall_weakness_score" in result.score_components
+    assert "gig_quality_analysis.overall_weakness_score" in result.source_evidence
+    assert result.score_components["overall_weakness_score"].value == 40.0
 
 
 def test_scoring_uses_card_urls_with_querystrings_for_sparse_links() -> None:
