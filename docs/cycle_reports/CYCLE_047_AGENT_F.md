@@ -214,7 +214,7 @@ No `src/**` edits performed by Agent F due hard rule; results documented for fol
 - Full suite passes with zero failures: **YES** (`3201 passed`)
 - Ruff clean on all new test files: **YES**
 
-## Final SHA (current local head before follow-up commit)
+## Final SHA
 
-- `dc706f30b9d39340b3529f36e255403e0f43865f`
+- `23c20cc9cf58ff25a7420d3ff1edfd920e1f27e2`
 
