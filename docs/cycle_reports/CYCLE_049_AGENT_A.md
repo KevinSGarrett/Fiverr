@@ -92,6 +92,16 @@ b38e0e0 Merge pull request #56 from KevinSGarrett/cycle/049/kw96-weakness-correc
 | Develop HEAD at branch creation | `b38e0e06419b9553f9d418c19ac62bffff003e5c` |
 | cycle/049/integration base SHA | `b38e0e06419b9553f9d418c19ac62bffff003e5c` |
 
+### Task 3: Remote Branch Cleanup (3.1–3.4)
+
+```text
+gh pr list --state merged --limit 5 → PR #55 MERGED
+git branch -r | Select-String "cycle/048" → (empty)
+git remote prune origin → pruned origin/cycle/049/kw96-weakness-correction
+git branch -r | Select-String "cycle/049" → origin/cycle/049/integration
+git worktree list → C:/Fiverr/Fiverr  055e0ee [cycle/049/integration] (1 entry)
+```
+
 ### Cycle 048 Deliverable Existence Checks
 
 ```text
@@ -138,12 +148,30 @@ kw=110 CM=0.9500
 ### kw=3 (help desk software, niche_id=1)
 
 ```text
-kw=3 final=55.70 weakness=46.25 demand=50.22 opp=48.15 prof=7.14 tag=MONITOR
+kw=3: final=55.70 composite~58.63 CM=0.9500 tag=MONITOR
+  competition_score: value=54.95 contrib=4.5
+  demand_score: value=50.22 contrib=7.53
+  feasibility_score: value=100.0 contrib=25.0
+  intent_score: value=47.14 contrib=2.36
+  opportunity_score: value=48.15 contrib=9.63
+  profitability_score: value=7.14 contrib=0.36
+  weakness_score: value=46.25 contrib=9.25
 ```
 
 CM=0.9500 (missing_reddit_signals: -0.05). Weakness FIXED from None in C048.
 
 ### kw=96
+
+```text
+kw=96: final=46.21 composite~41.31 CM=0.6167 tag=MONITOR
+  competition_score: value=62.54 contrib=3.75
+  demand_score: value=38.16 contrib=5.72
+  feasibility_score: value=None contrib=None
+  intent_score: value=54.29 contrib=2.71
+  opportunity_score: value=37.88 contrib=7.58
+  profitability_score: value=30.95 contrib=1.55
+  weakness_score: value=100.0 contrib=20.0
+```
 
 ```text
 kw=96 CM=0.6167
@@ -153,16 +181,16 @@ kw=96 CM=0.6167
   data_completeness_ratio: 0.6667
 ```
 
-**Weakness post-PR #56:** `53.52` (historical_weakness_fallback path; divergence from 100.0 resolved on develop).
+**Weakness isolation (post-PR #56):** `53.52` via `historical_weakness_fallback`. Persisted score row still shows `weakness=100.0` — combined-state vs isolation divergence partially open for Agent B regression guard.
 
-### Top 5 Keywords by Final Score
+### Top 5 Keywords by Final Score (with composite + CM — Task 9.2)
 
 ```text
-kw=110 final=58.66 weakness=100.0 demand=41.69 opp=42.28 prof=17.14 tag=MONITOR
-kw=28 final=56.14 weakness=46.25 demand=46.38 opp=44.8 prof=80.0 tag=MONITOR
-kw=23 final=55.91 weakness=46.25 demand=45.08 opp=44.24 prof=80.0 tag=MONITOR
-kw=3 final=55.70 weakness=46.25 demand=50.22 opp=48.15 prof=7.14 tag=MONITOR
-kw=27 final=54.77 weakness=46.25 demand=38.05 opp=40.79 prof=80.0 tag=MONITOR
+kw=110 final=58.66 composite~61.76 CM=0.9500 weakness=100.0 demand=41.69 opp=42.28 prof=17.14
+kw=28 final=56.14 composite~59.10 CM=0.9500 weakness=46.25 demand=46.38 opp=44.8 prof=80.0
+kw=23 final=55.91 composite~58.85 CM=0.9500 weakness=46.25 demand=45.08 opp=44.24 prof=80.0
+kw=3 final=55.70 composite~58.63 CM=0.9500 weakness=46.25 demand=50.22 opp=48.15 prof=7.14
+kw=27 final=54.77 composite~57.65 CM=0.9500 weakness=46.25 demand=38.05 opp=40.79 prof=80.0
 ```
 
 ### Tag Distribution (latest 129 keywords)
@@ -254,10 +282,10 @@ python -m pytest -q tests/unit/test_gig_detail.py \
   -v --no-header
 ```
 
-Result:
+Result (Task 4.1 + Task 18.1 final rerun):
 
 ```text
-20 passed, 411 deselected in 3.92s
+20 passed, 411 deselected in 3.68s
 ```
 
 All 12 accumulated regression tests PASS (20 selected includes superset matches):
@@ -275,10 +303,10 @@ All 12 accumulated regression tests PASS (20 selected includes superset matches)
 11. `test_scoring_uses_card_urls_with_querystrings_for_sparse_links` — PASS
 12. `test_confidence_modifier_uses_current_run_context_not_none` — PASS
 
-Full suite baseline:
+Full suite baseline (Task 4.2 + Task 18.2 final rerun):
 
 ```text
-3340 passed in 391.13s (0:06:31)
+3340 passed in 387.03s (0:06:27)
 ```
 
 ---
@@ -288,10 +316,22 @@ Full suite baseline:
 ```text
 python run.py config-check → PASS
 python run.py phase2-smoke → PASS
-python run.py recommendations-only --help → PASS (verified via recommendations-only run)
 ```
 
-Recommendations-only run:
+**python run.py recommendations-only --help** (Task 4.3 verbatim):
+
+```text
+Usage: run.py recommendations-only [OPTIONS]
+
+  Run Stage 13 recommendation orchestration only.
+
+Options:
+  --config-path TEXT   Config file path.  [default: config.yaml]
+  --database-url TEXT  Database URL override.
+  --help               Show this message and exit.
+```
+
+Recommendations-only run (Task 13.4):
 
 ```text
 Recommendations stage complete: {
@@ -365,20 +405,21 @@ kw=28/kw=23 have high profitability (80.0) but lower composite; kw=110 remains c
 
 ### 8b. kw=96 Weakness Divergence (Task 6)
 
-**6.1 Current isolation (post-PR #56 on develop):**
+**6.1 Current isolation (post-PR #56 on develop) — verbatim:**
 
 ```text
-kw=96 weakness: score_value=53.52
-  historical_weakness_fallback: value=53.52 weight=1.0
+kw=96 weakness: WeaknessScoreResult(score_value=53.52, score_components={'historical_weakness_fallback': ScoreComponent(value=53.52, weight=1.0, raw='keyword_scores.latest_non_null', note='Used latest persisted weakness when current-run signal coverage is insufficient.')}, ...)
 ```
 
-**Status:** PR #56 merged before C049 branch. Divergence (B isolation 53.52 vs combined-state 100.0) is **resolved on develop**. Agent B should still add combined-state regression guard per SCRUM-555.
-
-**6.2 GQA context:**
+**6.2 GQA by run (verbatim):**
 
 ```text
 kw=96 ranked rows: 1
-GQA runs: 5 runs, max OWS=10.0 across all runs
+  run=cycle038_agentb_live: n=23 avg_ows=5.52 max_ows=10.00
+  run=cycle041_agentb_live_stage34: n=45 avg_ows=5.10 max_ows=10.00
+  run=cycle044_agentb_stage45_backfill: n=22 avg_ows=4.98 max_ows=8.00
+  run=cycle047_agent_e_stage11: n=25 avg_ows=4.78 max_ows=8.00
+  run=cycle048_agent_e_kw3: n=37 avg_ows=6.27 max_ows=10.00
 ```
 
 **6.3 Fallback logic (`src/scoring/weakness.py`):**
@@ -386,6 +427,8 @@ GQA runs: 5 runs, max OWS=10.0 across all runs
 - `_resolve_weakness_input_run_id()` prefers active run, falls back to newest matching Stage 11 run by `analyzed_at desc`.
 - `_resolve_historical_weakness_score()` (lines 1130–1137) guards against transient 100.0 spikes: if latest ≥90.0, returns most recent stable value <90.0.
 - `weakness_flag_penalty` averaged across gigs via `flags_by_gig` list.
+
+**Status:** PR #56 merged before C049 branch — isolation returns 53.52. Persisted kw=96 score row still shows weakness=100.0; Agent B must add combined-state regression guard per SCRUM-555.
 
 **6.4 Fix hypothesis (if divergence recurs in combined-state):**
 
@@ -410,7 +453,19 @@ avg_premium_price: value=10.71 raw=50.0
 gig_extras_upsell: value=0.0 raw={'extras_presence_ratio': 0.0, 'avg_extras_price': None}
 ```
 
-Missing: `starting_price` (None on rank=1 gig_id=179), `delivery_time_days`, extras (empty list).
+Missing: `starting_price` (None on rank=1 gig_id=179), `delivery_time_days`, extras.
+
+**7.3 Per-gig field audit (top 3):**
+
+```text
+--- kw=3 top 3 gigs ---
+  rank=1 gig_id=179 starting=None premium=50.0 delivery=None extras=None
+
+--- kw=110 top 3 gigs ---
+  rank=1 gig_id=365 starting=80.0 premium=80.0 delivery=None extras=None
+```
+
+(Only 1 ranked gig each for kw=3 and kw=110 in current DB.)
 
 **kw=110 profitability: 17.14**
 
@@ -586,41 +641,59 @@ Best: kw=110 final=58.66 composite=61.76 CM=0.9500 tag=MONITOR
 
 ---
 
-## SECTION 14: Recommendations Eligibility Gate Analysis (Tasks 13, 17)
+## APPENDIX A: Tasks 12–20 Verification (Complete)
 
-### Gate Logic (`src/recommendations/eligibility.py`)
+### TASK 12: Verify All Open SCRUM Stories (12.1 Live Jira Query)
 
-`get_eligible_keywords()` filters by tag ≥ CONDITIONAL GO, then `passes_recommendation_gates()`:
+| Key | Expected | Verified Status |
+| --- | --- | --- |
+| SCRUM-553 | In Progress | In Progress ✅ |
+| SCRUM-550 | Done | Done ✅ |
+| SCRUM-546 | Done | Done ✅ |
+| SCRUM-554 | In Progress | In Progress ✅ |
+| SCRUM-555 | In Progress | In Progress ✅ |
+| SCRUM-556 | In Progress | In Progress ✅ |
+| SCRUM-17 | In Progress | In Progress ✅ |
+| SCRUM-19 | In Progress | In Progress ✅ |
+| SCRUM-20 | In Progress | In Progress ✅ |
 
-1. `confidence_modifier >= 0.40` — kw=110 CM=0.95 ✅
-2. `demand_score > 20` — kw=110 demand=41.69 ✅
-3. `_has_gig_analysis()` — **FAILS for kw=110**
+**12.2:** kw=110 CONDITIONAL_GO path posted on SCRUM-553 (comment `11945`).
 
-### `_has_gig_analysis()` paths
+### TASK 13: Recommendations Eligibility Gate (13.1–13.4)
 
-1. `GigQualityScore` with `analysis_complete=True` for keyword_id
-2. Fallback: `GigVisualAnalysis` joined via `SearchResult.gig_id`
+**13.1 Trace:** `get_eligible_keywords()` → filters tag ≥ CONDITIONAL GO → `passes_recommendation_gates()` checks:
+1. `confidence_modifier >= 0.40`
+2. `demand_score > 20`
+3. `_has_gig_analysis(keyword_id, db)`
 
-### kw=110 Gig Analysis State
+Even if CONDITIONAL_GO were true, kw=110 would fail step 1 of eligibility (tag filter) until scoring rerun assigns tag; then would fail step 3 (`has_gig_analysis`).
+
+**13.2 Hypothetical kw=110 at final=60:**
+- CM=0.95 ≥ 0.40 ✅
+- demand=41.69 > 20 ✅
+- has_gig_analysis: GQS=0, visual=False ❌
+
+**13.3 Stage data needed:** Stage 7 (`GigQualityScore.analysis_complete=True`) OR Stage 11 + `GigVisualAnalysis` fallback path.
+
+**13.4 Recommendations-only run:**
 
 ```text
-kw=110 GigQualityScore rows: 0 complete=0
-gig_id=365 visual_analysis=False
+eligible=0, gates_passed=0, generated=0, run_id=20260529_020930
 ```
 
-**Blocker:** Even at final=60+, `has_gig_analysis` gate fails. Agent E needs Stage 7 OR Stage 11 for kw=110 gigs before `generated > 0`.
+Gap: zero keywords at CONDITIONAL_GO tag + zero gig analysis for kw=110.
 
-### Current recommendations run
+### TASK 14: kw=110 Gig Analysis Check (14.1 Verbatim)
 
 ```text
-eligible=0, gates_passed=0, generated=0
+kw=110 GigQualityScore rows: 0
+GQA total: 152
+kw=110 niche_id=1 GQA rows for niche: 0
 ```
 
-Gap: No CONDITIONAL_GO tags yet + no gig analysis for kw=110.
+**14.2:** `has_gig_analysis` gate FAILS. Agent E needs Stage 7 OR Stage 11 for kw=110 gigs.
 
----
-
-## SECTION 15: Config Gate Verification (Task 15)
+### TASK 15: Config Gate (15.1–15.2)
 
 ```text
 git merge-base develop cycle/049/integration
@@ -630,11 +703,74 @@ git log b38e0e0..HEAD --name-only -- config.yaml
 (empty — PASS)
 ```
 
-`config.yaml scrapfly.enabled: false` confirmed via CollectionConfig assertion.
+**config.yaml** (lines 31–32):
 
----
+```yaml
+  scrapfly:
+    enabled: false
+```
 
-## SECTION 16: Final Self-Audit (Task 20)
+### TASK 16: GQA for kw=110 Niche (16.1–16.4)
+
+**16.1:** kw=110 niche_id=1 (AI chatbot handoff — maps to niche slug per keyword table).
+
+**16.2:** GQA rows for niche_id=1: **0**
+
+**16.3:** weakness.py cannot find niche-level GQA for kw=110; falls back to gig URL match. One GQA row exists for kw=110 top gig URL under run `cycle048_agent_e_kw3`.
+
+**16.4 kw=110 weakness=100.0 root cause (NOT same as kw=96):**
+
+```text
+kw=110 weakness isolation: 100.0
+  overall_weakness_score: value=100.0 raw=10.0
+  weakness_flags_penalty: value=100.0 raw=[['NO_FAQ','NO_PORTFOLIO','NO_VIDEO','THIN_DESCRIPTION'], ...]
+  video_absence_rate: value=100.0
+  portfolio_absence_rate: value=100.0
+
+GQA for top gig: run=cycle048_agent_e_kw3 ows=4.5 flags=['faq_absent','thumbnail_quality_flag','video_absent']
+```
+
+Weakness=100 driven by **weakness_flags_penalty** (all 4 flags = 100 penalty per gig), not a single extreme OWS row. Different mechanism than kw=96 historical-fallback spike.
+
+### TASK 17: Recommendations Gate Detail (17.1–17.2)
+
+**17.1:** `_has_gig_analysis()` primary path: `GigQualityScore.analysis_complete.is_(True)`. Fallback: `GigVisualAnalysis` via `SearchResult.gig_id` join. kw=110 satisfies neither.
+
+**17.2 GigVisualAnalysis (verbatim):**
+
+```text
+gig_id=365 visual_analysis=False
+```
+
+### TASK 18: Post-Commit Validation (18.1–18.3)
+
+**18.1 Regression pack (final rerun):**
+
+```text
+20 passed, 411 deselected in 3.68s
+```
+
+All 12 named regressions PASS.
+
+**18.2 Full suite:**
+
+```text
+3340 passed in 387.03s (0:06:27)
+```
+
+**18.3 git show --name-only HEAD:**
+
+```text
+docs/cycle_reports/CYCLE_049_AGENT_A.md
+```
+
+No `src/` files in Agent A commits. Combined Agent A commits touch only `PM_Pack/` + `docs/`.
+
+### TASK 19: ACTIVE_STORY_DOD_LEDGER.MD
+
+Cycle 049 Agent A rows added including SCRUM-550/546 Done transitions (`docs/jira/ACTIVE_STORY_DOD_LEDGER.md`).
+
+### TASK 20: Final Self-Audit
 
 | Check | Result |
 | --- | --- |
@@ -645,7 +781,7 @@ git log b38e0e0..HEAD --name-only -- config.yaml
 | SCRUM-546 transitioned to Done | YES |
 | SCRUM-554/555/556 In Progress | YES |
 | kw=110 investigation complete | YES |
-| kw=96 divergence documented | YES (resolved on develop via PR #56) |
+| kw=96 divergence documented | YES |
 | Reddit credential status documented | YES (False) |
 | 12 regression tests PASS | YES |
 | cycle/049/integration pushed | YES |
@@ -653,12 +789,14 @@ git log b38e0e0..HEAD --name-only -- config.yaml
 
 ---
 
-## SECTION 17: Final SHA
+## SECTION 14: Final SHA
 
-Agent A setup commit on `cycle/049/integration`:
+Agent A commits on `cycle/049/integration`:
 
 ```text
+055e0ee docs(cycle-049): set Agent A final SHA in report
 549877b chore(cycle-049): Agent A setup — kw=110 CONDITIONAL_GO investigation
 ```
 
-Base SHA: `b38e0e06419b9553f9d418c19ac62bffff003e5c`
+Branch base SHA: `b38e0e06419b9553f9d418c19ac62bffff003e5c`  
+Final HEAD: `055e0eef2ad39ad71d9e4b603ef9a30fe305ad8b`
