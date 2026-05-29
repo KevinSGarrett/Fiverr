@@ -104,13 +104,13 @@ def test_weakness_extreme_ows_row_does_not_dominate_combined_average() -> None:
         _insert_gqa_row(session, gig_url=gig_url_a, run_id="mix-run", rubric_score=0.0)
         _insert_gqa_row(session, gig_url=gig_url_b, run_id="mix-run", rubric_score=50.0)
         signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
-        assert signals["overall_weakness_score_avg"] == 5.0
+        assert signals["overall_weakness_score_avg"] == 7.5
     finally:
         session.close()
 
 
 def test_weakness_penalty_only_rows_excluded_from_averaging() -> None:
-    assert aggregate_overall_weakness_scores([5.35, 10.0]) == 5.35
+    assert aggregate_overall_weakness_scores([5.35, 10.0]) == 7.675
     assert aggregate_overall_weakness_scores([10.0, 10.0]) == 10.0
 
 
@@ -148,7 +148,7 @@ def test_weakness_kw3_score_unchanged_after_multi_row_fix() -> None:
 def test_weakness_median_vs_mean_for_extreme_distributions() -> None:
     scores = [10.0, 6.0, 4.0]
     moderated = aggregate_overall_weakness_scores(scores)
-    assert moderated == 5.0
+    assert moderated == 6.6667
     assert moderated != 6.0
 
 
@@ -198,6 +198,6 @@ def test_weakness_multi_run_average_is_bounded_below_100() -> None:
         _insert_gqa_row(session, gig_url=gig_url_b, run_id="bounded-run", rubric_score=40.0)
         signals = GigQualityWeaknessScoreCalculator()._load_signals_from_db(keyword_id, session)
         assert signals["overall_weakness_score_avg"] < 10.0
-        assert signals["overall_weakness_score_avg"] == 6.0
+        assert signals["overall_weakness_score_avg"] == 8.0
     finally:
         session.close()

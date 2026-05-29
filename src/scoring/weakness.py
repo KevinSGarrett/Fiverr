@@ -63,18 +63,15 @@ def compute_weakness_penalty_from_flags(weakness_flags: list[str]) -> float:
 
 def aggregate_overall_weakness_scores(scores: list[float]) -> float | None:
     """
-    Aggregate 0–10 overall weakness scores without single-row domination.
+    Aggregate 0-10 overall weakness scores using a bounded mean.
 
-    Rows at the 10.0 ceiling (rubric_score=0 penalty-only placeholders) are
-    excluded when lower rubric-based scores are present. Mean is used across
-    the moderated pool; if every row is at 10.0 the ceiling values are kept.
+    Keep legitimate 10.0 rows in the average so severe competitors are not
+    dropped from mixed-quality sets (e.g., [10.0, 5.0] -> 7.5).
     """
     cleaned = [max(0.0, min(10.0, float(score))) for score in scores]
     if not cleaned:
         return None
-    moderated = [score for score in cleaned if score < 10.0]
-    pool = moderated if moderated else cleaned
-    return round(sum(pool) / len(pool), 4)
+    return round(sum(cleaned) / len(cleaned), 4)
 
 
 def get_gig_quality_weakness_input(
