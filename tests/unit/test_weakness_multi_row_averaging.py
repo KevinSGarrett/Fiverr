@@ -148,6 +148,39 @@ def test_weakness_penalty_only_rows_excluded_from_average() -> None:
     assert aggregate_overall_weakness_scores([2.0, 8.0, 9.0]) == 6.3333
 
 
+def test_weakness_multi_row_fallback_does_not_produce_extreme_value() -> None:
+    """Permanent regression name for AGENT_EXECUTION_STRATEGY Section 7."""
+    session = _new_session()
+    try:
+        keyword_id, gig_url_a = _seed_run_scoped_keyword(session, active_run_id="extreme-run")
+        gig_url_b = "https://www.fiverr.com/gigs/stable-target"
+        gig_b = Gig(
+            gig_url=gig_url_b,
+            keyword_id=keyword_id,
+            run_id="extreme-run",
+            seller_username="stable_seller",
+            metadata_json={"has_video": True, "has_portfolio": True},
+        )
+        session.add(gig_b)
+        session.flush()
+        row = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).first()
+        assert row is not None
+        row.gig_cards = [
+            {"gig_url": gig_url_a, "position": 1},
+            {"gig_url": gig_url_b, "position": 2},
+        ]
+        session.commit()
+
+        _insert_gqa_row(session, gig_url=gig_url_a, run_id="extreme-run", rubric_score=0.0)
+        _insert_gqa_row(session, gig_url=gig_url_b, run_id="extreme-run", rubric_score=53.52)
+
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value < 90.0
+    finally:
+        session.close()
+
+
 def test_weakness_kw96_equivalent_consistent_before_after_combined_state() -> None:
     session = _new_session()
     try:
