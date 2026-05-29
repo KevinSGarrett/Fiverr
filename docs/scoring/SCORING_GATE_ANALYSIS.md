@@ -2094,3 +2094,256 @@ Exact gap to threshold:
 - critical objective achieved: `kw=3 weakness > 0` (confirmed at `46.25`)
 - release gate not yet achieved: recommendations still blocked (`generated=0`)
 - blocker carried forward: `kw=96` weakness divergence vs Agent B expected post-fix value
+
+---
+
+## Cycle 049 Agent B (2026-05-29)
+
+Branch: `cycle/049/integration`  
+Database: `sqlite:///data/cycle037_live.db`  
+Stories: SCRUM-554 (cycle control), SCRUM-555 (implementation)
+
+### kw=96 weakness multi-row averaging fix
+
+**Root cause:** `aggregate_overall_weakness_scores` used a plain mean across Stage 11 `overall_weakness_score` values. A single penalty-only row at OWS=10.0 (rubric_score=0) dominated the average when cross-run fallback matched an extreme GQA row.
+
+**Fix:** Added `aggregate_overall_weakness_scores()` in `src/scoring/weakness.py`. Rows at OWS=10.0 are excluded when lower rubric-based scores exist; mean is computed over the moderated pool. Historical fallback spike guard (PR #56) retained for sparse-signal keywords.
+
+| Keyword | Weakness before (persisted) | Weakness after (calc + persisted) | kw=3 guard |
+| --- | --- | --- | --- |
+| kw=96 | 100.0 | 53.52 | — |
+| kw=3 | 46.25 | 46.25 | unchanged |
+| kw=110 | 100.0 | 100.0 | N/A (real flag penalty, not OWS spike) |
+
+### kw=110 full components (post-rerun)
+
+```text
+kw=110: final=59.56 composite~62.7 CM=0.9500 tag=MONITOR
+  competition=56.84 demand=41.69 feasibility=85.54 intent=47.14
+  opportunity=42.28 profitability=36.13 weakness=100.0
+```
+
+Gap to CONDITIONAL_GO: `60.00 - 59.56 = 0.44 pts` (improved from 1.34 via profitability enrichment).
+
+Tag distribution (latest per keyword, n=129): PASS=60, CAUTION=42, MONITOR=27, CONDITIONAL_GO=0.
+
+### Profitability investigation
+
+Formula weights unchanged: starting 30%, premium 30%, delivery 15%, extras 15%, LLM upsell 10%.
+
+| Keyword | Before (C048) | After (C049) | Lowest component |
+| --- | --- | --- | --- |
+| kw=3 | 7.14 | 27.28 | avg_starting_price=10.71 (raw $50) |
+| kw=110 | 17.14 | 36.13 | avg_starting/premium=21.43 (raw $80) |
+
+**Verdict:** Logic sound. Partial enrichment landed (delivery, extras now populated). Agent E targets: raise starting/premium raw prices via Stage 3/4 refresh; kw=105 (prof=10.98), kw=98 (prof=6.12) also need enrichment.
+
+### Demand investigation (kw=110)
+
+Weights confirmed: TRC 50%, autocomplete 20%, trends 20%, reddit 10%.
+
+```text
+kw=110 demand=41.69
+  fiverr_count: 74.95 (TRC=994)
+  autocomplete: 0.0 (absent)
+  google_trends: 0.24
+```
+
+Paths to demand≥51 for Agent E:
+
+- **Autocomplete position=1** → +~22 demand pts (position score 100 × 0.20 weight, normalized over 0.9 available weight)
+- **TRC alone** → need count_score≈91.7 → TRC≈4,660 (log-scaled)
+- Combined autocomplete pos≤7 + current TRC sufficient for demand≥51
+
+No demand.py code change warranted.
+
+### Eligibility gate analysis
+
+Gates in `passes_recommendation_gates()`:
+
+1. force_recommended override
+2. confidence_modifier ≥ 0.40
+3. demand_score > 20
+4. `_has_gig_analysis()` (GigQualityScore.analysis_complete OR GigVisualAnalysis fallback)
+
+kw=110 at hypothetical final=60 with demand included: **all gates pass** (`has_gig_analysis=True`, GQS count=1).  
+Recommendations-only run: `eligible=0` (no keyword at CONDITIONAL_GO tag yet).  
+Blocker for recommendations: score tag, not eligibility gates.
+
+### Score progression C039→C049
+
+| Cycle | Best keyword | Final | Gap to GO | kw=96 weakness |
+| --- | --- | --- | --- | --- |
+| C048 | kw=110 | 58.66 | 1.34 | 100.0 (divergence) |
+| C049 | kw=110 | 59.56 | 0.44 | 53.52 (stable) |
+
+### Tests
+
+- New: 5 regression tests in `tests/unit/test_weakness_multi_row_averaging.py` — all PASS
+- 12 accumulated regressions: 20 passed
+- Full unit suite: 3272 passed (branch baseline; +5 new)
+- Ruff + mypy on `weakness.py`: clean
+
+## Cycle 049 Agent C Independent Verification (2026-05-29)
+
+Branch: `cycle/049/integration`  
+Database: `sqlite:///data/cycle037_live.db`  
+Stories: `SCRUM-554`, `SCRUM-555`, `SCRUM-556`, `SCRUM-553`
+
+### Preflight and stage-order validation
+
+- `Get-Location`: `C:\Fiverr\Fiverr`
+- `git branch --show-current`: `cycle/049/integration`
+- `git pull origin cycle/049/integration`: up to date (A/B/E visible in last 8 commits)
+- `git worktree list`: single entry only
+- `python run.py config-check`: PASS
+
+### Independent verification of Agent B weakness fix
+
+Independent `GigQualityWeaknessScoreCalculator` isolation:
+
+```text
+kw=3 weakness (Agent C independent): 46.25
+kw=96 weakness (Agent C independent): 53.52
+kw=110 weakness (Agent C independent): 100.0
+```
+
+Verdict:
+
+- kw=96 remains stabilized at `53.52` (no return to `100.0`)
+- kw=3 remains unchanged at `46.25`
+- kw=110 remains `100.0` via fallback path, consistent with B/E narrative
+
+Regression checks:
+
+- `python -m pytest -q tests/unit/ -k "weakness or multi_row or extreme_ows" -v --no-header`
+  - `119 passed`
+- 12-accumulated regression selector pack:
+  - `20 passed, 411 deselected`
+
+### Independent verification of Agent E enrichment
+
+DB checks:
+
+```text
+reddit_signals_total=0
+kw110_reddit_signals=0
+kw=110 CM independent=0.95
+  missing_reddit_signals: -0.05
+kw=3 profitability=27.28
+kw=110 profitability=36.13
+kw=110 GQS_analysis_complete=6
+kw110_competitor_snapshot_count=0
+```
+
+Top-gig enrichment persisted:
+
+- kw=3 top gig: `starting=50.0`, `premium=50.0`, `delivery=7`, `extras_count=1`
+- kw=110 top gig: `starting=80.0`, `premium=80.0`, `delivery=5`, `extras_count=1`
+
+E file-zone compliance (docs-only):
+
+```text
+git show --name-only b991a2b -> docs/cycle_reports/CYCLE_049_AGENT_E.md
+git show --name-only f91e3ad -> docs/cycle_reports/CYCLE_049_AGENT_E.md
+src/ paths in E commits: none
+```
+
+### Critical scoring rerun and gate verdict
+
+```text
+python run.py run --mode full --database-url sqlite:///data/cycle037_live.db
+Scoring complete: 129 keywords scored
+```
+
+Latest 129 tags:
+
+- `PASS=60`
+- `CAUTION=42`
+- `MONITOR=27`
+- `CONDITIONAL_GO=0`
+- `STRONG_GO=0`
+
+Best keyword after rerun:
+
+```text
+kw=110 final=59.56 tag=MONITOR CM=0.95
+  competition_score: value=56.84 contrib=4.32
+  demand_score: value=41.69 contrib=6.25
+  feasibility_score: value=78.04 contrib=19.51
+  intent_score: value=47.14 contrib=2.36
+  opportunity_score: value=42.28 contrib=8.46
+  profitability_score: value=36.13 contrib=1.81
+  weakness_score: value=100.0 contrib=20.0
+```
+
+Threshold status:
+
+- Gap to CONDITIONAL_GO(60): `0.44` points
+- Milestone condition not met in Cycle 049
+
+### Recommendations stage outcome
+
+```text
+python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db
+Recommendations stage complete: {'run_id': '20260529_025332', 'eligible': 0, 'gates_passed': 0, 'generated': 0, 'skipped': 0, 'failed': 0, 'total_cost_usd': 0.0, 'markdown_exports': {}, 'export_paths': []}
+```
+
+Outcome:
+
+- `eligible=0`
+- `gates_passed=0`
+- `generated=0`
+- no first recommendation generated this cycle
+
+### Full tests and profile comparison
+
+Full repository tests:
+
+```text
+python -m pytest -q tests/ --no-header
+3347 passed in 385.88s
+```
+
+Latest profile-window best finals (129 rows/profile):
+
+- `aggressive_new_seller`: `59.56` (best overall; kw=110)
+- `trend_chaser`: `49.72`
+- `default`: `47.03`
+- `profitability_focus`: `43.29`
+
+`aggressive_new_seller` remains strongest profile.
+
+Explicit fresh all-profile rerun (Task 13 strict check):
+
+```text
+profile=aggressive_new_seller scored=129 best_kw=110 best_final=59.56 tag=MONITOR
+profile=default scored=129 best_kw=28 best_final=53.22 tag=MONITOR
+profile=profitability_focus scored=129 best_kw=28 best_final=53.74 tag=MONITOR
+profile=trend_chaser scored=129 best_kw=3 best_final=53.76 tag=MONITOR
+```
+
+### Top-10 weakness coverage
+
+Independent top-10 check after latest rerun:
+
+```text
+top10_weakness_populated=10/10
+```
+
+This closes the Cycle 049 expectation that weakness should be populated for top-ranked opportunities.
+
+### Pipeline verdict and carry-forward
+
+12-stage pipeline verdict: `PARTIAL`
+
+- Integrity objective met: kw=96 stabilized at `53.52`
+- Enrichment objective met: profitability and GQS upgrades persisted
+- Recommendation objective unmet: no `CONDITIONAL_GO`, `generated=0`
+
+Lowest-cost remaining action to close the final `0.44` gap:
+
+1. Restore Reddit signal collection path (remove `-0.05` CM deduction), or
+2. Capture autocomplete signal for kw=110 to lift demand
+
+Until one of the above lands, recommendations remain blocked by tag threshold.

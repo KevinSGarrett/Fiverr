@@ -13,11 +13,15 @@ from src.models import (
     ExternalSignal,
     Gig,
     GigQualityAnalysis,
+    GigQualityScore,
     Keyword,
+    KeywordScore,
     Niche,
     SearchResult,
     Seller,
 )
+from src.recommendations.context_builder import build_recommendation_context
+from src.recommendations.eligibility import get_eligible_keywords, passes_recommendation_gates
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
 from src.scoring.demand import DemandScoreCalculator
@@ -435,3 +439,207 @@ def test_full_scoring_with_reddit_signal_improves_cm(integration_db: Session) ->
     assert "missing_reddit_signals" not in with_reddit_breakdown
     assert without_reddit_breakdown["missing_reddit_signals"] == -0.05
     assert with_reddit_cm > without_reddit_cm
+
+
+def _seed_keyword_with_custom_ows(
+    session: Session,
+    *,
+    keyword_text: str,
+    active_run_id: str,
+    fallback_run_id: str | None,
+    rubric_scores: list[float],
+) -> int:
+    niche = Niche(
+        slug=f"{active_run_id}-custom-niche",
+        name=f"{active_run_id} custom niche",
+        category_path="Programming & Tech > AI",
+    )
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword=keyword_text,
+        normalized_keyword=keyword_text,
+        metadata_json={"autocomplete_position": 2, "intent_classification": "HIGH_INTENT"},
+    )
+    session.add(keyword)
+    session.flush()
+    for rank, rubric_score in enumerate(rubric_scores, start=1):
+        gig_url = f"https://www.fiverr.com/{active_run_id}/custom-{rank}"
+        seller = Seller(seller_handle=f"{active_run_id}_custom_{rank}", level="Level 1")
+        session.add(seller)
+        session.flush()
+        gig = Gig(
+            gig_url=gig_url,
+            keyword_id=keyword.id,
+            run_id=active_run_id,
+            seller_id=seller.id,
+            seller_username=seller.seller_handle,
+            title=f"{active_run_id} custom gig {rank}",
+            normalized_title=f"{active_run_id} custom gig {rank}",
+            position=rank,
+            starting_price=75.0 + rank,
+            review_count=rank,
+            metadata_json={"has_video": True, "has_portfolio": True},
+        )
+        session.add(gig)
+        session.flush()
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id=active_run_id,
+                rank=rank,
+                gig_id=gig.id,
+                title=f"{active_run_id} custom result {rank}",
+                gig_cards=[{"position": rank, "gig_url": gig_url}],
+                total_result_count=1100 + rank,
+            )
+        )
+        if fallback_run_id is not None:
+            session.add(
+                GigQualityAnalysis(
+                    gig_url=gig_url,
+                    niche_id=niche.slug,
+                    run_id=fallback_run_id,
+                    rubric_score=rubric_score,
+                    video_absent=False,
+                    portfolio_absent=False,
+                    description_thin=False,
+                    faq_absent=False,
+                    thumbnail_quality_flag=False,
+                    weakness_flags=[],
+                )
+            )
+        else:
+            session.add(
+                GigQualityAnalysis(
+                    gig_url=gig_url,
+                    niche_id=niche.slug,
+                    run_id=active_run_id,
+                    rubric_score=rubric_score,
+                    video_absent=False,
+                    portfolio_absent=False,
+                    description_thin=False,
+                    faq_absent=False,
+                    thumbnail_quality_flag=False,
+                    weakness_flags=[],
+                )
+            )
+    session.commit()
+    return keyword.id
+
+
+def test_weakness_combined_state_kw96_equivalent_is_consistent_with_isolation(integration_db: Session) -> None:
+    keyword_id = _seed_keyword_with_custom_ows(
+        integration_db,
+        keyword_text="kw96 combined consistency",
+        active_run_id="kw96-combined",
+        fallback_run_id=None,
+        rubric_scores=[50.0, 55.0, 0.0, 40.0],
+    )
+    weakness_result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, integration_db)
+    assert weakness_result.score_value is not None
+    assert weakness_result.score_value < 100.0
+    overall = weakness_result.score_components["overall_weakness_score"].value
+    assert abs(overall - 63.75) < 0.35
+
+
+def test_weakness_multi_run_fallback_consistent_before_after_enrichment(integration_db: Session) -> None:
+    keyword_id = _seed_keyword_with_custom_ows(
+        integration_db,
+        keyword_text="kw96 fallback consistency",
+        active_run_id="kw96-active-empty",
+        fallback_run_id="kw96-older-run",
+        rubric_scores=[45.0, 0.0, 52.0],
+    )
+    weakness_result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, integration_db)
+    assert weakness_result.score_value is not None
+    overall = weakness_result.score_components["overall_weakness_score"].value
+    assert weakness_result.score_value < 100.0
+    assert 65.0 <= overall <= 70.0
+
+
+def test_kw110_equivalent_conditional_go_keyword_is_eligible_for_recommendations(integration_db: Session) -> None:
+    niche = Niche(id=999, slug="kw110-niche", name="kw110 niche", category_path="Programming & Tech > AI")
+    keyword = Keyword(
+        id=110,
+        niche_id=999,
+        keyword="AI chatbot handoff",
+        normalized_keyword="AI chatbot handoff",
+    )
+    score = KeywordScore(
+        keyword_id=110,
+        scoring_profile="aggressive_new_seller",
+        score_depth="standard",
+        demand_score=41.69,
+        competition_score=56.84,
+        opportunity_score=42.28,
+        feasibility_score=78.04,
+        final_score=61.0,
+        confidence_modifier=1.0,
+        tag="CONDITIONAL GO",
+    )
+    integration_db.add_all([niche, keyword, score])
+    integration_db.add(
+        GigQualityScore(
+            keyword_id=110,
+            gig_url="https://fiverr.com/gig/110",
+            run_id="run-110",
+            analysis_complete=True,
+        )
+    )
+    integration_db.commit()
+
+    config = {
+        "recommendations": {
+            "min_tag": "CONDITIONAL GO",
+            "niches": {"999": {"recommendation_generation": True}},
+        }
+    }
+    eligible = get_eligible_keywords("run-110", integration_db, config)
+    assert len(eligible) > 0
+    gate_ok, gate_reason = passes_recommendation_gates(eligible[0], integration_db)
+    assert gate_ok is True
+    assert gate_reason == "All gates passed"
+
+
+def test_first_recommendation_context_has_all_required_fields(integration_db: Session) -> None:
+    niche = Niche(id=1001, slug="context-niche", name="context niche", category_path="Programming & Tech > AI")
+    keyword = Keyword(
+        id=2110,
+        niche_id=1001,
+        keyword="context keyword",
+        normalized_keyword="context keyword",
+    )
+    score = KeywordScore(
+        keyword_id=2110,
+        scoring_profile="aggressive_new_seller",
+        score_depth="standard",
+        demand_score=44.0,
+        competition_score=55.0,
+        opportunity_score=48.0,
+        feasibility_score=72.0,
+        saturation_score=31.0,
+        final_score=61.0,
+        confidence_modifier=1.0,
+        tag="CONDITIONAL GO",
+    )
+    integration_db.add_all([niche, keyword, score])
+    integration_db.commit()
+
+    context = build_recommendation_context(keyword_id=2110, niche_id=1001, run_id="context-run", db=integration_db)
+    assert context is not None
+    assert context.keyword_id == 2110
+    assert context.keyword_text == "context keyword"
+    assert context.niche_id == 1001
+    assert context.tag in {"CONDITIONAL GO", "MONITOR"}
+    assert context.final_score == 61.0
+    assert context.confidence_modifier == 1.0
+    assert context.demand_score == 44.0
+    assert context.competition_score == 55.0
+    assert context.opportunity_score == 48.0
+    assert isinstance(context.top_competitor_weaknesses, list)
+    assert context.cluster_label is None or isinstance(context.cluster_label, str)
+    assert context.cluster_size is None or isinstance(context.cluster_size, int)
+    assert context.saturation_score == 31.0
+    assert context.feasibility_score == 72.0

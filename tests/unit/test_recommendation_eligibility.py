@@ -422,6 +422,35 @@ def test_should_regenerate_returns_true_when_query_missing_or_score_unavailable(
     assert eligibility.should_regenerate_recommendation(2, 80.0, object()) is True
 
 
+def test_kw110_conditional_go_passes_all_recommendation_gates_when_analysis_complete() -> None:
+    """Cycle 049 Task 5.5: kw=110 gate regression when GQS analysis_complete is populated."""
+    db = _session()
+    _seed_keyword_with_score(
+        db,
+        keyword_id=110,
+        tag="CONDITIONAL GO",
+        final_score=60.0,
+        demand_score=41.69,
+        confidence_modifier=0.95,
+    )
+    _add_gig_quality(db, keyword_id=110, analysis_complete=True)
+
+    kw_data = {
+        "keyword_id": 110,
+        "keyword_text": "AI chatbot handoff",
+        "tag": "CONDITIONAL GO",
+        "final_score": 60.0,
+        "confidence_modifier": 0.95,
+        "demand_score": 41.69,
+        "force_recommended": False,
+    }
+    ok, reason = eligibility.passes_recommendation_gates(kw_data, db)
+
+    assert ok is True
+    assert reason == "All gates passed"
+    db.close()
+
+
 def test_private_helpers_handle_invalid_inputs_and_missing_query_paths() -> None:
     assert eligibility._to_optional_float("bad-float") is None
     assert eligibility._to_optional_int("bad-int") is None
