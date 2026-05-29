@@ -655,6 +655,10 @@ git log b38e0e0..HEAD --name-only -- config.yaml
 
 ## SECTION 17: Final SHA
 
-Populated after Agent A commits on `cycle/049/integration`.
+Agent A setup commit on `cycle/049/integration`:
+
+```text
+549877b chore(cycle-049): Agent A setup — kw=110 CONDITIONAL_GO investigation
+```
 
 Base SHA: `b38e0e06419b9553f9d418c19ac62bffff003e5c`
