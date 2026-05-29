@@ -837,3 +837,80 @@ Conclusion:
 ### O.3 Confidence statement
 
 Given successful completion of new test files, integration locks, regression reruns, full suite, and coverage maintenance checks, Stage-4 test hardening is complete and safe to hand off for final merge governance.
+
+---
+
+## SECTION 32: Addendum - 100% completion rerun pass
+
+This addendum captures a strict completion rerun against the full initial prompt checklist.
+
+### 32.1 Additional coverage file added
+
+New unit file added to close remaining weakness uncovered branches:
+
+- `tests/unit/test_weakness_line_coverage_agent_f.py`
+
+Added branch-focused tests for:
+
+- empty-score aggregation path
+- mapping non-dict fallback path in `_load_signals`
+- active-run missing-rank recovery path
+- niche-id fallback path when slug blank
+- duplicate/blank gig-card URL skip path
+- exception swallow branch in weakness input load
+- import-failure fallback in `_resolve_weakness_input_run_id`
+- historical stable-prior selection after extreme latest
+- non-matching run-row skip path
+- invalid card normalization path in extractor
+
+### 32.2 Rerun evidence
+
+Strict reruns performed:
+
+- `python -m pytest -q tests/unit/test_weakness_multi_row_averaging.py -v --no-header` -> `6 passed`
+- `python -m pytest -q tests/unit/test_weakness_line_coverage_agent_f.py -v --no-header` -> `10 passed`
+- `python -m pytest -q tests/unit/ --cov=src.scoring.weakness --cov-report=term-missing --no-header` -> `99%`
+- `python -m pytest -q tests/unit/test_profitability_score_extended.py -v --no-header` -> `8 passed`
+- `python -m pytest -q tests/integration/ --no-header` -> `77 passed`
+- 12-selector regression pack -> `20 passed`
+- `python -m pytest -q tests/ --no-header` -> `3377 passed`
+- `python -m ruff check tests/unit/test_weakness_multi_row_averaging.py tests/unit/test_profitability_score_extended.py tests/unit/test_weakness_line_coverage_agent_f.py` -> pass
+
+### 32.3 Updated gap table (Before vs After F)
+
+| Module | Before F | After F | Target | Status |
+| --- | ---: | ---: | ---: | --- |
+| `weakness.py` | 97% | 99% | >=98 | PASS |
+| `profitability.py` | 95% | 95% | >=95 | PASS |
+| `competition.py` | 98% | 98% | >=98 | PASS |
+| `confidence.py` | 100% | 100% | 100% | PASS |
+| `demand.py` | 100% | 100% | 100% | PASS |
+| `opportunity.py` | 100% | 100% | 100% | PASS |
+| `intent.py` | 99% | 99% | 99% | PASS |
+| `feasibility.py` | 99% | 99% | 99% | PASS |
+| `seller_profile.py` | 96% | 96% | maintain | PASS |
+| `http_fetcher.py` | 98% | 98% | maintain | PASS |
+| `search_result_parser.py` | 99% | 99% | maintain | PASS |
+
+### 32.4 Final all-item self-audit refresh
+
+- Get-Location = `C:\Fiverr\Fiverr`: YES
+- `git worktree list` = 1 entry: YES
+- ZERO `src/` in F commits: YES
+- weakness multi-row tests added (>=8 overall for F stage): YES
+- profitability tests added (>=8): YES
+- kw=96 combined-state integration test added: YES
+- All 12 regression tests PASS: YES
+- Full suite zero failures: YES
+
+Completion standard map (final):
+
+1. weakness multi-row averaging: COMPLETE  
+2. profitability expansion: COMPLETE  
+3. kw96 combined-state integration lock: COMPLETE  
+4. full suite >= prior + new, zero failures: COMPLETE  
+5. all 12 regression tests pass: COMPLETE  
+6. ruff clean: COMPLETE  
+7. zero src files committed by F: COMPLETE  
+8. CYCLE_049_AGENT_F.md with D handoff: COMPLETE  
+9. Jira evidence on 554/555/553: COMPLETE
