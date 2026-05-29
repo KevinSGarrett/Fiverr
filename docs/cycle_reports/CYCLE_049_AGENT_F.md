@@ -867,13 +867,13 @@ Added branch-focused tests for:
 
 Strict reruns performed:
 
-- `python -m pytest -q tests/unit/test_weakness_multi_row_averaging.py -v --no-header` -> `6 passed`
+- `python -m pytest -q tests/unit/test_weakness_multi_row_averaging.py -v --no-header` -> `8 passed`
 - `python -m pytest -q tests/unit/test_weakness_line_coverage_agent_f.py -v --no-header` -> `10 passed`
 - `python -m pytest -q tests/unit/ --cov=src.scoring.weakness --cov-report=term-missing --no-header` -> `99%`
 - `python -m pytest -q tests/unit/test_profitability_score_extended.py -v --no-header` -> `8 passed`
 - `python -m pytest -q tests/integration/ --no-header` -> `77 passed`
 - 12-selector regression pack -> `20 passed`
-- `python -m pytest -q tests/ --no-header` -> `3377 passed`
+- `python -m pytest -q tests/ --no-header` -> `3379 passed`
 - `python -m ruff check tests/unit/test_weakness_multi_row_averaging.py tests/unit/test_profitability_score_extended.py tests/unit/test_weakness_line_coverage_agent_f.py` -> pass
 
 ### 32.3 Updated gap table (Before vs After F)

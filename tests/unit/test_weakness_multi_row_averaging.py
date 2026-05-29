@@ -216,3 +216,42 @@ def test_weakness_kw96_equivalent_consistent_before_after_combined_state() -> No
         assert "historical_weakness_fallback" in result.score_components
     finally:
         session.close()
+
+
+def test_weakness_median_vs_mean_for_extreme_distributions() -> None:
+    scores = [10.0, 6.0, 4.0]
+    moderated_mean = aggregate_overall_weakness_scores(scores)
+    assert moderated_mean == 5.0
+    assert moderated_mean != 6.0
+
+
+def test_weakness_single_extreme_row_does_not_produce_100_score() -> None:
+    session = _new_session()
+    try:
+        keyword_id, gig_url_a = _seed_run_scoped_keyword(session, active_run_id="single-extreme-row")
+        gig_url_b = "https://www.fiverr.com/gigs/single-extreme-row-moderate"
+        gig_b = Gig(
+            gig_url=gig_url_b,
+            keyword_id=keyword_id,
+            run_id="single-extreme-row",
+            seller_username="single_extreme_moderate",
+            metadata_json={"has_video": True, "has_portfolio": True},
+        )
+        session.add(gig_b)
+        session.flush()
+        row = session.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).first()
+        assert row is not None
+        row.gig_cards = [
+            {"gig_url": gig_url_a, "position": 1},
+            {"gig_url": gig_url_b, "position": 2},
+        ]
+        session.commit()
+
+        _insert_gqa_row(session, gig_url=gig_url_a, run_id="single-extreme-row", rubric_score=0.0)
+        _insert_gqa_row(session, gig_url=gig_url_b, run_id="single-extreme-row", rubric_score=53.52)
+
+        result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, session)
+        assert result.score_value is not None
+        assert result.score_value < 100.0
+    finally:
+        session.close()
