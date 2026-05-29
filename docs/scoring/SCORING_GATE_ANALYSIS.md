@@ -2314,6 +2314,15 @@ Latest profile-window best finals (129 rows/profile):
 
 `aggressive_new_seller` remains strongest profile.
 
+Explicit fresh all-profile rerun (Task 13 strict check):
+
+```text
+profile=aggressive_new_seller scored=129 best_kw=110 best_final=59.56 tag=MONITOR
+profile=default scored=129 best_kw=28 best_final=53.22 tag=MONITOR
+profile=profitability_focus scored=129 best_kw=28 best_final=53.74 tag=MONITOR
+profile=trend_chaser scored=129 best_kw=3 best_final=53.76 tag=MONITOR
+```
+
 ### Top-10 weakness coverage
 
 Independent top-10 check after latest rerun:

@@ -572,7 +572,23 @@ Result:
 Profile-only run complete ... niches_profiled=0 (no_gig_data for selected run context)
 ```
 
-### 15.2 Independent 4-profile score comparison
+### 15.2 Explicit fresh scoring run across all 4 profiles
+
+Command (executed in one run script using `score_keyword_batch`):
+
+```text
+profile=aggressive_new_seller scored=129 best_kw=110 best_final=59.56 tag=MONITOR
+profile=default scored=129 best_kw=28 best_final=53.22 tag=MONITOR
+profile=profitability_focus scored=129 best_kw=28 best_final=53.74 tag=MONITOR
+profile=trend_chaser scored=129 best_kw=3 best_final=53.76 tag=MONITOR
+```
+
+Interpretation:
+
+- all four profiles were re-scored in this stage
+- `aggressive_new_seller` remains highest best-final profile (`59.56`)
+
+### 15.3 Independent 4-profile score comparison snapshot
 
 From latest profile windows:
 
