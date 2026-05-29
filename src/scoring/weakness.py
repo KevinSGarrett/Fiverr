@@ -61,6 +61,22 @@ def compute_weakness_penalty_from_flags(weakness_flags: list[str]) -> float:
     return round(min(100.0, max(0.0, penalty)), 2)
 
 
+def aggregate_overall_weakness_scores(scores: list[float]) -> float | None:
+    """
+    Aggregate 0–10 overall weakness scores without single-row domination.
+
+    Rows at the 10.0 ceiling (rubric_score=0 penalty-only placeholders) are
+    excluded when lower rubric-based scores are present. Mean is used across
+    the moderated pool; if every row is at 10.0 the ceiling values are kept.
+    """
+    cleaned = [max(0.0, min(10.0, float(score))) for score in scores]
+    if not cleaned:
+        return None
+    moderated = [score for score in cleaned if score < 10.0]
+    pool = moderated if moderated else cleaned
+    return round(sum(pool) / len(pool), 4)
+
+
 def get_gig_quality_weakness_input(
     gig_url: str,
     niche_id: str,
@@ -1015,10 +1031,9 @@ class GigQualityWeaknessScoreCalculator:
                     if value is not None
                 ]
                 if overall_weakness_scores:
-                    signals["overall_weakness_score_avg"] = round(
-                        sum(overall_weakness_scores) / len(overall_weakness_scores),
-                        4,
-                    )
+                    aggregated = aggregate_overall_weakness_scores(overall_weakness_scores)
+                    if aggregated is not None:
+                        signals["overall_weakness_score_avg"] = aggregated
 
                 if any(
                     weakness_input.get("source") == "gig_quality_analysis"
