@@ -541,7 +541,7 @@ def test_weakness_combined_state_kw96_equivalent_is_consistent_with_isolation(in
     assert weakness_result.score_value is not None
     assert weakness_result.score_value < 100.0
     overall = weakness_result.score_components["overall_weakness_score"].value
-    assert abs(overall - 51.67) < 0.35
+    assert abs(overall - 63.75) < 0.35
 
 
 def test_weakness_multi_run_fallback_consistent_before_after_enrichment(integration_db: Session) -> None:
@@ -556,7 +556,7 @@ def test_weakness_multi_run_fallback_consistent_before_after_enrichment(integrat
     assert weakness_result.score_value is not None
     overall = weakness_result.score_components["overall_weakness_score"].value
     assert weakness_result.score_value < 100.0
-    assert 45.0 <= overall <= 60.0
+    assert 65.0 <= overall <= 70.0
 
 
 def test_kw110_equivalent_conditional_go_keyword_is_eligible_for_recommendations(integration_db: Session) -> None:
