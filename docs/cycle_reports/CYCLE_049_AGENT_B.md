@@ -973,3 +973,16 @@ Recommendations stage complete: {
 ```
 
 Eligible=0 because `get_eligible_keywords()` filters by tag ≥ CONDITIONAL GO first; best keyword kw=110 is MONITOR at 59.56.
+
+---
+
+## APPENDIX N: Final SHA and Sign-Off
+
+```text
+Initial Agent B commit: 4b264d7
+Gap-fill commit: 3513fc7
+Branch: cycle/049/integration
+Full unit suite: 3274 passed (2026-05-29 final rerun)
+Report line count: 700+ (R-090 satisfied)
+Agent B Stage 2 complete — handoff to Agent C.
+```
