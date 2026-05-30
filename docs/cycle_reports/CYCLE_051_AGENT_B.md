@@ -122,8 +122,11 @@ No global `--cov=src` run executed in this stage.
 
 ## Commit SHA(s) + push confirmation
 
-- Commit: `e9ee80d9dd75a8e4ce3dab5f8b848cabb6d43994`
-- Push: `cycle/051/integration` updated on origin (`e97df86 -> e9ee80d`)
+- Commits:
+  - `e9ee80d9dd75a8e4ce3dab5f8b848cabb6d43994` -- primary R1 implementation/tests/registry/report
+  - `66167de4f73f2aa98eb6373807f4dc96bb2f0e20` -- report metadata finalization
+  - `69e617b20cfe30e1f487ec0222ab533d58be3cce` -- workflow fallback alignment to builder contract
+- Push: `cycle/051/integration` updated on origin (`e97df86 -> 69e617b`)
 
 ## Self-audit (Task 20)
 
