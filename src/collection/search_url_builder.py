@@ -34,6 +34,7 @@ FIVERR_SEARCH_BASE_URL = "https://www.fiverr.com/search/gigs"
 SEARCH_STRICTNESS_COLUMN = "search_strictness_used"
 FALLBACK_MIN_RESULT_THRESHOLD_KEY = "min_result_threshold"
 
+# R1 map semantics are pinned to this version string for sweep/report parity.
 NICHE_CATEGORY_MAP_VERSION = "1.0"
 NICHE_CATEGORY_MAP_NEXT_VALIDATION = date(2026, 8, 29)
 DEFAULT_MIN_RESULT_THRESHOLD = 5
