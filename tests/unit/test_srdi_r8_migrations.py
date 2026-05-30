@@ -24,6 +24,9 @@ from src.migrations.srdi_r8 import (
 from src.migrations.srdi_r8 import (
     migration_06_discovery_outcomes_srdi_columns as m6,
 )
+from src.migrations.srdi_r8 import (
+    migration_07_r3_columns as m7,
+)
 from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations
 from src.models import Keyword, Niche
 from src.models.database import initialize_database
@@ -133,6 +136,27 @@ def test_run_all_migrations_sequentially() -> None:
     assert "scoring_method" in _column_names(engine, "keyword_scores")
     assert "ghost_market_flag" in _column_names(engine, "keywords")
     assert "is_invalid" in _column_names(engine, "discovery_outcomes")
+    assert "zombie_score" in _column_names(engine, "gigs")
+    assert "pages_collected" in _column_names(engine, "search_results")
+
+
+def test_migration_m7_adds_zombie_and_pages_collected_columns() -> None:
+    engine = _build_memory_engine()
+    _bootstrap_base_tables(engine)
+    m7.apply(engine)
+    assert "zombie_score" in _column_names(engine, "gigs")
+    assert "zombie_signals" in _column_names(engine, "gigs")
+    assert "last_reviewed_at" in _column_names(engine, "gigs")
+    assert "pages_collected" in _column_names(engine, "search_results")
+
+
+def test_migration_m7_is_idempotent_and_rollback_safe() -> None:
+    engine = _build_memory_engine()
+    _bootstrap_base_tables(engine)
+    m7.apply(engine)
+    m7.apply(engine)
+    m7.rollback(engine)
+    assert "zombie_score" in _column_names(engine, "gigs")
 
 
 def test_result_set_validation_model_is_importable() -> None:

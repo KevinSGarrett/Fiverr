@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from src.models import SearchResult
+from src.models import Gig, SearchResult
 from src.scoring.feasibility import NewSellerFeasibilityCalculator
 from tests.unit.test_scoring_db_integration import (
     _seed_keyword_data_for_feasibility_high_scores,
@@ -77,5 +77,60 @@ def test_feasibility_load_signals_from_db_recovers_missing_identity_candidates()
         signals = NewSellerFeasibilityCalculator()._load_signals_from_db(keyword_id, session)
         assert signals["top10_prices"] is not None
         assert len(signals["top10_prices"]) == 10
+    finally:
+        session.close()
+
+
+def test_zombie_gigs_never_used_in_feasibility_review_barrier() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(session, use_card_path=False, run_id="reg18-zombie")
+    try:
+        top_gig = (
+            session.query(Gig)
+            .filter(Gig.keyword_id == keyword_id)
+            .order_by(Gig.position.asc())
+            .first()
+        )
+        assert top_gig is not None
+        top_gig.review_count = 0
+        top_gig.is_zombie = True
+        session.commit()
+
+        calculator = NewSellerFeasibilityCalculator()
+        filtered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_zombie_filter": True}},
+        )
+        unfiltered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_zombie_filter": False}},
+        )
+        assert filtered["lowest_ranked_review_count_page1"] > unfiltered["lowest_ranked_review_count_page1"]
+    finally:
+        session.close()
+
+
+def test_feasibility_level_ratio_excludes_sponsored_and_zombie() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(session, use_card_path=False, run_id="reg18-sponsored")
+    try:
+        gigs = (
+            session.query(Gig)
+            .filter(Gig.keyword_id == keyword_id)
+            .order_by(Gig.position.asc())
+            .all()
+        )
+        gigs[0].is_sponsored = True
+        gigs[1].is_zombie = True
+        session.commit()
+        calculator = NewSellerFeasibilityCalculator()
+        filtered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_sponsored_exclusion": True, "enable_zombie_filter": True}},
+        )
+        assert filtered["level1_or_new_ratio_top10"] is not None
     finally:
         session.close()
