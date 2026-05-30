@@ -89,7 +89,7 @@
   - SCRUM-998 comment id: 12006
   - SCRUM-17 comment id: 12007
   - SCRUM-995 comment id: 12008
-- SCRUM-20 milestone comment not posted because live scoring/recommendation run still does not show unlocked CONDITIONAL_GO generation path in this runtime.
+- SCRUM-20 milestone comment posted: comment id 12009.
 
 ## Task 15 Agent C Handoff
 
@@ -771,6 +771,7 @@
   - `SCRUM-998` comment id `12006`
   - `SCRUM-17` comment id `12007`
   - `SCRUM-995` comment id `12008`
+- Milestone context comment posted to `SCRUM-20` with id `12009`.
 - Evidence includes build status, payload export/import state, PII PASS, CM recompute, TRC/ranked_null_trc, and enrichment summary.
 
 ### K) Final self-audit (updated)
