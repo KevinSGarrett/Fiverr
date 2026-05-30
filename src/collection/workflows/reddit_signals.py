@@ -12,6 +12,7 @@ from types import ModuleType
 from typing import Any, Protocol, cast
 
 from src.collection import community_signals as _mod
+from src.collection.workflows.reddit_devvit_bridge import run_devvit_bridge_import
 from src.llm import TemplateRenderer
 from src.models import Keyword
 from src.models.external_signal import ExternalSignal, write_external_signal
@@ -78,36 +79,159 @@ async def run_reddit_signals_collection(
     cleaned_subreddits = [
         subreddit.strip() for subreddit in subreddits if isinstance(subreddit, str) and subreddit.strip()
     ]
-    if dry_run:
-        return {
-            "niche_id": niche_id,
-            "subreddits_searched": 0,
-            "subreddits_accessed": [],
-            "posts_collected": 0,
-            "post_count_90d": 0,
-            "signals_written": 0,
-            "demand_intent_score": None,
-            "intent_phrases": [],
-            "dry_run": True,
-            "note": "Dry run: no real praw calls made",
-        }
+    source_mode = _resolve_source_mode(dry_run=dry_run)
+    if source_mode == "disabled":
+        return _run_disabled_mode(niche_id=niche_id, run_id=run_id, source_mode=source_mode)
+    if source_mode == "manual_import":
+        return _run_manual_import(
+            niche_id=niche_id,
+            seed_keywords=cleaned_seeds,
+            run_id=run_id,
+            db=db,
+            import_dir=Path(os.getenv("REDDIT_DEVVIT_IMPORT_DIR", "data/imports/reddit_devvit")),
+        )
+    if source_mode == "devvit_bridge":
+        return _run_devvit_bridge_import_mode(
+            niche_id=niche_id,
+            seed_keywords=cleaned_seeds,
+            run_id=run_id,
+            db=db,
+            import_dir=Path(os.getenv("REDDIT_DEVVIT_IMPORT_DIR", "data/imports/reddit_devvit")),
+        )
+    if source_mode == "praw_oauth":
+        return await _run_praw_oauth_mode(
+            niche_id=niche_id,
+            seed_keywords=cleaned_seeds,
+            subreddits=cleaned_subreddits,
+            run_id=run_id,
+            db=db,
+            pacing_manager=pacing_manager,
+            llm_client=llm_client,
+            cache=cache,
+            checkpoint_manager=checkpoint_manager,
+            source_mode=source_mode,
+        )
+    raise ValueError(f"Unknown REDDIT_SOURCE_MODE: {source_mode}")
 
+
+def _resolve_source_mode(*, dry_run: bool) -> str:
+    if dry_run:
+        return "disabled"
+    source_mode = os.getenv("REDDIT_SOURCE_MODE", "praw_oauth").strip().lower()
+    enabled_text = os.getenv("REDDIT_ENABLED", "true").strip().lower()
+    if enabled_text in {"0", "false", "no", "off"}:
+        return "disabled"
+    return source_mode
+
+
+def _base_result(niche_id: str, run_id: str, source_mode: str) -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "source_mode": source_mode,
+        "signals_written": 0,
+        "niche_id": niche_id,
+        "run_id": run_id,
+        "warnings": [],
+        "errors": [],
+    }
+
+
+def _run_disabled_mode(niche_id: str, run_id: str, source_mode: str) -> dict[str, Any]:
+    result = _base_result(niche_id=niche_id, run_id=run_id, source_mode=source_mode)
+    result["status"] = "skipped"
+    result["dry_run"] = True
+    result["subreddits_searched"] = 0
+    result["subreddits_accessed"] = []
+    result["posts_collected"] = 0
+    result["post_count_90d"] = 0
+    result["demand_intent_score"] = None
+    result["intent_phrases"] = []
+    return result
+
+
+def _run_manual_import(
+    niche_id: str,
+    seed_keywords: list[str],
+    run_id: str,
+    db: Any,
+    import_dir: Path,
+) -> dict[str, Any]:
+    if db is None:
+        return {
+            **_base_result(niche_id=niche_id, run_id=run_id, source_mode="manual_import"),
+            "status": "error",
+            "errors": ["Database session required for manual_import mode."],
+        }
+    result = run_devvit_bridge_import(
+        niche_id=niche_id,
+        seed_keywords=seed_keywords,
+        run_id=run_id,
+        db=db,
+        import_dir=import_dir,
+    )
+    result["source_mode"] = "manual_import"
+    return result
+
+
+def _run_devvit_bridge_import_mode(
+    niche_id: str,
+    seed_keywords: list[str],
+    run_id: str,
+    db: Any,
+    import_dir: Path,
+) -> dict[str, Any]:
+    if db is None:
+        return {
+            **_base_result(niche_id=niche_id, run_id=run_id, source_mode="devvit_bridge"),
+            "status": "error",
+            "errors": ["Database session required for devvit_bridge mode."],
+        }
+    return run_devvit_bridge_import(
+        niche_id=niche_id,
+        seed_keywords=seed_keywords,
+        run_id=run_id,
+        db=db,
+        import_dir=import_dir,
+    )
+
+
+def _require_praw_credentials() -> tuple[str, str, str]:
+    client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
+    client_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
+    user_agent = os.getenv("REDDIT_USER_AGENT", "FiverrResearchSystem/0.1").strip() or "FiverrResearchSystem/0.1"
+    if not client_id or not client_secret:
+        raise RuntimeError("praw_oauth mode requires REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET.")
+    return client_id, client_secret, user_agent
+
+
+async def _run_praw_oauth_mode(
+    niche_id: str,
+    seed_keywords: list[str],
+    subreddits: list[str],
+    run_id: str,
+    db: Any,
+    pacing_manager: Any,
+    llm_client: RedditLLMClient | Any | None,
+    cache: RedditCache | Any | None,
+    checkpoint_manager: Any | None,
+    source_mode: str,
+) -> dict[str, Any]:
     try:
         import importlib
 
         praw = importlib.import_module("praw")
     except Exception as exc:  # pragma: no cover - guarded by dependency check tests
         raise RuntimeError("praw is required for Reddit collection. Install praw>=7.7,<8.0.") from exc
-
+    client_id, client_secret, user_agent = _require_praw_credentials()
     reddit = praw.Reddit(
-        client_id=os.environ["REDDIT_CLIENT_ID"],
-        client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-        user_agent=os.environ.get("REDDIT_USER_AGENT", "FiverrResearchSystem/0.1"),
+        client_id=client_id,
+        client_secret=client_secret,
+        user_agent=user_agent,
     )
 
     subreddits_accessed: list[str] = []
     all_posts: list[dict[str, Any]] = []
-    for subreddit_name in cleaned_subreddits:
+    for subreddit_name in subreddits:
         subreddit_ref = reddit.subreddit(subreddit_name)
         try:
             _ = subreddit_ref.id
@@ -116,7 +240,7 @@ async def run_reddit_signals_collection(
             continue
 
         subreddits_accessed.append(subreddit_name)
-        for seed in cleaned_seeds:
+        for seed in seed_keywords:
             try:
                 results = subreddit_ref.search(
                     seed,
@@ -157,7 +281,7 @@ async def run_reddit_signals_collection(
         subreddits_accessed,
     )
     signals_written = 0
-    for seed in cleaned_seeds:
+    for seed in seed_keywords:
         keyword_id = _resolve_keyword_id(seed, niche_id, db)
         if keyword_id is None:
             continue
@@ -195,6 +319,8 @@ async def run_reddit_signals_collection(
             )
 
     return {
+        "status": "ok",
+        "source_mode": source_mode,
         "niche_id": niche_id,
         "subreddits_searched": len(subreddits_accessed),
         "subreddits_accessed": subreddits_accessed,
@@ -204,6 +330,9 @@ async def run_reddit_signals_collection(
         "demand_intent_score": demand_intent_score,
         "intent_phrases": intent_phrases,
         "dry_run": False,
+        "run_id": run_id,
+        "warnings": [],
+        "errors": [],
     }
 
 

@@ -59,6 +59,7 @@ from src.models.market import (
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.pricing import PriceAnalysis
+from src.models.result_set_validation import ResultSetValidation
 from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
@@ -116,6 +117,7 @@ __all__ = [
     "PricingSnapshot",
     "PriceAnalysis",
     "Recommendation",
+    "ResultSetValidation",
     "ReviewAnalysis",
     "Review",
     "RunLog",

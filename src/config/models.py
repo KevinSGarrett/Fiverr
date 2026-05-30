@@ -124,6 +124,20 @@ class CollectionConfig(BaseModel):
         return self
 
 
+class RedditConfig(BaseModel):
+    source_mode: Literal["disabled", "manual_import", "devvit_bridge", "praw_oauth"] = "devvit_bridge"
+    enabled: bool = True
+    devvit_import_dir: str = "data/imports/reddit_devvit"
+    bridge_ingest_enabled: bool = False
+    collection_method: str = "reddit_devvit_bridge"
+    match_strategy: str = "devvit_listing_keyword_filter"
+
+    @field_validator("devvit_import_dir")
+    @classmethod
+    def validate_devvit_import_dir(cls, value: str) -> str:
+        return _validate_safe_relative_path(value, "reddit.devvit_import_dir")
+
+
 class Phase2CollectionConfig(BaseModel):
     fixture_only_mode: bool = True
     dry_run_sample_limit: int = Field(default=25, ge=1)
@@ -337,6 +351,7 @@ class AppConfig(BaseModel):
     fiverr: FiverrConfig = Field(default_factory=FiverrConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     collection: CollectionConfig = Field(default_factory=CollectionConfig)
+    reddit: RedditConfig = Field(default_factory=RedditConfig)
     phase2_collection: Phase2CollectionConfig = Field(default_factory=Phase2CollectionConfig)
     phase2_analysis: Phase2AnalysisConfig = Field(default_factory=Phase2AnalysisConfig)
     scoring: ScoringConfig

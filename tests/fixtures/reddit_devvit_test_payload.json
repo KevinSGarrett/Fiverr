@@ -1,0 +1,22 @@
+{
+  "schema_version": "reddit_devvit_signal_v1",
+  "niche_id": "support_kb_readiness",
+  "keywords": ["AI chatbot handoff"],
+  "subreddits_searched": ["ChatGPT", "OpenAI"],
+  "posts_collected": 5,
+  "post_count_90d": 3,
+  "reddit_post_count_90d": 3,
+  "reddit_top_snippets": [
+    {
+      "post_id": "t3_test001",
+      "subreddit": "OpenAI",
+      "title": "AI chatbot handoff best practices",
+      "upvotes": 42,
+      "created_utc": 1760000000
+    }
+  ],
+  "reddit_demand_intent_score": null,
+  "confidence_metadata": {"source_confidence": 0.85},
+  "warnings": [],
+  "errors": []
+}

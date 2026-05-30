@@ -44,6 +44,7 @@ from src.models.runtime import (
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
 from src.models.search_result import SearchResult
 from src.models.seller import Seller
+from src.models.result_set_validation import ResultSetValidation
 
 REGISTERED_MODEL_CLASSES = (
     NicheConfigRecord,
@@ -55,6 +56,7 @@ REGISTERED_MODEL_CLASSES = (
     GigQualityAnalysis,
     ReviewAnalysis,
     SaturationScore,
+    ResultSetValidation,
     SearchResult,
     Gig,
     Seller,
@@ -153,6 +155,7 @@ TABLE_DOMAIN_MAP = {
         "gig_quality_analyses",
         "review_analyses",
         "saturation_scores",
+        "result_set_validations",
     },
     "scoring": {"score_components", "final_scores", "recommendations"},
     "runtime": {"run_logs", "jobs", "job_statuses", "alert_events", "export_artifacts", "llm_usage_logs", "llm_cache_records"},

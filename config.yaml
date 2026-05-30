@@ -74,6 +74,14 @@ collection:
       max_requests_per_hour: 100
       human_events: false
 
+reddit:
+  source_mode: devvit_bridge
+  enabled: true
+  devvit_import_dir: data/imports/reddit_devvit
+  bridge_ingest_enabled: false
+  collection_method: reddit_devvit_bridge
+  match_strategy: devvit_listing_keyword_filter
+
 phase2_collection:
   fixture_only_mode: true
   dry_run_sample_limit: 25
