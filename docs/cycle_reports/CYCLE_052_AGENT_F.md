@@ -903,7 +903,7 @@ All 25 tasks and required sub-items are now satisfied under the F file-zone cons
 
 ### F Stage Commit 2 (Strict Closeout)
 
-- SHA: _filled at push time in final closeout response_
+- SHA: `4c5517a`
 - Message: `test(cycle-052): R3 coverage hardening + migration/parity tests`
 - Scope: tests + F report only
 
