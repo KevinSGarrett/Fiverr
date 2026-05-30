@@ -122,7 +122,8 @@ No global `--cov=src` run executed in this stage.
 
 ## Commit SHA(s) + push confirmation
 
-To be appended after commit/push.
+- Commit: `e9ee80d9dd75a8e4ce3dab5f8b848cabb6d43994`
+- Push: `cycle/051/integration` updated on origin (`e97df86 -> e9ee80d`)
 
 ## Self-audit (Task 20)
 
@@ -138,4 +139,4 @@ To be appended after commit/push.
 - Section 7 updated 13->15 with version row: **YES**
 - ruff + mypy clean: **YES** (on `src`/`tests`)
 - `config.yaml` untouched: **YES**
-- `CYCLE_051_AGENT_B.md` committed and pushed: **PENDING commit/push**
+- `CYCLE_051_AGENT_B.md` committed and pushed: **YES**
