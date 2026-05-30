@@ -124,10 +124,15 @@ Baseline historical row retained in DB:
 - `keyword_scores.id=5881` for `keyword_id=110`
 - `final_score=59.56`, `confidence_modifier=0.95`, tag `MONITOR`
 - Composite from stored contributions: `62.71` (rounding delta vs 62.69 narrative)
+- Isolation command executed:
+```text
+python -c "from sqlalchemy import create_engine; from sqlalchemy.orm import sessionmaker; from src.scoring.demand import DemandScoreCalculator; engine=create_engine('sqlite:///data/cycle037_live.db'); Session=sessionmaker(bind=engine); s=Session(); r=DemandScoreCalculator().calculate(keyword_id=110, db=s); print({'keyword_id': r.keyword_id, 'demand_score': r.score_value, 'confidence_modifier': r.confidence_modifier, 'total_weight_available': r.total_weight_available}); s.close()"
+{'keyword_id': 110, 'demand_score': 41.69, 'confidence_modifier': 0.95, 'total_weight_available': 0.8999999999999999}
+```
 
 Math path:
-- Without Reddit: `62.69 x 0.95 = 59.56`
-- With Reddit CM uplift: `62.69 x 1.00 = 62.69` -> CONDITIONAL_GO target path
+- Without Reddit: `62.71 x 0.95 = 59.57` (historical narrative target: `62.69 x 0.95 = 59.56`)
+- With Reddit CM uplift: `62.71 x 1.00 = 62.71` (historical narrative target: `62.69`) -> CONDITIONAL_GO target path
 
 Recommendations run:
 ```text
@@ -350,6 +355,7 @@ Hard file-zone gate:
 PR target:
 - `cycle/050/integration -> develop`
 - Title: `feat(collection): Reddit Devvit Bridge + SRDI R8 schema migrations`
+- Created: https://github.com/KevinSGarrett/Fiverr/pull/59
 
 Mandatory merge checklist:
 - codecov patch >= 90%
