@@ -1214,3 +1214,96 @@ def test_saturation_score_inverted_correctly_in_composite() -> None:
     low_value, _ = calculate_weighted_composite(low_saturation_scores, SCORING_PROFILES["default"])
     high_value, _ = calculate_weighted_composite(high_saturation_scores, SCORING_PROFILES["default"])
     assert low_value > high_value
+
+
+def test_sponsored_gigs_never_included_in_competition_top10() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        top_gig = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank == 1)
+            .first()
+        )
+        assert top_gig is not None
+        top_gig.is_sponsored = True
+        top_gig.review_count = 5000
+        session.commit()
+
+        calculator = CompetitionScoreCalculator()
+        with_exclusion = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_sponsored_exclusion": True}},
+        )
+        without_exclusion = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_sponsored_exclusion": False}},
+        )
+        assert with_exclusion["avg_review_count_top10"] < without_exclusion["avg_review_count_top10"]
+    finally:
+        session.close()
+
+
+def test_profitability_excludes_zombie_prices() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        top_gig = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank == 1)
+            .first()
+        )
+        assert top_gig is not None
+        top_gig.is_zombie = True
+        top_gig.starting_price = 9999.0
+        session.commit()
+
+        calculator = ProfitabilityScoreCalculator()
+        filtered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_zombie_filter": True}},
+        )
+        unfiltered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_zombie_filter": False}},
+        )
+        assert filtered["avg_starting_price_top10"] < unfiltered["avg_starting_price_top10"]
+    finally:
+        session.close()
+
+
+def test_profitability_excludes_sponsored_prices() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        top_gig = (
+            session.query(Gig)
+            .join(SearchResult, SearchResult.gig_id == Gig.id)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank == 1)
+            .first()
+        )
+        assert top_gig is not None
+        top_gig.is_sponsored = True
+        top_gig.starting_price = 9999.0
+        session.commit()
+
+        calculator = ProfitabilityScoreCalculator()
+        filtered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_sponsored_exclusion": True}},
+        )
+        unfiltered = calculator._load_signals_from_db(
+            keyword_id,
+            session,
+            config={"relevance": {"enable_sponsored_exclusion": False}},
+        )
+        assert filtered["avg_starting_price_top10"] < unfiltered["avg_starting_price_top10"]
+    finally:
+        session.close()

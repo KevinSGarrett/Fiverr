@@ -127,6 +127,7 @@ def test_orchestrator_scrapfly_disabled_uses_playwright_fetcher(
     assert stage3_call.kwargs["dry_run"] is False
     assert stage4_call.kwargs["dry_run"] is False
     assert stage5_call.kwargs["dry_run"] is False
+    assert stage4_call.kwargs["config"] == {"collection": {"scrapfly": {"enabled": False}}, "niches": []}
 
 
 def test_orchestrator_scrapfly_enabled_uses_scrapfly_fetcher(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -188,6 +189,7 @@ def test_orchestrator_scrapfly_enabled_uses_scrapfly_fetcher(monkeypatch: pytest
     assert stage3_call.kwargs["dry_run"] is False
     assert stage4_call.kwargs["dry_run"] is False
     assert stage5_call.kwargs["dry_run"] is False
+    assert stage4_call.kwargs["config"] == {"collection": {"scrapfly": {"enabled": True}}, "niches": []}
 
 
 def test_orchestrator_dry_run_never_opens_scrapfly_client(monkeypatch: pytest.MonkeyPatch) -> None:

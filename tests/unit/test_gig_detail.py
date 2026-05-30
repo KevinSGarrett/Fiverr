@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -27,15 +29,24 @@ from src.collection.gig_detail import (
     parse_gig_detail_from_html,
 )
 from src.collection.workflows.gig_detail import (
+    GigDetailWorkflow,
     _backfill_search_result_gig_id,
+    _extract_last_review_date,
     _normalize_gig_identity,
     _parse_rating,
     _parse_review_count,
     _parse_starting_price,
+    _persist_gig_detail_and_backfill_search_results,
+    _propagate_sponsored_flag,
     _safe_inner_text,
     _search_result_match_data,
+    _urls_match,
     build_gig_detail_url,
+    get_top_n_gig_urls_for_keyword,
+    is_gig_removed,
+    parse_gig_detail_fields,
     run_gig_detail_collection,
+    should_skip_gig_detail,
 )
 from src.collection.workflows.gig_detail import (
     _coerce_card_position as _workflow_coerce_card_position,
@@ -597,6 +608,342 @@ def test_parse_review_count_with_commas() -> None:
 
 def test_parse_review_count_none() -> None:
     assert _parse_review_count(None) is None
+
+
+def test_parse_review_count_k_suffix_and_commas() -> None:
+    assert _parse_review_count("10k+") == 10000
+    assert _parse_review_count("2.5k") == 2500
+    assert _parse_review_count("1,234") == 1234
+    assert _parse_review_count("42") == 42
+    assert _parse_review_count("0") == 0
+
+
+def test_urls_match_http_vs_https_and_query_and_trailing_slash() -> None:
+    assert _urls_match(
+        "http://www.fiverr.com/Seller/Gig/?ref=abc",
+        "https://www.fiverr.com/seller/gig",
+    )
+
+
+def test_urls_match_none_inputs_return_false() -> None:
+    assert _urls_match(None, "https://www.fiverr.com/a/b") is False
+    assert _urls_match("https://www.fiverr.com/a/b", None) is False
+
+
+def test_urls_match_case_insensitive_and_near_miss() -> None:
+    assert _urls_match("HTTPS://www.fiverr.com/Seller/Gig", "https://www.fiverr.com/seller/gig/") is True
+    assert _urls_match("https://www.fiverr.com/seller/gig-a", "https://www.fiverr.com/seller/gig-b") is False
+
+
+def test_propagate_sponsored_flag_sets_flag_on_match() -> None:
+    gig = SimpleNamespace(gig_url="https://www.fiverr.com/seller/i-will-test", is_sponsored=None)
+    cards = [{"gig_url": "https://www.fiverr.com/seller/i-will-test?ref=search", "sponsored_flag": True}]
+    matched = _propagate_sponsored_flag(gig, cards)
+    assert matched is True
+    assert gig.is_sponsored is True
+
+
+def test_propagate_sponsored_flag_none_when_no_match() -> None:
+    gig = SimpleNamespace(gig_url="https://www.fiverr.com/seller/i-will-test", is_sponsored=None)
+    cards = [{"gig_url": "https://www.fiverr.com/seller/other", "sponsored_flag": True}]
+    matched = _propagate_sponsored_flag(gig, cards)
+    assert matched is False
+
+
+def test_propagate_sponsored_flag_handles_non_list_and_non_dict_cards() -> None:
+    gig = SimpleNamespace(gig_url="https://www.fiverr.com/seller/i-will-test", is_sponsored=True)
+    matched_non_list = _propagate_sponsored_flag(gig, None)
+    assert matched_non_list is False
+    assert gig.is_sponsored is None
+
+    gig.is_sponsored = None
+    matched_non_dict = _propagate_sponsored_flag(
+        gig,
+        ["bad-card", {"gig_url": "https://www.fiverr.com/seller/i-will-test", "sponsored_flag": False}],
+    )
+    assert matched_non_dict is True
+    assert gig.is_sponsored is False
+
+
+def test_propagate_sponsored_flag_breaks_on_first_match() -> None:
+    gig = SimpleNamespace(gig_url="https://www.fiverr.com/seller/i-will-test", is_sponsored=None)
+    cards = [
+        {"gig_url": "https://www.fiverr.com/seller/i-will-test", "sponsored_flag": True},
+        {"gig_url": "https://www.fiverr.com/seller/i-will-test", "sponsored_flag": False},
+    ]
+    matched = _propagate_sponsored_flag(gig, cards)
+    assert matched is True
+    assert gig.is_sponsored is True
+
+
+def test_parse_review_count_extended_matrix_values() -> None:
+    assert _parse_review_count("1k") == 1000
+    assert _parse_review_count("1k+") == 1000
+    assert _parse_review_count("") is None
+    assert _parse_review_count("abc") is None
+
+
+def test_extract_last_review_date_formats_and_unparseable() -> None:
+    anchor = datetime(2026, 1, 15, tzinfo=UTC)
+    assert _extract_last_review_date("2022-01-15", now=anchor) == datetime(2022, 1, 15, tzinfo=UTC)
+    assert _extract_last_review_date("Jan 2022", now=anchor) == datetime(2022, 1, 1, tzinfo=UTC)
+    relative = _extract_last_review_date("3 months ago", now=anchor)
+    assert relative == datetime(2025, 10, 17, tzinfo=UTC)
+    assert _extract_last_review_date("nonsense", now=anchor) is None
+
+
+def test_extract_last_review_date_handles_list_and_relative_keywords() -> None:
+    anchor = datetime(2026, 1, 15, tzinfo=UTC)
+    assert _extract_last_review_date([{"text": "yesterday"}], now=anchor) == datetime(
+        2026, 1, 14, tzinfo=UTC
+    )
+    assert _extract_last_review_date([{"review_date": "2 weeks ago"}], now=anchor) == datetime(
+        2026, 1, 1, tzinfo=UTC
+    )
+    assert _extract_last_review_date([{"created_at": "a year ago"}], now=anchor) == datetime(
+        2025, 1, 15, tzinfo=UTC
+    )
+    assert _extract_last_review_date([{"date": "5 days ago"}], now=anchor) == datetime(
+        2026, 1, 10, tzinfo=UTC
+    )
+
+
+def test_extract_last_review_date_list_non_string_payload_is_none() -> None:
+    assert _extract_last_review_date([123, {"x": 1}], now=datetime(2026, 1, 15, tzinfo=UTC)) is None
+    assert _extract_last_review_date({"date": "2022-01-15"}, now=datetime(2026, 1, 15, tzinfo=UTC)) is None
+
+
+def test_extract_last_review_date_empty_or_none_returns_none() -> None:
+    anchor = datetime(2026, 1, 15, tzinfo=UTC)
+    assert _extract_last_review_date("", now=anchor) is None
+    assert _extract_last_review_date(None, now=anchor) is None
+    assert _extract_last_review_date("no reviews", now=anchor) is None
+
+
+def test_stub_helpers_return_safe_defaults() -> None:
+    assert get_top_n_gig_urls_for_keyword(1, "keyword_only", db={}) == []
+    assert get_top_n_gig_urls_for_keyword(1, "unknown", db={}) == []
+    assert parse_gig_detail_fields({"anything": "goes"})["gig_title_full"] is None
+    assert is_gig_removed({"status_code": 404}) is True
+    assert is_gig_removed({"gig_removed": True}) is True
+    assert is_gig_removed({"status_code": 200, "gig_removed": False}) is False
+    assert should_skip_gig_detail("https://www.fiverr.com/seller/gig", "run", db={}) is False
+    result = GigDetailWorkflow().run("a", b="c")
+    assert hasattr(result, "__name__")
+
+
+def test_stage_4_5_sets_zombie_fields_when_enabled() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        db.add(Gig(gig_url="https://www.fiverr.com/seller/zombie", seller_username="seller"))
+        db.commit()
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url="https://www.fiverr.com/seller/zombie",
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="r",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=1,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="seller",
+            config={"relevance": {"enable_zombie_filter": True, "zombie_threshold": 0.5}},
+        )
+        row = db.query(Gig).filter(Gig.gig_url == "https://www.fiverr.com/seller/zombie").one()
+        assert row.zombie_score is not None
+        assert row.zombie_signals is not None
+        assert row.is_zombie in (True, False)
+    finally:
+        db.close()
+
+
+def test_stage_4_5_inert_when_disabled() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        db.add(Gig(gig_url="https://www.fiverr.com/seller/no-zombie", seller_username="seller"))
+        db.commit()
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url="https://www.fiverr.com/seller/no-zombie",
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="r",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=1,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="seller",
+            config={"relevance": {"enable_zombie_filter": False}},
+        )
+        row = db.query(Gig).filter(Gig.gig_url == "https://www.fiverr.com/seller/no-zombie").one()
+        assert row.zombie_score is None
+        assert row.zombie_signals is None
+        assert row.is_zombie is None
+        assert row.last_reviewed_at is None
+    finally:
+        db.close()
+
+
+def test_stage_4_5_off_keeps_last_reviewed_at_as_data_field_and_json_roundtrip_on() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        base_url = "https://www.fiverr.com/seller/reviewed"
+        db.add(Gig(gig_url=base_url, seller_username="seller", review_snippets=[{"text": "yesterday"}]))
+        db.commit()
+
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url=base_url,
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="r1",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=1,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="seller",
+            config={"relevance": {"enable_zombie_filter": False}},
+        )
+        off_row = db.query(Gig).filter(Gig.gig_url == base_url).one()
+        assert off_row.last_reviewed_at is not None
+        assert off_row.zombie_signals is None
+
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url=base_url,
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="r2",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=1,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="seller",
+            config={"relevance": {"enable_zombie_filter": True, "zombie_threshold": 0.5}},
+        )
+        on_row = db.query(Gig).filter(Gig.gig_url == base_url).one()
+        assert isinstance(on_row.zombie_signals, str)
+        parsed = json.loads(on_row.zombie_signals)
+        assert isinstance(parsed, dict)
+    finally:
+        db.close()
+
+
+def test_stage_4_5_handles_missing_seller_and_empty_snippets_without_raise() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        gig_url = "https://www.fiverr.com/missing/seller"
+        db.add(Gig(gig_url=gig_url, seller_username="missing_seller", review_snippets=[]))
+        db.commit()
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url=gig_url,
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="r3",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=3,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="missing_seller",
+            config={"relevance": {"enable_zombie_filter": True, "zombie_threshold": 0.5}},
+        )
+        row = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+        assert row.last_reviewed_at is None
+        assert isinstance(row.zombie_signals, str)
+        parsed = json.loads(row.zombie_signals)
+        assert parsed.get("never_reviewed") is True
+    finally:
+        db.close()
+
+
+def test_search_result_count_invariant_sponsored_plus_organic_equals_cards() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        gig_url = "https://www.fiverr.com/invariant/cards"
+        db.add(Gig(gig_url=gig_url, seller_username="seller"))
+        db.add(
+            SearchResult(
+                keyword_id=1,
+                run_id="inv-run",
+                gig_cards=[
+                    {"gig_url": gig_url, "sponsored_flag": True},
+                    {"gig_url": "https://www.fiverr.com/other/1", "sponsored_flag": False},
+                    {"gig_url": "https://www.fiverr.com/other/2", "sponsored_flag": True},
+                ],
+            )
+        )
+        db.commit()
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url=gig_url,
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="inv-run",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=1,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="seller",
+            config={"relevance": {"enable_zombie_filter": False}},
+        )
+        row = db.query(SearchResult).filter(SearchResult.keyword_id == 1).one()
+        assert row.sponsored_gig_count + row.organic_gig_count == len(row.gig_cards)
+    finally:
+        db.close()
 
 
 def test_parse_rating_decimal() -> None:

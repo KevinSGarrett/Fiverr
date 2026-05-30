@@ -13,6 +13,27 @@ from src.models import Gig, SearchResult
 from src.scoring.contracts import ProfitabilityScoreResult, ScoreComponent
 
 
+def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
+    relevance_cfg = config.get("relevance")
+    if not isinstance(relevance_cfg, Mapping):
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
+    return {
+        "enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True)),
+        "enable_zombie_filter": bool(relevance_cfg.get("enable_zombie_filter", True)),
+        "top_n_for_scoring": max(1, int(relevance_cfg.get("top_n_for_scoring", 10))),
+    }
+
+
 class ProfitabilityScoreCalculator:
     """Calculate long-term keyword profitability potential."""
 
@@ -23,9 +44,9 @@ class ProfitabilityScoreCalculator:
     _EXTRAS_WEIGHT = 0.15
     _LLM_UPSELL_WEIGHT = 0.10
 
-    def calculate(self, keyword_id: int, db: Any) -> ProfitabilityScoreResult:
+    def calculate(self, keyword_id: int, db: Any, config: dict[str, Any] | None = None) -> ProfitabilityScoreResult:
         """Calculate a profitability score payload for the provided keyword."""
-        signals = self._load_signals(keyword_id, db)
+        signals = self._load_signals(keyword_id, db, config=config)
         score_components: dict[str, ScoreComponent] = {}
         missing_data_warnings: list[str] = []
         source_evidence: list[str] = []
@@ -198,11 +219,11 @@ class ProfitabilityScoreCalculator:
             return max(0.0, min(100.0, raw_score * 10.0))
         return max(0.0, min(100.0, raw_score))
 
-    def _load_signals(self, keyword_id: int, db: Any) -> dict[str, Any]:
+    def _load_signals(self, keyword_id: int, db: Any, config: dict[str, Any] | None = None) -> dict[str, Any]:
         if db is None:
             return {}
         if isinstance(db, Session):
-            return self._load_signals_from_db(keyword_id, db)
+            return self._load_signals_from_db(keyword_id, db, config=config)
         if hasattr(db, "get_profitability_inputs"):
             loaded = db.get_profitability_inputs(keyword_id)
             return dict(loaded or {})
@@ -212,10 +233,18 @@ class ProfitabilityScoreCalculator:
                 return dict(loaded)
         return {}
 
-    def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
+    def _load_signals_from_db(
+        self,
+        keyword_id: int,
+        session: Session,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        relevance_cfg = _relevance_config(config)
+        top_n_for_scoring = int(relevance_cfg["top_n_for_scoring"])
+        candidate_window = max(top_n_for_scoring, 10) * 3
         top_results = (
             session.query(SearchResult)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= candidate_window)
             .order_by(SearchResult.rank.asc())
             .all()
         )
@@ -230,7 +259,7 @@ class ProfitabilityScoreCalculator:
         top_gigs_query = (
             session.query(Gig)
             .join(SearchResult, SearchResult.gig_id == Gig.id)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= candidate_window)
         )
         if active_run_id is not None:
             top_gigs_query = top_gigs_query.filter(SearchResult.run_id == active_run_id)
@@ -244,7 +273,7 @@ class ProfitabilityScoreCalculator:
             if scoped_results:
                 top_results = scoped_results
 
-        top_card_urls = self._extract_top_card_urls(top_results, limit=10)
+        top_card_urls = self._extract_top_card_urls(top_results, limit=candidate_window)
         top_card_url_identities = {
             identity
             for identity in (
@@ -296,7 +325,7 @@ class ProfitabilityScoreCalculator:
             top_gigs = (
                 fallback_query
                 .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
-                .limit(10)
+                .limit(candidate_window)
                 .all()
             )
             # Latest run IDs can point to unlinked SearchResult rows.
@@ -306,9 +335,14 @@ class ProfitabilityScoreCalculator:
                     session.query(Gig)
                     .filter(Gig.keyword_id == keyword_id)
                     .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
-                    .limit(10)
+                    .limit(candidate_window)
                     .all()
                 )
+        if relevance_cfg["enable_sponsored_exclusion"]:
+            top_gigs = [gig for gig in top_gigs if getattr(gig, "is_sponsored", None) is not True]
+        if relevance_cfg["enable_zombie_filter"]:
+            top_gigs = [gig for gig in top_gigs if not bool(getattr(gig, "is_zombie", False))]
+        top_gigs = top_gigs[:top_n_for_scoring]
         starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
         premium_prices = [
             self._as_float(self._gig_meta_value(gig, "premium_price", "premium_package_price"))

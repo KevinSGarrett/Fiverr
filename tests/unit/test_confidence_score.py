@@ -663,3 +663,60 @@ def test_confidence_deduction_matrix_matches_expected(
     expected_modifier = max(0.0, min(1.0, 1.0 + expected_deduction))
     assert breakdown["deduction_total"] == pytest.approx(expected_deduction, abs=1e-4)
     assert modifier == pytest.approx(expected_modifier, abs=1e-4)
+
+
+def test_confidence_zombie_concentration_high_minus_0_10() -> None:
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "mode": "standard",
+        "enable_zombie_filter": True,
+        "zombie_fraction": 0.50,
+    }
+    modifier, breakdown = ConfidenceScoreModifier().calculate_with_breakdown(1, context, None)
+    assert breakdown["zombie_concentration_high"] == -0.10
+    assert modifier == pytest.approx(0.90, abs=1e-4)
+
+
+def test_confidence_zombie_concentration_moderate_minus_0_05() -> None:
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "mode": "standard",
+        "enable_zombie_filter": True,
+        "zombie_fraction": 0.30,
+    }
+    modifier, breakdown = ConfidenceScoreModifier().calculate_with_breakdown(1, context, None)
+    assert breakdown["zombie_concentration_moderate"] == -0.05
+    assert modifier == pytest.approx(0.95, abs=1e-4)
+
+
+def test_confidence_no_zombie_key_when_below_threshold() -> None:
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "mode": "standard",
+        "enable_zombie_filter": True,
+        "zombie_fraction": 0.24,
+    }
+    _modifier, breakdown = ConfidenceScoreModifier().calculate_with_breakdown(1, context, None)
+    assert "zombie_concentration_high" not in breakdown
+    assert "zombie_concentration_moderate" not in breakdown

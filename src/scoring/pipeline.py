@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import ExternalSignal, Keyword
+from src.models import ExternalSignal, Keyword, SearchResult
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
@@ -328,7 +328,7 @@ async def score_keyword(
         feasibility_calculator.calculate(keyword_id, db, config=config) if 4 in available_scores else None
     )
     profitability_result = (
-        profitability_calculator.calculate(keyword_id, db) if 5 in available_scores else None
+        profitability_calculator.calculate(keyword_id, db, config=config) if 5 in available_scores else None
     )
     intent_result = intent_calculator.calculate(keyword_id, db) if 6 in available_scores else None
     saturation_result = (
@@ -372,6 +372,7 @@ async def score_keyword(
         depth=depth,
         warnings=missing_data_warnings,
         db=db,
+        config=config,
     )
     confidence_modifier = confidence_modifier_calculator.calculate(keyword_id, confidence_context, db)
     confidence_breakdown = dict(confidence_modifier_calculator.last_breakdown)
@@ -664,12 +665,35 @@ def _build_confidence_context(
     depth: str,
     warnings: list[str],
     db: Any,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     total_scores = len(scores)
     present_scores = sum(1 for value in scores.values() if value is not None)
     reddit_warning_missing = any("reddit_not_implemented" in warning for warning in warnings)
     reddit_signals_available = not reddit_warning_missing
+    relevance_cfg = config.get("relevance", {}) if isinstance(config, dict) else {}
+    enable_zombie_filter = bool(relevance_cfg.get("enable_zombie_filter", True))
+    top_n_for_scoring = max(1, int(relevance_cfg.get("top_n_for_scoring", 10)))
+    zombie_fraction = 0.0
     if isinstance(db, Session):
+        top_results = (
+            db.query(SearchResult)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= top_n_for_scoring)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        total_organic = 0
+        zombie_count = 0
+        for result in top_results:
+            gig = getattr(result, "gig", None)
+            if gig is None:
+                continue
+            if getattr(gig, "is_sponsored", None) is True:
+                continue
+            total_organic += 1
+            if bool(getattr(gig, "is_zombie", False)):
+                zombie_count += 1
+        zombie_fraction = zombie_count / max(total_organic, 1)
         reddit_count = (
             db.query(ExternalSignal)
             .filter(
@@ -704,6 +728,8 @@ def _build_confidence_context(
         "data_age_hours": 0.0,
         "data_ttl_hours": 168.0,
         "mode": depth,
+        "enable_zombie_filter": enable_zombie_filter,
+        "zombie_fraction": zombie_fraction,
     }
 
 

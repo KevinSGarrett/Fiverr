@@ -59,6 +59,14 @@ class Gig(IntegerPrimaryKeyMixin, TimestampMixin, ExternalSourceMixin, MetadataJ
     detail_collected_at: Mapped[Any] = mapped_column(DateTime(timezone=True), nullable=True)
     ttl_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=168)
     sponsored_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_sponsored: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    is_zombie: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    relevance_flag: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    relevance_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    excluded_from_scoring: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=False)
+    zombie_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    zombie_signals: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Legacy compatibility fields used by existing scoring/pricing paths.
     external_gig_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)

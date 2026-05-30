@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from src.models import ClusterAssignment
-from src.scoring.demand import DemandScoreCalculator, _load_cluster_context_from_session
+from src.scoring.demand import (
+    DemandScoreCalculator,
+    _load_cluster_context_from_session,
+    trc_adjustment,
+)
 from tests.unit.test_demand_score import (
     KEYWORD_ID,
     FakeDemandDB,
@@ -126,3 +130,24 @@ def test_demand_cluster_context_negative_cluster_id_returns_zeroed_context() -> 
 
 def test_demand_load_signals_returns_empty_for_none_db() -> None:
     assert DemandScoreCalculator()._load_signals(KEYWORD_ID, None) == {}  # pylint: disable=protected-access
+
+
+def test_organic_trc_adjusted_when_sponsored_fraction_exceeds_20_percent() -> None:
+    assert trc_adjustment(3, 12, {"relevance": {"enable_sponsored_exclusion": True}}, "SUBCATEGORY") == 0.80
+
+
+def test_trc_multiplier_bands() -> None:
+    cfg = {"relevance": {"enable_sponsored_exclusion": True}}
+    assert trc_adjustment(1, 10, cfg, "SUBCATEGORY") == 1.00
+    assert trc_adjustment(2, 10, cfg, "SUBCATEGORY") == 0.90
+    assert trc_adjustment(7, 20, cfg, "SUBCATEGORY") == 0.80
+    assert trc_adjustment(8, 20, cfg, "SUBCATEGORY") == 0.70
+
+
+def test_demand_legacy_when_toggle_off() -> None:
+    cfg_on = {"relevance": {"enable_sponsored_exclusion": True}}
+    cfg_off = {"relevance": {"enable_sponsored_exclusion": False}}
+    on = trc_adjustment(3, 12, cfg_on, "SUBCATEGORY")
+    off = trc_adjustment(3, 12, cfg_off, "SUBCATEGORY")
+    assert on == 0.80
+    assert off == 1.0
