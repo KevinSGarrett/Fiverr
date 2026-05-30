@@ -46,6 +46,7 @@ class SearchResult(
     ttl_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=168)
     is_stale: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     raw_html_ref: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    search_strictness_used: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # Legacy fields preserved for existing scoring/recommendation integrations.
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -125,6 +126,7 @@ def write_search_result(
     gig_cards: list[dict[str, Any]],
     page_collected: int,
     db: object,
+    search_strictness_used: str | None = None,
 ) -> SearchResult | None:
     """Upsert a SearchResult row by keyword/run/page; return None for non-Session db."""
     if not isinstance(db, Session):
@@ -170,6 +172,7 @@ def write_search_result(
     row.total_result_count = total_result_count
     row.pagination_depth = pagination_depth
     row.gig_cards = gig_cards
+    row.search_strictness_used = search_strictness_used
     if primary_rank is not None:
         row.rank = primary_rank
     if primary_result_url is not None:

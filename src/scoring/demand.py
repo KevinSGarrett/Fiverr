@@ -4,15 +4,22 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.collection.search_url_builder import (
+    SEARCH_STRICTNESS_COLUMN,
+    UNCONSTRAINED_DEMAND_DEDUCTION,
+    UNCONSTRAINED_NOTE,
+)
 from src.models import ClusterAssignment, ClusterLabel, ExternalSignal, Keyword, SearchResult
 from src.scoring.contracts import DemandScoreResult, ScoreComponent
 
 _DEFAULT_CLUSTER_BOOST = 5.0
 _DEFAULT_MIN_CLUSTER_SIZE = 3
+_R1_STRICTNESS_EFFECTIVE_DATE = date(2026, 5, 30)
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:
@@ -205,19 +212,38 @@ def get_cluster_demand_boost(keyword_id: int, db: Any, config: dict[str, Any] | 
     return boost
 
 
-def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> float | None:
-    """Resolve best-available marketplace result volume for a keyword."""
-    max_total_result_count = (
-        session.query(SearchResult.total_result_count)
+def _normalize_search_strictness(value: Any) -> str | None:
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized:
+            return normalized
+    return None
+
+
+def _is_post_r1_none_strictness(row: SearchResult) -> bool:
+    collected_at = row.collected_at
+    if isinstance(collected_at, datetime):
+        return collected_at.date() >= _R1_STRICTNESS_EFFECTIVE_DATE
+    return False
+
+
+def _resolve_marketplace_snapshot(session: Session, keyword_id: int) -> tuple[float | None, str | None]:
+    """Resolve demand count and paired strictness from the same source row."""
+    max_total_result_row = (
+        session.query(SearchResult)
         .filter(
             SearchResult.keyword_id == keyword_id,
             SearchResult.total_result_count.isnot(None),
         )
-        .order_by(SearchResult.total_result_count.desc())
+        .order_by(SearchResult.total_result_count.desc(), SearchResult.collected_at.desc(), SearchResult.id.desc())
         .first()
     )
-    if max_total_result_count is not None and max_total_result_count[0] is not None:
-        return float(max_total_result_count[0])
+    if max_total_result_row is not None and max_total_result_row.total_result_count is not None:
+        strictness = _normalize_search_strictness(max_total_result_row.search_strictness_used)
+        # Legacy rows can carry migration defaults ("NONE") that were never explicitly collected.
+        if strictness == "NONE" and not _is_post_r1_none_strictness(max_total_result_row):
+            strictness = None
+        return float(max_total_result_row.total_result_count), strictness
 
     # Only use row-count as a coarse fallback when we have broad top-result coverage.
     # Sparse partial rows (e.g. 1-2 persisted cards) understate true marketplace volume
@@ -232,8 +258,8 @@ def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> floa
         .count()
     )
     if fallback_count >= 10:
-        return float(fallback_count)
-    return None
+        return float(fallback_count), None
+    return None, None
 
 
 class DemandScoreCalculator:
@@ -340,6 +366,17 @@ class DemandScoreCalculator:
             )
 
         base_demand_score = weighted_sum / total_weight_available
+        search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
+        if search_strictness_used == "NONE":
+            confidence_breakdown["unconstrained_search"] = UNCONSTRAINED_DEMAND_DEDUCTION
+            score_components["unconstrained_search"] = ScoreComponent(
+                value=UNCONSTRAINED_DEMAND_DEDUCTION,
+                weight=0.0,
+                raw=search_strictness_used,
+                note=UNCONSTRAINED_NOTE,
+            )
+            source_evidence.append(f"search_results.{SEARCH_STRICTNESS_COLUMN}")
+
         cluster_boost, cluster_context = _compute_cluster_demand_boost(keyword_id, db, config)
         cluster_explanation = ""
         if cluster_boost > 0.0 and cluster_context is not None:
@@ -423,7 +460,7 @@ class DemandScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        total_result_count = _resolve_marketplace_result_count(session, keyword_id)
+        total_result_count, search_strictness_used = _resolve_marketplace_snapshot(session, keyword_id)
         google_trends = (
             session.query(ExternalSignal)
             .filter(
@@ -448,6 +485,7 @@ class DemandScoreCalculator:
             "autocomplete_position": self._as_int(keyword_meta.get("autocomplete_position")),
             "trends_12mo_score": self._signal_float(google_trends, "trends_12mo_score"),
             "reddit_demand_intent_score": self._signal_float(reddit_demand, "reddit_demand_intent_score"),
+            SEARCH_STRICTNESS_COLUMN: search_strictness_used,
         }
 
     @staticmethod

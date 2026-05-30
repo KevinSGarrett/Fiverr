@@ -504,7 +504,7 @@ def test_w3_real_navigates_to_correct_url() -> None:
         )
 
     page.goto.assert_awaited_once_with(
-        "https://www.fiverr.com/search/gigs?query=python%20automation",
+        "https://www.fiverr.com/search/gigs?query=python%20automation&offset=0",
         wait_until="domcontentloaded",
         timeout=30_000,
     )
