@@ -438,3 +438,47 @@ This re-runs Stage 13 for all eligible keywords using existing scores (Stages 10
 - User wants to regenerate recommendations after adjusting niche metadata (exclusions, pricing)
 - User wants fresh recommendations after competitor data was updated manually
 - A previous run's Stage 13 had LLM failures and recommendations were incomplete
+
+
+---
+
+## SRDI ADDENDUM -- Ghost Market Hard Block and Recommendation Eligibility
+**Source:** WAVE_C section 4 (R2); Epic R2 (SCRUM-610)
+
+### Ghost Market Absolute Block (R2.6)
+
+Ghost markets are the most dangerous failure mode: a keyword returns real gigs with
+real reviews, but none of them compete in the searched niche. Recommendations from
+ghost markets can send sellers into non-existent markets.
+
+In passes_recommendation_gates(keyword, keyword_score, run_id, db):
+  FIRST gate (checked before all others):
+    rsv = get_result_set_validation(keyword.id, run_id, db)
+    if rsv and rsv.ghost_market_flag:
+      return False, [{
+        "type": "GHOST_MARKET",
+        "message": "Ghost market detected: only X% of search results are relevant.
+                    No recommendation until keyword is recollected or removed.",
+        "resolution_options": [
+          "Remove keyword from niche",
+          "Update NICHE_VALIDATION_CONFIG core_terms to be more specific",
+          "Reclassify niche (current category may be too broad)",
+        ]
+      }]
+      (early exit -- no further gates evaluated)
+
+This block is unconditional: no matter how high the final score, a ghost market
+keyword cannot produce a recommendation.
+
+### Ghost Market Resolution Surfacing
+
+Four surfaces where ghost market is communicated to the operator:
+  1. Dashboard: RED "GHOST MARKET" badge on keyword card
+  2. Score explanation: "Ghost market detected -- recommendation blocked"
+  3. Terminal: immediate WARNING during Stage 3.5 with top-5 returned gig titles
+  4. Alert row: GHOST_MARKET_DETECTED with HIGH severity (see ALERT_SYSTEM.md)
+
+Ghost detection does NOT delete or modify keyword or scores -- it gates the
+recommendation while preserving full data transparency.
+
+Regression: REG-15 test_ghost_market_blocks_recommendation_generation_absolutely

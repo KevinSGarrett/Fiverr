@@ -419,3 +419,53 @@ Key metrics tracked over time:
 | Discovery ROI | (value of gold discoveries) / (total discovery cost) | > 10x |
 
 These metrics are displayed on the Discovery dashboard page and tracked over time to measure whether the feedback loop is improving hypothesis quality.
+
+
+---
+
+## SRDI ADDENDUM -- Discovery Scoring with Relevance Gating
+**Source:** WAVE_G sections 3-4 (R6); Epic R6
+
+### Extended Outcome Classification (5 classes)
+
+GOLD         is_gold=True         final >= 85, relevance ok
+HIT          is_hit=True          final 60-84, relevance ok
+MONITOR      (no flag)            final 30-59, relevance ok
+MISS         is_miss=True (retire) final < 30, relevance ok
+INVALID [NEW] is_invalid=True     ghost_market_flag = True (retire immediately)
+CONTAMINATED [NEW] is_contaminated=True  relevance < 0.40, not ghost (recollect)
+
+is_invalid and is_miss are MUTUALLY EXCLUSIVE by design (Decision DL-206).
+A ghost market is not a failed hypothesis -- it is bad input data. Recording it
+as a miss would teach the discovery LLM to avoid this type of keyword, which is wrong.
+
+### Discovery Activation Checklist
+
+Must be complete before enabling discovery engine in production:
+  R6 Gate 1-4 all implemented and tested
+  is_invalid and is_contaminated columns present (R8 M6 applied)
+  REG-25, REG-26, REG-27 all green
+  R9 integration test test_discovery_relevance_gates.py passing
+  Tier-1 gate signed off by operator
+
+### Feedback Loop Protection Summary
+
+Before SRDI: ALL outcomes fed back to discovery LLM
+             -> ghost markets could teach "this keyword type works"
+             -> contaminated outcomes could skew hit-rate statistics
+
+After SRDI:  Only valid outcomes (not invalid, not contaminated) fed to LLM
+             -> data_quality_note reports excluded counts to operator
+             -> if 0 valid outcomes: LLM not called, note returned instead
+
+### Monthly Discovery Health KPIs (tracked by R11)
+
+ghost_market_rate: ghost keywords / total discovery keywords evaluated
+target: < 8%
+
+discovery_rejection_rate: rejected at gates / proposed hypotheses
+target: 20-40% (healthy gate -- too low means gate is not working;
+                              too high means hypotheses are poor quality)
+
+feedback_validity_rate: valid outcomes / total outcomes evaluated
+target: > 80%

@@ -273,3 +273,44 @@
 
 ## Wave 0 — Foundation (Complete)
 - DL-001 through DL-024; all core planning documents
+
+
+---
+
+## SRDI Initiative -- "Bulletproof" (Search Relevance & Data Integrity)
+**Status:** Active -- Cycle 049 (2026-05-29)
+**Source:** 12 specification waves (WAVE_A through WAVE_L)
+**Jira:** SCRUM project -- 85 stories, 322 subtasks, SCRUM-583 through SCRUM-994
+
+### What This Initiative Addresses
+The existing pipeline has no layer that verifies whether gigs are actually relevant
+to the scored keyword. SRDI installs that verification layer across 11 epics (R1-R11)
+covering collection, validation, scoring, LLM classification, discovery gating,
+external signals, schema, testing, dashboard, and maintenance.
+
+### Key Architectural Decisions (DL-200 to DL-209)
+- DL-200: Stage 3.5 is rule-based; LLM is Stage 7.5 (conditional, cost-proportional)
+- DL-201: NULL on any new column = "unknown = include" (backward compat)
+- DL-202: Ghost market is the ONLY hard block; all else flags/down-weights
+- DL-203: Schema changes are additive only (ALTER ADD COLUMN + new tables)
+- DL-204: result_set_relevance_score qualifies TRC multiplicatively (preserves log10)
+- DL-205: Per-keyword competitor profile only when contamination detected
+- DL-206: Discovery is_invalid (ghost) is DISTINCT from is_miss
+- DL-207: Constrained TRC needs no demand.py formula change
+- DL-208: Trends platform qualifier base = 0.65 (standardized from 0.70)
+- DL-209: R3 sponsored TRC bands active until R4 ships; R4.1 multiplier supersedes
+
+### New Files Created By This Initiative
+- 04_collection/SEARCH_URL_BUILDER.md -- R1: NICHE_CATEGORY_MAP, build_search_url, fallback
+- 04_collection/SPONSORED_ZOMBIE_FILTERING.md -- R3: sponsored propagation, zombie detection
+- 03_data/RESULT_SET_VALIDATION.md -- R2: Stage 3.5 model and orchestrator
+- 05_scoring/SCORING_INTEGRITY_EXTENSIONS.md -- R4: TRC reliability, clean-gig sets
+- 06_analysis/LLM_RELEVANCE_STAGE_7_5.md -- R5: Stage 7.5 LLM gate
+
+### Permanent Regression Pack Additions
+REG-13 through REG-30 appended to AGENT_EXECUTION_STRATEGY.md section 7
+(appended without renumbering existing Cycle-049 entries per DL-202)
+
+### Files Updated With SRDI Addendum Sections
+Every file listed in WAVE_SCHEDULE.md under "SRDI Initiative" has a
+## SRDI ADDENDUM section appended at the end.

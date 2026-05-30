@@ -173,3 +173,85 @@ demand_score = 75.29 / 1.00 = 75.29
 ```
 
 Result: **Demand Score = 75.29** → "High demand" tier.
+
+
+---
+
+## SRDI ADDENDUM -- Demand Score Integrity Extensions
+**Source:** WAVE_E section 1 (R4), WAVE_H (R7); Epics R4 (SCRUM-613-619), R7 (SCRUM-620-858)
+
+### R4.1: TRC Reliability Qualifier (Single Authoritative Multiplier)
+
+Replaces the R3 sponsored-fraction bands once R4 ships. Never stack both.
+_compute_trc_reliability() returns a single 0.0-1.0 score factoring in:
+  Factor 1: Search strictness used
+    NONE       -> -0.15
+    CATEGORY   -> -0.05
+    SUBCATEGORY -> 0
+  Factor 2: Result-set relevance (from RSV)
+    Deduction = max(0, (1.0 - rsv_score) * 0.30)
+  Factor 3: Sponsored contamination
+    sponsored_fraction > 35% -> -0.10
+  Factor 4: Extreme TRC
+    total_result_count > 100,000 -> -0.05
+
+qualified_trc = total_result_count * trc_reliability
+count_score uses qualified_trc instead of raw TRC (log10 formula unchanged)
+trc_reliability < 0.70 -> confidence_breakdown["trc_reliability_low"] = -0.05
+trc_reliability_score and qualified_trc stored on KeywordScore for transparency
+
+### R4.2: Autocomplete Emerging Category Distinction
+
+When autocomplete_position is None, _classify_autocomplete_absence() is called:
+  source = "discovery" OR keyword >= 4 words  -> return (50, "emerging")
+  trends_slope = STRONGLY_RISING              -> return (50, "emerging")
+  trends_slope = RISING                       -> return (35, "emerging_uncertain")
+  keyword <= 2 words (short, flat trends)     -> return (0,  "not_searched")
+  else                                        -> return (20, "unknown")
+
+This prevents emerging niches from being penalized for not being in autocomplete yet.
+Shared function owned by R7; R4 imports it. (see _classify_autocomplete_absence)
+
+### R7: Google Trends Platform Qualifier
+
+Google Trends measures general interest, not Fiverr buyer intent.
+_compute_fiverr_relevance_qualifier() computes a 0.20-0.95 qualifier:
+  Base: 0.65
+  Slope modifier: STRONGLY_RISING +0.10; RISING +0.05; DECLINING -0.05
+  Buying-intent related queries: +min(0.10, count * 0.02)
+    (phrases: hire, service, freelance, cost, price, how much, need, find, pay for)
+  Breadth penalty: 1-word -0.10; 2-word -0.05; 3+ words 0
+
+Result stored as ExternalSignal.fiverr_relevance_qualifier (0.20-0.95 clamped)
+Qualified trends score = raw_trends * qualifier * 1.15
+
+In demand.py: read qualifier from ExternalSignal if R7 has run; else use
+config.scoring.trends_platform_qualifier or 0.65 default.
+
+### R7: Reddit Buyer-Intent Qualifier
+
+buyer_intent_ratio = matching posts / total posts
+Buying phrases: looking for, need a, want to hire, recommend someone, how much does,
+  how much to, can someone, where can I hire, freelancer, upwork, fiverr
+
+qualified_reddit = raw_reddit * (0.40 + 0.60 * buyer_intent_ratio)
+Stored as raw_value_json["reddit_qualified_intent_score"] on ExternalSignal
+demand.py reads qualified score; score = clamp(0, 100, qualified * 10)
+
+### R7: YouTube as Legitimacy Gate Only (NOT demand weight)
+
+YouTube weight in demand blend = 0 (was informational; confirmed weight = 0)
+Used only for confidence_breakdown:
+  youtube_count < 10   -> confidence_breakdown["low_youtube_legitimacy"] = -0.03
+  youtube_count >= 500 -> confidence_breakdown["high_youtube_legitimacy"] = +0.02
+
+### Updated Example Calculation (Post-SRDI)
+
+Keyword: "AI SaaS PRD" (SUBCATEGORY strictness, RSV=0.85)
+  trc_reliability = 1.0 - (1.0-0.85)*0.30 = 0.955
+  qualified_trc = 1250 * 0.955 = 1193.75 -> count_score ~76.8
+  autocomplete_position = 3 -> position_score = 80.0
+  trends: raw=58, qualifier=0.72 -> qualified = 58 * 0.72 * 1.15 = 48.0 -> score 55.2
+  reddit: raw=7.2, buyer_ratio=0.68 -> qualified = 7.2*(0.40+0.60*0.68) = 5.82 -> 58.2
+  demand = (76.8*0.50)+(80.0*0.20)+(55.2*0.20)+(58.2*0.10) = 71.2
+  (previously: ~75.3 before SRDI qualification)

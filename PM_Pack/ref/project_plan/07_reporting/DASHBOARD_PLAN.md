@@ -767,3 +767,72 @@ with st.sidebar:
 # Render selected page
 pages[selected]()
 ```
+
+
+---
+
+## SRDI ADDENDUM -- Data Integrity Dashboard Extensions
+**Source:** WAVE_K (R10); Epic R10 (SCRUM-634-640, SCRUM-897)
+
+### New: Relevance Quality Score Panel (R10.1)
+
+New panel on main dashboard showing result-set quality across all niches for current run:
+  avg_relevance: mean RSV score across all keywords in niche
+  constrained_pct: percentage of keywords with non-NONE strictness
+  ghost_count: number of ghost-market keywords detected
+  contaminated_count: number of contaminated keywords
+  
+Function: calculate_niche_relevance_quality_score(niche_id, run_id, db) -> dict
+
+### New: Keyword Integrity Badges (R10.2)
+
+Seven badge types on keyword cards. Priority: GHOST > CONTAMINATED > UNCONSTRAINED > EMERGING > SPONSORED > ZOMBIE > IRRELEVANT
+
+  GHOST_MARKET   (red)    when ghost_market_flag = True
+                          tooltip: "No real buyer market detected -- recommendation blocked"
+  CONTAMINATED   (orange) when category_contamination_flag = True
+                          tooltip: "Result set X% relevant -- may affect scores"
+  UNCONSTRAINED  (yellow) when search_strictness_used = NONE
+                          tooltip: "Collected without category filter -- re-collect recommended"
+  EMERGING       (blue)   when autocomplete classification = "emerging"
+  SPONSORED      (gray)   chip: "[N sponsored excluded]"
+  ZOMBIE         (gray)   chip: "[N zombies excluded]"
+  IRRELEVANT     (gray)   chip: "[N irrelevant excluded]"
+
+Ghost markets hidden by default on Opportunities page (safety guardrail).
+Operator must toggle "Show ghost markets" to see them.
+
+### New: Data Integrity Tab (R10.3)
+
+Lazy-loaded tab on keyword detail view:
+  Per-gig relevance table: title | score | RELEVANT/BORDERLINE/IRRELEVANT | [SPONSORED]
+  RSV breakdown: total gigs, relevant count, ghost/contamination flags, deduction
+  Search strictness used; fallback chain details
+  LLM validation status (if Stage 7.5 has run): verdict, count, explanation
+
+Score explanation block extended to include:
+  "Data Integrity" section with all SRDI confidence deductions listed
+  Human-readable reason for each deduction
+
+### New: Run Summary Relevance Block (R10.6)
+
+Added to end-of-run summary output:
+  Per-niche: constrained/fallback/unconstrained percentage breakdown
+  Ghost keywords detected (count)
+  Contamination flags (count)
+  Sponsored/zombie excluded totals
+  Average RSV relevance across all keywords
+
+Immediate ghost market terminal print fires DURING Stage 3.5 (not end-of-run):
+  WARNING: GHOST MARKET DETECTED: keyword=X, niche=Y, relevance=Z%,
+           top_gigs=[title1, title2, title3, title4, title5].
+           Action: Remove keyword or update NICHE_VALIDATION_CONFIG core_terms.
+
+### Updated: Opportunities Page Filters (R10.7)
+
+New filter controls:
+  "Exclude ghost markets" -- ON by default (cannot silently produce bad recommendations)
+  "Category constrained only" -- hides NONE-strictness keywords
+  Min. relevance slider (0.0-1.0, default 0.0)
+  Relevance score column added to opportunities table
+  Sponsored/zombie exclusion count indicators per keyword

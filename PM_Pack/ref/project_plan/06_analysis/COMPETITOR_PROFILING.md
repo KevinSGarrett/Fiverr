@@ -412,3 +412,52 @@ LEVEL_RANK = {"No Level": 0, "Level 1": 1, "Level 2": 2, "Top Rated": 3, "Pro": 
 ```
 
 Detected changes are stored in `alerts` table (alert_type=COMPETITOR_CHANGE) and surfaced in the dashboard Competitors page.
+
+
+---
+
+## SRDI ADDENDUM -- Competitor Profiling Integrity Extensions
+**Source:** WAVE_E section 2 (R4), WAVE_F section 4 (R5); Epics R4, R5
+
+### Contamination Outlier Exclusion (R4.4)
+
+Before building a niche aggregate profile, keywords with RSV relevance < 0.40 are
+excluded. This prevents ghost-market keywords from distorting the niche picture.
+
+build_niche_competitor_profile(niche_id, db, exclude_contaminated=True):
+  For each keyword in niche:
+    rsv = get_latest_rsv(kw.id, db)
+    if exclude_contaminated and rsv and rsv.result_set_relevance_score < 0.40:
+      excluded_count += 1; continue
+    included.append(kw)
+  If no included keywords: fallback to full set + WARNING "all_keywords_contaminated_fallback"
+  Log: "Niche profile [niche]: N included / M excluded contaminated keywords"
+
+Regression: REG-20 test_competition_profile_excludes_contaminated_keywords_in_niche_aggregate
+
+### LLM Synthesis Relevance Pre-Filter (R5.6)
+
+Before the competitor synthesis LLM call, a relevance fraction gate determines
+whether the data is clean enough to synthesize meaningful patterns.
+
+run_cluster_synthesis():
+  relevant_gigs = [g for g in cluster_gigs if g.relevance_flag is not False]
+  relevance_fraction = len(relevant_gigs) / max(len(cluster_gigs), 1)
+
+  if relevance_fraction < 0.40:
+    return {"status": "skipped_low_relevance",
+            "message": "Result set too contaminated for synthesis. Re-collect with constrained URL."}
+
+  elif relevance_fraction < 0.80:
+    synthesis_gigs = relevant_gigs  (trim to relevant-only)
+    relevance_note = "Filtered to N relevant of M total (X%)"
+
+  else:  (relevance_fraction >= 0.80)
+    synthesis_gigs = cluster_gigs  (full set passthrough)
+    relevance_note = "High relevance (X%): using full set"
+
+Effect: a niche where 8/10 gigs are SEO-related (not automation) no longer produces
+synthesis insights like "competitors focus on SEO" -- synthesis is skipped or uses
+the 2 relevant gigs only.
+
+Regression: REG-24 test_competitor_synthesis_skipped_when_relevance_fraction_below_40_percent

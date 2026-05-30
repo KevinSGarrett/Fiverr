@@ -57,3 +57,66 @@
 - Add A/B testing for gig titles (track which LLM suggestions perform best)
 - Add historical score tracking (how opportunity scores change over time per niche)
 - Add competitor alert system (notify when a tracked competitor changes pricing or receives a burst of reviews)
+
+
+---
+
+## SRDI Initiative -- "Bulletproof" (Search Relevance & Data Integrity)
+**Status:** Active -- Cycle 049 (2026-05-29)
+**Jira:** SCRUM project -- 85 stories, 322 subtasks (SCRUM-583 to SCRUM-994)
+
+### Why SRDI Precedes v2
+
+The v1 pipeline has no verification layer for gig result relevance. SRDI installs
+that layer before the first acted-on recommendation and before discovery activation.
+
+### SRDI Phase Roadmap
+
+Phase 1 (Weeks 1-4) -- Tier 0: Clean Data at the Source
+  R8 Schema (migrations M1-M6) -- ships first, behaviorally inert
+  R1 Category-Constrained Search (build_search_url + fallback chain)
+  R3 Sponsored/Zombie Filtering (Stage 4.5)
+  R2 Stage 3.5 Result-Set Validation (ghost detection + RSV)
+  TIER-0 GATE: First-recommendation quality gate armed; ghost markets blocked
+
+Phase 2 (Weeks 5-10) -- Tier 1: Scoring Quality-Aware
+  R4 Scoring Integrity Extensions (TRC reliability, clean-gig sets, opportunity qualifier)
+  R6 Discovery Relevance Gates (4 gates; discovery activation requires this)
+  R9 Testing & Validation Framework (120+ tests, REG-13 to REG-30)
+  TIER-1 GATE: Discovery cleared for activation; scoring uses filtered inputs
+
+Phase 3 (Weeks 11-16) -- Tier 2: Semantic + External Signal Integrity
+  R5 LLM Stage 7.5 (conditional relevance classifier, synthesis pre-filter)
+  R7 External Signal Integrity (Trends qualifier, Reddit buyer-intent, YouTube gate)
+  TIER-2 GATE: LLM relevance live; external signals qualified
+
+Phase 4 (Weeks 17-22) -- Tier 3/4: Dashboard + Long-Term Hardening
+  R10 Dashboard & Alerting (7 badges, 6 alert types, integrity tab, filters)
+  R11 Edge Cases & Maintenance (monitors, versioning, monthly audit, first-rec gate)
+  TIER-3/4 GATE: Dashboard released; maintenance protocols live
+
+### Epic Summary
+
+R1 Search URL    SCRUM-591-597       New: search_url_builder.py
+R2 Stage 3.5     SCRUM-605-612       New: result_set_validator.py, workflow
+R3 Spons/Zombie  SCRUM-598-604       New: zombie_gig_detector.py
+R4 Scoring       SCRUM-613-619+813   Updates: all 7 scoring calculators
+R5 LLM Stage 7.5 SCRUM-624-625+5more New: llm_relevance_classifier.py
+R6 Discovery     SCRUM-626-629+4more New: pre_validator.py
+R7 Ext Signals   SCRUM-620-623+4more Updates: Trends/Reddit/YouTube/autocomplete
+R8 Schema        SCRUM-583-590       New: 2 models, 6 migrations, ~30 columns
+R9 Testing       SCRUM-630-633+4more New: 15 test files, 18 permanent regressions
+R10 Dashboard    SCRUM-634-640+897   Updates: dashboard components, alert system
+R11 Maintenance  SCRUM-641-646+2more New: monitors.py, protocols, first-rec gate
+
+### Permanent Regression Pack (appended to AGENT_EXECUTION_STRATEGY.md section 7)
+
+REG-13/14: R1 (category filter always active; NONE deduction applied)
+REG-15/16: R2 (ghost market absolute block; TRC qualified by RSV)
+REG-17/18/19: R3 (sponsored/zombie exclusions; organic TRC adjustment)
+REG-20/21/22: R4 (niche profile clean; opportunity qualified; price IQR)
+REG-23/24: R5 (LLM in-band trigger; synthesis skipped < 40%)
+REG-25/26/27: R6 (ghost = invalid not miss; contaminated excluded; hypothesis rejected)
+REG-28/29/30: R7 (emerging not zero-penalized; reddit qualified; trends qualified)
+
+v2 Roadmap items remain unchanged. SRDI is a v1.x initiative.

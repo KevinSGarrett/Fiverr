@@ -1039,3 +1039,89 @@ alembic upgrade head           # Create all tables
 ```
 
 SQLite does not support all ALTER TABLE operations — breaking schema changes in SQLite must use the `recreate` strategy in Alembic. PostgreSQL migration in v2 uses standard Alembic operations.
+
+
+---
+
+## SRDI ADDENDUM -- Schema Extensions and New Models
+**Source:** WAVE_I; Epic R8 (SCRUM-583 to SCRUM-590)
+**Migration scripts:** M1 through M6 plus M-ext (additive, idempotent)
+**Backward compat rule:** NULL on any new column = unknown = include
+
+### New Table: result_set_validations (M1)
+
+Unique on (keyword_id, run_id). One row per keyword per run.
+
+Columns: id PK, keyword_id FK, run_id, result_set_relevance_score REAL DEFAULT 1.0,
+total_gigs_analyzed INT, relevant_gig_count INT, sponsored_gig_count INT,
+organic_relevant_count INT, category_contamination_flag BOOL,
+ghost_market_flag BOOL, used_fallback_strictness BOOL,
+fallback_strictness_used VARCHAR(20), confidence_deduction REAL DEFAULT 0.0,
+llm_validated BOOL DEFAULT FALSE, llm_relevant_count INT, llm_verdict VARCHAR(20),
+contamination_explanation VARCHAR(500), dominant_competing_service VARCHAR(200),
+per_gig_relevance JSON, validation_warnings JSON, validated_at DATETIME
+
+Indexes: idx_rsv_keyword_id, idx_rsv_run_id, idx_rsv_keyword_run (compound),
+idx_rsv_ghost (partial WHERE ghost_market_flag=TRUE),
+idx_rsv_contamination (partial WHERE category_contamination_flag=TRUE)
+
+### Additive Columns: gigs table (M2)
+
+is_sponsored BOOL (idx partial)  -- from gig_cards; NULL = organic = include
+is_zombie BOOL (idx partial)     -- from Stage 4.5; NULL = non-zombie = include
+zombie_score REAL                -- 0.0-1.0; threshold 0.50
+zombie_signals JSON              -- contributing signals dict
+last_reviewed_at DATETIME        -- latest review date from snippets
+relevance_flag BOOL (idx)        -- from Stage 3.5; NULL = include
+relevance_score REAL             -- per-gig 0.0-1.0
+category_path VARCHAR(200)       -- e.g. "Programming & Tech > Desktop Applications"
+Compound index: idx_gigs_scoring_filter (is_sponsored, is_zombie, relevance_flag)
+
+### Additive Columns: search_results table (M3)
+
+search_strictness_used VARCHAR(20) NOT NULL DEFAULT 'NONE'
+result_set_relevance_score REAL    -- denormalized from RSV
+category_contamination_flag BOOL DEFAULT FALSE
+ghost_market_flag BOOL DEFAULT FALSE
+sponsored_gig_count INT DEFAULT 0
+organic_gig_count INT
+pages_collected INT DEFAULT 1
+Indexes: idx_sr_strictness, idx_sr_ghost (partial), idx_sr_ghost_keyword
+
+### Additive Columns: keyword_scores table (M4)
+
+relevance_qualifier REAL DEFAULT 1.0  -- from RSV; 0.0-1.0
+trc_reliability_score REAL            -- R4.1 single multiplier
+qualified_trc REAL                    -- TRC * trc_reliability
+sponsored_gigs_excluded INT DEFAULT 0
+zombie_gigs_excluded INT DEFAULT 0
+clean_gig_count INT
+
+### Additive Columns: keywords table (M5)
+
+discovery_needs_recollection BOOL DEFAULT FALSE
+pre_validation_data JSON          -- Gate 2 dry-run evidence
+specificity_confidence REAL       -- 0.0-1.0
+Index: idx_kw_needs_recollection (partial WHERE TRUE)
+
+### Additive Columns: discovery_outcomes table (M6)
+
+is_invalid BOOL DEFAULT FALSE     -- ghost market = invalid, NOT a miss
+is_contaminated BOOL DEFAULT FALSE
+invalid_reason VARCHAR
+relevance_score REAL              -- RSV at time of evaluation
+pre_validation_passed BOOL
+Indexes: idx_do_is_invalid (partial), idx_do_is_contaminated (partial)
+
+### Additive Columns: external_signals table (M-ext)
+
+fiverr_relevance_qualifier REAL   -- 0.20-0.95; written by R7
+signal_quality_score REAL         -- sqrt(freshness x relevance)
+
+### Migration Order (MUST follow)
+
+M1 -> M2 -> M3 -> M4 -> M5 -> M6 -> M-ext
+
+Each migration uses IF NOT EXISTS or column-exists guards. Safe to re-run.
+Apply+rollback rehearsed on a DB copy before running on live DB.
+See 03_data/RESULT_SET_VALIDATION.md for full DDL.

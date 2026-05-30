@@ -664,3 +664,81 @@ If pytrends returns HTTP 429 during a run:
 **Error Handling:**
 - Jobs that fail again → re-marked as DEAD_LETTER with updated error_log
 - If no dead letter jobs found → log message, exit gracefully
+
+
+---
+
+## SRDI ADDENDUM -- Category-Constrained Search (R1) and Sponsored/Zombie Filtering (R3)
+**Source:** WAVE_B (R1, SCRUM-591-597), WAVE_D (R3, SCRUM-598-604)
+
+### R1: Category-Constrained Search URLs
+
+The single highest-leverage change. Category-constrained URLs eliminate cross-category
+contamination at source before any scoring occurs.
+
+New module: src/collection/search_url_builder.py
+
+NICHE_CATEGORY_MAP maps all 9 production niches to Fiverr category IDs:
+  prd_ai_saas         -> category 10 (Writing), subcategory 10_7 (Technical Writing)
+  support_kb_readiness -> category 10, subcategory 10_7
+  python_automation   -> category 6 (Programming), subcategory 6_2 (Desktop Apps)
+  ai_agent_development -> category 6, subcategory 6_11 (Chatbots)
+  mcp_ai_agent        -> category 6, subcategory 6_11
+  n8n_automation      -> category 6, subcategory 6_2
+  gumloop_automation  -> category 6, subcategory 6_2
+  workflow_automation -> category 6, subcategory 6_2
+  python_web_scraping -> category 6, subcategory 6_2
+
+Strictness levels: SUBCATEGORY -> CATEGORY -> NONE (fallback chain)
+search_with_fallback() tries SUBCATEGORY first; falls back if results < min_threshold (5)
+search_strictness_used is stored on every SearchResult row
+
+NONE-strictness demand deduction: -0.08 confidence for post-R1 NONE results (not retroactive)
+
+Category validation sweep (R1.6.2): run before activating in production to verify
+category IDs still match live Fiverr taxonomy. Quarterly re-validation scheduled.
+NICHE_CATEGORY_MAP_NEXT_VALIDATION = "2026-08-29"
+
+See: 04_collection/SEARCH_URL_BUILDER.md for full NICHE_CATEGORY_MAP + function signatures
+
+### R3: Sponsored Flag Propagation
+
+Stage 4 (gig_detail.py) matches each collected Gig to its gig_cards entry via
+_urls_match() (normalizes URL: strip scheme, query string, trailing slash).
+Sets Gig.is_sponsored from gig_cards.sponsored_flag.
+SearchResult.sponsored_gig_count and organic_gig_count are computed and stored.
+
+Review count parser fix: "10k+" now correctly parses to 10000 (was returning 0).
+
+TRC Sponsored-Fraction Adjustment (R3 -- active until R4.1 ships, then superseded):
+  sponsored_fraction <= 10%: trc_multiplier = 1.00
+  sponsored_fraction <= 20%: trc_multiplier = 0.90
+  sponsored_fraction <= 35%: trc_multiplier = 0.80
+  sponsored_fraction >  35%: trc_multiplier = 0.70
+NOTE: once R4.1 ships, this is subsumed by the single TRC reliability multiplier.
+Never stack both (Decision DL-209).
+
+### R3: Zombie Detection (Stage 4.5 -- New Sub-Stage)
+
+New module: src/analysis/zombie_gig_detector.py
+
+Zombie gig = indexed-but-abandoned. Signals:
+  review_count < 10: +0.30 score
+  reviews stale (last_reviewed_at > 365 days): +0.25 score
+  response_rate < 30%: +0.15 score
+  orders_in_queue = 0 AND review_count < 5: +0.10 score
+  GUARD: account < 180 days old -> return 0.0 (new seller, NOT zombie)
+
+ZOMBIE_THRESHOLD = 0.50. Score >= 0.50 sets Gig.is_zombie = True.
+zombie_score and zombie_signals JSON stored for transparency.
+
+Exclusions from scoring when zombie:
+  competition.py: never in top-10 window
+  feasibility.py: never sets level ratio or review barrier
+  profitability.py: prices excluded
+  confidence.py: zombie_fraction >= 50% -> -0.10 CM; >= 25% -> -0.05 CM
+
+Pagination normalization: TOP_N_FOR_SCORING = 10 (hard cap regardless of pages collected)
+pages_collected stored on SearchResult for audit.
+
+See: 04_collection/SPONSORED_ZOMBIE_FILTERING.md for full implementation detail

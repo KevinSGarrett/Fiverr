@@ -222,3 +222,38 @@ A keyword can have:
 - Low Competition Score (weak field) + Low Feasibility Score = unusual — possibly indicates low demand or niche oddities making entry hard
 - High Competition Score + Low Feasibility Score = avoid (strong field with no gaps)
 - Low Competition Score + High Feasibility Score = ideal (weak field that's also welcoming to new sellers)
+
+
+---
+
+## SRDI ADDENDUM -- Feasibility Clean-Gig Set
+**Source:** WAVE_E section 3 (R4); Epic R4 (SCRUM-617)
+
+### Clean Gig Set for Feasibility Calculations (R4.6)
+
+All feasibility metrics now use a clean gig set excluding sponsored, zombie, and
+irrelevant gigs. This ensures the review barrier and level ratio reflect actual
+organic competition, not zombie or sponsored placements.
+
+clean_gigs = [g for g in top_gigs[:20]
+              if g.is_sponsored is not True
+              and g.is_zombie is not True
+              and g.relevance_flag is not False]
+
+Fallback: if len(clean_gigs) < 3:
+  clean_gigs = top_gigs[:10]
+  log WARNING "insufficient_clean_gigs_for_barrier: using full set"
+
+Level ratio from clean gigs only:
+  seller_levels = [int(g.seller.level) for g in clean_gigs if g.seller]
+  level_ratio = sum(1 for l in seller_levels if l >= 2) / max(len(seller_levels), 1)
+
+Review barrier from organic minimum (not zombie minimum):
+  lowest_organic_reviews = min(g.review_count for g in clean_gigs
+                               if g.review_count is not None, default=0)
+
+clean_gig_count stored on KeywordScore for dashboard transparency.
+
+Why this matters: A zombie gig with 0 reviews previously set the review barrier to 0,
+making every niche appear trivially accessible. Clean filtering ensures the barrier
+reflects real organic competition that new sellers actually face.

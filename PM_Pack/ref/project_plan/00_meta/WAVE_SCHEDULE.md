@@ -48,3 +48,45 @@
 | Open Questions Resolved | 14/14 |
 
 All planning and implementation breakdown complete. Next phase: Code implementation starting from Epic 01.
+
+
+---
+
+## SRDI Initiative -- Search Relevance & Data Integrity ("Bulletproof")
+
+### Specification Waves (Source Material)
+
+| Wave | Title | Epic | Content |
+|---|---|---|---|
+| WAVE_A | Problem Catalog & Architecture | Foundation | 20-issue catalog; defense-in-depth architecture |
+| WAVE_B | Category Filter & Search URL Hardening | R1 | NICHE_CATEGORY_MAP; build_search_url; fallback chain |
+| WAVE_C | Post-Collection Relevance Validation | R2 | Stage 3.5; compute_gig_relevance; ghost detection |
+| WAVE_D | Sponsored & Zombie Gig Filtering | R3 | Sponsored propagation; zombie detector; pagination |
+| WAVE_E | Scoring System Data Integrity Extensions | R4 | TRC reliability; clean-gig sets; price IQR; opportunity qualifier |
+| WAVE_F | LLM Relevance Classification | R5 | Stage 7.5; LLMRelevanceClassifier; synthesis pre-filter |
+| WAVE_G | Discovery Engine Relevance Gates | R6 | 4 gates; DiscoveryPreValidator; feedback filtering |
+| WAVE_H | External Signal Integrity | R7 | Trends qualifier; Reddit buyer-intent; YouTube gate; autocomplete |
+| WAVE_I | Data Schema Extensions | R8 | 2 new models; ~30 additive columns; 6 migrations |
+| WAVE_J | Testing & Validation Framework | R9 | 120+ tests; 18 permanent regressions (REG-13 to REG-30) |
+| WAVE_K | Dashboard & Alerting Integration | R10 | 7 badges; 6 alert types; integrity tab; opportunities filters |
+| WAVE_L | Edge Cases, Future-Proofing & Maintenance | R11 | Monitors; versioning; monthly audit; first-rec gate |
+
+### Implementation Tiers
+
+| Tier | Epics | Jira Keys | Gate |
+|---|---|---|---|
+| 0 | R8, R1, R3, R2 | SCRUM-583 to SCRUM-612 | First-recommendation quality gate armed |
+| 1 | R4, R6, R9 | SCRUM-613-633 + gap-fills | Discovery cleared for activation |
+| 2 | R5, R7 | SCRUM-620-625 + gap-fills | LLM live; signals qualified |
+| 3 | R10 | SCRUM-634-640 + SCRUM-897 | Dashboard released |
+| 4 | R11 | SCRUM-641-646 + gap-fills | Maintenance/audit live |
+
+### Updated Totals (Post-SRDI)
+
+| Category | Previous | SRDI Added | New Total |
+|---|---|---|---|
+| Epics | 10 | 11 (R1-R11) | 21 |
+| Stories | ~106 | 85 | ~191 |
+| Tasks/Subtasks | ~568 | 322 | ~890 |
+| Decisions Logged | 158 | 10 (DL-200 to DL-209) | 168+ |
+| Permanent Regressions | ~12 | 18 (REG-13 to REG-30) | 30 |

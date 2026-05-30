@@ -265,3 +265,34 @@ def calculate_overall_weakness_score(criteria_scores: dict) -> float:
 | 0.0–1.9 | NEAR-PERFECT | Almost no exploitable weaknesses — don't directly compete, find a sub-niche |
 
 The **Gig Quality Weakness Score** (Score 8) at the keyword level is the **average** `overall_weakness_score` across the top N gigs for that keyword. Higher average = more beatable competitive landscape.
+
+
+---
+
+## SRDI ADDENDUM -- Topical Relevance Pre-Filter for Quality Scoring
+**Source:** WAVE_F section 5 (R5); Epic R5 (SCRUM-625)
+
+### Relevance Pre-Check Before LLM Rubric Scoring (R5.3/R5.5)
+
+Before running the full LLM quality rubric on a gig, a topical relevance check
+prevents the rubric from scoring gigs that are not relevant to the keyword.
+
+In score_gig_quality(gig, keyword, niche_id, llm_client, db):
+  First check: if gig.relevance_flag is False:
+    return GigQualityScore(overall_score=0, skip_reason="irrelevant_gig_excluded_from_rubric")
+
+  Second check: if gig.relevance_score is not None and gig.relevance_score < 0.35:
+    return GigQualityScore(overall_score=0, skip_reason="low_relevance_score_X.XX")
+
+  Otherwise: proceed with full LLM rubric scoring
+
+Why this matters:
+  A gig titled "I will optimize your website for Google" scoring against a "Python
+  automation" keyword would previously receive a quality score (possibly high) based
+  on review count and seller level. With the pre-check, it is excluded before the
+  LLM call -- improving accuracy and reducing LLM costs.
+
+The relevance_flag comes from Stage 3.5 (R2). The two-stage defense:
+  Stage 3.5 flags irrelevant gigs at collection time (rule-based)
+  Stage 7.5 may refine flags for ambiguous gigs (LLM-based)
+  Stage 7 rubric skips flagged gigs (this pre-check)

@@ -758,3 +758,94 @@ Run 5: Discovery hit rate stabilizes at 35-40%.
   than generic keywords. Trend-based hypotheses underperform — reducing weight."
   System self-adjusts mode allocation.
 ```
+
+
+---
+
+## SRDI ADDENDUM -- Four Discovery Relevance Gates
+**Source:** WAVE_G (R6); Epic R6 (SCRUM-626-629, SCRUM-864-877)
+
+CRITICAL: Discovery engine must NOT be activated for production until Tier-1 gate
+passes (R6 ships and all REG-25/26/27 are green).
+
+### Gate 1: Hypothesis Specificity Filter
+
+All 4 discovery modes (adjacent_keyword, gap_exploit, rising_niche, trend_based)
+include anti-contamination prompt language:
+  "Focus on Fiverr-specific service niches where buyers actually pay for professional
+   services. The hypothesis should be specific enough that a search on Fiverr would
+   return results overwhelmingly about THIS service, not adjacent or broader services."
+
+DiscoveryHypothesis extended with new fields:
+  specificity_confidence: float (0.0-1.0, LLM estimate)
+  potential_trc_range: tuple (low, high expected TRC)
+  contamination_risk_factors: list
+  pre_validation_required: bool (default False, set True when specificity low)
+
+Filtering: reject when specificity_confidence < 0.65 OR hypothesis_confidence < 0.50
+Log: rejected_low_confidence_count and rejected_low_specificity_count separately
+Only rejected hypotheses never proceed to Gate 2.
+
+### Gate 2: Pre-Collection Dry-Run Validation
+
+Before full collection (gig detail + seller profiles), a fast page-1-only dry run
+checks if the keyword will produce a clean result set.
+
+DiscoveryPreValidator:
+  MIN_RELEVANCE_TO_COLLECT = 0.50
+  MIN_TRC_FOR_EVALUATION = 10
+
+  pre_validate_hypothesis(hypothesis, niche_id, db) returns (should_collect, reason, evidence)
+    - collect_search_page_minimal(): page 1 only, no gig-detail, no seller calls, max 10 cards
+    - validate_result_set_minimal() on the page-1 cards
+    - If ghost_market_flag: return (False, "ghost_market", {titles: top_5_gig_titles})
+    - If rsv_score < 0.50: return (False, "low_relevance", {score: X})
+    - If total < 10: return (False, "trc_too_low", {count: N})
+    - Else: return (True, "relevance_ok", {score: X})
+
+Only hypotheses that pass Gate 2 are inserted as discovery keywords.
+Pre-validation evidence stored on Keyword.pre_validation_data JSON.
+Rejected hypotheses logged with reason + top-5 gig titles as evidence.
+Funnel counts logged: "proposed:N / gated:N / pre-validated:N / inserted:N"
+
+### Gate 3: Relevance-Gated Outcome Recording
+
+evaluate_discovery_keyword_outcome() extended to check RSV before recording outcome:
+
+  Load RSV for discovery keyword:
+
+  If ghost_market_flag = True:
+    outcome.is_invalid = True
+    outcome.invalid_reason = "ghost_market"
+    keyword.is_retired = True
+    RETURN -- do NOT record as hit/miss/gold/monitor
+
+  Elif rsv.result_set_relevance_score < 0.40 (contaminated, not ghost):
+    outcome.is_contaminated = True
+    keyword.discovery_needs_recollection = True
+    RETURN -- do NOT record as hit/miss
+
+  Elif relevance acceptable (>= 0.40):
+    Proceed with standard evaluation: gold >= 85 | hit 60-84 | miss < 30 | retire < 30
+    outcome.relevance_score = rsv.result_set_relevance_score (stored for audit)
+
+Why ghost != miss: A ghost market keyword with a high score (inflated by contaminated
+TRC) was previously recorded as a "hit" and used to teach the LLM that this type of
+keyword works. Now it is recorded as is_invalid, excluded from feedback, and retired.
+
+Regressions: REG-25 (ghost = invalid not miss), REG-26 (contaminated excluded from feedback)
+
+### Gate 4: Feedback Learning Filter
+
+build_feedback_summary() excludes is_invalid and is_contaminated outcomes:
+
+  valid = [o for o in outcomes if not o.is_invalid and not o.is_contaminated]
+
+  If len(valid) == 0:
+    return {"data_quality_note": "feedback not usable: N invalid + M contaminated, 0 valid"}
+    LLM is NOT called when feedback data is empty or all-contaminated
+
+  Summary stats computed from valid outcomes only.
+  data_quality_note always present: "Used N valid; excluded M invalid + P contaminated"
+
+Regression: REG-27 (hypothesis rejected when specificity_confidence < 0.65)

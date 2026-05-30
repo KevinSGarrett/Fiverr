@@ -281,3 +281,65 @@ def run_alert_checks(run_id: str, db, config):
     active_count = db.query(Alert).filter(Alert.resolved == False).count()
     log.info(f"Alert check complete: {active_count} active alerts")
 ```
+
+
+---
+
+## SRDI ADDENDUM -- 6 New Relevance and Integrity Alert Types
+**Source:** WAVE_K section 3 (R10); Epic R10 (SCRUM-637, SCRUM-638)
+
+### New Alert Types
+
+GHOST_MARKET_DETECTED
+  severity: HIGH | grain: per_keyword
+  Condition: ghost_market_flag = True (RSV < threshold AND total > 5)
+  Generated: Stage 3.5 completion -- fires immediately with terminal print
+  Fields: keyword_id, niche_id, relevance_score, top_5_gig_titles
+  Action: Review keyword; update NICHE_VALIDATION_CONFIG or remove keyword
+
+CATEGORY_CONTAMINATION_DETECTED
+  severity: MEDIUM | grain: per_niche
+  Condition: >= 30% of niche keywords have contamination flags this run
+  Generated: End of run
+  Fields: niche_id, contaminated_count, total_count, worst_keywords
+  Action: Run category validation sweep; review NICHE_CATEGORY_MAP
+
+UNCONSTRAINED_SEARCH_DETECTED
+  severity: LOW | grain: per_niche
+  Condition: >= 10% of searches fell back to NONE strictness
+  Generated: End of run
+  Fields: niche_id, unconstrained_count, fallback_reasons
+  Action: Verify NICHE_CATEGORY_MAP category IDs are still valid
+
+RELEVANCE_CLIFF_DETECTED
+  severity: MEDIUM | grain: per_keyword
+  Condition: RSV relevance dropped >= 0.25 from prior run average (needs >= 3 prior runs)
+  Generated: End of run
+  Fields: keyword_id, prior_avg_relevance, current_relevance, drop
+  Action: Check for Fiverr algorithm or category taxonomy change
+
+HIGH_ZOMBIE_CONCENTRATION
+  severity: LOW | grain: per_niche
+  Condition: >= 30% of gigs in a niche are classified as zombies
+  Generated: End of run
+  Fields: niche_id, zombie_fraction, sample_zombie_gig_ids
+  Action: Review zombie threshold calibration; check for platform changes
+
+DISCOVERY_CONTAMINATION_DETECTED
+  severity: MEDIUM | grain: per_keyword
+  Condition: Discovery keyword evaluated as contaminated (not ghost); flagged for recollection
+  Generated: Discovery evaluation (Stage 16 Gate 3)
+  Fields: keyword_id, hypothesis_text, relevance_score, gate
+  Action: Refine hypothesis or re-run with constrained URL
+
+### Alert Generation Pipeline Integration
+
+Generate alerts at two points:
+  1. Per-niche at end of Stage 3.5:
+     GHOST_MARKET_DETECTED per keyword (with immediate terminal WARNING print)
+  2. End of run:
+     CATEGORY_CONTAMINATION_DETECTED, UNCONSTRAINED_SEARCH_DETECTED (niche-level)
+     RELEVANCE_CLIFF_DETECTED, HIGH_ZOMBIE_CONCENTRATION (if thresholds exceeded)
+
+Function: generate_relevance_alerts_for_run(niche_id, run_id, db) -> list[Alert]
+Called in two hooks: (1) after Stage 3.5 per niche, (2) at end of full run.

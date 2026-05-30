@@ -206,3 +206,32 @@ opportunity = 44.20 + 3.78 = 47.98
 ```
 
 Result: **Opportunity Score = 47.98** — modest opportunity. The leverage bonus added 3.78 points, recognizing that this combination is favorable for a new seller despite the modest individual scores.
+
+
+---
+
+## SRDI ADDENDUM -- Opportunity Relevance Qualifier
+**Source:** WAVE_E section 6 (R4); Epic R4 (SCRUM-618)
+
+### Relevance-Qualified Opportunity Score (R4.7)
+
+When the result set is contaminated, a high opportunity score would be misleading
+because it is built on untrustworthy input data.
+
+Load RSV for keyword/run:
+  If rsv is None or rsv.result_set_relevance_score >= 0.70:
+    opportunity_score = raw_opportunity_score (unchanged)
+  Else:
+    relevance_qualifier = rsv.result_set_relevance_score
+    opportunity_score = raw_opportunity_score * (0.50 + 0.50 * relevance_qualifier)
+    score_components["relevance_qualifier"] = relevance_qualifier
+    note = "Opportunity qualified by result-set relevance (X%)"
+
+Effect examples:
+  RSV = 1.00 -> opportunity unchanged
+  RSV = 0.80 -> opportunity * 0.90
+  RSV = 0.60 -> opportunity * 0.80
+  RSV = 0.40 -> opportunity * 0.70
+  RSV = 0.20 -> opportunity * 0.60
+
+relevance_qualifier stored on KeywordScore for dashboard visibility.

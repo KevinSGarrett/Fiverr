@@ -316,3 +316,85 @@ AI Agent Development         Data Quality: 41/100  ████░░░░░�
 | Cross-field validation failure | Accept record. Store warning in score_components.validation_warnings. | Shown in keyword detail view |
 | Outlier detected | Accept record. Flag as outlier. Store warning. | Shown as 📊 Outlier badge in keyword card |
 | LLM parse failure (2nd attempt) | Accept record. Store null for LLM fields. Apply DEGRADED deductions. | Shown in LLM cost view: "Failed: [task] for [keyword]" |
+
+
+---
+
+## SRDI ADDENDUM -- Result-Set Relevance Validation Rules
+**Source:** WAVE_C; Epic R2 (SCRUM-605 to SCRUM-612)
+**New module:** src/analysis/result_set_validator.py
+
+### Per-Gig Relevance Scoring (4 Signals)
+
+Signal 1 Core term match: +0.30 per core_term hit (max 0.60)
+Signal 2 Keyword overlap:  +0.25 when keyword words appear in title
+Signal 3 Exclusion terms: -0.25 per non-negated exclusion hit
+Signal 4 Generic penalty:  -0.15 when 3+ generic phrases AND 0 core terms
+
+Thresholds: relevance_flag = True when score >= 0.35
+Clean >= 0.60 | Borderline 0.35-0.60 | Irrelevant < 0.35
+
+Non-English titles: score = 0.50, flag = True (neutral -- include without penalty)
+Missing title: score = 0.0, flag = False, reason = "missing_title"
+Negation guard: exclusion term preceded by not/avoid/no/without within 15 chars = skip
+
+### NICHE_VALIDATION_CONFIG (9 Niches)
+
+prd_ai_saas:
+  core_terms: [PRD, product requirements, product spec, user story, feature specification]
+  exclusion_terms: [logo, SEO, social media, content writing, translation, data entry]
+  ghost_market_threshold: 0.20
+
+support_kb_readiness:
+  core_terms: [knowledge base, help center, documentation, FAQ, support article, KB]
+  exclusion_terms: [logo, SEO blog, social media, translation, data entry]
+  ghost_market_threshold: 0.20
+
+python_automation:
+  core_terms: [Python, automation, script, bot, scraping, Playwright, Selenium, workflow]
+  exclusion_terms: [logo, SEO content, social media post, article writing, translation]
+  ghost_market_threshold: 0.20
+
+ai_agent_development:
+  core_terms: [AI agent, chatbot, LLM, GPT, Claude, automation, intelligent agent]
+  exclusion_terms: [logo design, content writing, SEO article, social media management]
+  ghost_market_threshold: 0.15  (stricter -- specific niche)
+
+mcp_ai_agent:
+  core_terms: [MCP, Model Context Protocol, Claude, AI agent, tool integration, LLM tool]
+  exclusion_terms: [logo, writing, SEO, social media, data entry, translation]
+  ghost_market_threshold: 0.10  (very strict -- narrow niche)
+
+n8n_automation:
+  core_terms: [n8n, workflow, automation, no-code, integration, Zapier, Make, trigger]
+  exclusion_terms: [logo, writing, SEO, social media post, translation, data entry]
+  ghost_market_threshold: 0.15
+
+gumloop_automation:
+  core_terms: [Gumloop, automation, workflow, no-code, AI workflow, integration]
+  exclusion_terms: [logo, writing, SEO, social media, translation]
+  ghost_market_threshold: 0.10  (very strict -- narrow niche)
+
+workflow_automation:
+  core_terms: [workflow, automation, process automation, business automation, Zapier, Make]
+  exclusion_terms: [logo, SEO content, social media post, article, translation]
+  ghost_market_threshold: 0.20
+
+python_web_scraping:
+  core_terms: [scraping, web scraper, data extraction, Python, Beautiful Soup, Playwright]
+  exclusion_terms: [logo, content writing, SEO, social media, translation, data entry]
+  ghost_market_threshold: 0.20
+
+DEFAULT_VALIDATION_CONFIG: ghost_market_threshold=0.20, relevance_threshold=0.35, no terms
+NICHE_VALIDATION_CONFIG_VERSION = "1.0"
+_NEXT_REVIEW = "2026-08-29"  (check_relevance_config_review_due() returns True when past this)
+
+### Confidence Deduction Tiers
+
+RSV >= 0.80  -> deduction = 0.0
+RSV >= 0.60  -> deduction = -0.05
+RSV >= 0.40  -> category_contamination_flag + deduction = -0.15
+RSV >= 0.20  -> category_contamination_flag + deduction = -0.30
+RSV <  0.20 (total > 5) OR 0 cards -> ghost_market_flag + deduction = -0.50
+
+Ghost market is the ONLY hard block. All other conditions flag and down-weight.

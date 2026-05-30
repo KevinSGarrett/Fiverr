@@ -339,3 +339,207 @@ Python 3.11+
 ├── openpyxl                             → Excel export
 └── pyyaml + python-dotenv               → Config + secrets
 ```
+
+
+---
+
+## SRDI ADDENDUM -- New Pipeline Stages and Hardened Components
+**Source:** WAVE_A (architecture) + WAVE_B through WAVE_L (per-epic)
+**Implemented:** Cycle 049 (2026-05-29)
+
+### Updated Pipeline (Post-SRDI)
+
+New stages marked NEW; hardened stages marked (updated).
+
+```
+Stage 3  Fiverr Search (updated)
+         + category-constrained URL via search_url_builder.py (R1)
+         + search_strictness_used recorded on SearchResult
+         + sponsored_gig_count, organic_gig_count stored
+         + pages_collected stored
+
+Stage 3.5 Result-Set Validation [NEW -- R2]
+         Runs per-niche immediately after Stage 3, before Stage 4.
+         - compute_gig_relevance() scores each gig title 0.0-1.0
+         - validate_result_set() aggregates to keyword-level RSV score
+         - ghost_market_flag when relevance < 0.20 AND total > 5 (or 0 cards)
+         - category_contamination_flag when relevance < 0.60 AND total >= 5
+         - confidence_deduction tiered 0.0 to -0.50
+         - ResultSetValidation row written per (keyword_id, run_id)
+         - UNIQUE constraint prevents duplicates; idempotent on re-run
+         - Fail-soft: Stage 3.5 error on one keyword does not abort run
+
+Stage 4  Gig Detail (updated)
+         + is_sponsored propagated from gig_cards JSON (R3)
+         + last_reviewed_at extracted from review snippets (R3)
+         + category_path stored (R3)
+
+Stage 4.5 Zombie Detection [NEW -- R3]
+         Runs as sub-step of Stage 4, per gig.
+         - compute_zombie_score() rates abandonment 0.0-1.0
+         - New-seller disambiguation: account < 180 days old = NOT zombie
+         - Threshold 0.50 -> Gig.is_zombie = True
+         - zombie_score and zombie_signals JSON stored
+
+Stage 5  Seller Profile (updated)
+         + specialization fields for R4 competitor profiling
+         + last-active signals (feeds zombie detection)
+
+Stage 6  External Signals (updated)
+         + fiverr_relevance_qualifier computed and stored (R7)
+         + signal_quality_score = sqrt(freshness x relevance) stored (R7)
+         + Trends slope modifiers + buying-intent related-query analysis
+         + Reddit buyer-intent ratio computed and stored
+         + YouTube used for confidence only (weight = 0 in demand)
+
+Stage 7  Gig Quality LLM (unchanged trigger)
+         Consumes relevance_flag from Stage 3.5 in R5 rubric pre-check
+
+Stage 7.5 LLM Relevance Gate [NEW -- R5, conditional]
+         Only fires when:
+           RSV 0.35-0.75 AND final_score >= 45
+           OR discovery keyword hypothesis
+           OR ghost-market watch list keyword
+         Hard cap: 50 calls/run (~$0.06/run at gpt-4o-mini)
+         Cache key: relevance_v1:{sha256(prompt)[:16]}
+         Verdicts: CLEAN / MIXED / CONTAMINATED / GHOST_MARKET
+         GHOST_MARKET verdict overrides RSV ghost flag + triggers alert
+         BORDERLINE verdict = non-destructive (keeps rule-based score)
+
+Stage 8  Competitor Profiling (updated)
+         + Relevance pre-filter before LLM synthesis (R5)
+           < 40% relevant gigs: skip synthesis (return skipped_low_relevance)
+           40-80% relevant: trim to relevant-only competitors
+           >= 80% relevant: full set passthrough
+
+Stage 10 Scoring -- All 7 calculators + CM (updated)
+         demand.py:       qualified_trc = TRC x trc_reliability (R4.1 single multiplier)
+         demand.py:       Trends x fiverr_relevance_qualifier x 1.15 (R7)
+         demand.py:       Reddit x (0.40 + 0.60 x buyer_intent_ratio) (R7)
+         demand.py:       YouTube weight = 0; used for confidence only (R7)
+         demand.py:       autocomplete absent + emerging -> score 50 not 0 (R4.2/R7)
+         competition.py:  top-10 from clean gigs only (R3/R4)
+         competition.py:  per-keyword profile when RSV < 0.80 (R4.3)
+         competition.py:  niche profile excludes < 0.40-relevance keywords (R4.4)
+         competition.py:  price IQR outlier exclusion (R4.5)
+         feasibility.py:  level ratio + review barrier from clean gigs only (R4.6)
+         profitability.py: prices from organic + non-zombie + relevant gigs (R4.5)
+         opportunity.py:  score x (0.5 + 0.5 x RSV) when RSV < 0.70 (R4.7)
+         confidence.py:   RSV deduction -0.05 to -0.50 tiered (R2)
+         confidence.py:   zombie concentration deduction -0.05/-0.10 (R3)
+         confidence.py:   trc_reliability_low deduction -0.05 when < 0.70 (R4.1)
+         confidence.py:   YouTube legitimacy +0.02/-0.03 (R7)
+         confidence.py:   freshness x relevance quality contribution (R7)
+
+Stage 12 Tag Assignment (updated)
+         + ghost_market_flag -> recommendation demoted / hard blocked (R2)
+
+Stage 16 Discovery Engine (updated -- R6)
+         Gate 1: hypothesis specificity >= 0.65 AND confidence >= 0.50
+         Gate 2: pre-collection dry-run (page-1 only) via DiscoveryPreValidator
+                 ghost / low-relevance / trc-too-low -> reject before full collect
+         Gate 3: relevance-gated outcome recording
+                 ghost -> is_invalid (NOT is_miss); retire immediately
+                 relevance < 0.40 -> is_contaminated; flag recollection
+         Gate 4: feedback excludes is_invalid and is_contaminated outcomes
+         ACTIVATION GATE: discovery must NOT run in production until Tier-1 gate passes
+```
+
+### New Modules Added
+
+| Module | Path | Epic |
+|---|---|---|
+| search_url_builder.py | src/collection/ | R1 |
+| result_set_validator.py | src/analysis/ | R2 |
+| result_set_validation_workflow.py | src/analysis/ | R2 |
+| zombie_gig_detector.py | src/analysis/ | R3 |
+| llm_relevance_classifier.py | src/analysis/ | R5 |
+| pre_validator.py | src/discovery/ | R6 |
+| monitors.py | src/analysis/ | R11 |
+| selector_version_tracker.py | src/collection/ | R11 |
+
+### New Config Keys (config.yaml)
+
+```yaml
+niches:
+  - niche_id: <id>
+    search:
+      category_strictness: SUBCATEGORY   # SUBCATEGORY | CATEGORY | NONE
+      fallback_on_empty: CATEGORY
+      min_results_threshold: 5
+    scoring:
+      trends_platform_qualifier: 0.65    # 0.40 broad to 0.90 specific
+relevance:
+  enable_stage_3_5: true
+  enable_zombie_filter: true
+  enable_sponsored_filter: true
+  enable_llm_relevance: true
+  llm_relevance_max_calls_per_run: 50
+  ghost_market_block_recommendations: true
+```
+
+### Backward Compatibility Guarantee
+
+NULL on any new column = "unknown = include". Legacy rows score byte-identically to
+pre-SRDI baseline when new reads are disabled (toggle defaults). No retroactive
+penalization of legacy NONE-strictness rows.
+
+
+---
+
+## SRDI ADDENDUM -- New Pipeline Stages and Hardened Components
+**Source:** WAVE_A through WAVE_L | **Date:** Cycle 049 (2026-05-29)
+
+### Updated Pipeline (Post-SRDI)
+
+Stage 3  Fiverr Search (updated) -- category-constrained URL (R1); search_strictness_used recorded; sponsored/organic counts; pages_collected
+
+Stage 3.5  Result-Set Validation [NEW -- R2] -- per-gig relevance 0.0-1.0; ghost_market_flag (<0.20 relevance + >5 results); confidence_deduction tiered; ResultSetValidation row per (keyword_id, run_id); fail-soft per keyword
+
+Stage 4  Gig Detail (updated) -- is_sponsored from gig_cards (R3); last_reviewed_at extraction; category_path
+
+Stage 4.5  Zombie Detection [NEW -- R3] -- compute_zombie_score 0.0-1.0; new-seller guard (< 180 days = NOT zombie); threshold 0.50
+
+Stage 5  Seller Profile (updated) -- specialization + last-active signals
+
+Stage 6  External Signals (updated) -- fiverr_relevance_qualifier (R7); signal_quality_score = sqrt(freshness x relevance); Trends/Reddit/YouTube qualified
+
+Stage 7.5  LLM Relevance Gate [NEW -- R5] -- fires when RSV 0.35-0.75 AND final >= 45; cap 50/run; cache relevance_v1:{hash}; verdicts CLEAN/MIXED/CONTAMINATED/GHOST_MARKET
+
+Stage 8  Competitor Profiling (updated) -- relevance pre-filter: <40% skip synthesis; 40-80% trim to relevant-only; >=80% passthrough (R5)
+
+Stage 10  Scoring (updated) -- all 7 calculators + CM use qualified inputs (R4, R7); see per-file SRDI addenda
+
+Stage 12  Tag Assignment (updated) -- ghost_market_flag -> recommendation hard blocked (R2)
+
+Stage 16  Discovery (updated) -- 4 gates (R6): hypothesis specificity; dry-run pre-validator; relevance-gated outcomes; feedback filtering
+
+### New Modules (SRDI)
+
+| Module | Path | Epic |
+|---|---|---|
+| search_url_builder.py | src/collection/ | R1 |
+| result_set_validator.py | src/analysis/ | R2 |
+| result_set_validation_workflow.py | src/analysis/ | R2 |
+| zombie_gig_detector.py | src/analysis/ | R3 |
+| llm_relevance_classifier.py | src/analysis/ | R5 |
+| pre_validator.py | src/discovery/ | R6 |
+| monitors.py | src/analysis/ | R11 |
+
+### New config.yaml Keys
+
+  niches[].search.category_strictness: SUBCATEGORY | CATEGORY | NONE
+  niches[].search.fallback_on_empty: CATEGORY
+  niches[].search.min_results_threshold: 5
+  niches[].scoring.trends_platform_qualifier: 0.65
+  relevance.enable_stage_3_5: true
+  relevance.enable_zombie_filter: true
+  relevance.enable_sponsored_filter: true
+  relevance.enable_llm_relevance: true
+  relevance.llm_relevance_max_calls_per_run: 50
+  relevance.ghost_market_block_recommendations: true
+
+### Backward Compatibility
+
+NULL on any new column = include (not penalized). Legacy rows score byte-identically
+to pre-SRDI baseline when new reads are disabled via toggles.

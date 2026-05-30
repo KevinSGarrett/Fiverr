@@ -351,3 +351,53 @@ Result: **Confidence Modifier = 0.697** → "Good confidence" but reduced.
 The reason string: "Confidence reduced by: data freshness 49%, LLM completion 80%"
 
 Tag would NOT be demoted (modifier 0.697 > 0.5 threshold), but the dashboard would show the reduced confidence breakdown.
+
+
+---
+
+## SRDI ADDENDUM -- Confidence Modifier Integrity Extensions
+**Source:** WAVE_C (R2), WAVE_D (R3), WAVE_H (R7); Epics R2, R3, R7
+
+### New confidence_breakdown Entries (SRDI-Added)
+
+Key                          Source  Deduction/Bonus  Condition
+result_set_contamination     R2      -0.05 to -0.30   RSV 0.20-0.80 (tiered)
+ghost_market_detected        R2      -0.50            ghost_market_flag = True
+trc_reliability_low          R4.1    -0.05            trc_reliability_score < 0.70
+zombie_concentration_high    R3      -0.10            >= 50% gigs are zombie
+zombie_concentration_moderate R3     -0.05            25-49% gigs are zombie
+unconstrained_search         R1      -0.08            search_strictness_used = NONE
+low_youtube_legitimacy       R7      -0.03            youtube_count < 10
+high_youtube_legitimacy      R7      +0.02            youtube_count >= 500
+external_signal_quality      R7      weighted         sqrt(freshness x relevance)
+
+### RSV Deduction Integration
+
+Load ResultSetValidation for keyword/run:
+  If rsv is None: no deduction applied (backward compat -- identical to pre-SRDI)
+  If rsv.ghost_market_flag: confidence_breakdown["ghost_market_detected"] = -0.50
+  Elif rsv.category_contamination_flag:
+    score = rsv.result_set_relevance_score
+    if score >= 0.60: deduction = -0.05
+    elif score >= 0.40: deduction = -0.15
+    elif score >= 0.20: deduction = -0.30
+    else: deduction = -0.50
+    confidence_breakdown["result_set_contamination"] = deduction
+
+### Zombie Concentration Deduction
+
+zombie_count = sum(1 for g in top_gigs[:10] if g.is_zombie is True)
+zombie_fraction = zombie_count / max(len(top_gigs[:10]), 1)
+if zombie_fraction >= 0.50: confidence_breakdown["zombie_concentration_high"] = -0.10
+elif zombie_fraction >= 0.25: confidence_breakdown["zombie_concentration_moderate"] = -0.05
+
+### Freshness x Relevance Quality (R7)
+
+_compute_freshness_relevance_quality(keyword_id, db):
+  Load ExternalSignal for keyword
+  age_days = (now - esig.collected_at).days
+  freshness: <=7d->1.0; <=30d->0.85; <=90d->0.70; <=180d->0.50; else->0.30
+  relevance = esig.fiverr_relevance_qualifier or RSV.result_set_relevance_score or 0.70
+  quality = round(sqrt(freshness * relevance), 3)
+  Stored as ExternalSignal.signal_quality_score
+  Contributes to confidence as "external_signal_quality" entry
