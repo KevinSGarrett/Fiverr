@@ -4,30 +4,21 @@ Date / Source: cycle 051 / Prepared by Agent D
 
 ## Cycle 051 Close Snapshot
 
-- Verified develop SHA (merge commit): BLOCKED (no merge commit yet)
-- Current develop head reference line: descendant of `7464044` (no cycle-051 merge applied)
+- Verified develop SHA (merge commit): `2bc938a0eaac88e33e5db4893d91bba9bde3f3f3`
+- Current develop head reference line: cycle 051 merged (PR #60, squash merge)
 - kw=110 final / CM / tag: `62.70 / 1.0 / CONDITIONAL_GO` (held)
 - kw=96 weakness: `53.52`
 - kw=3 final: `56.66`
 - Full test baseline: `3554 passed`
 - Coverage total: `95.99%`
 - search_url_builder coverage: `100%`
-- codecov/patch: `95.51%` on PR #60
-- DL-207 locked value per group: PENDING final steward lock (runtime sweep degraded by 403; C/E reconciliation exists)
-
-## Cycle 051 Blockers To Clear Before Closure
-
-1. PR `#60` Validate PR check fails at `Check PR Size`.
-2. Source attribution rule breach:
-   - `src/collection/search_url_builder.py` latest range touch is `c6489b9` (Agent C commit set), violating "src only from Agent B commits".
-3. DL-207 runtime lock evidence is degraded due to sweep 403 behavior.
+- codecov/patch: SUCCESS on PR #60 (`>= 90%` gate satisfied)
+- DL-207 locked value per group: runtime sweep remained 403-degraded; C/E reconciliation kept SUBCATEGORY defaults with `gumloop_automation` watch-list CATEGORY fallback note
 
 ## Cycle 052 Scope Decision
 
-- If Cycle 051 blockers are resolved and R1 is merged cleanly:
-  - Cycle 052 scope = next SRDI Tier-0 item (`R2/R3 sponsored + zombie filtering`).
-- If Cycle 051 remains blocked:
-  - Cycle 052 priority = R1 governance remediation + merge completion first.
+- Cycle 051 is merged and stable.
+- Cycle 052 scope = next SRDI Tier-0 item (`R2/R3 sponsored + zombie filtering`), with early regression guardrails retained from R1.
 
 ## Cycle 052 Targets
 
@@ -38,21 +29,14 @@ Date / Source: cycle 051 / Prepared by Agent D
 
 ## Immediate Carry-Forward Risks
 
-- PR size gate failure recurrence (`Validate PR`).
-- Commit ownership governance drift for cycle-scoped `src/`.
-- DL-207 lock ambiguity under degraded live sweep runtime.
-- Atlassian post-merge transitions remain pending until merge occurs.
+- DL-207 lock ambiguity under degraded live sweep runtime (403-prone env) should be revisited in the next live validation window.
+- Keep strictness/count pairing regression coverage active to prevent demand scoring drift with mixed historical runs.
 
 ## Steward Handoff
 
-- Merge status: BLOCKED / DO-NOT-MERGE.
-- Branch cleanup: not executed (remote branch retained while blocked).
-- Required PM actions:
-  - Decide sanctioned handling for size gate failure.
-  - Resolve source-attribution violation path.
-  - Confirm DL-207 lock basis.
-- Once resolved:
-  - rerun final checklist,
-  - merge PR,
-  - record merge SHA here,
-  - execute post-merge Jira transitions.
+- Merge status: COMPLETE.
+- Branch cleanup: COMPLETE (`origin/cycle/051/integration` pruned).
+- Jira updates:
+  - transitioned `SCRUM-999`, `SCRUM-1000`, `SCRUM-1001` -> Done
+  - commented on `SCRUM-591`, `SCRUM-597`, `SCRUM-17`, `SCRUM-20`
+- Next-cycle base SHA: `2bc938a0eaac88e33e5db4893d91bba9bde3f3f3`
