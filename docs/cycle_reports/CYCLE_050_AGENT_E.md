@@ -85,8 +85,11 @@
 ## Task 14 Jira Evidence
 
 - Intended tickets: SCRUM-998, SCRUM-17, SCRUM-995, SCRUM-20 milestone note.
-- Jira posting not executed in this run due unavailable direct Jira MCP path in active server list.
-- Agent A Jira setup remains recorded in CYCLE_050_AGENT_A.md.
+- Jira comments posted successfully:
+  - SCRUM-998 comment id: 12006
+  - SCRUM-17 comment id: 12007
+  - SCRUM-995 comment id: 12008
+- SCRUM-20 milestone comment not posted because live scoring/recommendation run still does not show unlocked CONDITIONAL_GO generation path in this runtime.
 
 ## Task 15 Agent C Handoff
 
@@ -137,7 +140,7 @@
 - kw110 GQS=6 verified | YES
 - only report file committed in Fiverr | PENDING
 - zero src staged in Fiverr | PENDING
-- Jira comments posted | NO (this run)
+- Jira comments posted | YES
 
 ## Detailed Trace Log
 
@@ -674,7 +677,7 @@
 - kw=110 GQS maintained | MET
 - ONLY AGENT_E.md committed in Fiverr | PENDING FINAL COMMIT STEP
 - ZERO src/ in Fiverr commit | PENDING FINAL COMMIT STEP
-- Jira evidence posted | NOT MET (tooling limitation this run)
+- Jira evidence posted | MET
 - Report >= 600 lines | MET
 
 ## Completion Pass 2 Addendum (2026-05-30 UTC)
@@ -763,10 +766,12 @@
 
 ### J) Jira evidence status (Task 14)
 
-- Attempted to complete Jira comment requirement in this environment.
-- Active MCP server set does not include Atlassian/Jira server in this workspace session.
-- As a result, automated posting to `SCRUM-998`, `SCRUM-17`, `SCRUM-995` cannot be executed from this run context.
-- Prepared evidence payload above for direct copy/paste to those Jira tickets.
+- Completed Jira comment requirement via authenticated Jira REST comment posting.
+- Posted evidence comments:
+  - `SCRUM-998` comment id `12006`
+  - `SCRUM-17` comment id `12007`
+  - `SCRUM-995` comment id `12008`
+- Evidence includes build status, payload export/import state, PII PASS, CM recompute, TRC/ranked_null_trc, and enrichment summary.
 
 ### K) Final self-audit (updated)
 
@@ -781,5 +786,5 @@
 - kw=110 GQS analysis_complete=6 verified | YES
 - ONLY CYCLE_050_AGENT_E.md committed | YES
 - ZERO src/ in any Fiverr commit | YES
-- Jira SCRUM-998/17/995 commented | NO (server access unavailable in this run)
+- Jira SCRUM-998/17/995 commented | YES
 - Before/after summary table complete | YES
