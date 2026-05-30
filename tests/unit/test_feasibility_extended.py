@@ -1,6 +1,7 @@
 """Extended feasibility coverage tests for Cycle 047."""
 
 from __future__ import annotations
+
 from typing import Any
 
 from sqlalchemy import select
