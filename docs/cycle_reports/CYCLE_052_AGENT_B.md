@@ -224,7 +224,7 @@ Commits:
 - `7411120` feat(collection): add R3 relevance and zombie detail wiring
 - `08e0d51` feat(scoring): apply sponsored and zombie relevance filters
 - `464e760` test(r3): add detector, stage-4.5, and scoring regression coverage
-- `[this commit]` docs(strategy/report): Section 7 + final Agent B evidence
+- `80da8ed` docs(cycle-052): register REG-17/18/19 and finalize Agent B report
 
 Before each commit, staged file proof command used:
 ```text
