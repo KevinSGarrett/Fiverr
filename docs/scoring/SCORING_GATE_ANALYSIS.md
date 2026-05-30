@@ -2347,3 +2347,174 @@ Lowest-cost remaining action to close the final `0.44` gap:
 2. Capture autocomplete signal for kw=110 to lift demand
 
 Until one of the above lands, recommendations remain blocked by tag threshold.
+
+## Cycle 050 Agent C — Independent Verification (Post B+E)
+
+Date: 2026-05-30  
+Branch: `cycle/050/integration`  
+DB: `sqlite:///data/cycle037_live.db`
+
+### Verified B/E intake and on-disk deliverables
+
+- Read in full:
+  - `docs/cycle_reports/CYCLE_050_AGENT_B.md`
+  - `docs/cycle_reports/CYCLE_050_AGENT_E.md`
+- Verified claimed files present:
+  - `src/collection/workflows/reddit_signals.py`
+  - `src/collection/workflows/reddit_devvit_bridge.py`
+  - `src/migrations/srdi_r8/` (`8` Python files)
+  - `src/models/result_set_validation.py`
+  - `tests/unit/test_reddit_devvit_bridge.py`
+  - `tests/integration/test_reddit_devvit_bridge_integration.py`
+  - `data/imports/reddit_devvit/.gitkeep`
+  - `tests/fixtures/reddit_devvit_test_payload.json`
+  - `data/imports/reddit_devvit/cycle050_kw110_agent_e.json`
+- Payload schema verified:
+  - `schema_version=reddit_devvit_signal_v1`
+
+### ExternalSignal + migration verification
+
+- `external_signals` now includes Reddit demand rows:
+  - `signal_type=reddit_demand`
+  - `collection_method=reddit_devvit_bridge`
+  - sample rows found: `2` (keyword `110`)
+- `signal_json` contains required keys:
+  - `post_count_90d`: present
+  - `reddit_top_snippets`: present
+- PII guard check on stored payload:
+  - `username`: absent/`None`
+  - `author_id`: absent/`None`
+
+R8 migration state verified:
+
+- `result_set_validations` table: EXISTS
+- `gigs.is_sponsored`: present
+- `search_results.search_strictness_used`: present
+- `keyword_scores.scoring_method`: present
+- `keywords.ghost_market_flag`: present
+- `src.models.result_set_validation.ResultSetValidation`: importable
+
+### Scoring and gate outcome (Cycle 050)
+
+```text
+python run.py run --mode full --database-url sqlite:///data/cycle037_live.db
+Scoring complete: 129 keywords scored
+```
+
+kw snapshots after verified rerun:
+
+```text
+kw=110 final=62.70 cm=1.00 tag=CONDITIONAL_GO
+kw=96 final=35.80 cm=0.8389 tag=CAUTION
+kw=3 final=56.66 cm=0.95 tag=MONITOR
+```
+
+kw=110 component breakdown:
+
+```text
+demand_score: value=41.69 contrib=6.25
+competition_score: value=56.84 effective=43.16 contrib=4.32
+opportunity_score: value=42.28 contrib=8.46
+feasibility_score: value=78.04 contrib=19.51
+profitability_score: value=36.13 contrib=1.81
+intent_score: value=47.14 contrib=2.36
+weakness_score: value=100.0 contrib=20.0
+final_score=62.70 (CM=1.00)
+```
+
+Tag distribution after latest rerun:
+
+- `PASS=60`
+- `CAUTION=41`
+- `MONITOR=27`
+- `CONDITIONAL_GO=1`
+
+CM before/after for kw=110:
+
+- Before B+E import path: `0.9500`
+- After verified Reddit demand rows: `1.0000`
+- Result: missing Reddit deduction removed; gate crossed.
+
+### Recommendation gate verification
+
+```text
+python run.py recommendations-only --database-url sqlite:///data/cycle037_live.db
+Recommendations stage complete: {'run_id': '20260530_015909', 'eligible': 1, 'gates_passed': 1, 'generated': 1, 'skipped': 0, 'failed': 0, 'total_cost_usd': 0.0, 'markdown_exports': {}, 'export_paths': []}
+```
+
+Outcome:
+
+- `eligible=1`
+- `generated=1`
+- Pipeline verdict for Cycle 050: `CONDITIONAL_GO achieved`
+
+### Regression and suite verification
+
+Accumulated regression selector pack:
+
+```text
+python -m pytest -q ... -k "nested_price or zero_review ... or multi_row_fallback" -v --no-header
+21 passed, 418 deselected in 3.69s
+```
+
+File-scoped Reddit bridge checks:
+
+- `tests/unit/test_reddit_devvit_bridge.py`: `16 passed`
+- `tests/integration/test_reddit_devvit_bridge_integration.py`: `4 passed`
+
+Full unit suite:
+
+```text
+python -m pytest -q tests/unit/ --no-header
+3381 passed in 393.74s (0:06:33)
+```
+
+### Non-regression side checks
+
+Weakness isolation:
+
+- `kw=96 weakness=53.52` (stable, within expected band)
+- `kw=3 weakness=46.25` (stable)
+
+DB summary deltas vs C049 baseline (`GQA=164`, `external=58`, `reddit=0`):
+
+- `gig_quality_analyses: 166` (`+2`)
+- `external_signals: 60` (`+2`)
+- `reddit_demand: 2` (`+2`)
+- `result_set_validations: 0` (table added; rows not expected yet)
+
+### Profile rerun note (CLI constraint)
+
+Prompt requested:
+
+- `python run.py run --mode full --profile aggressive_new_seller`
+- `python run.py run --mode full --profile default`
+- `python run.py run --mode full --profile profitability_focus`
+
+Current CLI does not expose a `--profile` flag on `run.py run`.
+Attempting that command returns `Error: No such option: --profile`.
+Latest persisted kw=110 profile rows currently present in DB:
+
+- `aggressive_new_seller`: `62.70` (`CONDITIONAL_GO`)
+- `default`: `51.86` (`MONITOR`)
+- `profitability_focus`: `44.07` (`MONITOR`)
+
+### Cycle progression update
+
+- `C039:24.67`
+- `C040:37.56`
+- `C041:38.74`
+- `C042:38.74`
+- `C043:44.22`
+- `C044:42.04`
+- `C045:42.29`
+- `C046:42.21`
+- `C047:55.21`
+- `C048:58.66`
+- `C049:59.56`
+- `C050:62.70`
+
+Gap closure:
+
+- `C048 -> C049`: `1.34 -> 0.44`
+- `C049 -> C050`: `0.44 -> 0.00` (threshold crossed)
