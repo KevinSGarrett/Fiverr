@@ -6,9 +6,9 @@ Canonical reference for multi-agent cycle execution, regression packs, and hando
 
 ## Section 7: Permanent Regression Pack
 
-Accumulated regression selectors (15-name pack) plus cycle-specific permanent regressions.
+Accumulated regression selectors (18-name pack) plus cycle-specific permanent regressions.
 
-### Current 15-name accumulated pack (Cycle 052 baseline)
+### Current 18-name accumulated pack (Cycle 052 baseline)
 
 These are the required regressions that must stay green during Cycle 052:
 
@@ -29,6 +29,11 @@ These are the required regressions that must stay green during Cycle 052:
 | 13 | `test_weakness_multi_row_fallback_does_not_produce_extreme_value` | `tests/unit/test_weakness_multi_row_averaging.py` |
 | 14 | `test_fiverr_search_url_always_includes_category_filter_for_production_niches` (REG-13) | `tests/unit/test_search_url_builder.py` |
 | 15 | `test_unconstrained_search_result_applies_demand_confidence_deduction` (REG-14) | `tests/unit/test_search_url_builder.py` |
+| 17 | `test_sponsored_gigs_never_included_in_competition_top10` (REG-17) | `tests/unit/test_scoring_db_integration.py` |
+| 18 | `test_zombie_gigs_never_used_in_feasibility_review_barrier` (REG-18) | `tests/unit/test_feasibility_extended.py` |
+| 19 | `test_organic_trc_adjusted_when_sponsored_fraction_exceeds_20_percent` (REG-19) | `tests/unit/test_demand_score_extended.py` |
+
+REG-15 and REG-16 remain reserved for R2 and are intentionally not part of this Cycle 052 pack.
 
 Carry-forward Codex-fix guards that must remain named and green:
 
@@ -59,6 +64,7 @@ Carry-forward Codex-fix guards that must remain named and green:
 | --- | --- | --- |
 | 1.0 | 2026-05-29 | Cycle 049 Agent B: added weakness multi-row OWS averaging regression + kw=110 eligibility gate regression |
 | 1.1 | 2026-05-30 | Cycle 051 Agent B: added R1 search URL category-filter + unconstrained demand-deduction regressions |
+| 1.3 | 2026-05-30 | Cycle 052 Agent B: added REG-17/18/19 (sponsored competition exclusion, zombie feasibility barrier exclusion, TRC sponsored-fraction multiplier). |
 
 ### 12-name accumulated pack (reference)
 
