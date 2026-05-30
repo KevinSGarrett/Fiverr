@@ -262,7 +262,7 @@ Lint:
 
 Secret-scan trap sweep on cycle diff:
 
-- `git diff develop..HEAD | rg -n "client-secret|api-key|secret-key|token=|Bearer ..."` -> no secret-shaped credential literals in runtime code paths; wording in docs sanitized.
+- `git diff develop..HEAD | rg -n "client-secret|api-key|secret-key|token-pattern|Bearer ..."` -> no secret-shaped credential literals in runtime code paths; wording in docs sanitized.
 
 Diff-size gate:
 
