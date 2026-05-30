@@ -90,10 +90,8 @@ True
 
 ### 2.3 Section 7 strategy doc check
 
-- `PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md` currently contains Cycle 051 entries including:
-  - `test_fiverr_search_url_always_includes_category_filter_for_production_niches`
-  - `test_unconstrained_search_result_applies_demand_confidence_deduction`
-- Section 7 currently does not yet include the full 15-name accumulated pack in one normalized list; this is flagged for B to maintain when appending R3 permanent regressions.
+- `PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md` Section 7 now explicitly contains the full 15-name accumulated pack, including REG-13 and REG-14.
+- Section 7 also now contains the two Cycle-051 Codex-fix guards as named carry-forward entries.
 
 ### 2.4 Hydration anchors verified
 
@@ -365,9 +363,10 @@ python -m pytest -q tests/unit/test_scoring_db_integration.py -k "pairs_strictne
 
 ### 6.3 Section 7 registration status
 
-- These two Cycle-051 guard tests are not currently listed in Section 7.
-- Agent B instruction:
-  - register exact names in Section 7 while appending REG-17/18/19 if still missing at implementation time.
+- Both Cycle-051 guard tests are now listed in Section 7 as named carry-forward entries:
+  - `test_demand_pairs_strictness_with_selected_total_result_count_row`
+  - `test_demand_ignores_legacy_migration_default_none_strictness`
+- Agent B still appends REG-17/18/19 during implementation as required.
 
 ### 6.4 Stability requirement
 
@@ -889,7 +888,7 @@ A committed ZERO src/ and ZERO tests/: YES
 
 ---
 
-## APPENDIX B -- AGENT B HANDOFF (verbatim contract)
+## APPENDIX A -- AGENT B HANDOFF (verbatim contract)
 
 Branch cycle/052/integration (base 12c3866). B authors ALL src/ + the new tests; never git add -A.
 

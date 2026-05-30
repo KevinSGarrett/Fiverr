@@ -8,6 +8,35 @@ Canonical reference for multi-agent cycle execution, regression packs, and hando
 
 Accumulated regression selectors (15-name pack) plus cycle-specific permanent regressions.
 
+### Current 15-name accumulated pack (Cycle 052 baseline)
+
+These are the required regressions that must stay green during Cycle 052:
+
+| # | Test name | File |
+| --- | --- | --- |
+| 1 | `test_extract_price_text_from_payload_uses_nested_price_amount` | `tests/unit/test_gig_detail.py` |
+| 2 | `test_parse_gig_detail_from_html_keeps_zero_review_count` | `tests/unit/test_gig_detail.py` |
+| 3 | `test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration` | `tests/unit/test_seller_profile.py` |
+| 4 | `test_seller_profile_fetcher_maps_parser_fields_for_persistence` | `tests/unit/test_seller_profile.py` |
+| 5 | `test_gig_detail_fetcher_does_not_overwrite_existing_optional_fields` | `tests/unit/test_gig_detail.py` |
+| 6 | `test_seller_profile_live_markup_drift_regression_spec` | `tests/unit/test_seller_profile.py` |
+| 7 | `test_scoring_fallback_queries_scope_to_active_run_id` | `tests/unit/test_scoring_db_integration.py` |
+| 8 | `test_scoring_fallback_queries_recover_when_latest_run_unlinked` | `tests/unit/test_scoring_db_integration.py` |
+| 9 | `test_demand_uses_search_result_total_result_count_when_available` | `tests/unit/test_scoring_db_integration.py` |
+| 10 | `test_competition_score_session_falls_back_to_latest_profile_when_run_mismatch` | `tests/unit/test_competition_score.py` |
+| 11 | `test_scoring_uses_card_urls_with_querystrings_for_sparse_links` | `tests/unit/test_scoring_db_integration.py` |
+| 12 | `test_confidence_modifier_uses_current_run_context_not_none` | `tests/unit/test_confidence_score.py` |
+| 13 | `test_weakness_multi_row_fallback_does_not_produce_extreme_value` | `tests/unit/test_weakness_multi_row_averaging.py` |
+| 14 | `test_fiverr_search_url_always_includes_category_filter_for_production_niches` (REG-13) | `tests/unit/test_search_url_builder.py` |
+| 15 | `test_unconstrained_search_result_applies_demand_confidence_deduction` (REG-14) | `tests/unit/test_search_url_builder.py` |
+
+Carry-forward Codex-fix guards that must remain named and green:
+
+| Test name | File | Purpose |
+| --- | --- | --- |
+| `test_demand_pairs_strictness_with_selected_total_result_count_row` | `tests/unit/test_scoring_db_integration.py` | Strictness/count row pairing guard |
+| `test_demand_ignores_legacy_migration_default_none_strictness` | `tests/unit/test_scoring_db_integration.py` | Migration-default `'NONE'` guard in demand path |
+
 ### Cycle 049 additions (2026-05-29)
 
 | Test name | File | Purpose |
