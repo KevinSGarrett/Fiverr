@@ -831,6 +831,17 @@ Success: no issues found in 215 source files
 - C performed zero edits under `src/`.
 - C report-only file operation for final commit.
 - Existing unrelated untracked PM artifacts pre-exist and were not altered by C.
+- Commit-scoped file proof command:
+
+```powershell
+git show --name-only --pretty="" ced8218c2b26d6c3dfdd99bb44b09f2472b7bcf9
+```
+
+Output:
+
+```text
+docs/cycle_reports/CYCLE_052_AGENT_C.md
+```
 
 Verdict: PASS.
 
@@ -873,8 +884,12 @@ No defects; R3 verified.
 
 ### 25.3 Commit/push
 
-- Planned commit message:
+- Executed commit message:
   - `docs(cycle-052): Agent C integration verification`
+- Executed branch push:
+  - `origin/cycle/052/integration`
+- Commit SHA (report-only commit):
+  - `ced8218c2b26d6c3dfdd99bb44b09f2472b7bcf9`
 
 ### 25.4 Completion requirements
 
@@ -1163,6 +1178,7 @@ F receives:
 - targeted coverage-gap list (Appendix C11).
 - confirmation that 18-selector + critical test are already green.
 - confirmation that OFF parity and ON kw=110 safety are already proven.
+- branch SHA verified by C: `ced8218c2b26d6c3dfdd99bb44b09f2472b7bcf9`.
 
 ---
 
@@ -1217,6 +1233,10 @@ Cycle 052 C run outcome: clean on first pass; loop not needed.
 - C does not transition stories.
 - C posts verification status and defects (if any) to control task.
 - No source-change patching by C.
+- Control-task comment posted:
+  - Issue: `SCRUM-1002`
+  - Comment ID: `12079`
+  - Content: PASS/FAIL summary + verification SHA + clean-bill statement (no defects routed).
 
 ---
 
