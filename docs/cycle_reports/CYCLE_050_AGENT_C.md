@@ -348,6 +348,14 @@ Latest persisted kw=110 rows by profile:
 - default: `51.86` (`MONITOR`)
 - profitability_focus: `44.07` (`MONITOR`)
 
+No-regression check (`latest` vs previous persisted baseline row for kw=110):
+
+- aggressive_new_seller: `62.70 -> 62.70` (`delta +0.00`)
+- default: `43.68 -> 51.86` (`delta +8.18`, uplift)
+- profitability_focus: `34.85 -> 44.07` (`delta +9.22`, uplift)
+
+Result: no profile shows a regression (negative delta) greater than `5` points.
+
 ---
 
 ## Task 14 — PM cycle log
@@ -490,6 +498,7 @@ Checklist:
 - CLI smoke checks pass: YES
 - Jira evidence posted + required transitions executed: YES
 - Agent C report published: YES
+- Agent C report + supporting docs committed: YES (`b43062fa0b55d7d41489bf3fa3d870d83e234b92`)
 
 Overall completion status: PASS
 
