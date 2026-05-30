@@ -55,3 +55,12 @@ storage_state.json
 # Build/distribution
 build/
 dist/
+PM_Pack/_log.txt
+PM_Pack/_err.txt
+PM_Pack/_results.txt
+PM_Pack/tasks.txt
+PM_Pack/py_test.txt
+PM_Pack/test_out.txt
+PM_Pack/jira.py
+PM_Pack/final_batch.py
+PM_Pack/srdi_update*.py

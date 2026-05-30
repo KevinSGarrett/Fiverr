@@ -49,3 +49,55 @@ python -m pytest -q tests/unit/test_gig_detail.py \
 ```
 
 Expected: 20 passed (12 named regressions + superset matches).
+
+
+---
+
+## Section 8: Task & Prompt-Length Standard (effective Cycle 052+)
+
+This section is authoritative for per-agent task counts and prompt length minimums. It
+supersedes the older "18+/20+ task" and prior length figures referenced anywhere else.
+
+### 8.1 Task minimum (raised 20 -> 25)
+
+Every cursor-agent prompt MUST contain **at least 25 tasks**, each sized LARGE, XLARGE,
+XXLARGE, or **XXXLARGE**. No standalone small/medium tasks.
+
+| Size | Sub-steps | Typical use |
+| --- | --- | --- |
+| LARGE | 4-6 | a single focused deliverable (one module section, one test group) |
+| XLARGE | 6-8 | a multi-part deliverable with verification |
+| XXLARGE | 8-12 | a subsystem + its tests + its wiring |
+| XXXLARGE | 12+ (or spans >=2 files with cross-checks) | a full feature slice end-to-end, or a migration + model + wiring + tests |
+
+### 8.2 Legitimacy rule (binding)
+
+Every task must be **real, project-advancing work** that moves the system toward end-to-end
+completion. Filler, busywork, or padding tasks invented only to reach the count of 25 are a
+PM failure and an agent failure. Each task must map to: a spec requirement, an acceptance
+criterion, a regression, a gate, a re-collection/validation need, or a concrete integration
+step. If a cycle's real scope does not yield 25 substantive tasks for an agent, the PM splits
+larger deliverables into legitimately separable verification-bearing steps -- never invents
+hollow ones.
+
+### 8.3 Prompt length minimum (raised +35%)
+
+| Agent | Old min | New min (+35%) |
+| --- | --- | --- |
+| A | 600 | **810** |
+| B | 700 | **945** |
+| E | 600 | **810** |
+| C | 500 | **675** |
+| F | 600 | **810** |
+| D | 700 | **945** |
+| **Total** | 3,700 | **4,995** |
+
+Length is a floor, not a target; it must be filled with substantive content (code skeletons,
+test stubs, verbatim queries, deliverable matrices, decision records, trace ledgers, report
+templates) -- never filler to hit a line count.
+
+### Version history (continued)
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.2 | 2026-05-30 | Post-Cycle-051 PM: task minimum 20 -> 25 (LARGE-XXXLARGE); prompt length minimums +35% (A810/B945/E810/C675/F810/D945; total 4995); added explicit legitimacy rule (no filler tasks). |
