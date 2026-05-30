@@ -38,6 +38,27 @@ def _feasibility_config(config: dict[str, Any] | None) -> dict[str, Any]:
     return dict(feasibility_cfg)
 
 
+def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
+    relevance_cfg = config.get("relevance")
+    if not isinstance(relevance_cfg, Mapping):
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
+    return {
+        "enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True)),
+        "enable_zombie_filter": bool(relevance_cfg.get("enable_zombie_filter", True)),
+        "top_n_for_scoring": max(1, int(relevance_cfg.get("top_n_for_scoring", 10))),
+    }
+
+
 def _normalize_gap_flags(raw_flags: Any) -> list[str]:
     if not isinstance(raw_flags, list):
         return []
@@ -419,10 +440,21 @@ class NewSellerFeasibilityCalculator:
         session: Session,
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        relevance_cfg = _relevance_config(config)
+        top_n_for_scoring = int(relevance_cfg["top_n_for_scoring"])
+        candidate_window = max(top_n_for_scoring, 10) * 3
+
+        def _eligible(gig: Gig) -> bool:
+            if relevance_cfg["enable_sponsored_exclusion"] and getattr(gig, "is_sponsored", None) is True:
+                return False
+            if relevance_cfg["enable_zombie_filter"] and bool(getattr(gig, "is_zombie", False)):
+                return False
+            return True
+
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
         top_results = (
             session.query(SearchResult)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= candidate_window)
             .order_by(SearchResult.rank.asc())
             .all()
         )
@@ -442,7 +474,7 @@ class NewSellerFeasibilityCalculator:
             ]
             if scoped_results:
                 top_results = scoped_results
-        top_card_urls = self._extract_top_card_urls(top_results, limit=10)
+        top_card_urls = self._extract_top_card_urls(top_results, limit=candidate_window)
         top_card_url_identities = {
             identity
             for identity in (
@@ -507,7 +539,7 @@ class NewSellerFeasibilityCalculator:
                 return (card_rank, position, gig_id)
 
             top_gigs.sort(key=_rank_key)
-            top_gigs = top_gigs[:10]
+            top_gigs = top_gigs[:candidate_window]
         if not top_gigs:
             fallback_query = session.query(Gig).filter(Gig.keyword_id == keyword_id)
             if active_run_id is not None:
@@ -515,7 +547,7 @@ class NewSellerFeasibilityCalculator:
             top_gigs = (
                 fallback_query
                 .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
-                .limit(10)
+                .limit(candidate_window)
                 .all()
             )
             # Some latest search runs contain unlinked rows; use any keyword gigs
@@ -525,9 +557,10 @@ class NewSellerFeasibilityCalculator:
                     session.query(Gig)
                     .filter(Gig.keyword_id == keyword_id)
                     .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
-                    .limit(10)
+                    .limit(candidate_window)
                     .all()
                 )
+        top_gigs = [gig for gig in top_gigs if _eligible(gig)][:top_n_for_scoring]
         seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
         accessible_levels = {
             "",

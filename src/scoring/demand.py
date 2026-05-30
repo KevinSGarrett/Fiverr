@@ -64,6 +64,15 @@ def _demand_config(config: dict[str, Any] | None) -> dict[str, Any]:
     return dict(demand_cfg)
 
 
+def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {"enable_sponsored_exclusion": True}
+    relevance_cfg = config.get("relevance")
+    if not isinstance(relevance_cfg, Mapping):
+        return {"enable_sponsored_exclusion": True}
+    return {"enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True))}
+
+
 def _extract_cluster_context(payload: Mapping[str, Any]) -> dict[str, Any] | None:
     cluster_id = payload.get("cluster_id")
     if cluster_id is None:
@@ -227,7 +236,10 @@ def _is_post_r1_none_strictness(row: SearchResult) -> bool:
     return False
 
 
-def _resolve_marketplace_snapshot(session: Session, keyword_id: int) -> tuple[float | None, str | None]:
+def _resolve_marketplace_snapshot(
+    session: Session,
+    keyword_id: int,
+) -> tuple[float | None, str | None, int | None, int | None]:
     """Resolve demand count and paired strictness from the same source row."""
     max_total_result_row = (
         session.query(SearchResult)
@@ -243,7 +255,20 @@ def _resolve_marketplace_snapshot(session: Session, keyword_id: int) -> tuple[fl
         # Legacy rows can carry migration defaults ("NONE") that were never explicitly collected.
         if strictness == "NONE" and not _is_post_r1_none_strictness(max_total_result_row):
             strictness = None
-        return float(max_total_result_row.total_result_count), strictness
+        sponsored_gig_count = (
+            int(max_total_result_row.sponsored_gig_count)
+            if max_total_result_row.sponsored_gig_count is not None
+            else None
+        )
+        total_gig_count: int | None = None
+        if (
+            max_total_result_row.sponsored_gig_count is not None
+            and max_total_result_row.organic_gig_count is not None
+        ):
+            total_gig_count = int(max_total_result_row.sponsored_gig_count + max_total_result_row.organic_gig_count)
+        elif isinstance(max_total_result_row.gig_cards, list):
+            total_gig_count = len(max_total_result_row.gig_cards)
+        return float(max_total_result_row.total_result_count), strictness, sponsored_gig_count, total_gig_count
 
     # Only use row-count as a coarse fallback when we have broad top-result coverage.
     # Sparse partial rows (e.g. 1-2 persisted cards) understate true marketplace volume
@@ -258,8 +283,37 @@ def _resolve_marketplace_snapshot(session: Session, keyword_id: int) -> tuple[fl
         .count()
     )
     if fallback_count >= 10:
-        return float(fallback_count), None
-    return None, None
+        return float(fallback_count), None, None, None
+    return None, None, None, None
+
+
+def trc_adjustment(
+    sponsored_gig_count: int | None,
+    total: int | None,
+    config: dict[str, Any] | None,
+    strictness_used: str | None,
+) -> float:
+    """
+    R3 sponsored-fraction multiplier.
+
+    SUPERSEDED by R4.1 TRC reliability multiplier. Replace this body in R4.1;
+    do not stack both adjustments (DL-209).
+    """
+    if not _relevance_config(config).get("enable_sponsored_exclusion", True):
+        return 1.0
+    if strictness_used is None:
+        # Preserve the C051 migration-default NONE guard behavior for legacy rows.
+        return 1.0
+    if sponsored_gig_count is None or total is None:
+        return 1.0
+    sponsored_fraction = float(sponsored_gig_count) / max(float(total), 1.0)
+    if sponsored_fraction <= 0.10:
+        return 1.00
+    if sponsored_fraction <= 0.20:
+        return 0.90
+    if sponsored_fraction <= 0.35:
+        return 0.80
+    return 0.70
 
 
 class DemandScoreCalculator:
@@ -286,12 +340,24 @@ class DemandScoreCalculator:
         total_weight_available = 0.0
 
         total_result_count = self._as_float(signals.get("total_result_count"))
+        search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
+        count_multiplier = trc_adjustment(
+            sponsored_gig_count=self._as_int(signals.get("sponsored_gig_count")),
+            total=self._as_int(signals.get("total_gig_count")),
+            config=config,
+            strictness_used=search_strictness_used,
+        )
         if total_result_count is not None:
-            count_score = self._normalize_count(total_result_count)
+            count_score = self._normalize_count(total_result_count) * count_multiplier
             score_components["fiverr_count"] = ScoreComponent(
                 value=count_score,
                 weight=self._COUNT_WEIGHT,
                 raw=total_result_count,
+                note=(
+                    f"TRC multiplier applied: {count_multiplier:.2f}"
+                    if count_multiplier != 1.0
+                    else ""
+                ),
             )
             weighted_sum += count_score * self._COUNT_WEIGHT
             total_weight_available += self._COUNT_WEIGHT
@@ -366,7 +432,6 @@ class DemandScoreCalculator:
             )
 
         base_demand_score = weighted_sum / total_weight_available
-        search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
         if search_strictness_used == "NONE":
             confidence_breakdown["unconstrained_search"] = UNCONSTRAINED_DEMAND_DEDUCTION
             score_components["unconstrained_search"] = ScoreComponent(
@@ -460,7 +525,10 @@ class DemandScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        total_result_count, search_strictness_used = _resolve_marketplace_snapshot(session, keyword_id)
+        total_result_count, search_strictness_used, sponsored_gig_count, total_gig_count = _resolve_marketplace_snapshot(
+            session,
+            keyword_id,
+        )
         google_trends = (
             session.query(ExternalSignal)
             .filter(
@@ -486,6 +554,8 @@ class DemandScoreCalculator:
             "trends_12mo_score": self._signal_float(google_trends, "trends_12mo_score"),
             "reddit_demand_intent_score": self._signal_float(reddit_demand, "reddit_demand_intent_score"),
             SEARCH_STRICTNESS_COLUMN: search_strictness_used,
+            "sponsored_gig_count": sponsored_gig_count,
+            "total_gig_count": total_gig_count,
         }
 
     @staticmethod

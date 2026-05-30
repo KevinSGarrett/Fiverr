@@ -80,6 +80,13 @@ class ConfidenceScoreModifier:
         if mode in {"keyword_only", "feasibility"}:
             deductions["partial_depth_mode"] = -0.25
 
+        if self._as_bool(context.get("enable_zombie_filter"), True):
+            zombie_fraction = max(0.0, self._as_float(context.get("zombie_fraction"), 0.0))
+            if zombie_fraction >= 0.50:
+                deductions["zombie_concentration_high"] = -0.10
+            elif zombie_fraction >= 0.25:
+                deductions["zombie_concentration_moderate"] = -0.05
+
         deduction_total = sum(deductions.values())
         raw_modifier = base_modifier + deduction_total
         final_modifier = self._clamp_0_1(raw_modifier)

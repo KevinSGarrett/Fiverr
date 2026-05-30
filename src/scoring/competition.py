@@ -47,6 +47,27 @@ def _competition_config(config: dict[str, Any] | None) -> dict[str, Any]:
     return dict(competition_cfg)
 
 
+def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
+    relevance_cfg = config.get("relevance")
+    if not isinstance(relevance_cfg, Mapping):
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
+    return {
+        "enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True)),
+        "enable_zombie_filter": bool(relevance_cfg.get("enable_zombie_filter", True)),
+        "top_n_for_scoring": max(1, int(relevance_cfg.get("top_n_for_scoring", 10))),
+    }
+
+
 def _normalize_text_key(value: str) -> str:
     return value.strip().upper().replace("-", "_").replace(" ", "_")
 
@@ -472,15 +493,27 @@ class CompetitionScoreCalculator:
         session: Session,
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        relevance_cfg = _relevance_config(config)
+        top_n_for_scoring = int(relevance_cfg["top_n_for_scoring"])
+        candidate_window = max(top_n_for_scoring, 10) * 3
+
+        def _eligible(gig: Gig) -> bool:
+            if relevance_cfg["enable_sponsored_exclusion"] and getattr(gig, "is_sponsored", None) is True:
+                return False
+            if relevance_cfg["enable_zombie_filter"] and bool(getattr(gig, "is_zombie", False)):
+                return False
+            return True
+
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
         total_result_count = self._resolve_marketplace_result_count(session, keyword_id)
         top_gigs = (
             session.query(Gig)
             .join(SearchResult, SearchResult.gig_id == Gig.id)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= 10)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= candidate_window)
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        top_gigs = [gig for gig in top_gigs if _eligible(gig)][:top_n_for_scoring]
         top_sellers = [gig.seller for gig in top_gigs if gig.seller is not None]
         review_counts = [float(gig.review_count) for gig in top_gigs if gig.review_count is not None]
         starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
