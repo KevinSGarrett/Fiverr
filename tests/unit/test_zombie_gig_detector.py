@@ -147,3 +147,51 @@ def test_detector_ignores_unparseable_values_and_empty_strings() -> None:
     score, signals = compute_zombie_score(gig, seller, reference_date=ref)
     assert score == 0.20
     assert signals == {"never_reviewed": True}
+
+
+def test_new_seller_guard_boundary_179_vs_180_days() -> None:
+    ref = datetime(2026, 1, 1, tzinfo=UTC)
+    gig = _gig(review_count=2, orders_in_queue=0, last_reviewed_at=None)
+    new_seller = _seller(member_since=ref - timedelta(days=179), response_rate=10)
+    old_enough_seller = _seller(member_since=ref - timedelta(days=180), response_rate=10)
+
+    score_new, signals_new = compute_zombie_score(gig, new_seller, reference_date=ref)
+    score_old, signals_old = compute_zombie_score(gig, old_enough_seller, reference_date=ref)
+
+    assert score_new == 0.0
+    assert signals_new.get("new_seller") is True
+    assert score_old >= 0.50
+    assert "new_seller" not in signals_old
+
+
+def test_stale_boundary_365_not_stale_but_366_is_stale() -> None:
+    ref = datetime(2026, 2, 1, tzinfo=UTC)
+    seller = _seller(member_since=datetime(2020, 1, 1, tzinfo=UTC), response_rate=100)
+    gig_365 = _gig(review_count=50, orders_in_queue=1, last_reviewed_at=ref - timedelta(days=365))
+    gig_366 = _gig(review_count=50, orders_in_queue=1, last_reviewed_at=ref - timedelta(days=366))
+
+    score_365, signals_365 = compute_zombie_score(gig_365, seller, reference_date=ref)
+    score_366, signals_366 = compute_zombie_score(gig_366, seller, reference_date=ref)
+
+    assert score_365 == 0.0
+    assert "stale_reviews_days" not in signals_365
+    assert score_366 == 0.25
+    assert signals_366["stale_reviews_days"] == 366
+
+
+def test_no_queue_signal_requires_review_count_below_five() -> None:
+    ref = datetime(2026, 2, 1, tzinfo=UTC)
+    seller = _seller(member_since=datetime(2020, 1, 1, tzinfo=UTC), response_rate=100)
+    gig = _gig(review_count=5, orders_in_queue=0, last_reviewed_at=ref)
+    score, signals = compute_zombie_score(gig, seller, reference_date=ref)
+    assert score == 0.30
+    assert "no_queue_low_reviews" not in signals
+
+
+def test_detector_is_deterministic_with_fixed_reference_date() -> None:
+    ref = datetime(2026, 2, 1, tzinfo=UTC)
+    seller = _seller(member_since=datetime(2020, 1, 1, tzinfo=UTC), response_rate=29)
+    gig = _gig(review_count=4, orders_in_queue=0, last_reviewed_at=ref - timedelta(days=400))
+    first = compute_zombie_score(gig, seller, reference_date=ref)
+    second = compute_zombie_score(gig, seller, reference_date=ref)
+    assert first == second

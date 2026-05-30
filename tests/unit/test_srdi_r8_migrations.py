@@ -159,6 +159,47 @@ def test_migration_m7_is_idempotent_and_rollback_safe() -> None:
     assert "zombie_score" in _column_names(engine, "gigs")
 
 
+def test_migration_m7_rollback_non_sqlite_attempts_drop_columns() -> None:
+    executed: list[str] = []
+
+    class _Connection:
+        def exec_driver_sql(self, sql: str) -> None:
+            executed.append(sql)
+
+    class _BeginCtx:
+        def __enter__(self) -> _Connection:
+            return _Connection()
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+    class _Dialect:
+        name = "postgresql"
+
+    class _Engine:
+        dialect = _Dialect()
+
+        @staticmethod
+        def begin() -> _BeginCtx:
+            return _BeginCtx()
+
+    m7.rollback(_Engine())  # type: ignore[arg-type]
+    assert "ALTER TABLE gigs DROP COLUMN zombie_score" in executed
+    assert "ALTER TABLE gigs DROP COLUMN zombie_signals" in executed
+    assert "ALTER TABLE gigs DROP COLUMN last_reviewed_at" in executed
+    assert "ALTER TABLE search_results DROP COLUMN pages_collected" in executed
+
+
+def test_migration_m7_drop_column_helper_swallow_exceptions() -> None:
+    class _FailingConnection:
+        @staticmethod
+        def exec_driver_sql(_sql: str) -> None:
+            raise RuntimeError("drop not supported")
+
+    # Ensures defensive branch remains no-throw for unsupported dialect operations.
+    m7._drop_column(_FailingConnection(), "gigs", "zombie_score")
+
+
 def test_result_set_validation_model_is_importable() -> None:
     assert ResultSetValidation.__tablename__ == "result_set_validations"
 
