@@ -89,6 +89,10 @@ Jira actions completed:
 - `gh pr list --state all --limit 10` confirms PRs `#55`, `#56`, `#57`, `#58` all **MERGED**.
 - Remote cycle branches found before cleanup: `origin/cycle/009/integration`, `origin/cycle/050/integration`.
 - Deleted stale `origin/cycle/009/integration`.
+- Explicit stale-delete attempts for requested branches:
+  - `git push origin --delete cycle/049/integration` -> remote ref does not exist
+  - `git push origin --delete cycle/048/integration` -> remote ref does not exist
+- Current remote cycle branches: `origin/cycle/050/integration` only.
 - `git remote prune origin` executed successfully.
 - `gh pr list --state open --limit 20`: empty (no open PRs).
 - Branch protection check:
@@ -196,7 +200,7 @@ Agent E package:
 - Devvit app location: `C:\RedditDevvit\fiverrresearchsy`
 - Subreddit for testing: `fiverrresearchsy_dev`
 - Export path: `C:\Fiverr\Fiverr\data\imports\reddit_devvit`
-- Payload contract (`reddit_devvit_signal_v1`):
+- Payload contract (`reddit_devvit_signal_v1`, confirmed against `SCRUM-995` description):
   - `schema_version`, `source_mode`, `collection_method`, `match_strategy`
   - `niche_id`, `keywords[]`, `subreddits_searched[]`, `posts_collected`
   - `post_count_90d`, `reddit_post_count_90d`, `reddit_top_snippets`
