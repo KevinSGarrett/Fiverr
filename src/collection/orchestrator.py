@@ -341,6 +341,7 @@ async def run_collection_pipeline(
             checkpoint_manager=checkpoint_mgr,
             dry_run=dry_run,
             fetcher=fetcher,
+            config=config_payload,
         )
         summary["gig_detail_jobs_run"] += 1
 

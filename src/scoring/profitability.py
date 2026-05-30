@@ -15,11 +15,20 @@ from src.scoring.contracts import ProfitabilityScoreResult, ScoreComponent
 
 def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(config, Mapping):
-        return {"enable_zombie_filter": True, "top_n_for_scoring": 10}
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
     relevance_cfg = config.get("relevance")
     if not isinstance(relevance_cfg, Mapping):
-        return {"enable_zombie_filter": True, "top_n_for_scoring": 10}
+        return {
+            "enable_sponsored_exclusion": True,
+            "enable_zombie_filter": True,
+            "top_n_for_scoring": 10,
+        }
     return {
+        "enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True)),
         "enable_zombie_filter": bool(relevance_cfg.get("enable_zombie_filter", True)),
         "top_n_for_scoring": max(1, int(relevance_cfg.get("top_n_for_scoring", 10))),
     }
@@ -329,6 +338,8 @@ class ProfitabilityScoreCalculator:
                     .limit(candidate_window)
                     .all()
                 )
+        if relevance_cfg["enable_sponsored_exclusion"]:
+            top_gigs = [gig for gig in top_gigs if getattr(gig, "is_sponsored", None) is not True]
         if relevance_cfg["enable_zombie_filter"]:
             top_gigs = [gig for gig in top_gigs if not bool(getattr(gig, "is_zombie", False))]
         top_gigs = top_gigs[:top_n_for_scoring]

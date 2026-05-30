@@ -114,10 +114,20 @@ def test_profitability_kw110_equivalent_medium_price_path() -> None:
 
 def test_profitability_relevance_config_defaults_and_overrides() -> None:
     assert _relevance_config("bad") == {  # type: ignore[arg-type]
+        "enable_sponsored_exclusion": True,
         "enable_zombie_filter": True,
         "top_n_for_scoring": 10,
     }
-    cfg = _relevance_config({"relevance": {"enable_zombie_filter": False, "top_n_for_scoring": 5}})
+    cfg = _relevance_config(
+        {
+            "relevance": {
+                "enable_sponsored_exclusion": False,
+                "enable_zombie_filter": False,
+                "top_n_for_scoring": 5,
+            }
+        }
+    )
+    assert cfg["enable_sponsored_exclusion"] is False
     assert cfg["enable_zombie_filter"] is False
     assert cfg["top_n_for_scoring"] == 5
 
