@@ -238,17 +238,23 @@ Action:
 
 ### Task 8 -- last_reviewed_at availability + parseability
 
-FINDING: `last_reviewed_at` is unavailable in current DB snapshot; live format validation blocked by 403.
+FINDING: `last_reviewed_at` remains unavailable in DB snapshot, but live review recency strings were observed from gig detail pages in the reachable live window.
 Evidence:
 - `gigs` schema in this DB does not yet include `last_reviewed_at` column.
 - `review_snippets` non-empty rows: 0.
-- No parseable date strings available in fallback data.
+- Live gig-page review sections included relative recency strings:
+  - `2 weeks ago`
+  - `1 month ago`
+  - `2 months ago`
+  - `3 months ago`
+  - `5 months ago`
 Action:
 - Gap list for B:
   - Keep parser None-safe.
   - Include support for formats already in spec (`Jan 2022`, ISO date, relative date).
+  - Confirm relative plural units (`week(s) ago`, `month(s) ago`) parse to expected dates.
   - Add telemetry/log counters for unknown format tail once live recollection starts.
-- Confidence on date-format inventory: LOW.
+- Confidence on date-format inventory: MEDIUM-LOW (live partial, DB empty).
 
 ### Task 9 -- response_rate availability
 
@@ -427,6 +433,8 @@ Risk interpretation:
 - No evidence of harmful sponsored concentration in niche-level fallback rows.
 Expected gate note:
 - classify as **watchlist / at-risk-partial-evidence**, not failed.
+Expected kw=110 outcome statement for D gate:
+- **Expected to HOLD CONDITIONAL_GO**, with explicit watchlist status until post-R3 recollection confirms row-level kw=110 fractions.
 Action:
 - D should closely monitor kw=110 in the scoring rerun after B merge.
 - Recollection priority places support_kb_readiness first.
@@ -571,13 +579,19 @@ Confidence implication:
 ## Last-Reviewed Date Formats and Gap List (Task 8 + Task 19)
 
 Observed date strings in this cycle:
-- none (no populated review snippet corpus in fallback rows)
+- DB fallback corpus: none (no populated review snippet rows)
+- Live partial corpus from fetched gig pages:
+  - `2 weeks ago`
+  - `1 month ago`
+  - `2 months ago`
+  - `3 months ago`
+  - `5 months ago`
 
 Observed `review_snippets` population:
 - non-empty rows in gigs: 0
 
 Gap list vs parser coverage:
-- no empirical additions possible this cycle
+- relative date forms are empirically confirmed (`X week(s) ago`, `X month(s) ago`)
 - maintain support for known forms from spec:
   - `Jan 2022`
   - `2022-01-15`
@@ -1556,6 +1570,9 @@ EV-040 [2026-05-30T16:01] mode=live action=web fetch kw110 keyword text constrai
 EV-041 [2026-05-30T16:02] mode=live action=web fetch kw110 keyword text filter= URL -> 981 results
 EV-042 [2026-05-30T16:03] mode=analysis action=DL-207 compare -> both URL shapes appear honored in sampled window; keep pending until broader clean sample
 EV-043 [2026-05-30T16:05] mode=jira action=story addendum comment -> posted live-partial evidence update (comment 12078)
+EV-044 [2026-05-30T16:08] mode=live action=fetch gig detail page (shery_bubba) -> review recency strings include `2 months ago`, `5 months ago`
+EV-045 [2026-05-30T16:09] mode=live action=fetch gig detail page (techwriter12) -> review recency strings include `6 months ago`, `7 months ago`, `2 years ago`, `3 years ago`
+EV-046 [2026-05-30T16:10] mode=live action=fetch gig detail page (heshan7) -> review recency strings include `2 weeks ago`, `1 month ago`, `2 months ago`
 
 ---
 
