@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from src.models.base import (
@@ -47,6 +57,11 @@ class SearchResult(
     is_stale: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     raw_html_ref: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     search_strictness_used: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    sponsored_gig_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    organic_gig_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    organic_trc: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rsv_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pages_collected: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Legacy fields preserved for existing scoring/recommendation integrations.
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -127,6 +142,7 @@ def write_search_result(
     page_collected: int,
     db: object,
     search_strictness_used: str | None = None,
+    pages_collected: int | None = None,
 ) -> SearchResult | None:
     """Upsert a SearchResult row by keyword/run/page; return None for non-Session db."""
     if not isinstance(db, Session):
@@ -173,6 +189,11 @@ def write_search_result(
     row.pagination_depth = pagination_depth
     row.gig_cards = gig_cards
     row.search_strictness_used = search_strictness_used
+    sponsored_count = sum(1 for card in gig_cards if bool(card.get("sponsored_flag")))
+    row.sponsored_gig_count = sponsored_count
+    row.organic_gig_count = max(0, len(gig_cards) - sponsored_count)
+    if pages_collected is not None:
+        row.pages_collected = pages_collected
     if primary_rank is not None:
         row.rank = primary_rank
     if primary_result_url is not None:
