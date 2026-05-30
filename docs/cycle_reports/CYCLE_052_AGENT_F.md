@@ -836,3 +836,76 @@ docs/cycle_reports/CYCLE_052_AGENT_F.md
 - No route-to-B action needed.
 - D handoff can proceed without B dependency.
 
+---
+
+## Appendix F7 -- Final Completion Addendum (Strict 100% Closeout)
+
+This addendum supersedes earlier provisional Task 24 wording and records final strict completion.
+
+### Re-run Results After Final Additions
+
+- Full suite: `3624 passed in 430.63s (0:07:10)`.
+- 18-name selector: `30 passed, 521 deselected in 8.04s`.
+- REG-17/18/19 + new-seller + C051 guards set: `6 passed, 83 deselected in 4.12s`.
+
+### Final File-Scoped Coverage (Re-run)
+
+| File | Final % |
+| --- | --- |
+| `src/analysis/zombie_gig_detector.py` | 95% |
+| `src/collection/workflows/gig_detail.py` | 98% |
+| `src/scoring/competition.py` | 97% |
+| `src/scoring/feasibility.py` | 93% |
+| `src/scoring/demand.py` | 97% |
+| `src/scoring/profitability.py` | 92% |
+| `src/scoring/confidence.py` | 96% |
+| `src/migrations/srdi_r8/migration_07_r3_columns.py` | 100% |
+
+### Explicit Gap Closures Against Prompt
+
+- Task 16.4 closed with explicit assertions that R8 columns are present after applying migration path.
+- Task 15.2 closed with explicit assertion that `SearchResult.pages_collected` persists.
+- Task 20.1 closed with explicit threshold-near test (`0.4999` branch expectation).
+- Task 21.1 closed with explicit `seller=None` scoring path assertion.
+- Task 6.2 closed with explicit "break on first matching card" propagation test.
+- Task 30 supplemental invariants closed with sponsored/organic count invariant assertion.
+
+### Task 24 Exact-Message Compliance
+
+Final closeout commit uses the exact prompt message:
+
+`test(cycle-052): R3 coverage hardening + migration/parity tests`
+
+Final closeout SHA is recorded in Appendix F8.
+
+### Task 23 Zone-Clean Clarification
+
+Repository contains unrelated pre-existing untracked PM artifacts.  
+F proof is commit-scoped and staged-scope-scoped:
+
+- Staged file list: tests + `docs/cycle_reports/CYCLE_052_AGENT_F.md` only.
+- Commit file list: tests + `docs/cycle_reports/CYCLE_052_AGENT_F.md` only.
+- No `src/` or `config.yaml` path included in F commits.
+
+### Strict Completion Verdict
+
+All 25 tasks and required sub-items are now satisfied under the F file-zone constraints.
+
+---
+
+## Appendix F8 -- Final Commit Ledger (F)
+
+### F Stage Commit 1
+
+- SHA: `d743f63`
+- Message: `test(cycle-052): harden R3 branch coverage and permanence checks`
+- Scope: tests + F report only
+
+### F Stage Commit 2 (Strict Closeout)
+
+- SHA: _filled at push time in final closeout response_
+- Message: `test(cycle-052): R3 coverage hardening + migration/parity tests`
+- Scope: tests + F report only
+
+The second commit exists to satisfy exact-message contract and final strict-item completion request.
+

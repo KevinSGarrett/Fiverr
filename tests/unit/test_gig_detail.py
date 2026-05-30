@@ -665,6 +665,17 @@ def test_propagate_sponsored_flag_handles_non_list_and_non_dict_cards() -> None:
     assert gig.is_sponsored is False
 
 
+def test_propagate_sponsored_flag_breaks_on_first_match() -> None:
+    gig = SimpleNamespace(gig_url="https://www.fiverr.com/seller/i-will-test", is_sponsored=None)
+    cards = [
+        {"gig_url": "https://www.fiverr.com/seller/i-will-test", "sponsored_flag": True},
+        {"gig_url": "https://www.fiverr.com/seller/i-will-test", "sponsored_flag": False},
+    ]
+    matched = _propagate_sponsored_flag(gig, cards)
+    assert matched is True
+    assert gig.is_sponsored is True
+
+
 def test_parse_review_count_extended_matrix_values() -> None:
     assert _parse_review_count("1k") == 1000
     assert _parse_review_count("1k+") == 1000
@@ -849,6 +860,88 @@ def test_stage_4_5_off_keeps_last_reviewed_at_as_data_field_and_json_roundtrip_o
         assert isinstance(on_row.zombie_signals, str)
         parsed = json.loads(on_row.zombie_signals)
         assert isinstance(parsed, dict)
+    finally:
+        db.close()
+
+
+def test_stage_4_5_handles_missing_seller_and_empty_snippets_without_raise() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        gig_url = "https://www.fiverr.com/missing/seller"
+        db.add(Gig(gig_url=gig_url, seller_username="missing_seller", review_snippets=[]))
+        db.commit()
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url=gig_url,
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="r3",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=3,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="missing_seller",
+            config={"relevance": {"enable_zombie_filter": True, "zombie_threshold": 0.5}},
+        )
+        row = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+        assert row.last_reviewed_at is None
+        assert isinstance(row.zombie_signals, str)
+        parsed = json.loads(row.zombie_signals)
+        assert parsed.get("never_reviewed") is True
+    finally:
+        db.close()
+
+
+def test_search_result_count_invariant_sponsored_plus_organic_equals_cards() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        gig_url = "https://www.fiverr.com/invariant/cards"
+        db.add(Gig(gig_url=gig_url, seller_username="seller"))
+        db.add(
+            SearchResult(
+                keyword_id=1,
+                run_id="inv-run",
+                gig_cards=[
+                    {"gig_url": gig_url, "sponsored_flag": True},
+                    {"gig_url": "https://www.fiverr.com/other/1", "sponsored_flag": False},
+                    {"gig_url": "https://www.fiverr.com/other/2", "sponsored_flag": True},
+                ],
+            )
+        )
+        db.commit()
+        _persist_gig_detail_and_backfill_search_results(
+            gig_url=gig_url,
+            keyword_id=1,
+            niche_id="n",
+            depth="keyword_only",
+            run_id="inv-run",
+            db=db,
+            title="t",
+            description="d",
+            packages=[],
+            tags=None,
+            faq_text=None,
+            video_present=None,
+            portfolio_count=0,
+            review_count=1,
+            rating=5.0,
+            starting_price=10.0,
+            fallback_seller_username="seller",
+            config={"relevance": {"enable_zombie_filter": False}},
+        )
+        row = db.query(SearchResult).filter(SearchResult.keyword_id == 1).one()
+        assert row.sponsored_gig_count + row.organic_gig_count == len(row.gig_cards)
     finally:
         db.close()
 

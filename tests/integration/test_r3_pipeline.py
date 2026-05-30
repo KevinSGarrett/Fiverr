@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from src.migrations.srdi_r8.migration_02_gigs_srdi_columns import apply as apply_m2
+from src.migrations.srdi_r8.migration_03_search_results_srdi_columns import apply as apply_m3
 from src.migrations.srdi_r8.migration_07_r3_columns import apply as apply_m7
 from src.migrations.srdi_r8.migration_07_r3_columns import rollback as rollback_m7
 from src.models import Base, Gig, Keyword, Niche, SearchResult, Seller
@@ -14,10 +16,15 @@ from tests.unit.test_srdi_r8_migrations import _bootstrap_base_tables, _column_n
 def test_migration_07_apply_and_rollback() -> None:
     engine = create_engine("sqlite:///:memory:", future=True)
     _bootstrap_base_tables(engine)
+    apply_m2(engine)
+    apply_m3(engine)
     apply_m7(engine)
     apply_m7(engine)
     assert "zombie_score" in _column_names(engine, "gigs")
-    assert "is_sponsored" not in _column_names(engine, "gigs")
+    assert "is_sponsored" in _column_names(engine, "gigs")
+    assert "is_zombie" in _column_names(engine, "gigs")
+    assert "sponsored_gig_count" in _column_names(engine, "search_results")
+    assert "organic_gig_count" in _column_names(engine, "search_results")
     rollback_m7(engine)
 
 
@@ -54,6 +61,7 @@ def test_pagination_caps_scoring_at_top_10() -> None:
                     rank=rank,
                     gig_id=gig.id,
                     title=f"gig {rank}",
+                    pages_collected=3,
                 )
             )
         db.commit()
@@ -61,6 +69,9 @@ def test_pagination_caps_scoring_at_top_10() -> None:
         top_10 = calc._load_signals_from_db(keyword.id, db, config={"relevance": {"top_n_for_scoring": 10}})
         top_5 = calc._load_signals_from_db(keyword.id, db, config={"relevance": {"top_n_for_scoring": 5}})
         assert top_10["avg_review_count_top10"] != top_5["avg_review_count_top10"]
+        persisted = db.query(SearchResult).filter(SearchResult.keyword_id == keyword.id).first()
+        assert persisted is not None
+        assert persisted.pages_collected == 3
     finally:
         db.close()
 

@@ -149,3 +149,16 @@ def test_profitability_load_signals_mapping_and_meta_helpers() -> None:
     assert calc._gig_meta_value(row, "premium_price", "fallback") == 120.0  # pylint: disable=protected-access
     assert calc._gig_meta_value(row, "missing") is None  # pylint: disable=protected-access
     assert calc._has_extras(row) is False  # pylint: disable=protected-access
+
+
+def test_profitability_handles_missing_price_inputs_gracefully() -> None:
+    inputs = {
+        "avg_starting_price_top10": None,
+        "avg_premium_package_price_top10": None,
+        "typical_delivery_days": 3,
+        "extras_presence_ratio": None,
+        "avg_extras_price": None,
+        "llm_upsell_potential_assessment": None,
+    }
+    result = _calculate(inputs)
+    assert result.score_value is None

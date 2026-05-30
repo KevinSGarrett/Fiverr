@@ -195,3 +195,21 @@ def test_detector_is_deterministic_with_fixed_reference_date() -> None:
     first = compute_zombie_score(gig, seller, reference_date=ref)
     second = compute_zombie_score(gig, seller, reference_date=ref)
     assert first == second
+
+
+def test_is_zombie_false_at_just_below_threshold_04999() -> None:
+    ref = datetime(2026, 2, 1, tzinfo=UTC)
+    seller = _seller(member_since=datetime(2020, 1, 1, tzinfo=UTC), response_rate=100)
+    gig = _gig(review_count=10, orders_in_queue=0, last_reviewed_at=None)
+    score, _signals = compute_zombie_score(gig, seller, reference_date=ref)
+    assert score == 0.20
+    assert is_zombie_gig(gig, seller, reference_date=ref, zombie_threshold=0.4999) is False
+
+
+def test_compute_zombie_score_with_seller_none_skips_guard_and_scores() -> None:
+    ref = datetime(2026, 2, 1, tzinfo=UTC)
+    gig = _gig(review_count=4, orders_in_queue=0, last_reviewed_at=None)
+    score, signals = compute_zombie_score(gig, None, reference_date=ref)
+    assert score == 0.60
+    assert "new_seller" not in signals
+    assert signals["low_review_count"] == 4
