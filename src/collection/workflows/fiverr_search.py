@@ -25,6 +25,7 @@ from src.collection.search_url_builder import (
     build_search_url,
     check_category_mapping_freshness,
     get_niche_mapping,
+    search_with_fallback,
 )
 from src.collection.workflows.autocomplete import enqueue_autocomplete_job
 from src.models.job import Job
@@ -67,9 +68,10 @@ async def run_fiverr_search_collection(
     check_category_mapping_freshness()
     threshold = _resolve_result_threshold(search_config)
     strictness_used = SearchStrictness.NONE
+    has_known_niche_mapping = get_niche_mapping(niche_id) is not None
     strictness_order = (
         (SearchStrictness.NONE,)
-        if get_niche_mapping(niche_id) is None
+        if not has_known_niche_mapping
         else (
             SearchStrictness.SUBCATEGORY,
             SearchStrictness.CATEGORY,
@@ -85,11 +87,15 @@ async def run_fiverr_search_collection(
         total_result_count: int | None = None
         fetch_backend = "unknown"
         parse_warnings: list[str] = []
+        collected_cards_by_url: dict[str, list[dict[str, Any]]] = {}
+        collected_count_by_url: dict[str, int | None] = {}
         for strictness in strictness_order:
             candidate_url = build_search_url(keyword_text, niche_id, strictness)
             cards, total_count, backend, warnings = await _collect_search_page_via_fetcher(
                 candidate_url, fetcher
             )
+            collected_cards_by_url[candidate_url] = cards
+            collected_count_by_url[candidate_url] = total_count
             parsed_gig_cards = cards
             total_result_count = total_count
             fetch_backend = backend
@@ -97,6 +103,17 @@ async def run_fiverr_search_collection(
             strictness_used = strictness
             if len(parsed_gig_cards) >= threshold:
                 break
+        if has_known_niche_mapping:
+            selected_cards, selected_strictness = search_with_fallback(
+                keyword_text,
+                niche_id,
+                {FALLBACK_MIN_RESULT_THRESHOLD_KEY: threshold},
+                lambda url: collected_cards_by_url.get(url, []),
+            )
+            strictness_used = selected_strictness
+            selected_url = build_search_url(keyword_text, niche_id, strictness_used)
+            parsed_gig_cards = selected_cards
+            total_result_count = collected_count_by_url.get(selected_url)
 
         write_search_result(
             keyword_id=keyword_id,
@@ -141,6 +158,8 @@ async def run_fiverr_search_collection(
     playwright_total_result_count: int | None = None
     gig_urls_queued = 0
     autocomplete_jobs_queued = 0
+    play_cards_by_url: dict[str, list[dict[str, Any]]] = {}
+    play_count_by_url: dict[str, int | None] = {}
 
     page = await session_manager.new_page()
     try:
@@ -151,9 +170,22 @@ async def run_fiverr_search_collection(
                 url=candidate_url,
                 pacing_manager=pacing_manager,
             )
+            play_cards_by_url[candidate_url] = gig_cards
+            play_count_by_url[candidate_url] = playwright_total_result_count
             strictness_used = strictness
             if len(gig_cards) >= threshold:
                 break
+        if has_known_niche_mapping:
+            selected_cards, selected_strictness = search_with_fallback(
+                keyword_text,
+                niche_id,
+                {FALLBACK_MIN_RESULT_THRESHOLD_KEY: threshold},
+                lambda url: play_cards_by_url.get(url, []),
+            )
+            strictness_used = selected_strictness
+            selected_url = build_search_url(keyword_text, niche_id, strictness_used)
+            gig_cards = selected_cards
+            playwright_total_result_count = play_count_by_url.get(selected_url)
 
         write_search_result(
             keyword_id=keyword_id,
