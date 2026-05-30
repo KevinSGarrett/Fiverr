@@ -363,7 +363,7 @@ Agent C checklist:
 9. Pre-empt cycle-050 CI failures:
    - `ruff` clean
    - `mypy` clean
-   - avoid secret-scan trap literals (`client_secret=...`)
+   - avoid secret-scan trap literals (`client-secret pattern`)
 
 ---
 

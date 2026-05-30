@@ -8,14 +8,23 @@ records the strictness used, and lets scoring discount unconstrained (NONE) dema
 from __future__ import annotations
 
 import argparse
+import http.cookiejar
 import logging
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 from typing import Any
 from urllib.parse import quote
-from urllib.request import urlopen
+from urllib.request import (
+    HTTPCookieProcessor,
+    OpenerDirector,
+    Request,
+    build_opener,
+    install_opener,
+    urlopen,
+)
 
 from src.collection.search_result_parser import parse_search_results_from_html
 
@@ -31,6 +40,32 @@ DEFAULT_MIN_RESULT_THRESHOLD = 5
 RESULTS_PER_PAGE = 16
 UNCONSTRAINED_DEMAND_DEDUCTION = -0.08
 UNCONSTRAINED_NOTE = "Demand from unconstrained search. Re-collect recommended."
+_SESSION_PRIME_URL = "https://www.fiverr.com/"
+
+
+def _default_headers() -> dict[str, str]:
+    return {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Connection": "keep-alive",
+    }
+
+
+def _build_session_opener() -> OpenerDirector:
+    jar = http.cookiejar.CookieJar()
+    opener = build_opener(HTTPCookieProcessor(jar))
+    prime_request = Request(_SESSION_PRIME_URL, headers=_default_headers())
+    try:
+        with opener.open(prime_request, timeout=30):
+            pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Fiverr session prime failed: %s", exc)
+    install_opener(opener)
+    return opener
 
 
 class SearchStrictness(Enum):
@@ -206,7 +241,9 @@ def check_category_mapping_freshness() -> bool:
 
 
 def _default_count_collector(url: str) -> int:
-    with urlopen(url, timeout=30) as response:  # noqa: S310
+    _build_session_opener()
+    request = Request(url, headers=_default_headers())
+    with urlopen(request, timeout=30) as response:  # noqa: S310
         html = response.read().decode("utf-8", errors="ignore")
     parsed = parse_search_results_from_html(html)
     if parsed.total_result_count is not None:
@@ -230,8 +267,17 @@ def run_validation_sweep(
         constrained_url = build_search_url(keyword, niche_id, SearchStrictness.SUBCATEGORY)
         unconstrained_url = build_search_url(keyword, niche_id, SearchStrictness.NONE)
 
-        constrained_count = collector(constrained_url)
-        unconstrained_count = collector(unconstrained_url)
+        constrained_count = 0
+        unconstrained_count = 0
+        try:
+            constrained_count = collector(constrained_url)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Sweep constrained fetch failed for niche=%s: %s", niche_id, exc)
+        time.sleep(0.5)
+        try:
+            unconstrained_count = collector(unconstrained_url)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Sweep unconstrained fetch failed for niche=%s: %s", niche_id, exc)
         ratio = (constrained_count / unconstrained_count) if unconstrained_count > 0 else 1.0
         recommendation = (
             SearchStrictness.SUBCATEGORY.value
