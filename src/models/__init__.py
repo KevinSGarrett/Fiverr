@@ -64,6 +64,7 @@ from src.models.registry import (
     get_registered_model_classes,
     get_registered_table_names,
 )
+from src.models.result_set_validation import ResultSetValidation
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
@@ -116,6 +117,7 @@ __all__ = [
     "PricingSnapshot",
     "PriceAnalysis",
     "Recommendation",
+    "ResultSetValidation",
     "ReviewAnalysis",
     "Review",
     "RunLog",

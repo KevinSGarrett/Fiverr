@@ -35,6 +35,7 @@ from src.models.seller import Seller as Seller  # noqa: F401
 if TYPE_CHECKING:
     from src.models.external_signal import ExternalSignal
     from src.models.niche import Niche
+    from src.models.result_set_validation import ResultSetValidation
 
 
 class Keyword(
@@ -60,6 +61,10 @@ class Keyword(
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
     gigs: Mapped[list[Gig]] = relationship(back_populates="keyword_ref")
     external_signals: Mapped[list[ExternalSignal]] = relationship("ExternalSignal", back_populates="keyword_ref")
+    result_set_validations: Mapped[list[ResultSetValidation]] = relationship(
+        "ResultSetValidation",
+        back_populates="keyword_ref",
+    )
 
 
 class ClusterAssignment(IntegerPrimaryKeyMixin, Base):
