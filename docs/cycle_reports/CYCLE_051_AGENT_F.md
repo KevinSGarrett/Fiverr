@@ -65,13 +65,16 @@ a4cabd7 docs(cycle-051): publish Agent A stage-1 setup report
 
 ## Tests added/extended (file + count)
 
-- Extended `tests/unit/test_search_url_builder.py` (+2):
+- Extended `tests/unit/test_search_url_builder.py` (+5):
   - `test_build_session_opener_primes_session_on_success`
   - `test_run_validation_sweep_logs_both_collector_failures`
+  - `test_check_category_mapping_freshness_boundary_date_is_due`
+  - `test_module_import_is_safe_and_does_not_run_cli`
+  - `test_recollection_overwrites_search_strictness_value`
 - Added `tests/integration/test_fiverr_search_r1_wiring.py` (+2):
   - `test_fiverr_search_fetcher_calls_builder_and_fallback_with_niche`
   - `test_fiverr_search_fetcher_preserves_gig_card_shape_for_constrained_result`
-- Total new tests: **4**
+- Total new tests: **7**
 
 ## Coverage matrix with pass marks (Section 6)
 
@@ -109,7 +112,7 @@ a4cabd7 docs(cycle-051): publish Agent A stage-1 setup report
 
 - Full suite:
   - `python -m pytest -q`
-  - Result: **3551 passed in 469.27s**
+  - Result: **3554 passed in 411.43s**
 - Accumulated regressions run (including REG-13 + REG-14 selector terms):
   - Result: **37 passed, 472 deselected**
 - REG-13 + REG-14 presence:
@@ -126,7 +129,7 @@ a4cabd7 docs(cycle-051): publish Agent A stage-1 setup report
 - Ruff:
   - `python -m ruff check tests/` -> **All checks passed**
 - mypy (new integration file):
-  - `python -m mypy tests/integration/test_fiverr_search_r1_wiring.py` -> **Success**
+  - `python -m mypy tests/integration/test_fiverr_search_r1_wiring.py tests/unit/test_search_url_builder.py` -> **Success**
 - Secret-scan trap review:
   - No `client_secret=`, `api_key=`, token-shaped literals added in new tests.
 
@@ -177,8 +180,21 @@ a4cabd7 docs(cycle-051): publish Agent A stage-1 setup report
 | 9 | ruff clean on tests; ZERO src/ committed | YES |
 | 10 | CYCLE_051_AGENT_F.md committed | YES |
 
+## Appendix K -- Test inventory (Agent F additions)
+
+| test name | matrix row covered | type | status |
+| --- | --- | --- | --- |
+| `test_build_session_opener_primes_session_on_success` | sweep helper/session branch (missing line 64 closure path) | unit | PASS |
+| `test_run_validation_sweep_logs_both_collector_failures` | sweep constrained/unconstrained exception branches | unit | PASS |
+| `test_check_category_mapping_freshness_boundary_date_is_due` | freshness boundary (`today == NEXT_VALIDATION`) | unit | PASS |
+| `test_module_import_is_safe_and_does_not_run_cli` | sweep CLI import-safe `__main__` guard | unit | PASS |
+| `test_recollection_overwrites_search_strictness_value` | strictness persistence overwrite (Task 9.4) | unit/db | PASS |
+| `test_fiverr_search_fetcher_calls_builder_and_fallback_with_niche` | workflow wiring (`build_search_url`, `search_with_fallback`, freshness) | integration | PASS |
+| `test_fiverr_search_fetcher_preserves_gig_card_shape_for_constrained_result` | constrained parse shape + persisted strictness in workflow write | integration | PASS |
+
 ## Commit SHA + push confirmation
 
 - Commit 1 (tests + report): `d62aad4`
 - Commit 2 (report metadata finalize): `83ed27e`
-- Push: `cycle/051/integration` updated on origin (`d11228e -> 83ed27e`)
+- Commit 3 (report push-range correction): `f9198c9`
+- Push: `cycle/051/integration` updated on origin (`d11228e -> f9198c9`)

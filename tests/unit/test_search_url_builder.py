@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -23,17 +25,18 @@ from src.collection.search_url_builder import (
 )
 from src.models import Keyword, Niche, SearchResult
 from src.models.database import initialize_database
+from src.models.search_result import write_search_result
 from src.scoring.demand import DemandScoreCalculator
 
 
-def _build_session(tmp_path: Path, name: str):
+def _build_session(tmp_path: Path, name: str) -> Any:
     engine = initialize_database(database_url=f"sqlite:///{(tmp_path / name).as_posix()}")
     from sqlalchemy.orm import Session
 
     return Session(bind=engine)
 
 
-def _seed_keyword(session, *, slug: str = "support_kb_readiness") -> int:
+def _seed_keyword(session: Any, *, slug: str = "support_kb_readiness") -> int:
     niche = Niche(slug=slug, name=slug, category_path="programming-tech/search")
     session.add(niche)
     session.flush()
@@ -68,6 +71,7 @@ def test_build_search_url_unknown_niche_returns_none_and_warns(caplog: pytest.Lo
     assert "category_id=" not in url
     assert "sub_category=" not in url
     assert any("niche" in record.message.lower() for record in caplog.records)
+    assert any("not_a_real_niche" in record.message for record in caplog.records)
 
 
 def test_build_search_url_treats_empty_or_none_niche_as_unknown(caplog: pytest.LogCaptureFixture) -> None:
@@ -91,7 +95,7 @@ def test_build_search_url_page_offset(page: int, expected_offset: int) -> None:
         ("n8n & python", "n8n%20%26%20python"),
         ("c++/node.js", "c%2B%2B%2Fnode.js"),
         ("100% done", "100%25%20done"),
-        ("naive cafe", "naive%20cafe"),
+        ("na\u00efve cafe", "na%C3%AFve%20cafe"),
         ("", "query="),
     ],
 )
@@ -204,6 +208,18 @@ def test_check_category_mapping_freshness_due_logs_warning(
     import src.collection.search_url_builder as builder
 
     monkeypatch.setattr(builder, "_today", lambda: date(2026, 9, 1))
+    with caplog.at_level(logging.WARNING):
+        assert check_category_mapping_freshness() is True
+    assert any("validation is due" in record.message.lower() for record in caplog.records)
+
+
+def test_check_category_mapping_freshness_boundary_date_is_due(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import src.collection.search_url_builder as builder
+
+    monkeypatch.setattr(builder, "_today", lambda: date(2026, 8, 29))
     with caplog.at_level(logging.WARNING):
         assert check_category_mapping_freshness() is True
     assert any("validation is due" in record.message.lower() for record in caplog.records)
@@ -374,6 +390,16 @@ def test_main_sweep_all_niches(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["niches"] == builder.PRODUCTION_NICHES
 
 
+def test_module_import_is_safe_and_does_not_run_cli() -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", "import src.collection.search_url_builder"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == ""
+
+
 def test_search_strictness_used_persisted_on_new_searchresult(tmp_path: Path) -> None:
     session = _build_session(tmp_path, "search_strictness_persist.db")
     try:
@@ -408,6 +434,39 @@ def test_legacy_searchresult_strictness_remains_null(tmp_path: Path) -> None:
         session.commit()
         fetched = session.query(SearchResult).filter_by(run_id="run-legacy").one()
         assert fetched.search_strictness_used is None
+    finally:
+        session.close()
+
+
+def test_recollection_overwrites_search_strictness_value(tmp_path: Path) -> None:
+    session = _build_session(tmp_path, "search_strictness_overwrite.db")
+    try:
+        keyword_id = _seed_keyword(session, slug="workflow_automation")
+        write_search_result(
+            keyword_id=keyword_id,
+            run_id="run-recollect",
+            total_result_count=25,
+            pagination_depth=None,
+            gig_cards=[{"position": 1, "gig_url": "https://www.fiverr.com/gig/one", "gig_title": "One"}],
+            page_collected=1,
+            search_strictness_used=SearchStrictness.SUBCATEGORY.value,
+            db=session,
+        )
+        write_search_result(
+            keyword_id=keyword_id,
+            run_id="run-recollect",
+            total_result_count=13,
+            pagination_depth=None,
+            gig_cards=[{"position": 1, "gig_url": "https://www.fiverr.com/gig/two", "gig_title": "Two"}],
+            page_collected=1,
+            search_strictness_used=SearchStrictness.NONE.value,
+            db=session,
+        )
+
+        rows = session.query(SearchResult).filter_by(keyword_id=keyword_id, run_id="run-recollect").all()
+        assert len(rows) == 1
+        assert rows[0].search_strictness_used == SearchStrictness.NONE.value
+        assert rows[0].total_result_count == 13
     finally:
         session.close()
 
