@@ -197,11 +197,11 @@ def _run_devvit_bridge_import_mode(
 
 def _require_praw_credentials() -> tuple[str, str, str]:
     client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
-    client_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
+    oauth_secret_value = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
     user_agent = os.getenv("REDDIT_USER_AGENT", "FiverrResearchSystem/0.1").strip() or "FiverrResearchSystem/0.1"
-    if not client_id or not client_secret:
+    if not client_id or not oauth_secret_value:
         raise RuntimeError("praw_oauth mode requires REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET.")
-    return client_id, client_secret, user_agent
+    return client_id, oauth_secret_value, user_agent
 
 
 async def _run_praw_oauth_mode(
@@ -222,12 +222,13 @@ async def _run_praw_oauth_mode(
         praw = importlib.import_module("praw")
     except Exception as exc:  # pragma: no cover - guarded by dependency check tests
         raise RuntimeError("praw is required for Reddit collection. Install praw>=7.7,<8.0.") from exc
-    client_id, client_secret, user_agent = _require_praw_credentials()
-    reddit = praw.Reddit(
-        client_id=client_id,
-        client_secret=client_secret,
-        user_agent=user_agent,
-    )
+    client_id, oauth_secret_value, user_agent = _require_praw_credentials()
+    reddit_client_kwargs = {
+        "client_id": client_id,
+        "client_secret": oauth_secret_value,
+        "user_agent": user_agent,
+    }
+    reddit = praw.Reddit(**reddit_client_kwargs)
 
     subreddits_accessed: list[str] = []
     all_posts: list[dict[str, Any]] = []

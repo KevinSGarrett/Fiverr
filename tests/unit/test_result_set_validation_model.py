@@ -6,7 +6,6 @@ from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.models import Keyword, Niche, ResultSetValidation
 from src.models.database import initialize_database
 

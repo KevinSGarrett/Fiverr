@@ -10,7 +10,6 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.collection.workflows import reddit_signals
 from src.collection.workflows.reddit_devvit_bridge import (
     load_devvit_signal_files,

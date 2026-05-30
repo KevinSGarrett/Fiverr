@@ -6,13 +6,22 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
-
 from src.migrations.srdi_r8 import (
     migration_01_result_set_validations as m1,
+)
+from src.migrations.srdi_r8 import (
     migration_02_gigs_srdi_columns as m2,
+)
+from src.migrations.srdi_r8 import (
     migration_03_search_results_srdi_columns as m3,
+)
+from src.migrations.srdi_r8 import (
     migration_04_keyword_scores_srdi_columns as m4,
+)
+from src.migrations.srdi_r8 import (
     migration_05_keywords_srdi_columns as m5,
+)
+from src.migrations.srdi_r8 import (
     migration_06_discovery_outcomes_srdi_columns as m6,
 )
 from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations

@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.collection.workflows.reddit_devvit_bridge import (
     load_devvit_signal_files,
     normalize_devvit_payload,
