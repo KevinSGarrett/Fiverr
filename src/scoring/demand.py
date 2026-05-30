@@ -8,6 +8,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.collection.search_url_builder import (
+    SEARCH_STRICTNESS_COLUMN,
+    UNCONSTRAINED_DEMAND_DEDUCTION,
+    UNCONSTRAINED_NOTE,
+)
 from src.models import ClusterAssignment, ClusterLabel, ExternalSignal, Keyword, SearchResult
 from src.scoring.contracts import DemandScoreResult, ScoreComponent
 
@@ -236,6 +241,21 @@ def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> floa
     return None
 
 
+def _resolve_latest_search_strictness(session: Session, keyword_id: int) -> str | None:
+    latest = (
+        session.query(SearchResult.search_strictness_used)
+        .filter(SearchResult.keyword_id == keyword_id)
+        .order_by(SearchResult.collected_at.desc(), SearchResult.id.desc())
+        .first()
+    )
+    if latest is None:
+        return None
+    value = latest[0]
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
 class DemandScoreCalculator:
     """Calculate demand score from Fiverr, trends, and Reddit signals."""
 
@@ -340,6 +360,17 @@ class DemandScoreCalculator:
             )
 
         base_demand_score = weighted_sum / total_weight_available
+        search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
+        if search_strictness_used == "NONE":
+            confidence_breakdown["unconstrained_search"] = UNCONSTRAINED_DEMAND_DEDUCTION
+            score_components["unconstrained_search"] = ScoreComponent(
+                value=UNCONSTRAINED_DEMAND_DEDUCTION,
+                weight=0.0,
+                raw=search_strictness_used,
+                note=UNCONSTRAINED_NOTE,
+            )
+            source_evidence.append(f"search_results.{SEARCH_STRICTNESS_COLUMN}")
+
         cluster_boost, cluster_context = _compute_cluster_demand_boost(keyword_id, db, config)
         cluster_explanation = ""
         if cluster_boost > 0.0 and cluster_context is not None:
@@ -424,6 +455,7 @@ class DemandScoreCalculator:
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
         total_result_count = _resolve_marketplace_result_count(session, keyword_id)
+        search_strictness_used = _resolve_latest_search_strictness(session, keyword_id)
         google_trends = (
             session.query(ExternalSignal)
             .filter(
@@ -448,6 +480,7 @@ class DemandScoreCalculator:
             "autocomplete_position": self._as_int(keyword_meta.get("autocomplete_position")),
             "trends_12mo_score": self._signal_float(google_trends, "trends_12mo_score"),
             "reddit_demand_intent_score": self._signal_float(reddit_demand, "reddit_demand_intent_score"),
+            SEARCH_STRICTNESS_COLUMN: search_strictness_used,
         }
 
     @staticmethod

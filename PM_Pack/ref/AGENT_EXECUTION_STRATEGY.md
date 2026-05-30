@@ -6,7 +6,7 @@ Canonical reference for multi-agent cycle execution, regression packs, and hando
 
 ## Section 7: Permanent Regression Pack
 
-Accumulated regression selectors (12-name pack) plus cycle-specific permanent regressions.
+Accumulated regression selectors (15-name pack) plus cycle-specific permanent regressions.
 
 ### Cycle 049 additions (2026-05-29)
 
@@ -17,11 +17,19 @@ Accumulated regression selectors (12-name pack) plus cycle-specific permanent re
 | `test_weakness_kw96_equivalent_consistent_before_after_combined_state` | `tests/unit/test_weakness_multi_row_averaging.py` | Historical fallback rejects transient 100.0 when stable 53.52 exists |
 | `test_kw110_conditional_go_passes_all_recommendation_gates_when_analysis_complete` | `tests/unit/test_recommendation_eligibility.py` | Eligibility gate clears when GQS analysis_complete populated |
 
+### Cycle 051 additions (2026-05-30)
+
+| Test name | File | Purpose |
+| --- | --- | --- |
+| `test_fiverr_search_url_always_includes_category_filter_for_production_niches` | `tests/unit/test_search_url_builder.py` | Guarantees all production niches keep category/subcategory constraints under SUBCATEGORY strictness |
+| `test_unconstrained_search_result_applies_demand_confidence_deduction` | `tests/unit/test_search_url_builder.py` | Guards the post-R1 NONE strictness confidence deduction and note attachment |
+
 ### Version history
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.0 | 2026-05-29 | Cycle 049 Agent B: added weakness multi-row OWS averaging regression + kw=110 eligibility gate regression |
+| 1.1 | 2026-05-30 | Cycle 051 Agent B: added R1 search URL category-filter + unconstrained demand-deduction regressions |
 
 ### 12-name accumulated pack (reference)
 

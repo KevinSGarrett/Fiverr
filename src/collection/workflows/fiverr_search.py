@@ -18,6 +18,14 @@ from src.collection.fiverr_selectors import (
     GIG_CARD_TITLE,
     SEARCH_RESULT_COUNT,
 )
+from src.collection.search_url_builder import (
+    DEFAULT_MIN_RESULT_THRESHOLD,
+    FALLBACK_MIN_RESULT_THRESHOLD_KEY,
+    SearchStrictness,
+    build_search_url,
+    check_category_mapping_freshness,
+    get_niche_mapping,
+)
 from src.collection.workflows.autocomplete import enqueue_autocomplete_job
 from src.models.job import Job
 from src.models.search_result import write_search_result
@@ -34,6 +42,7 @@ async def run_fiverr_search_collection(
     pacing_manager: Any,
     dry_run: bool = True,
     enqueue_autocomplete: bool = False,
+    search_config: dict[str, Any] | None = None,
     fetcher: Any | None = None,
 ) -> dict[str, Any]:
     """
@@ -55,37 +64,48 @@ async def run_fiverr_search_collection(
             "note": "Dry run: no real Playwright navigation performed",
         }
 
+    check_category_mapping_freshness()
+    threshold = _resolve_result_threshold(search_config)
+    strictness_used = SearchStrictness.NONE
+    strictness_order = (
+        (SearchStrictness.NONE,)
+        if get_niche_mapping(niche_id) is None
+        else (
+            SearchStrictness.SUBCATEGORY,
+            SearchStrictness.CATEGORY,
+            SearchStrictness.NONE,
+        )
+    )
+
     # ------------------------------------------------------------------
     # ScrapFly / fetcher path
     # ------------------------------------------------------------------
     if fetcher is not None:
-        from src.collection.search_result_parser import parse_search_results_from_html
-
-        url = build_fiverr_search_url(keyword_text)
-        fetch_result = await fetcher.fetch(url, pacing_key="fiverr_search")
-        parsed = parse_search_results_from_html(fetch_result.html)
-
-        parsed_gig_cards = [
-            {
-                "position": card.position,
-                "gig_url": card.gig_url,
-                "gig_title": card.gig_title,
-                "seller_username": card.seller_username,
-                "seller_level": card.seller_level,
-                "review_count_visible": card.review_count_visible,
-                "starting_price": card.starting_price,
-                "sponsored_flag": card.sponsored_flag,
-            }
-            for card in parsed.gig_cards
-        ]
+        parsed_gig_cards: list[dict[str, Any]] = []
+        total_result_count: int | None = None
+        fetch_backend = "unknown"
+        parse_warnings: list[str] = []
+        for strictness in strictness_order:
+            candidate_url = build_search_url(keyword_text, niche_id, strictness)
+            cards, total_count, backend, warnings = await _collect_search_page_via_fetcher(
+                candidate_url, fetcher
+            )
+            parsed_gig_cards = cards
+            total_result_count = total_count
+            fetch_backend = backend
+            parse_warnings = warnings
+            strictness_used = strictness
+            if len(parsed_gig_cards) >= threshold:
+                break
 
         write_search_result(
             keyword_id=keyword_id,
             run_id=run_id,
-            total_result_count=parsed.total_result_count,
+            total_result_count=total_result_count,
             pagination_depth=None,
             gig_cards=parsed_gig_cards,
             page_collected=1,
+            search_strictness_used=strictness_used.value,
             db=db,
         )
 
@@ -102,48 +122,47 @@ async def run_fiverr_search_collection(
             "keyword_id": keyword_id,
             "keyword_text": keyword_text,
             "niche_id": niche_id,
-            "total_result_count": parsed.total_result_count,
+            "total_result_count": total_result_count,
             "gig_cards_collected": len(parsed_gig_cards),
             "gig_urls_queued": gig_urls_queued,
             "autocomplete_jobs_queued": 0,
             "pages_collected": 1,
             "dry_run": False,
-            "backend": fetch_result.backend,
-            "parse_warnings": parsed.warnings,
+            "backend": fetch_backend,
+            "parse_warnings": parse_warnings,
+            "search_strictness_used": strictness_used.value,
         }
 
     # ------------------------------------------------------------------
     # Playwright path (unchanged — existing code below)
     # ------------------------------------------------------------------
 
-    url = build_fiverr_search_url(keyword_text)
     gig_cards: list[dict[str, Any]] = []
-    total_result_count: int | None = None
+    playwright_total_result_count: int | None = None
     gig_urls_queued = 0
     autocomplete_jobs_queued = 0
 
     page = await session_manager.new_page()
     try:
-        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-        await pacing_manager.wait("fiverr_search", dry_run=False)
-
-        count_el = await page.query_selector(SEARCH_RESULT_COUNT)
-        if count_el:
-            total_result_count = _parse_result_count(await count_el.inner_text())
-
-        card_els = await page.query_selector_all(GIG_CARD_CONTAINER)
-        for index, card in enumerate(card_els[:20]):
-            card_data = await _extract_gig_card(card, index + 1)
-            if card_data:
-                gig_cards.append(card_data)
+        for strictness in strictness_order:
+            candidate_url = build_search_url(keyword_text, niche_id, strictness)
+            gig_cards, playwright_total_result_count = await _collect_search_page_via_playwright(
+                page=page,
+                url=candidate_url,
+                pacing_manager=pacing_manager,
+            )
+            strictness_used = strictness
+            if len(gig_cards) >= threshold:
+                break
 
         write_search_result(
             keyword_id=keyword_id,
             run_id=run_id,
-            total_result_count=total_result_count,
+            total_result_count=playwright_total_result_count,
             pagination_depth=None,
             gig_cards=gig_cards,
             page_collected=1,
+            search_strictness_used=strictness_used.value,
             db=db,
         )
 
@@ -171,13 +190,70 @@ async def run_fiverr_search_collection(
         "keyword_id": keyword_id,
         "keyword_text": keyword_text,
         "niche_id": niche_id,
-        "total_result_count": total_result_count,
+        "total_result_count": playwright_total_result_count,
         "gig_cards_collected": len(gig_cards),
         "gig_urls_queued": gig_urls_queued,
         "autocomplete_jobs_queued": autocomplete_jobs_queued,
         "pages_collected": 1,
         "dry_run": False,
+        "search_strictness_used": strictness_used.value,
     }
+
+
+def _resolve_result_threshold(config: dict[str, Any] | None) -> int:
+    if not isinstance(config, dict):
+        return DEFAULT_MIN_RESULT_THRESHOLD
+    raw_value = config.get(FALLBACK_MIN_RESULT_THRESHOLD_KEY, DEFAULT_MIN_RESULT_THRESHOLD)
+    try:
+        return max(1, int(raw_value))
+    except (TypeError, ValueError):
+        return DEFAULT_MIN_RESULT_THRESHOLD
+
+
+async def _collect_search_page_via_fetcher(
+    url: str,
+    fetcher: Any,
+) -> tuple[list[dict[str, Any]], int | None, str, list[str]]:
+    from src.collection.search_result_parser import parse_search_results_from_html
+
+    fetch_result = await fetcher.fetch(url, pacing_key="fiverr_search")
+    parsed = parse_search_results_from_html(fetch_result.html)
+    parsed_gig_cards = [
+        {
+            "position": card.position,
+            "gig_url": card.gig_url,
+            "gig_title": card.gig_title,
+            "seller_username": card.seller_username,
+            "seller_level": card.seller_level,
+            "review_count_visible": card.review_count_visible,
+            "starting_price": card.starting_price,
+            "sponsored_flag": card.sponsored_flag,
+        }
+        for card in parsed.gig_cards
+    ]
+    return parsed_gig_cards, parsed.total_result_count, fetch_result.backend, parsed.warnings
+
+
+async def _collect_search_page_via_playwright(
+    page: Any,
+    url: str,
+    pacing_manager: Any,
+) -> tuple[list[dict[str, Any]], int | None]:
+    await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+    await pacing_manager.wait("fiverr_search", dry_run=False)
+
+    total_result_count: int | None = None
+    count_el = await page.query_selector(SEARCH_RESULT_COUNT)
+    if count_el:
+        total_result_count = _parse_result_count(await count_el.inner_text())
+
+    gig_cards: list[dict[str, Any]] = []
+    card_els = await page.query_selector_all(GIG_CARD_CONTAINER)
+    for index, card in enumerate(card_els[:20]):
+        card_data = await _extract_gig_card(card, index + 1)
+        if card_data:
+            gig_cards.append(card_data)
+    return gig_cards, total_result_count
 
 
 def build_fiverr_search_url(keyword_text: str) -> str:
