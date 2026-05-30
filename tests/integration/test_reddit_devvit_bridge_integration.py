@@ -9,7 +9,6 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.collection.workflows import reddit_signals
 from src.collection.workflows.reddit_devvit_bridge import run_devvit_bridge_import
 from src.models import ExternalSignal, Keyword, Niche

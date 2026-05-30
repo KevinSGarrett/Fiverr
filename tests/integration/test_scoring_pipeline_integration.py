@@ -7,10 +7,10 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
-from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations
-from sqlalchemy.engine import Engine
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations
 from src.models import (
     Base,
     CompetitorProfile,

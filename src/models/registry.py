@@ -31,6 +31,7 @@ from src.models.market import (
     SaturationScore,
 )
 from src.models.niche import Niche, NicheConfigRecord
+from src.models.result_set_validation import ResultSetValidation
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
@@ -44,7 +45,6 @@ from src.models.runtime import (
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
 from src.models.search_result import SearchResult
 from src.models.seller import Seller
-from src.models.result_set_validation import ResultSetValidation
 
 REGISTERED_MODEL_CLASSES = (
     NicheConfigRecord,
