@@ -27,8 +27,8 @@ No code/config/test changes are made by Agent E.
 
 ## R3 Signal Validation -- Executive Summary (E24)
 
-Access mode: **DB-fallback primary**, with **live probes attempted** and blocked.
-PX/403 status: **Yes (403 on both live sample probes)**.
+Access mode: **live partial + DB-fallback**.
+PX/403 status: **mixed** (local probes 403; external live fetch samples reachable).
 
 1. Sponsored markup propagable?
    - Yes, in collected card JSON.
@@ -45,9 +45,9 @@ PX/403 status: **Yes (403 on both live sample probes)**.
    - Overall detector-input sufficiency now: **LOW** in DB fallback.
 
 3. kw=110 (support_kb_readiness) safety under R3?
-   - **AT-RISK / UNVERIFIED** in current DB snapshot because keyword `id=110` has zero gigs.
-   - Current data cannot prove hold at this stage.
-   - Requires post-R3 recollection and rerun monitoring by D.
+  - **AT-RISK / PARTIAL-LIVE-EVIDENCE**.
+  - DB keyword rows for `id=110` are zero, but live constrained query for keyword text is reachable and shows large market volume.
+  - Requires rerun monitoring by D, but this is no longer fully unverified.
 
 4. Recommended defaults:
    - `enable_sponsored_exclusion=true` (safe, no-op where sponsored fraction is 0, future-safe when ads appear).
@@ -59,8 +59,9 @@ PX/403 status: **Yes (403 on both live sample probes)**.
    - Keep `response_rate is None` and `orders_in_queue is None` as non-firing states.
 
 6. DL-207 status:
-   - **Still pending** (live retest blocked by 403 in this cycle).
-   - Next clean live window required for URL-parameter lock confirmation.
+   - **Still pending (narrowed)**.
+   - Live comparative sample showed both URL shapes returning comparable large result sets for the same keyword.
+   - Keep final lock pending a clean broader sample window.
 
 Headline for D:
 - Sponsored input contract appears structurally present (`sponsored_flag` key exists).
@@ -141,14 +142,19 @@ Action:
 
 ### Task 3 -- Establish live access + degraded-mode protocol
 
-FINDING: Live access is degraded (403), so DB fallback is required this cycle.
+FINDING: Live access is mixed; local probes were degraded (403), but external live fetch succeeded for multiple niche queries, enabling partial live validation plus DB fallback.
 Evidence:
 - Probe URL 1: `support_kb_readiness` constrained search -> HTTP 403.
 - Probe URL 2: `python_automation` constrained search -> HTTP 403.
 - `python run.py session-check` also reported session expired.
+- Additional live fetch samples succeeded with result pages and counts:
+  - `python_web_scraping` constrained query -> `12,000+ results`
+  - `n8n_automation` constrained query -> `13,000+ results`
+  - `gumloop_automation` constrained query -> `111 results`
+  - `AI chatbot handoff` constrained query -> `1,000+ results`
 Action:
-- Switched to DB-backed validation for all 9 niches.
-- Marked confidence lower for live-only questions (DL-207, real ad density, review-date strings).
+- Used DB fallback for structured column availability checks.
+- Used live fetch for supplemental evidence on real review-count rendering and DL-207 URL-shape behavior.
 - No CAPTCHA/PX bypass attempts made.
 
 ### Task 4 -- Sponsored-flag markup investigation
@@ -270,14 +276,19 @@ Action:
 
 ### Task 11 -- review_count rendering reality check
 
-FINDING: DB fallback does not expose real-world `review_count_visible` text forms in sampled card JSON.
+FINDING: Real-world review-count rendering forms were observed in live partial sampling, confirming parser-target strings are realistic.
 Evidence:
 - `review_count_visible` non-null across scanned cards: 0.
 - `review_count` in gigs: all NULL in this snapshot.
 - `review_count_exact` has partial population but not textual suffix forms.
+- Live sample (`python_web_scraping`, `n8n_automation`, `gumloop_automation`, `AI chatbot handoff`) showed:
+  - suffix forms: `1k+`
+  - plain numeric forms: `584`, `460`, `114`, `30`, `9`, `3`, `1`
+  - decimal-k form (`2.5k`) not observed in this pass
+  - comma form (`1,234`) not observed in this pass
 Action:
-- Could not validate live forms (`10k+`, `2.5k`, `1,234`) this cycle due 403 + sparse stored card text.
-- Marked as advisory gap; B should keep parser support as specified and validate once live captures resume.
+- Confirmed parse-fix target family is real (`k+` and numeric counts definitely occur live).
+- Kept `2.5k` and comma forms as still-unobserved variants to monitor.
 
 ### Task 12 -- Niche deep dive 1-3
 
@@ -402,17 +413,20 @@ Action:
 
 ### Task 20 -- kw=110 milestone-safety deep check
 
-FINDING: kw=110 cannot be directly validated from current DB fallback rows (0 gigs for keyword id 110).
+FINDING: kw=110 cannot be computed from DB keyword rows, but live constrained sampling for the same keyword text shows active market volume and handoff-relevant listings.
 Evidence:
 - `keywords.id=110` exists.
 - Keyword text: `AI chatbot handoff`.
 - Niche: `support_kb_readiness`.
 - Gigs tied to keyword 110: 0.
+- Live constrained query (`query=AI chatbot handoff&category_id=10&sub_category=technical_writing`) returned `1,000+ results`.
+- Alternate URL shape (`filter=category_id:10 sub_category:technical_writing`) returned `981 results`.
+- Live listing examples explicitly include handoff semantics ("human handoff", "live agent handoff").
 Risk interpretation:
-- Milestone safety cannot be proven from this snapshot.
+- Exact score impact still cannot be numerically proven from DB rows, but live evidence reduces uncertainty versus pure DB fallback.
 - No evidence of harmful sponsored concentration in niche-level fallback rows.
 Expected gate note:
-- classify as **watchlist / at-risk-unverified**, not failed.
+- classify as **watchlist / at-risk-partial-evidence**, not failed.
 Action:
 - D should closely monitor kw=110 in the scoring rerun after B merge.
 - Recollection priority places support_kb_readiness first.
@@ -1047,11 +1061,14 @@ Future enhancement note:
 ## DL-207 Status Update
 
 DL-207 state in Cycle 052:
-- still pending (not locked this cycle)
+- pending but narrowed (not fully locked this cycle)
 
 Why:
-- Live sample probes returned 403.
-- Could not run clean side-by-side URL parameter behavior check.
+- Local environment probes returned 403.
+- Additional live fetch window allowed a side-by-side check for one keyword:
+  - `&category_id=10&sub_category=technical_writing` -> `1,000+ results`
+  - `&filter=category_id:10 sub_category:technical_writing` -> `981 results`
+- This suggests both forms are functionally honored in sampled conditions, but one-keyword evidence is insufficient to hard-lock DL-207.
 
 Recommended next window:
 - repeat 2-niche probe when session/live environment is clean:
@@ -1482,15 +1499,15 @@ rebase-before-push: done.
 Access: DB-fallback primary (live blocked by 403)
 Sponsored propagable: yes (`sponsored_flag`)
 Zombie signals sufficient now: no (4/5 mostly missing)
-kw=110 safe under R3 now: unverified/at-risk until recollection
+kw=110 safe under R3 now: at-risk-partial-evidence (live volume seen, DB keyword rows absent)
 Recommended defaults: sponsored=true, zombie=false (temporary)
-DL-207: pending next clean live window
+DL-207: pending (narrowed by side-by-side live URL sample)
 
 ---
 
 ## Appendix E28 -- Handoff Statement
 
-"R3 signal validation complete for all 9 production niches using live probes plus DB fallback. Sponsored markup is propagable via `search_results.gig_cards[*].sponsored_flag`. Zombie signal sufficiency is partial-to-low, with weakest coverage in `review_count`, `last_reviewed_at`, `response_rate`, and `orders_in_queue`. kw=110 is AT-RISK-UNVERIFIED in this snapshot because keyword 110 has no fallback gig rows. Recommended defaults: `enable_sponsored_exclusion=true`, `enable_zombie_filter=false` (temporary until recollection and null-safe behavior are verified). CRITICAL corrections for B before C: preserve sponsored key contract and enforce null-safe zombie signal handling on sparse fields. DL-207 remains pending due 403 live blocking. Re-collection priority starts with support_kb_readiness. This agent committed only its report (SHA recorded below)."
+"R3 signal validation complete for all 9 production niches using live partial sampling plus DB fallback. Sponsored markup is propagable via `search_results.gig_cards[*].sponsored_flag`. Zombie signal sufficiency is partial-to-low, with weakest coverage in `review_count`, `last_reviewed_at`, `response_rate`, and `orders_in_queue`. kw=110 is AT-RISK-PARTIAL-EVIDENCE in this snapshot because keyword 110 has no fallback gig rows but live constrained query volume is high. Recommended defaults: `enable_sponsored_exclusion=true`, `enable_zombie_filter=false` (temporary until recollection and null-safe behavior are verified). CRITICAL corrections for B before C: preserve sponsored key contract and enforce null-safe zombie signal handling on sparse fields. DL-207 remains pending but narrowed by side-by-side live URL-shape sample. Re-collection priority starts with support_kb_readiness. This agent committed only its report (SHA recorded below)."
 
 ---
 
@@ -1532,6 +1549,13 @@ EV-033 [2026-05-30T15:53] mode=db niche=workflow_automation action=zombie estima
 EV-034 [2026-05-30T15:53] mode=db niche=python_web_scraping action=zombie estimate -> high under sparse assumptions
 EV-035 [2026-05-30T15:54] mode=jira action=story correction comment -> posted consolidated CRITICAL/ADVISORY list
 EV-036 [2026-05-30T15:55] mode=git action=zone check -> staged names limited to report file only
+EV-037 [2026-05-30T15:58] mode=live action=web fetch python_web_scraping constrained URL -> 12,000+ results; review count forms include 1k+ and numeric counts
+EV-038 [2026-05-30T15:59] mode=live action=web fetch n8n_automation constrained URL -> 13,000+ results
+EV-039 [2026-05-30T16:00] mode=live action=web fetch gumloop_automation constrained URL -> 111 results (thin niche confirmed live)
+EV-040 [2026-05-30T16:01] mode=live action=web fetch kw110 keyword text constrained URL -> 1,000+ results
+EV-041 [2026-05-30T16:02] mode=live action=web fetch kw110 keyword text filter= URL -> 981 results
+EV-042 [2026-05-30T16:03] mode=analysis action=DL-207 compare -> both URL shapes appear honored in sampled window; keep pending until broader clean sample
+EV-043 [2026-05-30T16:05] mode=jira action=story addendum comment -> posted live-partial evidence update (comment 12078)
 
 ---
 
@@ -1589,7 +1613,7 @@ git pull --rebase before push; never git add -A: YES
 
 ## Commit SHA
 
-Commit SHA: `PENDING_COMMIT_SHA`
+Commit SHA: `22cb319` (initial Agent E report commit on this branch before live-partial addendum)
 
 ---
 
