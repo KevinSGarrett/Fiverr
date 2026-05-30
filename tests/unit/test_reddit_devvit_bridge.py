@@ -220,3 +220,153 @@ def test_run_devvit_bridge_import_aggregates_file_results(tmp_path: Path) -> Non
     assert result["signals_written"] == 1
     assert result["payload_files"] == 1
     session.close()
+
+
+def test_normalize_handles_missing_optional_fields_gracefully() -> None:
+    payload = _valid_payload()
+    payload.pop("confidence_metadata", None)
+    payload.pop("warnings", None)
+    payload.pop("errors", None)
+    normalized = normalize_devvit_payload(payload)
+    assert normalized["confidence_metadata"] == {}
+    assert normalized["warnings"] == []
+    assert normalized["errors"] == []
+
+
+def test_load_multiple_files_from_import_dir(tmp_path: Path) -> None:
+    import_dir = tmp_path / "imports"
+    import_dir.mkdir(parents=True, exist_ok=True)
+    for idx in range(3):
+        payload = _valid_payload()
+        payload["posts_collected"] = idx + 1
+        (import_dir / f"payload_{idx}.json").write_text(json.dumps(payload), encoding="utf-8")
+    loaded = load_devvit_signal_files(import_dir)
+    assert len(loaded) == 3
+
+
+def test_strip_pii_removes_nested_author_from_all_snippets() -> None:
+    payload = _valid_payload()
+    payload["reddit_top_snippets"] = [
+        {"post_id": "t3_1", "author": "user_abc"},
+        {"post_id": "t3_2", "author": "user_abc"},
+        {"post_id": "t3_3", "author": "user_abc"},
+    ]
+    stripped = strip_pii_fields(payload)
+    assert all("author" not in snippet for snippet in stripped["reddit_top_snippets"])
+
+
+def test_run_devvit_bridge_import_with_real_fixture(tmp_path: Path) -> None:
+    session = _session(tmp_path)
+    _seed_db(session)
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "reddit_devvit_test_payload.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    import_dir = tmp_path / "imports"
+    import_dir.mkdir(parents=True, exist_ok=True)
+    (import_dir / "fixture_payload.json").write_text(json.dumps(payload), encoding="utf-8")
+    result = run_devvit_bridge_import(
+        niche_id="support_kb_readiness",
+        seed_keywords=["AI chatbot handoff"],
+        run_id="run-from-fixture",
+        db=session,
+        import_dir=import_dir,
+    )
+    assert result["signals_written"] >= 1
+    session.close()
+
+
+def test_keyword_resolver_handles_case_insensitive_match(tmp_path: Path) -> None:
+    session = _session(tmp_path)
+    niche, keyword = _seed_db(session)
+    resolved = resolve_keyword_id(str(niche.slug), "AI CHATBOT HANDOFF", session)
+    assert resolved == int(keyword.id)
+    session.close()
+
+
+def test_write_signals_skips_unresolved_keywords_gracefully(tmp_path: Path) -> None:
+    session = _session(tmp_path)
+    _seed_db(session)
+    payload = _valid_payload()
+    payload["keywords"] = ["totally unknown keyword 99999"]
+    summary = write_devvit_reddit_signals(normalize_devvit_payload(payload), session, "run-unresolved")
+    assert summary["signals_written"] == 0
+    assert summary["warnings"]
+    session.close()
+
+
+def test_manual_import_mode_routes_correctly(monkeypatch) -> None:
+    seen: list[str] = []
+
+    def _fake_manual_import(**_: Any) -> dict[str, Any]:
+        seen.append("manual_import")
+        return {"status": "ok", "source_mode": "manual_import", "signals_written": 0}
+
+    monkeypatch.setattr(reddit_signals, "_run_manual_import", _fake_manual_import)
+    monkeypatch.setenv("REDDIT_SOURCE_MODE", "manual_import")
+    monkeypatch.setenv("REDDIT_ENABLED", "true")
+    result = _run(
+        reddit_signals.run_reddit_signals_collection(
+            niche_id="support_kb_readiness",
+            seed_keywords=["AI chatbot handoff"],
+            subreddits=["OpenAI"],
+            run_id="route-manual",
+            db=object(),
+            pacing_manager=None,
+            dry_run=False,
+        )
+    )
+    assert seen == ["manual_import"]
+    assert result["source_mode"] == "manual_import"
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_handler", "enabled"),
+    [
+        ("disabled", "disabled", "false"),
+        ("manual_import", "manual_import", "true"),
+        ("devvit_bridge", "devvit_bridge", "true"),
+        ("praw_oauth", "praw_oauth", "true"),
+    ],
+)
+def test_source_mode_routing_all_four_modes(
+    monkeypatch,
+    mode: str,
+    expected_handler: str,
+    enabled: str,
+) -> None:
+    calls: list[str] = []
+
+    def _fake_disabled_mode(**_: Any) -> dict[str, Any]:
+        calls.append("disabled")
+        return {"status": "skipped", "source_mode": "disabled", "signals_written": 0}
+
+    def _fake_manual_mode(**_: Any) -> dict[str, Any]:
+        calls.append("manual_import")
+        return {"status": "ok", "source_mode": "manual_import", "signals_written": 0}
+
+    def _fake_devvit_mode(**_: Any) -> dict[str, Any]:
+        calls.append("devvit_bridge")
+        return {"status": "ok", "source_mode": "devvit_bridge", "signals_written": 0}
+
+    async def _fake_praw_mode(**_: Any) -> dict[str, Any]:
+        calls.append("praw_oauth")
+        return {"status": "ok", "source_mode": "praw_oauth", "signals_written": 0}
+
+    monkeypatch.setattr(reddit_signals, "_run_disabled_mode", _fake_disabled_mode)
+    monkeypatch.setattr(reddit_signals, "_run_manual_import", _fake_manual_mode)
+    monkeypatch.setattr(reddit_signals, "_run_devvit_bridge_import_mode", _fake_devvit_mode)
+    monkeypatch.setattr(reddit_signals, "_run_praw_oauth_mode", _fake_praw_mode)
+    monkeypatch.setenv("REDDIT_SOURCE_MODE", mode)
+    monkeypatch.setenv("REDDIT_ENABLED", enabled)
+    result = _run(
+        reddit_signals.run_reddit_signals_collection(
+            niche_id="support_kb_readiness",
+            seed_keywords=["AI chatbot handoff"],
+            subreddits=["OpenAI"],
+            run_id="routing-all-modes",
+            db=object(),
+            pacing_manager=None,
+            dry_run=False,
+        )
+    )
+    assert calls == [expected_handler]
+    assert result["source_mode"] == expected_handler

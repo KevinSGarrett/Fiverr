@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
+from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations
+from sqlalchemy.engine import Engine
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import (
@@ -643,3 +647,83 @@ def test_first_recommendation_context_has_all_required_fields(integration_db: Se
     assert context.cluster_size is None or isinstance(context.cluster_size, int)
     assert context.saturation_score == 31.0
     assert context.feasibility_score == 72.0
+
+
+def test_kw110_reaches_conditional_go_with_reddit_signal(integration_db: Session) -> None:
+    keyword_id = _seed_keyword(
+        integration_db,
+        keyword_text="kw110 reddit signal uplift",
+        run_id="kw110-reddit-signal",
+        gig_count=1,
+        with_links=True,
+        with_gqa=False,
+        with_reddit=False,
+        with_trends=True,
+    )
+    integration_db.add(
+        ExternalSignal(
+            signal_type="reddit_demand",
+            keyword_id=keyword_id,
+            collection_method="reddit_devvit_bridge",
+            signal_json={"post_count_90d": 3, "reddit_demand_intent_score": 8.0},
+            signal_value=8.0,
+            run_id="kw110-reddit-signal",
+        )
+    )
+    integration_db.commit()
+
+    cm = ConfidenceScoreModifier().calculate(keyword_id, run_context=None, db=integration_db)
+    assert cm == 1.0
+    scores = {
+        "demand_score": 41.69,
+        "competition_score": 56.84,
+        "opportunity_score": 42.28,
+        "feasibility_score": 78.04,
+        "profitability_score": 36.13,
+        "intent_score": 47.14,
+        "saturation_score": None,
+        "weakness_score": 100.0,
+        "trend_score": None,
+    }
+    composite, _ = calculate_weighted_composite(scores, SCORING_PROFILES["aggressive_new_seller"])
+    final_score = calculate_final_score(composite, cm)
+    assert final_score >= 60.0
+    assert assign_tag(final_score, cm) == "CONDITIONAL_GO"
+
+
+def test_kw96_weakness_not_regressed_by_srdi_schema(integration_db: Session) -> None:
+    run_srdi_r8_migrations(engine=cast(Engine, integration_db.get_bind()))
+    keyword_id = _seed_keyword(
+        integration_db,
+        keyword_text="kw96 weakness fallback consistency",
+        run_id="kw96-srdi-schema",
+        gig_count=0,
+        with_links=False,
+        with_gqa=False,
+        with_reddit=False,
+        with_trends=False,
+    )
+    integration_db.add(
+        KeywordScore(
+            keyword_id=keyword_id,
+            final_score=51.2,
+            weakness_score=100.0,
+            score_components={},
+            tag="MONITOR",
+            scored_at=datetime.now(UTC),
+        )
+    )
+    integration_db.add(
+        KeywordScore(
+            keyword_id=keyword_id,
+            final_score=51.2,
+            weakness_score=53.52,
+            score_components={},
+            tag="MONITOR",
+            scored_at=datetime.now(UTC) + timedelta(seconds=1),
+        )
+    )
+    integration_db.commit()
+    result = GigQualityWeaknessScoreCalculator().calculate(keyword_id, integration_db)
+    assert result.score_value is not None
+    assert result.score_value == pytest.approx(53.52, abs=2.0)
