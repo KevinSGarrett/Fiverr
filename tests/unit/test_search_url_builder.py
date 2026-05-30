@@ -286,6 +286,52 @@ def test_default_collector_falls_back_to_gig_card_count(monkeypatch: pytest.Monk
     assert builder._default_count_collector("https://example.com") == 3
 
 
+def test_build_session_opener_primes_session_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.collection.search_url_builder as builder
+
+    calls: dict[str, int] = {"open": 0, "install": 0}
+
+    class _Ctx:
+        def __enter__(self) -> _Ctx:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    class _Opener:
+        def open(self, _request: object, timeout: int = 30) -> _Ctx:
+            calls["open"] += 1
+            assert timeout == 30
+            return _Ctx()
+
+    opener = _Opener()
+    monkeypatch.setattr(builder, "build_opener", lambda *_args, **_kwargs: opener)
+    monkeypatch.setattr(builder, "install_opener", lambda _opener: calls.__setitem__("install", calls["install"] + 1))
+
+    built = builder._build_session_opener()
+    assert built is opener
+    assert calls["open"] == 1
+    assert calls["install"] == 1
+
+
+def test_run_validation_sweep_logs_both_collector_failures(caplog: pytest.LogCaptureFixture) -> None:
+    def collector(url: str) -> int:
+        if "sub_category=" in url:
+            raise RuntimeError("forced constrained failure")
+        raise RuntimeError("forced unconstrained failure")
+
+    with caplog.at_level(logging.WARNING):
+        rows = run_validation_sweep(("python_automation",), count_collector=collector)
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["constrained_count"] == 0
+    assert row["unconstrained_count"] == 0
+    assert row["recommended_strictness"] == SearchStrictness.NONE.value
+    assert any("sweep constrained fetch failed" in record.message.lower() for record in caplog.records)
+    assert any("sweep unconstrained fetch failed" in record.message.lower() for record in caplog.records)
+
+
 def test_resolve_threshold_defaults_for_invalid_inputs() -> None:
     import src.collection.search_url_builder as builder
 
