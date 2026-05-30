@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from src.scoring.contracts import DemandScoreResult, ScoreComponent
 
 _DEFAULT_CLUSTER_BOOST = 5.0
 _DEFAULT_MIN_CLUSTER_SIZE = 3
+_R1_STRICTNESS_EFFECTIVE_DATE = date(2026, 5, 30)
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:
@@ -210,19 +212,38 @@ def get_cluster_demand_boost(keyword_id: int, db: Any, config: dict[str, Any] | 
     return boost
 
 
-def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> float | None:
-    """Resolve best-available marketplace result volume for a keyword."""
-    max_total_result_count = (
-        session.query(SearchResult.total_result_count)
+def _normalize_search_strictness(value: Any) -> str | None:
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized:
+            return normalized
+    return None
+
+
+def _is_post_r1_none_strictness(row: SearchResult) -> bool:
+    collected_at = row.collected_at
+    if isinstance(collected_at, datetime):
+        return collected_at.date() >= _R1_STRICTNESS_EFFECTIVE_DATE
+    return False
+
+
+def _resolve_marketplace_snapshot(session: Session, keyword_id: int) -> tuple[float | None, str | None]:
+    """Resolve demand count and paired strictness from the same source row."""
+    max_total_result_row = (
+        session.query(SearchResult)
         .filter(
             SearchResult.keyword_id == keyword_id,
             SearchResult.total_result_count.isnot(None),
         )
-        .order_by(SearchResult.total_result_count.desc())
+        .order_by(SearchResult.total_result_count.desc(), SearchResult.collected_at.desc(), SearchResult.id.desc())
         .first()
     )
-    if max_total_result_count is not None and max_total_result_count[0] is not None:
-        return float(max_total_result_count[0])
+    if max_total_result_row is not None and max_total_result_row.total_result_count is not None:
+        strictness = _normalize_search_strictness(max_total_result_row.search_strictness_used)
+        # Legacy rows can carry migration defaults ("NONE") that were never explicitly collected.
+        if strictness == "NONE" and not _is_post_r1_none_strictness(max_total_result_row):
+            strictness = None
+        return float(max_total_result_row.total_result_count), strictness
 
     # Only use row-count as a coarse fallback when we have broad top-result coverage.
     # Sparse partial rows (e.g. 1-2 persisted cards) understate true marketplace volume
@@ -237,23 +258,8 @@ def _resolve_marketplace_result_count(session: Session, keyword_id: int) -> floa
         .count()
     )
     if fallback_count >= 10:
-        return float(fallback_count)
-    return None
-
-
-def _resolve_latest_search_strictness(session: Session, keyword_id: int) -> str | None:
-    latest = (
-        session.query(SearchResult.search_strictness_used)
-        .filter(SearchResult.keyword_id == keyword_id)
-        .order_by(SearchResult.collected_at.desc(), SearchResult.id.desc())
-        .first()
-    )
-    if latest is None:
-        return None
-    value = latest[0]
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
+        return float(fallback_count), None
+    return None, None
 
 
 class DemandScoreCalculator:
@@ -454,8 +460,7 @@ class DemandScoreCalculator:
 
     def _load_signals_from_db(self, keyword_id: int, session: Session) -> dict[str, Any]:
         keyword = session.query(Keyword).filter(Keyword.id == keyword_id).first()
-        total_result_count = _resolve_marketplace_result_count(session, keyword_id)
-        search_strictness_used = _resolve_latest_search_strictness(session, keyword_id)
+        total_result_count, search_strictness_used = _resolve_marketplace_snapshot(session, keyword_id)
         google_trends = (
             session.query(ExternalSignal)
             .filter(

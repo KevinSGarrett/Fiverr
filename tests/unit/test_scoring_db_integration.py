@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -684,6 +685,68 @@ def test_demand_uses_search_result_total_result_count_when_available() -> None:
         session.commit()
         signals = DemandScoreCalculator()._load_signals_from_db(keyword_id, session)
         assert signals["total_result_count"] == 20000.0
+    finally:
+        session.close()
+
+
+def test_demand_pairs_strictness_with_selected_total_result_count_row() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword_id,
+                run_id="older-none-run",
+                rank=99,
+                title="Older unconstrained high-volume row",
+                gig_id=None,
+                total_result_count=25000,
+                search_strictness_used="NONE",
+                collected_at=datetime(2026, 5, 30, 10, 0, 0),
+            )
+        )
+        session.add(
+            SearchResult(
+                keyword_id=keyword_id,
+                run_id="newer-constrained-run",
+                rank=100,
+                title="Newer constrained low-volume row",
+                gig_id=None,
+                total_result_count=500,
+                search_strictness_used="SUBCATEGORY",
+                collected_at=datetime(2026, 5, 30, 12, 0, 0),
+            )
+        )
+        session.commit()
+
+        signals = DemandScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["total_result_count"] == 25000.0
+        assert signals["search_strictness_used"] == "NONE"
+    finally:
+        session.close()
+
+
+def test_demand_ignores_legacy_migration_default_none_strictness() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data(session)
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword_id,
+                run_id="legacy-migrated-run",
+                rank=101,
+                title="Legacy default strictness row",
+                gig_id=None,
+                total_result_count=22000,
+                search_strictness_used="NONE",
+                collected_at=datetime(2026, 5, 29, 12, 0, 0),
+            )
+        )
+        session.commit()
+
+        signals = DemandScoreCalculator()._load_signals_from_db(keyword_id, session)
+        assert signals["total_result_count"] == 22000.0
+        assert signals["search_strictness_used"] is None
     finally:
         session.close()
 
