@@ -128,11 +128,11 @@ Observed outcome after robustness hardening in `search_url_builder.py`:
 - Per-niche output (verbatim):
 
 ```text
-prd_ai_saas: constrained=0 unconstrained=8 retention=0.0 recommended=NONE
+prd_ai_saas: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
 support_kb_readiness: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
-python_automation: constrained=9 unconstrained=9 retention=1.0 recommended=SUBCATEGORY
-ai_agent_development: constrained=7 unconstrained=7 retention=1.0 recommended=SUBCATEGORY
-mcp_ai_agent: constrained=8 unconstrained=8 retention=1.0 recommended=SUBCATEGORY
+python_automation: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
+ai_agent_development: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
+mcp_ai_agent: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
 n8n_automation: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
 gumloop_automation: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
 workflow_automation: constrained=0 unconstrained=0 retention=1.0 recommended=NONE
@@ -157,9 +157,9 @@ Sweep-vs-E reconciliation table:
 |---|---|---|---|---|---|
 | prd_ai_saas | SUBCATEGORY | NONE | NO | constrained path had 403 degradation; prefer live E evidence | Agent E (live) |
 | support_kb_readiness | SUBCATEGORY | NONE | NO | both paths degraded by 403; prefer live E evidence | Agent E (live) |
-| python_automation | SUBCATEGORY | SUBCATEGORY | YES | agreement | Both |
-| ai_agent_development | SUBCATEGORY | SUBCATEGORY | YES | agreement | Both |
-| mcp_ai_agent | SUBCATEGORY | SUBCATEGORY | YES | agreement | Both |
+| python_automation | SUBCATEGORY | NONE | NO | both paths degraded by 403; prefer live E evidence | Agent E (live) |
+| ai_agent_development | SUBCATEGORY | NONE | NO | both paths degraded by 403; prefer live E evidence | Agent E (live) |
+| mcp_ai_agent | SUBCATEGORY | NONE | NO | both paths degraded by 403; prefer live E evidence | Agent E (live) |
 | n8n_automation | SUBCATEGORY | NONE | NO | both paths degraded by 403; prefer live E evidence | Agent E (live) |
 | gumloop_automation | CATEGORY | NONE | NO | both paths degraded by 403; use E CATEGORY watch-list recommendation | Agent E (live) |
 | workflow_automation | SUBCATEGORY | NONE | NO | both paths degraded by 403; prefer live E evidence | Agent E (live) |
@@ -170,7 +170,7 @@ DL-207 lock status:
 - Locked value (per group):
   - Group 1 (`cat 10`): `category_id=10&sub_category=technical_writing` -> strictness lock: `SUBCATEGORY` (E authoritative)
   - Group 2 (`cat 6`, desktop): `category_id=6&sub_category=desktop_applications` -> strictness lock: `SUBCATEGORY` default, **per-niche deviation:** `gumloop_automation = CATEGORY` (E authoritative)
-  - Group 3 (`cat 6`, chatbots): `category_id=6&sub_category=chatbots` -> strictness lock: `SUBCATEGORY` (agreement on sampled rows)
+  - Group 3 (`cat 6`, chatbots): `category_id=6&sub_category=chatbots` -> strictness lock: `SUBCATEGORY` (E authoritative under degraded sweep)
 - Re-validate target remains `2026-08-29`.
 - Resolution basis: where sweep degraded under 403, E live validation is authoritative for lock decision.
 
