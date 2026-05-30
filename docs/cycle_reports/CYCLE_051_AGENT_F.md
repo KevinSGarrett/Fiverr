@@ -179,5 +179,6 @@ a4cabd7 docs(cycle-051): publish Agent A stage-1 setup report
 
 ## Commit SHA + push confirmation
 
-- Commit: `d62aad4`
-- Push: `cycle/051/integration` updated on origin (`d11228e -> d62aad4`)
+- Commit 1 (tests + report): `d62aad4`
+- Commit 2 (report metadata finalize): `83ed27e`
+- Push: `cycle/051/integration` updated on origin (`d11228e -> 83ed27e`)
