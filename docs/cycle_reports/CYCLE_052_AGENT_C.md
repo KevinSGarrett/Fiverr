@@ -888,8 +888,9 @@ No defects; R3 verified.
   - `docs(cycle-052): Agent C integration verification`
 - Executed branch push:
   - `origin/cycle/052/integration`
-- Commit SHA (report-only commit):
-  - `ced8218c2b26d6c3dfdd99bb44b09f2472b7bcf9`
+- Commit SHAs (report-only commits):
+  - `ced8218c2b26d6c3dfdd99bb44b09f2472b7bcf9` (initial Agent C verification report)
+  - `f5986f586ecbdddb856257d9327da2f9b46f961d` (final evidence closure update)
 
 ### 25.4 Completion requirements
 
@@ -1178,7 +1179,7 @@ F receives:
 - targeted coverage-gap list (Appendix C11).
 - confirmation that 18-selector + critical test are already green.
 - confirmation that OFF parity and ON kw=110 safety are already proven.
-- branch SHA verified by C: `ced8218c2b26d6c3dfdd99bb44b09f2472b7bcf9`.
+- branch SHA verified by C: `f5986f586ecbdddb856257d9327da2f9b46f961d`.
 
 ---
 
