@@ -539,52 +539,54 @@ Failure-mode alignment:
 
 ## Codex GraphQL Run 1 (pre-resolve)
 
-Query (verbatim required form) executed with PR #60.
+Query (verbatim required form) executed with PR #60 **after latest push**.
 
 JSON:
 
 ```json
-{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6F4hIG","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P2: Pair strictness with the result count being scored"}]}},{"id":"PRRT_kwDOSbqwNc6F4hIH","isResolved":false,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"chatgpt-codex-connector"},"body":"P2: Avoid treating migrated legacy rows as unconstrained"}]}}]}}}}}
 ```
 
 Run 1 counts:
 
-- total threads: 0
+- total threads: 2
 - resolved: 0
-- unresolved: 0
+- unresolved: 2
 
 Action taken:
 
-- none required (no unresolved threads).
+- unresolved threads identified and documented for routing:
+  - `PRRT_kwDOSbqwNc6F4hIG` (strictness/count pairing concern)
+  - `PRRT_kwDOSbqwNc6F4hIH` (legacy migration default strictness concern)
 
 ---
 
 ## Codex GraphQL Run 2 (post-resolve)
 
-Second independent re-run executed with same query and same PR #60.
+Second independent re-run executed with same query and same PR #60 (post Run 1).
 
 JSON:
 
 ```json
-{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]}}}}}
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_kwDOSbqwNc6F4hIG","isResolved":false,"isOutdated":false},{"id":"PRRT_kwDOSbqwNc6F4hIH","isResolved":false,"isOutdated":false}]}}}}}
 ```
 
 Run 2 counts:
 
-- total threads: 0
+- total threads: 2
 - resolved: 0
-- unresolved: 0
+- unresolved: 2
 
 G-002 result:
 
-- PASS (two separate runs captured, unresolved = 0).
+- FAIL (two runs captured, but unresolved != 0).
 
 ---
 
 ## Merge-Gate Checklist (Appendix B)
 
 - [x] CODECOV gate -- codecov/patch >= 90% on the PR (SUCCESS)
-- [x] CODEX gate -- query run TWICE (pre+post); unresolved = 0
+- [ ] CODEX gate -- query run TWICE (pre+post); unresolved = 0  **FAIL (2 unresolved)**
 - [x] 6-AGENT FILE-ZONE gate -- E commit set ZERO src/tests/config/data; F commit set ZERO src/
 - [ ] SOURCE ATTRIBUTION -- all src/ in the diff authored by Agent B  **FAIL**
 - [x] REGRESSIONS -- all 15 PASS by name (Section 5)
@@ -611,7 +613,7 @@ No merge performed.
 Reason:
 
 - Appendix B not all PASS.
-- Appendix P pre-merge re-check not satisfied (`Validate PR` failure; source attribution FAIL).
+- Appendix P pre-merge re-check not satisfied (`Validate PR` failure; source attribution FAIL; Codex unresolved threads).
 
 Current state:
 
@@ -654,6 +656,7 @@ Routed blockers:
 1. Validate PR size gate failure -> PM/steward action required (approved override label or split strategy).
 2. Source attribution breach (`c6489b9` touching `src/`) -> PM governance decision and commit ownership correction path required.
 3. DL-207 runtime sweep lock ambiguity under 403 -> confirm lock basis (E-live authoritative or rerun sweep in non-degraded environment).
+4. Codex unresolved review threads (2) -> route to owning implementation agent; address or justify, then resolve and re-run Run 2.
 
 Cycle state:
 
@@ -672,13 +675,13 @@ Cycle state:
 - 15 regressions PASS by name; Section 7 == 15: YES
 - kw=110 CONDITIONAL_GO held; no anchor delta > 2 pts: YES
 - Sweep confirms DL-207; matches C + E: NO (degraded sweep runtime)
-- Codex Run 1 + Run 2 executed separately; unresolved = 0: YES
+- Codex Run 1 + Run 2 executed separately; unresolved = 0: NO
 - codecov/patch SUCCESS on PR; all CI SUCCESS: NO (Validate PR failed)
 - Full merge-gate checklist ALL PASS: NO
 - PR merged; develop advanced; cycle/051 remote branch deleted: NO
 - Post-merge Jira transitions done (or listed for PM): YES (listed; pending)
 - CYCLE_051_PREP_NOTES.md written for Cycle 052: YES
-- CYCLE_051_AGENT_D.md committed; report >= 700 lines target: PENDING COMMIT
+- CYCLE_051_AGENT_D.md committed; report >= 700 lines target: YES
 
 ---
 
@@ -697,13 +700,13 @@ Cycle state:
 | 9 | ruff + mypy clean | YES |
 | 10 | 15 regressions PASS by name; Section 7 == 15 | YES |
 | 11 | kw=110 CONDITIONAL_GO; no score regression | YES |
-| 12 | Codex Run 1 + Run 2; unresolved = 0 | YES |
+| 12 | Codex Run 1 + Run 2; unresolved = 0 | NO |
 | 13 | codecov/patch SUCCESS; all CI SUCCESS | NO |
 | 14 | Full merge-gate checklist ALL PASS | NO |
 | 15 | PR merged; develop advanced; branch cleaned | NO |
 | 16 | Post-merge Jira transitions complete | PENDING |
 | 17 | CYCLE_051_PREP_NOTES.md written | YES |
-| 18 | CYCLE_051_AGENT_D.md committed | PENDING |
+| 18 | CYCLE_051_AGENT_D.md committed | YES |
 
 ---
 
@@ -726,14 +729,14 @@ TRACE-014 | 15 regressions PASS by name; Section 7 == 15 | PASS
 TRACE-015 | CLI smokes pass | PASS  
 TRACE-016 | PR opened; CI running | PASS  
 TRACE-017 | Codex Run 1 captured; threads resolved | PASS  
-TRACE-018 | Codex Run 2 captured; unresolved = 0 | PASS  
+TRACE-018 | Codex Run 2 captured; unresolved = 0 | FAIL  
 TRACE-019 | CI all SUCCESS; codecov/patch SUCCESS | FAIL  
 TRACE-020 | merge-gate checklist all PASS | FAIL  
 TRACE-021 | merged; develop advanced; branch deleted | NOT EXECUTED  
 TRACE-022 | post-merge Jira transitioned (or PENDING for PM) | PENDING  
 TRACE-023 | prep notes written for Cycle 052 | PASS  
-TRACE-024 | CYCLE_051_AGENT_D.md committed | PENDING  
+TRACE-024 | CYCLE_051_AGENT_D.md committed | PASS  
 
 Final trace verdict:
 
-- BLOCKED at TRACE-006 + TRACE-010 + TRACE-019 + TRACE-020.
+- BLOCKED at TRACE-006 + TRACE-010 + TRACE-018 + TRACE-019 + TRACE-020.
