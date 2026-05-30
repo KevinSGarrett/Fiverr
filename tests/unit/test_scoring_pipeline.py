@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.models import Base, Keyword, Niche
+from src.models import Base, ExternalSignal, Keyword, Niche
 from src.scoring.contracts import FeasibilityScoreResult, WeaknessScoreResult
 from src.scoring.pipeline import (
     DEPTH_SCORE_AVAILABILITY,
@@ -582,6 +582,40 @@ def test_score_keyword_explanation_populated(tmp_path: Path, monkeypatch: pytest
     result = asyncio.run(score_keyword(808, "default", FakePipelineDB("standard"), llm_client=None, cache=None))
     assert isinstance(result["explanation_text"], str)
     assert result["explanation_text"]
+
+
+def test_confidence_context_uses_reddit_signal_presence_from_db() -> None:
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx2", name="Context2", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="context keyword", normalized_keyword="context keyword")
+    session.add(keyword)
+    session.flush()
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_demand",
+            signal_value=1.0,
+            signal_json={"reddit_demand_intent_score": 1.0},
+            run_id="ctx-run",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=["reddit_not_implemented"],
+        db=session,
+    )
+    assert context["reddit_signals_available"] is True
 
 
 def test_mode_full_smoke() -> None:

@@ -255,11 +255,15 @@ def _resolve_demand_score(keyword_id: int, keyword_data: dict[str, Any], db: Any
     keyword_query = _safe_query(db, keyword_score_model)
     keyword_row = None
     if keyword_query is not None:
-        keyword_row = keyword_query.filter(keyword_score_model.keyword_id == keyword_id).first()
-    if keyword_row is not None:
-        keyword_score_demand = _to_optional_float(getattr(keyword_row, "demand_score", None))
-        if keyword_score_demand is not None:
-            return keyword_score_demand
+        filtered_query = keyword_query.filter(keyword_score_model.keyword_id == keyword_id)
+        scored_at_column = getattr(keyword_score_model, "scored_at", None)
+        if scored_at_column is not None:
+            filtered_query = filtered_query.order_by(scored_at_column.desc())
+        keyword_rows = filtered_query.all()
+        for keyword_row in keyword_rows:
+            keyword_score_demand = _to_optional_float(getattr(keyword_row, "demand_score", None))
+            if keyword_score_demand is not None:
+                return keyword_score_demand
 
     final_row = _query_latest_final_score(keyword_id, db)
     raw = getattr(final_row, "raw_json", {}) if final_row is not None else {}

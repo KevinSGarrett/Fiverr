@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.models import Keyword
+from src.models import ExternalSignal, Keyword
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
@@ -366,7 +366,13 @@ async def score_keyword(
         "trend_score": _score_value(trend_result),
     }
 
-    confidence_context = _build_confidence_context(scores=scores, depth=depth, warnings=missing_data_warnings)
+    confidence_context = _build_confidence_context(
+        keyword_id=keyword_id,
+        scores=scores,
+        depth=depth,
+        warnings=missing_data_warnings,
+        db=db,
+    )
     confidence_modifier = confidence_modifier_calculator.calculate(keyword_id, confidence_context, db)
     confidence_breakdown = dict(confidence_modifier_calculator.last_breakdown)
 
@@ -653,13 +659,26 @@ def _resolve_depth(keyword_id: int, db: Any) -> str:
 
 
 def _build_confidence_context(
+    keyword_id: int,
     scores: dict[str, float | None],
     depth: str,
     warnings: list[str],
+    db: Any,
 ) -> dict[str, Any]:
     total_scores = len(scores)
     present_scores = sum(1 for value in scores.values() if value is not None)
     reddit_warning_missing = any("reddit_not_implemented" in warning for warning in warnings)
+    reddit_signals_available = not reddit_warning_missing
+    if isinstance(db, Session):
+        reddit_count = (
+            db.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type.in_(["reddit_demand", "reddit_activity"]),
+            )
+            .count()
+        )
+        reddit_signals_available = reddit_count > 0
     trends_available = scores.get("trend_score") is not None
     gig_detail_collected = True
     llm_quality_incomplete_count = 0
@@ -677,7 +696,7 @@ def _build_confidence_context(
         "google_trends_available": trends_available,
         "gig_detail_collected": gig_detail_collected,
         "seller_profiles_collected": True,
-        "reddit_signals_available": not reddit_warning_missing,
+        "reddit_signals_available": reddit_signals_available,
         "llm_gig_quality_incomplete_count": llm_quality_incomplete_count,
         "llm_competitor_synthesis_failed": any(
             "competitor" in warning and "llm_not_implemented" in warning for warning in warnings
