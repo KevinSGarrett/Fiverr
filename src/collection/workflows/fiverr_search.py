@@ -123,6 +123,7 @@ async def run_fiverr_search_collection(
             gig_cards=parsed_gig_cards,
             page_collected=1,
             search_strictness_used=strictness_used.value,
+            pages_collected=1,
             db=db,
         )
 
@@ -195,6 +196,7 @@ async def run_fiverr_search_collection(
             gig_cards=gig_cards,
             page_collected=1,
             search_strictness_used=strictness_used.value,
+            pages_collected=1,
             db=db,
         )
 

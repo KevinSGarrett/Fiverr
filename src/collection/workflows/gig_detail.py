@@ -2,13 +2,19 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import ModuleType
 from typing import Any
 from urllib.parse import urlparse
 
+from src.analysis.zombie_gig_detector import (
+    MIN_ACCOUNT_AGE_DAYS,
+    ZOMBIE_THRESHOLD,
+    compute_zombie_score,
+)
 from src.collection import gig_detail as _mod
 from src.collection.fiverr_selectors import (
     GIG_DETAIL_DESCRIPTION,
@@ -38,6 +44,7 @@ async def run_gig_detail_collection(
     checkpoint_manager: Any,
     dry_run: bool = True,
     fetcher: Any | None = None,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Stage 4: Gig Detail Collection Per Gig URL.
@@ -98,6 +105,7 @@ async def run_gig_detail_collection(
             rating=rating,
             starting_price=starting_price,
             fallback_seller_username=fallback_seller_username,
+            config=config,
         )
 
         return {
@@ -163,6 +171,7 @@ async def run_gig_detail_collection(
             rating=rating,
             starting_price=starting_price,
             fallback_seller_username=fallback_seller_username,
+            config=config,
         )
 
         return {
@@ -204,6 +213,33 @@ def _normalize_gig_identity(gig_url: str | None) -> str:
     parsed = urlparse(normalized_url)
     path = parsed.path.strip().rstrip("/")
     return path.lower()
+
+
+def _urls_match(url_a: str | None, url_b: str | None) -> bool:
+    if not url_a or not url_b:
+        return False
+
+    def _normalize(raw: str) -> str:
+        cleaned = html.unescape(raw).strip().lower()
+        cleaned = re.sub(r"^https?://", "", cleaned)
+        cleaned = cleaned.split("?", 1)[0]
+        return cleaned.rstrip("/")
+
+    return _normalize(url_a) == _normalize(url_b)
+
+
+def _propagate_sponsored_flag(gig: Any, gig_cards: list[dict[str, Any]] | None) -> bool:
+    if not isinstance(gig_cards, list):
+        gig.is_sponsored = None
+        return False
+    for card in gig_cards:
+        if not isinstance(card, dict):
+            continue
+        card_url = card.get("gig_url") or card.get("url")
+        if _urls_match(card_url, gig.gig_url):
+            gig.is_sponsored = bool(card.get("sponsored_flag", False))
+            return True
+    return False
 
 
 def _coerce_card_position(value: Any) -> int | None:
@@ -301,12 +337,15 @@ def _persist_gig_detail_and_backfill_search_results(
     rating: float | None,
     starting_price: float | None,
     fallback_seller_username: str,
+    config: dict[str, Any] | None = None,
 ) -> tuple[str, bool]:
     from sqlalchemy import inspect as sa_inspect
     from sqlalchemy.orm import Session
 
     from src.models.gig import Gig
     from src.models.job import Job
+    from src.models.search_result import SearchResult
+    from src.models.seller import Seller
 
     seller_username = fallback_seller_username
     seller_queued = False
@@ -315,10 +354,12 @@ def _persist_gig_detail_and_backfill_search_results(
 
     has_search_results_table = False
     has_jobs_table = False
+    has_sellers_table = False
     if db.bind is not None:
         inspector = sa_inspect(db.bind)
         has_search_results_table = inspector.has_table("search_results")
         has_jobs_table = inspector.has_table("jobs")
+        has_sellers_table = inspector.has_table("sellers")
 
     gig = db.query(Gig).filter(Gig.gig_url == gig_url).first()
     if gig is None:
@@ -343,9 +384,21 @@ def _persist_gig_detail_and_backfill_search_results(
     gig.starting_price = starting_price
     gig.detail_collected = True
     gig.detail_collected_at = datetime.now(UTC)
+    gig.last_reviewed_at = _extract_last_review_date(gig.review_snippets)
 
     seller_username = gig.seller_username or fallback_seller_username
     db.flush()
+    matched_rows = db.query(SearchResult).filter(SearchResult.keyword_id == keyword_id).all() if has_search_results_table else []
+    matched_sponsored = False
+    for row in matched_rows:
+        cards = row.gig_cards if isinstance(row.gig_cards, list) else []
+        if not matched_sponsored and _propagate_sponsored_flag(gig, cards):
+            matched_sponsored = True
+        sponsored_count = sum(1 for card in cards if isinstance(card, dict) and bool(card.get("sponsored_flag")))
+        row.sponsored_gig_count = sponsored_count
+        row.organic_gig_count = max(0, len(cards) - sponsored_count)
+    if not matched_sponsored:
+        gig.is_sponsored = None
     if has_search_results_table:
         _backfill_search_result_gig_id(
             keyword_id=keyword_id,
@@ -353,6 +406,20 @@ def _persist_gig_detail_and_backfill_search_results(
             gig_url=gig_url,
             db=db,
         )
+
+    relevance_cfg = _relevance_config(config)
+    if relevance_cfg["enable_zombie_filter"]:
+        seller = None
+        if has_sellers_table:
+            seller = db.query(Seller).filter(Seller.seller_username == seller_username).one_or_none()
+        score, signals = compute_zombie_score(
+            gig,
+            seller,
+            min_account_age_days=relevance_cfg["min_account_age_days"],
+        )
+        gig.is_zombie = score >= relevance_cfg["zombie_threshold"]
+        gig.zombie_score = score
+        gig.zombie_signals = json.dumps(signals)
 
     if depth != "keyword_only" and has_jobs_table:
         db.add(
@@ -422,8 +489,14 @@ async def _extract_faq(page: Any) -> str:
 def _parse_review_count(text: str | None) -> int | None:
     if not text:
         return None
-    nums = re.findall(r"[\d,]+", text)
-    return int(nums[0].replace(",", "")) if nums else None
+    normalized = text.strip().replace(",", "")
+    if not normalized:
+        return None
+    k_match = re.match(r"^([0-9.]+)[kK]\+?$", normalized)
+    if k_match:
+        return int(float(k_match.group(1)) * 1000)
+    numeric_match = re.search(r"\d+", normalized)
+    return int(numeric_match.group(0)) if numeric_match else None
 
 
 def _parse_rating(text: str | None) -> float | None:
@@ -450,6 +523,66 @@ def _extract_seller_username_from_gig_url(gig_url: str) -> str:
     path = parsed.path if parsed.path else gig_url
     parts = [part for part in path.split("/") if part]
     return parts[0] if parts else "unknown_seller"
+
+
+def _extract_last_review_date(snippets: Any, now: datetime | None = None) -> datetime | None:
+    anchor = now or datetime.now(UTC)
+    if snippets is None:
+        return None
+
+    if isinstance(snippets, str):
+        candidates = [snippets]
+    elif isinstance(snippets, list):
+        candidates = []
+        for snippet in snippets:
+            if isinstance(snippet, str):
+                candidates.append(snippet)
+            elif isinstance(snippet, dict):
+                for key in ("date", "review_date", "created_at", "text"):
+                    raw = snippet.get(key)
+                    if isinstance(raw, str):
+                        candidates.append(raw)
+    else:
+        return None
+
+    for raw in candidates:
+        value = raw.strip()
+        if not value:
+            continue
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%b %Y", "%B %Y", "%d %b %Y"):
+            try:
+                parsed = datetime.strptime(value, fmt)
+                if fmt in ("%b %Y", "%B %Y"):
+                    parsed = parsed.replace(day=1)
+                return parsed.replace(tzinfo=UTC)
+            except ValueError:
+                continue
+        lowered = value.lower()
+        if lowered == "yesterday":
+            return anchor - timedelta(days=1)
+        relative_match = re.match(r"^(a|\d+)\s+(day|week|month|year)s?\s+ago$", lowered)
+        if relative_match:
+            quantity = 1 if relative_match.group(1) == "a" else int(relative_match.group(1))
+            unit = relative_match.group(2)
+            if unit == "day":
+                return anchor - timedelta(days=quantity)
+            if unit == "week":
+                return anchor - timedelta(weeks=quantity)
+            if unit == "month":
+                return anchor - timedelta(days=quantity * 30)
+            return anchor - timedelta(days=quantity * 365)
+    return None
+
+
+def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    relevance = config.get("relevance", {}) if isinstance(config, dict) else {}
+    return {
+        "enable_sponsored_exclusion": bool(relevance.get("enable_sponsored_exclusion", True)),
+        "enable_zombie_filter": bool(relevance.get("enable_zombie_filter", True)),
+        "zombie_threshold": float(relevance.get("zombie_threshold", ZOMBIE_THRESHOLD)),
+        "min_account_age_days": int(relevance.get("min_account_age_days", MIN_ACCOUNT_AGE_DAYS)),
+        "top_n_for_scoring": int(relevance.get("top_n_for_scoring", 10)),
+    }
 
 
 def get_top_n_gig_urls_for_keyword(keyword_id: int, depth: str, db: Any) -> list[str]:
