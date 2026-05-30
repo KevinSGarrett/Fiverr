@@ -374,8 +374,10 @@ No open Stage-3 blocker defect remains after sweep hardening and rerun.
 
 ## Commit SHA + push confirmation
 
-- Commit: `f1dadf9` (`docs(cycle-051): finalize Agent C report commit metadata`)
-- Push: `cycle/051/integration` updated on origin (`53eccde -> f1dadf9`)
+- Commit: `c6489b9` (`fix(cycle-051): complete Agent C stage-3 verification gates`)
+- Push: `cycle/051/integration` updated on origin (`53eccde -> c6489b9`)
 - Jira evidence comments:
   - `SCRUM-1000` comment id `12030`
   - `SCRUM-999` comment id `12031`
+  - `SCRUM-1000` comment id `12032` (unblocked/final status)
+  - `SCRUM-999` comment id `12033` (unblocked/final status)
