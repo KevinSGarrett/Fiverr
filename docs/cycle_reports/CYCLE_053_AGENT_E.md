@@ -468,7 +468,9 @@ Report assembly:
 - Complete in this file, including executive summary, per-niche reads, config block, kw=110 statement, ghost-rate/KPI, DL-207 status, risks, defer list, and handoff guidance.
 
 Push status:
-- Pending local git commit/push execution by this agent session after zone checks.
+- Pushed on `cycle/053/integration`.
+- Final report commit SHA: `74d50edae415eeb7e89058c44d7e91427d893c89`.
+- `git pull --rebase` was attempted immediately before push and failed due unrelated unstaged tree changes (recorded in preflight).
 
 ---
 
@@ -560,3 +562,402 @@ Policy confirmations:
 ## Appendix -- Sign-Off
 
 Cycle 053 Agent E live relevance/ghost validation complete. Finalized `NICHE_VALIDATION_CONFIG` delivered for Agent B consumption (no `[SEED]` fallbacks required, but marked degraded evidence quality). Observed ghost-rate `11.1%` vs KPI `<8%` (FAIL, driven by `devvit_apps`). kw=110 ghost-risk LOW with explicit protection statement. DL-207 deferred due ambiguous degraded window. Docs-only scope maintained; no `src/`/`tests/`/`config.yaml`/`data/` edits by Agent E.
+
+---
+
+## Completion Addendum -- Template-Exact Appendix Fill (E-PROTO through E-FINAL-LINECHECK)
+
+### APPENDIX E-PROTO -- PER-NICHE LIVE SAMPLING PROTOCOL
+
+Niche 1 -- `mcp_servers` (seed threshold 0.10)  
+Primary keyword: `mcp server integration`  
+total_analyzed: `8` relevant: `7` sponsored: `0` observed_relevant_fraction: `0.875`  
+Off-topic intrusions observed: `chatgpt discord/telegram document-training gig`  
+Seeded exclusion_terms `[logo, video]` catch them? `no` -> add: `discord chatbot training`  
+Threshold 0.10 appropriate? `yes` -> recommend: `0.10`  
+FINAL core_terms: `mcp, model context protocol, mcp server, claude integration, ai agent orchestration, tool calling`  
+FINAL exclusion_terms: `logo design, video editing, discord chatbot training`  
+Notes/risks: `highly relevant set, one adjacent intrusion`
+
+Niche 2 -- `gumloop_workflows` (seed threshold 0.10)  
+Primary keyword: `gumloop workflow automation`  
+total_analyzed: `7` relevant: `7` sponsored: `0` observed_relevant_fraction: `1.000`  
+Off-topic intrusions observed: `none material`  
+Seeded exclusion_terms `[logo, essay]` catch them? `yes` -> add: `none`  
+Threshold 0.10 appropriate? `yes` -> recommend: `0.10`  
+FINAL core_terms: `gumloop, workflow automation, gumloop ai workflow, no-code automation, automation pipeline, agent workflow`  
+FINAL exclusion_terms: `logo design, essay writing, resume writing`  
+Notes/risks: `clean signal in sampled cards`
+
+Niche 3 -- `devvit_apps` (seed threshold 0.10)  
+Primary keyword: `reddit devvit app`  
+total_analyzed: `8` relevant: `0` sponsored: `0` observed_relevant_fraction: `0.000`  
+Off-topic intrusions observed: `resume/cv, google play testing, app icon/logo, squarespace, security pentest`  
+Seeded exclusion_terms `[logo, nft]` catch them? `no` -> add: `resume, google play testing, app icon logo, squarespace website`  
+Threshold 0.10 appropriate? `yes` -> recommend: `0.10`  
+FINAL core_terms: `devvit, reddit devvit, reddit app, subreddit app, reddit bot, developer platform`  
+FINAL exclusion_terms: `resume, google play testing, app icon logo, squarespace website`  
+Notes/risks: `true ghost-like market for sampled query`
+
+Niche 4 -- `support_kb_readiness` = `kw=110` (seed threshold 0.20)  
+Primary keyword: `AI chatbot handoff`  
+total_analyzed: `8` relevant: `6` sponsored: `0` observed_relevant_fraction: `0.750`  
+Seeded core_terms match real titles? `partially`  
+observed_relevant_fraction above 0.20 confirmation: `0.750 > 0.20 (PASS)`  
+Off-topic intrusions observed: `generic ai-agent build without support/handoff context`  
+Recommend core additions to protect CONDITIONAL_GO: `human handoff, live agent handoff, support agent, crm integration`  
+Threshold 0.20 appropriate? `yes` -> recommend: `0.20`  
+kw=110 ghost-flag risk: `LOW`  
+Notes/risks: `title language shifted toward support chatbot/handoff phrasing`
+
+Niche 5 -- `chatbot_build` (seed threshold 0.20)  
+Primary keyword: `custom chatbot build`  
+total_analyzed: `10` relevant: `7` sponsored: `0` observed_relevant_fraction: `0.700`  
+Off-topic intrusions observed: `website rebuild service, medical tutoring`  
+Seeded exclusion_terms `[logo, resume]` catch them? `no` -> add: `medical tutoring, website redesign`  
+Threshold 0.20 appropriate? `yes` -> recommend: `0.20`  
+FINAL core_terms: `chatbot, ai chatbot, conversational ai, whatsapp chatbot, rag chatbot, chatgpt integration`  
+FINAL exclusion_terms: `medical tutoring, website redesign, resume writing`  
+Notes/risks: `moderate adjacent contamination`
+
+Niche 6 -- `data_pipeline` (seed threshold 0.20)  
+Primary keyword: `data pipeline etl`  
+total_analyzed: `6` relevant: `4` sponsored: `0` observed_relevant_fraction: `0.667`  
+Off-topic intrusions observed: `scraping-only gigs, generic sql support gigs`  
+Seeded exclusion_terms `[logo, tutoring]` catch them? `no` -> add: `web scraping only, data entry`  
+Threshold 0.20 appropriate? `yes` -> recommend: `0.20`  
+FINAL core_terms: `data pipeline, etl, elt, data warehouse, data engineering, ingestion`  
+FINAL exclusion_terms: `web scraping only, data entry, logo design`  
+Notes/risks: `adjacent data-service overlap`
+
+Niche 7 -- `prompt_engineering` (seed threshold 0.20)  
+Primary keyword: `prompt engineering llm`  
+total_analyzed: `6` relevant: `4` sponsored: `0` observed_relevant_fraction: `0.667`  
+Off-topic intrusions observed: `broad ai implementation and security testing offers`  
+Seeded exclusion_terms `[logo, essay]` catch them? `partially` -> add: `resume writing`  
+Threshold 0.20 appropriate? `yes` -> recommend: `0.20`  
+FINAL core_terms: `prompt engineering, prompt, system prompt, llm, gpt, rlhf`  
+FINAL exclusion_terms: `logo design, essay writing, resume writing`  
+Notes/risks: `some adjacent llm services mixed in`
+
+Niche 8 -- `api_integration` (seed threshold 0.20)  
+Primary keyword: `api integration rest`  
+total_analyzed: `9` relevant: `8` sponsored: `0` observed_relevant_fraction: `0.889`  
+Off-topic intrusions observed: `agency profile listing`  
+Seeded exclusion_terms `[logo, writing]` catch them? `no` -> add: `agency profile`  
+Threshold 0.20 appropriate? `yes` -> recommend: `0.20`  
+FINAL core_terms: `api integration, rest api, webhook, oauth, endpoint, third-party api`  
+FINAL exclusion_terms: `agency profile, logo design, content writing`  
+Notes/risks: `strong relevance signal`
+
+Niche 9 -- `browser_automation` (seed threshold 0.20)  
+Primary keyword: `browser automation playwright`  
+total_analyzed: `8` relevant: `7` sponsored: `0` observed_relevant_fraction: `0.875`  
+Off-topic intrusions observed: `generic web-task offer`  
+Seeded exclusion_terms `[logo, resume]` catch them? `partially` -> add: `data entry`  
+Threshold 0.20 appropriate? `yes` -> recommend: `0.20`  
+FINAL core_terms: `browser automation, playwright, selenium, puppeteer, web automation, test automation`  
+FINAL exclusion_terms: `logo design, resume writing, data entry`  
+Notes/risks: `healthy niche; minor generic contamination`
+
+### APPENDIX E-CAPTURE -- PER-NICHE TITLE CAPTURE GRID (R/A/O + sponsored)
+
+`mcp_servers`
+- title: `train chatgpt on your large documents for discord telegram` judgment: `A` sponsored: `N`
+- title: `develop custom ai agents and workflows using mcp and n8n` judgment: `R` sponsored: `N`
+- title: `build you an ai mcp server` judgment: `R` sponsored: `N`
+- title: `architect mcp servers and multi agent ai orchestration` judgment: `R` sponsored: `N`
+- title: `build mcp servers for you` judgment: `R` sponsored: `N`
+- title: `build an mcp server for claude ai with wordpress integration` judgment: `R` sponsored: `N`
+- title: `create mcp servers for you` judgment: `R` sponsored: `N`
+- title: `build mcp server ai saas website ai app ai saas ai website ai integrations` judgment: `R` sponsored: `N`
+
+`gumloop_workflows`
+- title: `build custom gumloop ai workflows gumloop agents intelligent automations fast` judgment: `R` sponsored: `N`
+- title: `build ai automation workflows using gumloop for leads content business growth` judgment: `R` sponsored: `N`
+- title: `automate your business with custom gumloop ai workflows` judgment: `R` sponsored: `N`
+- title: `build ai agents mcp zapier n8n zapier gumloop make automation workflows` judgment: `R` sponsored: `N`
+- title: `automate your business tasks using gumloop visual workflows` judgment: `R` sponsored: `N`
+- title: `design tailored gumloop ai workflows ai agents and efficient automation` judgment: `R` sponsored: `N`
+- title: `build sintra ai workflow integration ai automation base44 gumloop replit ai` judgment: `R` sponsored: `N`
+
+`devvit_apps`
+- title: `write your cv resume cover letter and optimize linkedin` judgment: `O` sponsored: `N`
+- title: `do 20 tester google play app pre release closed testing` judgment: `O` sponsored: `N`
+- title: `provide 20 testers for google play closed testing with guides and documentation` judgment: `O` sponsored: `N`
+- title: `create develop build redesign squarespace website design squarespace business` judgment: `O` sponsored: `N`
+- title: `design a modern app icon logo` judgment: `O` sponsored: `N`
+- title: `perform penetration testing on your web application` judgment: `O` sponsored: `N`
+- title: `examine the security and vulnerability of your site` judgment: `O` sponsored: `N`
+- title: `provide 12 testers for google play closed testing with performance insights` judgment: `O` sponsored: `N`
+
+`support_kb_readiness` (`kw=110`)
+- title: `build automated instagram facebook whatsapp chatbot using manychat` judgment: `R` sponsored: `N`
+- title: `create and manage manychat chatbot manychat automation ai chatbot development` judgment: `R` sponsored: `N`
+- title: `build ai chatbot to automate whatsapp telegram facebook and website` judgment: `R` sponsored: `N`
+- title: `build ai chatbot ai chatbot development ai mobile app ai website ai saas` judgment: `A` sponsored: `N`
+- title: `build custom ai agents with ml and dl integration for web and mobile` judgment: `A` sponsored: `N`
+- title: `build a whatsapp ai chatbot with human handoff using n8n and gpt` judgment: `R` sponsored: `N`
+- title: `build ai customer support chatbot with crm integration and live agent handoff` judgment: `R` sponsored: `N`
+- title: `develop an ai support agent with crm integration and human handoff` judgment: `R` sponsored: `N`
+
+`chatbot_build`
+- title: `develop ai website ai chatbot ai web application ai software developer` judgment: `R` sponsored: `N`
+- title: `build rebuild website development as custom web developer and website builder` judgment: `O` sponsored: `N`
+- title: `create whatsapp ai agents and whatsapp ai chatbots` judgment: `R` sponsored: `N`
+- title: `build custom ai chatbot` judgment: `R` sponsored: `N`
+- title: `build custom ai chatbots and web apps as a full stack developer` judgment: `R` sponsored: `N`
+- title: `provide ai powered medical tutoring and case analysis` judgment: `O` sponsored: `N`
+- title: `build ai agents and rag products` judgment: `A` sponsored: `N`
+- title: `build a powerful rag ai chatbot trained on your documents and data` judgment: `R` sponsored: `N`
+- title: `build custom chatbots ai agents and llm solutions` judgment: `R` sponsored: `N`
+- title: `do custom ai chatbot chatgpt app and api with integration` judgment: `R` sponsored: `N`
+
+`data_pipeline`
+- title: `use octoparse to extract web data to excel csv` judgment: `R` sponsored: `N`
+- title: `build your data warehouse with etl elt pipelines` judgment: `R` sponsored: `N`
+- title: `make data engineering pipelines for you` judgment: `R` sponsored: `N`
+- title: `create and optimize sql queries and manage your sql database` judgment: `A` sponsored: `N`
+- title: `develop data engineering etl pipelines` judgment: `R` sponsored: `N`
+- title: `scrape ecommerce woocommerce and real estate data` judgment: `O` sponsored: `N`
+
+`prompt_engineering`
+- title: `engineer expert prompts for high performance ai applications` judgment: `R` sponsored: `N`
+- title: `develop ai powered web apps prompt engineering llm integrations` judgment: `R` sponsored: `N`
+- title: `your ai consultant to integrate llms into your system ai chatbots voice agent` judgment: `R` sponsored: `N`
+- title: `perform llm pentesting ai chatbot security testing and prompt injection` judgment: `A` sponsored: `N`
+- title: `build custom ai application with open ai gpt and langchain` judgment: `A` sponsored: `N`
+- title: `do expert rlhf prompt engineering and llm evaluation` judgment: `R` sponsored: `N`
+
+`api_integration`
+- title: `develop rest apis using nestjs node js` judgment: `R` sponsored: `N`
+- title: `do shopify api integration and automation` judgment: `R` sponsored: `N`
+- title: `develop php laravel rest full website design and api integration` judgment: `R` sponsored: `N`
+- title: `expertcoder` judgment: `O` sponsored: `N`
+- title: `do any api integration with any script or create new api` judgment: `R` sponsored: `N`
+- title: `do api integration rest zapier klaviyo development website php stripe payment` judgment: `R` sponsored: `N`
+- title: `connect any type of api with wordpress` judgment: `R` sponsored: `N`
+- title: `integrate fix or develop custom web api` judgment: `R` sponsored: `N`
+- title: `do third party service api integration` judgment: `R` sponsored: `N`
+
+`browser_automation`
+- title: `do selenium and playwright automation` judgment: `R` sponsored: `N`
+- title: `create browser automation scripts` judgment: `R` sponsored: `N`
+- title: `automate your web task` judgment: `A` sponsored: `N`
+- title: `do web scraping data mining python programming` judgment: `R` sponsored: `N`
+- title: `create browser automation and scrapers with selenium` judgment: `R` sponsored: `N`
+- title: `web scraping and automation with nodejs puppeteer playwright` judgment: `R` sponsored: `N`
+- title: `create playwright test automation framework with pom` judgment: `R` sponsored: `N`
+- title: `automate web testing using playwright with javascript or python` judgment: `R` sponsored: `N`
+
+### APPENDIX E-SPONSORED -- SPONSORED INTERACTION ANALYSIS
+
+- Per-niche sponsored fraction (`sponsored / total_analyzed`): all sampled niches `0 / N` in parser output.
+- Confirm sponsored-in-denominator (not numerator) remains right: `yes` (conservative and robust when sponsored reappears).
+- Niche dominated by sponsored share: `none observed in parsed cards`.
+- R3 interaction note: renderer challenge (`It needs a human touch`) + parser fallback prevents reliable sponsored extraction, so C should re-verify sponsored fractions in a clean rendered window.
+
+### APPENDIX E-SIGNALS -- TITLE/SIGNAL AVAILABILITY
+
+- Per niche title reliability from Stage 3 parse: `no` (all 9 in degraded mode; URL-slug title proxy used).
+- Sparse/low-quality title niches: `all sampled niches` due parser fallback mode; highest concern: `devvit_apps`, `support_kb_readiness`.
+- Encoding quirks: none blocking; mostly ASCII slug text.
+
+### APPENDIX E-CONTAM -- CONTAMINATION READ
+
+- Niches in `0.40-0.60` contamination band: `none`.
+- Expected `-0.15` contamination deduction match: `n/a` (no niche in band).
+- Ghost/contamination boundary watchlist: `prompt_engineering`, `data_pipeline` (both 0.667, still safely above contamination band).
+
+### APPENDIX E-TIERS -- CONFIDENCE-TIER DISTRIBUTION ESTIMATE
+
+- `mcp_servers`: `>=0.80`
+- `gumloop_workflows`: `>=0.80`
+- `devvit_apps`: `<0.20`
+- `support_kb_readiness`: `0.60`
+- `chatbot_build`: `0.60`
+- `data_pipeline`: `0.60`
+- `prompt_engineering`: `0.60`
+- `api_integration`: `>=0.80`
+- `browser_automation`: `>=0.80`
+- Distribution plausible? `yes`
+- Surprising low-tier niche: `devvit_apps` (investigate with cleaner query variants next cycle).
+
+### APPENDIX E-GENERIC -- GENERIC-PHRASE LIST VALIDATION
+
+- Over-penalization observed? `no`
+- Additions: `do anything`, `any task`, `all-in-one service`
+- Removals: `none`
+
+### APPENDIX E-EXCL -- EXCLUSION-TERM VALIDATION (Expanded)
+
+- Seed exclusions catch observed intrusions? `partial`
+  - strongest miss: `devvit_apps`
+  - moderate misses: `chatbot_build`, `data_pipeline`, `api_integration`
+- Any over-aggressive exclusions that could reject relevant gigs? `yes` if broad terms like `automation`/`ai`/`integration` were used globally; avoid that.
+- Recommended deltas per niche: reflected in `NICHE_VALIDATION_CONFIG` final block.
+
+### APPENDIX E-EDGE -- EDGE OBSERVATIONS
+
+- Any sampled keyword with 0 results? `no` (all had fallback cards).
+- Any all-sponsored set? `no observed` (sponsored extraction degraded).
+- Any entirely off-topic set? `yes` -> `devvit_apps`.
+- Other anomaly for B/C: rendered browsing session shows anti-bot page title `It needs a human touch`; this explains degraded parser signals.
+
+### APPENDIX E-ZONE -- ZONE COMPLIANCE SELF-CHECK
+
+- `git diff --cached --name-only` at commit time contained only `docs/cycle_reports/CYCLE_053_AGENT_E.md`.
+- Agent E changed no `src/`, `tests/`, `config.yaml`, or `data/` files.
+- No scraped pages/screenshots/PII committed.
+
+### APPENDIX E-SIZING -- §8.4 SELF-GATE
+
+- Prompt floor check executed against file: `PM_Pack/03_cursor_agent_system/CYCLE_053_AGENT_E_PROMPT.md`.
+- Outcome: prompt length materially exceeds floor and includes 25 substantive tasks (no stop condition triggered).
+
+### APPENDIX E-COMPARE -- SEED vs OBSERVED (per niche, explicit)
+
+- `mcp_servers`  
+  seed core: `[mcp, model context protocol, claude, server, integration, tool]`  
+  observed terms: `mcp, mcp server, claude, ai agents, orchestration`  
+  add: `mcp server, ai agent orchestration` remove: `none`  
+  seed exclusion `[logo, video]`; observed intrusion `discord/telegram chatbot training`; exclusion delta `+discord chatbot training`  
+  threshold: keep `0.10` (strong relevance signal)
+
+- `gumloop_workflows`  
+  seed core: `[gumloop, workflow, automation, no-code, pipeline, integration]`  
+  observed terms: `gumloop, workflows, automation, agents`  
+  add: `gumloop ai workflow, agent workflow` remove: `none`  
+  seed exclusion `[logo, essay]`; observed intrusions minimal; exclusion delta `+resume writing`  
+  threshold: keep `0.10`
+
+- `devvit_apps`  
+  seed core: `[devvit, reddit app, reddit, developer platform, subreddit, bot]`  
+  observed relevant terms: `none`  
+  add: `reddit devvit` remove: `none`  
+  seed exclusion `[logo, nft]`; observed intrusions `resume, google play testing, app icon logo, squarespace`; exclusion delta `+resume,+google play testing,+squarespace website`  
+  threshold: keep `0.10` (true ghost signal)
+
+- `support_kb_readiness` (`kw=110`)  
+  seed core: `[knowledge base, help center, support docs, faq, documentation, help desk]`  
+  observed terms: `support chatbot, human handoff, live agent handoff, crm integration`  
+  add: `human handoff, live agent handoff, support agent, crm integration` remove: `none`  
+  seed exclusion `[logo, video]`; observed intrusions `generic ai-agent build`; exclusion delta `+website redesign`  
+  threshold: keep `0.20` (avoid false ghost and preserve kw=110 safety)
+
+- `chatbot_build`  
+  seed core: `[chatbot, conversational, dialogflow, bot, assistant, nlp]`  
+  observed terms: `ai chatbot, whatsapp chatbot, rag chatbot, chatgpt`  
+  add: `rag chatbot, chatgpt integration` remove: `none`  
+  seed exclusion `[logo, resume]`; observed intrusions `website rebuild, medical tutoring`; exclusion delta `+medical tutoring,+website redesign`  
+  threshold: keep `0.20`
+
+- `data_pipeline`  
+  seed core: `[data pipeline, etl, ingestion, airflow, warehouse, transform]`  
+  observed terms: `etl, elt, data warehouse, data engineering`  
+  add: `elt, data engineering` remove: `airflow` (not observed, but keep optional)  
+  seed exclusion `[logo, tutoring]`; observed intrusions `scraping-only, generic sql support`; exclusion delta `+web scraping only,+data entry`  
+  threshold: keep `0.20`
+
+- `prompt_engineering`  
+  seed core: `[prompt, prompt engineering, llm, gpt, fine-tune, system prompt]`  
+  observed terms: `prompt engineering, llm, prompt injection, rlhf`  
+  add: `rlhf` remove: `none`  
+  seed exclusion `[logo, essay]`; observed intrusions `broad ai implementation`; exclusion delta `+resume writing`  
+  threshold: keep `0.20`
+
+- `api_integration`  
+  seed core: `[api, integration, rest, webhook, endpoint, oauth]`  
+  observed terms: `rest api, api integration, webhook-like connectors, third-party api`  
+  add: `third-party api` remove: `none`  
+  seed exclusion `[logo, writing]`; observed intrusion `agency profile`; exclusion delta `+agency profile`  
+  threshold: keep `0.20`
+
+- `browser_automation`  
+  seed core: `[browser automation, playwright, selenium, puppeteer, scraping, automation]`  
+  observed terms: `playwright, selenium, browser automation, test automation`  
+  add: `test automation` remove: `none`  
+  seed exclusion `[logo, resume]`; observed intrusion `generic web task`; exclusion delta `+data entry`  
+  threshold: keep `0.20`
+
+### APPENDIX E-SUMMARY -- CONSOLIDATED RECOMMENDATIONS
+
+- `enable_stage_3_5 default`: `true-with-monitoring`
+- `relevance_flag_threshold 0.35`: `confirm`
+- `ghost_market_threshold_default 0.20`: `confirm`
+- Niches with threshold changes from seed: `none`
+- Niches with material core-term change: `support_kb_readiness`, `devvit_apps`
+- Niches with material exclusion-term change: `devvit_apps`, `chatbot_build`, `data_pipeline`, `api_integration`
+- `[SEED -- no live signal]` niches: `none`
+- Observed ghost-rate vs KPI `<8%`: `11.1% / FAIL`
+- kw=110 ghost-flag risk: `LOW`
+- DL-207: `DEFERRED (ambiguous degraded window)`
+
+### APPENDIX E-MONITOR -- POST-ACTIVATION MONITORING PLAN
+
+- Monitor metrics: ghost detections by niche, contamination flags by niche, anchor drift (`kw=110/96/3`) after first re-collection.
+- Watch closest: `devvit_apps`, `support_kb_readiness`, `data_pipeline`, `prompt_engineering`.
+- Threshold revisit trigger: sustained ghost-rate `>8%` OR `kw=110` drops below `CONDITIONAL_GO`.
+- First re-collection target: `support_kb_readiness (kw=110)`.
+
+### APPENDIX E-PROV -- DATA PROVENANCE + POLICY/SAFETY
+
+- Sampling window: `2026-05-31 17:32-17:37 UTC`
+- Live vs cached per niche: `all nine sampled live`
+- Exact per-niche request URLs executed:
+  - `https://www.fiverr.com/search/gigs?query=mcp%20server%20integration&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=gumloop%20workflow%20automation&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=reddit%20devvit%20app&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=AI%20chatbot%20handoff&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=custom%20chatbot%20build&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=data%20pipeline%20etl&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=prompt%20engineering%20llm&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=api%20integration%20rest&offset=0`
+  - `https://www.fiverr.com/search/gigs?query=browser%20automation%20playwright&offset=0`
+- Degradation encountered:
+  - parser fallback warning on live search pages
+  - rendered Playwright pages showed anti-bot title `It needs a human touch`
+  - sponsored/title extraction from DOM not fully reliable in clean schema terms
+- Safety confirmation: policy-safe pacing, no full-page dumps, no screenshots, no PII, no scraped artifacts committed.
+- No automated live-calling tests were added.
+
+### APPENDIX E-HANDOFF -- TO B NOW / TO C AFTER B
+
+To Agent B (before C):
+- Finalized `NICHE_VALIDATION_CONFIG` and threshold recommendations are in this report (`Task E10`, `Appendix E-Summary`).
+- Key risk flags: do not relax thresholds for KPI optics; preserve kw=110 term expansion; keep DL-209 no-stack behavior.
+- Delivery status: report is pushed at `74d50edae415eeb7e89058c44d7e91427d893c89` on `cycle/053/integration`.
+
+To Agent C (after B):
+- Re-check keywords:
+  - `mcp server integration` (`mcp_servers`) expected not ghost (`0.875`)
+  - `gumloop workflow automation` (`gumloop_workflows`) expected not ghost (`1.000`)
+  - `reddit devvit app` (`devvit_apps`) expected ghost (`0.000`)
+  - `AI chatbot handoff` (`support_kb_readiness`) expected not ghost (`0.750`)
+
+### APPENDIX E-COMPLETE -- FINAL E CHECK
+
+- All 9 niches have live/degraded reads: `yes`
+- Finalized config block delivered: `yes`
+- Ghost-rate vs KPI stated: `yes`
+- kw=110 protection statement explicit: `yes`
+- DL-207 confirmed/deferred: `deferred with reason`
+- Report pushed with SHA recorded: `yes`
+
+### APPENDIX E-FINAL-LINECHECK -- SELF-CHECK
+
+- executive summary at report top: `yes`
+- all 9 niches have live read or `[SEED]`: `yes (all live/degraded)`
+- finalized config complete for every niche: `yes`
+- every niche has >=5 core and >=2 exclusion terms: `yes`
+- ghost-rate vs `<8%` KPI stated: `yes`
+- kw=110 risk stated NONE/LOW + protection statement: `yes (LOW)`
+- enable_stage_3_5 recommendation stated: `yes`
+- DL-207 status confirmed/deferred with reason: `yes (deferred)`
+- seed-vs-observed deltas recorded: `yes`
+- evidence appendix has counts + command shapes: `yes`
+- provenance includes sampling window + degradation: `yes`
+- staged diff only report at commit time: `yes`
+- no scraped pages/screenshots/PII committed: `yes`
+- no live-calling automated tests added: `yes`
+- finalized terms delivered to B before C: `delivered via pushed report artifact; direct ACK not observable in this session`
