@@ -282,7 +282,7 @@ Explicit stage instruction:
 
 ## 10) Planning commit
 
-- commit SHA: `PENDING_UPDATE_AFTER_COMMIT`
+- commit SHA: `20c589e` (`docs(cycle-054): Agent A plan + six handoff packages`)
 
 ## 11) Directory and hygiene checks
 
