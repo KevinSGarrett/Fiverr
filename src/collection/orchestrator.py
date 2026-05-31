@@ -150,6 +150,7 @@ async def run_collection_pipeline(
     from src.collection.workflows.keyword_expansion import run_keyword_expansion
     from src.collection.workflows.niche_init import run_niche_initialization
     from src.collection.workflows.reddit_signals import run_reddit_signals_collection
+    from src.collection.workflows.result_set_validation_workflow import run_stage_3_5_validation
     from src.collection.workflows.seller_profile import run_seller_profile_collection
     from src.collection.workflows.youtube_count import run_youtube_count_collection
     from src.scheduler.queue_processor import QueueProcessor
@@ -197,6 +198,7 @@ async def run_collection_pipeline(
         "niches_initialized": 0,
         "keywords_queued": 0,
         "search_jobs_run": 0,
+        "stage_3_5_stats": [],
         "gig_detail_jobs_run": 0,
         "seller_profile_jobs_run": 0,
         "autocomplete_jobs_run": 0,
@@ -326,6 +328,19 @@ async def run_collection_pipeline(
             dry_run=dry_run,
             fetcher=fetcher,
         )
+        stage_3_5_stats = run_stage_3_5_validation(
+            run_id=run_id,
+            niche_id=str(job.payload["niche_id"]),
+            db=db,
+            config=config_payload,
+        )
+        summary["stage_3_5_stats"].append(stage_3_5_stats)
+        log.info(
+            "stage_3_5 run=%s niche=%s stats=%s",
+            run_id,
+            str(job.payload["niche_id"]),
+            stage_3_5_stats,
+        )
         summary["search_jobs_run"] += 1
 
     async def _handle_stage4(job: _DryRunJob, **_kwargs: Any) -> None:
@@ -371,6 +386,7 @@ async def run_collection_pipeline(
     summary["stages_run"].extend(
         [
             "stage03_fiverr_search",
+            "stage03_5_result_set_validation",
             "stage04_gig_detail",
             "stage05_seller_profile",
         ]
