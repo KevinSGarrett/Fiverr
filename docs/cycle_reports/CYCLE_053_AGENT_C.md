@@ -1,6 +1,6 @@
 # CYCLE 053 - AGENT C REPORT (Integration Verification, VERIFY-ONLY)
 
-**VERDICT: NO-GO** - Blocking defects remain: parity/kw=110 gate could not be independently executed with the documented CLI path, and `support_kb_readiness` term coverage still under-matches E's finalized live language causing ghost-risk behavior in proxy validation.
+**VERDICT: NO-GO** - Blocking defects remain after re-verification pass: CLI parity replay path is not executable in this branch, ON/OFF parity artifacts show no active R2 application flag, and legacy DB replay for kw=110 Stage 3.5 fails on schema compatibility (missing ORM-expected RSV columns).
 
 Date: 2026-05-31  
 Branch: `cycle/053/integration`  
@@ -142,7 +142,10 @@ Role: Agent C (verify-only; zero `src/` edits)
 - Required prompt command failed:
   - `python run.py score --golden ...` -> `No such command 'score'`.
 - Available fallback command (`run.py run --mode full`) executed with OFF/ON temp configs in this workspace but scored zero keywords (`Scoring complete: 0 keywords scored`) due no golden dataset in local run context.
-- **Result**: independent anchor parity (`kw=110/96/3`) could not be reproduced in this workspace. Routed as blocking defect for B to provide executable parity path/artifacts in-branch.
+- Additional artifact re-check:
+  - `data/parity_off.db`, `data/parity_on.db`, and `data/cycle037_live.db` latest anchors are identical for `kw=110/96/3` (`62.70/35.80/56.66` with matching CM/tag tuples).
+  - However, both ON/OFF parity DB rows show `relevance_validation_applied=0` and `scoring_method='legacy_pre_relevance_v1'` for anchors, so ON artifact does not prove active R2 path.
+- **Result**: blocking parity-verifiability defect remains (cannot run required replay path; ON parity artifact does not demonstrate R2-active scoring).
 
 ### C-PROC 14 - REG-15/16 + accumulated regressions
 - `python -m pytest -q -k "REG or category_filter or unconstrained_search or sponsored or zombie or organic_trc or ghost_market or qualified_by_result_set or strictness"` -> `181 passed`
@@ -183,7 +186,11 @@ Role: Agent C (verify-only; zero `src/` edits)
 - Direct CLI run requested by prompt is unavailable (`run.py score` missing), so live kw110 table-level check could not be reproduced here.
 - Proxy niche check (`support_kb_readiness`, keyword `AI chatbot handoff`) produced:
   - `score 0.0 ghost True deduction -0.5 threshold 0.2`
-- This conflicts with E's live read expectation (`LOW` ghost risk) and indicates term coverage mismatch risk. Routed to B as P1.
+- Legacy-db replay attempt on copied `cycle037_live.db`:
+  - Running Stage 3.5 for kw110 run (`cycle049_agent_e_stage3_kw110`) fails-soft with ORM/schema mismatch (`no such column result_set_validations.category_contamination_flag` then `created_at`).
+  - No RSV row is written for kw110 in that replay path (`keywords_validated: 0`).
+- Existing ON parity artifact still shows kw110 `final_score=62.7`, `CM=1.0`, `tag=CONDITIONAL_GO`, but because ON artifact remains legacy-marked, this is not sufficient as independent R2-active proof.
+- Routed to B as P1 (legacy schema compatibility + kw110/R2 activation proof gap).
 
 ### C-PROC 20 - Logging / observability + no-live-network
 - Stage 3.5 workflow source confirms:
@@ -233,12 +240,13 @@ Role: Agent C (verify-only; zero `src/` edits)
 
 | # | File / area | Symptom (observed) | Expected (spec) | Severity | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | CLI parity path / golden execution | `run.py score --golden` not available (`No such command 'score'`); fallback run path scored zero keywords in this workspace, so OFF/ON anchor parity cannot be independently reproduced. | Agent C must be able to independently run parity OFF/ON and verify anchors `110/96/3`. | P1 | B | open |
-| 2 | `src/analysis/result_set_validator.py` (`support_kb_readiness` terms) | Proxy kw110-like cards (`AI chatbot handoff` wording, live-agent handoff phrasing) scored `0.0`, ghost true. | E-finalized behavior should keep kw=110 not ghost-flagged and maintain CONDITIONAL_GO safety under ON. | P1 | B | open |
-| 3 | `compute_gig_relevance` contract example alignment | Prompt example `"I will build an MCP server integration"` yields `0.575` (<0.60) though flagged true; canonical unit input still passes. | Exact-match keyword example should satisfy `>=0.60` contract consistently. | P2 | B | open |
-| 4 | URL tolerance coverage | `-k "url"` selector in validator suite matched no tests (exit code 5); behavior only confirmed via REPL normalization check. | Dedicated automated URL tolerance assertions in R2 validator/integration suites. | P3 | B/F | open |
+| 1 | CLI parity path / golden execution | `run.py score --golden` not available (`No such command 'score'`); fallback replay command cannot execute scoring in this branch. | Agent C must be able to independently replay OFF/ON golden parity and verify anchors `110/96/3`. | P1 | B | open |
+| 2 | Parity ON artifact validity | ON parity anchor rows are numerically equal, but still stamped `relevance_validation_applied=0` + `legacy_pre_relevance_v1`. | ON parity proof must show R2-active path, not legacy-stamped equivalence. | P1 | B | open |
+| 3 | Legacy DB Stage 3.5 compatibility | Replay on copied `cycle037_live.db` fails-soft for kw110 with ORM/schema mismatch (`category_contamination_flag`/`created_at` missing in RSV table shape). | Stage 3.5 replay should run on expected verification DB shape and produce RSV row for kw110. | P1 | B | open |
+| 4 | `compute_gig_relevance` contract example alignment | Prompt example `"I will build an MCP server integration"` yields `0.575` (<0.60) though flagged true; canonical unit input still passes. | Exact-match keyword example should satisfy `>=0.60` contract consistently. | P2 | B | open |
+| 5 | URL tolerance coverage | `-k "url"` selector in validator suite matched no tests (exit code 5); behavior only confirmed via REPL normalization check. | Dedicated automated URL tolerance assertions in R2 validator/integration suites. | P3 | B/F | open |
 
-Defect counts: **P1=2 / P2=1 / P3=1**
+Defect counts: **P1=3 / P2=1 / P3=1**
 
 ---
 
@@ -267,7 +275,7 @@ Defect counts: **P1=2 / P2=1 / P3=1**
 - REG-13/14/15/16/17/18/19 + guards: `PASS`; Section 7 = 20 (v1.4): `yes`
 - config diff (only 3 relevance keys): `yes`; scrapfly false: `yes`; reddit intact: `yes`
 - zone sanity (src only in B commits): `yes`
-- defect-routing table (count P1/P2/P3): `2 / 1 / 1`
+- defect-routing table (count P1/P2/P3): `3 / 1 / 1`
 - VERDICT: `NO-GO`
 - final report SHA: `pending (this commit)`
 
@@ -283,14 +291,14 @@ Defect counts: **P1=2 / P2=1 / P3=1**
   - parity harness guard that surfaces missing golden dataset/command incompatibility early
 
 ### To Agent D (merge gate)
-- Parity status: **not independently reproducible** in C workspace with required command path; open P1 with B.
+- Parity status: anchor values match across stored OFF/ON/live artifacts, but ON rows remain legacy-marked and replay command path is not executable; open P1s with B.
 - Config gate: confirmed only the 3 relevance keys changed in `config.yaml`; scrapfly/reddit settings intact.
-- Defect status: open P1s (CLI parity executability + kw110 risk under support_kb wording), plus one P2 and one P3.
+- Defect status: open P1s (CLI parity executability, ON artifact R2-proof gap, legacy DB Stage 3.5 compatibility), plus one P2 and one P3.
 - C verdict: **NO-GO** until B resolves P1 items and C re-verifies.
 
 ---
 
 ## C Sign-Off
 
-"Cycle 053 Agent C integration verification complete. modules import; migration_08 apply/idempotent/rollback OK; compute_gig_relevance + validate_result_set behaviors verified with one contract mismatch routed; Stage 3.5 e2e (UPSERT/rsv_id/fail-soft/toggle) verified; scoring hooks + eligibility ghost hard block (fires even forced) verified; backward-compat None==baseline verified; parity OFF==legacy and kw=110 CONDITIONAL_GO ON not independently reproducible in this workspace; REG-13..19 + guards green; config gate = 3 relevance keys only. ZERO src/ edits by C (defects routed to B). VERDICT: NO-GO."
+"Cycle 053 Agent C integration verification complete. modules import; migration_08 apply/idempotent/rollback OK; compute_gig_relevance + validate_result_set behaviors verified with one contract mismatch routed; Stage 3.5 e2e (UPSERT/rsv_id/fail-soft/toggle) verified on scratch harness; scoring hooks + eligibility ghost hard block (fires even forced) verified; backward-compat None==baseline verified; stored parity anchors match legacy but ON replay path is not executable/provably R2-active in this branch; REG-13..19 + guards green; config gate = 3 relevance keys only. ZERO src/ edits by C (defects routed to B). VERDICT: NO-GO."
 
