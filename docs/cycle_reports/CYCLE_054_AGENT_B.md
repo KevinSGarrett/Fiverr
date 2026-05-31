@@ -71,6 +71,8 @@ Cycle 054 — Agent B Report (R4 implementation)
 - Add additional ON-mode fixtures where per-keyword profile and contamination metadata are present in DB-backed paths.
 - Expand opportunity intent-alignment cases for richer intent class permutations.
 
-8. Commit SHAs: pending local commit
+8. Commit SHAs:
+- `460c54385cc83fc7f969b3f88553ee63f4aa3017` (`feat(scoring): add R4 quality-aware scoring toggles and integrity fields`)
+- `b2f0cb5c427da949869525d00c1802871d56efb2` (`test(scoring): add R4 unit tests and regression coverage`)
 
-9. Handoff to C: "B complete; C may start after E completes."
+9. Handoff to C: "Agent B complete; C may start after E also completes."
