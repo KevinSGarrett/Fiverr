@@ -64,3 +64,21 @@ PM_Pack/test_out.txt
 PM_Pack/jira.py
 PM_Pack/final_batch.py
 PM_Pack/srdi_update*.py
+
+
+# PM working scratch (uncommitted by design)
+PM_Pack/*_log.txt
+PM_Pack/*_err.txt
+PM_Pack/*_results.txt
+PM_Pack/final_*.txt
+PM_Pack/jira_*.py
+PM_Pack/tmp/
+tmp/
+
+# Cursor-agent prompt working files (PM inputs to the agents; never committed)
+PM_Pack/03_cursor_agent_system/CYCLE_*_AGENT_*_PROMPT.md
+
+# Live / local config overrides — MUST NOT be committed.
+# ScrapFly is enabled ONLY in one of these for live runs; committed config.yaml stays scrapfly.enabled:false (strategy §10).
+config.live.yaml
+config.*.local.yaml

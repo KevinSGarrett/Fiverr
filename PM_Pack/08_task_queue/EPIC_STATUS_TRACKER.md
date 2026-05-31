@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER
-# Updated: 2026-05-31 (post Cycle 052 PM review) | Active: Cycle 053
+# Updated: 2026-05-31 (post Cycle 053 close) | Active: Cycle 054 (R4) — planning | Cycle 053 COMPLETE (PR #62, develop 3a7a5fe)
 
 ## Active Cycle: 053 — SRDI Tier-0 R2: Result-Set Relevance Validation (Stage 3.5)
 Base: develop @ badb981 | Branch: cycle/053/integration
@@ -17,9 +17,9 @@ KPI: ghost-market rate < 8%. R2 CLOSES the Tier-0 gate.
 | R8 | Schema extensions & migrations | 0 | C050 | DONE (migration_01..06 applied + reversible) |
 | R1 | Search URL & category hardening | 0 | C051 | DONE (REG-13/14; 9 niches; kw=110 held) |
 | R3 | Sponsored & zombie gig filtering | 0 | C052 | DONE (REG-17/18/19; migration_07; kw=110 held; PR #61) |
-| R2 | Result-set relevance validation (Stage 3.5) | 0 | **C053 (active)** | IN PROGRESS (REG-15/16) |
-| — | **Tier-0 gate** (R8+R1+R3+R2) | 0 | at end of C053 | pending sign-off |
-| R4 | Scoring quality-aware (Tier-1 head) | 1 | C054 (next) | TO DO (REG-20/21/22) |
+| R2 | Result-set relevance validation (Stage 3.5) | 0 | C053 | **DONE (PR #62; REG-15/16; ghost hard block; parity OFF==legacy; kw=110 held)** |
+| — | **Tier-0 gate** (R8+R1+R3+R2) | 0 | end of C053 | **COMPLETE** |
+| R4 | Scoring quality-aware (Tier-1 head) | 1 | **C054 (active — planning)** | TO DO (REG-20/21/22) |
 
 ## Score Path Analysis
 - Milestone kw=110 CONDITIONAL_GO @ 62.70 was REACHED in C051 and PRESERVED through C052 (R3). Must
@@ -97,3 +97,5 @@ KPI: ghost-market rate < 8%. R2 CLOSES the Tier-0 gate.
 - 25 tasks min per agent (LARGE-XXXLARGE), all substantive (no filler).
 - Prompt length: A>=810, B>=945, E>=810, C>=675, F>=810, D>=945 (total >= 4995).
 - §8.4 BLOCKING self-gate: before releasing prompts, PM runs (Get-Content).Count on all six, records actual-vs-floor + 25-task counts in prep notes; any prompt under floor or under 25 substantive tasks is NOT done and must be expanded with genuine content then re-verified. (Added v1.4 after C053 shipped under-floor.)
+- §9 PM Direct-Action Authority (ref/PM_DIRECT_ACTION_AUTHORITY.md): PM directly does reversible Jira/GitHub/docs/hygiene/verification + commits governance docs; NEVER touches src/ (all src/ = Agent B) / tests/ / config-behavior; irreversible/cost/security → user.
+- §10 ScrapFly Policy (ref/SCRAPFLY_COLLECTION_POLICY.md): PerimeterX-bypass transport, REQUIRED for live Fiverr fetch; committed scrapfly.enabled stays false (CI dry); live work enables via LOCAL uncommitted config + SCRAPFLY_API_KEY; never commit enabled:true.

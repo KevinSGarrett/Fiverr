@@ -169,3 +169,181 @@ to ship.
 | --- | --- | --- |
 | 1.2 | 2026-05-30 | Post-Cycle-051 PM: task minimum 20 -> 25 (LARGE-XXXLARGE); prompt length minimums +35% (A810/B945/E810/C675/F810/D945; total 4995); added explicit legitimacy rule (no filler tasks). |
 | 1.4 | 2026-05-31 | Added §8.4 prompt-sizing enforcement: blocking self-gate requiring `(Get-Content).Count` verification of every prompt against its floor + 25-task minimum, recorded in prep notes, before prompts may be released. Triggered by Cycle 053 under-floor prompts. |
+
+
+---
+
+## Section 9: PM Direct-Action Authority (effective Cycle 054+)
+
+This section defines what the Project Manager may do **directly** — immediately after a cycle
+or between cycles — versus what must be handed to a cursor agent. The goal is to let the PM
+resolve small, safe, reversible project-management and repo-hygiene items itself (Jira, GitHub,
+docs, cleanup, verification) instead of waiting a full agent cycle, **without** eroding the
+disciplines that keep cycles clean.
+
+### 9.1 Governing principle
+
+The PM directly handles **reversible, non-code, orchestration / project-management / repo-hygiene**
+actions. The PM **never** directly changes product behavior (`src/`), test assertions (`tests/`),
+or runtime config behavior (`config.yaml`). Those flow through **Agent B and the gate sequence**,
+which preserves two hard-won invariants:
+
+- **Attribution invariant:** every `src/`-touching commit in a cycle range is an Agent B
+  `feat/`|`fix/` commit. Agent D's merge gate enforces this; the c6489b9 (C edited src/) and
+  c7b9b52 (D no-op attribution touch) failures are kept closed by it.
+- **Gate invariant:** anything that must pass CI / codecov / Codex or be merged into `develop`
+  as cycle scope goes through the cursor-agent + Agent-D gated path (G-001..G-004).
+
+Irreversible or cost/security/account-impacting actions are **never** taken without explicit
+user consent.
+
+### 9.2 The four tiers
+
+**Tier A — PM acts immediately (no agent, no permission needed):**
+- **Jira:** transition statuses to match verified reality; add/edit comments; create the cycle
+  control + story tickets; link issues to epics; fix labels / sprint assignment; revert a story
+  that is marked Done but whose DoD is not met.
+- **GitHub (non-merge, non-destructive):** delete the *merged* cycle branch on origin; prune
+  stale *already-merged* remote cycle branches; comment on a PR/issue; inspect/re-read CI; read
+  Codex review threads.
+- **Local docs / PM_Pack / governance:** edit any file under `PM_Pack/`, the strategy doc,
+  hydration header, epic tracker, cycle log, prep notes; refresh templates; add a steward note to
+  a cycle report (agent reports stay agent-authored).
+- **Repo hygiene (reversible):** remove untracked PM scratch litter; `git rm --cached` an
+  accidentally-tracked artifact that should be ignored (coverage.xml, `*.log`, `*.db`) **and** add
+  it to `.gitignore` in the same commit; extend `.gitignore` to cover PM scratch / live configs.
+- **Read-only verification:** run the test suite (file-scoped or full), `--cov`, `config-check`,
+  smoke checks, git/gh read commands, the Codex GraphQL query. Running tests changes nothing in
+  the repo and is always allowed.
+- **Commit + push the PM's own doc/governance changes to `develop`** with a `docs(...)` /
+  `chore(...)` conventional commit — **provided the commit touches ZERO files under `src/` or
+  `tests/` and makes ZERO `config.yaml` behavior change.** This is how between-cycle governance
+  lands cleanly without waiting for Agent A.
+
+**Tier B — PM acts, but records a safeguard (Tier A + write it down):**
+- Large or multi-file doc/governance commits: record the commit SHA + one-line rationale in the
+  cycle log / prep notes so the next review can see it.
+- Created Jira tickets: record the created keys in the prep notes.
+- `git rm --cached` of a tracked artifact: must be paired with a `.gitignore` entry in the same
+  commit and recorded.
+
+**Tier C — PM never acts directly; hand to a cursor agent:**
+- **ANY change under `src/`** (production logic). Even a one-line, obvious fix goes to Agent B with
+  a defect note. This is the bright line that keeps the attribution invariant and the c6489b9
+  failure closed.
+- **ANY add/modify under `tests/`** that asserts product behavior — Agent B (logic) or Agent F
+  (coverage). The PM does not author tests into the suite.
+- **ANY `config.yaml` runtime-behavior change** (toggles, thresholds, weights, enabling ScrapFly in
+  the committed file) — goes through Agent B with parity + config gate + CI + Codex + D-merge.
+- **ANYTHING that must pass a gate or be merged as cycle scope** — the gated cursor-agent path.
+
+**Tier D — PM never acts; surface to the user for an explicit yes/no:**
+- Irreversible/destructive git: dropping/clearing stashes (the 6 stale stashes), history rewrite,
+  force-push, deleting a non-cycle or unmerged branch, hard resets that discard commits.
+- Cost / security / account impact: rotating secrets, changing repo settings / branch protection,
+  anything that spends money at scale, anything touching the live Fiverr account credentials.
+- A **large** live ScrapFly collection run (significant credit burn). A *small* operator/Agent-E
+  live validation sample is normal Tier-A/B activity; a big burn is confirmed first.
+
+### 9.3 The one-line decision test
+
+> Is it reversible, AND does it leave `src/` + `tests/` + config-behavior untouched, AND does it
+> not need to pass a gate or a merge? → **PM does it now (Tier A).**
+> Does it touch code / tests / config-behavior, or need a gate? → **cursor agent (Tier C).**
+> Is it irreversible, or does it have cost / security / account impact? → **ask the user (Tier D).**
+
+### 9.4 What this changes in practice
+
+After each cycle the PM now **directly**: corrects Jira to match merged reality, deletes the merged
+cycle branch, removes scratch litter, fixes accidentally-tracked artifacts, reruns verification,
+and commits governance/doc updates to `develop` — then writes the next cycle's prompts. It does
+**not** patch `src/`, write tests, flip config toggles, or merge code; those remain cursor-agent +
+Agent-D work. Every direct action stays inside Tier A/B; anything else is escalated per 9.2.
+
+
+---
+
+## Section 10: ScrapFly Collection Backend Policy (effective Cycle 054+)
+
+Authoritative policy for the ScrapFly fetch transport. Written from a verified code/config review
+(Cycle 053 close): `src/config/models.py::ScrapFlyCollectionConfig`, `src/collection/orchestrator.py`
+(`run_collection_pipeline`), `src/collection/http_fetcher.py::build_fetcher`, `config.yaml`,
+`run.py`, and `.env`.
+
+### 10.1 What ScrapFly is (verified)
+
+ScrapFly is the **production fetch transport for live Fiverr pages, used to bypass PerimeterX**
+(Fiverr's anti-bot system). The config docstring states it directly: *"ScrapFly API settings for
+PerimeterX bypass. When enabled, collection workflows use ScrapFly instead of Playwright for page
+fetching; all existing HTML parsers are untouched."* The `asp: true` setting (ScrapFly Anti-Scraping
+Protection) is the bypass. **Without ScrapFly, live Fiverr fetches fall back to the Playwright /
+authenticated-session path, which PerimeterX blocks with 403s.** Treat "no ScrapFly" as "no live
+Fiverr data."
+
+### 10.2 How it is wired (verified)
+
+- The orchestrator only builds a fetcher when the run is **live** (`dry_run=False`). It reads
+  `collection.scrapfly.enabled`:
+  - `true` → opens a `ScrapFlyClient` (API key read from the env var named by `api_key_env_var`,
+    default `SCRAPFLY_API_KEY`) and calls `build_fetcher(prefer_scrapfly=True)`.
+  - `false` → `build_fetcher(prefer_scrapfly=False, scrapfly_client=None)` → Playwright/session
+    fetcher → PerimeterX → 403.
+- In **`dry_run=True`** (every automated test, CI, and the `*-dry-run` CLI modes) **no fetcher is
+  built and no network occurs.** ScrapFly is irrelevant to dry-run/CI by design.
+- **There is no CLI flag to enable ScrapFly.** It is enabled through the **config file** used for a
+  live run (`--config-path`), plus the `SCRAPFLY_API_KEY` env var. (`run.py`'s `--config-override`
+  exists only on the `score` parity helper and parses only `relevance.enable_stage_3_5`.)
+
+### 10.3 Verified current state
+
+- Committed `config.yaml`: `collection.scrapfly.enabled: false` (with `asp: true`, `render_js: true`
+  already configured).
+- `.env`: `SCRAPFLY_API_KEY` is **present** (a real `scp-` key; `.env` is gitignored). The key was
+  never the blocker.
+
+### 10.4 Why it has been `false` — and the failure it caused
+
+- **Correct part:** the committed default is `false` so that automated tests/CI (which run dry) make
+  **zero** live calls and spend **zero** credits, and so no agent accidentally triggers live scraping
+  in CI. The "scrapfly stays false" config gate protects the **committed file**.
+- **The failure:** live work — Agent E sampling real Fiverr result sets, DL-207 URL-shape capture,
+  any real collection run — **requires** ScrapFly. When that work ran against the default disabled
+  config it fell back to Playwright and 403-degraded. The disabled committed default was wrongly
+  read as "never use ScrapFly," conflating *"committed-off for CI"* with *"off for live work."* That
+  is the root cause of the recurring "live sweeps 403-degraded" symptom (incl. Agent E's).
+
+### 10.5 Policy (the durable rule)
+
+1. **ScrapFly is REQUIRED for any live Fiverr fetch.** No ScrapFly → expect 403 → no live data.
+2. **The committed `config.yaml` MUST keep `collection.scrapfly.enabled: false`.** Deliberate: keeps
+   CI/tests dry and credit-free; this is what the config gate enforces. Committing `enabled: true`
+   is a config-gate violation.
+3. **Automated tests MUST NEVER make live ScrapFly calls.** They mock `build_fetcher` / the ScrapFly
+   client (as existing tests do) or run dry. No live network in CI. (Already a binding rule.)
+4. **Live work enables ScrapFly at RUNTIME via a local, uncommitted config — never by committing
+   `enabled: true`:**
+   - Confirm `SCRAPFLY_API_KEY` is set in the environment (it is, in `.env`).
+   - Copy `config.yaml` → `config.live.yaml` (gitignored), set `collection.scrapfly.enabled: true`
+     there, and run the live mode with `--config-path config.live.yaml`.
+   - Confirm the run is live (`dry_run=False`), then check the ScrapFly session log line
+     (`ScrapFly session: requests=… credits=…`) to confirm the bypass transport was actually used.
+   - Mind credits (`cost_budget_credits` can cap spend). A **large** live run is a Tier-D action
+     (§9.2) — confirm with the user first.
+5. **Agent E's live-validation prompt MUST state this explicitly:** live sampling requires ScrapFly
+   enabled via a local config + the env key. If ScrapFly is unavailable, Agent E records the
+   affected niches as **"[SEED — no live signal]"** and does **not** fabricate counts — rather than
+   silently 403-degrading and reporting empty/blocked.
+6. **Distinguish the two states everywhere:** committed-config ScrapFly = **OFF** (correct,
+   permanent, for CI); live-run ScrapFly = **ON via local override** (required for real Fiverr data).
+   The config gate forbids *committing* `enabled: true`; it does **not** forbid *live use*.
+
+### 10.6 `.gitignore`
+
+Add `config.live.yaml` and `config.*.local.yaml` to `.gitignore` so a live (ScrapFly-on) config can
+never be committed by accident.
+
+### Version history (Sections 9-10)
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.5 | 2026-05-31 | Added §9 PM Direct-Action Authority (4-tier model: PM directly handles reversible Jira/GitHub/docs/hygiene/verification + commits governance docs; never touches src/, tests/, config-behavior, gates, or irreversible/cost actions). Added §10 ScrapFly Collection Backend Policy (verified PerimeterX-bypass transport; committed-off for CI is correct; live work enables it via local uncommitted config + SCRAPFLY_API_KEY; root-caused the 403-degraded live sweeps). |
