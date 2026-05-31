@@ -10,6 +10,7 @@ from urllib.parse import unquote, urlsplit
 from sqlalchemy.orm import Session
 
 from src.models import Gig, SearchResult
+from src.scoring.competition import _exclude_price_outliers_iqr
 from src.scoring.contracts import ProfitabilityScoreResult, ScoreComponent
 
 
@@ -32,6 +33,15 @@ def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
         "enable_zombie_filter": bool(relevance_cfg.get("enable_zombie_filter", True)),
         "top_n_for_scoring": max(1, int(relevance_cfg.get("top_n_for_scoring", 10))),
     }
+
+
+def _exclude_price_outliers_enabled(config: dict[str, Any] | None) -> bool:
+    if not isinstance(config, Mapping):
+        return False
+    scoring_cfg = config.get("scoring")
+    if not isinstance(scoring_cfg, Mapping):
+        return False
+    return bool(scoring_cfg.get("exclude_price_outliers", False))
 
 
 class ProfitabilityScoreCalculator:
@@ -344,6 +354,8 @@ class ProfitabilityScoreCalculator:
             top_gigs = [gig for gig in top_gigs if not bool(getattr(gig, "is_zombie", False))]
         top_gigs = top_gigs[:top_n_for_scoring]
         starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        if _exclude_price_outliers_enabled(config):
+            starting_prices, _excluded_count = _exclude_price_outliers_iqr(starting_prices)
         premium_prices = [
             self._as_float(self._gig_meta_value(gig, "premium_price", "premium_package_price"))
             for gig in top_gigs

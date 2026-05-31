@@ -38,6 +38,7 @@ class DemandScoreResult(ScoreResult):
 
     keyword_id: int | None = None
     total_weight_available: float = 0.0
+    trc_reliability: float | None = None
 
 
 @dataclass
@@ -46,6 +47,8 @@ class CompetitionScoreResult(ScoreResult):
 
     keyword_id: int | None = None
     total_weight_available: float = 0.0
+    price_outliers_excluded: int | None = None
+    competitor_profile_source: str | None = None
 
 
 @dataclass
@@ -56,6 +59,7 @@ class OpportunityScoreResult(ScoreResult):
     demand_score: float | None = None
     competition_score: float | None = None
     default_weight: float = 0.25
+    opportunity_relevance_factor: float | None = None
 
 
 @dataclass
@@ -66,6 +70,7 @@ class FeasibilityScoreResult(ScoreResult):
     total_weight_available: float = 0.0
     default_weight: float = 0.15
     niche_tier: str = ""
+    clean_gig_count: int | None = None
 
 
 @dataclass

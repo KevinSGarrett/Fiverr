@@ -36,6 +36,15 @@ def _normalized_profile(weights: dict[str, float]) -> dict[str, float]:
         return dict(weights)
     return {name: (value / total) for name, value in weights.items()}
 
+
+def _as_optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
 DEPTH_SCORE_AVAILABILITY: dict[str, list[int]] = {
     "full": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     "standard": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -338,7 +347,7 @@ async def score_keyword(
     profitability_result = (
         profitability_calculator.calculate(keyword_id, db, config=config) if 5 in available_scores else None
     )
-    intent_result = intent_calculator.calculate(keyword_id, db) if 6 in available_scores else None
+    intent_result = intent_calculator.calculate(keyword_id, db, config=config) if 6 in available_scores else None
     saturation_result = (
         saturation_calculator.calculate(keyword_id, db, config=config) if 7 in available_scores else None
     )
@@ -445,6 +454,13 @@ async def score_keyword(
         red_flags=red_flags,
         scoring_profile=profile_name,
         score_depth=score_depth,
+        integrity_fields={
+            "trc_reliability": getattr(demand_result, "trc_reliability", None),
+            "opportunity_relevance_factor": getattr(opportunity_result, "opportunity_relevance_factor", None),
+            "price_outliers_excluded": _as_optional_int(getattr(competition_result, "price_outliers_excluded", None)),
+            "clean_gig_count": _as_optional_int(getattr(feasibility_result, "clean_gig_count", None)),
+            "competitor_profile_source": getattr(competition_result, "competitor_profile_source", None),
+        },
         db=db,
     )
     await _maybe_auto_generate_recommendation(
@@ -585,7 +601,8 @@ def write_keyword_score(
     red_flags: list[dict[str, str]],
     scoring_profile: str,
     score_depth: str,
-    db: Any,
+    integrity_fields: dict[str, Any] | None = None,
+    db: Any = None,
 ) -> bool:
     """Persist score to KeywordScore model when available, else JSON sidecar fallback."""
     missing_data_warnings = [key for key, value in scores.items() if value is None]
@@ -628,6 +645,23 @@ def write_keyword_score(
                 trend_score=scores.get("trend_score"),
                 final_score=final_score,
                 confidence_modifier=confidence_modifier,
+                trc_reliability=integrity_fields.get("trc_reliability") if isinstance(integrity_fields, dict) else None,
+                opportunity_relevance_factor=(
+                    integrity_fields.get("opportunity_relevance_factor")
+                    if isinstance(integrity_fields, dict)
+                    else None
+                ),
+                price_outliers_excluded=(
+                    integrity_fields.get("price_outliers_excluded")
+                    if isinstance(integrity_fields, dict)
+                    else None
+                ),
+                clean_gig_count=integrity_fields.get("clean_gig_count") if isinstance(integrity_fields, dict) else None,
+                competitor_profile_source=(
+                    integrity_fields.get("competitor_profile_source")
+                    if isinstance(integrity_fields, dict)
+                    else None
+                ),
                 tag=tag,
                 score_components=score_components,
                 confidence_breakdown=confidence_breakdown,

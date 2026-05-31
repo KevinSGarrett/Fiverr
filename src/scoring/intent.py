@@ -15,6 +15,44 @@ from src.models import ExternalSignal, Gig, Keyword, SearchResult
 from src.scoring.contracts import IntentScoreResult, ScoreComponent
 
 
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _opportunity_qualifier_enabled(config: dict[str, Any] | None) -> bool:
+    if not isinstance(config, Mapping):
+        return False
+    scoring_cfg = config.get("scoring")
+    if not isinstance(scoring_cfg, Mapping):
+        return False
+    opportunity_cfg = scoring_cfg.get("opportunity")
+    if not isinstance(opportunity_cfg, Mapping):
+        return False
+    return bool(opportunity_cfg.get("qualify_by_relevance", False))
+
+
+def compute_intent_alignment_factor(query_intent: str | None, service_intent: str | None) -> float:
+    if not query_intent or not service_intent:
+        return 1.0
+    query_key = query_intent.strip().upper()
+    service_key = service_intent.strip().upper()
+    if not query_key or not service_key:
+        return 1.0
+    if query_key == service_key:
+        return 1.0
+    mapping = {
+        ("TRANSACTIONAL", "HIGH_INTENT"): 0.9,
+        ("HIGH_INTENT", "TRANSACTIONAL"): 0.9,
+        ("CONSIDERATION", "HIGH_INTENT"): 0.9,
+        ("HIGH_INTENT", "CONSIDERATION"): 0.9,
+        ("INFORMATIONAL", "TRANSACTIONAL"): 0.6,
+        ("TRANSACTIONAL", "INFORMATIONAL"): 0.6,
+        ("INFORMATIONAL", "HIGH_INTENT"): 0.7,
+        ("HIGH_INTENT", "INFORMATIONAL"): 0.7,
+    }
+    return _clamp01(mapping.get((query_key, service_key), 0.8))
+
+
 class ConversionIntentScoreCalculator:
     """Calculate how close keyword searchers are to a purchasing action."""
 
@@ -42,6 +80,7 @@ class ConversionIntentScoreCalculator:
         db: Any,
         llm_client: Any | None = None,
         cache: Any | None = None,
+        config: dict[str, Any] | None = None,
     ) -> IntentScoreResult:
         """Calculate a conversion intent score payload for the provided keyword."""
         signals = self._load_signals(keyword_id, db)
@@ -51,6 +90,7 @@ class ConversionIntentScoreCalculator:
         confidence_breakdown: dict[str, float] = {}
         weighted_sum = 0.0
         total_weight_available = 0.0
+        use_alignment = _opportunity_qualifier_enabled(config)
 
         keyword_text = str(signals.get("keyword", "")).strip()
         if keyword_text:
@@ -150,6 +190,24 @@ class ConversionIntentScoreCalculator:
         else:
             missing_data_warnings.append("Missing Reddit demand intent signal.")
             confidence_breakdown["missing_reddit_intent_signal"] = -0.05
+
+        if use_alignment:
+            alignment_factor = compute_intent_alignment_factor(
+                query_intent=signals.get("query_intent_class") if isinstance(signals.get("query_intent_class"), str) else None,
+                service_intent=signals.get("service_intent_class")
+                if isinstance(signals.get("service_intent_class"), str)
+                else None,
+            )
+            weighted_sum *= alignment_factor
+            score_components["intent_alignment"] = ScoreComponent(
+                value=alignment_factor * 100.0,
+                weight=0.0,
+                raw={
+                    "query_intent_class": signals.get("query_intent_class"),
+                    "service_intent_class": signals.get("service_intent_class"),
+                },
+                note="Intent alignment factor applied under opportunity qualifier toggle.",
+            )
 
         if total_weight_available < 0.30:
             return IntentScoreResult(

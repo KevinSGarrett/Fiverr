@@ -42,6 +42,11 @@ class KeywordScore(IntegerPrimaryKeyMixin, Base):
     trend_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     final_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     confidence_modifier: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trc_reliability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    opportunity_relevance_factor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_outliers_excluded: Mapped[int | None] = mapped_column(nullable=True)
+    clean_gig_count: Mapped[int | None] = mapped_column(nullable=True)
+    competitor_profile_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     tag: Mapped[str | None] = mapped_column(String(32), nullable=True)
     score_components: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
