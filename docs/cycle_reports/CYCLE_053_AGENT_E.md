@@ -1,6 +1,6 @@
 # CYCLE 053 -- AGENT E REPORT (Stage 3.5 Live Relevance / Ghost Validation, DOCS-ONLY)
 
-Live sampling completed for all 9 requested niches with one keyword each, but the runtime was partially degraded: Fiverr returned HTTP 200 pages while current parser selectors did not expose `gig_title`/sponsored flags directly, so URL-slug-derived title proxies were used for relevance judgments. Observed ghost-market rate is `11.1%` (`1/9` niches ghost-flagged) versus KPI `<8%` (FAIL), driven by `devvit_apps` only; this appears to be a real ghost/off-topic market under current query reality, not threshold mis-tuning. `kw=110` (`support_kb_readiness`, keyword `AI chatbot handoff`) is assessed as **LOW** ghost risk with observed relevance above threshold and is not expected to be ghost-flagged under recommended terms/thresholds. Recommended config changes are primarily term-level (especially `support_kb_readiness` and `devvit_apps` exclusion tuning) with thresholds kept at seeded values (`0.10` for 3 emerging niches, `0.20` for others) to avoid masking real ghosts. DL-207 URL-param shape revisit is **DEFERRED** because `&category_id=`, `&filter=category_id:`, and unconstrained URLs produced indistinguishable parsed outputs in this degraded window. Most important input for Agent B: keep thresholds unchanged, apply finalized per-niche term sets below, and preserve explicit kw=110 protection semantics.
+Live sampling completed for all 9 requested niches with one keyword each using a corrected ScrapFly-backed path (`.env` key loaded and `scrapfly-sdk` installed), but parsing remained partially degraded: Fiverr returned HTTP 200 pages while current selectors still did not expose `gig_title`/sponsored flags directly, so URL-slug-derived title proxies were used for relevance judgments. Observed ghost-market rate is `11.1%` (`1/9` niches ghost-flagged) versus KPI `<8%` (FAIL), driven by `devvit_apps` only; this appears to be a real ghost/off-topic market under current query reality, not threshold mis-tuning. `kw=110` (`support_kb_readiness`, keyword `AI chatbot handoff`) is assessed as **LOW** ghost risk with observed relevance above threshold and is not expected to be ghost-flagged under recommended terms/thresholds. Recommended config changes are primarily term-level (especially `support_kb_readiness` and `devvit_apps` exclusion tuning) with thresholds kept at seeded values (`0.10` for 3 emerging niches, `0.20` for others) to avoid masking real ghosts. DL-207 URL-param shape revisit is **DEFERRED** because `&category_id=`, `&filter=category_id:`, and unconstrained URLs produced indistinguishable parsed outputs in this degraded window. Most important input for Agent B: keep thresholds unchanged, apply finalized per-niche term sets below, and preserve explicit kw=110 protection semantics.
 
 Date: 2026-05-31  
 Branch: `cycle/053/integration`  
@@ -39,10 +39,10 @@ Agent A artifact read confirmation:
 - Used prompt-seeded 9-niche config target for Agent B handoff.
 
 Tooling availability:
-- Playwright Python package present.
-- Playwright browser binary missing (`playwright install` required), so headed/rendered extraction unavailable.
-- ScrapFly path not used for this pass.
-- Live sampling performed with policy-safe single-page requests + parser fallback.
+- `.env` was loaded and `SCRAPFLY_API_KEY` was confirmed present.
+- `scrapfly-sdk` was installed and `ScrapFlyClient` live calls succeeded.
+- ScrapFly live sampling ran across all 9 niches with HTTP 200 responses and per-request credit usage captured.
+- Residual degradation is parser/selector-level (`gig_title` and sponsored markers not exposed), not transport-level blocking.
 
 ---
 
@@ -51,6 +51,7 @@ Tooling availability:
 Method:
 - One representative keyword per requested niche.
 - One live Fiverr search page (`offset=0`) per keyword.
+- Transport path: `ScrapFlyClient` (`asp=True`, `render_js=True`, `country=US`, `.env` key).
 - Captured per card: `gig_url`, sponsored flag (when available), and title proxy.
 - Because `gig_title` fields were unavailable in this window, derived title text was taken from normalized gig URL slug (`/seller/<gig-slug>`).
 - Manual relevance judgment rubric applied conservatively (RELEVANT/ADJACENT/OFF-TOPIC), counting only RELEVANT.
@@ -63,7 +64,7 @@ Guards:
 - This was manual live validation only.
 
 Degradation:
-- All queries returned HTTP 200.
+- All queries returned HTTP 200 via ScrapFly.
 - Parser warnings: `No gig cards found via data-testid; used href-based fallback extraction.`
 - Sponsored marker extraction was not reliable under this markup state.
 
@@ -457,7 +458,7 @@ Deferred due degraded/ambiguous signal:
 - True rendered gig-title extraction (parser fallback used instead).
 
 Next clean-window revisit:
-- Install/enable Playwright browser runtime and capture rendered title/sponsored fields.
+- Refresh parser selectors against current Fiverr markup and re-run ScrapFly sampling.
 - Re-run DL-207 side-by-side with network trace capture.
 
 ---
@@ -526,7 +527,8 @@ Note:
 Sampling commands (single-page, live, read-only style):
 
 ```text
-python - (urllib + parse_search_results_from_html script)
+pip install scrapfly-sdk
+python - (load_dotenv('.env') + ScrapFlyClient + parse_search_results_from_html script)
 queries:
   mcp server integration
   gumloop workflow automation
@@ -538,6 +540,11 @@ queries:
   api integration rest
   browser automation playwright
 ```
+
+ScrapFly evidence highlights from corrective rerun:
+- 9/9 niches returned `status_code=200`
+- credit usage recorded per niche (sample: `mcp_servers=6`, `devvit_apps=330`, `api_integration=430`, `browser_automation=430`)
+- parser warning persisted on all niches: `No gig cards found via data-testid; used href-based fallback extraction.`
 
 DL-207 revisit command shape:
 
@@ -755,7 +762,7 @@ Notes/risks: `healthy niche; minor generic contamination`
 - Per-niche sponsored fraction (`sponsored / total_analyzed`): all sampled niches `0 / N` in parser output.
 - Confirm sponsored-in-denominator (not numerator) remains right: `yes` (conservative and robust when sponsored reappears).
 - Niche dominated by sponsored share: `none observed in parsed cards`.
-- R3 interaction note: renderer challenge (`It needs a human touch`) + parser fallback prevents reliable sponsored extraction, so C should re-verify sponsored fractions in a clean rendered window.
+- R3 interaction note: ScrapFly transport succeeded, but parser fallback still prevents reliable sponsored extraction; C should re-verify sponsored fractions in a clean selector-updated window.
 
 ### APPENDIX E-SIGNALS -- TITLE/SIGNAL AVAILABILITY
 
@@ -802,7 +809,7 @@ Notes/risks: `healthy niche; minor generic contamination`
 - Any sampled keyword with 0 results? `no` (all had fallback cards).
 - Any all-sponsored set? `no observed` (sponsored extraction degraded).
 - Any entirely off-topic set? `yes` -> `devvit_apps`.
-- Other anomaly for B/C: rendered browsing session shows anti-bot page title `It needs a human touch`; this explains degraded parser signals.
+- Other anomaly for B/C: no transport-level anti-bot failure under ScrapFly; remaining issue is selector drift in parsed markup.
 
 ### APPENDIX E-ZONE -- ZONE COMPLIANCE SELF-CHECK
 
@@ -916,8 +923,7 @@ Notes/risks: `healthy niche; minor generic contamination`
   - `https://www.fiverr.com/search/gigs?query=browser%20automation%20playwright&offset=0`
 - Degradation encountered:
   - parser fallback warning on live search pages
-  - rendered Playwright pages showed anti-bot title `It needs a human touch`
-  - sponsored/title extraction from DOM not fully reliable in clean schema terms
+  - sponsored/title extraction from DOM not fully reliable in current selector schema
 - Safety confirmation: policy-safe pacing, no full-page dumps, no screenshots, no PII, no scraped artifacts committed.
 - No automated live-calling tests were added.
 
