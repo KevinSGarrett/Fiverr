@@ -215,3 +215,19 @@ def test_demand_no_rsv_is_baseline() -> None:
         FakeDemandDB(demand_inputs={KEYWORD_ID: _base_demand_inputs()}),
     )
     assert baseline.score_value is not None
+
+
+def test_demand_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def _fake_get_result_set_validation(keyword_id: int, _db: object) -> None:  # type: ignore[no-untyped-def]
+        calls.append(keyword_id)
+        return None
+
+    monkeypatch.setattr("src.scoring.demand.get_result_set_validation", _fake_get_result_set_validation)
+    result = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: _base_demand_inputs()}),
+    )
+    assert result.score_value is not None
+    assert calls == [KEYWORD_ID]

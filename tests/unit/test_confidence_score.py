@@ -812,3 +812,58 @@ def test_confidence_no_rsv_is_baseline() -> None:
     modifier, breakdown = ConfidenceScoreModifier().calculate_with_breakdown(123, context, None)
     assert modifier == 1.0
     assert "result_set_relevance" not in breakdown
+
+
+def test_confidence_deduction_reaches_final_value() -> None:
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+    }
+    baseline, _ = ConfidenceScoreModifier().calculate_with_breakdown(101, context, None)
+
+    session = _session()
+    try:
+        niche = Niche(slug="deduct-niche", name="Deduct Niche", category_path="Programming & Tech > AI")
+        session.add(niche)
+        session.flush()
+        keyword = Keyword(niche_id=niche.id, keyword="deduct keyword", normalized_keyword="deduct keyword")
+        session.add(keyword)
+        session.flush()
+        session.add(ResultSetValidation(keyword_id=keyword.id, run_id="r1", ghost_market_flag=False, relevance_deduction=-0.15))
+        session.commit()
+        with_deduction, breakdown = ConfidenceScoreModifier().calculate_with_breakdown(keyword.id, context, session)
+        assert breakdown["result_set_relevance"] == -0.15
+        assert with_deduction == pytest.approx(baseline - 0.15, abs=1e-4)
+    finally:
+        session.close()
+
+
+def test_confidence_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def _fake_get_result_set_validation(keyword_id: int, _db: Any) -> Any:  # type: ignore[no-untyped-def]
+        calls.append(keyword_id)
+        return None
+
+    monkeypatch.setattr("src.scoring.confidence.get_result_set_validation", _fake_get_result_set_validation)
+    ConfidenceScoreModifier().calculate_with_breakdown(
+        4242,
+        {
+            "data_completeness_ratio": 1.0,
+            "data_freshness_score": 1.0,
+            "source_diversity_score": 1.0,
+            "llm_analysis_completion_ratio": 1.0,
+            "google_trends_available": True,
+            "gig_detail_collected": True,
+            "seller_profiles_collected": True,
+            "reddit_signals_available": True,
+        },
+        db=object(),
+    )
+    assert calls == [4242]

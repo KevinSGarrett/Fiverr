@@ -42,6 +42,11 @@ def test_apply_is_idempotent() -> None:
     columns = _column_names(engine, "result_set_validations")
     assert "category_contamination_flag" in columns
     assert "used_fallback_strictness" in columns
+    pragma_rows = inspect(engine).get_columns("result_set_validations")
+    contamination_columns = [row["name"] for row in pragma_rows if row["name"] == "category_contamination_flag"]
+    fallback_columns = [row["name"] for row in pragma_rows if row["name"] == "used_fallback_strictness"]
+    assert len(contamination_columns) == 1
+    assert len(fallback_columns) == 1
 
 
 def test_rollback_drops_both_columns() -> None:
@@ -94,3 +99,50 @@ def test_registered_after_migration_07() -> None:
     columns = _column_names(engine, "result_set_validations")
     assert "category_contamination_flag" in columns
     assert "used_fallback_strictness" in columns
+
+
+def test_sqlite_rebuild_without_columns_returns_when_nothing_to_keep() -> None:
+    engine = _engine()
+    _bootstrap_base_tables(engine)
+    m1.apply(engine)
+    m8.apply(engine)
+    with engine.begin() as connection:
+        all_columns = [column["name"] for column in inspect(engine).get_columns("result_set_validations")]
+        m8._sqlite_rebuild_without_columns(connection, all_columns)  # pylint: disable=protected-access
+    columns = _column_names(engine, "result_set_validations")
+    assert "category_contamination_flag" in columns
+    assert "used_fallback_strictness" in columns
+
+
+def test_non_sqlite_rollback_ignores_drop_failures() -> None:
+    class _Connection:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def exec_driver_sql(self, sql: str) -> None:
+            self.calls.append(sql)
+            if "category_contamination_flag" in sql:
+                raise RuntimeError("simulated drop failure")
+
+    class _BeginCtx:
+        def __init__(self, connection: _Connection) -> None:
+            self.connection = connection
+
+        def __enter__(self) -> _Connection:
+            return self.connection
+
+        def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[no-untyped-def]
+            _ = (exc_type, exc, tb)
+
+    class _FakeEngine:
+        def __init__(self) -> None:
+            self.dialect = type("Dialect", (), {"name": "postgresql"})()
+            self.connection = _Connection()
+
+        def begin(self) -> _BeginCtx:
+            return _BeginCtx(self.connection)
+
+    fake_engine = _FakeEngine()
+    m8.rollback(fake_engine)  # type: ignore[arg-type]
+    assert any("DROP COLUMN category_contamination_flag" in sql for sql in fake_engine.connection.calls)
+    assert any("DROP COLUMN used_fallback_strictness" in sql for sql in fake_engine.connection.calls)

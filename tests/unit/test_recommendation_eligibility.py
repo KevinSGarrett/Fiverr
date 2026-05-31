@@ -604,3 +604,16 @@ def test_stage12_tag_demoted_to_pass_for_ghost() -> None:
     assert assign_tag(90.0, 1.0) == "STRONG_GO"
     assert _demote_tag_for_ghost_market(162, "STRONG_GO", db) == "PASS"
     db.close()
+
+
+def test_eligibility_no_rsv_equals_baseline() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=170, demand_score=65.0)
+    _add_gig_quality(db, keyword_id=170)
+    ok, reason = eligibility.passes_recommendation_gates(
+        {"keyword_id": 170, "confidence_modifier": 1.0, "demand_score": 65.0},
+        db,
+    )
+    assert ok is True
+    assert reason == "All gates passed"
+    db.close()
