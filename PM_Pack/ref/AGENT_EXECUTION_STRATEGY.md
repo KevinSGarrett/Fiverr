@@ -163,12 +163,66 @@ Under-length prompts systematically omit the inline skeletons, command blocks, a
 detail the agents need to execute without guesswork. This gate makes that omission impossible
 to ship.
 
+### 8.4.1 Zero-tolerance, write-time, per-prompt enforcement (supersedes any "batch" framing)
+
+The §8.4 self-gate failed TWICE: Cycle 053 shipped all six prompts under floor, and Cycle 054's
+Agent A first draft was 379 lines against an 810 floor. Both share one root cause: treating the line
+count as an END-OF-BATCH step and accepting "complete in content" / "I'll expand later" as a
+substitute for the floor. This subsection removes that loophole. It is binding on the PM.
+
+1. **PER-PROMPT, AT WRITE TIME.** The line count is verified the MOMENT a prompt is finished —
+   BEFORE the next prompt is started, and BEFORE the prompt is described, surfaced, committed, or
+   handed off as "done." Not "after all six." Per prompt, every time.
+2. **RECORDED + SHOWN.** For each prompt, run `(Get-Content <path>).Count`, record the number next
+   to its floor, and SHOW it (in the reply to the user AND in the cycle prep notes). A prompt whose
+   count has not been shown is not done.
+3. **UNDER FLOOR = DOES NOT EXIST.** A prompt below its floor (A810/B945/E810/C675/F810/D945) is NOT
+   WRITTEN. It may not be called complete, surfaced as a deliverable, committed as final, or handed
+   to an agent. There is no "draft now, expand later." Content completeness is necessary but NOT
+   sufficient; the floor is the minimum bar, not a target to approach.
+4. **BANNED COMPLETION RATIONALIZATIONS.** These phrases may NOT be used to call an under-floor
+   prompt done: "complete in content," "I'll expand at the end," "the content already covers it,"
+   "under floor but done," "good enough," "the deep detail belongs elsewhere." If the PM catches
+   itself writing one about a prompt under floor, the prompt is NOT done — expand it now.
+5. **UNDER FLOOR ⇒ A MISSING MANDATORY BLOCK.** A short prompt omitted one of the §8.4.2 blocks — it
+   is never because "the cycle doesn't have enough." Find the missing block and add it as REAL
+   content. (Padding to a number is the opposite failure and violates §8.2 — both are forbidden.)
+
+### 8.4.2 Mandatory content-block manifest (what legitimately fills the floor)
+
+Every prompt MUST contain, INLINE (never "go read X"): header/role/branch/base-SHA/strategy pointer;
+mission tied to the cycle's Jira story keys; project context + connector-only auth note (no secrets);
+verified starting state (SHAs, counts, config flags, the 9 real niche_ids); 6-agent architecture +
+file zones + the hard gates verbatim (G-001..G-004, CONFIG, PARITY); a mandatory preflight command
+block (real commands); 25+ tasks each LARGE-XXXLARGE with numbered sub-steps; the FULL accumulated
+regression list by exact name (not "see §7"); a completion-standard checklist.
+
+Agent-type-specific mandatory blocks (their absence is why a prompt is under floor):
+- **A (planner):** the six handoff packages with file-by-file detail + new function SIGNATURES; exact
+  command blocks (git Invoke-Exe pattern, Jira connector calls, golden-run per toggle); toggle
+  inventory; file-impact map; worked numeric example(s) of the cycle's core invariant; a full
+  fill-in report template.
+- **B (implementer):** for EACH story, an inline code/dataclass/function skeleton (signature +
+  docstring + key branches) + its toggle/default + an inline test-function stub per new behavior
+  (name + arrange/act/assert outline). This is the bulk of B's length and is non-negotiable.
+- **E (validation):** the §10 ScrapFly runbook verbatim; exact live commands; the sample set; the
+  "[SEED — no live signal]" fallback; a full report template.
+- **C (integration):** every verification command inline; the toggle-OFF parity command per toggle;
+  the drift-check procedure; a report template.
+- **F (coverage):** each new test by name with an arrange/act/assert stub; the 3 REG stubs; the
+  coverage-measurement commands; a report template.
+- **D (merge gate):** the full merge-gate checklist; the Codex GraphQL query verbatim; the
+  attribution/zone commands; the regression-by-name list; the post-merge Jira plan; a report template.
+
+A prompt missing its agent-type blocks is under floor BY CONSTRUCTION — add the blocks, then re-count.
+
 ### Version history (continued)
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.2 | 2026-05-30 | Post-Cycle-051 PM: task minimum 20 -> 25 (LARGE-XXXLARGE); prompt length minimums +35% (A810/B945/E810/C675/F810/D945; total 4995); added explicit legitimacy rule (no filler tasks). |
 | 1.4 | 2026-05-31 | Added §8.4 prompt-sizing enforcement: blocking self-gate requiring `(Get-Content).Count` verification of every prompt against its floor + 25-task minimum, recorded in prep notes, before prompts may be released. Triggered by Cycle 053 under-floor prompts. |
+| 1.6 | 2026-05-31 | Added §8.4.1 (zero-tolerance, write-time, per-prompt enforcement; under-floor = not written; banned rationalizations) + §8.4.2 (per-agent mandatory content-block manifest). Triggered by C054 Agent A shipping under floor despite §8.4. Closes the "expand later"/"complete in content" loophole. |
 
 
 ---

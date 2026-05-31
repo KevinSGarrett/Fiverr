@@ -290,12 +290,18 @@ TASK & LENGTH REQUIREMENTS (from strategy §8 — these SUPERSEDE any older 20-t
     skeletons with every test-function stub, verbatim command/query/gate blocks, per-niche/per-file
     procedures, deliverable + DoD matrices, worked numeric examples, report templates) — never padding.
 
-§8.4 PROMPT-SIZING SELF-GATE (BLOCKING — you may NOT release prompts until this passes):
-  After drafting all six, run (Get-Content <path>).Count on each and record ACTUAL vs FLOOR + the
-  numbered-task count in a table in the cycle log / prep notes:
+§8.4 PROMPT-SIZING SELF-GATE (BLOCKING — per §8.4.1/§8.4.2; you may NOT release prompts until this passes):
+  PER PROMPT, AT WRITE TIME (NOT "after drafting all six"): the moment a prompt is finished, run
+  (Get-Content <path>).Count and record ACTUAL vs FLOOR + the numbered-task count. A prompt below its
+  floor OR under 25 substantive tasks is NOT WRITTEN — it may not be called done, surfaced, committed,
+  or handed off, and you may NOT start the next prompt on top of an unmet one. SHOW the count for each.
      | Agent | Lines (actual) | Floor | Tasks (actual) | >=25? | PASS? |
-  ANY prompt under its line floor OR under 25 substantive tasks = NOT DONE. Expand it with GENUINE
-  content (per §8.3) and re-verify. Do not hand any prompt to an agent until all six PASS both checks.
+  Banned excuses (§8.4.1): "complete in content", "I'll expand at the end", "the content already
+  covers it", "good enough". Under floor means a MANDATORY CONTENT BLOCK is missing (§8.4.2: inline
+  code/dataclass skeletons + function signatures; a test-function stub per behavior; verbatim
+  command/query/gate blocks; the full regression list by name; per-story ACs; worked numeric examples;
+  report template) — add the real block, never filler, then re-count. Record the final count table for
+  all six in the cycle log / prep notes for auditability.
 
 Every prompt MUST contain:
   a) project context (paths; branch = cycle/[CYCLE_NEXT]/integration; relevant Jira keys; auth via connector, no token)
@@ -345,8 +351,8 @@ PART 8 — SELF-AUDIT BEFORE SUBMITTING (any NO -> go back)
   14. Read spec files before writing implementation tasks?                       YES / NO
   15. Updated strategy §7 if new regressions added?                              YES / NO / N/A
   16. Updated PM Pack files with VERIFIED state?                                 YES / NO
-  17. §8.4 sizing self-gate PASSED with a recorded count table (lines+tasks)?    YES / NO
-      (every prompt >= its floor AND >= 25 substantive tasks — BLOCKING)
+  17. §8.4.1 sizing gate run PER PROMPT at write time, each count SHOWN >= floor? YES / NO
+      (under floor = NOT written; §8.4.2 content blocks present; final table recorded — BLOCKING)
   18. All 6 prompts reference branch cycle/[CYCLE_NEXT]/integration?             YES / NO
   19. Agent E (if live) embeds the §10 ScrapFly live-enable runbook + fallback?  YES / NO / N/A
   20. NO API token/secret embedded in any prompt (connector-only auth)?          YES / NO
