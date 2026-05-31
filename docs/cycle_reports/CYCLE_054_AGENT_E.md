@@ -15,6 +15,7 @@ Role scope: report-only (`docs/cycle_reports/CYCLE_054_AGENT_E.md` only)
 - `.env` key presence check (presence-only): `Y` (`len=41`, `prefix=scp-`)
 
 Preflight evidence (`C:\Fiverr\cycle054_e_preflight.txt`):
+
 - `git rev-parse HEAD` -> `23a9075279676cc6cd0bfee2e2575830826cc3aa`
 - `git worktree list` -> `C:/Fiverr/Fiverr  23a9075 [cycle/054/integration]`
 - `python run.py config-check` -> `Config OK: niches=9, active_profile=aggressive_new_seller...`
@@ -26,6 +27,7 @@ Preflight evidence (`C:\Fiverr\cycle054_e_preflight.txt`):
 - Total credits used: `0` (no successful live collection run started)
 
 Blocking error evidence (`C:\Fiverr\cycle054_e_collect_full.txt`):
+
 - `SyntaxError: non-default argument follows default argument` in `src/scoring/pipeline.py` (line 605) while importing `run.py`.
 
 ## 3) Sample captured
