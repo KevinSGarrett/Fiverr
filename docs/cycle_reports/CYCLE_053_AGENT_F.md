@@ -137,5 +137,6 @@ Handoff to Agent D:
 - REG-15 / REG-16: PASS / PASS.
 - Section 7 check (read-only): 20-name pack, v1.4, REG-15/16 present.
 - Determinism 2x rerun checks: stable.
-- No-src staged check: pending final staging/commit gate.
-- Commit ledger + final SHA: pending commit/push.
+- No-src staged check: empty (`git diff --cached --name-only | findstr /b "src/"` returned no lines).
+- Commit ledger + final SHA:
+  - `de14ffb` - `test(r2): harden Stage 3.5 coverage and edge guards`
