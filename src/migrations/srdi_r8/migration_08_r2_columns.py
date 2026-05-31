@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import Engine
+from sqlalchemy.engine import Connection
 
 MIGRATION_ID = "08_r2_columns"
 TABLE = "result_set_validations"
@@ -12,8 +13,8 @@ COLUMNS = [
 ]
 
 
-def _has_column(connection: object, table: str, column: str) -> bool:
-    rows = connection.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()  # type: ignore[attr-defined]
+def _has_column(connection: Connection, table: str, column: str) -> bool:
+    rows = connection.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
     return any(str(row[1]) == column for row in rows)
 
 
@@ -25,8 +26,8 @@ def apply(engine: Engine) -> None:
                 connection.exec_driver_sql(f"ALTER TABLE {TABLE} ADD COLUMN {column} {declaration}")
 
 
-def _sqlite_rebuild_without_columns(connection: object, drop_columns: list[str]) -> None:
-    info_rows = connection.exec_driver_sql(f"PRAGMA table_info({TABLE})").fetchall()  # type: ignore[attr-defined]
+def _sqlite_rebuild_without_columns(connection: Connection, drop_columns: list[str]) -> None:
+    info_rows = connection.exec_driver_sql(f"PRAGMA table_info({TABLE})").fetchall()
     keep_rows = [row for row in info_rows if str(row[1]) not in set(drop_columns)]
     keep_names = [str(row[1]) for row in keep_rows]
     if not keep_names:

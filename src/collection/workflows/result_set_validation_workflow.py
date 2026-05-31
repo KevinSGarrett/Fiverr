@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -99,7 +99,7 @@ def _upsert_rsv(db: Session, keyword_id: int, run_id: str, rs: Any) -> ResultSet
     rsv.ghost_market_flag = rs.ghost_market_flag
     rsv.category_contamination_flag = rs.category_contamination_flag
     rsv.relevance_deduction = rs.confidence_deduction
-    rsv.per_gig_relevance = [
+    gig_payload = [
         {
             "gig_url": gig.gig_url,
             "score": gig.relevance_score,
@@ -109,6 +109,7 @@ def _upsert_rsv(db: Session, keyword_id: int, run_id: str, rs: Any) -> ResultSet
         }
         for gig in rs.gig_results
     ]
+    cast(Any, rsv).per_gig_relevance = gig_payload
     rsv.ghost_evidence = (
         {
             "score": rs.result_set_relevance_score,
