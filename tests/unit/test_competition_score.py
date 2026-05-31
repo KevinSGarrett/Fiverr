@@ -883,6 +883,17 @@ def test_competition_no_rsv_no_filtering() -> None:
         session.close()
 
 
+def test_competition_no_rsv_equals_baseline() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="baseline-rsv-none")
+        baseline = CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert baseline.score_value is not None
+        assert baseline.score_components["avg_reviews"].raw is not None
+    finally:
+        session.close()
+
+
 def test_competition_warns_when_over_20_percent_filtered(caplog: pytest.LogCaptureFixture) -> None:
     session, _niche, keyword = _build_session()
     try:
@@ -945,6 +956,35 @@ def test_competition_no_filter_when_rsv_none_or_high_and_null_flag_included() ->
         session.commit()
         high_rsv_signals = CompetitionScoreCalculator()._load_signals_from_db(keyword.id, session)
         assert high_rsv_signals["avg_review_count_top10"] == 60.0
+    finally:
+        session.close()
+
+
+def test_null_gig_relevance_flag_treated_as_include() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        seller = Seller(seller_handle="null-flag-seller", level="LEVEL_1")
+        session.add(seller)
+        session.flush()
+        gig = Gig(
+            gig_url="https://fiverr.com/null-flag/1",
+            seller_username=seller.seller_handle,
+            seller_id=seller.id,
+            keyword_id=keyword.id,
+            run_id="null-flag-run",
+            title="null flag gig",
+            normalized_title="null flag gig",
+            relevance_flag=None,
+            review_count=30.0,
+            starting_price=15.0,
+        )
+        session.add(gig)
+        session.flush()
+        session.add(SearchResult(keyword_id=keyword.id, run_id="null-flag-run", rank=1, gig_id=gig.id, title=gig.title))
+        session.commit()
+        result = CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert result.score_value is not None
+        assert result.score_components["avg_reviews"].raw == 30.0
     finally:
         session.close()
 

@@ -61,6 +61,24 @@ def test_missing_title_returns_zero_false() -> None:
     assert result.rejection_reason == "missing_title"
 
 
+def test_unicode_title_is_handled_without_error() -> None:
+    result = compute_gig_relevance(
+        "I will build MCP server integration 🚀 for café systems",
+        "mcp server integration",
+        "mcp_servers",
+        _cfg(),
+    )
+    assert 0.0 <= result.relevance_score <= 1.0
+    assert result.relevance_flag is True
+
+
+def test_whitespace_only_title_returns_missing_title() -> None:
+    result = compute_gig_relevance("   \t  \n", "mcp server integration", "mcp_servers", _cfg())
+    assert result.relevance_score == 0.0
+    assert result.relevance_flag is False
+    assert result.rejection_reason == "missing_title"
+
+
 def test_clean_set_has_no_flags_and_zero_deduction() -> None:
     cards = [{"gig_title": "I will build mcp server integration and claude tool", "gig_url": f"https://x/{i}"} for i in range(9)]
     cards.append({"gig_title": "I will design logo", "gig_url": "https://x/off"})
@@ -97,6 +115,26 @@ def test_sponsored_counted_not_in_relevant_numerator() -> None:
     assert result.sponsored_count == 1
     assert result.relevant_count == 1
     assert result.result_set_relevance_score == 0.5
+
+
+def test_all_sponsored_all_relevant_is_not_ghost() -> None:
+    cards = [{"gig_title": "mcp server integration service", "gig_url": f"https://x/{i}", "sponsored": True} for i in range(6)]
+    result = validate_result_set(cards, "mcp server integration", "mcp_servers", _cfg())
+    assert result.total_analyzed == 6
+    assert result.sponsored_count == 6
+    assert result.relevant_count == 6
+    assert result.ghost_market_flag is False
+    assert result.confidence_deduction == 0.0
+
+
+def test_all_sponsored_all_off_topic_is_ghost() -> None:
+    cards = [{"gig_title": "logo design", "gig_url": f"https://x/{i}", "sponsored": True} for i in range(6)]
+    result = validate_result_set(cards, "mcp server integration", "mcp_servers", _cfg())
+    assert result.total_analyzed == 6
+    assert result.sponsored_count == 6
+    assert result.relevant_count == 0
+    assert result.ghost_market_flag is True
+    assert result.confidence_deduction == -0.50
 
 
 def test_zero_cards_returns_ghost_and_warning() -> None:
@@ -300,3 +338,14 @@ def test_get_validation_config_supports_slug_and_numeric_aliases() -> None:
 def test_niche_validation_version_stamps_present() -> None:
     assert isinstance(NICHE_VALIDATION_CONFIG_VERSION, str) and NICHE_VALIDATION_CONFIG_VERSION
     assert isinstance(NICHE_VALIDATION_CONFIG_NEXT_REVIEW, str) and NICHE_VALIDATION_CONFIG_NEXT_REVIEW
+
+
+def test_clamp_upper_bound_one_documented_unreachable() -> None:
+    result = compute_gig_relevance(
+        "mcp server integration claude tool model context protocol",
+        "mcp server integration",
+        "mcp_servers",
+        _cfg(),
+    )
+    # With current fixed weights, positive signals cap at 0.75. This documents why 1.0 is unreachable.
+    assert result.relevance_score <= 0.75

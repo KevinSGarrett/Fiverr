@@ -217,6 +217,15 @@ def test_demand_no_rsv_is_baseline() -> None:
     assert baseline.score_value is not None
 
 
+def test_demand_no_rsv_equals_baseline() -> None:
+    baseline = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: _base_demand_inputs()}),
+    )
+    assert baseline.score_value is not None
+    assert baseline.score_components["fiverr_count"].raw == _base_demand_inputs()["total_result_count"]
+
+
 def test_demand_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[int] = []
 

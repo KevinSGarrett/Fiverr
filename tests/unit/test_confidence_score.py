@@ -814,6 +814,23 @@ def test_confidence_no_rsv_is_baseline() -> None:
     assert "result_set_relevance" not in breakdown
 
 
+def test_confidence_no_rsv_equals_baseline() -> None:
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+    }
+    modifier, breakdown = ConfidenceScoreModifier().calculate_with_breakdown(8080, context, None)
+    assert modifier == 1.0
+    assert "ghost_market" not in breakdown
+    assert "result_set_relevance" not in breakdown
+
+
 def test_confidence_deduction_reaches_final_value() -> None:
     context = {
         "data_completeness_ratio": 1.0,

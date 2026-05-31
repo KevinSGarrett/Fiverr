@@ -103,6 +103,7 @@ def test_one_rsv_row_per_keyword_run(scratch_db: Session, sample_config_on: dict
     stats = run_stage_3_5_validation(run_id="run-1", niche_id="mcp_servers", db=scratch_db, config=sample_config_on)
     rows = scratch_db.query(ResultSetValidation).filter_by(run_id="run-1").all()
     assert len(rows) == stats["keywords_validated"]
+    assert set(stats.keys()) == {"keywords_validated", "ghost_markets_detected", "contamination_flags"}
 
 
 def test_ghost_keyword_links_ghost_rsv(scratch_db: Session, sample_config_on: dict) -> None:
@@ -120,6 +121,22 @@ def test_gig_flags_propagated(scratch_db: Session, sample_config_on: dict) -> No
     unflagged = scratch_db.query(Gig).filter(Gig.relevance_flag.is_(False)).count()
     assert flagged > 0
     assert unflagged > 0
+
+
+def test_gig_flag_set_true_for_relevant_match(scratch_db: Session, sample_config_on: dict) -> None:
+    run_stage_3_5_validation("run-1", "mcp_servers", scratch_db, sample_config_on)
+    gig = scratch_db.query(Gig).filter(Gig.gig_url.like("%clean-0%")).first()
+    assert gig is not None
+    assert gig.relevance_flag is True
+    assert gig.relevance_score is not None
+
+
+def test_gig_flag_set_false_for_irrelevant_match(scratch_db: Session, sample_config_on: dict) -> None:
+    run_stage_3_5_validation("run-1", "mcp_servers", scratch_db, sample_config_on)
+    gig = scratch_db.query(Gig).filter(Gig.gig_url.like("%clean-off%")).first()
+    assert gig is not None
+    assert gig.relevance_flag is False
+    assert gig.relevance_score is not None
 
 
 def test_cm_deduction_reaches_final_scoring(scratch_db: Session, sample_config_on: dict) -> None:
@@ -224,6 +241,12 @@ def test_write_gig_flags_tolerant_url_match_query_protocol_and_trailing_slash(
     scratch_db.refresh(target)
     assert target.relevance_flag is True
     assert target.relevance_score is not None
+
+
+def test_url_match_ignores_query_and_protocol() -> None:
+    assert workflow._normalize_url("http://www.fiverr.com/gigs/example?ref=abc") == workflow._normalize_url(
+        "https://www.fiverr.com/gigs/example/"
+    )
 
 
 def test_gig_with_no_match_left_unchanged(scratch_db: Session, sample_config_on: dict) -> None:
@@ -350,3 +373,45 @@ def test_enable_stage_3_5_off_matches_legacy_scores(scratch_db: Session, sample_
     assert skipped == {"skipped": True}
     assert with_stage35 == baseline_modifier
     assert after_off == baseline_modifier
+
+
+def test_competition_all_filtered_fallback_emits_warning(
+    scratch_db: Session,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from src.scoring.competition import CompetitionScoreCalculator
+
+    niche = Niche(id=902, slug="fallback_niche", name="Fallback Niche", category_path="Programming & Tech > AI")
+    scratch_db.add(niche)
+    scratch_db.flush()
+    keyword = Keyword(id=2001, niche_id=niche.id, keyword="fallback keyword", normalized_keyword="fallback keyword")
+    scratch_db.add(keyword)
+    scratch_db.flush()
+    for rank in range(1, 4):
+        gig = Gig(
+            gig_url=f"https://www.fiverr.com/fallback/{rank}",
+            keyword_id=keyword.id,
+            run_id="fallback-run",
+            seller_username=f"fallback-seller-{rank}",
+            title=f"fallback gig {rank}",
+            normalized_title=f"fallback gig {rank}",
+            relevance_flag=False,
+            review_count=20,
+            starting_price=10,
+        )
+        scratch_db.add(gig)
+        scratch_db.flush()
+        scratch_db.add(SearchResult(keyword_id=keyword.id, run_id="fallback-run", rank=rank, gig_id=gig.id, title=gig.title))
+    scratch_db.add(
+        ResultSetValidation(
+            keyword_id=keyword.id,
+            run_id="fallback-run",
+            result_set_relevance_score=0.60,
+            relevance_deduction=-0.05,
+        )
+    )
+    scratch_db.commit()
+    with caplog.at_level(logging.WARNING):
+        result = CompetitionScoreCalculator().calculate(keyword.id, scratch_db)
+    assert result.score_value is not None
+    assert any("all gigs filtered by relevance" in rec.message for rec in caplog.records)
