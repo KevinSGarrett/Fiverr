@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from src.models import ClusterAssignment
+import pytest
+
+from src.models import ClusterAssignment, ResultSetValidation, SearchResult
 from src.scoring.demand import (
     DemandScoreCalculator,
     _load_cluster_context_from_session,
     trc_adjustment,
 )
+from src.scoring.result_set_relevance import apply_trc_adjustments
 from tests.unit.test_demand_score import (
     KEYWORD_ID,
     FakeDemandDB,
@@ -151,3 +154,64 @@ def test_demand_legacy_when_toggle_off() -> None:
     off = trc_adjustment(3, 12, cfg_off, "SUBCATEGORY")
     assert on == 0.80
     assert off == 1.0
+
+
+def test_demand_qualified_trc_when_rsv_below_080() -> None:
+    session, keyword = _build_demand_session()
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id="r1",
+                page_collected=1,
+                total_result_count=100,
+                sponsored_gig_count=0,
+                organic_gig_count=10,
+                search_strictness_used="SUBCATEGORY",
+            )
+        )
+        session.add(
+            ResultSetValidation(
+                keyword_id=keyword.id,
+                run_id="r1",
+                result_set_relevance_score=0.60,
+                relevance_deduction=-0.15,
+            )
+        )
+        session.commit()
+        result = DemandScoreCalculator().calculate(keyword.id, session)
+        assert result.score_components["fiverr_count"].note
+        assert "60.00" in result.score_components["fiverr_count"].note
+    finally:
+        session.close()
+
+
+def test_trc_qualified_by_result_set_relevance_in_demand() -> None:
+    """REG-16 alias: qualified TRC obeys RSV multiplier, baseline unchanged when absent."""
+    assert apply_trc_adjustments(
+        100.0,
+        ResultSetValidation(result_set_relevance_score=0.60),
+        sponsored_fraction=0.0,
+    ) == pytest.approx(60.0)
+    assert apply_trc_adjustments(
+        100.0,
+        None,
+        sponsored_fraction=0.0,
+    ) == pytest.approx(100.0)
+
+
+def test_demand_no_stack_with_sponsored_multiplier() -> None:
+    adjusted = apply_trc_adjustments(
+        100.0,
+        ResultSetValidation(result_set_relevance_score=0.60),
+        sponsored_fraction=0.30,
+    )
+    assert adjusted == 60.0
+
+
+def test_demand_no_rsv_is_baseline() -> None:
+    baseline = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: _base_demand_inputs()}),
+    )
+    assert baseline.score_value is not None

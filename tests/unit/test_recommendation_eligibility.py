@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import (
+    AlertEvent,
     Base,
     FinalScore,
     GigQualityScore,
@@ -16,6 +17,7 @@ from src.models import (
     KeywordScore,
     Niche,
     Recommendation,
+    ResultSetValidation,
 )
 from src.recommendations import eligibility
 
@@ -499,3 +501,106 @@ def test_private_extractors_cover_raw_json_and_default_branches(monkeypatch: Any
     )
 
     assert eligibility._latest_competitor_analysis_timestamp(99, object()) is None
+
+
+def test_eligibility_ghost_hard_block_even_when_forced() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=160, demand_score=65.0)
+    _add_gig_quality(db, keyword_id=160)
+    db.add(
+        ResultSetValidation(
+            keyword_id=160,
+            run_id="run-1",
+            result_set_relevance_score=0.08,
+            ghost_market_flag=True,
+            relevance_deduction=-0.50,
+        )
+    )
+    db.commit()
+    ok, reason = eligibility.passes_recommendation_gates(
+        {
+            "keyword_id": 160,
+            "confidence_modifier": 1.0,
+            "demand_score": 65.0,
+            "force_recommended": True,
+            "run_id": "run-1",
+        },
+        db,
+    )
+    assert ok is False
+    assert reason.startswith("ghost_market_blocked")
+    assert db.query(AlertEvent).filter(AlertEvent.event_type == "GHOST_MARKET_DETECTED").count() == 1
+    db.close()
+
+
+def test_ghost_market_blocks_recommendation_absolutely() -> None:
+    """REG-15 alias: ghost blocks even with force_recommended=True."""
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=163, demand_score=65.0)
+    _add_gig_quality(db, keyword_id=163)
+    db.add(
+        ResultSetValidation(
+            keyword_id=163,
+            run_id="run-1",
+            result_set_relevance_score=0.08,
+            ghost_market_flag=True,
+            relevance_deduction=-0.50,
+        )
+    )
+    db.commit()
+    ok, reason = eligibility.passes_recommendation_gates(
+        {
+            "keyword_id": 163,
+            "confidence_modifier": 1.0,
+            "demand_score": 65.0,
+            "force_recommended": True,
+            "run_id": "run-1",
+        },
+        db,
+    )
+    assert ok is False
+    assert reason.startswith("ghost_market_blocked")
+    db.close()
+
+
+def test_eligibility_non_ghost_not_blocked() -> None:
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=161, demand_score=65.0)
+    _add_gig_quality(db, keyword_id=161)
+    db.add(
+        ResultSetValidation(
+            keyword_id=161,
+            run_id="run-1",
+            result_set_relevance_score=0.85,
+            ghost_market_flag=False,
+            relevance_deduction=0.0,
+        )
+    )
+    db.commit()
+    ok, reason = eligibility.passes_recommendation_gates(
+        {"keyword_id": 161, "confidence_modifier": 1.0, "demand_score": 65.0},
+        db,
+    )
+    assert ok is True
+    assert reason == "All gates passed"
+    db.close()
+
+
+def test_stage12_tag_demoted_to_pass_for_ghost() -> None:
+    from src.scoring.pipeline import _demote_tag_for_ghost_market, assign_tag
+
+    db = _session()
+    _seed_keyword_with_score(db, keyword_id=162, demand_score=65.0)
+    db.add(
+        ResultSetValidation(
+            keyword_id=162,
+            run_id="run-1",
+            result_set_relevance_score=0.05,
+            ghost_market_flag=True,
+            relevance_deduction=-0.50,
+        )
+    )
+    db.commit()
+    assert assign_tag(90.0, 1.0) == "STRONG_GO"
+    assert _demote_tag_for_ghost_market(162, "STRONG_GO", db) == "PASS"
+    db.close()

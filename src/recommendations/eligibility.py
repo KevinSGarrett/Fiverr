@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from src.models import (
+    AlertEvent,
     CompetitorSnapshot,
     FinalScore,
     GigQualityScore,
@@ -18,6 +19,7 @@ from src.models import (
     get_registered_model_classes,
 )
 from src.recommendations.context_builder import get_confidence_modifier
+from src.scoring.result_set_relevance import get_result_set_validation
 
 _TAG_ORDER = ["STRONG GO", "CONDITIONAL GO", "MONITOR", "CAUTION", "PASS"]
 
@@ -92,6 +94,17 @@ def passes_recommendation_gates(keyword_data: dict[str, Any], db: Any) -> tuple[
     if keyword_id is None or keyword_id <= 0:
         return False, "Invalid keyword id."
 
+    rsv = get_result_set_validation(keyword_id, db)
+    if rsv is not None and bool(rsv.ghost_market_flag):
+        run_id = str(keyword_data.get("run_id") or "")
+        _write_ghost_alert(db, keyword_id=keyword_id, run_id=run_id, rsv=rsv)
+        message = (
+            f"ghost_market_blocked: result_set_relevance={float(rsv.result_set_relevance_score or 0.0):.2f}, "
+            "<20% relevant results"
+        )
+        print(render_ghost_resolution_surface(keyword_data, str(keyword_data.get("niche_id", "")), rsv))
+        return False, message
+
     if bool(keyword_data.get("force_recommended")) or is_keyword_force_recommended(keyword_id, db):
         return True, "User override — forced recommendation"
 
@@ -107,6 +120,58 @@ def passes_recommendation_gates(keyword_data: dict[str, Any], db: Any) -> tuple[
         return False, "No gig quality analysis available — cannot generate differentiation angle"
 
     return True, "All gates passed"
+
+
+def render_ghost_resolution_surface(keyword: dict[str, Any], niche_slug: str, rsv: Any) -> str:
+    lines = [
+        (
+            "GHOST MARKET BLOCKED — keyword_id="
+            f"{keyword.get('keyword_id')}, niche={niche_slug}, "
+            f"result_set_relevance={float(rsv.result_set_relevance_score or 0.0):.2f} (<20% relevant)"
+        ),
+        "gig_title | relevance_score | relevance_flag | rejection_reason",
+    ]
+    entries = rsv.per_gig_relevance if isinstance(rsv.per_gig_relevance, list) else []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        lines.append(
+            f"{str(entry.get('gig_url', ''))[:48]:48} | "
+            f"{float(entry.get('score', 0.0)):.2f} | "
+            f"{bool(entry.get('flag', False))} | "
+            f"{entry.get('reason')}"
+        )
+    lines.extend(
+        [
+            "Resolution options:",
+            "  1) Remove this keyword from the niche (false-positive niche assignment).",
+            "  2) Update NICHE_VALIDATION_CONFIG core_terms/exclusion_terms for this niche.",
+            "  3) Reclassify the keyword to a different niche.",
+            "Recommendation suppressed; force_recommend is overridden by the ghost gate (REG-15).",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _write_ghost_alert(db: Any, keyword_id: int, run_id: str, rsv: Any) -> None:
+    query = _safe_query(db, AlertEvent)
+    if query is None:
+        return
+    event = AlertEvent(
+        run_id=int(run_id) if str(run_id).isdigit() else None,
+        severity="WARNING",
+        event_type="GHOST_MARKET_DETECTED",
+        message=f"Ghost market blocked keyword_id={keyword_id}",
+        raw_json={
+            "keyword_id": keyword_id,
+            "run_id": run_id,
+            "result_set_relevance_score": float(rsv.result_set_relevance_score or 0.0),
+            "result_count": int(rsv.result_count or 0),
+            "relevant_count": int(rsv.relevant_count or 0),
+        },
+    )
+    db.add(event)
+    db.commit()
 
 
 def is_keyword_force_recommended(keyword_id: int, db: Any) -> bool:

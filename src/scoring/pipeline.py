@@ -22,6 +22,7 @@ from src.scoring.final import FinalRecommendationScoreCalculator
 from src.scoring.intent import ConversionIntentScoreCalculator
 from src.scoring.opportunity import OpportunityScoreCalculator
 from src.scoring.profitability import ProfitabilityScoreCalculator
+from src.scoring.result_set_relevance import get_result_set_validation
 from src.scoring.saturation_score import SaturationScoreCalculator
 from src.scoring.trend import TrendScoreCalculator
 from src.scoring.weakness import GigQualityWeaknessScoreCalculator
@@ -201,6 +202,13 @@ def assign_tag(final_score: float, confidence_modifier: float) -> str:
         }
         return demotion_map[base_tag]
     return base_tag
+
+
+def _demote_tag_for_ghost_market(keyword_id: int, tag: str, db: Any) -> str:
+    rsv = get_result_set_validation(keyword_id, db)
+    if rsv is not None and bool(rsv.ghost_market_flag):
+        return "PASS"
+    return tag
 
 
 def detect_red_flags_from_scores(
@@ -400,6 +408,7 @@ async def score_keyword(
     )
     final_score = calculated_final_score
     tag = assign_tag(final_score, confidence_modifier)
+    tag = _demote_tag_for_ghost_market(keyword_id, tag, db)
     explanation_scores = {
         **scores,
         "confidence_modifier": confidence_modifier,
