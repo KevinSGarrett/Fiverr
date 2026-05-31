@@ -78,5 +78,7 @@ Cycle 054 — Agent B Report (R4 implementation)
 8. Commit SHAs:
 - `460c54385cc83fc7f969b3f88553ee63f4aa3017` (`feat(scoring): add R4 quality-aware scoring toggles and integrity fields`)
 - `b2f0cb5c427da949869525d00c1802871d56efb2` (`test(scoring): add R4 unit tests and regression coverage`)
+- `9a382c5392c61cafbb7e67a06a1938fbab295351` (`fix(scoring): finalize Agent B handoff report metadata`)
+- `2a646ca8519c2afba494d44f47046d49599fc100` (`test(scoring): add R4 cross-cutting parity verification tests`)
 
 9. Handoff to C: "Agent B complete; C may start after E also completes."
