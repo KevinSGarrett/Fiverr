@@ -7,6 +7,7 @@ PR `#62` is open and not mergeable. Blocking gates:
 - Required AC-U3 parity command path `python run.py score --golden ...` is unavailable in this branch (`No such command 'score'`), so required replay path is not executable.
 
 Branch HEAD at gate run: `06ff234014427038de2e1acf0c78fdf302c1cc97`  
+Post-steward docs commit on integration branch: `e4512f2fcbab72be8a4fef64d5f79f83a477dfd8`
 Expected base verified: `badb9819b509a8cfc7eb1c256d569fec6cb064b9`
 
 ## 2) Complete Merge-Gate Checklist (D-GATEMAP)
@@ -118,7 +119,7 @@ DoD transitions to Done were **not performed** because blocking gates remain unm
 ## 12) Merge + HEAD Alignment
 - Merge not executed due blocking gates.
 - Current refs:
-  - `cycle/053/integration` HEAD: `06ff234014427038de2e1acf0c78fdf302c1cc97`
+  - `cycle/053/integration` HEAD: `e4512f2fcbab72be8a4fef64d5f79f83a477dfd8`
   - `develop` local/API: `badb9819b509a8cfc7eb1c256d569fec6cb064b9`
   - remote branch `origin/cycle/053/integration` still exists
   - worktree count remains `1`
@@ -286,5 +287,6 @@ eligibility.py: 97%
 | TOTAL | 5068 | 4995 | 150 | pass |
 
 ## 19) Final SHA Note
-D final steward report/prep-notes commit SHA is recorded after commit execution on this branch; merge-state SHA remains blocked until owner fixes and re-gate.
+Final D steward docs commit SHA: `e4512f2fcbab72be8a4fef64d5f79f83a477dfd8`.  
+Merge-state SHA remains blocked until owner fixes and re-gate.
 
