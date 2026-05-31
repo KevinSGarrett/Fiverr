@@ -24,8 +24,11 @@ from src.models import (
 )
 from src.scoring.competition import (
     CompetitionScoreCalculator,
+    _exclude_contaminated_competitors,
+    _exclude_price_outliers_iqr,
     _coerce_bool,
     _coerce_float,
+    _select_competitor_profile,
     _normalize_gap_flags,
     compute_seller_level_competition_signal,
     get_competitor_profile_inputs,
@@ -1013,3 +1016,106 @@ def test_competition_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> 
         assert calls == [keyword.id]
     finally:
         session.close()
+
+
+def test_select_per_keyword_profile_when_present() -> None:
+    profile, source = _select_competitor_profile({"mean_reviews": 300.0}, {"mean_reviews": 100.0})
+    assert profile == {"mean_reviews": 300.0}
+    assert source == "per_keyword"
+
+
+def test_fallback_to_per_niche_when_keyword_empty() -> None:
+    profile, source = _select_competitor_profile({}, {"mean_reviews": 100.0})
+    assert profile == {"mean_reviews": 100.0}
+    assert source == "per_niche"
+
+
+def test_competitor_profile_source_recorded() -> None:
+    result = CompetitionScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeScoringDB(
+            competition_inputs={
+                KEYWORD_ID: {
+                    **_base_competition_inputs(),
+                    "competitor_profile": {"mean_reviews": 120.0},
+                    "competitor_profile_per_keyword": {"mean_reviews": 340.0},
+                }
+            }
+        ),
+        config={"scoring": {"competition": {"use_per_keyword_profile": True}}},
+    )
+    assert result.competitor_profile_source == "per_keyword"
+
+
+def test_profile_selection_toggle_off_matches_legacy() -> None:
+    payload = {
+        **_base_competition_inputs(),
+        "competitor_profile": {"mean_reviews": 120.0},
+        "competitor_profile_per_keyword": {"mean_reviews": 900.0},
+    }
+    legacy = CompetitionScoreCalculator().calculate(KEYWORD_ID, FakeScoringDB(competition_inputs={KEYWORD_ID: payload}))
+    off = CompetitionScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeScoringDB(competition_inputs={KEYWORD_ID: payload}),
+        config={"scoring": {"competition": {"use_per_keyword_profile": False}}},
+    )
+    assert off.score_value == legacy.score_value
+
+
+def test_niche_profile_excludes_contaminated_keywords() -> None:
+    profile = {"competitors": [{"source_keyword_id": 1}, {"source_keyword_id": 99}]}
+    filtered = _exclude_contaminated_competitors(profile, {99})
+    assert filtered is not None
+    assert len(filtered["competitors"]) == 1
+
+
+def test_exclude_contaminated_empty_set_no_change() -> None:
+    profile = {"competitors": [{"source_keyword_id": 1}]}
+    filtered = _exclude_contaminated_competitors(profile, set())
+    assert filtered == profile
+    assert filtered is not profile
+
+
+def test_exclude_contaminated_toggle_off_matches_legacy() -> None:
+    payload = {
+        **_base_competition_inputs(),
+        "competitor_profile": {"mean_reviews": 120.0, "competitors": [{"source_keyword_id": 99}]},
+        "contaminated_keyword_ids": [99],
+    }
+    legacy = CompetitionScoreCalculator().calculate(KEYWORD_ID, FakeScoringDB(competition_inputs={KEYWORD_ID: payload}))
+    off = CompetitionScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeScoringDB(competition_inputs={KEYWORD_ID: payload}),
+        config={"scoring": {"competition": {"exclude_contaminated": False}}},
+    )
+    assert off.score_value == legacy.score_value
+
+
+def test_price_outliers_excluded_count_recorded() -> None:
+    result = CompetitionScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeScoringDB(
+            competition_inputs={
+                KEYWORD_ID: {**_base_competition_inputs(), "top10_prices": [5, 8, 10, 11, 12, 12, 13, 15, 400]}
+            }
+        ),
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+    assert result.price_outliers_excluded == 1
+
+
+def test_price_outlier_fewer_than_4_unchanged() -> None:
+    kept, excluded = _exclude_price_outliers_iqr([10, 12, 400])
+    assert kept == [10.0, 12.0, 400.0]
+    assert excluded == 0
+
+
+def test_price_outliers_toggle_off_matches_legacy() -> None:
+    payload = {**_base_competition_inputs(), "top10_prices": [5, 8, 10, 11, 12, 12, 13, 15, 400]}
+    legacy = CompetitionScoreCalculator().calculate(KEYWORD_ID, FakeScoringDB(competition_inputs={KEYWORD_ID: payload}))
+    off = CompetitionScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeScoringDB(competition_inputs={KEYWORD_ID: payload}),
+        config={"scoring": {"exclude_price_outliers": False}},
+    )
+    assert off.score_value == legacy.score_value

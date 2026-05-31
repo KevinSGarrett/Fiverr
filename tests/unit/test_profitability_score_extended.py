@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.scoring.competition import CompetitionScoreCalculator, _exclude_price_outliers_iqr
 from src.scoring.profitability import ProfitabilityScoreCalculator, _relevance_config
 
 
@@ -172,3 +173,36 @@ def test_profitability_handles_missing_price_inputs_gracefully() -> None:
     }
     result = _calculate(inputs)
     assert result.score_value is None
+
+
+def test_price_outlier_excluded_from_competition_and_profitability() -> None:
+    prices = [5, 8, 10, 11, 12, 12, 13, 15, 400]
+    kept, excluded = _exclude_price_outliers_iqr(prices)
+    assert kept == [5.0, 8.0, 10.0, 11.0, 12.0, 12.0, 13.0, 15.0]
+    assert excluded == 1
+
+    competition_result = CompetitionScoreCalculator().calculate(
+        110,
+        {110: {"total_result_count": 1200, "top10_prices": prices}},
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+    profitability_result = ProfitabilityScoreCalculator().calculate(
+        110,
+        _FakeScoringDB(
+            {
+                **_base_profitability_inputs(),
+                "top10_prices": prices,
+                "avg_starting_price_top10": 54.0,
+            }
+        ),
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+
+    assert competition_result.price_outliers_excluded == 1
+    assert profitability_result.score_value is not None
+
+
+def test_shared_iqr_helper_used_by_both_competition_and_profitability() -> None:
+    from src.scoring import profitability
+
+    assert profitability._exclude_price_outliers_iqr is _exclude_price_outliers_iqr  # type: ignore[attr-defined]

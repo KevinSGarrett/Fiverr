@@ -6,7 +6,10 @@ import pytest
 from src.models import ClusterAssignment, ResultSetValidation, SearchResult
 from src.scoring.demand import (
     DemandScoreCalculator,
+    _classify_autocomplete_state,
+    _compute_trc_reliability,
     _load_cluster_context_from_session,
+    _trends_platform_qualifier,
     trc_adjustment,
 )
 from src.scoring.result_set_relevance import apply_trc_adjustments
@@ -239,3 +242,98 @@ def test_demand_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert result.score_value is not None
     assert calls == [KEYWORD_ID]
+
+
+def test_trc_reliability_uses_min_factor_not_product() -> None:
+    factor = _compute_trc_reliability(0.60, 0.30, "SUBCATEGORY")
+    assert factor == pytest.approx(0.60)
+    assert (100.0 * factor) == pytest.approx(60.0)
+
+
+def test_trc_reliability_none_inputs_no_penalty() -> None:
+    assert _compute_trc_reliability(None, None, None) == 1.0
+
+
+def test_trc_reliability_toggle_off_matches_legacy() -> None:
+    payload = dict(_base_demand_inputs())
+    payload.update({"sponsored_gig_count": 3, "total_gig_count": 10, "search_strictness_used": "SUBCATEGORY"})
+    baseline = DemandScoreCalculator().calculate(KEYWORD_ID, FakeDemandDB(demand_inputs={KEYWORD_ID: payload}))
+    off_result = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: payload}),
+        config={"scoring": {"demand": {"use_trc_reliability": False}}},
+    )
+    assert off_result.score_value == baseline.score_value
+
+
+def test_keyword_score_trc_reliability_populated_when_on() -> None:
+    session, keyword = _build_demand_session()
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id="r1",
+                page_collected=1,
+                total_result_count=100,
+                sponsored_gig_count=3,
+                organic_gig_count=7,
+                search_strictness_used="SUBCATEGORY",
+            )
+        )
+        session.add(ResultSetValidation(keyword_id=keyword.id, run_id="r1", result_set_relevance_score=0.60))
+        session.commit()
+        result = DemandScoreCalculator().calculate(
+            keyword.id,
+            session,
+            config={"scoring": {"demand": {"use_trc_reliability": True}}},
+        )
+        assert result.trc_reliability == pytest.approx(0.60)
+    finally:
+        session.close()
+
+
+def test_autocomplete_absent_penalizes_demand() -> None:
+    payload = dict(_base_demand_inputs())
+    payload["autocomplete_suggestions"] = []
+    legacy = DemandScoreCalculator().calculate(KEYWORD_ID, FakeDemandDB(demand_inputs={KEYWORD_ID: payload}))
+    qualified = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: payload}),
+        config={"scoring": {"demand": {"use_signal_qualifiers": True}}},
+    )
+    assert _classify_autocomplete_state([]) == "absent"
+    assert qualified.score_value is not None and legacy.score_value is not None
+    assert qualified.score_value < legacy.score_value
+
+
+def test_autocomplete_emerging_does_not_over_credit() -> None:
+    cfg = {"scoring": {"demand": {"use_signal_qualifiers": True}}}
+    present = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: {**_base_demand_inputs(), "autocomplete_suggestions": ["a", "b", "c"]}}),
+        config=cfg,
+    )
+    emerging = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: {**_base_demand_inputs(), "autocomplete_suggestions": ["a"]}}),
+        config=cfg,
+    )
+    assert emerging.score_value is not None and present.score_value is not None
+    assert emerging.score_value <= present.score_value
+
+
+def test_trends_platform_qualifier_bounds() -> None:
+    assert _trends_platform_qualifier(None) == 1.0
+    assert 0.0 <= _trends_platform_qualifier({"platform_fit": 0.3}) <= 1.0
+    assert 0.0 <= _trends_platform_qualifier({"trends_12mo_score": 80.0}) <= 1.0
+
+
+def test_signal_qualifiers_toggle_off_matches_legacy() -> None:
+    payload = {**_base_demand_inputs(), "autocomplete_suggestions": []}
+    baseline = DemandScoreCalculator().calculate(KEYWORD_ID, FakeDemandDB(demand_inputs={KEYWORD_ID: payload}))
+    toggled_off = DemandScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeDemandDB(demand_inputs={KEYWORD_ID: payload}),
+        config={"scoring": {"demand": {"use_signal_qualifiers": False}}},
+    )
+    assert toggled_off.score_value == baseline.score_value

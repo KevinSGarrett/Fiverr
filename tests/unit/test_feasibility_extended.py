@@ -8,6 +8,7 @@ from sqlalchemy import select
 from src.models import Gig, SearchResult
 from src.scoring.feasibility import (
     NewSellerFeasibilityCalculator,
+    _clean_gig_set,
     _coerce_float,
     _feasibility_config,
     _get_feasibility_gap_signal_details,
@@ -203,3 +204,59 @@ def test_feasibility_price_diversity_and_gap_signal_guards() -> None:
     )
     assert boost == 30.0
     assert flags == ["LOW_VIDEO_PRESENCE"]
+
+
+def test_clean_gig_set_excludes_sponsored_and_zombie() -> None:
+    class _Gig:
+        def __init__(self, relevant: bool, sponsored: bool, zombie: bool) -> None:
+            self.relevance_flag = relevant
+            self.is_sponsored = sponsored
+            self.is_zombie = zombie
+
+    gigs = [
+        _Gig(True, False, False),
+        _Gig(True, False, False),
+        _Gig(True, False, False),
+        _Gig(True, True, False),
+        _Gig(True, False, True),
+    ]
+    clean = _clean_gig_set(gigs)  # type: ignore[arg-type]
+    assert len(clean) == 3
+
+
+def test_clean_gig_count_recorded() -> None:
+    result = NewSellerFeasibilityCalculator().calculate(
+        100,
+        {
+            100: {
+                "level1_or_new_ratio_top10": 0.5,
+                "lowest_ranked_review_count_page1": 8.0,
+                "price_diversity_top10": 0.5,
+                "llm_gig_quality_weakness_avg_top10": 5.0,
+                "llm_entry_gap_assessment": 5.0,
+                "clean_gig_count": 3,
+            }
+        },
+        config={"scoring": {"feasibility": {"use_clean_gig_set": True}}},
+    )
+    assert result.clean_gig_count == 3
+
+
+def test_clean_gig_set_toggle_off_matches_legacy() -> None:
+    payload = {
+        101: {
+            "level1_or_new_ratio_top10": 0.5,
+            "lowest_ranked_review_count_page1": 8.0,
+            "price_diversity_top10": 0.5,
+            "llm_gig_quality_weakness_avg_top10": 5.0,
+            "llm_entry_gap_assessment": 5.0,
+            "clean_gig_count": 3,
+        }
+    }
+    legacy = NewSellerFeasibilityCalculator().calculate(101, payload)
+    off = NewSellerFeasibilityCalculator().calculate(
+        101,
+        payload,
+        config={"scoring": {"feasibility": {"use_clean_gig_set": False}}},
+    )
+    assert off.score_value == legacy.score_value
