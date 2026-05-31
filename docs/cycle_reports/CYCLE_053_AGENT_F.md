@@ -175,3 +175,5 @@ Handoff to Agent D:
 - Commit ledger + final SHA:
   - `de14ffb` - `test(r2): harden Stage 3.5 coverage and edge guards`
   - `17f5d53` - `docs(cycle-053): finalize Agent F report evidence`
+  - `1b3c9e5` - `test(r2): close remaining Agent F checklist gaps`
+  - final report SHA: `1b3c9e5`
