@@ -469,7 +469,7 @@ Completion checks:
 - Governance files committed (docs only) and pushed.
 
 Final governance commit SHA:
-- pending (filled after commit/push in final stage output)
+- `373d289b9f87e5419cc0e14fd0d7399e79a016fd`
 
 Release signal:
 - Stage 1 complete; Agent B and Agent E may now start in parallel.
@@ -496,4 +496,4 @@ Release signal:
 - Hydration header + epic tracker reflect verified C053 state: yes
 - Handoff packages delivered to B/E/C/F/D: yes
 - Governance files committed (docs only; zero src/tests/config behavior): yes
-- Final report SHA: pending (filled after commit/push in final stage output)
+- Final report SHA: `f78494f3167cbc1716caa3527e010c5108295aa0`
