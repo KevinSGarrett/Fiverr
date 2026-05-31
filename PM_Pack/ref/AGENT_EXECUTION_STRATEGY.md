@@ -6,11 +6,11 @@ Canonical reference for multi-agent cycle execution, regression packs, and hando
 
 ## Section 7: Permanent Regression Pack
 
-Accumulated regression selectors (18-name pack) plus cycle-specific permanent regressions.
+Accumulated regression selectors (20-name pack) plus cycle-specific permanent regressions.
 
-### Current 18-name accumulated pack (Cycle 052 baseline)
+### Current 20-name accumulated pack (Cycle 053 baseline)
 
-These are the required regressions that must stay green during Cycle 052:
+These are the required regressions that must stay green during Cycle 053:
 
 | # | Test name | File |
 | --- | --- | --- |
@@ -29,11 +29,13 @@ These are the required regressions that must stay green during Cycle 052:
 | 13 | `test_weakness_multi_row_fallback_does_not_produce_extreme_value` | `tests/unit/test_weakness_multi_row_averaging.py` |
 | 14 | `test_fiverr_search_url_always_includes_category_filter_for_production_niches` (REG-13) | `tests/unit/test_search_url_builder.py` |
 | 15 | `test_unconstrained_search_result_applies_demand_confidence_deduction` (REG-14) | `tests/unit/test_search_url_builder.py` |
-| 17 | `test_sponsored_gigs_never_included_in_competition_top10` (REG-17) | `tests/unit/test_scoring_db_integration.py` |
-| 18 | `test_zombie_gigs_never_used_in_feasibility_review_barrier` (REG-18) | `tests/unit/test_feasibility_extended.py` |
-| 19 | `test_organic_trc_adjusted_when_sponsored_fraction_exceeds_20_percent` (REG-19) | `tests/unit/test_demand_score_extended.py` |
+| 16 | `test_eligibility_ghost_hard_block_even_when_forced` (REG-15) | `tests/unit/test_recommendation_eligibility.py` |
+| 17 | `test_demand_qualified_trc_when_rsv_below_080` (REG-16) | `tests/unit/test_demand_score_extended.py` |
+| 18 | `test_sponsored_gigs_never_included_in_competition_top10` (REG-17) | `tests/unit/test_scoring_db_integration.py` |
+| 19 | `test_zombie_gigs_never_used_in_feasibility_review_barrier` (REG-18) | `tests/unit/test_feasibility_extended.py` |
+| 20 | `test_organic_trc_adjusted_when_sponsored_fraction_exceeds_20_percent` (REG-19) | `tests/unit/test_demand_score_extended.py` |
 
-REG-15 and REG-16 remain reserved for R2 and are intentionally not part of this Cycle 052 pack.
+REG-15 and REG-16 are now active in the permanent pack for Cycle 053.
 
 Carry-forward Codex-fix guards that must remain named and green:
 
@@ -65,6 +67,7 @@ Carry-forward Codex-fix guards that must remain named and green:
 | 1.0 | 2026-05-29 | Cycle 049 Agent B: added weakness multi-row OWS averaging regression + kw=110 eligibility gate regression |
 | 1.1 | 2026-05-30 | Cycle 051 Agent B: added R1 search URL category-filter + unconstrained demand-deduction regressions |
 | 1.3 | 2026-05-30 | Cycle 052 Agent B: added REG-17/18/19 (sponsored competition exclusion, zombie feasibility barrier exclusion, TRC sponsored-fraction multiplier). |
+| 1.4 | 2026-05-31 | Cycle 053 Agent B: activated REG-15/16 (ghost hard block and RSV-qualified TRC demand path) and expanded permanent pack to 20 names. |
 
 ### 12-name accumulated pack (reference)
 
@@ -84,7 +87,6 @@ python -m pytest -q tests/unit/test_gig_detail.py \
 ```
 
 Expected: 20 passed (12 named regressions + superset matches).
-
 
 ---
 
@@ -131,8 +133,39 @@ Length is a floor, not a target; it must be filled with substantive content (cod
 test stubs, verbatim queries, deliverable matrices, decision records, trace ledgers, report
 templates) -- never filler to hit a line count.
 
+### 8.4 Prompt-sizing enforcement (BLOCKING self-gate on the PM's own work)
+
+Before the PM may declare a cycle's prompt-writing complete -- and before any prompt is handed
+to an agent -- the PM MUST verify EVERY agent prompt against BOTH §8.1 (>=25 substantive
+LARGE-XXXLARGE tasks) AND §8.3 (per-agent line floor). Verification is mechanical and recorded,
+never eyeballed:
+
+1. Run `(Get-Content <prompt_path>).Count` on all six prompts and record the ACTUAL line counts
+   next to their floors (A810 / B945 / E810 / C675 / F810 / D945; total 4995).
+2. Count the numbered tasks in each prompt; confirm >=25, each genuinely LARGE-XXXLARGE -- not a
+   one-line stub masquerading as a task.
+3. ANY prompt under its line floor OR under 25 substantive tasks is **NOT DONE**. The PM MUST
+   expand it with GENUINE content per §8.3 -- full inline code/dataclass skeletons, full inline
+   test-file skeletons with every test-function stub, verbatim command/query/gate blocks,
+   per-niche and per-file procedures, deliverable + Definition-of-Done matrices, worked numeric
+   examples, and report templates -- then re-verify the count. Padding to hit the number is
+   itself a §8.2 legitimacy failure.
+4. This gate is HARD and BLOCKING. The v3.0 Post-Cycle PM Review self-audit item "every prompt
+   meets minimum line count and task minimum" is BLOCKING, not advisory. The PM may NOT conclude
+   cycle prep, and may NOT release prompts to the agents, until all six PASS both checks with
+   recorded counts.
+5. The recorded count table (actual vs floor, per agent) MUST be included in the cycle's prep
+   notes / PM closeout so the check is auditable by the next PM review.
+
+Rationale: Cycle 053 prep initially shipped all six prompts far under floor
+(A487 / B271 / E157 / C161 / F156 / D184 vs the 4995 total) even though each held 25 tasks.
+Under-length prompts systematically omit the inline skeletons, command blocks, and acceptance
+detail the agents need to execute without guesswork. This gate makes that omission impossible
+to ship.
+
 ### Version history (continued)
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.2 | 2026-05-30 | Post-Cycle-051 PM: task minimum 20 -> 25 (LARGE-XXXLARGE); prompt length minimums +35% (A810/B945/E810/C675/F810/D945; total 4995); added explicit legitimacy rule (no filler tasks). |
+| 1.4 | 2026-05-31 | Added §8.4 prompt-sizing enforcement: blocking self-gate requiring `(Get-Content).Count` verification of every prompt against its floor + 25-task minimum, recorded in prep notes, before prompts may be released. Triggered by Cycle 053 under-floor prompts. |
