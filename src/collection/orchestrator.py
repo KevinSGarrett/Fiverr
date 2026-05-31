@@ -328,19 +328,6 @@ async def run_collection_pipeline(
             dry_run=dry_run,
             fetcher=fetcher,
         )
-        stage_3_5_stats = run_stage_3_5_validation(
-            run_id=run_id,
-            niche_id=str(job.payload["niche_id"]),
-            db=db,
-            config=config_payload,
-        )
-        summary["stage_3_5_stats"].append(stage_3_5_stats)
-        log.info(
-            "stage_3_5 run=%s niche=%s stats=%s",
-            run_id,
-            str(job.payload["niche_id"]),
-            stage_3_5_stats,
-        )
         summary["search_jobs_run"] += 1
 
     async def _handle_stage4(job: _DryRunJob, **_kwargs: Any) -> None:
@@ -382,6 +369,27 @@ async def run_collection_pipeline(
         _processed, _failed = await queue_processor.run_until_empty(run_id)
     except Exception as exc:  # noqa: BLE001
         summary["errors"].append(f"Queue processing error: {exc}")
+
+    for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id = str(niche_spec.get("niche_id", ""))
+        if not niche_id:
+            continue
+        try:
+            stage_3_5_stats = run_stage_3_5_validation(
+                run_id=run_id,
+                niche_id=niche_id,
+                db=db,
+                config=config_payload,
+            )
+            summary["stage_3_5_stats"].append(stage_3_5_stats)
+            log.info(
+                "stage_3_5 run=%s niche=%s stats=%s",
+                run_id,
+                niche_id,
+                stage_3_5_stats,
+            )
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"].append(f"Stage 3.5 error ({niche_id}): {exc}")
 
     summary["stages_run"].extend(
         [

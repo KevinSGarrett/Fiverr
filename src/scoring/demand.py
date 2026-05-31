@@ -344,6 +344,7 @@ class DemandScoreCalculator:
 
         total_result_count = self._as_float(signals.get("total_result_count"))
         search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
+        sponsored_exclusion_enabled = _relevance_config(config).get("enable_sponsored_exclusion", True)
         count_multiplier = trc_adjustment(
             sponsored_gig_count=self._as_int(signals.get("sponsored_gig_count")),
             total=self._as_int(signals.get("total_gig_count")),
@@ -355,7 +356,10 @@ class DemandScoreCalculator:
             total_gig_count = self._as_int(signals.get("total_gig_count"))
             sponsored_fraction = (
                 float(sponsored_gig_count) / max(float(total_gig_count), 1.0)
-                if sponsored_gig_count is not None and total_gig_count is not None and search_strictness_used is not None
+                if sponsored_exclusion_enabled
+                and sponsored_gig_count is not None
+                and total_gig_count is not None
+                and search_strictness_used is not None
                 else None
             )
             adjusted_trc = total_result_count * count_multiplier
