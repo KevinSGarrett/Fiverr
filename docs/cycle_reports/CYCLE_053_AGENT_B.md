@@ -132,6 +132,18 @@ Result: OFF equals legacy anchors exactly and ON keeps `kw=110` as `CONDITIONAL_
 - Zero `reddit/devvit_bridge` config changes.
 - Only the 3 allowed additions in `config.yaml` relevance block.
 - No `--cov=src` run executed.
+- No no-op commits in Agent B stack.
+
+## Commit Ledger
+
+- `37454b0` - `feat(analysis): add Stage 3.5 result set validator`
+- `6c52163` - `feat(schema): add migration_08 RSV columns`
+- `79fca20` - `feat(collection): wire Stage 3.5 validation workflow`
+- `dc58c8a` - `feat(scoring): apply RSV hooks and ghost hard block`
+- `474a582` - `feat(config): add Stage 3.5 relevance toggles`
+- `0a9e728` - `docs(cycle-053): finalize Agent B evidence and regressions`
+
+Final report commit SHA: `0a9e728`
 
 ## Handoff to Agent C
 
