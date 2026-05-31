@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -18,6 +19,9 @@ from src.models import (
     SearchResult,
     Seller,
 )
+from src.scoring.result_set_relevance import get_result_set_validation
+
+log = logging.getLogger(__name__)
 
 
 class ConfidenceScoreModifier:
@@ -86,6 +90,18 @@ class ConfidenceScoreModifier:
                 deductions["zombie_concentration_high"] = -0.10
             elif zombie_fraction >= 0.25:
                 deductions["zombie_concentration_moderate"] = -0.05
+
+        rsv = get_result_set_validation(keyword_id, db)
+        if rsv is not None and bool(rsv.ghost_market_flag):
+            deductions["ghost_market"] = -0.50
+            log.debug("confidence: applied ghost(-0.50) kw=%s", keyword_id)
+        elif rsv is not None and rsv.relevance_deduction is not None:
+            deductions["result_set_relevance"] = float(rsv.relevance_deduction)
+            log.debug(
+                "confidence: applied relevance_deduction(%s) kw=%s",
+                float(rsv.relevance_deduction),
+                keyword_id,
+            )
 
         deduction_total = sum(deductions.values())
         raw_modifier = base_modifier + deduction_total

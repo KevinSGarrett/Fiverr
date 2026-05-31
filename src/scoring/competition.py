@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping
 from typing import Any
@@ -10,8 +11,10 @@ from sqlalchemy.orm import Session
 
 from src.models import CompetitorProfile, Gig, Keyword, Niche, SearchResult, Seller
 from src.scoring.contracts import CompetitionScoreResult, ScoreComponent
+from src.scoring.result_set_relevance import get_result_set_validation
 
 _GAP_FLAG_LOW_VIDEO_PRESENCE = "LOW_VIDEO_PRESENCE"
+log = logging.getLogger(__name__)
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:
@@ -514,6 +517,17 @@ class CompetitionScoreCalculator:
             .all()
         )
         top_gigs = [gig for gig in top_gigs if _eligible(gig)][:top_n_for_scoring]
+        rsv = get_result_set_validation(keyword_id, session)
+        if rsv is not None and rsv.result_set_relevance_score is not None and rsv.result_set_relevance_score < 0.80:
+            relevance_filtered = [gig for gig in top_gigs if gig.relevance_flag is True]
+            filtered_count = len(top_gigs) - len(relevance_filtered)
+            if len(top_gigs) > 0 and (filtered_count / len(top_gigs)) > 0.20:
+                log.warning("competition: >20%% gigs relevance-filtered kw=%s", keyword_id)
+            if not relevance_filtered:
+                log.warning("competition: all gigs filtered by relevance; full-set fallback kw=%s", keyword_id)
+            else:
+                top_gigs = relevance_filtered
+                log.debug("competition: relevance_filtered_gigs=%s kw=%s", filtered_count, keyword_id)
         top_sellers = [gig.seller for gig in top_gigs if gig.seller is not None]
         review_counts = [float(gig.review_count) for gig in top_gigs if gig.review_count is not None]
         starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]

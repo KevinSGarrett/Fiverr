@@ -47,5 +47,7 @@ class ResultSetValidation(IntegerPrimaryKeyMixin, TimestampMixin, Base):
     search_strictness_used: Mapped[str | None] = mapped_column(String(32), nullable=True)
     per_gig_relevance: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     relevance_deduction: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    category_contamination_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    used_fallback_strictness: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     keyword_ref: Mapped[Keyword] = relationship("Keyword", back_populates="result_set_validations")

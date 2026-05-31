@@ -1,71 +1,99 @@
 # EPIC STATUS TRACKER
-# Updated: 2026-05-30 (post Cycle 051 PM review) | Active: Cycle 052
+# Updated: 2026-05-31 (post Cycle 052 PM review) | Active: Cycle 053
 
-## Active Cycle: 052 — SRDI Tier-0 R3: Sponsored & Zombie Gig Filtering
-Base: develop @ 12c3866 | Branch: cycle/052/integration
-Spec: PM_Pack/ref/project_plan/04_collection/SPONSORED_ZOMBIE_FILTERING.md
-Mission: Stop paid placements and abandoned ("zombie") gigs from contaminating competition,
-feasibility, demand, and profitability scoring; fix "10k+" review-count parsing; cap scoring at
-top-10 organic gigs. Ships behind config toggles; legacy parity preserved when toggles OFF.
+## Active Cycle: 053 — SRDI Tier-0 R2: Result-Set Relevance Validation (Stage 3.5)
+Base: develop @ badb981 | Branch: cycle/053/integration
+Spec source: Jira SCRUM-605..612 (full AC/DoD) + 13_srdi/07_SEQUENCING_ROADMAP (C4 + Tier-0 gate)
+Mission: Insert a NEW Stage 3.5 between search-collection (Stage 3) and gig_detail (Stage 4) that
+validates whether the returned result set is actually relevant to the searched keyword/niche before
+anything is scored. Detect ghost markets (Fiverr returns results but <20% are about the keyword) and
+category contamination; deduct confidence by relevance tier; and HARD-BLOCK recommendations for ghost
+markets (even when forced). Ships behind enable_stage_3_5; legacy parity preserved when OFF (AC-U3).
+KPI: ghost-market rate < 8%. R2 CLOSES the Tier-0 gate.
 
 ## SRDI Initiative Progress (Tier 0)
 | Epic | Title | Tier | Cycle | Status |
 | --- | --- | --- | --- | --- |
-| R8 | Schema extensions & migrations | 0 | C050 | DONE (6 migrations applied + reversible) |
+| R8 | Schema extensions & migrations | 0 | C050 | DONE (migration_01..06 applied + reversible) |
 | R1 | Search URL & category hardening | 0 | C051 | DONE (REG-13/14; 9 niches; kw=110 held) |
-| R3 | Sponsored & zombie gig filtering | 0 | **C052 (active)** | IN PROGRESS |
-| R2 | Result-set relevance validation (Stage 3.5) | 0/1 | C053 (next) | TO DO (REG-15/16) |
-| — | **Tier-0 gate** (R8+R1+R3+R2) | 0 | after C053 | pending |
+| R3 | Sponsored & zombie gig filtering | 0 | C052 | DONE (REG-17/18/19; migration_07; kw=110 held; PR #61) |
+| R2 | Result-set relevance validation (Stage 3.5) | 0 | **C053 (active)** | IN PROGRESS (REG-15/16) |
+| — | **Tier-0 gate** (R8+R1+R3+R2) | 0 | at end of C053 | pending sign-off |
+| R4 | Scoring quality-aware (Tier-1 head) | 1 | C054 (next) | TO DO (REG-20/21/22) |
 
 ## Score Path Analysis
-- Milestone (kw=110 CONDITIONAL_GO @ 62.70) was REACHED in C051 and must be PRESERVED.
-- R3 changes scoring inputs (exclude sponsored/zombie from top-10; TRC sponsored-fraction multiplier;
-  zombie confidence deductions). Expected effect: cleaner competition/feasibility for contaminated
-  niches; demand may DECREASE where sponsored fraction is high. Risk: kw=110 demand could move.
-  GUARD: golden-run parity with toggles OFF (must match legacy exactly, AC-U3); with toggles ON,
-  kw=110 must remain CONDITIONAL_GO (final >= 60, CM 1.0) or any movement must be explained and
-  approved. No anchor (kw=110/96/3) may drift > 2 pts unexplained.
-- support_kb_readiness (kw=110's niche) is the milestone-safety priority for any re-collection.
+- Milestone kw=110 CONDITIONAL_GO @ 62.70 was REACHED in C051 and PRESERVED through C052 (R3). Must
+  remain CONDITIONAL_GO through C053 (R2).
+- R2 changes scoring inputs ONLY through RSV reads (confidence deduction by relevance tier; competition
+  top-10 filtered to relevance_flag when RSV<0.80; demand qualified_trc = trc * relevance when RSV<0.80;
+  ghost hard-block in eligibility). Expected effect: contaminated/ghost keywords lose confidence and may
+  be blocked; clean keywords (RSV>=0.80) are UNCHANGED. kw=110 (support_kb_readiness) is a real,
+  relevant niche -> expected RSV high -> kw=110 should be unaffected.
+  GUARD: golden-run parity with enable_stage_3_5 OFF must equal legacy exactly (AC-U3); with it ON,
+  kw=110 must remain CONDITIONAL_GO (final >= 60, CM 1.0) or any movement explained + approved. No
+  anchor (kw=110/96/3) may drift > 2 pts unexplained. Backward-compat: a keyword with NO RSV row scores
+  identically to the pre-SRDI baseline.
+- support_kb_readiness (kw=110's niche) remains the milestone-safety priority for any re-collection.
 
-## Open Stories With DoD Conditions (Cycle 052)
-- Cycle control task (Agent A creates) — Done only after PR merge + all gates PASS.
-- Agent B story (R3 implementation) — DoD: migration_07 applied+reversible; zombie detector with
-  new-seller guard; sponsored flag propagation; parse_review_count fix; Stage 4.5 wiring; scoring
-  exclusions in 4 calculators; REG-17/18/19 green; full suite >= 3500; kw=110 CONDITIONAL_GO held.
-- Agent E story (live validation, docs-only) — DoD: live-sample sponsored-flag presence in gig_cards
-  per niche; observed zombie-signal availability (member_since, last_reviewed_at, response_rate,
-  orders_in_queue) per niche; recommended enable_* defaults; corrections flagged to B; report only.
+## Open Stories With DoD Conditions (Cycle 053)
+- Cycle 053 control task (Agent A creates) — Done only after PR merge + all gates PASS.
+- Agent B story (R2 implementation) — DoD: result_set_validator.py (compute_gig_relevance +
+  validate_result_set + NICHE_VALIDATION_CONFIG 9 niches); Stage 3.5 orchestrator with UPSERT +
+  fail-soft + toggle; scoring hooks (confidence/competition/demand) backward-compatible; ghost hard
+  block in eligibility (fires even when forced) + tag demotion + alert row + resolution surface;
+  per-gig flag propagation; migration_08 (RSV.category_contamination_flag + RSV.used_fallback_strictness)
+  applied + reversible; REG-15/16 green; full suite >= 3500; kw=110 CONDITIONAL_GO held; parity OFF==legacy.
+- Agent E story (live validation, docs-only) — DoD: live-sample per niche the relevance signal quality
+  (gig titles vs keyword; presence of off-topic / cross-category results; observed ghost-market rate);
+  recommend per-niche core_terms / exclusion_terms / ghost_market_threshold to seed NICHE_VALIDATION_CONFIG;
+  recommend enable_stage_3_5 default; flag corrections to B; report only (zero src/tests/config/data).
+  Also revisit DL-207 (R1 URL param shape) if the live window is clean.
 
-## New Jira Tickets To Create (Agent A, Cycle 052)
-- Cycle 052 control Task: "Cycle 052: SRDI Tier-0 R3 Sponsored & Zombie Gig Filtering (6-Agent)"
-- Agent B Story: "E02/B Cycle 052: sponsored flag propagation + zombie_gig_detector + scoring exclusions + migration_07"
-- Agent E Story: "E02/E Cycle 052: live sponsored/zombie signal availability validation (9 niches)"
-- Link all three under Epic SCRUM-17 (E02 Collection).
-- R3 roadmap stories already exist in Jira: SCRUM-598..SCRUM-604 — Agent A links/comments; Agent D
-  transitions the ones whose DoD this cycle fully meets (verify each before transitioning; do NOT
-  mark Done if DoD unmet — and do NOT only comment-then-leave-To-Do as happened with SCRUM-591/597).
+## New Jira Tickets To Create (Agent A, Cycle 053)
+- Cycle 053 control Task: "Cycle 053: SRDI Tier-0 R2 Result-Set Relevance Validation Stage 3.5 (6-Agent)"
+- Agent B Story: "E03/B Cycle 053: result_set_validator + Stage 3.5 orchestrator + scoring hooks + ghost block + migration_08"
+- Agent E Story: "E03/E Cycle 053: live result-set relevance / ghost-market signal validation (9 niches)"
+- Link all three under Epic SCRUM-18 (E03 Analysis Engine) — R2 lives under Analysis, not Collection.
+- R2 roadmap stories already exist in Jira: SCRUM-605..SCRUM-612 (S3.15-S3.22) — Agent A links/comments;
+  Agent D transitions the ones whose DoD this cycle fully meets (verify each; do NOT mark Done if DoD
+  unmet; do NOT comment-then-leave-To-Do as happened historically with SCRUM-591/597).
 
-## Schema & Config Deltas (Cycle 052)
-- migration_07 (NEW): gigs.zombie_score REAL, gigs.zombie_signals TEXT(JSON), gigs.last_reviewed_at
-  TIMESTAMP, search_results.pages_collected INTEGER. Idempotent ALTER + rollback + ORM Mapped columns.
-  (R8 already supplied gigs.is_sponsored/is_zombie, search_results.sponsored_gig_count/organic_gig_count/organic_trc.)
-- config.yaml: ADD `relevance:` block with enable_sponsored_exclusion + enable_zombie_filter (+ any
-  thresholds the spec needs). Config gate RELAXED for ONLY these additions; scrapfly.enabled stays
-  false; reddit devvit_bridge intact.
+## Schema & Config Deltas (Cycle 053)
+- migration_08_r2_columns.py (NEW): result_set_validations.category_contamination_flag (BOOLEAN default 0),
+  result_set_validations.used_fallback_strictness (BOOLEAN default 0). Idempotent ALTER + reversible
+  rollback (R8 pattern) + register in run_srdi_r8_migrations.py + matching ORM Mapped columns on
+  ResultSetValidation. EVERYTHING ELSE R2 NEEDS ALREADY EXISTS (verified live):
+  - result_set_validations table (R8 migration_01): result_set_relevance_score, ghost_market_flag,
+    relevance_deduction, search_strictness_used, per_gig_relevance, ghost_evidence,
+    result_count/relevant_count/sponsored_count, unique(keyword_id,run_id).
+  - Gig.relevance_flag + Gig.relevance_score (R8 migration_02).
+  - SearchResult.rsv_id FK (R8 migration_03).
+  Do NOT add denormalized result_set_relevance_score/ghost_market_flag columns to SearchResult; scoring
+  reads RSV via rsv_id FK / get_result_set_validation(keyword_id, session).
+- config.yaml: ADD to the EXISTING `relevance:` block ONLY: enable_stage_3_5: true,
+  relevance_flag_threshold: 0.35, ghost_market_threshold_default: 0.20. Config gate RELAXED for ONLY
+  these additions; scrapfly.enabled stays false; reddit devvit_bridge intact; R3 keys unchanged.
+  NICHE_VALIDATION_CONFIG stays in CODE (result_set_validator.py), not config.yaml.
 
 ## Regression Pack
-- Current: 15 (REG-13/14 + accumulated). Cycle 052 -> 18 (append REG-17/18/19; do NOT renumber).
-- REG-15/16 reserved for R2 (Cycle 053) — temporary numbering gap is expected and correct.
+- Current: 18 (REG-13/14 R1 + REG-17/18/19 R3 + accumulated). Cycle 053 -> 20 (append REG-15/16; do NOT renumber).
+  - REG-15 test_ghost_market_blocks_recommendation_absolutely
+  - REG-16 test_trc_qualified_by_result_set_relevance_in_demand
+- After C053, the SRDI Tier-0 reg set (REG-13..19 + 15/16) is complete; REG-20..30 arrive in Tier-1/2.
 
-## Carry-Forward / Governance (from C051 review)
-- Agent C must NOT edit src/ (C051 violation c6489b9). D's attribution gate must check ALL in-range
-  src/ commits (not just latest); a no-op "attribution touch-up" commit is NOT an acceptable fix.
-- Verify/register the two C051 Codex-fix tests (strictness/count pairing; migration-default NONE
-  guard) in Section 7 if missing. Preserve the migration-default-NONE guard (interacts with R3).
-- Commit HYDRATION_HEADER + this tracker + AGENT_EXECUTION_STRATEGY on the cycle/052 branch; untrack
-  coverage.xml (`git rm --cached`) + gitignore it and the PM_Pack scratch files.
-- DL-207 lock revisit in next clean live-validation window.
+## Carry-Forward / Governance (from C052 review — all C051 failures verified CLOSED in C052)
+- Keep the proven guardrails: Agent C verify-only / ZERO src (route fixes to B); Agent D attribution
+  scan over ALL in-range commits per src/ file (every one must be Agent B; no no-op "attribution
+  touch-up" commit); relaxed config gate (only the enable_stage_3_5 + 2 thresholds); single --cov=src;
+  all regressions by name; golden-run parity OFF==legacy; Codex GraphQL TWICE with REAL resolution;
+  DoD-verified Jira Done transitions (no comment-and-leave-To-Do).
+- Cycle-053 base is develop @ badb981 (NOT c2468f5; a steward-docs commit sits above the #61 merge).
+- DL-207 lock revisit in next clean live-validation window (Agent E).
+- Stale stash set (cycle051/047/043/036/029/012) UNTOUCHED pending explicit PM yes/no (irreversible).
+- Commit HYDRATION_HEADER + this tracker + AGENT_EXECUTION_STRATEGY (if Section 7 changes) + the new
+  migration on the cycle/053 branch; keep coverage.xml untracked (already git rm --cached in C052).
 
-## Standard (effective C052) — see AGENT_EXECUTION_STRATEGY §8
+## Standard (effective C052+) — see AGENT_EXECUTION_STRATEGY §8
 - 25 tasks min per agent (LARGE-XXXLARGE), all substantive (no filler).
 - Prompt length: A>=810, B>=945, E>=810, C>=675, F>=810, D>=945 (total >= 4995).
+- §8.4 BLOCKING self-gate: before releasing prompts, PM runs (Get-Content).Count on all six, records actual-vs-floor + 25-task counts in prep notes; any prompt under floor or under 25 substantive tasks is NOT done and must be expanded with genuine content then re-verified. (Added v1.4 after C053 shipped under-floor.)

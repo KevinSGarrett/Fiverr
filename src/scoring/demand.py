@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping
 from datetime import date, datetime
@@ -16,10 +17,12 @@ from src.collection.search_url_builder import (
 )
 from src.models import ClusterAssignment, ClusterLabel, ExternalSignal, Keyword, SearchResult
 from src.scoring.contracts import DemandScoreResult, ScoreComponent
+from src.scoring.result_set_relevance import apply_trc_adjustments, get_result_set_validation
 
 _DEFAULT_CLUSTER_BOOST = 5.0
 _DEFAULT_MIN_CLUSTER_SIZE = 3
 _R1_STRICTNESS_EFFECTIVE_DATE = date(2026, 5, 30)
+log = logging.getLogger(__name__)
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:
@@ -348,14 +351,36 @@ class DemandScoreCalculator:
             strictness_used=search_strictness_used,
         )
         if total_result_count is not None:
-            count_score = self._normalize_count(total_result_count) * count_multiplier
+            sponsored_gig_count = self._as_int(signals.get("sponsored_gig_count"))
+            total_gig_count = self._as_int(signals.get("total_gig_count"))
+            sponsored_fraction = (
+                float(sponsored_gig_count) / max(float(total_gig_count), 1.0)
+                if sponsored_gig_count is not None and total_gig_count is not None and search_strictness_used is not None
+                else None
+            )
+            adjusted_trc = total_result_count * count_multiplier
+            rsv = get_result_set_validation(keyword_id, db)
+            if rsv is not None:
+                adjusted_trc = apply_trc_adjustments(
+                    trc=total_result_count,
+                    rsv=rsv,
+                    sponsored_fraction=sponsored_fraction,
+                )
+                if adjusted_trc != total_result_count:
+                    log.debug(
+                        "demand: qualified_trc=%s (rsv=%.2f) kw=%s",
+                        adjusted_trc,
+                        float(rsv.result_set_relevance_score or 1.0),
+                        keyword_id,
+                    )
+            count_score = self._normalize_count(adjusted_trc)
             score_components["fiverr_count"] = ScoreComponent(
                 value=count_score,
                 weight=self._COUNT_WEIGHT,
                 raw=total_result_count,
                 note=(
-                    f"TRC multiplier applied: {count_multiplier:.2f}"
-                    if count_multiplier != 1.0
+                    f"TRC adjusted from {total_result_count:.2f} to {adjusted_trc:.2f}"
+                    if adjusted_trc != total_result_count
                     else ""
                 ),
             )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -11,7 +12,16 @@ import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.config import ConfigLoader
-from src.models import Base, Gig, Keyword, Niche, SearchResult, Seller, write_competitor_profile
+from src.models import (
+    Base,
+    Gig,
+    Keyword,
+    Niche,
+    ResultSetValidation,
+    SearchResult,
+    Seller,
+    write_competitor_profile,
+)
 from src.scoring.competition import (
     CompetitionScoreCalculator,
     _coerce_bool,
@@ -796,3 +806,210 @@ def test_competition_marketplace_result_count_fallback_paths() -> None:
 def test_competition_is_pro_verified_requires_boolean_metadata() -> None:
     seller = Seller(seller_handle="bool_check", metadata_json={"is_pro": "true"})
     assert CompetitionScoreCalculator._is_pro_verified(seller) is False
+
+
+def test_competition_filters_to_relevance_flag_when_rsv_below_080() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        for rank in range(1, 6):
+            seller = Seller(seller_handle=f"rel-seller-{rank}", level="LEVEL_1")
+            session.add(seller)
+            session.flush()
+            gig = Gig(
+                gig_url=f"https://fiverr.com/rel/{rank}",
+                seller_username=seller.seller_handle,
+                seller_id=seller.id,
+                keyword_id=keyword.id,
+                run_id="r1",
+                title=f"gig {rank}",
+                normalized_title=f"gig {rank}",
+                review_count=100.0,
+                starting_price=30.0,
+                relevance_flag=(rank % 2 == 0),
+            )
+            session.add(gig)
+            session.flush()
+            session.add(SearchResult(keyword_id=keyword.id, run_id="r1", rank=rank, gig_id=gig.id, title=gig.title))
+        session.add(
+            ResultSetValidation(
+                keyword_id=keyword.id,
+                run_id="r1",
+                result_set_relevance_score=0.60,
+                relevance_deduction=-0.05,
+            )
+        )
+        session.commit()
+        signals = CompetitionScoreCalculator()._load_signals_from_db(keyword.id, session)
+        assert signals["avg_review_count_top10"] == 100.0
+    finally:
+        session.close()
+
+
+def test_competition_all_filtered_falls_back_to_full_set() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        for rank in range(1, 4):
+            seller = Seller(seller_handle=f"all-seller-{rank}", level="LEVEL_1")
+            session.add(seller)
+            session.flush()
+            gig = Gig(
+                gig_url=f"https://fiverr.com/all/{rank}",
+                seller_username=seller.seller_handle,
+                seller_id=seller.id,
+                keyword_id=keyword.id,
+                run_id="r1",
+                title=f"all {rank}",
+                normalized_title=f"all {rank}",
+                review_count=50.0,
+                starting_price=20.0,
+                relevance_flag=False,
+            )
+            session.add(gig)
+            session.flush()
+            session.add(SearchResult(keyword_id=keyword.id, run_id="r1", rank=rank, gig_id=gig.id, title=gig.title))
+        session.add(
+            ResultSetValidation(
+                keyword_id=keyword.id,
+                run_id="r1",
+                result_set_relevance_score=0.60,
+                relevance_deduction=-0.05,
+            )
+        )
+        session.commit()
+        signals = CompetitionScoreCalculator()._load_signals_from_db(keyword.id, session)
+        assert signals["avg_review_count_top10"] == 50.0
+    finally:
+        session.close()
+
+
+def test_competition_no_rsv_no_filtering() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="r1")
+        result = CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert result.score_value is not None
+    finally:
+        session.close()
+
+
+def test_competition_no_rsv_equals_baseline() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="baseline-rsv-none")
+        baseline = CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert baseline.score_value is not None
+        assert baseline.score_components["avg_reviews"].raw is not None
+    finally:
+        session.close()
+
+
+def test_competition_warns_when_over_20_percent_filtered(caplog: pytest.LogCaptureFixture) -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        for rank in range(1, 11):
+            seller = Seller(seller_handle=f"warn-seller-{rank}", level="LEVEL_1")
+            session.add(seller)
+            session.flush()
+            gig = Gig(
+                gig_url=f"https://fiverr.com/warn/{rank}",
+                seller_username=seller.seller_handle,
+                seller_id=seller.id,
+                keyword_id=keyword.id,
+                run_id="r1",
+                title=f"warn {rank}",
+                normalized_title=f"warn {rank}",
+                review_count=50.0,
+                starting_price=20.0,
+                relevance_flag=(rank <= 6),
+            )
+            session.add(gig)
+            session.flush()
+            session.add(SearchResult(keyword_id=keyword.id, run_id="r1", rank=rank, gig_id=gig.id, title=gig.title))
+        session.add(ResultSetValidation(keyword_id=keyword.id, run_id="r1", result_set_relevance_score=0.60))
+        session.commit()
+        with caplog.at_level(logging.WARNING):
+            CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert any(">20% gigs relevance-filtered" in rec.message for rec in caplog.records)
+    finally:
+        session.close()
+
+
+def test_competition_no_filter_when_rsv_none_or_high_and_null_flag_included() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        for rank in range(1, 4):
+            seller = Seller(seller_handle=f"high-seller-{rank}", level="LEVEL_1")
+            session.add(seller)
+            session.flush()
+            gig = Gig(
+                gig_url=f"https://fiverr.com/high/{rank}",
+                seller_username=seller.seller_handle,
+                seller_id=seller.id,
+                keyword_id=keyword.id,
+                run_id="r1",
+                title=f"high {rank}",
+                normalized_title=f"high {rank}",
+                review_count=60.0,
+                starting_price=22.0,
+                relevance_flag=None if rank == 1 else True,
+            )
+            session.add(gig)
+            session.flush()
+            session.add(SearchResult(keyword_id=keyword.id, run_id="r1", rank=rank, gig_id=gig.id, title=gig.title))
+        session.commit()
+
+        none_rsv_signals = CompetitionScoreCalculator()._load_signals_from_db(keyword.id, session)
+        assert none_rsv_signals["avg_review_count_top10"] == 60.0
+
+        session.add(ResultSetValidation(keyword_id=keyword.id, run_id="r1", result_set_relevance_score=0.90))
+        session.commit()
+        high_rsv_signals = CompetitionScoreCalculator()._load_signals_from_db(keyword.id, session)
+        assert high_rsv_signals["avg_review_count_top10"] == 60.0
+    finally:
+        session.close()
+
+
+def test_null_gig_relevance_flag_treated_as_include() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        seller = Seller(seller_handle="null-flag-seller", level="LEVEL_1")
+        session.add(seller)
+        session.flush()
+        gig = Gig(
+            gig_url="https://fiverr.com/null-flag/1",
+            seller_username=seller.seller_handle,
+            seller_id=seller.id,
+            keyword_id=keyword.id,
+            run_id="null-flag-run",
+            title="null flag gig",
+            normalized_title="null flag gig",
+            relevance_flag=None,
+            review_count=30.0,
+            starting_price=15.0,
+        )
+        session.add(gig)
+        session.flush()
+        session.add(SearchResult(keyword_id=keyword.id, run_id="null-flag-run", rank=1, gig_id=gig.id, title=gig.title))
+        session.commit()
+        result = CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert result.score_value is not None
+        assert result.score_components["avg_reviews"].raw == 30.0
+    finally:
+        session.close()
+
+
+def test_competition_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="rsv-helper")
+        calls: list[int] = []
+
+        def _fake_get_result_set_validation(keyword_id: int, _db: Any) -> Any:  # type: ignore[no-untyped-def]
+            calls.append(keyword_id)
+            return None
+
+        monkeypatch.setattr("src.scoring.competition.get_result_set_validation", _fake_get_result_set_validation)
+        CompetitionScoreCalculator().calculate(keyword.id, session)
+        assert calls == [keyword.id]
+    finally:
+        session.close()
