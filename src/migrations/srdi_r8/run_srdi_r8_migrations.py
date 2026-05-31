@@ -14,6 +14,7 @@ from . import (
     migration_05_keywords_srdi_columns,
     migration_06_discovery_outcomes_srdi_columns,
     migration_07_r3_columns,
+    migration_08_r2_columns,
 )
 
 
@@ -27,3 +28,4 @@ def run_srdi_r8_migrations(database_url: str | None = None, engine: Engine | Non
     migration_05_keywords_srdi_columns.apply(active_engine)
     migration_06_discovery_outcomes_srdi_columns.apply(active_engine)
     migration_07_r3_columns.apply(active_engine)
+    migration_08_r2_columns.apply(active_engine)
