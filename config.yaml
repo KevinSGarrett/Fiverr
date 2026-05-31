@@ -153,6 +153,9 @@ scoring:
 relevance:
   enable_sponsored_exclusion: true
   enable_zombie_filter: true
+  enable_stage_3_5: true
+  relevance_flag_threshold: 0.35
+  ghost_market_threshold_default: 0.20
   zombie_threshold: 0.50
   min_account_age_days: 180
   top_n_for_scoring: 10

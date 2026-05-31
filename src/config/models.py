@@ -347,6 +347,9 @@ class ScoringConfig(BaseModel):
 class RelevanceConfig(BaseModel):
     enable_sponsored_exclusion: bool = True
     enable_zombie_filter: bool = True
+    enable_stage_3_5: bool = False
+    relevance_flag_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
+    ghost_market_threshold_default: float = Field(default=0.20, ge=0.0, le=1.0)
     zombie_threshold: float = Field(default=0.50, ge=0.0, le=1.0)
     min_account_age_days: int = Field(default=180, ge=1)
     top_n_for_scoring: int = Field(default=10, ge=1)
