@@ -1,12 +1,12 @@
 # Cycle 054 - Agent E Live Validation Report (R4)
 
-Run timestamp (local): 2026-05-31T18:32:20-05:00
+Run timestamp (local): 2026-05-31T18:37:14-05:00
 Branch: `cycle/054/integration`
 Role scope: report-only (`docs/cycle_reports/CYCLE_054_AGENT_E.md` only)
 
 ## 1) Preflight
 
-- HEAD SHA: `23a9075279676cc6cd0bfee2e2575830826cc3aa`
+- HEAD SHA: `05be9db82d2370e56739e45f1616634a2ea242dc`
 - Worktrees: `1` (`C:/Fiverr/Fiverr`)
 - `python run.py config-check`: `OK`
 - Committed `collection.scrapfly.enabled=false`: `Y` (confirmed by config-check against committed config)
@@ -14,21 +14,22 @@ Role scope: report-only (`docs/cycle_reports/CYCLE_054_AGENT_E.md` only)
 - `SCRAPFLY_API_KEY` process env presence: `N` (`MISSING` in shell env)
 - `.env` key presence check (presence-only): `Y` (`len=41`, `prefix=scp-`)
 
-Preflight evidence (`C:\Fiverr\cycle054_e_preflight.txt`):
+Preflight evidence (`C:\Fiverr\cycle054_e_preflight2.txt`):
 
-- `git rev-parse HEAD` -> `23a9075279676cc6cd0bfee2e2575830826cc3aa`
-- `git worktree list` -> `C:/Fiverr/Fiverr  23a9075 [cycle/054/integration]`
+- `git rev-parse HEAD` -> `05be9db82d2370e56739e45f1616634a2ea242dc`
+- `git worktree list` -> `C:/Fiverr/Fiverr  05be9db [cycle/054/integration]`
 - `python run.py config-check` -> `Config OK: niches=9, active_profile=aggressive_new_seller...`
 
 ## 2) ScrapFly session(s)
 
 - `[SEED - no live signal]`
-- Required proof line (`ScrapFly session: requests=... credits=...`) was not obtainable because `run.py` failed before pipeline execution.
+- Required proof line (`ScrapFly session: requests=... credits=...`) was not obtainable from the current committed branch command surfaces.
 - Total credits used: `0` (no successful live collection run started)
 
-Blocking error evidence (`C:\Fiverr\cycle054_e_collect_full.txt`):
+Blocking evidence (`C:\Fiverr\cycle054_e_collect_cleanhead.txt`, `C:\Fiverr\cycle054_e_live_collect.txt`):
 
-- `SyntaxError: non-default argument follows default argument` in `src/scoring/pipeline.py` (line 605) while importing `run.py`.
+- `collect-only` on current branch always executes as `dry_run: True` and does not produce live keyword/gig rows for kw=110.
+- Direct `run_collection_pipeline(..., dry_run=False)` attempt produced `keywords_queued: 0` with placeholder `_dry_run_test_` URL attempts and no valid kw=110 result-set capture.
 
 ## 3) Sample captured
 
@@ -37,7 +38,7 @@ Blocking error evidence (`C:\Fiverr\cycle054_e_collect_full.txt`):
 | kw=110 | support_kb_readiness | [SEED - no live signal] | [SEED] | [SEED] | [SEED] | [SEED] | [SEED] |
 | secondary | [SEED - not attempted] | [SEED] | [SEED] | [SEED] | [SEED] | [SEED] | [SEED] |
 
-Reason: collection CLI could not execute due syntax/import failure in current branch state.
+Reason: current branch command surfaces did not provide a valid live kw=110 capture path (no runnable `--niche` collect-only path, no live keyword queue in direct pipeline attempt).
 
 ## 4) kw=110 OFF vs ON
 
@@ -65,8 +66,9 @@ Reason: collection CLI could not execute due syntax/import failure in current br
 
 ## 6) Anomalies / blockers
 
-- **BLOCKER (environment/branch execution):** `run.py` import failure due `SyntaxError` in `src/scoring/pipeline.py` prevents any `collect-only` and `score` command.
-- **Workflow blocker:** branch has unstaged tracked edits in `src/` and `config.yaml`, so `git pull --rebase origin cycle/054/integration` fails (`cannot pull with rebase: You have unstaged changes`), preventing refresh to newer Agent B commits from this workspace state.
+- **BLOCKER (collection path):** `collect-only` mode on this branch is hardcoded to `dry_run=True`; it cannot produce live keyword/gig evidence.
+- **BLOCKER (targeting path):** `collect-only` currently has no `--niche` selector in CLI, so primary-only kw=110 collection cannot be invoked via the documented command.
+- **BLOCKER (direct live attempt):** direct non-dry-run orchestrator execution for `support_kb_readiness` yielded `keywords_queued=0` and placeholder `_dry_run_test_` fetch attempts, not a valid kw=110 live result-set.
 - **CLI mismatch note:** requested prompt example used `--niche`, but current CLI for `collect-only` does not accept `--niche` (verified via `collect-only --help`).
 
 ## 7) Secondary niches
@@ -101,17 +103,18 @@ Reason: no executable live collection/scoring run was possible in this workspace
 - `python run.py collect-only --config-path config.live.yaml --niche support_kb_readiness`  
   Result: CLI option invalid (`--niche` not supported by current command surface).
 - `python run.py collect-only --config-path config.live.yaml`  
-  Result: blocked by syntax/import error before pipeline start.
+  Result: executes `dry_run=True` on this branch; no live kw=110 capture.
+- direct orchestrator live invocation (`run_collection_pipeline(... dry_run=False)`) with `support_kb_readiness` only  
+  Result: `keywords_queued=0`, placeholder `_dry_run_test_` URL attempts, no valid kw=110 sample.
 
 ### Captured evidence files
 
-- `C:\Fiverr\cycle054_e_preflight.txt`
+- `C:\Fiverr\cycle054_e_preflight2.txt`
 - `C:\Fiverr\cycle054_e_envcheck.txt`
-- `C:\Fiverr\cycle054_e_configlive.txt`
+- `C:\Fiverr\cycle054_e_configlive2.txt`
 - `C:\Fiverr\cycle054_e_collect_help.txt`
-- `C:\Fiverr\cycle054_e_collect_kw110.txt`
-- `C:\Fiverr\cycle054_e_collect_full.txt`
-- `C:\Fiverr\cycle054_e_pull_retry.txt`
+- `C:\Fiverr\cycle054_e_collect_cleanhead.txt`
+- `C:\Fiverr\cycle054_e_live_collect.txt`
 
 ### Repro checklist
 
@@ -138,12 +141,13 @@ Reason: no executable live collection/scoring run was possible in this workspace
 
 ## 13) Notes for Agent B / PM / D
 
-- This report is an honest `[SEED - no live signal]` outcome due an execution blocker in current branch state (`SyntaxError` in scoring pipeline import path).
-- To complete live validation rerun: resolve syntax blocker, ensure workspace allows branch rebase/pull, rerun primary kw=110 collection with ScrapFly, then OFF/ON scoring on same captured rows.
+- This report is an honest `[SEED - no live signal]` outcome due collection command-surface blockers on the current committed branch state.
+- To complete live validation rerun: land/merge a runnable kw=110 live collection path (non-dry-run collection with niche targeting and persisted rows), then rerun OFF/ON scoring on the same captured rows.
+- Control task comment posted: `SCRUM-1008` comment `12133` with required summary line.
 
 ## 14) Commit SHA
 
-`d3190b36dc2199e486c3cb9583f2bd8dab9a3096`
+`PENDING_COMMIT_SHA`
 
 ---
 
@@ -154,4 +158,4 @@ Reason: no executable live collection/scoring run was possible in this workspace
 - credits used: **0 confirmed**
 - zone clean (only the report committed): **YES**
 - no fabricated numbers (all live or [SEED]): **YES**
-- blockers for B / PM: **`run.py` execution blocked by syntax error in `src/scoring/pipeline.py`; rebase blocked in this workspace due unstaged tracked changes**
+- blockers for B / PM: **current branch `collect-only` is dry-run-only, no `--niche` CLI support, and direct non-dry-run pipeline attempt did not queue kw=110 keywords (`keywords_queued=0`)**
