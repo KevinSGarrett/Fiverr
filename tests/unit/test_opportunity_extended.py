@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from dataclasses import replace
 from typing import Any
 
@@ -27,6 +30,17 @@ class _FakeDB:
 
     def get_intent_inputs(self, keyword_id: int) -> dict[str, Any]:
         return dict(self._payload.get(keyword_id, {}))
+
+
+def _golden_score_with_overrides(*overrides: str) -> dict[str, Any]:
+    command = [sys.executable, "run.py", "score", "--golden"]
+    for override in overrides:
+        command.extend(["--config-override", override])
+    completed = subprocess.run(command, check=True, capture_output=True, text=True)
+    payload = completed.stdout.strip()
+    start = payload.find("{")
+    assert start >= 0
+    return json.loads(payload[start:])
 
 
 def _demand() -> Any:
@@ -108,3 +122,65 @@ def test_opportunity_relevance_qualifier_clamps() -> None:
     assert _opportunity_relevance_qualifier(None) == 1.0
     assert _opportunity_relevance_qualifier(1.5) == 1.0
     assert _opportunity_relevance_qualifier(-0.5) == 0.0
+
+
+def test_all_toggles_off_golden_equals_legacy_baseline() -> None:
+    result = _golden_score_with_overrides(
+        "relevance.enable_stage_3_5=true",
+        "scoring.demand.use_trc_reliability=false",
+        "scoring.demand.use_signal_qualifiers=false",
+        "scoring.competition.use_per_keyword_profile=false",
+        "scoring.competition.exclude_contaminated=false",
+        "scoring.exclude_price_outliers=false",
+        "scoring.feasibility.use_clean_gig_set=false",
+        "scoring.opportunity.qualify_by_relevance=false",
+    )
+    assert result["status"] == "PASS"
+    assert result["anchor_rows"]["110"]["final_score"] == pytest.approx(62.7)
+    assert result["anchor_rows"]["96"]["final_score"] == pytest.approx(35.8)
+    assert result["anchor_rows"]["3"]["final_score"] == pytest.approx(56.66)
+
+
+def test_kw110_conditional_go_holds_with_all_toggles_on() -> None:
+    result = _golden_score_with_overrides(
+        "relevance.enable_stage_3_5=true",
+        "scoring.demand.use_trc_reliability=true",
+        "scoring.demand.use_signal_qualifiers=true",
+        "scoring.competition.use_per_keyword_profile=true",
+        "scoring.competition.exclude_contaminated=true",
+        "scoring.exclude_price_outliers=true",
+        "scoring.feasibility.use_clean_gig_set=true",
+        "scoring.opportunity.qualify_by_relevance=true",
+    )
+    kw110 = result["anchor_rows"]["110"]
+    assert result["status"] == "PASS"
+    assert kw110["tag"] == "CONDITIONAL_GO"
+    assert kw110["confidence_modifier"] == pytest.approx(1.0)
+    assert kw110["final_score"] >= 60.0
+
+
+def test_anchor_scores_drift_within_two_points_when_on() -> None:
+    off_result = _golden_score_with_overrides(
+        "relevance.enable_stage_3_5=true",
+        "scoring.demand.use_trc_reliability=false",
+        "scoring.demand.use_signal_qualifiers=false",
+        "scoring.competition.use_per_keyword_profile=false",
+        "scoring.competition.exclude_contaminated=false",
+        "scoring.exclude_price_outliers=false",
+        "scoring.feasibility.use_clean_gig_set=false",
+        "scoring.opportunity.qualify_by_relevance=false",
+    )
+    on_result = _golden_score_with_overrides(
+        "relevance.enable_stage_3_5=true",
+        "scoring.demand.use_trc_reliability=true",
+        "scoring.demand.use_signal_qualifiers=true",
+        "scoring.competition.use_per_keyword_profile=true",
+        "scoring.competition.exclude_contaminated=true",
+        "scoring.exclude_price_outliers=true",
+        "scoring.feasibility.use_clean_gig_set=true",
+        "scoring.opportunity.qualify_by_relevance=true",
+    )
+    for keyword_id in ("110", "96", "3"):
+        off_score = float(off_result["anchor_rows"][keyword_id]["final_score"])
+        on_score = float(on_result["anchor_rows"][keyword_id]["final_score"])
+        assert abs(on_score - off_score) <= 2.0

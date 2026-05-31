@@ -9,6 +9,9 @@ from src.scoring.demand import (
     _classify_autocomplete_state,
     _compute_trc_reliability,
     _load_cluster_context_from_session,
+    _relevance_factor,
+    _sponsored_factor,
+    _strictness_factor,
     _trends_platform_qualifier,
     trc_adjustment,
 )
@@ -248,6 +251,18 @@ def test_trc_reliability_uses_min_factor_not_product() -> None:
     factor = _compute_trc_reliability(0.60, 0.30, "SUBCATEGORY")
     assert factor == pytest.approx(0.60)
     assert (100.0 * factor) == pytest.approx(60.0)
+
+
+def test_trc_reliability_equals_min_of_existing_component_factors() -> None:
+    rsv = 0.63
+    sponsored_fraction = 0.32
+    strictness = "NONE"
+    expected = min(
+        _relevance_factor(rsv),
+        _sponsored_factor(sponsored_fraction),
+        _strictness_factor(strictness),
+    )
+    assert _compute_trc_reliability(rsv, sponsored_fraction, strictness) == pytest.approx(expected)
 
 
 def test_trc_reliability_none_inputs_no_penalty() -> None:

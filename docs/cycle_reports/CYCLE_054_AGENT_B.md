@@ -18,6 +18,7 @@ Cycle 054 — Agent B Report (R4 implementation)
 - `test_trc_reliability_none_inputs_no_penalty`
 - `test_trc_reliability_toggle_off_matches_legacy`
 - `test_keyword_score_trc_reliability_populated_when_on`
+- `test_trc_reliability_equals_min_of_existing_component_factors`
 - `test_autocomplete_absent_penalizes_demand`
 - `test_autocomplete_emerging_does_not_over_credit`
 - `test_trends_platform_qualifier_bounds`
@@ -42,6 +43,9 @@ Cycle 054 — Agent B Report (R4 implementation)
 - `test_opportunity_relevance_factor_recorded`
 - `test_opportunity_qualifier_toggle_off_matches_legacy`
 - `test_opportunity_relevance_qualifier_clamps`
+- `test_all_toggles_off_golden_equals_legacy_baseline`
+- `test_kw110_conditional_go_holds_with_all_toggles_on`
+- `test_anchor_scores_drift_within_two_points_when_on`
 - `test_intent_alignment_applied_when_on`
 - `test_intent_alignment_factor_bounds`
 - `test_no_keyword_score_columns_written_when_toggles_off`
