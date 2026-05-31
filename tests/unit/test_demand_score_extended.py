@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from src.models import ClusterAssignment, ResultSetValidation, SearchResult
 from src.scoring.demand import (
     DemandScoreCalculator,

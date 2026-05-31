@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from src.analysis.result_set_validator import (
     NICHE_VALIDATION_CONFIG,
     NICHE_VALIDATION_CONFIG_NEXT_REVIEW,

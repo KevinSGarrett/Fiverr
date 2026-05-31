@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -12,7 +12,16 @@ import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.config import ConfigLoader
-from src.models import Base, Gig, Keyword, Niche, ResultSetValidation, SearchResult, Seller, write_competitor_profile
+from src.models import (
+    Base,
+    Gig,
+    Keyword,
+    Niche,
+    ResultSetValidation,
+    SearchResult,
+    Seller,
+    write_competitor_profile,
+)
 from src.scoring.competition import (
     CompetitionScoreCalculator,
     _coerce_bool,

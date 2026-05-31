@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from sqlalchemy import create_engine, inspect, text
-
 from src.migrations.srdi_r8 import (
     migration_01_result_set_validations as m1,
 )
@@ -11,7 +10,6 @@ from src.migrations.srdi_r8 import (
     migration_08_r2_columns as m8,
 )
 from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations
-
 from tests.unit.test_srdi_r8_migrations import _bootstrap_base_tables
 
 

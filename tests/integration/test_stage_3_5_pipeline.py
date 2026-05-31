@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator
 from types import SimpleNamespace
-from typing import Generator
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.collection.workflows import result_set_validation_workflow as workflow
 from src.collection.workflows.result_set_validation_workflow import run_stage_3_5_validation
 from src.models import Base, Gig, Keyword, Niche, ResultSetValidation, SearchResult
