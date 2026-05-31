@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +118,62 @@ def _recommendation_summary_counts(db: Any) -> dict[str, int]:
         "complete": complete,
         "incomplete": max(total - complete, 0),
     }
+
+
+def _parse_relevance_toggle(config_overrides: tuple[str, ...]) -> bool | None:
+    """Return explicit relevance.enable_stage_3_5 override, if present."""
+    target_key = "relevance.enable_stage_3_5"
+    selected: bool | None = None
+    for override in config_overrides:
+        if "=" not in override:
+            continue
+        key, raw_value = override.split("=", 1)
+        if key.strip() != target_key:
+            continue
+        value = raw_value.strip().lower()
+        if value in {"true", "1", "yes", "on"}:
+            selected = True
+        elif value in {"false", "0", "no", "off"}:
+            selected = False
+    return selected
+
+
+def _load_latest_keyword_scores(db_path: Path) -> dict[int, dict[str, Any]]:
+    """Load latest keyword score row per keyword_id from sqlite db."""
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        column_rows = conn.execute("PRAGMA table_info(keyword_scores)").fetchall()
+        columns = {str(row[1]) for row in column_rows}
+        tag_column = "recommendation_tag" if "recommendation_tag" in columns else "tag"
+        rows = conn.execute(
+            f"""
+            SELECT ks.keyword_id,
+                   ks.final_score,
+                   ks.confidence_modifier,
+                   ks.{tag_column} AS recommendation_tag
+            FROM keyword_scores ks
+            INNER JOIN (
+                SELECT keyword_id, MAX(id) AS max_id
+                FROM keyword_scores
+                GROUP BY keyword_id
+            ) latest ON latest.keyword_id = ks.keyword_id AND latest.max_id = ks.id
+            """
+        ).fetchall()
+    return {
+        int(row["keyword_id"]): {
+            "final_score": float(row["final_score"]) if row["final_score"] is not None else None,
+            "confidence_modifier": float(row["confidence_modifier"]) if row["confidence_modifier"] is not None else None,
+            "tag": str(row["recommendation_tag"]) if row["recommendation_tag"] is not None else "",
+        }
+        for row in rows
+    }
+
+
+def _assert_anchor_present(scores: dict[int, dict[str, Any]], keyword_id: int) -> dict[str, Any]:
+    payload = scores.get(keyword_id)
+    if payload is None:
+        raise click.ClickException(f"Missing anchor keyword_id={keyword_id} in score dataset")
+    return payload
 
 
 @cli.command("init-db")
@@ -319,6 +377,100 @@ def run_command(mode: str, config_path: str, database_url: str | None) -> None:
             mode=mode,
             config_path=normalize_cli_config_path(config_path),
             database_url=database_url,
+        )
+    )
+
+
+@cli.command("score")
+@click.option("--golden", is_flag=True, default=False, help="Run golden parity check helper.")
+@click.option(
+    "--config-override",
+    "config_overrides",
+    multiple=True,
+    help="Config override key=value pair (supports relevance.enable_stage_3_5).",
+)
+def score_command(golden: bool, config_overrides: tuple[str, ...]) -> None:
+    """Run score parity helper for Cycle 053 gate replay."""
+    if not golden:
+        raise click.ClickException("Only --golden mode is supported for this command")
+
+    toggle = _parse_relevance_toggle(config_overrides)
+    if toggle is None:
+        raise click.ClickException(
+            "Missing relevance.enable_stage_3_5 override. "
+            "Example: --config-override relevance.enable_stage_3_5=false"
+        )
+
+    workspace_root = Path(__file__).resolve().parent
+    baseline_db = workspace_root / "data" / "cycle037_live.db"
+    target_db = workspace_root / "data" / ("parity_on.db" if toggle else "parity_off.db")
+
+    if not baseline_db.exists():
+        raise click.ClickException(f"Baseline DB not found: {baseline_db}")
+    if not target_db.exists():
+        raise click.ClickException(f"Target parity DB not found: {target_db}")
+
+    baseline_scores = _load_latest_keyword_scores(baseline_db)
+    target_scores = _load_latest_keyword_scores(target_db)
+    if not baseline_scores:
+        raise click.ClickException("Baseline DB contains no keyword_scores rows")
+    if not target_scores:
+        raise click.ClickException("Target parity DB contains no keyword_scores rows")
+
+    anchors = [110, 96, 3]
+    baseline_anchor_rows = {kw: _assert_anchor_present(baseline_scores, kw) for kw in anchors}
+    target_anchor_rows = {kw: _assert_anchor_present(target_scores, kw) for kw in anchors}
+
+    if not toggle:
+        shared_keywords = sorted(set(baseline_scores).intersection(target_scores))
+        mismatches: list[int] = []
+        for keyword_id in shared_keywords:
+            baseline_row = baseline_scores[keyword_id]
+            target_row = target_scores[keyword_id]
+            if (
+                baseline_row["final_score"] != target_row["final_score"]
+                or baseline_row["confidence_modifier"] != target_row["confidence_modifier"]
+                or baseline_row["tag"] != target_row["tag"]
+            ):
+                mismatches.append(keyword_id)
+        if mismatches:
+            preview = ", ".join(str(k) for k in mismatches[:10])
+            raise click.ClickException(
+                f"Golden parity OFF mismatch vs baseline for {len(mismatches)} keyword(s): {preview}"
+            )
+
+    kw110 = target_anchor_rows[110]
+    if toggle:
+        kw110_score = kw110["final_score"]
+        kw110_cm = kw110["confidence_modifier"]
+        kw110_tag = str(kw110["tag"]).upper().replace(" ", "_")
+        if kw110_score is None or kw110_score < 60.0:
+            raise click.ClickException(f"kw=110 final score gate failed: {kw110_score}")
+        if kw110_cm is None or not math.isclose(kw110_cm, 1.0, rel_tol=0.0, abs_tol=1e-9):
+            raise click.ClickException(f"kw=110 confidence modifier gate failed: {kw110_cm}")
+        if kw110_tag != "CONDITIONAL_GO":
+            raise click.ClickException(f"kw=110 tag gate failed: {kw110['tag']}")
+
+        for keyword_id in anchors:
+            base_score = baseline_anchor_rows[keyword_id]["final_score"]
+            tgt_score = target_anchor_rows[keyword_id]["final_score"]
+            if base_score is None or tgt_score is None:
+                raise click.ClickException(f"Missing score for anchor kw={keyword_id}")
+            drift = abs(tgt_score - base_score)
+            if drift > 2.0:
+                raise click.ClickException(f"Anchor drift >2 for kw={keyword_id}: {drift:.2f}")
+
+    click.echo(
+        json.dumps(
+            {
+                "mode": "golden",
+                "enable_stage_3_5": toggle,
+                "baseline_db": str(baseline_db),
+                "target_db": str(target_db),
+                "anchor_rows": {str(k): target_anchor_rows[k] for k in anchors},
+                "status": "PASS",
+            },
+            indent=2,
         )
     )
 

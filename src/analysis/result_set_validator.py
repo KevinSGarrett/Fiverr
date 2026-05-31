@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
-import re
 
 NICHE_VALIDATION_CONFIG_VERSION = "r2.1"
 _NEXT_REVIEW = "2026-07-01"
