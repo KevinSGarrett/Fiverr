@@ -117,3 +117,20 @@ Final one-line confirmation:
 
 - No `src/` files were changed by Agent A.
 - No `tests/` files were changed by Agent A.
+
+`git status --short` (post-push):
+
+```text
+ M PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
+ M PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+?? PM_Pack/01_pm_instructions/PM_REVIEW_GUARDRAILS.md
+?? PM_Pack/10_cycle_log/CYCLE_054_PREP_NOTES.md
+```
+
+`git diff --name-only develop..cycle/055/integration`:
+
+```text
+PM_Pack/10_cycle_log/CYCLE_055_PREP_NOTES.md
+docs/cycle_reports/CYCLE_055_AGENT_A.md
+docs/cycle_reports/CYCLE_055_PLAN.md
+```
