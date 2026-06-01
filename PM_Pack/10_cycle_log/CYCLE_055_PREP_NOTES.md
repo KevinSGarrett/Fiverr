@@ -167,3 +167,27 @@ Plus two demand guards to keep green:
 | F     | 810   | 811   | 81    | y   |
 | D     | 945   | 947   | 80    | y   |
 | TOTAL | 4995  | 5011  |       | y   |
+
+## 8) Final governance outcome (Agent D)
+
+- Governance run date: `2026-06-01`
+- PR: `#64` (`cycle/055/integration -> develop`)
+- Gating SHA: `96576228f411671fd0463b1ab19aaeccc59fd84e`
+- Decision: **BLOCK (not merged)**
+
+Blocking gates:
+
+- `G7` migration footprint: `DiscoveryOutcome` now persists `run_id/niche_id/keyword_text`, but existing `discovery_outcomes` migration/base table does not contain these columns on migrated DBs.
+- `G9` Codex: unresolved review thread present at pre-merge check #2 (0 unresolved required).
+
+Actions explicitly not taken because of BLOCK:
+
+- No squash merge to `develop`
+- No Jira story/control-task Done transitions
+- No branch deletion
+- No R6 DONE tracker/registry closeout updates
+
+Handback:
+
+- Agent B fix list issued in `docs/cycle_reports/CYCLE_055_AGENT_D.md` (D-1, D-2).
+- Re-gate required on next pushed SHA after B resolves migration gap + Codex thread.
