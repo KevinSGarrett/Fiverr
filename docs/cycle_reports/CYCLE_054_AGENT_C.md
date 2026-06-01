@@ -139,7 +139,7 @@ Reason: hard failures in parity OFF gate, anchor ON drift gate, and touched-file
 
 ## 16. Commit SHA
 
-`PENDING`
+`962b6c0a09e031e2ef5b738a751ca5eae9f8bd96`
 
 ## Reproducibility Package
 
