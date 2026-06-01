@@ -124,8 +124,21 @@ This report supersedes HANDOFF_B for remediation audit.
 
 ## Commit/Push + Codex thread + CI
 
-This section is finalized after commit/push, Codex thread reply, and CI check-run completion:
-- remediation commit SHA: `<pending>`
-- pushed head SHA: `<pending>`
-- Codex review comment reply posted: `<pending>`
-- commit check-runs status: `<pending>`
+Finalized evidence:
+- remediation commit SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`
+- pushed head SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`
+- Codex review comment target:
+  - `review_comment_id=3336627691`
+  - `pull_request_review_id=4404030803`
+- Codex reply posted:
+  - `reply_comment_id=3337688527`
+  - `reply_pull_request_review_id=4405286794`
+  - body includes migration commit SHA + PRAGMA + parity confirmations
+- check-runs on head SHA:
+  - `78967826932` (`Lint, Typecheck, Tests, and Gates`) → `completed/success`
+  - `78967821978` (`Lint, Typecheck, Tests, and Gates`) → `completed/success`
+
+## Completion Signal
+
+Agent B migration fix complete. Branch `cycle/055/integration` is ready for Agent D re-gate.  
+Head SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`. CI: green. Codex thread reply posted.
