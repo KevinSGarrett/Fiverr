@@ -66,6 +66,11 @@ def _competition_for_raw_80() -> Any:
     return replace(_competition(), score_value=20.0)
 
 
+def _competition_for_negative_raw() -> Any:
+    # raw opportunity = (80 * 1.2) - (140 * 0.8) = -16
+    return replace(_competition(), score_value=140.0)
+
+
 def _expected_normalized(raw_value: float) -> float:
     return pytest.approx(round(min(100.0, max(0.0, ((raw_value + 80.0) / 200.0) * 100.0)), 2))
 
@@ -100,6 +105,35 @@ def test_opportunity_qualified_by_relevance() -> None:
     )
     assert result.score_value == _expected_normalized(60.0)
     assert result.opportunity_relevance_factor == pytest.approx(0.75)
+
+
+def test_relevance_does_not_boost_negative_opportunity() -> None:
+    baseline = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"query_intent_class": "TRANSACTIONAL", "service_intent_class": "TRANSACTIONAL"}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_negative_raw(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": False}}},
+    )
+    high_rel = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": 0.9, "query_intent_class": "TRANSACTIONAL", "service_intent_class": "TRANSACTIONAL"}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_negative_raw(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
+    )
+    low_rel = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": 0.3, "query_intent_class": "TRANSACTIONAL", "service_intent_class": "TRANSACTIONAL"}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_negative_raw(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
+    )
+    assert baseline.score_value is not None
+    assert high_rel.score_value is not None
+    assert low_rel.score_value is not None
+    assert low_rel.score_value <= high_rel.score_value
+    assert low_rel.score_value <= baseline.score_value
 
 
 def test_opportunity_relevance_none_no_change() -> None:

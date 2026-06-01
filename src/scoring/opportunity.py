@@ -141,7 +141,11 @@ class OpportunityScoreCalculator:
                     else None
                 ),
             )
-            raw_opportunity = raw_opportunity * opportunity_relevance_factor * intent_alignment_factor
+            qualification_factor = opportunity_relevance_factor * intent_alignment_factor
+            if raw_opportunity > 0:
+                raw_opportunity = raw_opportunity * qualification_factor
+            else:
+                raw_opportunity = raw_opportunity * (2.0 - qualification_factor)
         normalized_opportunity = self._normalize_0_100(raw_opportunity)
         score_components = {
             "weighted_demand": ScoreComponent(
