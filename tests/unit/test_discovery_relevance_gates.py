@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy.orm import Session
 from src.analysis.pre_validator import DiscoveryPreValidator, DiscoveryVerdict
 from src.discovery.contracts import DiscoveryInput
 from src.discovery.hypothesis import (
     _gate_hypotheses,
+    generate_niche_hypotheses,
     parse_hypothesis_contracts,
 )
 from src.discovery.orchestrator import DiscoveryOrchestrator
@@ -164,6 +167,127 @@ def test_pre_validator_maps_valid_ghost_and_contaminated() -> None:
     )
 
 
+def test_pre_validator_threshold_boundary_is_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[object] = []
+
+    def _fake_validate_result_set(*args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append(args[0] if args else kwargs.get("result_set"))
+        return SimpleNamespace(
+            result_set_relevance_score=0.60,
+            ghost_market_flag=False,
+            category_contamination_flag=False,
+        )
+
+    monkeypatch.setattr("src.analysis.pre_validator.validate_result_set", _fake_validate_result_set)
+    monkeypatch.setattr("src.analysis.pre_validator.compute_gig_relevance", lambda **_: 0.9)
+    validator = DiscoveryPreValidator(relevant_threshold=0.60)
+    provisional = [{"gig_title": "I will rewrite support help center docs", "gig_url": "b1"}]
+    result = validator.evaluate(
+        candidate="support help center docs",
+        niche_id="support_kb_readiness",
+        provisional_result_set=provisional,
+    )
+    assert result.verdict is DiscoveryVerdict.VALID
+    assert result.reason == "relevant_result_set"
+    assert result.rsv == 0.60
+    assert calls == [provisional]
+
+
+def test_pre_validator_empty_result_set_skips_compute_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    compute_calls = {"count": 0}
+
+    def _fake_validate_result_set(*args: object, **kwargs: object) -> SimpleNamespace:
+        del args
+        del kwargs
+        return SimpleNamespace(
+            result_set_relevance_score=0.01,
+            ghost_market_flag=True,
+            category_contamination_flag=False,
+        )
+
+    def _fake_compute_gig_relevance(**_: object) -> float:
+        compute_calls["count"] += 1
+        return 0.0
+
+    monkeypatch.setattr("src.analysis.pre_validator.validate_result_set", _fake_validate_result_set)
+    monkeypatch.setattr("src.analysis.pre_validator.compute_gig_relevance", _fake_compute_gig_relevance)
+    result = DiscoveryPreValidator().evaluate(
+        candidate="support docs cleanup",
+        niche_id="support_kb_readiness",
+        provisional_result_set=[],
+    )
+    assert result.verdict is DiscoveryVerdict.GHOST
+    assert compute_calls["count"] == 0
+
+
+def test_gate1_rejects_overbroad_single_term() -> None:
+    contracts = parse_hypothesis_contracts(
+        [{"hypothesis_text": "support", "buyer": "support lead", "deliverable": "help center docs"}],
+        source_niche_id="support_kb_readiness",
+    )
+    accepted = _gate_hypotheses(contracts)
+    assert accepted == []
+    assert contracts[0].reason.startswith("specificity ")
+
+
+@pytest.mark.asyncio
+async def test_gate1_toggle_off_uses_legacy_normalization_without_filtering() -> None:
+    llm_payload = {
+        "hypotheses": [
+            {
+                "hypothesis_text": "support",
+                "mode": "adjacent_keyword",
+                "rationale": "legacy broad term still included",
+            }
+        ]
+    }
+
+    class _FakeClient:
+        def complete(self, **_: object) -> SimpleNamespace:
+            return SimpleNamespace(text=json.dumps(llm_payload))
+
+    hypotheses = await generate_niche_hypotheses(
+        source_niche_id="support_kb_readiness",
+        existing_keywords=["support docs"],
+        llm_client=_FakeClient(),
+        cache=None,
+        enable_relevance_gates=False,
+    )
+    assert hypotheses == [
+        {
+            "hypothesis_text": "support",
+            "hypothesis_type": "adjacent_keyword",
+            "source_signal": "legacy broad term still included",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gate1_toggle_on_filters_low_specificity_hypothesis() -> None:
+    llm_payload = {
+        "hypotheses": [
+            {
+                "hypothesis_text": "support",
+                "buyer": None,
+                "deliverable": None,
+            }
+        ]
+    }
+
+    class _FakeClient:
+        def complete(self, **_: object) -> SimpleNamespace:
+            return SimpleNamespace(text=json.dumps(llm_payload))
+
+    hypotheses = await generate_niche_hypotheses(
+        source_niche_id="support_kb_readiness",
+        existing_keywords=["support docs"],
+        llm_client=_FakeClient(),
+        cache=None,
+        enable_relevance_gates=True,
+    )
+    assert hypotheses == []
+
+
 def test_ghost_discovery_recorded_as_invalid_not_miss(tmp_path: Path) -> None:
     session = _init_session(tmp_path, "reg25.db")
     orchestrator = DiscoveryOrchestrator(config=_config(True), session=session)
@@ -277,6 +401,134 @@ def test_gate2_contaminated_candidate_not_inserted_and_invalid(tmp_path: Path) -
     outcome = session.query(DiscoveryOutcome).filter_by(keyword_text=candidate).one()
     assert outcome.is_invalid is True
     assert outcome.is_contaminated is True
+    session.close()
+
+
+def test_gate3_valid_candidate_records_miss_not_invalid(tmp_path: Path) -> None:
+    session = _init_session(tmp_path, "gate3_miss.db")
+    orchestrator = DiscoveryOrchestrator(config=_config(True), session=session)
+    candidate = "support help center docs"
+    discovery_input = _build_input(
+        run_id="gate3_miss",
+        hypotheses=[{"hypothesis_text": candidate, "buyer": "support lead", "deliverable": "help center docs"}],
+        provisional_result_sets={candidate: _valid_result_set()},
+        gates_enabled=True,
+    )
+    orchestrator.run_cycle(discovery_input)
+    session.commit()
+    outcome = session.query(DiscoveryOutcome).filter_by(keyword_text=candidate).one()
+    assert outcome.is_invalid is False
+    assert outcome.is_contaminated is False
+    assert outcome.contamination_reason == "legacy_miss"
+    assert outcome.relevance_score is not None
+    session.close()
+
+
+def test_gate3_gate4_composed_value_match_excludes_written_invalid(tmp_path: Path) -> None:
+    session = _init_session(tmp_path, "gate34_composed.db")
+    orchestrator = DiscoveryOrchestrator(config=_config(True), session=session)
+    valid_candidate = "support help center docs"
+    contaminated_candidate = "support docs mixed intent package"
+    discovery_input = _build_input(
+        run_id="gate34_composed",
+        hypotheses=[
+            {
+                "hypothesis_text": valid_candidate,
+                "buyer": "support lead",
+                "deliverable": "help center docs",
+            },
+            {
+                "hypothesis_text": contaminated_candidate,
+                "buyer": "support lead",
+                "deliverable": "help center docs",
+            },
+        ],
+        provisional_result_sets={
+            valid_candidate: _valid_result_set(),
+            contaminated_candidate: _contaminated_result_set(),
+        },
+        gates_enabled=True,
+    )
+    orchestrator.run_cycle(discovery_input)
+    session.commit()
+    contaminated_outcome = (
+        session.query(DiscoveryOutcome).filter_by(keyword_text=contaminated_candidate).one()
+    )
+    assert contaminated_outcome.is_invalid is True
+    assert contaminated_outcome.is_contaminated is True
+    gated_feedback = orchestrator.aggregate_feedback(
+        run_id="gate34_composed", session=session, enable_relevance_gates=True
+    )
+    legacy_feedback = orchestrator.aggregate_feedback(
+        run_id="gate34_composed", session=session, enable_relevance_gates=False
+    )
+    assert gated_feedback["counted_valid"] == 1
+    assert gated_feedback["counted_invalid"] == 1
+    assert legacy_feedback["counted_valid"] == 2
+    session.close()
+
+
+def test_orchestrator_none_safety_for_non_list_payloads(tmp_path: Path) -> None:
+    session = _init_session(tmp_path, "none_safety_payloads.db")
+    orchestrator = DiscoveryOrchestrator(config=_config(True), session=session)
+    discovery_input = DiscoveryInput(
+        run_id="none_safety_payloads",
+        niche_id="support_kb_readiness",
+        enabled_modes=["full"],
+        llm_context={
+            "hypotheses": "not-a-list",
+            "provisional_result_sets": "not-a-dict",
+            "config": _config(True),
+        },
+    )
+    output = orchestrator.run_cycle(discovery_input)
+    assert output.raw_json["total_candidates"] == 0
+    assert output.raw_json["rejected_candidates"] == 0
+    assert output.raw_json["rejection_rate"] == 0.0
+    session.close()
+
+
+def test_orchestrator_none_safety_for_non_list_provisional_rows(tmp_path: Path) -> None:
+    session = _init_session(tmp_path, "none_safety_provisional.db")
+    orchestrator = DiscoveryOrchestrator(config=_config(True), session=session)
+    candidate = "support docs cleanup package"
+    discovery_input = _build_input(
+        run_id="none_safety_provisional",
+        hypotheses=[{"hypothesis_text": candidate, "buyer": "support lead", "deliverable": "help center docs"}],
+        provisional_result_sets={candidate: None},
+        gates_enabled=True,
+    )
+    orchestrator.run_cycle(discovery_input)
+    session.commit()
+    outcome = session.query(DiscoveryOutcome).filter_by(keyword_text=candidate).one()
+    assert outcome.is_invalid is True
+    session.close()
+
+
+def test_orchestrator_uses_context_session_when_provided(tmp_path: Path) -> None:
+    session = _init_session(tmp_path, "context_session.db")
+    orchestrator = DiscoveryOrchestrator(config=_config(False), session=None)
+    candidate = "support docs context session candidate"
+    discovery_input = DiscoveryInput(
+        run_id="context_session",
+        niche_id="support_kb_readiness",
+        enabled_modes=["full"],
+        llm_context={
+            "hypotheses": [
+                {
+                    "hypothesis_text": candidate,
+                    "buyer": "support lead",
+                    "deliverable": "help center docs",
+                }
+            ],
+            "provisional_result_sets": {},
+            "config": _config(False),
+            "session": session,
+        },
+    )
+    orchestrator.run_cycle(discovery_input)
+    session.commit()
+    assert session.query(Keyword).filter_by(keyword=candidate).count() == 1
     session.close()
 
 
