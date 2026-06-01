@@ -1,6 +1,6 @@
 # CYCLE_055_AGENT_F — coverage hardening + test report
 
-Branch HEAD: `b50d7e0`  
+Branch HEAD (coverage verification): `b50d7e0` ; report refresh commit: `0df662d`  
 C verdict: `GO` (from `docs/cycle_reports/CYCLE_055_AGENT_C.md`)
 
 ## Coverage
