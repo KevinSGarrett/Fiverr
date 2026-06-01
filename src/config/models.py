@@ -259,6 +259,7 @@ class DiscoverySkillProfileConfig(BaseModel):
 
 class DiscoveryConfig(BaseModel):
     enabled: bool = True
+    enable_relevance_gates: bool = False
     max_hypotheses_per_run: int = Field(default=10, ge=1)
     max_cost_per_run: float = Field(default=5.0, ge=0)
     min_confidence: float = Field(default=0.6, ge=0, le=1)

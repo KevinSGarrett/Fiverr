@@ -23,6 +23,7 @@ from src.models.base import (
 )
 from src.models.discovery import DiscoveryCandidate
 from src.models.discovery_cycle import DiscoveryCycleLog
+from src.models.discovery_outcome import DiscoveryOutcome
 from src.models.external_signal import (
     ExternalSignal,
     get_all_signals,
@@ -91,6 +92,7 @@ __all__ = [
     "ClusterLabel",
     "CompetitorProfile",
     "DiscoveryCandidate",
+    "DiscoveryOutcome",
     "DiscoveryCycleLog",
     "DiscoveryHypothesis",
     "ExportArtifact",
