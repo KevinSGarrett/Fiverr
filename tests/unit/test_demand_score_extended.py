@@ -8,6 +8,7 @@ from src.scoring.demand import (
     DemandScoreCalculator,
     _classify_autocomplete_state,
     _compute_trc_reliability,
+    _autocomplete_state_multiplier,
     _load_cluster_context_from_session,
     _relevance_factor,
     _sponsored_factor,
@@ -352,3 +353,68 @@ def test_signal_qualifiers_toggle_off_matches_legacy() -> None:
         config={"scoring": {"demand": {"use_signal_qualifiers": False}}},
     )
     assert toggled_off.score_value == baseline.score_value
+
+
+def test_trc_reliability_min_when_relevance_lowest() -> None:
+    assert _compute_trc_reliability(0.55, 0.05, "CATEGORY") == pytest.approx(0.55)
+
+
+def test_trc_reliability_min_when_sponsored_lowest() -> None:
+    # sponsored_fraction > 0.35 maps to the lowest sponsored factor band (0.70)
+    assert _compute_trc_reliability(0.90, 0.40, "CATEGORY") == pytest.approx(0.70)
+
+
+def test_trc_reliability_all_factors_one_returns_one() -> None:
+    assert _compute_trc_reliability(0.95, 0.05, "CATEGORY") == pytest.approx(1.0)
+
+
+def test_trc_reliability_clamps_above_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.scoring.demand._relevance_factor", lambda *_: 1.2)
+    monkeypatch.setattr("src.scoring.demand._sponsored_factor", lambda *_: 1.2)
+    monkeypatch.setattr("src.scoring.demand._strictness_factor", lambda *_: 1.2)
+    assert _compute_trc_reliability(0.9, 0.0, "CATEGORY") == 1.0
+
+
+def test_trc_reliability_partial_none_uses_min_of_rest() -> None:
+    assert _compute_trc_reliability(None, 0.40, "CATEGORY") == pytest.approx(0.70)
+
+
+def test_autocomplete_present_full_no_penalty() -> None:
+    state = _classify_autocomplete_state(["a", "b", "c"])
+    assert state == "present"
+    assert _autocomplete_state_multiplier(state) == pytest.approx(1.0)
+
+
+def test_autocomplete_emerging_boundary_at_min() -> None:
+    assert _classify_autocomplete_state(["a", "b"]) == "emerging"
+
+
+def test_autocomplete_none_treated_present() -> None:
+    assert _classify_autocomplete_state(None) == "present"
+
+
+def test_autocomplete_absent_state_has_penalty_multiplier() -> None:
+    state = _classify_autocomplete_state([])
+    assert state == "absent"
+    assert _autocomplete_state_multiplier(state) < 1.0
+
+
+def test_trends_qualifier_none_returns_one() -> None:
+    assert _trends_platform_qualifier(None) == pytest.approx(1.0)
+
+
+def test_sponsored_factor_high_fraction_uses_lowest_band() -> None:
+    assert _sponsored_factor(0.36) == pytest.approx(0.70)
+
+
+def test_strictness_factor_unknown_strictness_defaults_to_one() -> None:
+    assert _strictness_factor("UNRECOGNIZED_MODE") == pytest.approx(1.0)
+
+
+def test_trends_qualifier_invalid_mapping_value_returns_one() -> None:
+    assert _trends_platform_qualifier({"platform_fit": "bad"}) == pytest.approx(1.0)
+
+
+def test_trends_qualifier_scalar_paths_cover_error_and_numeric() -> None:
+    assert _trends_platform_qualifier("invalid-number") == pytest.approx(1.0)
+    assert _trends_platform_qualifier(50) == pytest.approx(0.5)

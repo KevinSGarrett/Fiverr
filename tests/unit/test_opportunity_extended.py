@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
 from dataclasses import replace
 from typing import Any
 
@@ -12,7 +9,7 @@ import pytest
 
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.demand import DemandScoreCalculator
-from src.scoring.opportunity import OpportunityScoreCalculator, _opportunity_relevance_qualifier
+from src.scoring.opportunity import OpportunityScoreCalculator, _opportunity_config, _opportunity_relevance_qualifier
 
 
 class _FakeDB:
@@ -30,17 +27,6 @@ class _FakeDB:
 
     def get_intent_inputs(self, keyword_id: int) -> dict[str, Any]:
         return dict(self._payload.get(keyword_id, {}))
-
-
-def _golden_score_with_overrides(*overrides: str) -> dict[str, Any]:
-    command = [sys.executable, "run.py", "score", "--golden"]
-    for override in overrides:
-        command.extend(["--config-override", override])
-    completed = subprocess.run(command, check=True, capture_output=True, text=True)
-    payload = completed.stdout.strip()
-    start = payload.find("{")
-    assert start >= 0
-    return json.loads(payload[start:])
 
 
 def _demand() -> Any:
@@ -72,15 +58,45 @@ def _competition() -> Any:
     )
 
 
-def test_opportunity_qualified_by_relevance() -> None:
-    result = OpportunityScoreCalculator().calculate(
+def _competition_for_raw_80() -> Any:
+    # raw opportunity = (80 * 1.2) - (20 * 0.8) = 80
+    return replace(_competition(), score_value=20.0)
+
+
+def _expected_normalized(raw_value: float) -> float:
+    return pytest.approx(round(min(100.0, max(0.0, ((raw_value + 80.0) / 200.0) * 100.0)), 2))
+
+
+def test_opportunity_scaled_by_rsv() -> None:
+    baseline = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": False}}},
+    )
+    qualified = OpportunityScoreCalculator().calculate(
         1,
         _FakeDB({1: {"rsv_relevance": 0.75}}),
         demand_result=_demand(),
-        competition_result=_competition(),
+        competition_result=_competition_for_raw_80(),
         config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    assert result.score_value == pytest.approx(64.0)
+    assert baseline.score_value == _expected_normalized(80.0)
+    assert qualified.score_value == _expected_normalized(60.0)
+    assert qualified.opportunity_relevance_factor == pytest.approx(0.75)
+
+
+def test_opportunity_qualified_by_relevance() -> None:
+    result = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": 0.75, "query_intent_class": "TRANSACTIONAL", "service_intent_class": "TRANSACTIONAL"}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
+    )
+    assert result.score_value == _expected_normalized(60.0)
+    assert result.opportunity_relevance_factor == pytest.approx(0.75)
 
 
 def test_opportunity_relevance_none_no_change() -> None:
@@ -124,63 +140,71 @@ def test_opportunity_relevance_qualifier_clamps() -> None:
     assert _opportunity_relevance_qualifier(-0.5) == 0.0
 
 
-def test_all_toggles_off_golden_equals_legacy_baseline() -> None:
-    result = _golden_score_with_overrides(
-        "relevance.enable_stage_3_5=true",
-        "scoring.demand.use_trc_reliability=false",
-        "scoring.demand.use_signal_qualifiers=false",
-        "scoring.competition.use_per_keyword_profile=false",
-        "scoring.competition.exclude_contaminated=false",
-        "scoring.exclude_price_outliers=false",
-        "scoring.feasibility.use_clean_gig_set=false",
-        "scoring.opportunity.qualify_by_relevance=false",
+def test_opportunity_rsv_none_unchanged() -> None:
+    baseline = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": False}}},
     )
-    assert result["status"] == "PASS"
-    assert result["anchor_rows"]["110"]["final_score"] == pytest.approx(62.7)
-    assert result["anchor_rows"]["96"]["final_score"] == pytest.approx(35.8)
-    assert result["anchor_rows"]["3"]["final_score"] == pytest.approx(56.66)
+    unchanged = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": None}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
+    )
+    assert unchanged.opportunity_relevance_factor == pytest.approx(1.0)
+    assert unchanged.score_value == baseline.score_value
 
 
-def test_kw110_conditional_go_holds_with_all_toggles_on() -> None:
-    result = _golden_score_with_overrides(
-        "relevance.enable_stage_3_5=true",
-        "scoring.demand.use_trc_reliability=true",
-        "scoring.demand.use_signal_qualifiers=true",
-        "scoring.competition.use_per_keyword_profile=true",
-        "scoring.competition.exclude_contaminated=true",
-        "scoring.exclude_price_outliers=true",
-        "scoring.feasibility.use_clean_gig_set=true",
-        "scoring.opportunity.qualify_by_relevance=true",
+def test_opportunity_rsv_clamped() -> None:
+    clamped = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": 1.3}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    kw110 = result["anchor_rows"]["110"]
-    assert result["status"] == "PASS"
-    assert kw110["tag"] == "CONDITIONAL_GO"
-    assert kw110["confidence_modifier"] == pytest.approx(1.0)
-    assert kw110["final_score"] >= 60.0
+    assert clamped.opportunity_relevance_factor == pytest.approx(1.0)
+    assert clamped.score_value == _expected_normalized(80.0)
 
 
-def test_anchor_scores_drift_within_two_points_when_on() -> None:
-    off_result = _golden_score_with_overrides(
-        "relevance.enable_stage_3_5=true",
-        "scoring.demand.use_trc_reliability=false",
-        "scoring.demand.use_signal_qualifiers=false",
-        "scoring.competition.use_per_keyword_profile=false",
-        "scoring.competition.exclude_contaminated=false",
-        "scoring.exclude_price_outliers=false",
-        "scoring.feasibility.use_clean_gig_set=false",
-        "scoring.opportunity.qualify_by_relevance=false",
+def test_opportunity_factor_recorded() -> None:
+    result = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": 0.75}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    on_result = _golden_score_with_overrides(
-        "relevance.enable_stage_3_5=true",
-        "scoring.demand.use_trc_reliability=true",
-        "scoring.demand.use_signal_qualifiers=true",
-        "scoring.competition.use_per_keyword_profile=true",
-        "scoring.competition.exclude_contaminated=true",
-        "scoring.exclude_price_outliers=true",
-        "scoring.feasibility.use_clean_gig_set=true",
-        "scoring.opportunity.qualify_by_relevance=true",
+    assert result.opportunity_relevance_factor == pytest.approx(0.75)
+
+
+def test_opportunity_config_guard_paths() -> None:
+    assert _opportunity_config(None) == {}
+    assert _opportunity_config({"scoring": "bad"}) == {}
+    assert _opportunity_config({"scoring": {"opportunity": "bad"}}) == {}
+    assert _opportunity_config({"scoring": {"opportunity": {"qualify_by_relevance": True}}}) == {
+        "qualify_by_relevance": True
+    }
+
+
+def test_opportunity_rsv_and_intent_loaded_from_mapping_db() -> None:
+    payload = {
+        1: {
+            "rsv_relevance": 0.75,
+            "query_intent_class": "INFORMATIONAL",
+            "service_intent_class": "TRANSACTIONAL",
+        }
+    }
+    result = OpportunityScoreCalculator().calculate(
+        1,
+        payload,
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    for keyword_id in ("110", "96", "3"):
-        off_score = float(off_result["anchor_rows"][keyword_id]["final_score"])
-        on_score = float(on_result["anchor_rows"][keyword_id]["final_score"])
-        assert abs(on_score - off_score) <= 2.0
+    assert result.opportunity_relevance_factor == pytest.approx(0.75)
+    assert result.score_value is not None

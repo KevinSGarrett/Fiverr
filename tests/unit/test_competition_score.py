@@ -28,6 +28,7 @@ from src.scoring.competition import (
     _exclude_price_outliers_iqr,
     _coerce_bool,
     _coerce_float,
+    _is_profile_empty,
     _select_competitor_profile,
     _normalize_gap_flags,
     compute_seller_level_competition_signal,
@@ -743,6 +744,17 @@ def test_config_feasibility_gap_bounds_reject_invalid_values(tmp_path: Path) -> 
         ConfigLoader(config_path).load()
 
 
+def test_r4_toggle_defaults_false() -> None:
+    config = ConfigLoader(Path("config.yaml")).load()
+    assert config.scoring.demand.use_trc_reliability is False
+    assert config.scoring.demand.use_signal_qualifiers is False
+    assert config.scoring.competition.use_per_keyword_profile is False
+    assert config.scoring.competition.exclude_contaminated is False
+    assert config.scoring.exclude_price_outliers is False
+    assert config.scoring.feasibility.use_clean_gig_set is False
+    assert config.scoring.opportunity.qualify_by_relevance is False
+
+
 def test_competition_helper_guards_and_normalizers() -> None:
     assert _coerce_bool("yes", default=False) is True
     assert _coerce_bool("0", default=True) is False
@@ -1062,13 +1074,6 @@ def test_profile_selection_toggle_off_matches_legacy() -> None:
     assert off.score_value == legacy.score_value
 
 
-def test_niche_profile_excludes_contaminated_keywords() -> None:
-    profile = {"competitors": [{"source_keyword_id": 1}, {"source_keyword_id": 99}]}
-    filtered = _exclude_contaminated_competitors(profile, {99})
-    assert filtered is not None
-    assert len(filtered["competitors"]) == 1
-
-
 def test_exclude_contaminated_empty_set_no_change() -> None:
     profile = {"competitors": [{"source_keyword_id": 1}]}
     filtered = _exclude_contaminated_competitors(profile, set())
@@ -1119,3 +1124,208 @@ def test_price_outliers_toggle_off_matches_legacy() -> None:
         config={"scoring": {"exclude_price_outliers": False}},
     )
     assert off.score_value == legacy.score_value
+
+
+def test_profile_per_keyword_chosen_when_nonempty() -> None:
+    profile, source = _select_competitor_profile(
+        {"mean_reviews": 350.0, "competitors": [{"source_keyword_id": 10}]},
+        {"mean_reviews": 120.0},
+    )
+    assert profile == {"mean_reviews": 350.0, "competitors": [{"source_keyword_id": 10}]}
+    assert source == "per_keyword"
+
+
+def test_profile_per_niche_when_keyword_none() -> None:
+    profile, source = _select_competitor_profile(None, {"mean_reviews": 140.0})
+    assert profile == {"mean_reviews": 140.0}
+    assert source == "per_niche"
+
+
+def test_profile_source_recorded_per_keyword() -> None:
+    result = CompetitionScoreCalculator().calculate(
+        KEYWORD_ID,
+        FakeScoringDB(
+            competition_inputs={
+                KEYWORD_ID: {
+                    **_base_competition_inputs(),
+                    "competitor_profile": {"mean_reviews": 120.0},
+                    "competitor_profile_per_keyword": {
+                        "mean_reviews": 340.0,
+                        "competitors": [{"source_keyword_id": 10}],
+                    },
+                }
+            }
+        ),
+        config={"scoring": {"competition": {"use_per_keyword_profile": True}}},
+    )
+    assert result.competitor_profile_source == "per_keyword"
+
+
+def test_contamination_removes_matching_competitors() -> None:
+    profile = {
+        "mean_reviews": 220.0,
+        "competitors": [
+            {"source_keyword_id": 11, "gig_url": "https://fiverr.com/a"},
+            {"source_keyword_id": 42, "gig_url": "https://fiverr.com/b"},
+            {"source_keyword_id": 99, "gig_url": "https://fiverr.com/c"},
+        ],
+    }
+    filtered = _exclude_contaminated_competitors(profile, {42})
+    assert filtered is not None
+    assert [entry["source_keyword_id"] for entry in filtered["competitors"]] == [11, 99]
+
+
+def test_contamination_competitor_without_source_kept() -> None:
+    profile = {"competitors": [{"source_keyword_id": 1}, {"gig_url": "https://fiverr.com/no-source"}]}
+    filtered = _exclude_contaminated_competitors(profile, {1})
+    assert filtered is not None
+    assert filtered["competitors"] == [{"gig_url": "https://fiverr.com/no-source"}]
+
+
+def test_iqr_excludes_high_outlier() -> None:
+    kept, excluded = _exclude_price_outliers_iqr([5, 8, 10, 11, 12, 12, 13, 15, 400])
+    assert kept == [5.0, 8.0, 10.0, 11.0, 12.0, 12.0, 13.0, 15.0]
+    assert excluded == 1
+
+
+def test_iqr_no_exclusion_when_all_equal() -> None:
+    kept, excluded = _exclude_price_outliers_iqr([10, 10, 10, 10])
+    assert kept == [10.0, 10.0, 10.0, 10.0]
+    assert excluded == 0
+
+
+def test_iqr_none_entries_filtered() -> None:
+    kept, excluded = _exclude_price_outliers_iqr([10, None, 12, 11, 13])  # type: ignore[list-item]
+    assert kept == [10.0, 12.0, 11.0, 13.0]
+    assert excluded == 0
+
+
+def test_is_profile_empty_branches() -> None:
+    assert _is_profile_empty(None) is True
+    assert _is_profile_empty({"competitors": []}) is True
+    assert _is_profile_empty({"mean_reviews": 1.0}) is False
+    assert _is_profile_empty({"competitors": [{"source_keyword_id": 1}]}) is False
+
+
+def test_exclude_contaminated_non_list_competitors_identity_copy() -> None:
+    profile = {"competitors": "invalid-shape", "mean_reviews": 10.0}
+    filtered = _exclude_contaminated_competitors(profile, {1, 2})
+    assert filtered == profile
+    assert filtered is not profile
+
+
+def test_exclude_contaminated_invalid_source_id_kept() -> None:
+    profile = {"competitors": [{"source_keyword_id": "not-an-int", "gig_url": "https://fiverr.com/a"}]}
+    filtered = _exclude_contaminated_competitors(profile, {1})
+    assert filtered is not None
+    assert filtered["competitors"] == [{"source_keyword_id": "not-an-int", "gig_url": "https://fiverr.com/a"}]
+
+
+def test_load_signals_inline_contamination_handles_invalid_ids() -> None:
+    calls: list[set[int]] = []
+
+    def _capture(profile: Any, contaminated: set[int] | None) -> dict[str, Any] | None:
+        calls.append(set(contaminated or set()))
+        return _exclude_contaminated_competitors(profile, contaminated)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("src.scoring.competition._exclude_contaminated_competitors", _capture)
+    payload = {
+        KEYWORD_ID: {
+            **_base_competition_inputs(),
+            "competitor_profile": {"mean_reviews": 100.0, "competitors": [{"source_keyword_id": 7}]},
+            "contaminated_keyword_ids": ["x", None, 7],
+        }
+    }
+    loaded = CompetitionScoreCalculator()._load_signals(  # pylint: disable=protected-access
+        KEYWORD_ID,
+        payload,
+        config={"scoring": {"competition": {"exclude_contaminated": True}}},
+    )
+    monkeypatch.undo()
+    assert loaded["avg_review_count_top10"] == 100.0
+    assert calls == [{7}]
+
+
+def test_competition_db_path_applies_keyword_profile_and_contamination_filters() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="run-db-keyword-profile")
+        keyword.metadata_json = {
+            "competitor_profile_per_keyword": {
+                "mean_reviews": 500.0,
+                "competitors": [{"source_keyword_id": 111}, {"source_keyword_id": 222}],
+            },
+            "contaminated_keyword_ids": ["bad", 222],
+        }
+        write_competitor_profile(
+            niche_id="test_niche",
+            run_id="run-db-keyword-profile",
+            db=session,
+            mean_reviews=120.0,
+            median_price=60.0,
+            seller_level_distribution={"LEVEL_1": 1.0},
+            new_seller_gap={"gap_flags": []},
+        )
+        session.commit()
+        result = CompetitionScoreCalculator().calculate(
+            keyword.id,
+            session,
+            config={"scoring": {"competition": {"use_per_keyword_profile": True, "exclude_contaminated": True}}},
+        )
+        assert result.competitor_profile_source == "per_keyword"
+        assert result.score_components["avg_reviews"].raw == 500.0
+    finally:
+        session.close()
+
+
+def test_competition_db_path_applies_sponsored_and_zombie_eligibility_filters() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        for rank in range(1, 4):
+            seller = Seller(seller_handle=f"elig-seller-{rank}", level="LEVEL_1")
+            session.add(seller)
+            session.flush()
+            gig = Gig(
+                seller_id=seller.id,
+                title=f"eligible gig {rank}",
+                normalized_title=f"eligible gig {rank}",
+                starting_price=20.0 + rank,
+                review_count=10.0 * rank,
+                is_sponsored=(rank == 2),
+                is_zombie=(rank == 3),
+            )
+            session.add(gig)
+            session.flush()
+            session.add(SearchResult(keyword_id=keyword.id, run_id="eligibility-run", rank=rank, gig_id=gig.id, title=gig.title))
+        session.commit()
+
+        signals = CompetitionScoreCalculator()._load_signals_from_db(  # pylint: disable=protected-access
+            keyword.id,
+            session,
+            config={"relevance": {"enable_sponsored_exclusion": True, "enable_zombie_filter": True}},
+        )
+        assert signals["avg_review_count_top10"] == pytest.approx(10.0)
+    finally:
+        session.close()
+
+
+def test_niche_profile_excludes_contaminated_keywords() -> None:
+    # REG-20: robust behavior check with mixed competitors and multiple contaminated ids.
+    profile = {
+        "competitors": [
+            {"source_keyword_id": 101, "gig_url": "https://fiverr.com/clean-1"},
+            {"source_keyword_id": 202, "gig_url": "https://fiverr.com/dirty-1"},
+            {"source_keyword_id": 303, "gig_url": "https://fiverr.com/clean-2"},
+            {"source_keyword_id": 404, "gig_url": "https://fiverr.com/dirty-2"},
+            {"gig_url": "https://fiverr.com/unknown-source"},
+        ]
+    }
+    filtered = _exclude_contaminated_competitors(profile, {202, 404})
+    assert filtered is not None
+    kept_urls = [entry["gig_url"] for entry in filtered["competitors"]]
+    assert kept_urls == [
+        "https://fiverr.com/clean-1",
+        "https://fiverr.com/clean-2",
+        "https://fiverr.com/unknown-source",
+    ]

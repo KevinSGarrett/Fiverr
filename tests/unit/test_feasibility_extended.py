@@ -224,6 +224,30 @@ def test_clean_gig_set_excludes_sponsored_and_zombie() -> None:
     assert len(clean) == 3
 
 
+def test_clean_set_excludes_sponsored() -> None:
+    class _Gig:
+        def __init__(self, sponsored: bool) -> None:
+            self.relevance_flag = True
+            self.is_relevant = True
+            self.is_sponsored = sponsored
+            self.is_zombie = False
+
+    clean = _clean_gig_set([_Gig(False), _Gig(True)])  # type: ignore[arg-type]
+    assert len(clean) == 1
+
+
+def test_clean_set_excludes_zombie() -> None:
+    class _Gig:
+        def __init__(self, zombie: bool) -> None:
+            self.relevance_flag = True
+            self.is_relevant = True
+            self.is_sponsored = False
+            self.is_zombie = zombie
+
+    clean = _clean_gig_set([_Gig(False), _Gig(True)])  # type: ignore[arg-type]
+    assert len(clean) == 1
+
+
 def test_clean_gig_count_recorded() -> None:
     result = NewSellerFeasibilityCalculator().calculate(
         100,
@@ -240,6 +264,34 @@ def test_clean_gig_count_recorded() -> None:
         config={"scoring": {"feasibility": {"use_clean_gig_set": True}}},
     )
     assert result.clean_gig_count == 3
+
+
+def test_clean_set_empty_falls_back_to_full() -> None:
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(session, use_card_path=False, run_id="clean-fallback")
+    try:
+        gigs = (
+            session.query(Gig)
+            .filter(Gig.keyword_id == keyword_id)
+            .order_by(Gig.position.asc())
+            .all()
+        )
+        for gig in gigs:
+            gig.is_sponsored = True
+        session.commit()
+
+        payload = NewSellerFeasibilityCalculator()._load_signals_from_db(  # pylint: disable=protected-access
+            keyword_id,
+            session,
+            config={
+                "relevance": {"enable_sponsored_exclusion": False, "enable_zombie_filter": False},
+                "scoring": {"feasibility": {"use_clean_gig_set": True}},
+            },
+        )
+        assert payload["clean_gig_count"] == len(payload["top10_seller_levels"])
+        assert payload["lowest_ranked_review_count_page1"] is not None
+    finally:
+        session.close()
 
 
 def test_clean_gig_set_toggle_off_matches_legacy() -> None:
@@ -260,3 +312,8 @@ def test_clean_gig_set_toggle_off_matches_legacy() -> None:
         config={"scoring": {"feasibility": {"use_clean_gig_set": False}}},
     )
     assert off.score_value == legacy.score_value
+
+
+def test_feasibility_as_int_guard_returns_none_on_invalid() -> None:
+    calc = NewSellerFeasibilityCalculator()
+    assert calc._as_int("invalid") is None  # pylint: disable=protected-access
