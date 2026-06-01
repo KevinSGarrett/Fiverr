@@ -108,11 +108,15 @@ VERDICT for Agent D: **GO**
 
 10. VERDICT: patch >= 90 **GO for D**
 
-11. Commit SHA(s): `c4faf8d5c49b74f8a4759463ba65e96d43ee87c2`
+11. Commit SHA(s):
+ - `c4faf8d5c49b74f8a4759463ba65e96d43ee87c2` (`test(scoring): R4 coverage backfill + REG-20/21/22`)
+ - `7fcad9ee1aa0ca48f48df73600da50d257270778` (`docs(cycle-054): finalize Agent F report metadata`)
 
 ## Control Task Summary Line
 
 Agent F complete — patch 95.25% GO; REG-20/21/22 seated; 20 regressions green; zero src/.
+
+Posted to control task `SCRUM-1008` as comment `12136`.
 
 ## Verification Evidence
 
