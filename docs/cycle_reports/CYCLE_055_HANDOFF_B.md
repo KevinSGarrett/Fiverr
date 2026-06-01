@@ -1,6 +1,7 @@
 # HANDOFF_B — Cycle 055 R6 implementation
 
-Branch HEAD: `e65b9f9` (pre-commit snapshot)
+Branch HEAD: `9cca192`
+Develop parity anchor from Agent A: `acff870e8ef32d8e92bc2ebad4ff14e0675fdbc7`
 
 Toggle:
 - `discovery.enable_relevance_gates = false`
@@ -98,6 +99,9 @@ Rejection-rate evidence (toggle ON, Appendix-D style contamination fixture):
 
 Regression pack evidence:
 - Full suite command above passed (`3816 passed`) including the permanent regression set.
+- Explicit 26-name pack run:
+  - `py -3.12 -m pytest -q -k "extract_price_text_from_payload_uses_nested_price_amount or parse_gig_detail_from_html_keeps_zero_review_count or parse_seller_profile_from_html_keeps_zero_review_count_from_hydration or seller_profile_fetcher_maps_parser_fields_for_persistence or gig_detail_fetcher_does_not_overwrite_existing_optional_fields or seller_profile_live_markup_drift_regression_spec or scoring_fallback_queries_scope_to_active_run_id or scoring_fallback_queries_recover_when_latest_run_unlinked or demand_uses_search_result_total_result_count_when_available or competition_score_session_falls_back_to_latest_profile_when_run_mismatch or scoring_uses_card_urls_with_querystrings_for_sparse_links or confidence_modifier_uses_current_run_context_not_none or weakness_multi_row_fallback_does_not_produce_extreme_value or fiverr_search_url_always_includes_category_filter_for_production_niches or unconstrained_search_result_applies_demand_confidence_deduction or eligibility_ghost_hard_block_even_when_forced or demand_qualified_trc_when_rsv_below_080 or sponsored_gigs_never_included_in_competition_top10 or zombie_gigs_never_used_in_feasibility_review_barrier or organic_trc_adjusted_when_sponsored_fraction_exceeds_20_percent or niche_profile_excludes_contaminated_keywords or opportunity_qualified_by_relevance or price_outlier_excluded_from_competition_and_profitability or ghost_discovery_recorded_as_invalid_not_miss or feedback_excludes_contaminated_outcomes or low_specificity_hypothesis_rejected"`
+  - Output: `34 passed, 3782 deselected in 5.03s`
 - Explicit R6 run:
   - `py -3.12 -m pytest -q -k "ghost_discovery_recorded_as_invalid_not_miss or feedback_excludes_contaminated_outcomes or low_specificity_hypothesis_rejected"`
   - Output: `3 passed, 3813 deselected in 3.70s`
@@ -116,3 +120,25 @@ Regression pack evidence:
 - `tests/integration/test_discovery_relevance_gates_integration.py`
 
 PM_Pack touched by this implementation: **No** (pre-existing PM_Pack local edits remain unstaged/uncommitted).
+
+## Commit + staging audit
+
+Commits (Agent B src changes):
+- `9cca192 feat(discovery): add R6 relevance gates behind config toggle`
+
+Exact files staged in the R6 commit:
+- `config.yaml`
+- `docs/cycle_reports/CYCLE_055_HANDOFF_B.md`
+- `src/analysis/pre_validator.py`
+- `src/config/models.py`
+- `src/discovery/hypothesis.py`
+- `src/discovery/orchestrator.py`
+- `src/models/__init__.py`
+- `src/models/discovery_outcome.py`
+- `src/models/market.py`
+- `tests/integration/test_discovery_relevance_gates_integration.py`
+- `tests/unit/test_discovery_relevance_gates.py`
+
+Self-audit proof:
+- `git diff --name-only develop..cycle/055/integration` includes the expected R6 paths only for src/tests, plus Agent A/E docs.
+- `git log develop..cycle/055/integration --format="%an %s"` shows all cycle commits authored by `KevinSGarrett`.
