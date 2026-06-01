@@ -139,6 +139,24 @@ def test_gate1_borderline_threshold_behavior() -> None:
     assert len(accepted_high) == 1
 
 
+def test_gate1_accepts_in_scope_contract_and_keeps_fields() -> None:
+    contracts = parse_hypothesis_contracts(
+        [
+            {
+                "hypothesis_text": "help center article rewrite service",
+                "buyer": "SaaS support manager",
+                "deliverable": "help center docs",
+            }
+        ],
+        source_niche_id="support_kb_readiness",
+    )
+    accepted = _gate_hypotheses(contracts)
+    assert len(accepted) == 1
+    assert accepted[0].buyer == "SaaS support manager"
+    assert accepted[0].deliverable == "help center docs"
+    assert accepted[0].reason == "passed specificity + on-niche"
+
+
 def test_pre_validator_maps_valid_ghost_and_contaminated() -> None:
     validator = DiscoveryPreValidator()
     assert (
@@ -153,9 +171,25 @@ def test_pre_validator_maps_valid_ghost_and_contaminated() -> None:
         validator.evaluate(
             candidate="support help center docs",
             niche_id="support_kb_readiness",
+            provisional_result_set=_valid_result_set(),
+        ).reason
+        == "relevant_result_set"
+    )
+    assert (
+        validator.evaluate(
+            candidate="support help center docs",
+            niche_id="support_kb_readiness",
             provisional_result_set=[],
         ).verdict
         is DiscoveryVerdict.GHOST
+    )
+    assert (
+        validator.evaluate(
+            candidate="support help center docs",
+            niche_id="support_kb_readiness",
+            provisional_result_set=[],
+        ).reason
+        == "ghost_market_result_set"
     )
     assert (
         validator.evaluate(
@@ -165,6 +199,38 @@ def test_pre_validator_maps_valid_ghost_and_contaminated() -> None:
         ).verdict
         is DiscoveryVerdict.CONTAMINATED
     )
+    assert (
+        validator.evaluate(
+            candidate="support help center docs",
+            niche_id="support_kb_readiness",
+            provisional_result_set=_contaminated_result_set(),
+        ).reason
+        == "contaminated_result_set"
+    )
+
+
+def test_pre_validator_low_rsv_without_flags_maps_to_contaminated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fake_validate_result_set(*args: object, **kwargs: object) -> SimpleNamespace:
+        del args
+        del kwargs
+        return SimpleNamespace(
+            result_set_relevance_score=0.59,
+            ghost_market_flag=False,
+            category_contamination_flag=False,
+        )
+
+    monkeypatch.setattr("src.analysis.pre_validator.validate_result_set", _fake_validate_result_set)
+    monkeypatch.setattr("src.analysis.pre_validator.compute_gig_relevance", lambda **_: 0.0)
+    result = DiscoveryPreValidator(relevant_threshold=0.60).evaluate(
+        candidate="support docs cleanup",
+        niche_id="support_kb_readiness",
+        provisional_result_set=[{"gig_title": "support docs cleanup", "gig_url": "x"}],
+    )
+    assert result.verdict is DiscoveryVerdict.CONTAMINATED
+    assert result.reason.startswith("rsv_below_threshold:")
+    assert result.rsv == 0.59
 
 
 def test_pre_validator_threshold_boundary_is_valid(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -305,6 +371,8 @@ def test_ghost_discovery_recorded_as_invalid_not_miss(tmp_path: Path) -> None:
     outcome = session.query(DiscoveryOutcome).filter_by(keyword_text=candidate).one()
     assert outcome.is_invalid is True
     assert outcome.is_invalid is not False
+    assert outcome.contamination_reason == "ghost_market_result_set"
+    assert outcome.relevance_score is not None
     assert session.query(Keyword).filter_by(keyword=candidate).count() == 0
     session.close()
 
@@ -401,6 +469,11 @@ def test_gate2_contaminated_candidate_not_inserted_and_invalid(tmp_path: Path) -
     outcome = session.query(DiscoveryOutcome).filter_by(keyword_text=candidate).one()
     assert outcome.is_invalid is True
     assert outcome.is_contaminated is True
+    assert outcome.contamination_reason == "contaminated_result_set" or (
+        isinstance(outcome.contamination_reason, str)
+        and outcome.contamination_reason.startswith("rsv_below_threshold:")
+    )
+    assert outcome.relevance_score is not None
     session.close()
 
 
@@ -529,6 +602,40 @@ def test_orchestrator_uses_context_session_when_provided(tmp_path: Path) -> None
     orchestrator.run_cycle(discovery_input)
     session.commit()
     assert session.query(Keyword).filter_by(keyword=candidate).count() == 1
+    session.close()
+
+
+def test_feedback_toggle_off_handles_null_reason_and_rsv(tmp_path: Path) -> None:
+    session = _init_session(tmp_path, "feedback_nulls.db")
+    session.add_all(
+        [
+            DiscoveryOutcome(
+                run_id="feedback_nulls",
+                niche_id="support_kb_readiness",
+                keyword_text="legacy-null",
+                is_invalid=False,
+                is_contaminated=False,
+                relevance_score=None,
+                contamination_reason=None,
+            ),
+            DiscoveryOutcome(
+                run_id="feedback_nulls",
+                niche_id="support_kb_readiness",
+                keyword_text="legacy-invalid",
+                is_invalid=True,
+                is_contaminated=False,
+                relevance_score=None,
+                contamination_reason=None,
+            ),
+        ]
+    )
+    session.commit()
+    orchestrator = DiscoveryOrchestrator(config=_config(False), session=session)
+    legacy_feedback = orchestrator.aggregate_feedback(
+        run_id="feedback_nulls", session=session, enable_relevance_gates=False
+    )
+    assert legacy_feedback["counted_valid"] == 2
+    assert legacy_feedback["counted_invalid"] == 1
     session.close()
 
 
