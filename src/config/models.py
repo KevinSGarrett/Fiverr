@@ -212,6 +212,8 @@ class ScoringDemandConfig(BaseModel):
     """Runtime knobs for demand-score cluster integration behavior."""
 
     use_cluster_boost: bool = True
+    use_trc_reliability: bool = False
+    use_signal_qualifiers: bool = False
     cluster_boost: float = Field(default=5.0, ge=0.0, le=10.0)
     min_cluster_size: int = Field(default=3, ge=1)
 
@@ -220,11 +222,14 @@ class ScoringCompetitionConfig(BaseModel):
     """Runtime knobs for competition-score Stage 10 profile integration."""
 
     use_competitor_profile: bool = True
+    use_per_keyword_profile: bool = False
+    exclude_contaminated: bool = False
 
 
 class ScoringFeasibilityConfig(BaseModel):
     """Runtime knobs for feasibility-score Stage 10 gap-signal integration."""
 
+    use_clean_gig_set: bool = False
     gap_boost_per_flag: float = Field(default=10.0, ge=0.0, le=30.0)
     max_gap_boost: float = Field(default=30.0, ge=0.0, le=30.0)
 
@@ -239,6 +244,12 @@ class ScoringSaturationConfig(BaseModel):
     """Runtime knobs for saturation-score Stage 13 integration behavior."""
 
     use_analysis_output: bool = True
+
+
+class ScoringOpportunityConfig(BaseModel):
+    """Runtime knobs for opportunity-score relevance qualification."""
+
+    qualify_by_relevance: bool = False
 
 
 class DiscoverySkillProfileConfig(BaseModel):
@@ -320,7 +331,9 @@ class ScoringConfig(BaseModel):
     demand: ScoringDemandConfig = Field(default_factory=ScoringDemandConfig)
     competition: ScoringCompetitionConfig = Field(default_factory=ScoringCompetitionConfig)
     feasibility: ScoringFeasibilityConfig = Field(default_factory=ScoringFeasibilityConfig)
+    opportunity: ScoringOpportunityConfig = Field(default_factory=ScoringOpportunityConfig)
     saturation: ScoringSaturationConfig = Field(default_factory=ScoringSaturationConfig)
+    exclude_price_outliers: bool = False
     profiles: dict[str, ScoringProfileConfig] = Field(default_factory=dict)
     thresholds: dict[str, float] = Field(
         default_factory=lambda: {

@@ -22,6 +22,7 @@ from src.scoring.result_set_relevance import apply_trc_adjustments, get_result_s
 _DEFAULT_CLUSTER_BOOST = 5.0
 _DEFAULT_MIN_CLUSTER_SIZE = 3
 _R1_STRICTNESS_EFFECTIVE_DATE = date(2026, 5, 30)
+_EMERGING_MIN = 3
 log = logging.getLogger(__name__)
 
 
@@ -55,6 +56,10 @@ def _coerce_int(value: Any, default: int) -> int:
         return default
 
 
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
 def _demand_config(config: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(config, Mapping):
         return {}
@@ -74,6 +79,103 @@ def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(relevance_cfg, Mapping):
         return {"enable_sponsored_exclusion": True}
     return {"enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True))}
+
+
+def _relevance_factor(rsv_relevance: float | None) -> float:
+    if rsv_relevance is None:
+        return 1.0
+    if rsv_relevance < 0.80:
+        return _clamp01(rsv_relevance)
+    return 1.0
+
+
+def _sponsored_factor(sponsored_fraction: float | None) -> float:
+    if sponsored_fraction is None:
+        return 1.0
+    if sponsored_fraction <= 0.10:
+        return 1.0
+    if sponsored_fraction <= 0.20:
+        return 0.90
+    if sponsored_fraction <= 0.35:
+        return 0.80
+    return 0.70
+
+
+def _strictness_factor(strictness: str | None) -> float:
+    normalized = _normalize_search_strictness(strictness)
+    if normalized in {"SUBCATEGORY", "CATEGORY"} or normalized is None:
+        return 1.0
+    if normalized == "NONE":
+        return _clamp01(1.0 + UNCONSTRAINED_DEMAND_DEDUCTION)
+    return 1.0
+
+
+def _compute_trc_reliability(
+    rsv_relevance: float | None,
+    sponsored_fraction: float | None,
+    strictness: str | None,
+    *,
+    weights: dict[str, float] | None = None,
+) -> float:
+    """DL-209: single reliability factor from existing component multipliers."""
+    del weights
+    return _clamp01(
+        min(
+            _relevance_factor(rsv_relevance),
+            _sponsored_factor(sponsored_fraction),
+            _strictness_factor(strictness),
+        )
+    )
+
+
+def _classify_autocomplete_state(suggestions: list[str] | None) -> str:
+    if suggestions is None:
+        return "present"
+    normalized = {
+        suggestion.strip().lower()
+        for suggestion in suggestions
+        if isinstance(suggestion, str) and suggestion.strip()
+    }
+    if not normalized:
+        return "absent"
+    if len(normalized) < _EMERGING_MIN:
+        return "emerging"
+    return "present"
+
+
+def _autocomplete_state_multiplier(state: str) -> float:
+    if state == "absent":
+        return 0.80
+    if state == "emerging":
+        return 0.95
+    return 1.0
+
+
+def _trends_platform_qualifier(trends_signal: Any) -> float:
+    if trends_signal is None:
+        return 1.0
+    if isinstance(trends_signal, Mapping):
+        for key in ("platform_fit", "platform_qualifier", "fit", "score"):
+            raw = trends_signal.get(key)
+            if raw is None:
+                continue
+            try:
+                value = float(raw)
+                return _clamp01(value if value <= 1.0 else value / 100.0)
+            except (TypeError, ValueError):
+                continue
+        trends_12mo = trends_signal.get("trends_12mo_score")
+        if trends_12mo is not None:
+            try:
+                return _clamp01(float(trends_12mo) / 100.0)
+            except (TypeError, ValueError):
+                return 1.0
+        return 1.0
+    try:
+        value = float(trends_signal)
+    except (TypeError, ValueError):
+        return 1.0
+    return _clamp01(value if value <= 1.0 else value / 100.0)
 
 
 def _extract_cluster_context(payload: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -341,16 +443,22 @@ class DemandScoreCalculator:
         confidence_breakdown: dict[str, float] = {}
         weighted_sum = 0.0
         total_weight_available = 0.0
+        demand_cfg = _demand_config(config)
+        use_trc_reliability = _coerce_bool(demand_cfg.get("use_trc_reliability"), False)
+        use_signal_qualifiers = _coerce_bool(demand_cfg.get("use_signal_qualifiers"), False)
+        trc_reliability: float | None = None
 
         total_result_count = self._as_float(signals.get("total_result_count"))
         search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
         sponsored_exclusion_enabled = _relevance_config(config).get("enable_sponsored_exclusion", True)
-        count_multiplier = trc_adjustment(
-            sponsored_gig_count=self._as_int(signals.get("sponsored_gig_count")),
-            total=self._as_int(signals.get("total_gig_count")),
-            config=config,
-            strictness_used=search_strictness_used,
-        )
+        count_multiplier = 1.0
+        if not use_trc_reliability:
+            count_multiplier = trc_adjustment(
+                sponsored_gig_count=self._as_int(signals.get("sponsored_gig_count")),
+                total=self._as_int(signals.get("total_gig_count")),
+                config=config,
+                strictness_used=search_strictness_used,
+            )
         if total_result_count is not None:
             sponsored_gig_count = self._as_int(signals.get("sponsored_gig_count"))
             total_gig_count = self._as_int(signals.get("total_gig_count"))
@@ -359,12 +467,23 @@ class DemandScoreCalculator:
                 if sponsored_exclusion_enabled
                 and sponsored_gig_count is not None
                 and total_gig_count is not None
-                and search_strictness_used is not None
+                else None
+            )
+            rsv = get_result_set_validation(keyword_id, db)
+            rsv_relevance = (
+                float(rsv.result_set_relevance_score)
+                if rsv is not None and rsv.result_set_relevance_score is not None
                 else None
             )
             adjusted_trc = total_result_count * count_multiplier
-            rsv = get_result_set_validation(keyword_id, db)
-            if rsv is not None:
+            if use_trc_reliability:
+                trc_reliability = _compute_trc_reliability(
+                    rsv_relevance=rsv_relevance,
+                    sponsored_fraction=sponsored_fraction,
+                    strictness=search_strictness_used,
+                )
+                adjusted_trc = total_result_count * trc_reliability
+            elif rsv is not None:
                 adjusted_trc = apply_trc_adjustments(
                     trc=total_result_count,
                     rsv=rsv,
@@ -461,6 +580,14 @@ class DemandScoreCalculator:
             )
 
         base_demand_score = weighted_sum / total_weight_available
+        if use_signal_qualifiers:
+            autocomplete_state = _classify_autocomplete_state(signals.get("autocomplete_suggestions"))
+            multiplier = _autocomplete_state_multiplier(autocomplete_state)
+            trends_signal = signals.get("trends_signal")
+            if trends_signal is None:
+                trends_signal = {"trends_12mo_score": trends_12mo_score} if trends_12mo_score is not None else None
+            multiplier *= _trends_platform_qualifier(trends_signal)
+            base_demand_score *= multiplier
         if search_strictness_used == "NONE":
             confidence_breakdown["unconstrained_search"] = UNCONSTRAINED_DEMAND_DEDUCTION
             score_components["unconstrained_search"] = ScoreComponent(
@@ -526,6 +653,7 @@ class DemandScoreCalculator:
             source_evidence=source_evidence,
             explanation_text=explanation_text,
             total_weight_available=total_weight_available,
+            trc_reliability=trc_reliability,
         )
 
     @staticmethod

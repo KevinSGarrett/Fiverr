@@ -59,6 +59,16 @@ def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _clean_gig_set(gigs: list[Gig]) -> list[Gig]:
+    """Return relevant non-sponsored non-zombie gigs."""
+    cleaned: list[Gig] = []
+    for gig in gigs:
+        is_relevant = bool(getattr(gig, "is_relevant", getattr(gig, "relevance_flag", False)))
+        if is_relevant and not bool(getattr(gig, "is_sponsored", False)) and not bool(getattr(gig, "is_zombie", False)):
+            cleaned.append(gig)
+    return cleaned
+
+
 def _normalize_gap_flags(raw_flags: Any) -> list[str]:
     if not isinstance(raw_flags, list):
         return []
@@ -171,6 +181,7 @@ class NewSellerFeasibilityCalculator:
         confidence_breakdown: dict[str, float] = {}
         weighted_sum = 0.0
         total_weight_available = 0.0
+        clean_gig_count = self._as_int(signals.get("clean_gig_count"))
 
         level1_ratio = self._resolve_level1_ratio(signals)
         if level1_ratio is not None:
@@ -275,6 +286,7 @@ class NewSellerFeasibilityCalculator:
                 total_weight_available=total_weight_available,
                 default_weight=self.DEFAULT_WEIGHT,
                 niche_tier=niche_tier,
+                clean_gig_count=clean_gig_count,
             )
 
         baseline_score = weighted_sum / total_weight_available
@@ -308,6 +320,7 @@ class NewSellerFeasibilityCalculator:
             total_weight_available=total_weight_available,
             default_weight=self.DEFAULT_WEIGHT,
             niche_tier=niche_tier,
+            clean_gig_count=clean_gig_count,
         )
 
     def _resolve_level1_ratio(self, signals: dict[str, Any]) -> float | None:
@@ -441,6 +454,8 @@ class NewSellerFeasibilityCalculator:
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         relevance_cfg = _relevance_config(config)
+        feasibility_cfg = _feasibility_config(config)
+        use_clean_gig_set = bool(feasibility_cfg.get("use_clean_gig_set", False))
         top_n_for_scoring = int(relevance_cfg["top_n_for_scoring"])
         candidate_window = max(top_n_for_scoring, 10) * 3
 
@@ -561,7 +576,12 @@ class NewSellerFeasibilityCalculator:
                     .all()
                 )
         top_gigs = [gig for gig in top_gigs if _eligible(gig)][:top_n_for_scoring]
-        seller_levels = [str(gig.seller.level) for gig in top_gigs if gig.seller and gig.seller.level]
+        basis_gigs = top_gigs
+        clean_gig_count: int | None = None
+        if use_clean_gig_set:
+            basis_gigs = _clean_gig_set(top_gigs) or top_gigs
+            clean_gig_count = len(basis_gigs)
+        seller_levels = [str(gig.seller.level) for gig in basis_gigs if gig.seller and gig.seller.level]
         accessible_levels = {
             "",
             "none",
@@ -575,13 +595,13 @@ class NewSellerFeasibilityCalculator:
         }
         accessible_count = sum(1 for level in seller_levels if level.strip().lower() in accessible_levels)
         review_candidates: list[float] = []
-        for gig in top_gigs:
+        for gig in basis_gigs:
             review_count = gig.review_count
             if review_count is None:
                 review_count = gig.review_count_exact
             if review_count is not None:
                 review_candidates.append(float(review_count))
-        prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        prices = [float(gig.starting_price) for gig in basis_gigs if gig.starting_price is not None]
         price_diversity = self._compute_price_diversity(prices)
         payload: dict[str, Any] = {
             "level1_or_new_ratio_top10": (
@@ -593,6 +613,8 @@ class NewSellerFeasibilityCalculator:
             "top10_prices": prices or None,
             "llm_gig_quality_weakness_avg_top10": None,
         }
+        if clean_gig_count is not None:
+            payload["clean_gig_count"] = clean_gig_count
 
         profile_niche_id: str | None = None
         if keyword is not None:
@@ -631,6 +653,15 @@ class NewSellerFeasibilityCalculator:
             return None
         try:
             return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _as_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
         except (TypeError, ValueError):
             return None
 

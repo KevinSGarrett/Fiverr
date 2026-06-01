@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from src.scoring.competition import CompetitionScoreCalculator
@@ -12,6 +13,37 @@ from src.scoring.contracts import (
     ScoreComponent,
 )
 from src.scoring.demand import DemandScoreCalculator
+from src.scoring.intent import compute_intent_alignment_factor
+from src.scoring.result_set_relevance import get_result_set_validation
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _opportunity_relevance_qualifier(rsv_relevance: float | None) -> float:
+    return 1.0 if rsv_relevance is None else _clamp01(rsv_relevance)
+
+
+def _opportunity_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, Mapping):
+        return {}
+    scoring_cfg = config.get("scoring")
+    if not isinstance(scoring_cfg, Mapping):
+        return {}
+    opportunity_cfg = scoring_cfg.get("opportunity")
+    if not isinstance(opportunity_cfg, Mapping):
+        return {}
+    return dict(opportunity_cfg)
+
+
+def _as_optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class OpportunityScoreCalculator:
@@ -70,6 +102,50 @@ class OpportunityScoreCalculator:
             )
 
         raw_opportunity = (demand_score * 1.2) - (competition_score * 0.8)
+        opportunity_relevance_factor: float | None = None
+        if bool(_opportunity_config(config).get("qualify_by_relevance", False)):
+            rsv = get_result_set_validation(keyword_id, db)
+            rsv_relevance = (
+                float(rsv.result_set_relevance_score)
+                if rsv is not None and rsv.result_set_relevance_score is not None
+                else None
+            )
+            if rsv_relevance is None and hasattr(db, "get_opportunity_inputs"):
+                loaded = db.get_opportunity_inputs(keyword_id)
+                if isinstance(loaded, Mapping):
+                    rsv_relevance = _as_optional_float(loaded.get("rsv_relevance"))
+            if rsv_relevance is None and isinstance(db, Mapping):
+                loaded = db.get(keyword_id, db)
+                if isinstance(loaded, Mapping):
+                    rsv_relevance = _as_optional_float(loaded.get("rsv_relevance"))
+            opportunity_relevance_factor = _opportunity_relevance_qualifier(rsv_relevance)
+
+            intent_inputs: Mapping[str, Any] | None = None
+            if hasattr(db, "get_intent_inputs"):
+                loaded_intent = db.get_intent_inputs(keyword_id)
+                if isinstance(loaded_intent, Mapping):
+                    intent_inputs = loaded_intent
+            elif isinstance(db, Mapping):
+                loaded_intent = db.get(keyword_id, db)
+                if isinstance(loaded_intent, Mapping):
+                    intent_inputs = loaded_intent
+            intent_alignment_factor = compute_intent_alignment_factor(
+                query_intent=(
+                    str(intent_inputs.get("query_intent_class"))
+                    if isinstance(intent_inputs, Mapping) and intent_inputs.get("query_intent_class") is not None
+                    else None
+                ),
+                service_intent=(
+                    str(intent_inputs.get("service_intent_class"))
+                    if isinstance(intent_inputs, Mapping) and intent_inputs.get("service_intent_class") is not None
+                    else None
+                ),
+            )
+            qualification_factor = opportunity_relevance_factor * intent_alignment_factor
+            if raw_opportunity > 0:
+                raw_opportunity = raw_opportunity * qualification_factor
+            else:
+                raw_opportunity = raw_opportunity * (2.0 - qualification_factor)
         normalized_opportunity = self._normalize_0_100(raw_opportunity)
         score_components = {
             "weighted_demand": ScoreComponent(
@@ -110,6 +186,7 @@ class OpportunityScoreCalculator:
             demand_score=demand_score,
             competition_score=competition_score,
             default_weight=self.DEFAULT_WEIGHT,
+            opportunity_relevance_factor=opportunity_relevance_factor,
         )
 
     @staticmethod

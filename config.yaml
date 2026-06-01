@@ -103,6 +103,17 @@ phase2_analysis:
 
 scoring:
   active_profile: aggressive_new_seller
+  demand:
+    use_trc_reliability: false
+    use_signal_qualifiers: false
+  competition:
+    use_per_keyword_profile: false
+    exclude_contaminated: false
+  exclude_price_outliers: false
+  feasibility:
+    use_clean_gig_set: false
+  opportunity:
+    qualify_by_relevance: false
   thresholds:
     strong_go: 80
     conditional_go: 60

@@ -38,16 +38,115 @@ def _coerce_float(value: Any, default: float) -> float:
         return default
 
 
-def _competition_config(config: dict[str, Any] | None) -> dict[str, Any]:
+def _scoring_config(config: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(config, Mapping):
         return {}
     scoring_cfg = config.get("scoring")
     if not isinstance(scoring_cfg, Mapping):
         return {}
+    return dict(scoring_cfg)
+
+
+def _competition_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    scoring_cfg = _scoring_config(config)
+    if not scoring_cfg:
+        return {}
     competition_cfg = scoring_cfg.get("competition")
     if not isinstance(competition_cfg, Mapping):
         return {}
     return dict(competition_cfg)
+
+
+def _is_profile_empty(profile: Mapping[str, Any] | None) -> bool:
+    if profile is None:
+        return True
+    competitors = profile.get("competitors")
+    if isinstance(competitors, list):
+        return len(competitors) == 0
+    signal_fields = (
+        "mean_reviews",
+        "median_price",
+        "mean_price",
+        "seller_level_distribution",
+        "video_present_rate",
+        "portfolio_present_rate",
+    )
+    return all(profile.get(field) in (None, {}, []) for field in signal_fields)
+
+
+def _select_competitor_profile(
+    per_keyword: Mapping[str, Any] | None,
+    per_niche: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any] | None, str]:
+    if per_keyword is not None and not _is_profile_empty(per_keyword):
+        return dict(per_keyword), "per_keyword"
+    if per_niche is None:
+        return None, "per_niche"
+    return dict(per_niche), "per_niche"
+
+
+def _exclude_contaminated_competitors(
+    profile: Mapping[str, Any] | None,
+    contaminated_keyword_ids: set[int] | None,
+) -> dict[str, Any] | None:
+    if profile is None:
+        return None
+    if not contaminated_keyword_ids:
+        return dict(profile)
+    competitors = profile.get("competitors")
+    if not isinstance(competitors, list):
+        return dict(profile)
+    kept: list[Any] = []
+    for competitor in competitors:
+        if not isinstance(competitor, Mapping):
+            kept.append(competitor)
+            continue
+        source_keyword_id = competitor.get("source_keyword_id")
+        if source_keyword_id is None:
+            kept.append(dict(competitor))
+            continue
+        try:
+            if int(source_keyword_id) in contaminated_keyword_ids:
+                continue
+        except (TypeError, ValueError):
+            kept.append(dict(competitor))
+            continue
+        kept.append(dict(competitor))
+    updated = dict(profile)
+    updated["competitors"] = kept
+    return updated
+
+
+def _quartiles(values: list[float]) -> tuple[float, float]:
+    ordered = sorted(values)
+    n = len(ordered)
+    if n <= 1:
+        return ordered[0] if ordered else 0.0, ordered[0] if ordered else 0.0
+
+    def _percentile(percent: float) -> float:
+        rank = (n - 1) * percent
+        lower = int(math.floor(rank))
+        upper = int(math.ceil(rank))
+        if lower == upper:
+            return ordered[lower]
+        fraction = rank - lower
+        return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+    return _percentile(0.25), _percentile(0.75)
+
+
+def _exclude_price_outliers_iqr(prices: list[float] | None) -> tuple[list[float], int]:
+    vals = [float(price) for price in (prices or []) if price is not None]
+    if len(vals) < 4:
+        return vals, 0
+    q1, q3 = _quartiles(vals)
+    iqr = q3 - q1
+    lower = q1 - (1.5 * iqr)
+    upper = q3 + (1.5 * iqr)
+    # Preserve low-tail values for the SRDI EX-2 contract; only clear extreme outliers.
+    lower = min(lower, min(vals))
+    kept = [price for price in vals if lower <= price <= upper]
+    return kept, len(vals) - len(kept)
 
 
 def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
@@ -252,6 +351,17 @@ class CompetitionScoreCalculator:
         weighted_sum = 0.0
         total_weight_available = 0.0
         profile_used = bool(signals.get("_profile_used"))
+        competitor_profile_source = (
+            str(signals.get("_competitor_profile_source"))
+            if signals.get("_competitor_profile_source") is not None
+            else None
+        )
+        raw_price_outliers_excluded = signals.get("_price_outliers_excluded")
+        price_outliers_excluded = (
+            int(raw_price_outliers_excluded)
+            if isinstance(raw_price_outliers_excluded, int | float)
+            else None
+        )
 
         total_result_count = self._as_float(signals.get("total_result_count"))
         if total_result_count is not None:
@@ -338,10 +448,16 @@ class CompetitionScoreCalculator:
         avg_starting_price_top10 = self._as_float(signals.get("avg_starting_price_top10"))
         if avg_starting_price_top10 is not None:
             price_score = self._normalize_price(avg_starting_price_top10)
+            price_note = (
+                f"Excluded {price_outliers_excluded} price outlier(s) via IQR."
+                if price_outliers_excluded
+                else ""
+            )
             score_components["avg_starting_price"] = ScoreComponent(
                 value=price_score,
                 weight=self._PRICE_WEIGHT,
                 raw=avg_starting_price_top10,
+                note=price_note,
             )
             weighted_sum += price_score * self._PRICE_WEIGHT
             total_weight_available += self._PRICE_WEIGHT
@@ -394,6 +510,8 @@ class CompetitionScoreCalculator:
                 source_evidence=source_evidence,
                 explanation_text="Insufficient data to generate a competition explanation.",
                 total_weight_available=total_weight_available,
+                price_outliers_excluded=price_outliers_excluded,
+                competitor_profile_source=competitor_profile_source,
             )
 
         competition_score = weighted_sum / total_weight_available
@@ -420,6 +538,8 @@ class CompetitionScoreCalculator:
                 )
             ),
             total_weight_available=total_weight_available,
+            price_outliers_excluded=price_outliers_excluded,
+            competitor_profile_source=competitor_profile_source,
         )
 
     @staticmethod
@@ -465,6 +585,9 @@ class CompetitionScoreCalculator:
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         use_profile = _coerce_bool(_competition_config(config).get("use_competitor_profile"), True)
+        use_per_keyword_profile = _coerce_bool(_competition_config(config).get("use_per_keyword_profile"), False)
+        exclude_contaminated = _coerce_bool(_competition_config(config).get("exclude_contaminated"), False)
+        exclude_price_outliers = _coerce_bool(_scoring_config(config).get("exclude_price_outliers"), False)
         if db is None:
             return {}
         if isinstance(db, Session):
@@ -481,13 +604,44 @@ class CompetitionScoreCalculator:
 
         if not loaded:
             return {}
+        if exclude_price_outliers and isinstance(loaded.get("top10_prices"), list):
+            kept_prices, excluded_count = _exclude_price_outliers_iqr(
+                [float(price) for price in loaded.get("top10_prices", []) if self._as_float(price) is not None]
+            )
+            loaded["top10_prices"] = kept_prices
+            loaded["avg_starting_price_top10"] = (sum(kept_prices) / len(kept_prices)) if kept_prices else None
+            loaded["_price_outliers_excluded"] = excluded_count
         if not use_profile:
             loaded.pop("competitor_profile", None)
+            loaded.pop("competitor_profile_per_keyword", None)
             return loaded
 
-        inline_profile = loaded.get("competitor_profile")
-        if isinstance(inline_profile, Mapping):
-            return self._merge_competitor_profile_signals(loaded, dict(inline_profile))
+        per_keyword_profile = loaded.get("competitor_profile_per_keyword")
+        per_niche_profile = loaded.get("competitor_profile")
+        selected_profile: dict[str, Any] | None = None
+        selected_source: str | None = None
+        if use_per_keyword_profile:
+            selected_profile, selected_source = _select_competitor_profile(
+                dict(per_keyword_profile) if isinstance(per_keyword_profile, Mapping) else None,
+                dict(per_niche_profile) if isinstance(per_niche_profile, Mapping) else None,
+            )
+        elif isinstance(per_niche_profile, Mapping):
+            selected_profile = dict(per_niche_profile)
+        if selected_profile is not None and exclude_contaminated:
+            contaminated_ids: set[int] = set()
+            raw_ids = loaded.get("contaminated_keyword_ids")
+            if isinstance(raw_ids, list):
+                for raw_id in raw_ids:
+                    try:
+                        contaminated_ids.add(int(raw_id))
+                    except (TypeError, ValueError):
+                        continue
+            selected_profile = _exclude_contaminated_competitors(selected_profile, contaminated_ids)
+        if selected_profile is not None:
+            merged = self._merge_competitor_profile_signals(loaded, selected_profile)
+            if selected_source is not None:
+                merged["_competitor_profile_source"] = selected_source
+            return merged
         return loaded
 
     def _load_signals_from_db(
@@ -497,6 +651,8 @@ class CompetitionScoreCalculator:
         config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         relevance_cfg = _relevance_config(config)
+        scoring_cfg = _scoring_config(config)
+        competition_cfg = _competition_config(config)
         top_n_for_scoring = int(relevance_cfg["top_n_for_scoring"])
         candidate_window = max(top_n_for_scoring, 10) * 3
 
@@ -531,6 +687,9 @@ class CompetitionScoreCalculator:
         top_sellers = [gig.seller for gig in top_gigs if gig.seller is not None]
         review_counts = [float(gig.review_count) for gig in top_gigs if gig.review_count is not None]
         starting_prices = [float(gig.starting_price) for gig in top_gigs if gig.starting_price is not None]
+        price_outliers_excluded: int | None = None
+        if _coerce_bool(scoring_cfg.get("exclude_price_outliers"), False):
+            starting_prices, price_outliers_excluded = _exclude_price_outliers_iqr(starting_prices)
         seller_level_values = [self._seller_level_value(seller.level) for seller in top_sellers]
         normalized_levels = [value for value in seller_level_values if value is not None]
         pro_verified_flags = [self._is_pro_verified(seller) for seller in top_sellers]
@@ -552,6 +711,8 @@ class CompetitionScoreCalculator:
             "avg_starting_price_top10": (sum(starting_prices) / len(starting_prices)) if starting_prices else None,
             "llm_competitor_strength_rating": self._as_float(keyword_meta.get("llm_competitor_strength_rating")),
         }
+        if price_outliers_excluded is not None:
+            signals["_price_outliers_excluded"] = price_outliers_excluded
 
         use_profile = _coerce_bool(_competition_config(config).get("use_competitor_profile"), True)
         if not use_profile:
@@ -587,10 +748,31 @@ class CompetitionScoreCalculator:
         profile_inputs = get_competitor_profile_inputs(niche_slug, run_id, session)
         if not profile_inputs:
             return signals
+        selected_profile: dict[str, Any] = dict(profile_inputs)
+        selected_source = "per_niche"
+        if _coerce_bool(competition_cfg.get("use_per_keyword_profile"), False):
+            per_keyword_raw = keyword_meta.get("competitor_profile_per_keyword")
+            per_keyword_profile = dict(per_keyword_raw) if isinstance(per_keyword_raw, Mapping) else None
+            selected_profile_candidate, selected_source = _select_competitor_profile(
+                per_keyword_profile,
+                profile_inputs,
+            )
+            selected_profile = selected_profile_candidate or {}
+        if _coerce_bool(competition_cfg.get("exclude_contaminated"), False):
+            contaminated_ids: set[int] = set()
+            raw_ids = keyword_meta.get("contaminated_keyword_ids")
+            if isinstance(raw_ids, list):
+                for raw_id in raw_ids:
+                    try:
+                        contaminated_ids.add(int(raw_id))
+                    except (TypeError, ValueError):
+                        continue
+            selected_profile = _exclude_contaminated_competitors(selected_profile, contaminated_ids) or {}
 
-        merged = self._merge_competitor_profile_signals(signals, profile_inputs)
+        merged = self._merge_competitor_profile_signals(signals, selected_profile)
         merged["_profile_niche_id"] = niche_slug
         merged["_profile_run_id"] = run_id
+        merged["_competitor_profile_source"] = selected_source
         return merged
 
     @staticmethod

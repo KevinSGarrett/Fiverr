@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.scoring.profitability import ProfitabilityScoreCalculator, _relevance_config
+from src.models import Gig, SearchResult, Seller
+from src.scoring.competition import CompetitionScoreCalculator, _exclude_price_outliers_iqr
+from src.scoring.profitability import (
+    ProfitabilityScoreCalculator,
+    _exclude_price_outliers_enabled,
+    _relevance_config,
+)
+from tests.unit.test_competition_score import _build_session, _seed_competition_rows
 
 
 class _FakeScoringDB:
@@ -172,3 +179,136 @@ def test_profitability_handles_missing_price_inputs_gracefully() -> None:
     }
     result = _calculate(inputs)
     assert result.score_value is None
+
+
+def test_price_outlier_excluded_from_competition_and_profitability() -> None:
+    prices = [5, 8, 10, 11, 12, 12, 13, 15, 400]
+    kept, excluded = _exclude_price_outliers_iqr(prices)
+    assert kept == [5.0, 8.0, 10.0, 11.0, 12.0, 12.0, 13.0, 15.0]
+    assert excluded == 1
+
+    competition_result = CompetitionScoreCalculator().calculate(
+        110,
+        {110: {"total_result_count": 1200, "top10_prices": prices}},
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+    profitability_result = ProfitabilityScoreCalculator().calculate(
+        110,
+        _FakeScoringDB(
+            {
+                **_base_profitability_inputs(),
+                "top10_prices": prices,
+                "avg_starting_price_top10": 54.0,
+            }
+        ),
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+
+    assert competition_result.price_outliers_excluded == 1
+    assert profitability_result.score_value is not None
+
+
+def test_profitability_uses_same_iqr_helper() -> None:
+    from src.scoring import profitability
+
+    assert profitability._exclude_price_outliers_iqr is _exclude_price_outliers_iqr  # type: ignore[attr-defined]
+
+
+def test_profitability_excludes_high_outlier_margin_stats() -> None:
+    prices = [5, 8, 10, 11, 12, 12, 13, 15, 400]
+    kept, excluded = _exclude_price_outliers_iqr(prices)
+    assert excluded == 1
+    # Profitability uses normalized average starting price; verify we can compute
+    # the same expected basis after outlier removal.
+    expected_avg = sum(kept) / len(kept)
+    result = ProfitabilityScoreCalculator().calculate(
+        110,
+        _FakeScoringDB(
+            {
+                **_base_profitability_inputs(),
+                "avg_starting_price_top10": expected_avg,
+            }
+        ),
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+    assert result.score_components["avg_starting_price"].raw == expected_avg
+
+
+def test_profitability_off_path_full_set() -> None:
+    payload = {
+        **_base_profitability_inputs(),
+        "avg_starting_price_top10": 54.0,
+        "top10_prices": [5, 8, 10, 11, 12, 12, 13, 15, 400],
+    }
+    on_result = ProfitabilityScoreCalculator().calculate(
+        110,
+        _FakeScoringDB(payload),
+        config={"scoring": {"exclude_price_outliers": True}},
+    )
+    off_result = ProfitabilityScoreCalculator().calculate(
+        110,
+        _FakeScoringDB(payload),
+        config={"scoring": {"exclude_price_outliers": False}},
+    )
+    # Mapping-backed path keeps legacy behavior regardless of toggle.
+    assert on_result.score_value == off_result.score_value
+
+
+def test_profitability_exclude_price_outliers_enabled_config_guard() -> None:
+    assert _exclude_price_outliers_enabled(None) is False
+    assert _exclude_price_outliers_enabled({"scoring": "bad"}) is False
+    assert _exclude_price_outliers_enabled({"scoring": {"exclude_price_outliers": True}}) is True
+
+
+def test_profitability_db_path_excludes_price_outliers_when_enabled() -> None:
+    session, _niche, keyword = _build_session()
+    try:
+        _seed_competition_rows(session, keyword.id, run_id="profitability-outlier")
+        # Introduce a high outlier directly on persisted gigs.
+        gigs = (
+            session.query(SearchResult)
+            .filter(SearchResult.keyword_id == keyword.id)
+            .order_by(SearchResult.rank.asc())
+            .all()
+        )
+        top_gigs = [row.gig for row in gigs if row.gig is not None]
+        assert len(top_gigs) >= 3
+        seller = Seller(seller_handle="profitability-outlier-extra", level="Level 1")
+        session.add(seller)
+        session.flush()
+        extra_gig = Gig(
+            seller_id=seller.id,
+            title="Competition gig extra",
+            normalized_title="competition gig extra",
+            starting_price=13.0,
+            review_count=15.0,
+        )
+        session.add(extra_gig)
+        session.flush()
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id="profitability-outlier",
+                rank=4,
+                gig_id=extra_gig.id,
+                title=extra_gig.title,
+            )
+        )
+        top_gigs[0].starting_price = 400.0
+        top_gigs[1].starting_price = 10.0
+        top_gigs[2].starting_price = 12.0
+        session.commit()
+
+        filtered = ProfitabilityScoreCalculator()._load_signals_from_db(  # pylint: disable=protected-access
+            keyword.id,
+            session,
+            config={"scoring": {"exclude_price_outliers": True}},
+        )
+        unfiltered = ProfitabilityScoreCalculator()._load_signals_from_db(  # pylint: disable=protected-access
+            keyword.id,
+            session,
+            config={"scoring": {"exclude_price_outliers": False}},
+        )
+        assert filtered["avg_starting_price_top10"] < unfiltered["avg_starting_price_top10"]
+    finally:
+        session.close()

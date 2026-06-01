@@ -234,7 +234,7 @@ def test_get_latest_keyword_score_none_for_non_session_db() -> None:
 
 
 def test_keyword_score_index_exists() -> None:
-    names = {index.name for index in KeywordScore.__table__.indexes}
+    names = {index.name for index in getattr(KeywordScore.__table__, "indexes", [])}
     assert "ix_keyword_scores_keyword_scored_at" in names
 
 
@@ -294,3 +294,144 @@ def test_get_latest_keyword_score_handles_empty_keyword_id() -> None:
     session = _session()
     assert get_latest_keyword_score(keyword_id=0, db=session) is None
     session.close()
+
+
+def test_no_keyword_score_columns_written_when_toggles_off() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    write_keyword_score(
+        keyword_id=keyword_id,
+        scores={"demand_score": 55.0},
+        weighted_composite=55.0,
+        confidence_modifier=1.0,
+        final_score=55.0,
+        tag="MONITOR",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="off",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        db=session,
+    )
+    row = session.query(KeywordScore).filter(KeywordScore.keyword_id == keyword_id).first()
+    assert row is not None
+    assert row.trc_reliability is None
+    assert row.opportunity_relevance_factor is None
+    assert row.price_outliers_excluded is None
+    assert row.clean_gig_count is None
+    assert row.competitor_profile_source is None
+    session.close()
+
+
+def test_keyword_score_integrity_columns_populated_when_present() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    write_keyword_score(
+        keyword_id=keyword_id,
+        scores={"demand_score": 70.0},
+        weighted_composite=70.0,
+        confidence_modifier=1.0,
+        final_score=70.0,
+        tag="CONDITIONAL_GO",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="on",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        integrity_fields={
+            "trc_reliability": 0.6,
+            "opportunity_relevance_factor": 0.75,
+            "price_outliers_excluded": 1,
+            "clean_gig_count": 8,
+            "competitor_profile_source": "per_keyword",
+        },
+        db=session,
+    )
+    row = session.query(KeywordScore).filter(KeywordScore.keyword_id == keyword_id).first()
+    assert row is not None
+    assert row.trc_reliability == pytest.approx(0.6)
+    assert row.opportunity_relevance_factor == pytest.approx(0.75)
+    assert row.price_outliers_excluded == 1
+    assert row.clean_gig_count == 8
+    assert row.competitor_profile_source == "per_keyword"
+    session.close()
+
+
+def test_keyword_score_columns_null_by_default() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    write_keyword_score(
+        keyword_id=keyword_id,
+        scores={"demand_score": 42.0},
+        weighted_composite=42.0,
+        confidence_modifier=1.0,
+        final_score=42.0,
+        tag="MONITOR",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="defaults",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        db=session,
+    )
+    row = session.query(KeywordScore).filter(KeywordScore.keyword_id == keyword_id).first()
+    assert row is not None
+    assert row.trc_reliability is None
+    assert row.opportunity_relevance_factor is None
+    assert row.price_outliers_excluded is None
+    assert row.clean_gig_count is None
+    assert row.competitor_profile_source is None
+    session.close()
+
+
+def test_keyword_score_columns_populated_on_path() -> None:
+    session = _session()
+    keyword_id = _seed_keyword(session)
+    write_keyword_score(
+        keyword_id=keyword_id,
+        scores={"demand_score": 70.0},
+        weighted_composite=70.0,
+        confidence_modifier=1.0,
+        final_score=70.0,
+        tag="CONDITIONAL_GO",
+        score_components={},
+        confidence_breakdown={},
+        explanation_text="integrity",
+        red_flags=[],
+        scoring_profile="default",
+        score_depth="standard",
+        integrity_fields={
+            "trc_reliability": 0.6,
+            "opportunity_relevance_factor": 0.75,
+            "price_outliers_excluded": 1,
+            "clean_gig_count": 8,
+            "competitor_profile_source": "per_keyword",
+        },
+        db=session,
+    )
+    row = session.query(KeywordScore).filter(KeywordScore.keyword_id == keyword_id).first()
+    assert row is not None
+    assert row.trc_reliability == pytest.approx(0.6)
+    assert row.opportunity_relevance_factor == pytest.approx(0.75)
+    assert row.price_outliers_excluded == 1
+    assert row.clean_gig_count == 8
+    assert row.competitor_profile_source == "per_keyword"
+    session.close()
+
+
+def test_migration_additive_nullable() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    columns = {column["name"]: column for column in inspect(engine).get_columns("keyword_scores")}
+    for column_name in (
+        "trc_reliability",
+        "opportunity_relevance_factor",
+        "price_outliers_excluded",
+        "clean_gig_count",
+        "competitor_profile_source",
+    ):
+        assert column_name in columns
+        assert columns[column_name]["nullable"] is True
