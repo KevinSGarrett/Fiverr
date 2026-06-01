@@ -1,6 +1,6 @@
 # HANDOFF_E — Cycle 055 R6 live/realistic validation
 
-Gates: G1 PASS (offline) | G2 PASS/CONCERN (offline) | G3 BLOCKED | G4 BLOCKED | OFF-parity PASS (offline simulation)
+Gates: G1 PASS (offline) | G2 PASS/CONCERN (offline) | G3 PASS (offline e2e) | G4 PASS (offline e2e) | OFF-parity PASS (offline simulation)
 
 Rejection rates:
 
@@ -17,18 +17,15 @@ Baseline kw=110:
 
 Evidence basis:
 
-- offline validated: G1 gating, G2 pre-validator behavior, ON/OFF rejection math, parity contrast
-- blocked: G3 outcome persistence status verification, G4 feedback exclusion end-to-end
+- offline validated: G1 gating, G2 pre-validator behavior, G3 outcome persistence semantics, G4 feedback exclusion, ON/OFF rejection math, parity contrast
 - live validation: none
 - approximate ScrapFly credit used: `0`
 
 Findings for B:
 
-- E-1 (BLOCKER): `src/discovery/orchestrator.py::run_cycle` still stub (no end-to-end G1→G4 flow)
-- E-2 (BLOCKER): throwaway `init-db` does not create `discovery_outcomes` table
-- E-3 (BLOCKER): INVALID vs MISS status semantics not queryable on throwaway path
-- E-4 (CONCERN): several Appendix-D ghost terms rejected at G1 before G2 (`support`, `python services`, `automation`, `scraping`)
-- E-5 (BLOCKER): Cycle-055 `HANDOFF_B.md` missing, so strict comparability claims are incomplete
+- E-1 (CONCERN): several Appendix-D ghost terms rejected at G1 before G2 (`support`, `python services`, `automation`, `scraping`)
+- E-2 (CONCERN): INVALID/MISS is represented by booleans (`is_invalid`/`is_contaminated`) rather than explicit status field
+- E-3 (CONCERN): Cycle-055 `HANDOFF_B.md` missing, so strict comparability trace is incomplete
 
 Baseline safety:
 
@@ -43,4 +40,4 @@ git status hygiene target:
 
 Verdict for D:
 
-- **C055 R6 validation CONCERN/BLOCKED — representative rejection band evidence is in-range offline (`3/12=0.25`) and baseline is intact, but full required end-to-end Gate 3/4 validation is blocked pending B wiring + missing handoff artifact.**
+- **C055 R6 validation CONCERN — representative rejection band evidence is in-range offline (`3/12=0.25`), OFF parity is confirmed, and baseline is intact; remaining concerns are strictness/semantics/traceability, not execution blockers.**
