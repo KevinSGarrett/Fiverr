@@ -125,8 +125,9 @@ This report supersedes HANDOFF_B for remediation audit.
 ## Commit/Push + Codex thread + CI
 
 Finalized evidence:
-- remediation commit SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`
-- pushed head SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`
+- remediation code commit SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`
+- report finalization commit SHA: `192cfd0224f3ed10df3be408e99a1a58df1930f4`
+- final pushed head SHA: `192cfd0224f3ed10df3be408e99a1a58df1930f4`
 - Codex review comment target:
   - `review_comment_id=3336627691`
   - `pull_request_review_id=4404030803`
@@ -134,11 +135,14 @@ Finalized evidence:
   - `reply_comment_id=3337688527`
   - `reply_pull_request_review_id=4405286794`
   - body includes migration commit SHA + PRAGMA + parity confirmations
-- check-runs on head SHA:
+- check-runs on remediation code commit (`b7db55c...`):
   - `78967826932` (`Lint, Typecheck, Tests, and Gates`) → `completed/success`
   - `78967821978` (`Lint, Typecheck, Tests, and Gates`) → `completed/success`
+- check-runs on final head (`192cfd0...`):
+  - `78969170984` (`Lint, Typecheck, Tests, and Gates`) → `completed/success`
+  - `78969166797` (`Lint, Typecheck, Tests, and Gates`) → `completed/success`
 
 ## Completion Signal
 
 Agent B migration fix complete. Branch `cycle/055/integration` is ready for Agent D re-gate.  
-Head SHA: `b7db55c66310447df0e6199d4273b3dab270fdd8`. CI: green. Codex thread reply posted.
+Head SHA: `192cfd0224f3ed10df3be408e99a1a58df1930f4`. CI: green. Codex thread reply posted.
