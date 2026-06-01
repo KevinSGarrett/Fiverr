@@ -205,7 +205,7 @@ def validate_result_set(
 
 
 NICHE_VALIDATION_CONFIG: dict[str, dict[str, Any]] = {
-    "mcp_servers": {
+    "mcp_ai_agent": {
         "core_terms": [
             "mcp",
             "model context protocol",
@@ -217,7 +217,7 @@ NICHE_VALIDATION_CONFIG: dict[str, dict[str, Any]] = {
         "exclusion_terms": ["logo", "video", "resume", "wordpress theme"],
         "ghost_market_threshold": 0.10,
     },
-    "gumloop_workflows": {
+    "gumloop_lindy_workflow": {
         "core_terms": [
             "gumloop",
             "workflow",
@@ -291,7 +291,7 @@ NICHE_VALIDATION_CONFIG: dict[str, dict[str, Any]] = {
         "exclusion_terms": ["logo", "essay", "translation", "resume"],
         "ghost_market_threshold": 0.20,
     },
-    "api_integration": {
+    "python_automation": {
         "core_terms": [
             "api",
             "integration",
@@ -325,13 +325,14 @@ DEFAULT_VALIDATION_CONFIG = {
 
 _LEGACY_NICHE_ALIASES = {
     "prd_ai_saas": "support_kb_readiness",
-    "gumloop_lindy_workflow": "gumloop_workflows",
-    "mcp_ai_agent": "mcp_servers",
-    "python_automation": "api_integration",
     "ai_tool_llm_integration": "prompt_engineering",
     "ai_agent_development": "chatbot_build",
     "workflow_automation": "data_pipeline",
     "python_web_scraping": "browser_automation",
+    # Backward-compat aliases from legacy validator slugs to canonical niche_ids.
+    "gumloop_workflows": "gumloop_lindy_workflow",
+    "mcp_servers": "mcp_ai_agent",
+    "api_integration": "python_automation",
 }
 
 _NUMERIC_NICHE_ALIASES = {

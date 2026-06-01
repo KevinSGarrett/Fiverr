@@ -37,6 +37,15 @@ def _opportunity_config(config: dict[str, Any] | None) -> dict[str, Any]:
     return dict(opportunity_cfg)
 
 
+def _as_optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class OpportunityScoreCalculator:
     """Calculate derived opportunity from demand and competition."""
 
@@ -103,12 +112,12 @@ class OpportunityScoreCalculator:
             )
             if rsv_relevance is None and hasattr(db, "get_opportunity_inputs"):
                 loaded = db.get_opportunity_inputs(keyword_id)
-                if isinstance(loaded, Mapping) and loaded.get("rsv_relevance") is not None:
-                    rsv_relevance = float(loaded.get("rsv_relevance"))
+                if isinstance(loaded, Mapping):
+                    rsv_relevance = _as_optional_float(loaded.get("rsv_relevance"))
             if rsv_relevance is None and isinstance(db, Mapping):
                 loaded = db.get(keyword_id, db)
-                if isinstance(loaded, Mapping) and loaded.get("rsv_relevance") is not None:
-                    rsv_relevance = float(loaded.get("rsv_relevance"))
+                if isinstance(loaded, Mapping):
+                    rsv_relevance = _as_optional_float(loaded.get("rsv_relevance"))
             opportunity_relevance_factor = _opportunity_relevance_qualifier(rsv_relevance)
 
             intent_inputs: Mapping[str, Any] | None = None

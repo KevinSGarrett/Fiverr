@@ -356,9 +356,10 @@ class CompetitionScoreCalculator:
             if signals.get("_competitor_profile_source") is not None
             else None
         )
+        raw_price_outliers_excluded = signals.get("_price_outliers_excluded")
         price_outliers_excluded = (
-            int(signals.get("_price_outliers_excluded"))
-            if isinstance(signals.get("_price_outliers_excluded"), int | float)
+            int(raw_price_outliers_excluded)
+            if isinstance(raw_price_outliers_excluded, int | float)
             else None
         )
 
@@ -747,17 +748,16 @@ class CompetitionScoreCalculator:
         profile_inputs = get_competitor_profile_inputs(niche_slug, run_id, session)
         if not profile_inputs:
             return signals
-        selected_profile = dict(profile_inputs)
+        selected_profile: dict[str, Any] = dict(profile_inputs)
         selected_source = "per_niche"
         if _coerce_bool(competition_cfg.get("use_per_keyword_profile"), False):
-            selected_profile, selected_source = _select_competitor_profile(
-                dict(keyword_meta.get("competitor_profile_per_keyword"))
-                if isinstance(keyword_meta.get("competitor_profile_per_keyword"), Mapping)
-                else None,
+            per_keyword_raw = keyword_meta.get("competitor_profile_per_keyword")
+            per_keyword_profile = dict(per_keyword_raw) if isinstance(per_keyword_raw, Mapping) else None
+            selected_profile_candidate, selected_source = _select_competitor_profile(
+                per_keyword_profile,
                 profile_inputs,
             )
-            if selected_profile is None:
-                selected_profile = {}
+            selected_profile = selected_profile_candidate or {}
         if _coerce_bool(competition_cfg.get("exclude_contaminated"), False):
             contaminated_ids: set[int] = set()
             raw_ids = keyword_meta.get("contaminated_keyword_ids")
