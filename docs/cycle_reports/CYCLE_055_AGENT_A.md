@@ -74,8 +74,9 @@ Preflight rerun passed on this execution.
 
 - Gate 1 hypothesis generation: `src/discovery/hypothesis.py`
 - Gate 2 orchestrator insert path: `src/discovery/orchestrator.py`
-- Gate 3 outcome recording target in SRDI references: `src/discovery/feedback.py` (currently absent)
-- Gate 4 feedback aggregation target in SRDI references: `src/discovery/feedback.py` (currently absent)
+- Gate 3 outcome recording entrypoint: `src/discovery/orchestrator.py` (`DiscoveryOrchestrator.run_cycle`)
+- Gate 4 feedback aggregation entrypoint: `src/discovery/orchestrator.py` (`DiscoveryOrchestrator.run_cycle`)
+- SRDI reference note: older planning docs list `src/discovery/feedback.py`; current repository entrypoint is `src/discovery/orchestrator.py`.
 
 ## 5) Files Written by Agent A
 
@@ -103,9 +104,9 @@ C055 SETUP COMPLETE — Agent B + Agent E unblocked.
   - Keyword: `ghost_market_flag`, `discovery_needs_recollection`, `last_relevance_validated_at` (plus spec-gap flags recorded)
 - Entrypoints:
   - hypothesis=`src/discovery/hypothesis.py`
-  - orchestrator=`src/discovery/orchestrator.py`
-  - outcome=`src/discovery/feedback.py` (missing in current tree; see plan)
-  - feedback=`src/discovery/feedback.py` (missing in current tree; see plan)
+  - orchestrator=`src/discovery/orchestrator.py::run_cycle/promote_keywords`
+  - outcome=`src/discovery/orchestrator.py::run_cycle`
+  - feedback=`src/discovery/orchestrator.py::run_cycle`
 - Rejection-rate target (toggle ON): `20–40%`
 - Agent E DB isolation requirement: use dedicated throwaway DB (`data/cycle055_discovery_validation.db`), never the golden baseline DB
 - Regression pack: `26` (`REG-25/26/27` new)
@@ -134,3 +135,22 @@ PM_Pack/10_cycle_log/CYCLE_055_PREP_NOTES.md
 docs/cycle_reports/CYCLE_055_AGENT_A.md
 docs/cycle_reports/CYCLE_055_PLAN.md
 ```
+
+## 8) Agent A Completion Checklist (all required items)
+
+- [x] R4/PR#63 confirmed on `origin/develop`
+- [x] develop HEAD green (`ruff` + `mypy` + `config-check`)
+- [x] base develop SHA recorded in PLAN + PREP_NOTES
+- [x] `cycle/055/integration` created + pushed
+- [x] R6 parent epic key recorded
+- [x] SCRUM-626/864/627/868/628/873/877/629 verified + kickoff-commented; none moved to Done
+- [x] Cycle 055 control task created with scope + DoD and linked under epic
+- [x] toggle key/default/model location recorded
+- [x] pre-validator reuse contract (R2 functions + import path) recorded
+- [x] DiscoveryOutcome + Keyword columns and model/migration paths recorded (with flagged additive gaps)
+- [x] four discovery entrypoint paths recorded
+- [x] 26-name regression pack embedded
+- [x] prompt-sizing table embedded in PREP_NOTES
+- [x] PLAN + PREP_NOTES + AGENT_A written, committed, and pushed
+- [x] branch diff confirms zero `src/` + zero `tests/` file paths for Agent A changes
+- [x] handoff note for B + E produced

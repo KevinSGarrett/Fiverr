@@ -39,6 +39,7 @@ No story was transitioned to Done.
 
 - Required R6 toggle key: `discovery.enable_relevance_gates`
 - Required default: `false`
+- Exact YAML path: `config.yaml -> discovery.enable_relevance_gates`
 - Model location (target): `src/config/models.py` -> `DiscoveryConfig.enable_relevance_gates: bool = False`
 
 Observed current state:
@@ -60,6 +61,8 @@ Cycle config gate statement:
   - `src/analysis/result_set_validator.py::validate_result_set`
   - `src/analysis/result_set_validator.py::compute_gig_relevance`
   - `src/analysis/result_set_validator.py::NICHE_VALIDATION_CONFIG`
+  - import path to use:
+    - `from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG, compute_gig_relevance, validate_result_set`
 
 Path discrepancy to resolve in implementation notes:
 
@@ -110,8 +113,9 @@ Spec mismatch to flag to Agent B:
 
 - Gate 1 (hypothesis generation): `src/discovery/hypothesis.py` (`generate_niche_hypotheses`)
 - Gate 2 (orchestration / insert decision): `src/discovery/orchestrator.py` (`promote_keywords`, `run_cycle`)
-- Gate 3 (outcome recording): target path from SRDI plan `src/discovery/feedback.py` (currently absent in repo; B must introduce/restore path or equivalent)
-- Gate 4 (feedback/learning aggregation): target path from SRDI plan `src/discovery/feedback.py` (currently absent in repo; B must introduce/restore path or equivalent)
+- Gate 3 (outcome recording): `src/discovery/orchestrator.py` (`run_cycle` outcome-persistence branch for discovery outcomes)
+- Gate 4 (feedback/learning aggregation): `src/discovery/orchestrator.py` (`run_cycle` feedback aggregation branch)
+- SRDI reference delta recorded: planning docs mention `src/discovery/feedback.py`, but current repository discovery package entrypoint is `src/discovery/orchestrator.py`.
 
 ## 6) Permanent Regression Pack (26 names, verbatim)
 

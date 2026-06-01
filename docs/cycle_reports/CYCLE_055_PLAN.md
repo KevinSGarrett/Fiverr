@@ -32,6 +32,7 @@ Rationale:
 
 - Required new toggle: `discovery.enable_relevance_gates`
 - Required default: `false`
+- Exact YAML path: `config.yaml -> discovery.enable_relevance_gates`
 - Required model field location: `src/config/models.py` -> `DiscoveryConfig.enable_relevance_gates`
 
 Config governance:
@@ -64,6 +65,8 @@ Config governance:
   - `src/analysis/result_set_validator.py::validate_result_set`
   - `src/analysis/result_set_validator.py::compute_gig_relevance`
   - `src/analysis/result_set_validator.py::NICHE_VALIDATION_CONFIG`
+  - canonical import statement:
+    - `from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG, compute_gig_relevance, validate_result_set`
 
 Dry-run constraint:
 
@@ -73,8 +76,8 @@ Dry-run constraint:
 ## Gate 3 — Relevance-Gated Outcome Recording
 
 - Story key: `SCRUM-628`
-- Outcome target path from SRDI docs: `src/discovery/feedback.py` (currently absent in repo)
-- Interim wiring location if file not restored: `src/discovery/orchestrator.py`
+- Existing discovery entrypoint path in current repo: `src/discovery/orchestrator.py`
+- Attach location: `DiscoveryOrchestrator.run_cycle` outcome-persistence branch
 - Outcome rule:
   - ghost/contaminated discoveries become `INVALID` outcomes (with reason + RSV)
   - genuine but unsuccessful candidates remain misses
@@ -82,11 +85,15 @@ Dry-run constraint:
 ## Gate 4 — Feedback Excludes Invalid/Contaminated
 
 - Story key: `SCRUM-873`
-- Feedback target path from SRDI docs: `src/discovery/feedback.py` (currently absent in repo)
-- Interim wiring location if file not restored: `src/discovery/orchestrator.py`
+- Existing discovery entrypoint path in current repo: `src/discovery/orchestrator.py`
+- Attach location: `DiscoveryOrchestrator.run_cycle` feedback-aggregation branch
 - Learning rule:
   - exclude invalid/contaminated outcomes from feedback aggregation
   - only valid outcomes (hit or genuine miss) remain training input
+
+SRDI reference-path note:
+
+- Legacy SRDI planning references list `src/discovery/feedback.py`; current repository discovery package exposes `src/discovery/orchestrator.py` as the operative gate-attachment file and this plan is authoritative for Cycle 055 implementation.
 
 ## 5) Data Model Touchpoints (R6 population only)
 
