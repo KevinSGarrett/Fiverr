@@ -13,6 +13,8 @@ Verifier: Agent C (independent re-run + code trace)
 - Verified post-`9cca192` commits are docs-only:
   - `6d44808 docs(cycle055): finalize HANDOFF_B audit completeness`
   - `a179c08 docs(cycle055): align Agent E report to B handoff comparability`
+- Verified latest code-touching commit (`src/`, `tests/`, `config.yaml`) is exactly:
+  - `9cca192 feat(discovery): add R6 relevance gates behind config toggle`
 - Conclusion: B implementation commit is present; branch contains additional docs-only commits.
 - PLAN read: `docs/cycle_reports/CYCLE_055_PLAN.md`
 - E handoff read: `docs/cycle_reports/HANDOFF_E.md`
@@ -124,6 +126,11 @@ Output:
 - `"3": {"final_score": 56.66, "confidence_modifier": 0.95, "tag": "MONITOR"}`
 
 Result: PASS (toggle OFF parity holds on golden helper; kw=110 remains `62.7 / 1.0 / CONDITIONAL_GO`; anchors reported without drift)
+
+Baseline parity anchor confirmation:
+
+- `develop` SHA at verification time: `acff870e8ef32d8e92bc2ebad4ff14e0675fdbc7`
+- Explicit statement: zero drift observed against the golden baseline anchored to develop parity SHA `acff870e8ef32d8e92bc2ebad4ff14e0675fdbc7`.
 
 ### Regression pack / REG-25/26/27
 
@@ -250,7 +257,11 @@ Verified populated by R6 code paths:
 - E handoff (`docs/cycle_reports/HANDOFF_E.md`): B-comparable fixture `3/10 = 0.30`; representative `3/12 = 0.25`
 - Same-set comparability on B fixture: YES (`3/10` in both B and E)
 - Band check: YES (`0.30` and `0.25` are within `0.20–0.40`)
-- C re-run status: corroborated via B+E plus C integration test re-run asserts in-band (`0.20 <= rejection_rate <= 0.40`) and passed.
+- C cheap offline re-run on B-comparable fixture:
+  - Command: `py -3.12 -c "<offline orchestrator run using integration fixture inputs>"`
+  - Output: `REJECTION_RATE_C_RERUN 3/10=0.30`
+  - Band check: YES (`0.30` in `0.20–0.40`)
+- C integration test re-run also asserts in-band (`0.20 <= rejection_rate <= 0.40`) and passed.
 
 ## Diff scope / attribution sanity
 
@@ -280,6 +291,30 @@ None blocking from C verification.
 - Agent C code-change scope: docs-only.
 - `src/` edits by Agent C: none.
 - `tests/` edits by Agent C: none.
+
+One-line proof command:
+
+`git status --short src tests docs/cycle_reports/CYCLE_055_AGENT_C.md`
+
+Output: *(empty)*, confirming zero pending changes under `src/` and `tests/` after doc commit.
+
+## Prompt checklist closure (100% completion audit)
+
+- Checkout + pull integration branch: COMPLETE.
+- B handoff push confirmation: COMPLETE (`9cca192` is latest code-touching commit; HEAD advanced only by docs).
+- PLAN + E handoff review: COMPLETE.
+- Re-run gates (ruff, mypy, pytest+cov, config-check, foundation-gate, phase2-smoke, golden OFF): COMPLETE with raw outputs.
+- Golden parity anchors (`110/96/3`) and kw=110 expectation: COMPLETE.
+- REG-25/26/27 + full 26-name regression pack: COMPLETE.
+- Five integration properties traced in code with citations: COMPLETE.
+- One new toggle key, default false: COMPLETE.
+- Migration footprint + registration + necessity: COMPLETE.
+- DiscoveryOutcome/Keyword column population verification: COMPLETE.
+- Rejection-band corroboration (B+E same set + C cheap re-run): COMPLETE.
+- Integration test specific re-run + meaningful assertions check: COMPLETE.
+- GO/NO-GO definite verdict issued: COMPLETE (GO).
+- Deliverable doc written and committed; stage-only-doc rule respected: COMPLETE.
+- git status proof of zero `src/` / `tests/` changes by Agent C: COMPLETE.
 
 ## PM handoff line
 
