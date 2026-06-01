@@ -6,7 +6,11 @@ from typing import Any
 
 from src.models import Gig, SearchResult, Seller
 from src.scoring.competition import CompetitionScoreCalculator, _exclude_price_outliers_iqr
-from src.scoring.profitability import ProfitabilityScoreCalculator, _exclude_price_outliers_enabled, _relevance_config
+from src.scoring.profitability import (
+    ProfitabilityScoreCalculator,
+    _exclude_price_outliers_enabled,
+    _relevance_config,
+)
 from tests.unit.test_competition_score import _build_session, _seed_competition_rows
 
 

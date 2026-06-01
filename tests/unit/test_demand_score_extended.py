@@ -6,9 +6,9 @@ import pytest
 from src.models import ClusterAssignment, ResultSetValidation, SearchResult
 from src.scoring.demand import (
     DemandScoreCalculator,
+    _autocomplete_state_multiplier,
     _classify_autocomplete_state,
     _compute_trc_reliability,
-    _autocomplete_state_multiplier,
     _load_cluster_context_from_session,
     _relevance_factor,
     _sponsored_factor,

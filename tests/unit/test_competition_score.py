@@ -24,13 +24,13 @@ from src.models import (
 )
 from src.scoring.competition import (
     CompetitionScoreCalculator,
-    _exclude_contaminated_competitors,
-    _exclude_price_outliers_iqr,
     _coerce_bool,
     _coerce_float,
+    _exclude_contaminated_competitors,
+    _exclude_price_outliers_iqr,
     _is_profile_empty,
-    _select_competitor_profile,
     _normalize_gap_flags,
+    _select_competitor_profile,
     compute_seller_level_competition_signal,
     get_competitor_profile_inputs,
 )

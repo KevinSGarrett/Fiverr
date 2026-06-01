@@ -6,10 +6,13 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
-
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.demand import DemandScoreCalculator
-from src.scoring.opportunity import OpportunityScoreCalculator, _opportunity_config, _opportunity_relevance_qualifier
+from src.scoring.opportunity import (
+    OpportunityScoreCalculator,
+    _opportunity_config,
+    _opportunity_relevance_qualifier,
+)
 
 
 class _FakeDB:
