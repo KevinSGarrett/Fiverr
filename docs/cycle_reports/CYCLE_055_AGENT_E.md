@@ -2,7 +2,7 @@
 
 ## One-line status
 
-C055 R6 validation **CONCERN** — full offline end-to-end validation of Gate 1/2/3/4 completed on isolated throwaway DBs, representative rejection rate is in-band (`3/12 = 0.25`), baseline is intact, and findings are limited to gate strictness/semantics and missing Cycle-055 B handoff artifact.
+C055 R6 validation **CONCERN** — full offline end-to-end validation of Gate 1/2/3/4 completed on isolated throwaway DBs, representative rejection rates are in-band (`3/10 = 0.30` on B-comparable fixture and `3/12 = 0.25` on expanded representative fixture), baseline is intact, and remaining findings are limited to gate strictness/semantics.
 
 ## Scope and constraints followed
 
@@ -15,7 +15,7 @@ C055 R6 validation **CONCERN** — full offline end-to-end validation of Gate 1/
 ## Preflight and readiness
 
 - Branch: `cycle/055/integration` (up to date with origin).
-- B handoff for Cycle 055 is still absent at `docs/cycle_reports/HANDOFF_B.md` (latest B handoff file present is `CYCLE_054_HANDOFF_B.md`).
+- B handoff consumed from `docs/cycle_reports/CYCLE_055_HANDOFF_B.md` (HEAD noted there: `9cca192`).
 - `CYCLE_055_PLAN.md` Appendix-D candidate matrix used as canonical source.
 
 Current R6 code surfaces present on branch:
@@ -62,7 +62,7 @@ Result: **baseline untouched**.
 | G3 outcomes | ghost/contam persisted as INVALID; valid paths remain MISS | ON | PASS (offline e2e) | `artifacts/cycle055_e2e_validation.json` |
 | G4 feedback | INVALID/CONTAM excluded from learning | ON | PASS (offline e2e) | `artifacts/cycle055_e2e_validation.json` |
 | Parity | OFF legacy insert-all on same set | OFF | PASS (offline parity simulation) | `artifacts/cycle055_e2e_validation.json` |
-| Rejection band | representative batch in 20–40% | ON | PASS | 3/12 = 0.25 |
+| Rejection band | representative batch in 20–40% | ON | PASS | 3/10 = 0.30 (B-comparable), 3/12 = 0.25 (expanded) |
 | Baseline | kw=110 unchanged pre/post | n/a | PASS | checkpoint == closeout |
 
 ## Candidate-level evidence (Appendix-D batch)
@@ -93,6 +93,14 @@ Highlights:
 - Numerator: `3`
 - Rejection rate: `3/12 = 0.25`
 - Target comparison (20–40%): **in band**.
+
+### B-comparable representative fixture (10 candidates, from `CYCLE_055_HANDOFF_B.md` shape)
+
+- Denominator: `10`
+- Numerator: `3`
+- Rejection rate: `3/10 = 0.30`
+- Target comparison (20–40%): **in band**.
+- Match check vs B handoff reported rate (`3/10=0.30`): **match**.
 
 ## Toggle-OFF parity contrast
 
@@ -131,15 +139,6 @@ Semantic note for B/PM: current implementation stores INVALID/MISS as boolean fl
 - Suspected area: discovery outcome schema contract.
 - Severity: **concern** (auditing clarity, not runtime blocker).
 
-### FINDING E-3 (route to Agent B / PM)
-
-- Gate: Preflight comparability
-- Symptom: missing `docs/cycle_reports/HANDOFF_B.md` for Cycle 055.
-- Expected: B handoff present with exact toggle/entrypoint/status contracts and reference SHA.
-- Repro: file lookup in `docs/cycle_reports` shows no Cycle-055 B handoff.
-- Suspected area: delivery artifact gap.
-- Severity: **concern** (strict comparability trace is incomplete).
-
 ## Command / isolation audit
 
 | Command intent | DB used | Config path | Isolation status |
@@ -148,6 +147,7 @@ Semantic note for B/PM: current implementation stores INVALID/MISS as boolean fl
 | Throwaway init | `sqlite:///data/cycle055_discovery_validation.db` | default | safe |
 | Throwaway schema query | `data/cycle055_discovery_validation.db` | none | safe |
 | Offline ON/OFF e2e harness | `sqlite:///data/cycle055_discovery_validation.db` + `sqlite:///data/cycle055_discovery_validation_off.db` | local in-process config | safe |
+| B-comparable ON/OFF fixture harness | `sqlite:///data/cycle055_discovery_validation_bmatch_on.db` + `sqlite:///data/cycle055_discovery_validation_bmatch_off.db` | local in-process config | safe |
 | Baseline closeout query | `data/cycle037_live.db` (read-only) | none | safe |
 
 No writes were executed against:
@@ -167,4 +167,4 @@ No writes were executed against:
 
 ## Final verdict for D
 
-**CONCERN** — full offline gate validation is complete on throwaway DBs, representative rejection-rate is in-band (`3/12 = 0.25`), OFF parity contrast is confirmed, and baseline safety is proven; remaining concerns are ghost-path strictness, boolean outcome-status semantics, and missing Cycle-055 `HANDOFF_B.md` trace artifact.
+**CONCERN** — full offline gate validation is complete on throwaway DBs, representative rejection-rates are in-band (`3/10 = 0.30`, `3/12 = 0.25`), OFF parity contrast is confirmed, and baseline safety is proven; remaining concerns are ghost-path strictness and boolean outcome-status semantics.
