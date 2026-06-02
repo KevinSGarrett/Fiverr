@@ -20,6 +20,7 @@ Branch: `cycle/056/integration`
 
 ## Baseline verification results
 - Regression file pack run: `739 passed`
+- Exact 26-name regression expression: `34 passed, 3795 deselected`
 - Full collect-only baseline: `3829 tests collected`
 - Smoke checks:
   - `run.py config-check` -> PASS
