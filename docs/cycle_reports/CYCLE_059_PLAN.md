@@ -43,6 +43,20 @@
 - `SCRUM-639` — R10.7 opportunities ghost filter default
 - `SCRUM-640` — R10.8 dashboard test suite
 
+### R10 Dependencies Snapshot (Task 1a)
+- `SCRUM-634` depends on existing Stage 3.5 RSV persistence and strictness fields.
+- `SCRUM-635` depends on keyword score/tag + ghost/emerging signal availability.
+- `SCRUM-636` depends on score components + RSV presence and null-safe fallback paths.
+- `SCRUM-637`/`SCRUM-638` depend on run-level RSV/scoring context and alert model wiring.
+- `SCRUM-897` depends on run summary generation modules (`src/analysis/orchestrator.py`, `src/reports/run_summary.py`).
+- `SCRUM-639` depends on opportunities payload/query filter wiring.
+- `SCRUM-640` depends on all R10 display contracts above being implemented first.
+
+### New Module Names Pinned for B (Task 1a)
+- `src/analysis/dashboard_integration.py` (R10 integration helper module)
+- `src/dashboard/relevance.py` (R10 display helper module)
+- Existing extension points remain in `src/dashboard/*.py` and run-summary modules.
+
 Pinned function signatures for Agent B:
 
 ```python
@@ -101,6 +115,7 @@ def generate_relevance_alerts_for_run(run_id: str, db) -> list[dict]:
 - Existing opportunities payload does not currently apply a ghost-market default exclusion filter.
 - `score_components` JSON is populated for kw=110 and can feed Data Integrity display.
 - Base dashboard spec path resolved to `PM_Pack/ref/project_plan/07_reporting/DASHBOARD_PLAN.md` (contains SRDI R10 addendum and display architecture).
+- Test-plan confirmation note: `06_TEST_PLAN_REGRESSION.md` does not yet enumerate R10 test filenames directly; C059 explicitly pins `test_badge_rendering.py` and `test_relevance_alerts.py` as required R10 additions.
 
 ## File-Impact Map for R10
 - New R10 orchestration module(s):
@@ -114,6 +129,9 @@ def generate_relevance_alerts_for_run(run_id: str, db) -> list[dict]:
 - Existing run summary/pipeline points:
   - `src/analysis/orchestrator.py` (run summary payload wiring)
   - `src/reports/run_summary.py` (display block rendering contract, if selected)
+- Opportunities ghost-filter status (Task 22):
+  - current implementation does not apply ghost-market exclusion by default;
+  - B must add default exclusion with `show_ghost_markets` local override.
 - Tests to add/extend:
   - `tests/unit/test_badge_rendering.py`
   - `tests/unit/test_relevance_alerts.py`
@@ -136,6 +154,7 @@ def generate_relevance_alerts_for_run(run_id: str, db) -> list[dict]:
 - Explicit rule for B:
   - If no `src/models/*.py` changes -> no parity requirement.
   - If model edits occur (including ExternalSignal for TC-1) -> §11.2 parity table required and C must run §11.3 PRAGMA verification.
+  - **§11.2 required IF you add ExternalSignal columns for TC-1; not required if R10 display functions only read existing columns.**
 
 ## Ignore/Artifact Hygiene
 - Confirmed already ignored:
@@ -147,6 +166,7 @@ def generate_relevance_alerts_for_run(run_id: str, db) -> list[dict]:
 
 ## Regression Register for C059
 - Existing permanent pack baseline remains 34 names (42-pass aggregate expectation).
+- Coverage gap confirmation (Task 25): REG-13..REG-33 do not cover R10 dashboard display functions; new R10 regressions must be introduced as REG-34+.
 - C059 adds R10 regressions (REG-34 onward naming by B/D governance update):
   - `test_ghost_market_excluded_from_opportunities_by_default`
   - `test_relevance_quality_score_computed_for_niche_run`
@@ -251,12 +271,24 @@ py -3.12 -c "from sqlalchemy import create_engine; e=create_engine('sqlite:///da
 
 ## Agent D Handoff (Stage 5 — Final Merge Gate)
 - Runs after A+B+E+C+F complete.
-- Must run §12.3 operational playbook:
-  - large PR handling (`override:large-pr`),
-  - Codex review-thread resolution (query twice),
-  - advisory handling for `codecov/patch`,
-  - check-run pending behavior,
-  - mergeable-state interpretation.
+- Must run §12.3 operational playbook verbatim:
+  - **12.3.1 PR too large (>1000 lines changed):**
+    - if merge blocked by size, add label:
+    - `Invoke-Exe gh \`api -X POST repos/KevinSGarrett/Fiverr/issues/<PR_NUM>/labels --field "labels[]=override:large-pr"\``
+  - **12.3.2 Codex review thread resolution:**
+    - run GraphQL reviewThreads query;
+    - resolve all unresolved threads;
+    - run GraphQL a second time and confirm unresolved=0.
+  - **12.3.3 codecov/patch failing (advisory):**
+    - enforced checks remain CI + `codecov/project`;
+    - document `codecov/patch` misses; do not block merge solely on patch gate.
+  - **12.3.4 CI check-run pending:**
+    - re-query check-runs in timed loop until required checks complete.
+  - **12.3.5 mergeable_state handling:**
+    - `blocked` => do not merge;
+    - `unstable` (non-required check failures, usually patch) => merge allowed if enforced checks pass;
+    - `clean` => merge allowed;
+    - `unknown` => wait and re-query.
 - §15.1 codex timing command (mandatory before merge):
 
 ```powershell
@@ -268,6 +300,7 @@ Invoke-Exe gh 'api repos/KevinSGarrett/Fiverr/pulls/<PR>/reviews --jq ".[] | {us
   - update §7 regression register for R10 additions;
   - update Tier-3 status;
   - close 8 R10 stories + control ticket in Jira.
+  - confirm Tier-3 COMPLETE criteria as R10 complete (R11 remains Tier-4).
 - Report path:
   - `docs/cycle_reports/CYCLE_059_AGENT_D.md`
 
