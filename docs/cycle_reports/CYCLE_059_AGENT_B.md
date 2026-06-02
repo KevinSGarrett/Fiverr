@@ -110,6 +110,18 @@
 
 ## Zone Check
 - Zone validation performed on this cycle branch by commit SHA (`git show --name-only <own_sha>`) after commit.
+- Own SHA: `f7256fe9525731862d23c2612dd880a17eeaf036`
+- File list includes only allowed zones:
+  - `docs/cycle_reports/CYCLE_059_AGENT_B.md`
+  - `src/collection/workflows/keyword_expansion.py`
+  - `src/dashboard/__init__.py`
+  - `src/dashboard/alert_generator.py`
+  - `src/dashboard/badge_renderer.py`
+  - `src/dashboard/relevance_dashboard.py`
+  - `tests/unit/test_badge_rendering.py`
+  - `tests/unit/test_keyword_expansion.py`
+  - `tests/unit/test_relevance_alerts.py`
+  - `tests/unit/test_relevance_dashboard.py`
 
 ## Signal
-Agent B complete. HEAD: `<pending_commit_sha>`. Agent C may proceed after E also completes.
+Agent B complete. HEAD: `f7256fe9525731862d23c2612dd880a17eeaf036`. Agent C may proceed after E also completes.
