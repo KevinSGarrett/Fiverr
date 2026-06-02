@@ -56,6 +56,7 @@
   - `tests/fixtures/dashboard/factories.py`
 
 ## Agent B Package (Start in parallel with E; do not wait for E)
+Start now. Agent E is running simultaneously. Do not wait for E.
 
 ### Exact §11.5 parity audit instruction
 Audit all 9 model targets against migrations and produce a complete parity table:
@@ -110,6 +111,7 @@ For each model target:
 - Optional `src/testing_support/*` only if fixture support cannot be delivered in pure tests
 
 ## Agent E Package (Start in parallel with B; do not wait for B)
+Start now. Agent B is running simultaneously. Do not wait for B.
 
 ### Live validation mission
 - Execute live ScrapFly sampling (local uncommitted config only) and produce gate evidence:
@@ -131,6 +133,7 @@ For each model target:
 - Deliverable file-only zone: `docs/cycle_reports/CYCLE_056_AGENT_E.md`
 
 ## Agent C Package (after B and E both complete)
+Do not start until BOTH Agent B AND Agent E have pushed their commits and both `CYCLE_056_AGENT_B.md` and `CYCLE_056_AGENT_E.md` are available.
 - Gate battery: `ruff`, `mypy`, file-scoped `pytest`, `config-check`, `foundation-gate`, `phase2-smoke`
 - §11.3 parity PRAGMA cross-check for all 9 model targets
 - Validate fixture factories by import+call

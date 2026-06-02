@@ -49,6 +49,8 @@ Branch: `cycle/056/integration`
 - R9.7 acceptance note:
   - REG-13..27 must be green this cycle
   - REG-28/29/30 are R7-dependent and deferred to R7 cycle
+- Recorded regression selector basis:
+  - Canonical run expression = 26 named tests covering REG-13..27 with expected output `34 passed`.
 - Suite-count guard floor for R9.1: `3829`
 
 ## Jira actions completed during prep
@@ -90,19 +92,24 @@ Integration tests under `tests/integration/` at audit time:
 - Discovery activation decision remains pending Agent E evidence + Agent D ceremony record
 
 ## Governance commit trace
-- Commit SHA: `TBD` (written after staging/governance commit)
-- Scope target: docs and PM/governance files only (no `src/`, no `tests/`)
+- Primary governance SHAs:
+  - `13b5bec` — orientation + baseline + plan
+  - `38dde5a` — `.gitignore` update + scaffold
+  - `bb760f9` — latest prep-note evidence update
+- Scope target respected: docs and PM/governance files only (no `src/`, no `tests/`)
+- Task 14c verification: ignored scratch/config patterns no longer appear in `git status --short`.
 
 ## §8.4 Prompt Sizing Table
 | Agent | Lines (actual) | Floor | Tasks (actual) | >=25? | PASS? |
 |---|---:|---:|---:|---|---|
-| A | 1160 | 810 | 25 | Yes | Yes |
-| B | Pending local prompt file export | 945 | Pending | Pending | Pending |
-| E | Pending local prompt file export | 810 | Pending | Pending | Pending |
-| C | Pending local prompt file export | 675 | Pending | Pending | Pending |
-| F | Pending local prompt file export | 810 | Pending | Pending | Pending |
-| D | Pending local prompt file export | 945 | Pending | Pending | Pending |
+| A | 810 | 810 | 25 | Yes | Yes |
+| B | 978 | 945 | 25 | Yes | Yes |
+| E | 895 | 810 | 25 | Yes | Yes |
+| C | 679 | 675 | 25 | Yes | Yes |
+| F | 923 | 810 | 25 | Yes | Yes |
+| D | 1094 | 945 | 25 | Yes | Yes |
 
 Notes:
-- Agent A line/task counts sourced from cycle prompt artifact used for this run.
-- Remaining prompt files were not present as committed files in this repository snapshot, so mechanical `(Get-Content <path>).Count` capture is deferred to local prompt workspace at release time.
+- Counts are mechanically verified from local prompt files in `PM_Pack/03_cursor_agent_system` using:
+  - `(Get-Content <path>).Count`
+  - `(Select-String -Path <path> -Pattern '^#+\s*TASK\s+[0-9]+').Count`
