@@ -1263,3 +1263,109 @@ backfilled to permanent pack in C058 PM review 2026-06-02.
 
 REG-34/35/36 added in Cycle 059 (R10 Dashboard & Alerting), PR #68, merged develop @ 1fd62250ff04704d36b2a8606689c596e82a1545.
 
+
+---
+
+## Section 16: C059 POST-CYCLE KNOWN ISSUES (effective Cycle 060+)
+
+Added in C059 PM review. Issues discovered during the cycle that affect future Agent E prompts,
+Agent B implementation, and strategy doc §14.
+
+### 16.1 foundation-gate DOES NOT SEED NICHES (§14.3 correction)
+
+Root cause: `py -3.12 run.py foundation-gate --database-url sqlite:///data/cycle0NN.db`
+applies migrations and schema only — it does NOT insert niche rows.
+The throwaway DB after foundation-gate has `SELECT COUNT(*) FROM niches → 0`.
+This means the §14.3 "seed before collection" step is INCOMPLETE as written.
+
+Correction: after foundation-gate, agent must seed niches explicitly:
+```python
+# Option A: Import niches from config via run.py (if such command exists)
+py -3.12 run.py seed-niches --database-url sqlite:///data/cycle0NN.db
+# If that command doesn't exist, find the equivalent in the codebase:
+Get-ChildItem src\ -Recurse | Select-String "seed_niches\|insert.*niches\|populate_niches" | Select Path
+```
+
+The correct niche seeding command is a **Tier-C open question for Agent B** (C060).
+Until it's resolved, Agent E should use this workaround:
+```python
+py -3.12 -c "
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from src.models.niche import Niche
+import yaml
+e = create_engine('sqlite:///data/cycle0NN_e2e_validation.db')
+cfg = yaml.safe_load(open('config.yaml'))
+s = sessionmaker(bind=e)()
+for nid in cfg['niches']:
+    s.add(Niche(niche_id=nid))  # adjust field names to actual model
+s.commit()
+print('niches inserted:', s.query(Niche).count())
+"
+```
+
+The §14.3 live collection checklist step "Seed: 9" now refers to:
+  1. Run foundation-gate (migrations + schema)
+  2. Run seed command (niche rows) — use workaround above if dedicated command absent
+  3. Verify: SELECT COUNT(*) FROM niches → 9
+
+This is tracked as a Tier-C item for Agent B C060: "Add a dedicated `run.py seed-niches` CLI command."
+
+### 16.2 KeywordScore.run_id DOES NOT EXIST AS AN ATTRIBUTE
+
+Root cause: Agent E diagnostic queries used `select(KeywordScore.run_id)` which raised
+`AttributeError: type object 'KeywordScore' has no attribute 'run_id'`.
+
+The run_id field on KeywordScore uses a different name in the actual ORM model.
+This affects all Agent E SQL queries that reference `KeywordScore.run_id`.
+
+Workaround for C060 Agent E:
+```python
+# Use result_set_validations as the run_id source instead of keyword_scores:
+from src.models.result_set_validation import ResultSetValidation
+from sqlalchemy import select
+run_id = s.execute(select(ResultSetValidation.run_id).distinct().limit(1)).scalar()
+```
+
+Investigation: Agent B C060 should check the actual field name in `src/models/keyword_score.py`
+and update all Agent E prompt templates with the correct field accessor.
+
+### 16.3 C059 CODEX P2 FINDINGS — UNRESOLVED (routes to C060 Agent B)
+
+PR #68 received two Codex P2 findings post-merge. Both are unresolved as of C059 PM review.
+No src/ fix was committed. These are C060 Tier-C items for Agent B.
+
+**P2-1: `src/dashboard/relevance_dashboard.py` line 86 — Ghost filter incomplete**
+The `get_opportunities_for_display` ghost filter may only check a keyword-level flag without
+cascading to all relevant related rows or considering legacy NULL values correctly.
+Agent B C060: investigate, fix, and add regression test
+`test_ghost_filter_handles_null_and_legacy_rows`.
+
+**P2-2: `src/dashboard/alert_generator.py` line 113 — LLM alert query incorrect**
+The `llm_validation_triggered` alert query does not correctly count actual Stage 7.5
+executions — it may be querying the wrong column or joining incorrectly.
+Agent B C060: investigate, fix, and add regression test
+`test_llm_alert_counts_actual_stage_7_5_executions`.
+
+These fixes require new regression tests → new permanent pack members (REG-37/38 candidate names).
+
+### 16.4 TC-2 DRY-RUN CONTAMINATION — PARTIALLY FIXED (still triggers in some paths)
+
+TC-2 (pipeline dry-run contamination) was "fixed" in C059 by adding a ValueError message in
+`keyword_expansion.py`. However, Agent E observed that the runtime pipeline STILL emits
+dry-run sentinel URLs (`https://dry-run-test.invalid/`) even after the fix.
+
+Root cause: the ValueError path is not reached in the runtime collection flow — the sentinel
+URL is generated at a different pipeline stage.
+
+C060 Agent B: locate the sentinel URL injection site and replace it with the ValueError.
+Investigation command:
+  Get-ChildItem src\ -Recurse | Select-String "dry.run.test.invalid\|dry_run_test\|sentinel.*url" | Select Path
+
+Until fully fixed: §14.3 workaround remains necessary.
+
+### §16 Version History
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.0 | 2026-06-02 | §16 added: C059 known issues — foundation-gate seeding, KeywordScore.run_id, Codex P2-1/P2-2, TC-2 partial fix. |
