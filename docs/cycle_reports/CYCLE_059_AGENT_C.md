@@ -81,7 +81,8 @@ Stage order enforced: C runs after B+E, before F. C did not wait for F.
   - TC-2 enforcement test `test_pipeline_raises_on_unseeded_db_not_dry_run_fallback` -> `1 passed`
 - Display-only/no-auto-action checks:
   - `Get-ChildItem src\\dashboard\\ -File | ... \"session.add|db.add|session.commit\"` -> empty
-  - `Get-ChildItem src\\dashboard\\ -File | ... \"score.*calculate|demand_score|competition_score|confidence_modifier\"` -> empty
+  - broad scoring-term grep over `src/dashboard` surfaces `schemas/opportunity_card.py` read mapping fields (`demand_score`, `competition_score`, `confidence_modifier`) but no scoring writes.
+  - write-action grep over `src/dashboard` remains empty, so AC-R10.4 no-auto-actions stands.
 - `run_summary_relevance_block` required-key proof:
   - direct runtime check confirms keys `run_id`, `alerts`, `ghost_market_print` exist
   - repository test `test_run_summary_relevance_block_has_human_readable_print` passes
@@ -93,6 +94,10 @@ Stage order enforced: C runs after B+E, before F. C did not wait for F.
 - PF-2 note:
   - `git log --oneline -10` at current head is dominated by C/E/B cycle commits and does not include A due depth.
   - A presence was verified via branch history and report artifact (`docs/cycle_reports/CYCLE_059_AGENT_A.md` exists and tracked).
+- Literal TC-2 runtime proof:
+  - unseeded in-memory DB call to `_write_keywords_to_db(...)` raises ValueError with `Run foundation-gate first to seed niches...` message (`TC2_PASS: True`).
+- Literal run-summary key proof:
+  - `run_summary_relevance_block('no_run', session)` produced key-presence tuple `True True True` and `ghost_market_count=0`.
 
 ## Completion Checklist
 
