@@ -172,3 +172,30 @@ This addendum documents exactly why Codex findings were missed despite the 15-mi
   4. If new Codex threads appear, route to B for real fix + regression, then append a D addendum with fix SHA and resolution evidence.
 
 Status for C059: **Late Codex findings were detected post-gate. Root cause is timing-window miss, not skipped polling inside the documented 15-minute interval.**
+
+## Codex Trigger Analysis (Root Cause Clarification)
+
+Evidence indicates Codex review was triggered by PR state transition to **ready for review**, not by passive elapsed time:
+
+- `2026-06-02T23:18:01Z` -> PR event `ready_for_review`
+- `2026-06-02T23:18:07Z` -> PR merged
+- `2026-06-02T23:20:04Z` -> Codex review submitted (`chatgpt-codex-connector[bot]`)
+- `2026-06-02T23:20:05Z` -> Codex inline comments posted
+
+Additional facts:
+- Codex review references head commit `e4cdb1329050ffdd2e0f1eab72b211b9de0246e6` (no new commit trigger).
+- The prior 15-minute wait occurred while the PR remained draft and produced no review entries.
+- Once `ready_for_review` was emitted, Codex responded ~2 minutes later.
+
+### PM instruction (updated operational rule)
+
+For Draft PRs, the Codex wait clock must start **after** `ready_for_review`, not after CI completion alone.
+
+Required order for future D runs:
+1. Ensure enforced CI checks are green.
+2. If PR is draft, mark ready (`gh pr ready <PR>`).
+3. Record the `ready_for_review` timestamp from PR events.
+4. Start §15.1 polling window (up to 15 min) from that timestamp.
+5. Merge only after:
+   - Codex review appears and threads resolved, OR
+   - 15-minute documented wait from `ready_for_review` (not from earlier CI completion).
