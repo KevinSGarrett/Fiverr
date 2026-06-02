@@ -24,6 +24,7 @@ coverage.xml
 htmlcov/
 
 # Runtime and generated data
+artifacts/
 data/screenshots/
 data/checkpoints/
 data/sessions/
@@ -82,3 +83,5 @@ PM_Pack/03_cursor_agent_system/CYCLE_*_AGENT_*_PROMPT.md
 # ScrapFly is enabled ONLY in one of these for live runs; committed config.yaml stays scrapfly.enabled:false (strategy §10).
 config.live.yaml
 config.*.local.yaml
+PM_Pack/scratch_*.ps1
+PM_Pack/scratch_*.txt
