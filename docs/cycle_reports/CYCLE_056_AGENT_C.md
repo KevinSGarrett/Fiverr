@@ -1,73 +1,84 @@
 # CYCLE_056_AGENT_C — Integration Verification
 
 Branch: `cycle/056/integration`  
-HEAD at verification: `4204f43a6216775ddbebad02a4ab29fb2fe4b673`  
+HEAD at verification: `8784e2d03d5f3c1f3dcc7e0f78087989b264a753`  
 Develop base: `abc1234`  
 Verification date: 2026-06-01
 
 ## VERDICT (TOP-LEVEL)
 
-**VERDICT: NO-GO** — Blocking gate(s): missing Agent F deliverables and failing mandatory fixture/suite-guard checks. Cycle paused at Agent C.
+**VERDICT: GO** — All C-level hard gates pass on latest head; Agent D may proceed.
 
 ## Preflight
 
 - PF-1 pull: PASS (`Already up to date`)
-- PF-2 commit presence (A/B/E/F in recent log): FAIL (B and E present; F not present in range; A not present in recent gate window)
+- PF-2 commit presence (A/B/E/F): PASS (A prep commits present, B commits present, E commits present, F commits present)
 - PF-3 Agent B report check: PASS (`§11.5 Retroactive Parity Audit Results` present)
 - PF-4 Agent E recommendation: PASS (`DEFERRED`)
-- PF-5 Agent F report: FAIL (`docs/cycle_reports/CYCLE_056_AGENT_F.md` not found)
+- PF-5 Agent F report: PASS (`docs/cycle_reports/CYCLE_056_AGENT_F.md` present; suite guard PASS noted)
 - PF-6 config-check: PASS (`Config OK: niches=9`)
-- PF-7 clean tree: PASS (`git status --short` empty)
+- PF-7 clean tree: PASS (no local modifications at run start)
 
 ## Gate Results Table
 
 | Gate | Check | Result | Evidence Summary |
-| ------ | ------- | -------- | ----------------- |
+| --- | --- | --- | --- |
 | Ruff | `py -3.12 -m ruff check .` | PASS | `All checks passed!` |
 | Mypy | `py -3.12 -m mypy src` | PASS | `Success: no issues found in 223 source files` |
-| Regressions | 26-name pack | PASS | `34 passed, 3795 deselected` |
+| Regressions | 26-name pack | PASS | `34 passed, 3823 deselected` |
 | Foundation | `run.py foundation-gate` | PASS | All four checks `[PASS]`, incl. `database_registry` |
-| Smoke | `run.py phase2-smoke` | PASS | collection, analysis, phase2 config models all OK |
+| Smoke | `run.py phase2-smoke` | PASS | collection, analysis, phase2 config models OK |
 | Config | `scrapfly.enabled` false | PASS | `False` |
-| §11.3 | PRAGMA per model | PASS | No `src/models` files changed by B; `discovery_outcomes` verified |
+| §11.3 | PRAGMA per model | PASS | No `src/models` files changed by B; fallback discovery probe verified |
 | Golden | toggle-OFF parity | PASS | status `PASS`; anchors match expected values |
-| Fixture imports | relevance + contaminated | FAIL | `ModuleNotFoundError` for both required fixture modules |
-| Fixture calls | factory call assertions | FAIL | blocked by missing fixture modules |
-| Suite guard | `tests/test_suite_guard.py` | FAIL | file not found; pytest reports `no tests ran` |
-| Integ. asserts | >=3 per F integration file | WARN | no tests changed in branch range (`origin/develop..cycle/056/integration`) |
-| Zone scan | expected per-agent zones | WARN | no B/E violations found; F deliverables absent; legacy prep commits include `.gitignore` |
-| Config drift | `config.yaml` / niche keys | PASS | empty `config.yaml` diff; 9 expected niche keys match |
+| Fixture imports | relevance + contaminated | PASS | imports OK for both fixture modules |
+| Fixture calls | factory call assertions | PASS | call assertions pass; rejection rate `0.3` in test sample |
+| Suite guard | `tests/test_suite_guard.py` | PASS | `1 passed` |
+| Integ. asserts | >=3 per file | PASS | all F-added integration files are >= 3 asserts |
+| Zone scan | commit attribution | PASS/WARN | B/F/E zone compliance PASS; legacy prep commits documented |
+| Config drift | `config.yaml` / niche keys | PASS | empty config diff; expected 9 niche keys |
 
 ## §11.3 PRAGMA Cross-Check Detail
 
 Models in B diff (`git diff --name-only origin/develop..cycle/056/integration -- src/models/`): **none**
 
-Per §11.3 fallback probe executed:
+Per §11.3 fallback probe:
 
-- `discovery_outcomes` PRAGMA columns:
+- `discovery_outcomes` columns:
   - `['contamination_reason', 'created_at', 'id', 'is_contaminated', 'is_invalid', 'keyword_text', 'niche_id', 'relevance_score', 'run_id']`
-- Result: PASS (`migration_10` context columns present)
+- Result: PASS (`run_id`, `niche_id`, `keyword_text`, `created_at` present)
 
 ## Agent B §11.5 Audit Completeness
 
 - Section `§11.5 Retroactive Parity Audit Results`: present
-- Audit count in B report: `Models audited: 9`
-- Any `Present in DB? = NO`: none found
-- Summary evidence in B report includes repeated `Result: ALL YES` and `Models with gaps found and fixed: None`
-- Independent parity check conclusion: PASS
+- B audit count: `Models audited: 9`
+- Any parity `NO` rows: none found
+- B summary: `Models with gaps found and fixed: None`
+- Independent C conclusion: PASS
 
 ## Agent F Test Work Verification
 
-- `docs/cycle_reports/CYCLE_056_AGENT_F.md`: **MISSING** (blocking prerequisite)
-- `tests/fixtures/__init__.py`: exists
-- Required imports:
-  - `tests.fixtures.relevance_fixtures`: **FAIL** (`ModuleNotFoundError`)
-  - `tests.fixtures.contaminated_data_fixtures`: **FAIL** (`ModuleNotFoundError`)
-- Required fixture-call scripts: **FAIL** (blocked by missing modules)
-- `tests/test_suite_guard.py`: **FAIL** (file not found)
-- Suite guard run:
-  - `ERROR: file or directory not found: tests/test_suite_guard.py`
-- Suite floor constant (`3829`) verification: **FAIL** (target file absent)
+- `docs/cycle_reports/CYCLE_056_AGENT_F.md`: present
+- `tests/fixtures/__init__.py`: present
+- Fixture imports:
+  - `tests.fixtures.relevance_fixtures`: PASS
+  - `tests.fixtures.contaminated_data_fixtures`: PASS
+- Fixture call checks: PASS
+- `tests/test_suite_guard.py`: present and PASS
+- Suite floor constant: `SUITE_COUNT_FLOOR = 3829` confirmed
+
+Integration files added by F (all run by C):
+
+- `test_fixture_factories_smoke.py`: `11 passed`, `49` asserts
+- `test_r1_search_url_wiring.py`: `3 passed`, `12` asserts
+- `test_r2_result_set_validation_integration.py`: `3 passed`, `12` asserts
+- `test_r3_sponsored_zombie_integration.py`: `3 passed`, `10` asserts
+- `test_r3_sponsored_zombie_wiring.py`: `3 passed`, `9` asserts
+- `test_r4_scoring_integrity_integration.py`: `3 passed`, `12` asserts
+
+Unit file added by F:
+
+- `tests/unit/test_sponsored_gig_filtering.py`: `1 passed`
 
 ## Golden Parity Run (raw output excerpt)
 
@@ -82,7 +93,7 @@ Per §11.3 fallback probe executed:
 }
 ```
 
-Baseline integrity probe:
+Baseline probe:
 
 - `SELECT final_score,confidence_modifier,tag ... keyword_id=110` -> `(62.7, 1.0, 'CONDITIONAL_GO')`
 
@@ -90,100 +101,58 @@ Baseline integrity probe:
 
 Commit range scanned: `origin/develop..cycle/056/integration`
 
-| Commit | Files | Zone result |
-| --- | --- | --- |
-| `2d6844f` and follow-up B doc commits | `src/analysis/result_set_validator.py`, `docs/cycle_reports/CYCLE_056_AGENT_B.md` | PASS for B zone (`src/` + B report only) |
-| `b14b06a` and follow-up E doc commits | `docs/cycle_reports/CYCLE_056_AGENT_E.md` | PASS for E zone (report only) |
-| F commits | none identifiable in range; no F report file | FAIL (missing expected F deliverables) |
-| prep commits (`13b5bec`, `38dde5a`, `d393193`, `bb760f9`, `91c8aa6`) | `PM_Pack/*`, `docs/cycle_reports/CYCLE_056_PLAN.md`, `.gitignore` | WARN for D/PM review; not attributable to B/F zone compliance failures |
+- B commit family (`2d6844f` + B doc updates): `src/analysis/result_set_validator.py` + `CYCLE_056_AGENT_B.md` only -> PASS
+- E commit family (`b14b06a` + E doc updates): `CYCLE_056_AGENT_E.md` only -> PASS
+- F commits (`a267a8d`, `8c42f2a`, `8784e2d`): tests + `CYCLE_056_AGENT_F.md` only -> PASS
+- C commits (`d5eff3c`, `749bc64`, `5f47d8a`, `997bb17`): `CYCLE_056_AGENT_C.md` only -> PASS
+- Legacy prep commits in range (`13b5bec`, `38dde5a`, `d393193`, `bb760f9`, `91c8aa6`) include `PM_Pack/*`, `CYCLE_056_PLAN.md`, `.gitignore` -> documented as shared branch context (WARN for D visibility)
 
-No `tests/` file additions/deletions found in branch diff:
+Additional zone checks:
 
-- `git diff --name-only origin/develop..cycle/056/integration -- tests/` -> empty
-- `git diff --name-only --diff-filter=D origin/develop..cycle/056/integration -- tests/` -> empty
+- `git diff --name-only origin/develop..cycle/056/integration -- tests/` -> F test additions present (expected)
+- `git diff --name-only --diff-filter=D origin/develop..cycle/056/integration -- tests/` -> empty (no test deletions)
 
 ## Config Drift
 
 - `git diff origin/develop..cycle/056/integration -- config.yaml` -> empty
-- `collection.scrapfly.enabled` in committed `config.yaml` -> `False`
-- `discovery.enable_relevance_gates` in committed `config.yaml` -> `False`
-- `DiscoveryConfig` default for `enable_relevance_gates` -> `False`
+- `collection.scrapfly.enabled` -> `False`
+- `discovery.enable_relevance_gates` -> `False`
+- `DiscoveryConfig` default `enable_relevance_gates` -> `False`
 - `NICHE_VALIDATION_CONFIG` sorted keys:
   - `['ai_agent_development', 'ai_tool_llm_integration', 'gumloop_lindy_workflow', 'mcp_ai_agent', 'prd_ai_saas', 'python_automation', 'python_web_scraping', 'support_kb_readiness', 'workflow_automation']`
-  - Matches expected 9 IDs
+  - matches expected 9 IDs
 
 ## Codex Threads
 
 - PR number: `65`
-- Open Codex review threads query result:
-  - `totalCount: 0`
-  - unresolved (`isResolved=false`): `0`
-
-## Blocking Items and Routing
-
-1. Missing Agent F report file (`docs/cycle_reports/CYCLE_056_AGENT_F.md`)  
-   - Route: **Agent F**
-2. Missing required fixture modules (`tests.fixtures.relevance_fixtures`, `tests.fixtures.contaminated_data_fixtures`)  
-   - Route: **Agent F**
-3. Missing suite guard file (`tests/test_suite_guard.py`) and unable to verify `>=3829` floor  
-   - Route: **Agent F**
+- reviewThreads `totalCount`: `0`
+- unresolved (`isResolved=false`): `0`
 
 ## Completion Checklist (Task 25 status)
 
-- [ ] All preflight checks pass (all required agent deliverables present)
+- [x] All preflight checks pass (all required agent deliverables present)
 - [x] ruff: PASS
 - [x] mypy: PASS
-- [x] Regression pack: 34 passed
+- [x] Regression pack: 34 passed (26 names)
 - [x] Foundation gate: ALL PASS
 - [x] Config gate: scrapfly=false, no new toggles
-- [x] §11.3 PRAGMA cross-check: PASS (no B model changes; migration_10 fallback probe verified)
-- [x] Golden parity anchors match expected
-- [ ] Fixture factory imports: FAIL
-- [ ] Fixture factory calls: FAIL
-- [ ] Suite-count guard: FAIL
-- [ ] Integration assertion quality over F-changed files: not runnable (no F test changes detected)
-- [x] Zone scan documented
-- [x] Config drift: none
-- [x] `CYCLE_056_AGENT_C.md` written with verdict
-- [x] Commit by C complete (`d5eff3c`)
-- [x] Push to `origin/cycle/056/integration` complete
-- [x] Signal to Agent D included as final line
-
-Post-push self-check notes:
-
-- `git diff --name-only origin/develop..HEAD -- src/` -> `src/analysis/result_set_validator.py` (pre-existing B change in branch; not authored by C)
-- `git diff --name-only origin/develop..HEAD -- tests/` -> empty
-
-## Re-Run Evidence (2026-06-01, post-Agent-F full pass)
-
-- Fresh pull status: `Already up to date`
-- Agent F deliverables now present:
-  - `docs/cycle_reports/CYCLE_056_AGENT_F.md`: present
-  - `tests/fixtures/relevance_fixtures.py`: present, imports OK
-  - `tests/fixtures/contaminated_data_fixtures.py`: present, imports OK
-  - `tests/test_suite_guard.py`: present, test PASS
-- Re-ran Task 1..19 command set:
-  - PASS: mypy, regression 34/34, foundation, smoke, config gates, §11.3 fallback, golden anchors, fixture imports, fixture calls, suite guard, suite floor `3829`, migration_10 checks, niche key drift check, discovery imports, codex thread check
-  - FAIL: ruff (5 errors, all `I001 import block is un-sorted or un-formatted`) in:
-    - `tests/integration/test_r2_result_set_validation_integration.py`
-    - `tests/integration/test_r3_sponsored_zombie_integration.py`
-    - `tests/integration/test_r3_sponsored_zombie_wiring.py`
-    - `tests/test_suite_guard.py`
-    - `tests/unit/test_sponsored_gig_filtering.py`
-- Integration quality checks for F-modified integration files:
-  - `test_fixture_factories_smoke.py`: 11 passed, 49 asserts
-  - `test_r1_search_url_wiring.py`: 3 passed, 12 asserts
-  - `test_r2_result_set_validation_integration.py`: 3 passed, 12 asserts
-  - `test_r3_sponsored_zombie_integration.py`: 3 passed, 10 asserts
-  - `test_r3_sponsored_zombie_wiring.py`: 3 passed, 9 asserts
-  - `test_r4_scoring_integrity_integration.py`: 3 passed, 12 asserts
-  - Result: assertion-count quality gate PASS (all >=3)
-- Task 17 (Codex threads): PR `#65`, `totalCount=0`, unresolved `0`
+- [x] §11.3 PRAGMA cross-check: PASS (no B model changes; fallback probe verified)
+- [x] Golden parity: kw110/kw96/kw3 anchors match expected values
+- [x] Fixture factory imports: PASS
+- [x] Fixture factory calls: PASS
+- [x] Suite-count guard: PASS
+- [x] Integration assertion count: >=3 for each F-added integration file
+- [x] Zone scan: B/F/C zone compliance PASS; shared-branch prep commits documented
+- [x] Config drift: no new toggles
+- [x] `CYCLE_056_AGENT_C.md` written with clear GO verdict
+- [x] Only `CYCLE_056_AGENT_C.md` staged by Agent C on this commit
+- [x] Push to `origin/cycle/056/integration`
+- [x] Signal to Agent D at bottom of report
 
 ## GO / NO-GO Verdict
 
-### VERDICT: NO-GO
+### VERDICT: GO
 
-Required hard gates are now blocked by ruff failures in newly added test files from Agent F scope. Fixture/suite-guard prerequisites are resolved, but ruff must be clean before GO.
+All C-level gate checks pass. Regressions green (`34 passed`). Fixture factories importable and functional. Suite guard PASS. §11.3 parity confirmed. Golden OFF parity PASS (`kw=110 62.7/1.0/CONDITIONAL_GO`). Agent D may proceed to the full merge gate.
 
-Agent C complete. Verdict: NO-GO. All 25 tasks were re-run on the latest branch state. §11.3 PRAGMA: all YES (no model deltas; fallback probe PASS). Golden: kw=110 62.7/1.0/CONDITIONAL_GO. Fixture factories: importable and functional. Suite guard: PASS. Blocking gate: ruff (5 I001 import-order errors in F-owned tests). Agent D BLOCKED — see failing gates above.
+Agent C complete. Verdict: GO. All 14 gate checks run. §11.3 PRAGMA: all YES. Golden: kw=110 62.7/1.0/CONDITIONAL_GO. Fixture factories: importable and functional. Suite guard: PASS. Agent D may proceed.
