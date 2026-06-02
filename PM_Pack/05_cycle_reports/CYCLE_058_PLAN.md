@@ -6,7 +6,7 @@
 - Current `origin/develop`: `6366cba75e7ab03d2dc338ec3535fe3ed394bcc1`
 - Jira control task: `SCRUM-1012`
 - R7 stories: `SCRUM-620`, `SCRUM-847`, `SCRUM-623`, `SCRUM-621`, `SCRUM-851`, `SCRUM-622`, `SCRUM-854`, `SCRUM-858`
-- Draft PR: `TBD (open after first governance commit lands)`
+- Draft PR: `#67` (`https://github.com/KevinSGarrett/Fiverr/pull/67`)
 - C058 squash SHA: `TBD (Agent D)`
 
 ## Hard Gate Contract (Pass-through)
@@ -116,7 +116,7 @@
 ## Task 5 — Branch and PR
 - Branch created from `origin/develop`: `cycle/058/integration`
 - Branch pushed to origin (tracking set).
-- PR creation initially blocked by GitHub 422 due no branch diff yet; PR is created after governance commit in this cycle.
+- PR created after governance commit (initial attempt correctly failed with 422 due no commits between branches).
 
 ## Task 6 — Pinned R7 Implementation Contracts
 - Toggle key to add:
