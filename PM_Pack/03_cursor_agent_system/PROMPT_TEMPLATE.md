@@ -17,6 +17,7 @@ AGENT {A|B|C|D} — CYCLE {NNN} PROMPT
 
 ## YOUR ROLE
 {Agent role and epic ownership from AGENT_ROSTER.md}
+MANDATORY (Agent D, Draft PRs): Start §15.1 Codex wait from `ready_for_review` timestamp (after `gh pr ready <PR>`), not CI completion.
 
 ## GIT INSTRUCTIONS
 1. Ensure you are on branch: cycle/{NNN}/integration

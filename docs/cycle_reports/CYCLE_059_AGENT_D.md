@@ -239,5 +239,6 @@ This section is written for direct PM consumption and future-cycle enforcement.
 
 - `docs/cycle_reports/CYCLE_059_AGENT_D.md` (this report): timeline, root-cause analysis, trigger analysis, PM instruction set.
 - `PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md`: permanent §15.5 rule.
+- `PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md`: one-line mandatory Agent D snippet to auto-insert ready_for_review-anchored Codex wait rule in future prompts.
 - `PM_Pack/07_hydration/HYDRATION_HEADER.md`: C059 closeout state.
 - `PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md`: C059 complete/C060 readiness state.
