@@ -978,3 +978,253 @@ These actions by the PM are ALWAYS wrong. No circumstance justifies them.
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.9 | 2026-06-01 | §13 PM OPERATING RULES added: §13.1 verify-state-before-answering; §13.2 SHA resolution before publish; §13.3 immediate scratch cleanup; §13.4 structural prompt rules; §13.5 stage order verification; §13.6 parallel notice mandatory; §13.7 D operational playbook mandatory; §13.8 pre-release checklist; §13.9 hard prohibitions. All rules traced to specific C056 failures. |
+
+---
+
+## Section 14: ENVIRONMENT CONFIGURATION & LIVE COLLECTION PROTOCOL (effective Cycle 059+)
+
+Added after C058 — three consecutive cycles where Agent E ran in SEED mode despite a valid
+SCRAPFLY_API_KEY being present. Root cause: agents checked `$env:SCRAPFLY_API_KEY` (Windows
+system environment) instead of reading from the `.env` file. The key is in the file, not the
+system environment on this machine.
+
+### 14.1 .ENV FILE IS THE AUTHORITATIVE SECRET SOURCE
+
+All API keys, tokens, and configuration values for this project live in:
+  `C:\Fiverr\Fiverr\.env`
+
+Current documented keys (presence only — never print values):
+  OPENAI_API_KEY         prefix: sk-  (len≈164) — used by R5 LLM classifier
+  SCRAPFLY_API_KEY       prefix: scp- (len≈41)  — used by Agent E live collection
+  DATABASE_URL           prefix: sqlite (len≈33) — default DB path
+  REDDIT_CLIENT_ID       present — Reddit API access
+  REDDIT_CLIENT_SECRET   present — Reddit API access
+  REDDIT_USER_AGENT      present — Reddit API user agent string
+
+**The system `$env:SCRAPFLY_API_KEY` will be EMPTY unless explicitly loaded from `.env`.**
+Checking `$env:SCRAPFLY_API_KEY` directly will return null and agents will falsely report SEED.
+
+### 14.2 MANDATORY ENV LOADING STEP (§10.5 addendum)
+
+Every Agent E prompt and every cursor agent that does live collection MUST include this step
+as the FIRST action in any collection task:
+
+```powershell
+# Load .env into current PowerShell session (§14.2 — mandatory before any API call)
+Get-Content 'C:\Fiverr\Fiverr\.env' | ForEach-Object {
+  if ($_ -match '^([A-Z0-9_]+)=(.+)$') {
+    [System.Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
+  }
+}
+# Verify the key is now accessible
+$k = $env:SCRAPFLY_API_KEY
+if ($k -and $k.StartsWith('scp-')) { Write-Output "SCRAPFLY_API_KEY: LOADED (prefix=$($k.Substring(0,6)))" }
+else { Write-Output "SCRAPFLY_API_KEY: MISSING OR WRONG PREFIX — CHECK .env" }
+```
+
+If the key is loaded successfully: proceed with live collection.
+If the key is missing from .env: fallback to [SEED — key missing from .env] per §10.5.
+
+Python equivalent (for use in run.py scripts):
+```python
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())  # loads C:\Fiverr\Fiverr\.env into os.environ
+```
+
+The codebase already uses python-dotenv (check requirements). load_dotenv() is the correct
+Python-side approach. Agents should confirm dotenv is loaded before assuming keys are in env.
+
+Root cause this prevents: 3 consecutive SEED cycles (C056/C057/C058) despite key being present.
+
+### 14.3 THROWAWAY DB SEEDING REQUIREMENT
+
+**The pipeline CANNOT collect data into an empty DB.** If the throwaway DB has no niche rows,
+the pipeline falls back to the `dry_run` niche ID, emits `https://dry-run-test.invalid/` URLs,
+and silently skips all niche-resolved keyword writes.
+
+Evidence from C058 Agent E:
+  "Unable to resolve niche 'prd_ai_saas' to a DB primary key; skipping keyword writes."
+  "Unknown or missing niche_id='dry_run'; falling back to NONE strictness URL."
+  "<-- 400 | Invalid hostname, given https://dry-run-test.invalid/"
+
+**The dry-run fallback is NOT a ScrapFly error. It is a missing-niche-seed error.**
+
+Mandatory seeding step before any throwaway DB live collection:
+```powershell
+# Run foundation-gate to initialize the throwaway DB with all migrations + niche rows
+py -3.12 run.py foundation-gate --database-url sqlite:///data/cycle0NN_e2e_validation.db
+# Verify niches are seeded
+py -3.12 -c "
+from sqlalchemy import create_engine
+e=create_engine('sqlite:///data/cycle0NN_e2e_validation.db')
+r=e.connect().exec_driver_sql('SELECT COUNT(*) FROM niches').fetchone()
+print('niches seeded:', r[0], '(must be 9)')
+"
+```
+If `niches seeded: 9` → proceed with live collection.
+If `niches seeded: 0` → DB is empty; run foundation-gate first.
+
+Root cause this prevents: dry-run fallback contamination in Agent E's throwaway DB runs.
+
+### 14.4 EXTERNAL SIGNAL SCHEMA REALITY (not the spec — the actual db columns)
+
+The `external_signals` table as built by C058 Agent B uses THESE column names:
+  PRESENT:  id, keyword_id, run_id, signal_type, signal_value, signal_json, source_url,
+            collected_at, ttl_hours, is_stale, collection_method, error_message,
+            created_at, updated_at
+  ABSENT (spec names that were NOT implemented):
+    raw_value        → use signal_value instead
+    relevance_score  → NOT a column; compute from external context if needed
+    trend_direction  → NOT a column; stored inside signal_json
+    buyer_intent_posts / total_posts → NOT columns; stored inside signal_json
+
+**All Agent E diagnostic SQL queries MUST use `signal_value`, NOT `raw_value`.**
+**Trend direction and buyer intent ratio must be extracted from `signal_json`, not a column.**
+
+The spec-vs-implementation gap is a Tier-C carry-forward item for Agent B in a future cycle.
+C059 Agent B should add the missing columns as a follow-up if needed for R10 display.
+For now: Agent E prompts use `signal_value` and `signal_json` extraction for all queries.
+
+### 14.5 LIVE COLLECTION VALIDATION CHECKLIST (§10.5 replacement)
+
+The §10.5 ScrapFly Live-Enable Runbook is extended with these mandatory steps:
+
+```
+AGENT E LIVE COLLECTION CHECKLIST (run in order — all must PASS):
+
+[ ] 1. Load .env: Get-Content .env | ForEach-Object { if ($_ -match ...) { SetEnv } }
+        Confirm: SCRAPFLY_API_KEY loaded with scp- prefix
+
+[ ] 2. Seed throwaway DB: py -3.12 run.py foundation-gate --database-url sqlite:///data/cycle0NN_e2e.db
+        Confirm: SELECT COUNT(*) FROM niches → 9
+
+[ ] 3. Write config.live.yaml with collection.scrapfly.enabled: true
+
+[ ] 4. Run collection against throwaway DB (NOT cycle037_live.db):
+        py -3.12 run.py [collection_mode] --niche [target_niche] \
+          --config-path config.live.yaml \
+          --database-url sqlite:///data/cycle0NN_e2e.db
+
+[ ] 5. Check for dry-run contamination:
+        If "Unable to resolve niche" appears in logs: DB not seeded → re-run step 2
+        If "dry-run-test.invalid" appears: fallback triggered → check niche seeding
+        If "ScrapFly attempt N/3 failed" with invalid hostname: dry-run fallback → step 2
+
+[ ] 6. Confirm live data: SELECT signal_type, COUNT(*) FROM external_signals GROUP BY signal_type
+        If 0 rows all types + [SEED]: ScrapFly key not loaded or collection mode wrong
+        If some rows: PARTIAL — record which types have data
+
+[ ] 7. Per §10.5: never fabricate counts. Record exact status per type.
+        If any step fails: document as SEED or PARTIAL with specific failure reason.
+```
+
+---
+
+## Section 15: AGENT D MERGE TIMING AND REPORT PLACEMENT PROTOCOL (effective Cycle 059+)
+
+Added after C058 — Agent D merged PR #67 before the Codex review bot completed, resulting in
+two P2 findings after the merge that required a post-merge follow-up commit. The correct
+protocol requires waiting for Codex to complete BEFORE merging.
+
+### 15.1 CODEX REVIEW BOT TIMING
+
+The chatgpt-codex-connector bot runs ASYNCHRONOUSLY. It may take 5-15 minutes after CI
+completes to post its review threads. If D queries GraphQL and sees 0 threads, it does NOT
+mean the bot has finished — it may not have started yet.
+
+**Before merging, D MUST confirm Codex has completed:**
+
+```powershell
+# Check that Codex has run by looking for its review submissions
+Invoke-Exe gh 'api repos/KevinSGarrett/Fiverr/pulls/<PR>/reviews --jq ".[] | {user:.user.login, state, submitted_at}"'
+```
+
+Expected: at least one entry from `chatgpt-codex-connector` with `state: "COMMENTED"`.
+If Codex has not appeared: wait up to 15 minutes after CI "Lint, Typecheck, Tests, and Gates" = success.
+After 15 minutes with no Codex review: document "Codex bot did not run — proceed after 15min wait."
+
+**D's merge gate is BLOCKED until Codex has either:**
+  a) Run and found 0 threads (all clear), OR
+  b) Run, found threads, and all are resolved, OR
+  c) Not appeared after 15+ minutes (documented non-blocking skip)
+
+Root cause this prevents: PR #67 had two P2 findings appear 14 minutes post-merge.
+
+### 15.2 POST-MERGE CODEX MONITORING (mandatory — 1 hour window)
+
+Even when D merges with 0 Codex threads, D MUST:
+1. Check Codex threads again 30-60 minutes after merge
+2. If new threads appear: immediately route to Agent B (or whichever agent owns src/)
+3. B fixes the issue, adds regression tests, commits to develop directly
+4. D resolves the threads and records the fix SHA in D's report
+
+This is exactly what happened in C058 (correctly — but it must be in the protocol).
+The fix commit should follow the pattern: `fix(scope): [description of codex p2 fix]`
+Regression tests for the fix are mandatory — they prevent the same issue from recurring.
+
+Root cause this prevents: undocumented post-merge fixes that bypass the gate process.
+
+### 15.3 AGENT CYCLE REPORT PLACEMENT — HARD RULE
+
+Every cursor agent's cycle report MUST be committed to:
+  `docs/cycle_reports/CYCLE_0NN_AGENT_[LETTER].md`
+
+NOT to:
+  `CYCLE_0NN_AGENT_B.md` (repo root)  ← C058 B report was placed here — WRONG
+  `PM_Pack/05_cycle_reports/` (plan files go here, not reports)
+  Any other location
+
+**The PM review checklist reads from `docs/cycle_reports/` only.**
+A report at the repo root will NOT be found by the PM review and will appear as MISSING.
+
+In every Agent B prompt: the zone check must explicitly state:
+  "B commits `docs/cycle_reports/CYCLE_0NN_AGENT_B.md` — NOT to the repo root."
+
+In every Agent D prompt: before squash-merge, verify all 6 report paths:
+  Get-ChildItem `docs/cycle_reports` -Filter "CYCLE_0NN_AGENT_*.md" | Measure-Object → Count=6
+
+Root cause this prevents: CYCLE_058_AGENT_B.md appearing at repo root, PM review showing MISSING.
+
+### 15.4 POST-MERGE REGRESSION TESTS ARE PERMANENT (§7 update protocol)
+
+If any Codex P2 finding is fixed post-merge AND regression tests are added:
+  - Those tests become PERMANENT regression pack members
+  - D or PM must update §7 within the same session as the fix
+  - Tests added post-merge as Codex fixes follow the same REG-NN naming convention
+
+Example: C058 commit `7fcfe41` added 3 tests that should be REG-31/32/33.
+These protect against the datetime naive/aware bug and confidence blend bug.
+They were not added to §7 v2.1 because they occurred after D's governance commit.
+This section requires that such tests be added retroactively in the PM review.
+
+### Version history (Sections 14-15)
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 2.0 | 2026-06-02 | §14+§15 added: env/ScrapFly protocol; throwaway DB seeding; external signal schema; Codex timing; report placement; post-merge regression tracking. All traced to C058 failures. |
+
+### Cycle 058 post-merge Codex-fix additions — MERGED (pack now 34 after 7fcfe41)
+
+Two P2 Codex findings from PR #67 were fixed post-merge in commit `7fcfe41`
+(`fix(scoring): harden external-signal confidence context edge cases`).
+Regression tests added in that commit are permanent pack members:
+
+| # | Test name | File | Purpose |
+| --- | --- | --- | --- |
+| 32 | `test_external_signal_quality_not_blended_without_signal_context` (REG-31) | `tests/unit/test_confidence_score.py` | Freshness×relevance blend must be SKIPPED when external_signal_context_present=False (Codex P2 fix: confidence was incorrectly raised even without real signal data) |
+| 33 | `test_external_signal_quality_blended_when_signal_context_present` (REG-32) | `tests/unit/test_confidence_score.py` | Freshness×relevance blend APPLIES when external_signal_context_present=True (positive path) |
+| 34 | `test_confidence_context_handles_naive_external_signal_timestamp` (REG-33) | `tests/unit/test_scoring_pipeline.py` | Pipeline confidence context handles naive (non-UTC-aware) ExternalSignal.collected_at without TypeError (Codex P2 fix: naive datetime cannot be subtracted from UTC-aware datetime.now()) |
+
+REG-31/32/33 added post-merge in C058 commit `7fcfe413afe1b8d7d5425941dfae1c3e91957847`,
+backfilled to permanent pack in C058 PM review 2026-06-02.
+
+**Pack status after C058 PM review: 34 names (expected passed: 42)**
+
+---
+
+### §7 Version history update
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 2.2 | 2026-06-02 | C058 PM review: backfilled post-merge Codex P2 fix regressions REG-31/32/33 (datetime normalization + confidence blend guard). Pack now 34 names (42 passed). §14+§15 added (env loading; throwaway DB seeding; external signal schema; Codex timing; report placement). |
+
