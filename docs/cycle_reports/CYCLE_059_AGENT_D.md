@@ -183,6 +183,7 @@ Evidence indicates Codex review was triggered by PR state transition to **ready 
 - `2026-06-02T23:20:05Z` -> Codex inline comments posted
 
 Additional facts:
+
 - Codex review references head commit `e4cdb1329050ffdd2e0f1eab72b211b9de0246e6` (no new commit trigger).
 - The prior 15-minute wait occurred while the PR remained draft and produced no review entries.
 - Once `ready_for_review` was emitted, Codex responded ~2 minutes later.
@@ -192,6 +193,7 @@ Additional facts:
 For Draft PRs, the Codex wait clock must start **after** `ready_for_review`, not after CI completion alone.
 
 Required order for future D runs:
+
 1. Ensure enforced CI checks are green.
 2. If PR is draft, mark ready (`gh pr ready <PR>`).
 3. Record the `ready_for_review` timestamp from PR events.
@@ -199,3 +201,43 @@ Required order for future D runs:
 5. Merge only after:
    - Codex review appears and threads resolved, OR
    - 15-minute documented wait from `ready_for_review` (not from earlier CI completion).
+
+## PM Executive Briefing (Actionable Summary)
+
+This section is written for direct PM consumption and future-cycle enforcement.
+
+### What D did in C059
+
+1. Ran full D merge gate scope (G1-G10), completed merge, governance update, Jira transitions, branch cleanup, and baseline integrity checks.
+2. Followed the then-current §15.1 wait rule (15-minute polling window), documented all polling timestamps and both GraphQL runs.
+3. Detected post-merge Codex review and captured exact GitHub evidence (review + comment timestamps and files).
+4. Added root-cause/postmortem documentation and converted findings into permanent strategy rules.
+
+### Confirmed root cause
+
+- Codex did not trigger from elapsed CI time alone.
+- Codex triggered from PR lifecycle event `ready_for_review`.
+- In C059, this event occurred right before merge; Codex review landed ~2 minutes later.
+
+### Permanent rule now added
+
+- Strategy updated at `PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md`:
+  - Added `§15.5 CODEX TRIGGER ANCHOR FOR DRAFT PRS`.
+  - Added version history row `2.4`.
+
+### PM operating checklist for all future D cycles
+
+1. Confirm enforced CI checks are green.
+2. If PR is draft, mark ready first.
+3. Record `ready_for_review` timestamp from PR events.
+4. Start 15-minute Codex wait from that timestamp.
+5. Match bot identity using `chatgpt-codex-connector[bot]` (or prefix match).
+6. If skip path is used, require post-merge checks at +5m and +15m before final PM closeout.
+7. If late findings appear: route to B for fix + regression, then append D addendum with fix SHA and thread resolution proof.
+
+### Artifacts updated in this session
+
+- `docs/cycle_reports/CYCLE_059_AGENT_D.md` (this report): timeline, root-cause analysis, trigger analysis, PM instruction set.
+- `PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md`: permanent §15.5 rule.
+- `PM_Pack/07_hydration/HYDRATION_HEADER.md`: C059 closeout state.
+- `PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md`: C059 complete/C060 readiness state.

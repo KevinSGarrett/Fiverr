@@ -1197,11 +1197,35 @@ These protect against the datetime naive/aware bug and confidence blend bug.
 They were not added to §7 v2.1 because they occurred after D's governance commit.
 This section requires that such tests be added retroactively in the PM review.
 
+### 15.5 CODEX TRIGGER ANCHOR FOR DRAFT PRS (effective Cycle 060+)
+
+Root cause observed in C059: Codex review did not appear during a 15-minute wait while the PR
+was still draft. The review appeared ~2 minutes after the PR emitted `ready_for_review`.
+
+Therefore, for draft PRs, the Codex wait window MUST be anchored to the `ready_for_review`
+event timestamp, not to CI completion alone.
+
+Binding rule for Agent D:
+1. Confirm enforced checks are green (`Lint, Typecheck, Tests, and Gates` + `codecov/project`).
+2. If PR is draft, run `gh pr ready <PR>` before Codex gating.
+3. Query PR events and record `ready_for_review` timestamp:
+   - `Invoke-Exe gh 'api repos/<owner>/<repo>/issues/<PR>/events --jq ".[] | {event,created_at,actor:.actor.login}"'`
+4. Start the §15.1 15-minute polling window from that `ready_for_review` timestamp.
+5. Match bot identity as `chatgpt-codex-connector[bot]` (or prefix `chatgpt-codex-connector`) when checking reviews.
+6. Do not merge until either:
+   - bot review appears and threads are resolved, OR
+   - 15-minute documented wait has elapsed from `ready_for_review`.
+
+PM enforcement note:
+- If skip path is used, require post-merge Codex checks at +5m and +15m before declaring final cycle closeout.
+- If late Codex findings appear, route to B for real fix + regression, then append D addendum with fix SHA and thread resolution evidence.
+
 ### Version history (Sections 14-15)
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 2.0 | 2026-06-02 | §14+§15 added: env/ScrapFly protocol; throwaway DB seeding; external signal schema; Codex timing; report placement; post-merge regression tracking. All traced to C058 failures. |
+| 2.4 | 2026-06-02 | Added §15.5 permanent Codex trigger anchor rule: for draft PRs, start 15-minute wait from `ready_for_review`, not CI completion; require bot identity matching, event timestamp logging, and skip-path post-merge checks (+5m/+15m). Triggered by C059 late Codex review after draft->ready transition. |
 
 ### Cycle 058 post-merge Codex-fix additions — MERGED (pack now 34 after 7fcfe41)
 
