@@ -2,9 +2,9 @@
 
 ## VERDICT (Topline)
 
-**NO-GO** — Blocking gate: prompt-specified `LLMRelevanceConfig` import contract failed (`ImportError`).
+**GO** — Re-verification after B fix passed all 17 gate checks.
 
-Branch: `cycle/057/integration` | HEAD at verification start: `0c76b46f2b2b72f1ad5f53d092843ac5569a4911` | Date: 2026-06-02
+Branch: `cycle/057/integration` | Initial C HEAD: `0c76b46f2b2b72f1ad5f53d092843ac5569a4911` | Re-verify base: `48acd16` | Date: 2026-06-02
 Agents confirmed present: A yes | B yes | E yes | F not yet (runs after C) | D not yet
 
 ## Preflight
@@ -43,10 +43,8 @@ Agents confirmed present: A yes | B yes | E yes | F not yet (runs after C) | D n
 
 - Prompt-specified import check:
   - Command: `from src.config.models import LLMRelevanceConfig; c=LLMRelevanceConfig(); print(c.enabled)`
-  - Result: **FAIL** (`ImportError: cannot import name 'LLMRelevanceConfig'`)
-  - Current implementation exposes `RelevanceConfig.LLMRelevanceConfig` (nested), not top-level symbol.
-
-This is treated as a blocking interface mismatch against the explicit C057 Agent B prompt contract.
+  - Result: **PASS** (`toggle defaults false`)
+  - Fix commit: `48acd16` (top-level alias exposed in `src/config/models.py`).
 
 ## §11.3 PRAGMA Detail
 
@@ -96,16 +94,25 @@ This is treated as a blocking interface mismatch against the explicit C057 Agent
 
 ## NO-GO Routing
 
-Blocking issue:
-- Top-level import contract mismatch for `LLMRelevanceConfig` in `src.config.models`.
+Previous blocker resolved:
+- Top-level `LLMRelevanceConfig` import contract mismatch was fixed by B in `48acd16`.
+- Full gate suite was rerun after the fix (not partial).
 
-Route:
-- **Agent B**: expose `LLMRelevanceConfig` at module level (or update agreed contract and all consumers).
+## Re-verification After Fix
 
-Re-verification requirement:
-- After B pushes fix, C re-runs full gate suite (not partial), then updates verdict.
+Re-verification run executed after `48acd16`:
+- `ruff`: PASS
+- `mypy`: PASS
+- 28-name pack: `36 passed`
+- foundation gate: PASS
+- smoke: PASS
+- config gates: PASS (`scrapfly=false`, `llm_relevance_enabled=false`)
+- golden parity: PASS (`110=62.7/1.0/CONDITIONAL_GO`, anchors stable)
+- LLM module checks: PASS (imports/trigger/niches/degrade/budget)
+- supplemental checks (Tasks 16-25): PASS
+- zone checks (B and E): PASS
 
 ## VERDICT
 
-**NO-GO** — Blocking gate: prompt-specified `LLMRelevanceConfig` import contract failed (`ImportError`).
-All other 17 technical/integration gates passed, but cycle cannot advance under C verification contract until B resolves this interface mismatch.
+**GO** — All 17 gate checks pass after re-verification.
+REG-23 PASS, REG-24 PASS. LLM classifier imports/trigger/degrade/budget verified. Config gates and golden parity PASS. Agent F may start; Agent D may proceed after F.
