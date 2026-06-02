@@ -165,11 +165,18 @@ relevance:
   enable_sponsored_exclusion: true
   enable_zombie_filter: true
   enable_stage_3_5: true
+  llm_relevance_enabled: false  # Stage 7.5; enable via config.live.yaml for live runs
   relevance_flag_threshold: 0.35
   ghost_market_threshold_default: 0.20
   zombie_threshold: 0.50
   min_account_age_days: 180
   top_n_for_scoring: 10
+  llm:
+    enabled: false
+    call_budget_per_run: 50
+    model: gpt-4o-mini
+    trigger_band_low: 0.40
+    trigger_band_high: 0.70
 
 discovery:
   enabled: true

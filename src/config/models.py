@@ -359,14 +359,29 @@ class ScoringConfig(BaseModel):
 
 
 class RelevanceConfig(BaseModel):
+    class LLMRelevanceConfig(BaseModel):
+        enabled: bool = False
+        call_budget_per_run: int = Field(default=50, ge=1)
+        model: str = "gpt-4o-mini"
+        trigger_band_low: float = Field(default=0.40, ge=0.0, le=1.0)
+        trigger_band_high: float = Field(default=0.70, ge=0.0, le=1.0)
+
+        @model_validator(mode="after")
+        def validate_band(self) -> RelevanceConfig.LLMRelevanceConfig:
+            if self.trigger_band_high <= self.trigger_band_low:
+                raise ValueError("relevance.llm.trigger_band_high must be > trigger_band_low")
+            return self
+
     enable_sponsored_exclusion: bool = True
     enable_zombie_filter: bool = True
     enable_stage_3_5: bool = False
+    llm_relevance_enabled: bool = False
     relevance_flag_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
     ghost_market_threshold_default: float = Field(default=0.20, ge=0.0, le=1.0)
     zombie_threshold: float = Field(default=0.50, ge=0.0, le=1.0)
     min_account_age_days: int = Field(default=180, ge=1)
     top_n_for_scoring: int = Field(default=10, ge=1)
+    llm: LLMRelevanceConfig = Field(default_factory=LLMRelevanceConfig)
 
 
 class AppConfig(BaseModel):
