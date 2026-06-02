@@ -46,8 +46,23 @@ Date: 2026-06-02
   - baseline pre-merge anchor: `(62.7, 1.0, 'CONDITIONAL_GO')`.
 - TASK 27: collect-only includes `test_badge_rendering.py` + `test_relevance_alerts.py` (37 tests collected in command run).
 - TASK 28: no DB write calls in `src/dashboard/` (`session.add|db.add|session.commit|db.commit` -> no matches).
+- TASK 29: `git log origin/develop --oneline -3` confirms top commit `8023998 chore(governance): §7 R10 regressions; v2.3 (C059 R10)`.
+- TASK 30: C060 signal includes squash SHA, coverage, test count, TC-1/TC-2 status, and scope recommendation.
 - TC-1 carry-forward check: deferred in C059 (no migration/model changes in this cycle scope).
 - TC-2 carry-forward check: `keyword_expansion.py` contains fail-fast message `Run foundation-gate first to seed niches (see strategy §14.3).`
+
+## R10 AC Addendum (strict literal proof)
+
+- AC-R10.2 severity sort check: `tests/unit/test_relevance_alerts.py::test_alerts_sorted_critical_first` -> PASS.
+- AC-R10.3 NULL ghost treatment check:
+  - `tests/unit/test_badge_rendering.py::test_ghost_flag_none_treated_as_false` -> PASS.
+  - `tests/unit/test_relevance_dashboard.py::test_ghost_market_excluded_from_opportunities_by_default` -> PASS.
+- TASK 27 literal tail output check (collect-only last lines):
+  - `tests/unit/test_relevance_alerts.py::test_null_run_id_returns_empty_alerts`
+  - `tests/unit/test_relevance_alerts.py::test_none_db_returns_empty_alerts`
+  - `37 tests collected in 1.71s`
+- Verbatim R10 smoke command rerun:
+  - `R10 G10 smoke: ALL PASS — 7 badges, 6 alerts, ghost=False default`
 
 ## CI + Codex Timing Evidence (§15.1)
 

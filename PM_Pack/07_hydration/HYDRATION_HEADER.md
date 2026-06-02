@@ -1,29 +1,29 @@
 # HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-02 (C058 PM review)
+# Updated: 2026-06-02 (C059 closeout)
 
 ## CYCLE STATE
-CYCLE_DONE: 058
-CYCLE_NEXT: 059
-CYCLE_STATUS_058: COMPLETE - PR #67 squash-merged to develop
-CYCLE_BRANCH_058: DELETED (origin/cycle/058/integration removed post-merge)
-TIER_GATE: Tier-2 CLOSED (R5 C057 + R7 C058). Tier-3 ACTIVE (R10 C059).
+CYCLE_DONE: 059
+CYCLE_NEXT: 060
+CYCLE_STATUS_059: COMPLETE - PR #68 squash-merged to develop
+CYCLE_BRANCH_059: DELETED (origin/cycle/059/integration removed post-merge)
+TIER_GATE: Tier-2 CLOSED. Tier-3 R10 COMPLETE. Tier-3 remains active pending PM decision for C060 scope.
 
 ## DEVELOP HEAD
-develop HEAD: 454f122d (docs(cycle058): finalize exhaustive D gate evidence and checklist)
+develop HEAD: 8023998 (chore(governance): §7 R10 regressions; v2.3 (C059 R10))
+C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 C058 CODEX FIX SHA: 7fcfe413afe1b8d7d5425941dfae1c3e91957847
 C057 SQUASH SHA: 325ef30304de320cb062cea02aeba16dc601a90e
 
-## SUITE STATE (after C058 + post-merge Codex fix 7fcfe41)
-Tests: 3920 passed at C058 merge; ~3 more from 7fcfe41
-Coverage: 95.58% at C058 merge | Floor: 90% enforced
+## SUITE STATE (after C059 merge gate)
+Tests: 3971 passed
+Coverage: 95.62% | Floor: 90% enforced
 
-## REGRESSION PACK (strategy §7 v2.2 - 34 names, ~42 passed)
-Pack version: v2.2 (updated C058 PM review 2026-06-02)
-34 permanent names (see strategy §7 for full list).
-REG-28/29/30: R7 external signal qualifiers (test_external_signal_integrity.py)
-REG-31/32/33: Codex P2 fixes from 7fcfe41 (test_confidence_score.py, test_scoring_pipeline.py)
+## REGRESSION PACK (strategy §7 v2.3 - 37 names)
+Pack version: v2.3 (updated C059 closeout 2026-06-02)
+37 permanent names (see strategy §7 for full list).
+REG-34/35/36: R10 dashboard regressions (ghost filter default, non-ghost badge rendering, empty-run alerts).
 
 ## C058 VERIFIED FACTS
 Epic: SRDI R7 - External Signal Integrity (Wave H)
@@ -56,19 +56,18 @@ REDDIT_CLIENT_SECRET: PRESENT
 REDDIT_USER_AGENT:   PRESENT (len=53)
 (Full list and loading protocol: strategy §14.1 + §14.2)
 
-## C059 SCOPE
+## C059 CLOSEOUT
 Epic: SRDI R10 - Dashboard & Alerting Integration (Wave K) - Tier-3
-Jira: SCRUM-634, SCRUM-635, SCRUM-636, SCRUM-637, SCRUM-638, SCRUM-897, SCRUM-639, SCRUM-640
-Features: Relevance Quality Score panel, 7 keyword badges, Data Integrity block,
-          6 alert types, Run-summary relevance block, Opportunities page filters
-SRDI spec: PM_Pack\ref\project_plan\13_srdi\03_EPIC_BREAKDOWN_MASTER.md §R10
-           PM_Pack\ref\project_plan\13_srdi\04_DOD_AND_ACCEPTANCE.md §R10
-Base spec:  PM_Pack\ref\project_plan\08_dashboard\
-C059 branch: cycle/059/integration (not yet created)
-C059 dev head at start: check git log at cycle start (454f122 or later after governance commit)
-Carry-forward Tier-C items for C059 Agent B:
-  1. Add missing ExternalSignal columns (raw_value alias, relevance_score, trend_direction)
-  2. Fix pipeline dry-run contamination (niche-seeding fallback)
+PR: #68 | Squash: 1fd62250ff04704d36b2a8606689c596e82a1545
+Jira Done: SCRUM-634/635/636/637/638/897/639/640 + SCRUM-1013 (control)
+Gates: G1-G10 PASS | Codex wait protocol followed (15-min documented skip; no bot review submitted)
+Coverage run (D-only): 3971 passed, 95.62%
+Golden anchors: unchanged (kw110 62.7/1.0/CONDITIONAL_GO)
+Config gates: scrapfly=false, llm=false, ext_signals=false
+Branch cleanup: origin/cycle/059/integration deleted
+Carry-forward to C060:
+  1. TC-1 ExternalSignal schema expansion (deferred)
+  2. PM scope decision for Tier-3 continuation vs next epic (R11 is Tier-4 roadmap)
 
 ## GOLDEN ANCHORS (READ-ONLY FOREVER)
 data/cycle037_live.db
@@ -80,7 +79,7 @@ kw=3:   56.66 / 0.95 / MONITOR
 Tier-0: DONE (R8/R1/R3/R2)
 Tier-1: DONE (R4/R6/R9)
 Tier-2: CLOSED (R5+R7)
-Tier-3: ACTIVE -> R10 (C059)
+Tier-3: R10 COMPLETE (C059); further scope pending PM C060 decision
 Tier-4: future (R11)
 
 ## OPEN TIER-D ITEMS
