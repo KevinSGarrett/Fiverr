@@ -173,6 +173,7 @@ relevance:
 
 discovery:
   enabled: true
+  enable_relevance_gates: false
   max_hypotheses_per_run: 12
   max_cost_per_run: 7.5
   min_confidence: 0.6

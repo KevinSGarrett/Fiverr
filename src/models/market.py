@@ -56,6 +56,9 @@ class Keyword(
     is_discovery: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     discovery_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     hypothesis_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ghost_market_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    discovery_needs_recollection: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_relevance_validated_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     niche: Mapped[Niche] = relationship(back_populates="keywords")
     search_results: Mapped[list[SearchResult]] = relationship(back_populates="keyword_ref")
