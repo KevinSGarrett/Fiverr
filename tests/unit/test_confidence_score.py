@@ -234,6 +234,54 @@ def test_confidence_modifier_improves_when_signals_present() -> None:
     assert "llm_gig_quality_incomplete" not in breakdown
 
 
+def test_external_signal_quality_not_blended_without_signal_context() -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": False,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+        "external_signals_enabled": True,
+        "signal_age_days": 0,
+        "signal_relevance_score": 1.0,
+        "external_signal_context_present": False,
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=1, run_context=context, db=None)
+    assert "freshness_relevance_quality" not in breakdown
+    assert modifier == pytest.approx(0.95, abs=1e-4)
+
+
+def test_external_signal_quality_blended_when_signal_context_present() -> None:
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": False,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+        "external_signals_enabled": True,
+        "signal_age_days": 0,
+        "signal_relevance_score": 1.0,
+        "external_signal_context_present": True,
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=1, run_context=context, db=None)
+    assert breakdown["freshness_relevance_quality"] == pytest.approx(1.0, abs=1e-4)
+    assert modifier == pytest.approx(0.965, abs=1e-4)
+
+
 @pytest.mark.parametrize(
     ("raw_value", "default_value", "expected"),
     [

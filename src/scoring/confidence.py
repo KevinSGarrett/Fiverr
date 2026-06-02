@@ -123,15 +123,17 @@ class ConfidenceScoreModifier:
                 deductions["youtube_confidence_gate"] = round(gated_modifier - final_modifier, 4)
                 final_modifier = gated_modifier
 
-            signal_age_days = self._as_int(context.get("signal_age_days"), 0) or 0
-            signal_relevance = self._clamp_0_1(self._as_float(context.get("signal_relevance_score"), 1.0))
-            freshness_quality = compute_signal_freshness_quality(
-                signal_age_days=signal_age_days,
-                relevance_score=signal_relevance,
-            )
-            # Blend quality into confidence rather than replacing confidence entirely.
-            final_modifier = self._clamp_0_1((final_modifier * 0.70) + (freshness_quality * 0.30))
-            deductions["freshness_relevance_quality"] = round(freshness_quality, 4)
+            # Blend freshness quality only when a real external signal exists.
+            external_signal_context_present = self._as_bool(context.get("external_signal_context_present"), False)
+            if external_signal_context_present:
+                signal_age_days = self._as_int(context.get("signal_age_days"), 0) or 0
+                signal_relevance = self._clamp_0_1(self._as_float(context.get("signal_relevance_score"), 1.0))
+                freshness_quality = compute_signal_freshness_quality(
+                    signal_age_days=signal_age_days,
+                    relevance_score=signal_relevance,
+                )
+                final_modifier = self._clamp_0_1((final_modifier * 0.70) + (freshness_quality * 0.30))
+                deductions["freshness_relevance_quality"] = round(freshness_quality, 4)
 
         breakdown: dict[str, float] = {
             "data_completeness_ratio": completeness,

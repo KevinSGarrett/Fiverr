@@ -787,6 +787,7 @@ def _build_confidence_context(
     youtube_video_count: int | None = None
     signal_age_days = 0
     signal_relevance_score = 1.0
+    external_signal_context_present = False
     if isinstance(db, Session):
         top_results = (
             db.query(SearchResult)
@@ -839,8 +840,14 @@ def _build_confidence_context(
             .first()
         )
         if newest_signal is not None and isinstance(newest_signal.collected_at, datetime):
-            now = datetime.now(UTC)
-            delta = now - newest_signal.collected_at
+            external_signal_context_present = True
+            collected_at = newest_signal.collected_at
+            # SQLite often round-trips timestamps as naive datetimes even when written as UTC.
+            if collected_at.tzinfo is None:
+                now = datetime.now()
+            else:
+                now = datetime.now(collected_at.tzinfo)
+            delta = now - collected_at
             signal_age_days = max(0, int(delta.total_seconds() // 86400))
         rsv = get_result_set_validation(keyword_id, db)
         if rsv is not None and rsv.result_set_relevance_score is not None:
@@ -875,6 +882,7 @@ def _build_confidence_context(
         "youtube_video_count": youtube_video_count,
         "signal_age_days": signal_age_days,
         "signal_relevance_score": signal_relevance_score,
+        "external_signal_context_present": external_signal_context_present,
         "external_signals_enabled": external_signals_enabled,
         "external_signals_config": external_signals_config,
     }
