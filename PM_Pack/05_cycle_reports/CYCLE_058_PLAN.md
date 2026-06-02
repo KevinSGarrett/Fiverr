@@ -287,10 +287,12 @@ def compute_signal_freshness_quality(signal_age_days: int, relevance_score: floa
 - E must not call external signal APIs directly; run pipeline and inspect DB outputs.
 
 ### ScrapFly runbook (strategy §10.5, verbatim contract)
-- ScrapFly is required for live Fiverr fetch.
-- Keep committed `config.yaml` scrapfly disabled.
-- Use local uncommitted `config.live.yaml` with ScrapFly enabled for live run.
-- If live unavailable, report `[SEED]` fallback; do not fabricate data.
+- `ScrapFly is REQUIRED for any live Fiverr fetch. No ScrapFly -> expect 403 -> no live data.`
+- `The committed config.yaml MUST keep collection.scrapfly.enabled: false.`
+- `Automated tests MUST NEVER make live ScrapFly calls.`
+- `Live work enables ScrapFly at RUNTIME via a local, uncommitted config — never by committing enabled: true.`
+- `Agent E live-validation MUST state this explicitly; if unavailable, report [SEED — no live signal].`
+- `Distinguish committed OFF (correct for CI) vs live-run ON via local override (required for live data).`
 
 ### Required diagnostic query
 ```bash
@@ -325,11 +327,26 @@ for row in r: print(row)
 
 ## Agent D Handoff — Stage 5 (after all 5 agents)
 - Runs full merge gate after A+B+E+C+F completion.
-- Includes §12.3 operational playbook:
-  - PR size >1000 lines => apply `override:large-pr`
-  - Codex unresolved check twice
-  - `codecov/patch` advisory handling
-  - mergeable_state interpretation
+- Includes §12.3 operational playbook (verbatim actions):
+  - **12.3.1 PR too large (>1000 lines):**
+    - Run:
+      - `gh api -X POST repos/KevinSGarrett/Fiverr/issues/<PR_NUM>/labels --field "labels[]=override:large-pr"`
+    - Re-attempt squash merge after label.
+  - **12.3.2 Codex review thread resolution (G-002):**
+    - Run unresolved-thread query.
+    - Fix or cite fix SHA per thread.
+    - Resolve each thread.
+    - Run unresolved-thread query a second time; unresolved must be `0`.
+  - **12.3.3 codecov/patch failing:**
+    - Advisory only; do not block merge when enforced checks pass.
+    - Document why uncovered diff is acceptable or route to F next cycle.
+  - **12.3.4 CI pending check-runs:**
+    - Wait/re-query until enforced checks complete; do not merge while any enforced check is `in_progress`.
+  - **12.3.5 mergeable_state handling:**
+    - `blocked` => do not merge
+    - `unstable` => merge allowed if only non-required checks failing
+    - `clean` => proceed
+    - `unknown` => wait/re-query
 - Confirms:
   - Golden parity with `external_signals_enabled=false`
   - Baseline DB `data/cycle037_live.db` untouched
