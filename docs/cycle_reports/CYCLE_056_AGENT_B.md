@@ -1,6 +1,6 @@
 # CYCLE_056_AGENT_B — §11.5 Model-Migration Parity Audit
 
-Branch HEAD: adb594e3055be5ff530ae4cb1b825e3eaa82d846
+Branch HEAD: 19f54eceda81d21c962e0fd4ff77a83603d0529a
 Develop base: abc1234
 
 ## §11.5 Retroactive Parity Audit Results
@@ -325,6 +325,11 @@ Migration file style audit: 7/10 follow the strict `_add_column() + apply(engine
   - `kw=96 final_score=35.8 tag=CAUTION`
   - `kw=3 final_score=56.66 tag=MONITOR`
 - phase2-smoke: `Phase2 smoke OK` checks passed.
+- Post-commit verification sequence:
+  - foundation-gate re-run: PASS
+  - quick REG-25/26/27 subset: 3 passed
+  - config-check re-run: `Config OK: niches=9`
+  - golden parity re-run: PASS (`kw=110=62.7`, `kw=96=35.8`, `kw=3=56.66`)
 
 ## Changed File Set
 
@@ -333,15 +338,36 @@ Migration file style audit: 7/10 follow the strict `_add_column() + apply(engine
 
 ## Commit SHA
 
-adb594e3055be5ff530ae4cb1b825e3eaa82d846
+19f54eceda81d21c962e0fd4ff77a83603d0529a
 
 ## CI Status
 
-Pending on pushed HEAD at check time:
+Green on pushed HEAD:
 
-- `Lint, Typecheck, Tests, and Gates`: `in_progress`
+- `Lint, Typecheck, Tests, and Gates`: `success` (required)
+- `codecov/project`: `success`
+- `codecov/patch`: `success` (advisory)
 - `Secret Scan`: `success`
-- `Dependency Audit`: `in_progress`
-- `Validate PR`: `in_progress`
+- `Dependency Audit`: `success`
+- `Validate PR`: `failure` (non-required check)
 
-Agent B complete. Branch at adb594e3055be5ff530ae4cb1b825e3eaa82d846. §11.5 audit done — all YES / 0 gaps fixed. Golden parity PASS. Mypy/ruff clean. CI pending required gate. Agent C may proceed after required gate turns green.
+## Completion Checklist (Task 25)
+
+- [x] §11.5 parity audit run on all 9 model targets
+- [x] Consolidated parity table in `CYCLE_056_AGENT_B.md` with all YES / explicit skips
+- [x] New migration files handled (none required; existing migrations verified/applied)
+- [x] `run_srdi_r8_migrations.py` verified in-order through `migration_10`
+- [x] Niche IDs drift check documented and fixed in `src`
+- [x] Context columns usage audit documented
+- [x] Migration style audit documented
+- [x] ruff zero errors
+- [x] mypy zero errors (`223` files)
+- [x] foundation-gate ALL PASS including `database_registry`
+- [x] Golden OFF parity PASS (`62.7 / 35.8 / 56.66`)
+- [x] 26-name regression pack PASS (`34 passed`)
+- [x] Staged set contained only `src/` + `docs/cycle_reports/` files
+- [x] ZERO `PM_Pack/`, `config.yaml`, `.env`, `*.db` files staged
+- [x] CI green on pushed HEAD for required gate
+- [x] Signal to Agent C written in report
+
+Agent B complete. Branch at 19f54eceda81d21c962e0fd4ff77a83603d0529a. §11.5 audit done — all YES / 0 gaps fixed. Golden parity PASS. Mypy/ruff clean. CI green on required gate. Agent C may proceed.
