@@ -693,8 +693,10 @@ def _write_keywords_to_db(
 
     niche_pk = _resolve_niche_pk(niche_id, db)
     if niche_pk is None:
-        logger.warning("Unable to resolve niche '%s' to a DB primary key; skipping keyword writes.", niche_id)
-        return 0
+        raise ValueError(
+            f"Niche '{niche_id}' not found in DB. "
+            "Run foundation-gate first to seed niches (see strategy §14.3)."
+        )
 
     from src.collection.keyword_expansion import normalize_keyword
     from src.models.base import utc_now

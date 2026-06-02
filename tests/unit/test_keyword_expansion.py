@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.collection.workflows.keyword_expansion import (
@@ -602,13 +603,17 @@ def test_write_keywords_to_db_non_session_returns_zero() -> None:
     assert _write_keywords_to_db("ai_saas", ["AI chatbot"], db=object()) == 0
 
 
-def test_write_keywords_to_db_unresolved_niche_returns_zero() -> None:
+def test_pipeline_raises_on_unseeded_db_not_dry_run_fallback() -> None:
     engine = create_engine("sqlite:///:memory:", future=True)
     Niche.__table__.create(bind=engine, checkfirst=True)
     Keyword.__table__.create(bind=engine, checkfirst=True)
     session = sessionmaker(bind=engine, future=True)()
     try:
-        assert _write_keywords_to_db("missing_niche", ["AI chatbot"], db=session) == 0
+        with pytest.raises(
+            ValueError,
+            match="Run foundation-gate first to seed niches",
+        ):
+            _write_keywords_to_db("missing_niche", ["AI chatbot"], db=session)
     finally:
         session.close()
 
