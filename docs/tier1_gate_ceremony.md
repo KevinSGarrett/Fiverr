@@ -22,7 +22,7 @@ R6 (Discovery Engine Relevance Gates): COMPLETE
   Result: DONE ✓
 
 R9 (Testing & Validation Framework): COMPLETE
-  Evidence: PR #65 squash-merged develop @ [C056_SQUASH_SHA] (Cycle 056)
+  Evidence: PR #65 squash-merged develop @ 3617ce4a33ec4e6c2d614d2578de7c90b0cb3cd3 (Cycle 056)
   Suite count: 3857 tests (floor 3829) — PASS
   REG-13..27: 34 passed (26-name pack) — PASS
   Fixture factories: relevance_fixtures.py + contaminated_data_fixtures.py — IMPORTABLE
@@ -55,7 +55,7 @@ DEFERRED
 ## Tier-1 Gate Status: CLOSED
 
 Date of closure: 2026-06-01
-Closing PR: #65 squash SHA: [C056_SQUASH_SHA]
+Closing PR: #65 squash SHA: 3617ce4a33ec4e6c2d614d2578de7c90b0cb3cd3
 
 ## Next Steps (Tier-2)
 
