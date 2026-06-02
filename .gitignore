@@ -41,6 +41,8 @@ data/**/*.log
 data/imports/reddit_devvit/*.json
 logs/
 *.log
+alert_log.json
+badge_cache*.json
 PM_Pack*.zip
 Cycle_*_Cursor_Prompts*.zip
 Fiverr_cycle*/
