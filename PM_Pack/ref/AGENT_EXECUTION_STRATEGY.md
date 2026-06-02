@@ -1227,4 +1227,15 @@ backfilled to permanent pack in C058 PM review 2026-06-02.
 | Version | Date | Change |
 | --- | --- | --- |
 | 2.2 | 2026-06-02 | C058 PM review: backfilled post-merge Codex P2 fix regressions REG-31/32/33 (datetime normalization + confidence blend guard). Pack now 34 names (42 passed). §14+§15 added (env loading; throwaway DB seeding; external signal schema; Codex timing; report placement). |
+| 2.3 | 2026-06-02 | C059 (R10): REG-34/35/36 added. Dashboard test suite. Tier-3 R10 complete. |
+
+### Cycle 059 additions — MERGED (pack now 37 after C059 close)
+
+| # | Test name | File | Purpose |
+| --- | --- | --- | --- |
+| 35 | `test_ghost_market_excluded_from_opportunities_by_default` (REG-34) | `tests/unit/test_relevance_dashboard.py` | Ghost markets hidden by default in Opportunities page (AC-R10.3) |
+| 36 | `test_all_non_ghost_tags_render_correctly` (REG-35) | `tests/unit/test_badge_rendering.py` | All 6 non-ghost badge types render with correct type field |
+| 37 | `test_empty_run_returns_no_alerts` (REG-36) | `tests/unit/test_relevance_alerts.py` | Empty DB returns empty alert list (AC-R10.4 null safety) |
+
+REG-34/35/36 added in Cycle 059 (R10 Dashboard & Alerting), PR #68, merged develop @ 1fd62250ff04704d36b2a8606689c596e82a1545.
 
