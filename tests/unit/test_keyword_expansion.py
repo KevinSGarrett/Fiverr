@@ -411,7 +411,7 @@ def test_fetch_fiverr_autocomplete_ignores_close_errors() -> None:
     pacing_manager.wait.assert_awaited_once_with("fiverr_search", dry_run=False)
 
 
-def test_safe_pacing_wait_without_wait_method() -> None:
+def test_safe_pacing_wait_without_wait_method_keyword_expansion() -> None:
     _run(_safe_pacing_wait(object(), "external_default", dry_run=False))
 
 
@@ -1188,7 +1188,7 @@ def test_run_expansion_llm_failure_does_not_break_pipeline(monkeypatch) -> None:
     assert result["sources"]["llm_generated"] == 0
 
 
-def test_resolve_maybe_await_returns_plain_value() -> None:
+def test_resolve_maybe_await_returns_plain_value_keyword_expansion() -> None:
     assert _run(_resolve_maybe_await("plain")) == "plain"
 
 

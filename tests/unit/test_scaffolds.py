@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 class TestScoringScaffold:
-    def test_imports(self) -> None:
+    def test_imports_scoring_scaffold(self) -> None:
         from src.scoring import ScoringInput, ScoringOrchestrator, ScoringOutput
         assert ScoringInput
         assert ScoringOrchestrator
@@ -85,7 +85,7 @@ class TestScoringScaffold:
 
 
 class TestPricingScaffold:
-    def test_imports(self) -> None:
+    def test_imports_pricing_scaffold(self) -> None:
         from src.pricing import (
             EntryPricingRecommendation,
             PriceDistribution,
@@ -138,7 +138,7 @@ class TestPricingScaffold:
 
 
 class TestDiscoveryScaffold:
-    def test_imports(self) -> None:
+    def test_imports_discovery_scaffold(self) -> None:
         from src.discovery import (
             DiscoveryHypothesisResult,
             DiscoveryInput,

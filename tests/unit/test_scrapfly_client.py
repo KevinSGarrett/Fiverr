@@ -550,11 +550,11 @@ class TestScrapFlyFetcher:
 
         return ScrapFlyFetcher(_FakeClient())
 
-    def test_satisfies_page_fetcher_protocol(self):
+    def test_satisfies_page_fetcher_protocol_scrapfly(self):
         assert isinstance(self._make_fetcher(), PageFetcher)
 
     @pytest.mark.asyncio
-    async def test_returns_fetch_result(self):
+    async def test_returns_fetch_result_scrapfly(self):
         fetcher = self._make_fetcher("<html>gig content</html>")
         result = await fetcher.fetch("https://www.fiverr.com/x")
         assert isinstance(result, FetchResult)
@@ -604,11 +604,11 @@ class TestPlaywrightFetcher:
 
         return PlaywrightFetcher(_FakeSM())
 
-    def test_satisfies_page_fetcher_protocol(self):
+    def test_satisfies_page_fetcher_protocol_playwright(self):
         assert isinstance(self._make_fetcher(), PageFetcher)
 
     @pytest.mark.asyncio
-    async def test_returns_fetch_result(self):
+    async def test_returns_fetch_result_playwright(self):
         result = await self._make_fetcher().fetch("https://www.fiverr.com/x")
         assert isinstance(result, FetchResult)
         assert result.html == "<html>playwright content</html>"

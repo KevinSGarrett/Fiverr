@@ -586,7 +586,7 @@ def test_w8_real_ignores_close_errors() -> None:
     assert result["collected"] is True
 
 
-def test_safe_pacing_wait_without_wait_method() -> None:
+def test_safe_pacing_wait_without_wait_method_autocomplete() -> None:
     _run(autocomplete_workflow_module._safe_pacing_wait(object(), dry_run=False))
 
 

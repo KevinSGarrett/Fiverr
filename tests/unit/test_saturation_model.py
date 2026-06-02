@@ -492,7 +492,7 @@ def test_run_saturation_returns_niche_not_found_reason() -> None:
         session.close()
 
 
-def test_extract_niche_ids_filters_inactive_and_invalid_entries() -> None:
+def test_extract_niche_ids_filters_inactive_and_invalid_entries_saturation_model() -> None:
     config = {
         "niches": [
             {"niche_id": "active-1", "is_active": True},

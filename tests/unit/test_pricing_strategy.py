@@ -132,7 +132,7 @@ def test_price_ladder_too_few_steps() -> None:
         PricingStrategy(**payload)
 
 
-def test_generate_pricing_strategy_no_price_distribution() -> None:
+def test_generate_pricing_strategy_no_price_distribution_pricing_strategy() -> None:
     context = RecommendationContext(keyword_text="python automation", niche_id=12)
     result = asyncio.run(generate_pricing_strategy(context, llm_client=Mock(), cache=None))
     assert result == {"output": None, "cost_usd": 0.0}

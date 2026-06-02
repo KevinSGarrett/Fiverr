@@ -15,15 +15,15 @@ class TestFormatDuration:
        AC-1.6.2 format_duration(45) == '45s'
     """
 
-    def test_hours_and_minutes(self) -> None:
+    def test_hours_and_minutes_utils(self) -> None:
         from src.utils.datetime import format_duration
         assert format_duration(7380) == "2h 3m"
 
-    def test_seconds_only(self) -> None:
+    def test_seconds_only_utils(self) -> None:
         from src.utils.datetime import format_duration
         assert format_duration(45) == "45s"
 
-    def test_zero(self) -> None:
+    def test_zero_utils(self) -> None:
         from src.utils.datetime import format_duration
         assert format_duration(0) == "0s"
 
@@ -59,7 +59,7 @@ class TestParseFiverrDate:
         result = parse_fiverr_date("Jan 15, 2024")
         assert result == date(2024, 1, 15)
 
-    def test_iso_format(self) -> None:
+    def test_iso_format_utils(self) -> None:
         from src.utils.datetime import parse_fiverr_date
         result = parse_fiverr_date("2024-06-01")
         assert result == date(2024, 6, 1)
@@ -115,11 +115,11 @@ class TestValidatePrice:
 
 
 class TestValidateUrl:
-    def test_valid_https(self) -> None:
+    def test_valid_https_utils(self) -> None:
         from src.utils.validation import validate_url
         assert validate_url("https://www.fiverr.com/categories") is True
 
-    def test_valid_http(self) -> None:
+    def test_valid_http_utils(self) -> None:
         from src.utils.validation import validate_url
         assert validate_url("http://example.com/path") is True
 
@@ -169,7 +169,7 @@ class TestJaccardSimilarity:
         result = jaccard_similarity("apple orange", "car truck")
         assert 0.0 <= result < 0.5
 
-    def test_partial_overlap(self) -> None:
+    def test_partial_overlap_utils(self) -> None:
         from src.utils.hashing import jaccard_similarity
         result = jaccard_similarity("ai saas prd", "ai saas product requirements")
         assert 0.0 < result < 1.0
@@ -180,7 +180,7 @@ class TestJaccardSimilarity:
         result = jaccard_similarity("AI PRD writing service", "AI PRD writer service")
         assert result >= 0.5  # clearly similar
 
-    def test_empty_strings(self) -> None:
+    def test_empty_strings_utils(self) -> None:
         from src.utils.hashing import jaccard_similarity
         assert jaccard_similarity("", "") == pytest.approx(1.0)
 
@@ -204,7 +204,7 @@ class TestSha256Hash:
         assert len(result) == 64
         assert all(c in "0123456789abcdef" for c in result)
 
-    def test_idempotent(self) -> None:
+    def test_idempotent_sha256(self) -> None:
         from src.utils.hashing import sha256_hash
         assert sha256_hash("test") == sha256_hash("test")
 
@@ -236,7 +236,7 @@ class TestEnsureExportDirs:
         assert (export_root / "pdf").exists()
         assert (export_root / "playbook").exists()
 
-    def test_idempotent(self, tmp_path: Path) -> None:
+    def test_idempotent_export_dirs_utils(self, tmp_path: Path) -> None:
         from src.utils.export import ensure_export_dirs
         root = tmp_path / "exp"
         ensure_export_dirs(base_path=root)

@@ -7,9 +7,8 @@
 - Date: 2026-06-01
 
 ## 2) C verdict confirmation
-- `docs/cycle_reports/CYCLE_056_AGENT_C.md` currently reports `VERDICT: NO-GO` because Agent F deliverables were missing at that time.
-- This Agent F run closes those missing deliverables and re-runs the requested verification matrix.
-- C prerequisite handling: validated C report status before execution and then completed all F-owned blockers in this run so C can re-issue verdict on updated branch state.
+- `docs/cycle_reports/CYCLE_056_AGENT_C.md` now reports `VERDICT: GO`.
+- C prerequisite handling: Agent F work executed after C GO and then performed final duplicate-name closure sweep for literal Task 12 completion.
 
 ## 3) Files created/updated (path + line count + verification)
 - `tests/fixtures/__init__.py` (4 lines) - import verified (`import tests.fixtures`).
@@ -49,6 +48,11 @@
 - `SUITE_COUNT_FLOOR = 3829` confirmed in `tests/test_suite_guard.py`.
 - Current collect-only total: `3857 tests collected` (>= floor 3829).
 
+## 5.1) Duplicate test-name closure (Task 12)
+- Global duplicate-name scan command now reports: `dupe_count 0` / `No duplicates found`.
+- Duplicate-name remediation was completed by renaming only test function identifiers in `tests/unit` files (no behavioral assertions changed).
+- Validation bundle on renamed files: `754 passed`.
+
 ## 6) Integration test files (created/existing + run results)
 - Existing:
   - `tests/integration/test_discovery_relevance_gates_integration.py` -> `2 passed`
@@ -81,7 +85,7 @@
 - Staged-zone evidence (`git diff --cached --name-only`): all staged paths are under `tests/` or `docs/cycle_reports/CYCLE_056_AGENT_F.md`.
 - `git diff --cached --name-only -- src/` -> empty.
 - `git diff --name-only origin/develop..HEAD -- src/` reports `src/analysis/result_set_validator.py` from pre-existing branch work; Agent F is not the author of that src delta and staged none under `src/`.
-- Duplicate-name probe command surfaced pre-existing cross-file duplicate function names in the legacy suite; this does not create pytest node-id collisions for Agent F files.
+- Legacy duplicate-name condition has been remediated to zero duplicates across suite collection.
 
 ## 10) New test run summary + handoff signal
 - Targeted new/modified bundle:

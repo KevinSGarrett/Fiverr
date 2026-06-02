@@ -45,7 +45,7 @@ def db_session() -> Session:
         session.close()
 
 
-def test_execute_with_retry_success() -> None:
+def test_execute_with_retry_success_retry_handler() -> None:
     job = _make_job()
     job_func = AsyncMock(return_value=None)
 

@@ -254,7 +254,7 @@ class _LegacyLLM:
         return SimpleNamespace(text="5.0")
 
 
-def test_weakness_fallback_run_id_path_is_exercised() -> None:
+def test_weakness_fallback_run_id_path_is_exercised_extended() -> None:
     from tests.unit.test_scoring_weakness_gqs import (
         _insert_gqa_row,
         _new_session,
@@ -272,7 +272,7 @@ def test_weakness_fallback_run_id_path_is_exercised() -> None:
         session.close()
 
 
-def test_weakness_fallback_selects_correct_run_when_multiple_available() -> None:
+def test_weakness_fallback_selects_correct_run_when_multiple_available_extended() -> None:
     from tests.unit.test_scoring_weakness_gqs import (
         _insert_gqa_row,
         _new_session,
@@ -295,7 +295,7 @@ def test_weakness_fallback_selects_correct_run_when_multiple_available() -> None
         session.close()
 
 
-def test_weakness_active_run_takes_precedence_over_fallback() -> None:
+def test_weakness_active_run_takes_precedence_over_fallback_extended() -> None:
     from tests.unit.test_scoring_weakness_gqs import (
         _insert_gqa_row,
         _new_session,

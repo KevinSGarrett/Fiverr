@@ -937,7 +937,7 @@ def test_gig_detail_not_implemented() -> None:
     page.goto.assert_awaited_once()
 
 
-def test_w4_real_navigates_to_gig_url() -> None:
+def test_w4_real_navigates_to_gig_url_collection_workflows() -> None:
     page, session_manager, pacing_manager = _build_real_gig_detail_mocks()
     gig_url = "https://www.fiverr.com/seller/gig-4"
     _run(
@@ -957,7 +957,7 @@ def test_w4_real_navigates_to_gig_url() -> None:
     page.goto.assert_awaited_once_with(build_gig_detail_url(gig_url), wait_until="domcontentloaded", timeout=30_000)
 
 
-def test_w4_real_calls_pacing_wait() -> None:
+def test_w4_real_calls_pacing_wait_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks()
     _run(
         run_gig_detail_collection(
@@ -976,7 +976,7 @@ def test_w4_real_calls_pacing_wait() -> None:
     pacing_manager.wait.assert_awaited_once_with("fiverr_gig_detail", dry_run=False)
 
 
-def test_w4_real_extracts_title() -> None:
+def test_w4_real_extracts_title_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks(title="Exact Gig Title")
     result = _run(
         run_gig_detail_collection(
@@ -995,7 +995,7 @@ def test_w4_real_extracts_title() -> None:
     assert result["title"] == "Exact Gig Title"
 
 
-def test_w4_real_extracts_description() -> None:
+def test_w4_real_extracts_description_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks(description="Detailed description body")
     result = _run(
         run_gig_detail_collection(
@@ -1014,7 +1014,7 @@ def test_w4_real_extracts_description() -> None:
     assert result["description_length"] == len("Detailed description body")
 
 
-def test_w4_real_video_present() -> None:
+def test_w4_real_video_present_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks(has_video=True)
     result = _run(
         run_gig_detail_collection(
@@ -1033,7 +1033,7 @@ def test_w4_real_video_present() -> None:
     assert result["has_video"] is True
 
 
-def test_w4_real_video_absent() -> None:
+def test_w4_real_video_absent_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks(has_video=False)
     result = _run(
         run_gig_detail_collection(
@@ -1052,7 +1052,7 @@ def test_w4_real_video_absent() -> None:
     assert result["has_video"] is False
 
 
-def test_w4_real_portfolio_count() -> None:
+def test_w4_real_portfolio_count_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks(portfolio_count=3)
     result = _run(
         run_gig_detail_collection(
@@ -1071,7 +1071,7 @@ def test_w4_real_portfolio_count() -> None:
     assert result["portfolio_count"] == 3
 
 
-def test_w4_real_updates_gig_row() -> None:
+def test_w4_real_updates_gig_row_collection_workflows() -> None:
     from src.models.gig import Gig
 
     engine = create_engine("sqlite:///:memory:", future=True)
@@ -1105,7 +1105,7 @@ def test_w4_real_updates_gig_row() -> None:
         db.close()
 
 
-def test_w4_real_closes_page_on_success() -> None:
+def test_w4_real_closes_page_on_success_collection_workflows() -> None:
     _page, session_manager, pacing_manager = _build_real_gig_detail_mocks()
     _run(
         run_gig_detail_collection(
@@ -1124,7 +1124,7 @@ def test_w4_real_closes_page_on_success() -> None:
     session_manager.close_page.assert_awaited_once()
 
 
-def test_w4_real_closes_page_on_error() -> None:
+def test_w4_real_closes_page_on_error_collection_workflows() -> None:
     page, session_manager, pacing_manager = _build_real_gig_detail_mocks()
     page.goto.side_effect = RuntimeError("boom")
     with pytest.raises(RuntimeError):
@@ -1145,7 +1145,7 @@ def test_w4_real_closes_page_on_error() -> None:
     session_manager.close_page.assert_awaited_once()
 
 
-def test_w4_real_no_gig_row_in_db() -> None:
+def test_w4_real_no_gig_row_in_db_collection_workflows() -> None:
     from src.models.gig import Gig
 
     engine = create_engine("sqlite:///:memory:", future=True)
@@ -1172,19 +1172,19 @@ def test_w4_real_no_gig_row_in_db() -> None:
         db.close()
 
 
-def test_parse_review_count_with_commas() -> None:
+def test_parse_review_count_with_commas_collection_workflows() -> None:
     assert _parse_review_count("1,234 reviews") == 1234
 
 
-def test_parse_review_count_none() -> None:
+def test_parse_review_count_none_collection_workflows() -> None:
     assert _parse_review_count(None) is None
 
 
-def test_parse_rating_decimal() -> None:
+def test_parse_rating_decimal_collection_workflows() -> None:
     assert _parse_rating("Rated 4.9 stars") == 4.9
 
 
-def test_parse_rating_none() -> None:
+def test_parse_rating_none_collection_workflows() -> None:
     assert _parse_rating(None) is None
 
 

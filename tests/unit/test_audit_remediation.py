@@ -7,7 +7,7 @@ import pytest
 
 
 class TestFormatDuration:
-    def test_seconds_only(self) -> None:
+    def test_seconds_only_duration(self) -> None:
         from src.utils.datetime import format_duration
         assert format_duration(45) == "45s"
 
@@ -19,11 +19,11 @@ class TestFormatDuration:
         from src.utils.datetime import format_duration
         assert format_duration(90) == "1m 30s"
 
-    def test_hours_and_minutes(self) -> None:
+    def test_hours_and_minutes_duration(self) -> None:
         from src.utils.datetime import format_duration
         assert format_duration(7380) == "2h 3m"
 
-    def test_zero(self) -> None:
+    def test_zero_duration(self) -> None:
         from src.utils.datetime import format_duration
         assert format_duration(0) == "0s"
 
@@ -58,7 +58,7 @@ class TestParseFiverrDate:
         assert parse_fiverr_date("") is None
         assert parse_fiverr_date(None) is None  # type: ignore[arg-type]
 
-    def test_iso_format(self) -> None:
+    def test_iso_format_date(self) -> None:
         from src.utils.datetime import parse_fiverr_date
         result = parse_fiverr_date("2024-01-15")
         assert result is not None
@@ -101,19 +101,19 @@ class TestParseFiverrDate:
 
 
 class TestValidateUrl:
-    def test_valid_https(self) -> None:
+    def test_valid_https_url(self) -> None:
         from src.utils.validation import validate_url
         assert validate_url("https://www.fiverr.com/services/ai") is True
 
-    def test_valid_http(self) -> None:
+    def test_valid_http_url(self) -> None:
         from src.utils.validation import validate_url
         assert validate_url("http://example.com") is True
 
-    def test_none(self) -> None:
+    def test_none_url(self) -> None:
         from src.utils.validation import validate_url
         assert validate_url(None) is False  # type: ignore[arg-type]
 
-    def test_empty(self) -> None:
+    def test_empty_url(self) -> None:
         from src.utils.validation import validate_url
         assert validate_url("") is False
 
@@ -127,7 +127,7 @@ class TestValidatePrice:
         from src.utils.validation import validate_price
         assert validate_price(50.0) is True
 
-    def test_zero(self) -> None:
+    def test_zero_price(self) -> None:
         from src.utils.validation import validate_price
         assert validate_price(0) is True
 
@@ -135,7 +135,7 @@ class TestValidatePrice:
         from src.utils.validation import validate_price
         assert validate_price(-5.0) is False
 
-    def test_none(self) -> None:
+    def test_none_price(self) -> None:
         from src.utils.validation import validate_price
         assert validate_price(None) is False  # type: ignore[arg-type]
 
@@ -153,11 +153,11 @@ class TestSanitizeText:
         from src.utils.validation import sanitize_text
         assert sanitize_text("  hello world  ") == "hello world"
 
-    def test_empty(self) -> None:
+    def test_empty_text(self) -> None:
         from src.utils.validation import sanitize_text
         assert sanitize_text("") == ""
 
-    def test_none(self) -> None:
+    def test_none_text(self) -> None:
         from src.utils.validation import sanitize_text
         assert sanitize_text(None) == ""  # type: ignore[arg-type]
 
@@ -199,12 +199,12 @@ class TestJaccardSimilarity:
         result = jaccard_similarity("hello world", "foo bar baz")
         assert result == 0.0
 
-    def test_partial_overlap(self) -> None:
+    def test_partial_overlap_jaccard(self) -> None:
         from src.utils.hashing import jaccard_similarity
         result = jaccard_similarity("hello world", "goodbye world")
         assert 0.0 < result < 1.0
 
-    def test_empty_strings(self) -> None:
+    def test_empty_strings_jaccard(self) -> None:
         from src.utils.hashing import jaccard_similarity
         assert jaccard_similarity("", "") == 1.0
 
@@ -227,7 +227,7 @@ class TestEnsureExportDirs:
         assert (root / "json").exists()
         assert (root / "markdown").exists()
 
-    def test_idempotent(self, tmp_path) -> None:
+    def test_idempotent_export_dirs(self, tmp_path) -> None:
         from src.utils.export import ensure_export_dirs
         root = tmp_path / "exports"
         ensure_export_dirs(root)
