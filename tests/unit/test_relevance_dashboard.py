@@ -5,23 +5,22 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from src.dashboard.relevance_dashboard import (
     build_data_integrity_block,
     calculate_niche_relevance_quality_score,
     get_opportunities_for_display,
     run_summary_relevance_block,
 )
+from src.models.base import Base
 from src.models.market import Keyword
 from src.models.niche import Niche
 from src.models.result_set_validation import ResultSetValidation
 
 
-def _build_session():
+def _build_session() -> Session:
     engine = create_engine("sqlite:///:memory:", future=True)
-    Niche.__table__.create(bind=engine, checkfirst=True)
-    Keyword.__table__.create(bind=engine, checkfirst=True)
-    ResultSetValidation.__table__.create(bind=engine, checkfirst=True)
+    Base.metadata.create_all(bind=engine)
     return sessionmaker(bind=engine, future=True)()
 
 
@@ -109,3 +108,143 @@ def test_run_summary_relevance_block_has_human_readable_print() -> None:
         assert "ghost market keyword(s) flagged" in summary["ghost_market_print"]
     finally:
         session.close()
+
+
+def test_quality_score_computed_from_rsv_rows() -> None:
+    session = _build_session()
+    try:
+        niche = Niche(slug="score-niche", name="Score Niche", category_path="x/y")
+        session.add(niche)
+        session.commit()
+        kw_one = Keyword(niche_id=niche.id, keyword="score one", normalized_keyword="score one")
+        kw_two = Keyword(niche_id=niche.id, keyword="score two", normalized_keyword="score two")
+        session.add_all([kw_one, kw_two])
+        session.commit()
+        session.add_all(
+            [
+                ResultSetValidation(
+                    keyword_id=kw_one.id,
+                    run_id="run-score",
+                    result_set_relevance_score=0.80,
+                ),
+                ResultSetValidation(
+                    keyword_id=kw_two.id,
+                    run_id="run-score",
+                    result_set_relevance_score=0.60,
+                ),
+            ]
+        )
+        session.commit()
+
+        score = calculate_niche_relevance_quality_score(niche.id, "run-score", session)
+        assert abs(score - 0.70) < 0.01
+    finally:
+        session.close()
+
+
+def test_quality_score_excludes_other_niche_rows() -> None:
+    session = _build_session()
+    try:
+        niche_one = Niche(slug="niche-one", name="Niche One", category_path="x/y")
+        niche_two = Niche(slug="niche-two", name="Niche Two", category_path="x/y")
+        session.add_all([niche_one, niche_two])
+        session.commit()
+        kw_one = Keyword(niche_id=niche_one.id, keyword="one", normalized_keyword="one")
+        kw_two = Keyword(niche_id=niche_two.id, keyword="two", normalized_keyword="two")
+        session.add_all([kw_one, kw_two])
+        session.commit()
+        session.add_all(
+            [
+                ResultSetValidation(
+                    keyword_id=kw_one.id,
+                    run_id="run-multi-niche",
+                    result_set_relevance_score=0.80,
+                ),
+                ResultSetValidation(
+                    keyword_id=kw_two.id,
+                    run_id="run-multi-niche",
+                    result_set_relevance_score=0.20,
+                ),
+            ]
+        )
+        session.commit()
+
+        score_one = calculate_niche_relevance_quality_score(niche_one.id, "run-multi-niche", session)
+        score_two = calculate_niche_relevance_quality_score(niche_two.id, "run-multi-niche", session)
+        assert abs(score_one - 0.80) < 0.01
+        assert abs(score_two - 0.20) < 0.01
+    finally:
+        session.close()
+
+
+def test_quality_score_is_clamped_to_upper_bound() -> None:
+    session = _build_session()
+    try:
+        niche = Niche(slug="clamp-niche", name="Clamp Niche", category_path="x/y")
+        session.add(niche)
+        session.commit()
+        kw = Keyword(niche_id=niche.id, keyword="clamp", normalized_keyword="clamp")
+        session.add(kw)
+        session.commit()
+        session.add(
+            ResultSetValidation(
+                keyword_id=kw.id,
+                run_id="run-clamp",
+                result_set_relevance_score=1.5,
+            )
+        )
+        session.commit()
+
+        score = calculate_niche_relevance_quality_score(niche.id, "run-clamp", session)
+        assert score == 1.0
+    finally:
+        session.close()
+
+
+def test_run_summary_clean_run_shows_no_ghost() -> None:
+    session = _build_session()
+    try:
+        summary = run_summary_relevance_block("clean-run", session)
+        assert summary["ghost_market_count"] == 0
+        assert summary["alert_count"] == 0
+        assert "No ghost" in summary["ghost_market_print"] or "0 ghost" in summary["ghost_market_print"]
+    finally:
+        session.close()
+
+
+def test_run_summary_has_alert_count_and_ghost_print() -> None:
+    session = _build_session()
+    try:
+        niche = Niche(slug="summary-niche", name="Summary Niche", category_path="x/y")
+        session.add(niche)
+        session.commit()
+        kw = Keyword(
+            niche_id=niche.id,
+            keyword="summary-ghost",
+            normalized_keyword="summary-ghost",
+            ghost_market_flag=True,
+        )
+        session.add(kw)
+        session.commit()
+        session.add(ResultSetValidation(keyword_id=kw.id, run_id="summary-run", ghost_market_flag=True))
+        session.commit()
+
+        summary = run_summary_relevance_block("summary-run", session)
+        assert summary["ghost_market_count"] == 1
+        assert summary["alert_count"] >= 1
+        assert "1 ghost" in summary["ghost_market_print"]
+    finally:
+        session.close()
+
+
+def test_opportunities_filter_empty_run_returns_empty_list() -> None:
+    session = _build_session()
+    try:
+        opportunities = get_opportunities_for_display("no-run", session)
+        assert opportunities == []
+    finally:
+        session.close()
+
+
+def test_opportunities_filter_none_db_returns_empty_list() -> None:
+    assert get_opportunities_for_display("any-run", None) == []

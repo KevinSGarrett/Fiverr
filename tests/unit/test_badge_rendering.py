@@ -10,7 +10,7 @@ class MockKS:
     def __init__(
         self,
         tag: str | None = None,
-        ghost: bool = False,
+        ghost: bool | None = False,
         autocomplete_status: str | None = None,
     ) -> None:
         self.tag = tag
@@ -94,3 +94,32 @@ def test_all_non_ghost_tags_render_correctly() -> None:
 def test_tag_to_color_mapping(tag: str, expected_color: str) -> None:
     badge = BADGE_TYPES[tag]
     assert badge["color"] == expected_color
+
+
+def test_emerging_badge_direct_type_and_color() -> None:
+    badge = render_keyword_integrity_badge(MockKS(tag="EMERGING"))
+    assert badge["type"] == "EMERGING"
+    assert badge["color"] == "blue"
+
+
+def test_ghost_market_badge_color_dark() -> None:
+    badge = render_keyword_integrity_badge(MockKS(tag="CAUTION", ghost=True))
+    assert badge["type"] == "GHOST_MARKET"
+    assert badge["color"] == "dark"
+
+
+def test_emerging_overlay_keeps_base_type() -> None:
+    badge = render_keyword_integrity_badge(MockKS(tag="MONITOR", autocomplete_status="emerging"))
+    assert badge["type"] == "MONITOR"
+    assert badge.get("emerging_overlay") is True
+
+
+def test_ghost_flag_none_treated_as_false() -> None:
+    badge = render_keyword_integrity_badge(MockKS(tag="CONDITIONAL_GO", ghost=None))
+    assert badge["type"] == "CONDITIONAL_GO"
+
+
+@pytest.mark.parametrize("tag", ["STRONG_GO", "CONDITIONAL_GO", "MONITOR", "CAUTION", "EMERGING"])
+def test_all_non_ghost_tags_render_correctly_parametrized(tag: str) -> None:
+    badge = render_keyword_integrity_badge(MockKS(tag=tag, ghost=False))
+    assert badge["type"] == tag
