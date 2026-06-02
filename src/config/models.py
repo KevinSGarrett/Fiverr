@@ -384,6 +384,10 @@ class RelevanceConfig(BaseModel):
     llm: LLMRelevanceConfig = Field(default_factory=LLMRelevanceConfig)
 
 
+# Backwards-compatible alias for modules importing this symbol directly.
+LLMRelevanceConfig = RelevanceConfig.LLMRelevanceConfig
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
