@@ -331,7 +331,7 @@ def test_build_context_missing_keyword_returns_default() -> None:
     assert context.final_score == 0.0
 
 
-def test_get_eligible_keywords_skips_disabled_niche() -> None:
+def test_get_eligible_keywords_skips_disabled_niche_recommendations() -> None:
     db = FakeDB(
         {
             FinalScore: [SimpleNamespace(keyword_id=101, final_score=80.0, raw_json={"tag": "STRONG_GO"})],
@@ -948,7 +948,7 @@ def test_12_task_names_match_field_names() -> None:
     assert len(set(RECOMMENDATION_FIELD_NAMES)) == 12
 
 
-def test_generate_pricing_strategy_no_price_distribution() -> None:
+def test_generate_pricing_strategy_no_price_distribution_recommendations() -> None:
     context = RecommendationContext(keyword_text="python automation", niche_id=12)
     result = asyncio.run(generate_pricing_strategy(context, llm_client=Mock(), cache=None))
     assert result == {"output": None, "cost_usd": 0.0}

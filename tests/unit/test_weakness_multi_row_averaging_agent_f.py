@@ -145,7 +145,7 @@ def test_weakness_kw3_score_unchanged_after_multi_row_fix() -> None:
         session.close()
 
 
-def test_weakness_median_vs_mean_for_extreme_distributions() -> None:
+def test_weakness_median_vs_mean_for_extreme_distributions_agent_f() -> None:
     scores = [10.0, 6.0, 4.0]
     moderated = aggregate_overall_weakness_scores(scores)
     assert moderated == 6.6667
@@ -173,7 +173,7 @@ def test_weakness_fallback_with_mixed_low_high_ows_rows() -> None:
         session.close()
 
 
-def test_weakness_single_extreme_row_does_not_produce_100_score() -> None:
+def test_weakness_single_extreme_row_does_not_produce_100_score_agent_f() -> None:
     session = _new_session()
     try:
         keyword_id, gig_url_a = _seed_run_scoped_keyword(session, active_run_id="single-extreme")

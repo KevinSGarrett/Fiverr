@@ -222,7 +222,7 @@ def test_parse_youtube_result_count_handles_invalid_match(monkeypatch: pytest.Mo
     assert youtube_count_module.parse_youtube_result_count("invalid-number") is None
 
 
-def test_safe_pacing_wait_without_wait_method() -> None:
+def test_safe_pacing_wait_without_wait_method_youtube_count() -> None:
     _run(youtube_count_module._safe_pacing_wait(object(), "youtube"))
 
 

@@ -340,11 +340,11 @@ def test_reddit_real_checkpoint_failure_logs_warning(
     assert "Failed to write Reddit checkpoint" in caplog.text
 
 
-def test_resolve_maybe_await_returns_plain_value() -> None:
+def test_resolve_maybe_await_returns_plain_value_reddit_signals() -> None:
     assert _run(reddit_signals_module._resolve_maybe_await(5)) == 5
 
 
-def test_safe_pacing_wait_without_wait_method() -> None:
+def test_safe_pacing_wait_without_wait_method_reddit_signals() -> None:
     _run(reddit_signals_module._safe_pacing_wait(object(), "reddit_api", dry_run=False))
 
 
