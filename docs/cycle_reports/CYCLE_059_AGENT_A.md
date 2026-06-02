@@ -168,5 +168,5 @@
 - [x] Final governance commit SHA inserted
 
 ## Signal
-Agent A complete. PR `#68` open (draft). Branch `cycle/059/integration` at `<HEAD_SHA_AFTER_FINAL_A_COMMIT>`. Tier-3 active: R10 Dashboard & Alerting Integration. Carry-forward: TC-1 ExternalSignal schema gap; TC-2 dry-run contamination fallback fix. New hard rules baked into handoffs: §14.2 env loading, §14.3 DB seeding, §15.1 Codex timing, §15.3 report placement in `docs/cycle_reports/`. Agent B + Agent E may start in parallel.
+Agent A complete. PR `#68` open (draft). Branch `cycle/059/integration` at `ed0a23f36c0e9cb26609cd88b5eba3aff2b3a8ee`. Tier-3 active: R10 Dashboard & Alerting Integration. Carry-forward: TC-1 ExternalSignal schema gap; TC-2 dry-run contamination fallback fix. New hard rules baked into handoffs: §14.2 env loading, §14.3 DB seeding, §15.1 Codex timing, §15.3 report placement in `docs/cycle_reports/`. Agent B + Agent E may start in parallel.
 
