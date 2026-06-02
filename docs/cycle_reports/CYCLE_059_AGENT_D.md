@@ -135,3 +135,40 @@ TC-2 dry-run contamination fix: done.
 Agent E external signal data: partial/sparse (see E report).  
 
 C060 scope recommendation: PM to choose next SRDI epic from hydration header + EPIC_STATUS_TRACKER (R11 Tier-4 or alternate priority).
+
+## Post-Merge Codex Timing Miss (PM Addendum)
+
+This addendum documents exactly why Codex findings were missed despite the 15-minute wait protocol.
+
+### What happened (UTC timeline)
+
+- CI success window used for wait gate:
+  - `Lint, Typecheck, Tests, and Gates` completed at `2026-06-02T22:58:05Z` and `22:58:26Z`.
+- D §15.1 polling window:
+  - Query loop ran from `23:01:21Z` through `23:16:24Z` (6 checks, 3-minute spacing).
+  - During that full window, `pulls/68/reviews` returned no entries.
+- Merge proceeded at end of documented skip path (allowed by §15.1 when no bot appears in 15 min).
+- Codex review arrived after merge gate closed:
+  - Review submission: `chatgpt-codex-connector[bot]` at `2026-06-02T23:20:04Z`.
+  - Two review comments posted at `2026-06-02T23:20:05Z`:
+    - `src/dashboard/relevance_dashboard.py` (ghost filter only checks keyword-level flag).
+    - `src/dashboard/alert_generator.py` (LLM alert query does not count actual Stage 7.5 executions).
+
+### Why this was missed
+
+1. **Bot latency exceeded the 15-minute SLA window.**
+   - The bot appeared ~21m38s after CI completion (`22:58:26Z` -> `23:20:04Z`), outside the configured wait ceiling.
+2. **Merge path allowed documented skip after 15 minutes.**
+   - D followed the configured non-blocking skip rule once the wait threshold elapsed.
+3. **No immediate post-merge recheck was executed before closeout messaging.**
+   - A post-merge watch would have caught the late-arriving Codex review sooner.
+
+### Process correction for future cycles (PM-facing instruction)
+
+- Treat §15.1 as minimum, then enforce an explicit post-merge safety check:
+  1. Keep the 15-minute pre-merge wait and polling.
+  2. If skip path is used, add **mandatory post-merge checks at +5m and +15m** before declaring cycle fully closed in PM comms.
+  3. Match bot login as `chatgpt-codex-connector[bot]` (or prefix `chatgpt-codex-connector`) in automated checks.
+  4. If new Codex threads appear, route to B for real fix + regression, then append a D addendum with fix SHA and resolution evidence.
+
+Status for C059: **Late Codex findings were detected post-gate. Root cause is timing-window miss, not skipped polling inside the documented 15-minute interval.**
