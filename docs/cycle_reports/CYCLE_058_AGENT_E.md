@@ -1,14 +1,14 @@
 # CYCLE_058_AGENT_E — External Signal Data Presence & R7 Qualifier Assessment
 
-Branch: `cycle/058/integration` | HEAD at report prep: `4745a4523b29df195042ca28e88dfbe13a5bc6e9` | Agent E final HEAD after push: `dfea09ebb53a21eead628f1a5a6b8c1c50a09661` | Date: 2026-06-02
-ScrapFly: **SEED** (`SCRAPFLY_API_KEY` missing; no live ScrapFly session possible in this run window)
+Branch: `cycle/058/integration` | HEAD at report prep: `4745a4523b29df195042ca28e88dfbe13a5bc6e9` | Agent E final HEAD after push: `ac58b429ba39c55df5ec6798cab5e94b61ca7391` | Date: 2026-06-02
+ScrapFly: **SEED** (`SCRAPFLY_API_KEY` present in `.env`, but current collection path executed as dry-run and emitted no live ScrapFly session)
 
 ## ScrapFly Status
 
-- `SCRAPFLY_API_KEY`: **MISSING** (env check failed `scp-` prefix test)
+- `SCRAPFLY_API_KEY`: **PRESENT in `.env`** (validated `scp-` prefix). Initial shell env lacked it; key then loaded into session for re-run.
 - `config.live.yaml`: created locally with `collection.scrapfly.enabled=true` and confirmed gitignored
 - Throwaway DB target: `sqlite:///data/cycle058_e2e_validation.db` created and confirmed gitignored
-- Live collection: **not executable as LIVE** due missing key; C058 remains SEED for Agent E
+- Live collection: attempted with session key loaded, but CLI path still returned `Collection dry run complete` and emitted no `ScrapFly session: requests=N, credits=C` line; C058 remains SEED for Agent E on evidence.
 
 ## External Signal Data Presence (CI DB — `foundation_gate_ci.db`)
 
@@ -86,6 +86,7 @@ No new live run URL evidence captured in C058 E. No `"Fetching URL:"` live trace
 - Reddit buyer intent ratio range across keywords: N/A (no rows)
 - ScrapFly credit usage: **SEED / 0 observed** (no live session line emitted)
 - CI DB `external_signals` table presence: `True` (grouped query returned 0 rows)
+- Re-run with loaded key: `SESSION_KEY_OK` observed, followed by `Collection dry run complete` (still no live session usage evidence)
 
 ## Supplemental Diagnostic Query Results
 
@@ -106,7 +107,7 @@ Schema reality captured for audit:
 
 1. **CI distribution query**: COMPLETE (schema-adjusted to `signal_value`; result 0 rows)
 2. **Throwaway DB + local config**: COMPLETE (`config.live.yaml` created, DB recreated, gitignore checks passed)
-3. **Live signal collection attempt**: COMPLETE-AS-SEED (`SCRAPFLY_API_KEY` missing; no live session line available)
+3. **Live signal collection attempt**: COMPLETE-AS-SEED (`SCRAPFLY_API_KEY` present in `.env` and loaded, but command path remained dry-run; no live session line available)
 4. **RSV band sampling**: COMPLETE (`No RSV data`, UNKNOWN-SEED)
 5. **Null handling assessment**: COMPLETE (0 rows => qualifiers operate on defaults/null path)
 6. **DL-207 status**: COMPLETE (`DEFERRED`; no new URL evidence)
@@ -121,7 +122,7 @@ Schema reality captured for audit:
 15. **RSV column anchor check**: COMPLETE (`result_set_relevance_score` present)
 16. **Trends range across niches**: COMPLETE (`N/A`, no rows)
 17. **Reddit buyer-intent range**: COMPLETE (`N/A`, no rows + schema columns absent)
-18. **ScrapFly credit usage**: COMPLETE (`SEED / 0 observed`)
+18. **ScrapFly credit usage**: COMPLETE (`SEED / 0 observed`; no live ScrapFly session emitted even after loading key)
 19. **B config still scrapfly=false**: COMPLETE (`config.yaml` observed false)
 20. **Most external-signal rows niche candidate**: COMPLETE (`N/A`, no rows)
 21. **Mandatory report sections present**: COMPLETE (`##` section scan passed)
@@ -132,17 +133,17 @@ Schema reality captured for audit:
 
 ## PM Action Note
 
-`SCRAPFLY_API_KEY` is missing for the second consecutive cycle (C057 + C058). This blocks:
+`SCRAPFLY_API_KEY` exists in `.env`, but C058 execution path still ran dry-run collection and produced no live ScrapFly session evidence. This currently blocks:
 - live RSV band calibration evidence for R5
 - live external signal presence validation for R7
 
-Requested PM follow-up: provision `SCRAPFLY_API_KEY` in runtime environment for next cycle live validation.
+Requested PM/engineering follow-up: ensure runtime actually loads `.env` in execution shells and expose a non-dry-run, per-niche/live collection path for Agent E validation runs.
 
 ## Completion Checklist
 
 - [x] CI DB `external_signals` query run and recorded
 - [x] Throwaway DB created and gitignored
-- [x] Live collection attempted or SEED documented with reason (**SEED documented: key missing**)
+- [x] Live collection attempted or SEED documented with reason (**SEED documented: key present but run path remained dry-run**)
 - [x] External signal presence recorded for all four signal types
 - [x] RSV band distribution recorded or SEED acknowledged
 - [x] DL-207 status updated
@@ -154,7 +155,8 @@ Requested PM follow-up: provision `SCRAPFLY_API_KEY` in runtime environment for 
 
 ## Signal to Agent C
 
-Agent E complete. HEAD: `dfea09ebb53a21eead628f1a5a6b8c1c50a09661`. External signal data: **not found (0/4 signal types observed)**.
+Agent E complete. HEAD: latest Agent E commit on `cycle/058/integration` for this report revision. External signal data: **not found (0/4 signal types observed)**.
 R7 qualifier fire rate: **UNKNOWN-SEED (0/4 observed data types this cycle)**.
 B config check observed: `analysis.external_signals_enabled=false` in current `config.yaml`.
+ScrapFly key note: key is present in `.env`; this cycle remained SEED because executed collection path was dry-run (no `ScrapFly session` evidence).
 Agent C may proceed AFTER Agent B also completes.
