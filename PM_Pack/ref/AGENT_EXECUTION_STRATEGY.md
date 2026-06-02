@@ -66,6 +66,16 @@ NOTE: REG-25/26/27 are merged via PR #64 (squash fabdca9) and remain in the perm
 
 REG-23/24 added in Cycle 057 (R5 LLM Relevance), PR #66, merged develop @ 325ef30304de320cb062cea02aeba16dc601a90e.
 
+### Cycle 058 additions — MERGED (pack now 31 after C058 close)
+
+| # | Test name | File | Purpose |
+| --- | --- | --- | --- |
+| 29 | `test_autocomplete_emerging_keyword_gets_neutral_not_zero_score` (REG-28) | `tests/unit/test_external_signal_integrity.py` | Emerging autocomplete -> 50 not penalized |
+| 30 | `test_reddit_qualified_score_lower_than_raw_when_buyer_intent_low` (REG-29) | `tests/unit/test_external_signal_integrity.py` | Reddit qualified < raw when intent is low |
+| 31 | `test_trends_platform_qualifier_applied_before_demand_score_calculation` (REG-30) | `tests/unit/test_external_signal_integrity.py` | Trends qualifier applied pre-demand |
+
+REG-28/29/30 added in Cycle 058 (R7 External Signal Integrity), PR #67, merged develop @ a0471fb9247046fd913d57a8421d0bc715493192.
+
 Carry-forward Codex-fix guards that must remain named and green:
 
 | Test name | File | Purpose |
@@ -100,6 +110,7 @@ Carry-forward Codex-fix guards that must remain named and green:
 | 1.7 | 2026-06-01 | C055 PM review: backfilled C054 (R4) REG-20/21/22 into §7 (pack 20→23 verified merged @ acff870); noted C055 REG-25/26/27 pending merge (pack will be 26 after C055 D re-gate passes). |
 | 1.8 | 2026-06-01 | C055 closeout: confirmed REG-25/26/27 merged with PR #64 (fabdca9), permanent pack is now 26 names. |
 | 2.0 | 2026-06-02 | C057 (R5): REG-23/24 added to permanent pack. Pack now 28 names (36 passed). Tier-2 R5 complete. |
+| 2.1 | 2026-06-02 | C058 (R7): REG-28/29/30 added. Pack now 31 names (39 passed). Tier-2 gate CLOSED. |
 
 ### 12-name accumulated pack (reference)
 
