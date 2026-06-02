@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -584,9 +585,10 @@ def test_score_keyword_explanation_populated(tmp_path: Path, monkeypatch: pytest
     assert result["explanation_text"]
 
 
-def test_confidence_context_uses_reddit_signal_presence_from_db() -> None:
+def test_confidence_context_uses_reddit_signal_presence_from_db(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.scoring import pipeline
 
+    monkeypatch.setattr(pipeline, "UTC", None)
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
@@ -602,6 +604,7 @@ def test_confidence_context_uses_reddit_signal_presence_from_db() -> None:
             signal_type="reddit_demand",
             signal_value=1.0,
             signal_json={"reddit_demand_intent_score": 1.0},
+            collected_at=datetime.now(UTC),
             run_id="ctx-run",
             collection_method="reddit_devvit_bridge",
         )
