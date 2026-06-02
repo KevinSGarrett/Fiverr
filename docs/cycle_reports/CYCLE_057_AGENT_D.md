@@ -156,6 +156,14 @@ Supplementals:
 - `LLMRelevanceConfig` defaults -> `enabled=False`, `call_budget_per_run=50`
 - Secret-pattern scan returned test/docs strings only; no leaked credential material committed.
 - budget default check -> `50`
+- SRDI spec cross-reference read by D:
+  - `PM_Pack/ref/project_plan/13_srdi/03_EPIC_BREAKDOWN_MASTER.md`
+  - `PM_Pack/ref/project_plan/06_analysis/LLM_RELEVANCE_STAGE_7_5.md`
+
+## 13.1) Empirical data from C057 (from Agent E)
+
+- RSV in-band rate: `UNKNOWN-SEED` (no live RSV rows persisted in E validation window).
+- Budget fit assessment: `UNKNOWN-SEED`.
 
 ## 14) Merge execution
 
@@ -228,3 +236,23 @@ R7 Jira stories: `SCRUM-620`, `SCRUM-847`, `SCRUM-623`, `SCRUM-621`, `SCRUM-851`
 New regressions roadmap: REG-28/29/30.
 
 PM decision requested: start C058 immediately, or run live R5 validation first.
+
+Next: R7 External Signal Integrity.
+
+## 21) Post-merge R5 live-activation advisory
+
+R5 LLM Relevance (Stage 7.5) is now merged and tested. The toggle is OFF in committed config.
+Agent E's measurement showed an in-band RSV rate of `UNKNOWN-SEED`.
+Budget fit: `UNKNOWN-SEED`.
+
+First live R5 activation checklist (PM decision when ready):
+- [ ] OPENAI_API_KEY present in environment (prefix `sk-`)
+- [ ] Create `config.live.yaml` with `relevance.llm_relevance_enabled: true`
+- [ ] Choose a single niche for first test run (suggest: `python_automation`)
+- [ ] Run: `py -3.12 run.py score --niche python_automation --config-path config.live.yaml`
+- [ ] Monitor: LLM call count in run log (<=50 per run)
+- [ ] Monitor: any `NOT_RELEVANT` verdicts and their effect on eligibility
+- [ ] Do NOT run with all 9 niches until single-niche test validates behavior
+- [ ] Do NOT commit `config.live.yaml`
+
+This is advisory. PM decides when and whether to activate R5 live.
