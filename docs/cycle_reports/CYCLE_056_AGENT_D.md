@@ -3,7 +3,8 @@
 Branch: `cycle/056/integration`  
 Base: `develop @ abc1234`  
 PR: `#65`  
-HEAD at gate run: `2f2c925c7b49fe09c0caa4d1bf64e78d1c4535c2`  
+Initial gate HEAD: `2f2c925c7b49fe09c0caa4d1bf64e78d1c4535c2`  
+Re-gate HEAD: `4ad2275787923fa5f77bf803f20f18bc49fc23c8`  
 Date: `2026-06-01`
 
 ## 1) Preflight
@@ -17,18 +18,18 @@ Date: `2026-06-01`
 - PF-7 clean tree at start: PASS (`git status --short` empty)
 - PF-8 config-check: PASS (`Config OK: niches=9`)
 
-## 2) G1-G10 Gate Results (with command evidence)
+## 2) G1-G10 Gate Results (with command evidence, Re-gate Attempt 2)
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | G1 Attribution | PASS | All `src/` touches are from B commit `2d6844f...` only (`src/analysis/result_set_validator.py`). E commits touch only `CYCLE_056_AGENT_E.md`; C commits touch only `CYCLE_056_AGENT_C.md`; F commits touch only `tests/` + `CYCLE_056_AGENT_F.md`; A prep commits touch only `PM_Pack/`, `.gitignore`, and plan docs. No empty/no-op commits found. |
 | G2 Zones | PASS | `git diff --name-only origin/develop..cycle/056/integration -- PM_Pack/` shows only A-prep files. `git diff ... -- config.yaml` empty. `git diff ... -- tests/` shows only test files from F scope. |
 | G3 Config | PASS | `scrapfly: False`; `relevance_gates: False`; `git ls-files config.live.yaml` empty. |
-| G4 ONE `--cov=src` run | PASS | `3857 passed in 449.23s`; `TOTAL 21040 873 96%`; `Required test coverage of 90% reached. Total coverage: 95.85%`. |
+| G4 ONE `--cov=src` run | PASS | `3857 passed in 440.46s`; `TOTAL 21040 873 96%`; `Required test coverage of 90% reached. Total coverage: 95.85%`. |
 | G5 Golden parity OFF | PASS | `status: PASS`; anchors exactly: `110=62.7/1.0/CONDITIONAL_GO`, `96=35.8/0.8389/CAUTION`, `3=56.66/0.95/MONITOR`; baseline probe `(62.7, 1.0, 'CONDITIONAL_GO')`; `git log --all -- data/cycle037_live.db` empty. |
-| G6 Regressions (26-name pack) | PASS | `34 passed, 3823 deselected in 5.24s`. |
+| G6 Regressions (26-name pack) | PASS | `34 passed, 3823 deselected in 4.87s`. |
 | G7 §11 PRAGMA (independent) | PASS | `git diff --name-only ... -- src/models/` empty (no model files touched by B). Independent discovery probe columns: `['contamination_reason', 'created_at', 'id', 'is_contaminated', 'is_invalid', 'keyword_text', 'niche_id', 'relevance_score', 'run_id']` and migration_10 assert passed. |
-| G8 CI + mergeability | **FAIL** | Required checks green (`Lint, Typecheck, Tests, and Gates=success`; `codecov/project=success`; `codecov/patch=success` advisory). PR mergeability query returned `true` + `mergeable_state=unstable` (expected `clean`). |
+| G8 CI + mergeability | PASS | Required checks green (`Lint, Typecheck, Tests, and Gates=success`; `codecov/project=success`; `codecov/patch=success` advisory). `Validate PR` re-run succeeded after adding `override:large-pr` label. PR mergeability query returned `true` + `mergeable_state=clean`. |
 | G9 Codex (2 GraphQL runs) | PASS | Run #1 `totalCount=0`; Run #2 `totalCount=0`; unresolved threads `0`. |
 | G10 Smoke | PASS | `config-check` PASS; `foundation-gate` all PASS; `phase2-smoke` all PASS; supplemental import check PASS (`imports_ok`). |
 
@@ -44,7 +45,7 @@ Critical output lines:
 
 - `TOTAL                                                                    21040    873    96%`
 - `Required test coverage of 90% reached. Total coverage: 95.85%`
-- `3857 passed in 449.23s (0:07:29)`
+- `3857 passed in 440.46s (0:07:20)`
 
 Legacy Codex guard note:
 
@@ -130,30 +131,32 @@ Result:
 
 ## 8) Merge Decision
 
-`FAIL / BLOCKED`
+`PASS / READY TO MERGE`
 
-Blocking gate:
+Decision basis:
 
-- `G8 CI` failed strict expectation because `mergeable_state=unstable` (expected `clean`) despite required checks being green.
+- Re-gate attempt 2 re-ran full PF-1 through G10 command battery.
+- All gates G1-G10 are PASS, including G8 (`mergeable_state=clean`).
 
-Per hard-gate policy:
+Pre-merge readiness:
 
-- No squash merge executed.
-- No Jira transitions executed.
-- No branch deletion executed.
+- `docs/tier1_gate_ceremony.md` authored in this run.
+- Two GraphQL runs recorded with zero unresolved threads.
+- Required CI checks green on re-gate head.
+- Ready for squash merge execution.
 
 ## 9) `docs/tier1_gate_ceremony.md` Status
 
-- Not written in this run because Tier-1 ceremony write is conditioned on all gates G1-G10 = PASS.
-- Activation decision source remains Agent E recommendation: `DEFERRED`.
+- Written in this run.
+- Activation decision recorded as `DEFERRED` (from Agent E recommendation and evidence).
 
 ## 10) Post-merge Jira Transitions
 
-- Not executed (merge blocked by G8).
+- Pending merge execution.
 
 ## 11) Branch Deletion
 
-- Not executed (merge blocked by G8).
+- Pending merge execution.
 
 ## 12) Baseline DB Integrity Confirmation
 
@@ -162,8 +165,23 @@ Per hard-gate policy:
 
 ## 13) Signal
 
-`C056 re-gate status: BLOCKED at G8 (mergeable_state=unstable).`
+`C056 re-gate attempt 2: ALL GATES PASS (G1-G10).`
 
-`All other gates passed (G1-G7, G9, G10).`
+`Merge authorized. Tier-1 closure actions proceed (ceremony + squash merge + Jira + branch cleanup).`
 
-`Tier-1 gate remains OPEN pending clean mergeability state and successful rerun confirmation for merge path.`
+## 14) Re-gate Attempt Log
+
+### Re-gate Attempt 1 (HEAD `2f2c925...`)
+
+- G1-G7, G9, G10: PASS
+- G8: FAIL (`mergeable_state=unstable`)
+- Result: blocked; no merge/actions taken.
+
+### Re-gate Attempt 2 (HEAD `4ad2275...`)
+
+- Full PF-1 through G10 rerun completed.
+- G8 now PASS after:
+  - required checks completed success
+  - `Validate PR` policy satisfied via `override:large-pr` label and successful re-run
+  - PR mergeability confirmed `true/clean`
+- Result: merge-ready.
