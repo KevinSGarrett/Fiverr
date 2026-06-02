@@ -530,14 +530,18 @@ async def score_keyword_batch(
     results: list[dict[str, Any]] = []
     for keyword_id in keyword_ids:
         try:
+            score_kwargs: dict[str, Any] = {
+                "keyword_id": keyword_id,
+                "profile_name": profile_name,
+                "db": db,
+                "llm_client": llm_client,
+                "cache": cache,
+                "config": config,
+            }
+            if llm_relevance_classifier is not None:
+                score_kwargs["llm_relevance_classifier"] = llm_relevance_classifier
             result = await score_keyword(
-                keyword_id=keyword_id,
-                profile_name=profile_name,
-                db=db,
-                llm_client=llm_client,
-                cache=cache,
-                config=config,
-                llm_relevance_classifier=llm_relevance_classifier,
+                **score_kwargs,
             )
             results.append(result)
         except Exception as exc:  # noqa: BLE001
