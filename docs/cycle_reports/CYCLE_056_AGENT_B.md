@@ -1,6 +1,6 @@
 # CYCLE_056_AGENT_B — §11.5 Model-Migration Parity Audit
 
-Branch HEAD: 19f54eceda81d21c962e0fd4ff77a83603d0529a
+Branch HEAD: fb15c64f6c077a4b3186ef7b7b3eacd1c77ee159
 Develop base: abc1234
 
 ## §11.5 Retroactive Parity Audit Results
@@ -338,7 +338,7 @@ Migration file style audit: 7/10 follow the strict `_add_column() + apply(engine
 
 ## Commit SHA
 
-19f54eceda81d21c962e0fd4ff77a83603d0529a
+fb15c64f6c077a4b3186ef7b7b3eacd1c77ee159
 
 ## CI Status
 
@@ -370,4 +370,4 @@ Green on pushed HEAD:
 - [x] CI green on pushed HEAD for required gate
 - [x] Signal to Agent C written in report
 
-Agent B complete. Branch at 19f54eceda81d21c962e0fd4ff77a83603d0529a. §11.5 audit done — all YES / 0 gaps fixed. Golden parity PASS. Mypy/ruff clean. CI green on required gate. Agent C may proceed.
+Agent B complete. Branch at fb15c64f6c077a4b3186ef7b7b3eacd1c77ee159. §11.5 audit done — all YES / 0 gaps fixed. Golden parity PASS. Mypy/ruff clean. CI green on required gate. Agent C may proceed.
