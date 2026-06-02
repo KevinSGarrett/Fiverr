@@ -330,6 +330,9 @@ async def score_keyword(
     source_evidence: list[str] = []
     missing_data_warnings: list[str] = []
 
+    # Stage 8.5 — R7 External Signal Qualifiers (toggle: external_signals_enabled)
+    # Qualifier application lives in demand/confidence calculators and is gated by
+    # config.analysis.external_signals_enabled.
     demand_result = demand_calculator.calculate(keyword_id, db, config=config) if 1 in available_scores else None
     competition_result = (
         competition_calculator.calculate(keyword_id, db, config=config) if 2 in available_scores else None

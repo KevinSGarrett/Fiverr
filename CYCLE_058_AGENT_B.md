@@ -52,10 +52,15 @@
 - `relevance.llm_relevance_enabled` remains `false`.
 
 ## §11.2 Parity
-- Not required for R7: no `src/models/*.py` changes and no new persisted columns added.
+- §11 not required — no new model columns added for R7.
 
 ## Zone Check
 - Post-commit verification command: `git show --name-only <OWN_SHA>`
 - Expected files: `src/*`, `tests/unit/test_external_signal_integrity.py`, `CYCLE_058_AGENT_B.md`, and `config.yaml`.
 
-Agent B complete. REG-28/29/30 PASS. Golden PASS.
+## Explicit Gate Summary
+- ruff: PASS; mypy: PASS
+- REG-28/29/30: PASS
+- Golden parity: PASS
+
+Agent B complete. REG-28/29/30 PASS. Golden PASS. HEAD: 868e49667f62be047b89f7d556b9cd879dd30c78. Agent C may proceed after E also completes.
