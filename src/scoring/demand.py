@@ -10,11 +10,18 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.analysis.external_signals import (
+    _classify_autocomplete_absence,
+    _compute_fiverr_relevance_qualifier,
+    _qualify_reddit_score,
+    estimate_buyer_intent_ratio,
+)
 from src.collection.search_url_builder import (
     SEARCH_STRICTNESS_COLUMN,
     UNCONSTRAINED_DEMAND_DEDUCTION,
     UNCONSTRAINED_NOTE,
 )
+from src.config.models import ExternalSignalsConfig
 from src.models import ClusterAssignment, ClusterLabel, ExternalSignal, Keyword, SearchResult
 from src.scoring.contracts import DemandScoreResult, ScoreComponent
 from src.scoring.result_set_relevance import apply_trc_adjustments, get_result_set_validation
@@ -79,6 +86,23 @@ def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(relevance_cfg, Mapping):
         return {"enable_sponsored_exclusion": True}
     return {"enable_sponsored_exclusion": bool(relevance_cfg.get("enable_sponsored_exclusion", True))}
+
+
+def _external_signals_config(config: dict[str, Any] | None) -> ExternalSignalsConfig:
+    defaults = ExternalSignalsConfig()
+    if not isinstance(config, Mapping):
+        return defaults
+    analysis_cfg = config.get("analysis")
+    if not isinstance(analysis_cfg, Mapping):
+        return defaults
+
+    raw_nested = analysis_cfg.get("external_signals")
+    nested = dict(raw_nested) if isinstance(raw_nested, Mapping) else {}
+    nested["enabled"] = bool(analysis_cfg.get("external_signals_enabled", defaults.enabled))
+    try:
+        return ExternalSignalsConfig.model_validate(nested)
+    except Exception:
+        return defaults
 
 
 def _relevance_factor(rsv_relevance: float | None) -> float:
@@ -446,7 +470,15 @@ class DemandScoreCalculator:
         demand_cfg = _demand_config(config)
         use_trc_reliability = _coerce_bool(demand_cfg.get("use_trc_reliability"), False)
         use_signal_qualifiers = _coerce_bool(demand_cfg.get("use_signal_qualifiers"), False)
+        external_signals_config = _external_signals_config(config)
+        external_signals_enabled = bool(external_signals_config.enabled)
         trc_reliability: float | None = None
+        rsv = get_result_set_validation(keyword_id, db)
+        rsv_relevance = (
+            float(rsv.result_set_relevance_score)
+            if rsv is not None and rsv.result_set_relevance_score is not None
+            else None
+        )
 
         total_result_count = self._as_float(signals.get("total_result_count"))
         search_strictness_used = str(signals.get(SEARCH_STRICTNESS_COLUMN) or "").strip() or None
@@ -467,12 +499,6 @@ class DemandScoreCalculator:
                 if sponsored_exclusion_enabled
                 and sponsored_gig_count is not None
                 and total_gig_count is not None
-                else None
-            )
-            rsv = get_result_set_validation(keyword_id, db)
-            rsv_relevance = (
-                float(rsv.result_set_relevance_score)
-                if rsv is not None and rsv.result_set_relevance_score is not None
                 else None
             )
             adjusted_trc = total_result_count * count_multiplier
@@ -514,14 +540,28 @@ class DemandScoreCalculator:
             missing_data_warnings.append("Missing Fiverr total result count.")
 
         autocomplete_position = self._as_int(signals.get("autocomplete_position"))
+        autocomplete_data = signals.get("autocomplete_data")
+        keyword_text = str(signals.get("keyword_text", ""))
+        niche_id = str(signals.get("niche_id", ""))
         if autocomplete_position is None:
+            autocomplete_score = 0.0
+            autocomplete_note = "not in Fiverr autocomplete"
+            if external_signals_enabled:
+                autocomplete_score = float(
+                    _classify_autocomplete_absence(
+                        keyword_text,
+                        niche_id,
+                        autocomplete_data if isinstance(autocomplete_data, dict) else None,
+                    )
+                )
+                autocomplete_note = "R7 autocomplete absence classifier applied"
             score_components["autocomplete"] = ScoreComponent(
-                value=0.0,
+                value=autocomplete_score,
                 weight=self._AUTOCOMPLETE_WEIGHT,
                 raw=None,
-                note="not in Fiverr autocomplete",
+                note=autocomplete_note,
             )
-            weighted_sum += 0.0
+            weighted_sum += autocomplete_score * self._AUTOCOMPLETE_WEIGHT
             total_weight_available += self._AUTOCOMPLETE_WEIGHT
             source_evidence.append("keywords.autocomplete_position(absent)")
         else:
@@ -537,11 +577,28 @@ class DemandScoreCalculator:
 
         trends_12mo_score = self._as_float(signals.get("trends_12mo_score"))
         if trends_12mo_score is not None:
-            trends_score = min(100.0, trends_12mo_score * 1.15)
+            raw_trends_score = min(100.0, trends_12mo_score * 1.15)
+            trends_score = raw_trends_score
+            trends_note = ""
+            if external_signals_enabled:
+                trends_signal = signals.get("trends_signal")
+                trends_payload = trends_signal if isinstance(trends_signal, Mapping) else {}
+                trend_direction = str(trends_payload.get("trend_direction", "FLAT"))
+                is_fiverr_relevant = bool(trends_payload.get("is_fiverr_relevant", True))
+                qualifier = _compute_fiverr_relevance_qualifier(
+                    rsv=(rsv_relevance if rsv_relevance is not None else 1.0),
+                    is_fiverr_relevant=is_fiverr_relevant,
+                    trend_direction=trend_direction,
+                    keyword=keyword_text,
+                    config=external_signals_config,
+                )
+                trends_score = raw_trends_score * qualifier
+                trends_note = f"R7 trends qualifier={qualifier:.3f} applied pre-demand"
             score_components["google_trends"] = ScoreComponent(
                 value=trends_score,
                 weight=self._TRENDS_WEIGHT,
                 raw=trends_12mo_score,
+                note=trends_note,
             )
             weighted_sum += trends_score * self._TRENDS_WEIGHT
             total_weight_available += self._TRENDS_WEIGHT
@@ -552,11 +609,31 @@ class DemandScoreCalculator:
 
         reddit_demand_intent_score = self._as_float(signals.get("reddit_demand_intent_score"))
         if reddit_demand_intent_score is not None:
-            reddit_score = max(0.0, min(100.0, reddit_demand_intent_score * 10.0))
+            reddit_score_raw = max(0.0, min(100.0, reddit_demand_intent_score * 10.0))
+            reddit_score = reddit_score_raw
+            reddit_note = ""
+            if external_signals_enabled:
+                ratio_value = signals.get("reddit_buyer_intent_ratio")
+                if isinstance(ratio_value, bool):
+                    ratio_value = None
+                buyer_intent_ratio = (
+                    max(0.0, min(1.0, float(ratio_value)))
+                    if isinstance(ratio_value, int | float)
+                    else estimate_buyer_intent_ratio(
+                        signals.get("reddit_signal") if isinstance(signals.get("reddit_signal"), Mapping) else None
+                    )
+                )
+                reddit_score = _qualify_reddit_score(
+                    raw_score=reddit_score_raw,
+                    buyer_intent_ratio=buyer_intent_ratio,
+                    config=external_signals_config,
+                )
+                reddit_note = f"R7 reddit intent ratio={buyer_intent_ratio:.3f}"
             score_components["reddit_intent"] = ScoreComponent(
                 value=reddit_score,
                 weight=self._REDDIT_WEIGHT,
                 raw=reddit_demand_intent_score,
+                note=reddit_note,
             )
             weighted_sum += reddit_score * self._REDDIT_WEIGHT
             total_weight_available += self._REDDIT_WEIGHT
@@ -704,12 +781,28 @@ class DemandScoreCalculator:
             .order_by(ExternalSignal.created_at.desc())
             .first()
         )
+        autocomplete_signal = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == "autocomplete_position",
+            )
+            .order_by(ExternalSignal.created_at.desc())
+            .first()
+        )
         keyword_meta = keyword.metadata_json if keyword else {}
         return {
             "total_result_count": total_result_count,
             "autocomplete_position": self._as_int(keyword_meta.get("autocomplete_position")),
             "trends_12mo_score": self._signal_float(google_trends, "trends_12mo_score"),
             "reddit_demand_intent_score": self._signal_float(reddit_demand, "reddit_demand_intent_score"),
+            "reddit_buyer_intent_ratio": self._signal_float(reddit_demand, "buyer_intent_ratio")
+            or self._signal_float(reddit_demand, "intent_ratio"),
+            "trends_signal": self._signal_json(google_trends),
+            "reddit_signal": self._signal_json(reddit_demand),
+            "autocomplete_data": self._signal_json(autocomplete_signal),
+            "keyword_text": str(keyword.keyword) if keyword is not None else "",
+            "niche_id": str(keyword.niche_id) if keyword is not None else "",
             SEARCH_STRICTNESS_COLUMN: search_strictness_used,
             "sponsored_gig_count": sponsored_gig_count,
             "total_gig_count": total_gig_count,
@@ -745,3 +838,12 @@ class DemandScoreCalculator:
             return float(raw_value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _signal_json(signal: ExternalSignal | None) -> dict[str, Any] | None:
+        if signal is None:
+            return None
+        raw_json = signal.raw_value_json if isinstance(signal.raw_value_json, dict) else None
+        if raw_json is not None:
+            return raw_json
+        return None

@@ -9,6 +9,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.analysis.external_signals import (
+    _apply_youtube_confidence_gate,
+    compute_signal_freshness_quality,
+)
+from src.config.models import ExternalSignalsConfig
 from src.models import (
     ExternalSignal,
     Gig,
@@ -106,6 +111,27 @@ class ConfidenceScoreModifier:
         deduction_total = sum(deductions.values())
         raw_modifier = base_modifier + deduction_total
         final_modifier = self._clamp_0_1(raw_modifier)
+        external_signals_cfg = self._external_signals_config(context)
+        if external_signals_cfg.enabled:
+            youtube_video_count = self._as_int(context.get("youtube_video_count"), None)
+            if youtube_video_count is not None:
+                gated_modifier = _apply_youtube_confidence_gate(
+                    current_confidence=final_modifier,
+                    youtube_video_count=youtube_video_count,
+                    config=external_signals_cfg,
+                )
+                deductions["youtube_confidence_gate"] = round(gated_modifier - final_modifier, 4)
+                final_modifier = gated_modifier
+
+            signal_age_days = self._as_int(context.get("signal_age_days"), 0) or 0
+            signal_relevance = self._clamp_0_1(self._as_float(context.get("signal_relevance_score"), 1.0))
+            freshness_quality = compute_signal_freshness_quality(
+                signal_age_days=signal_age_days,
+                relevance_score=signal_relevance,
+            )
+            # Blend quality into confidence rather than replacing confidence entirely.
+            final_modifier = self._clamp_0_1((final_modifier * 0.70) + (freshness_quality * 0.30))
+            deductions["freshness_relevance_quality"] = round(freshness_quality, 4)
 
         breakdown: dict[str, float] = {
             "data_completeness_ratio": completeness,
@@ -187,6 +213,16 @@ class ConfidenceScoreModifier:
             > 0
         )
         freshest = self._latest_timestamp(keyword, top_results, keyword_id, session)
+        youtube_signal = (
+            session.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == ExternalSignal.SIGNAL_YOUTUBE_COUNT,
+            )
+            .order_by(ExternalSignal.collected_at.desc(), ExternalSignal.id.desc())
+            .first()
+        )
+        youtube_video_count = self._extract_youtube_video_count(youtube_signal)
         now = datetime.now(UTC)
         data_age_hours = (
             max(0.0, (now - freshest).total_seconds() / 3600.0)
@@ -217,6 +253,12 @@ class ConfidenceScoreModifier:
             "data_age_hours": data_age_hours,
             "data_ttl_hours": 168.0,
             "mode": current_depth,
+            "youtube_video_count": youtube_video_count,
+            "signal_age_days": int(data_age_hours // 24),
+            "signal_relevance_score": (
+                float(getattr(get_result_set_validation(keyword_id, session), "result_set_relevance_score", 1.0) or 1.0)
+            ),
+            "external_signals_enabled": False,
         }
 
     @staticmethod
@@ -243,8 +285,43 @@ class ConfidenceScoreModifier:
         return default
 
     @staticmethod
+    def _as_int(value: Any, default: int | None) -> int | None:
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
     def _clamp_0_1(value: float) -> float:
         return max(0.0, min(1.0, value))
+
+    @staticmethod
+    def _external_signals_config(context: dict[str, Any]) -> ExternalSignalsConfig:
+        raw_config = context.get("external_signals_config")
+        raw_enabled = context.get("external_signals_enabled", False)
+        merged: dict[str, Any] = {}
+        if isinstance(raw_config, Mapping):
+            merged.update(raw_config)
+        merged["enabled"] = bool(raw_enabled)
+        try:
+            return ExternalSignalsConfig.model_validate(merged)
+        except Exception:
+            return ExternalSignalsConfig(enabled=bool(raw_enabled))
+
+    @staticmethod
+    def _extract_youtube_video_count(signal: ExternalSignal | None) -> int | None:
+        if signal is None:
+            return None
+        payload = signal.raw_value_json if isinstance(signal.raw_value_json, dict) else {}
+        raw_value = payload.get("youtube_result_count", signal.normalized_value)
+        if raw_value is None:
+            return None
+        try:
+            return int(raw_value)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _latest_timestamp(

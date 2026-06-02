@@ -252,6 +252,44 @@ class ScoringOpportunityConfig(BaseModel):
     qualify_by_relevance: bool = False
 
 
+class ExternalSignalsConfig(BaseModel):
+    """Configuration for R7 external signal integrity qualifiers."""
+
+    enabled: bool = False
+    trends_base_qualifier: float = Field(default=0.65, ge=0.0, le=1.0)
+    trends_clamp_low: float = Field(default=0.20, ge=0.0, le=1.0)
+    trends_clamp_high: float = Field(default=0.95, ge=0.0, le=1.0)
+    reddit_baseline_weight: float = Field(default=0.40, ge=0.0, le=1.0)
+    reddit_intent_weight: float = Field(default=0.60, ge=0.0, le=1.0)
+    youtube_confidence_threshold_low: int = Field(default=10, ge=0)
+    youtube_confidence_threshold_high: int = Field(default=500, ge=0)
+    youtube_confidence_delta: float = Field(default=0.05, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_clamps(self) -> ExternalSignalsConfig:
+        if self.trends_clamp_high < self.trends_clamp_low:
+            raise ValueError("analysis.external_signals.trends_clamp_high must be >= trends_clamp_low.")
+        if self.youtube_confidence_threshold_high < self.youtube_confidence_threshold_low:
+            raise ValueError(
+                "analysis.external_signals.youtube_confidence_threshold_high must be >= "
+                "youtube_confidence_threshold_low."
+            )
+        return self
+
+
+class AnalysisConfig(BaseModel):
+    """Top-level analysis feature toggles and runtime parameters."""
+
+    external_signals_enabled: bool = False
+    external_signals: ExternalSignalsConfig = Field(default_factory=ExternalSignalsConfig)
+
+    @model_validator(mode="after")
+    def sync_external_signal_toggle(self) -> AnalysisConfig:
+        # Keep one source of truth for CLI overrides (`analysis.external_signals_enabled`).
+        self.external_signals.enabled = bool(self.external_signals_enabled)
+        return self
+
+
 class DiscoverySkillProfileConfig(BaseModel):
     primary_skills: list[str] = Field(default_factory=list, min_length=1)
     secondary_skills: list[str] = Field(default_factory=list)
@@ -398,6 +436,7 @@ class AppConfig(BaseModel):
     reddit: RedditConfig = Field(default_factory=RedditConfig)
     phase2_collection: Phase2CollectionConfig = Field(default_factory=Phase2CollectionConfig)
     phase2_analysis: Phase2AnalysisConfig = Field(default_factory=Phase2AnalysisConfig)
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     scoring: ScoringConfig
     relevance: RelevanceConfig = Field(default_factory=RelevanceConfig)
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
