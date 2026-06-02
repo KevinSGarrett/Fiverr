@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.analysis.llm_relevance_classifier import LLMRelevanceClassifier, LLMRelevanceConfig
 from src.models import ExternalSignal, Keyword, SearchResult
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
@@ -300,6 +301,7 @@ async def score_keyword(
     llm_client: Any,
     cache: Any,
     config: dict[str, Any] | None = None,
+    llm_relevance_classifier: LLMRelevanceClassifier | None = None,
 ) -> dict[str, Any]:
     """Run full keyword scoring pipeline, compute final score, and persist result."""
     profile_weights = SCORING_PROFILES.get(profile_name)
@@ -355,6 +357,11 @@ async def score_keyword(
     _apply_weakness_feedback_to_feasibility(feasibility_result, weakness_result)
     trend_result = trend_calculator.calculate(keyword_id, db) if 9 in available_scores else None
 
+    llm_relevance_verdict: str | None = None
+    if llm_relevance_classifier is not None:
+        # Stage 7.5 wiring: run after core scoring signals are computed and before reporting output.
+        llm_relevance_verdict = llm_relevance_classifier.classify_keyword(session=db, keyword_id=keyword_id)
+
     for result in (
         demand_result,
         competition_result,
@@ -395,6 +402,13 @@ async def score_keyword(
     confidence_breakdown = dict(confidence_modifier_calculator.last_breakdown)
 
     weighted_composite, score_components = calculate_weighted_composite(scores, profile_weights)
+    if llm_relevance_verdict is not None:
+        score_components["_stage_7_5_llm_relevance"] = {
+            "value": llm_relevance_verdict,
+            "weight": 0.0,
+            "contribution": None,
+            "note": "Stage 7.5 LLM relevance verdict applied for ambiguous RSV band.",
+        }
     if demand_result is not None and "cluster_boost" in demand_result.score_components:
         cluster_component = demand_result.score_components["cluster_boost"]
         score_components["_demand_score_details"] = {
@@ -488,6 +502,7 @@ async def score_keyword(
         "confidence_modifier": confidence_modifier,
         "final_score": final_score,
         "tag": tag,
+        "llm_relevance_verdict": llm_relevance_verdict,
         "final_payload": final_payload,
         "score_components": score_components,
         "confidence_breakdown": confidence_breakdown,
@@ -511,16 +526,22 @@ async def score_keyword_batch(
     if not keyword_ids:
         return []
 
+    llm_relevance_classifier = _build_llm_relevance_classifier(config=config, db=db)
     results: list[dict[str, Any]] = []
     for keyword_id in keyword_ids:
         try:
+            score_kwargs: dict[str, Any] = {
+                "keyword_id": keyword_id,
+                "profile_name": profile_name,
+                "db": db,
+                "llm_client": llm_client,
+                "cache": cache,
+                "config": config,
+            }
+            if llm_relevance_classifier is not None:
+                score_kwargs["llm_relevance_classifier"] = llm_relevance_classifier
             result = await score_keyword(
-                keyword_id=keyword_id,
-                profile_name=profile_name,
-                db=db,
-                llm_client=llm_client,
-                cache=cache,
-                config=config,
+                **score_kwargs,
             )
             results.append(result)
         except Exception as exc:  # noqa: BLE001
@@ -535,6 +556,40 @@ async def score_keyword_batch(
                 }
             )
     return results
+
+
+async def run_scoring_pipeline(
+    keyword_ids: list[int],
+    profile_name: str,
+    db: Any,
+    llm_client: Any,
+    cache: Any,
+    config: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Compatibility wrapper for batch scoring orchestration imports."""
+    return await score_keyword_batch(
+        keyword_ids=keyword_ids,
+        profile_name=profile_name,
+        db=db,
+        llm_client=llm_client,
+        cache=cache,
+        config=config,
+    )
+
+
+def _build_llm_relevance_classifier(
+    config: dict[str, Any] | None,
+    db: Any,
+) -> LLMRelevanceClassifier | None:
+    if not isinstance(config, dict) or not isinstance(db, Session):
+        return None
+    relevance_cfg = config.get("relevance", {})
+    if not isinstance(relevance_cfg, dict):
+        return None
+    llm_cfg = LLMRelevanceConfig.from_relevance_config(relevance_cfg)
+    if not llm_cfg.enabled:
+        return None
+    return LLMRelevanceClassifier(config=llm_cfg)
 
 
 async def generate_score_explanation(
