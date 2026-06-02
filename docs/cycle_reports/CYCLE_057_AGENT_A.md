@@ -12,6 +12,7 @@
 - SHA resolver script run for cycle 57.
 - Placeholder check on C057 prompts: no `[C056_SQUASH_SHA]` placeholders remain.
 - C056 Tier-1 gate status confirmed: CLOSED (`docs/tier1_gate_ceremony.md`).
+- Task-0 recording line (final): **C056 squash SHA resolved: `3617ce4a33ec4e6c2d614d2578de7c90b0cb3cd3`. All 6 C057 prompts validated/resolved (no remaining placeholders).**
 
 ## C056 / Tier-1 Closure Confirmation
 - `docs/tier1_gate_ceremony.md` exists and is included in C056 squash commit file list.
@@ -85,3 +86,31 @@
 
 ## Completion Signal
 **Agent A complete. PR #66 open (draft). Agent B + Agent E may start in parallel.**
+
+## 0-25 Closure Ledger
+- Task 0: COMPLETE (SHA resolved/validated, no placeholders remain).
+- Task 1: COMPLETE (C056 merge + Tier-1 closure + Jira Done statuses + C056 SHA recorded).
+- Task 2: COMPLETE (branch created/pushed/verified).
+- Task 3: COMPLETE (R5 spec set read; trigger/toggle/budget/degrade/REG names extracted).
+- Task 4: COMPLETE (control task created + R5 stories verified + linked).
+- Task 5: COMPLETE (foundation gate + smoke + kw110 probe + config gate check).
+- Task 6: COMPLETE (`OPENAI_API_KEY` present with `sk-` prefix; recorded).
+- Task 7: COMPLETE (target R5 module non-existence verified and recorded).
+- Task 8: COMPLETE (migration inventory + R5 column impact assessment recorded).
+- Task 9: COMPLETE (`CYCLE_057_PLAN.md` created with required sections).
+- Task 10: COMPLETE (Agent B handoff section with signatures + safety contract + tests).
+- Task 11: COMPLETE (Agent E handoff section with parallel notice + query).
+- Task 12: COMPLETE (Agent C handoff section with stage and verification scope).
+- Task 13: COMPLETE (Agent F handoff section with scope/collection/mocking checks).
+- Task 14: COMPLETE (Agent D handoff section with playbook and post-merge actions).
+- Task 15: COMPLETE (draft PR opened as `#66`, verified open/draft).
+- Task 16: COMPLETE (governance commit and push; `src/` zone remained empty for staged commit).
+- Task 17: COMPLETE (hydration header updated locally and intentionally left uncommitted).
+- Task 18: COMPLETE (`*.log`, `config.live.yaml`, and `*.db` ignore coverage verified).
+- Task 19: COMPLETE (single-toggle inventory pinned and recorded).
+- Task 20: COMPLETE (existing OpenAI integration path confirmed and recorded for reuse).
+- Task 21: COMPLETE (this report created, committed, pushed).
+- Task 22: COMPLETE (28-name regression reminder and expected 36-pass target in D handoff).
+- Task 23: COMPLETE (all handoff stage ordering + parallel notices recorded).
+- Task 24: COMPLETE (graceful degrade/call-budget contract included verbatim in B handoff).
+- Task 25: COMPLETE (checklist satisfied with PR/commit/hydration state reflected).

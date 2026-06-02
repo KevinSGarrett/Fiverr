@@ -210,6 +210,7 @@ print(f'Total RSV rows: {r[0]}, In ambiguous band (0.40-0.70): {r[1]}, Rate: {r[
 
 ## C057 Completion Checklist
 - [x] Branch `cycle/057/integration` created and pushed
+- [x] C056 anchor preserved for this cycle (`3617ce4...`); branch was created from current `origin/develop` (`c6139a6...`) which includes the C056 squash commit in history
 - [x] Baseline checks PASS (`foundation-gate`, `phase2-smoke`, kw110 anchor)
 - [x] C056 Tier-1 stories verified Done in Jira
 - [x] Control task created (`SCRUM-1011`)
