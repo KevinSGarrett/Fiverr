@@ -8,7 +8,7 @@ Blocking reasons:
 2. **Agent B zone violation against this cycle contract**: B commit `868e49667f62be047b89f7d556b9cd879dd30c78` includes `config.yaml` in addition to `src/*`, test file, and B report.
 
 Branch: `cycle/058/integration`  
-HEAD: `a132d4e82bc0f261cab647c14a23a2a1181dc45b`  
+HEAD (verification rerun): `9784170`  
 Date: 2026-06-02  
 Stage order confirmed: C runs **after B+E**, **before F**. C does **not** wait for F.
 
@@ -20,6 +20,7 @@ Stage order confirmed: C runs **after B+E**, **before F**. C does **not** wait f
 - PF-4 Read `docs/cycle_reports/CYCLE_058_AGENT_E.md`: external signal data found for `2/4`, qualifier fire rate `PARTIAL`.
 - PF-5 `git status --short`: **not clean** (`M PM_Pack/07_hydration/HYDRATION_HEADER.md`) before C work.
 - PF-6 `py -3.12 run.py config-check`: `Config OK: niches=9`.
+- Re-run snapshot (post-C commit): core gates re-executed on HEAD `9784170` and remained consistent.
 
 ## Gate Results
 
@@ -32,7 +33,7 @@ Stage order confirmed: C runs **after B+E**, **before F**. C does **not** wait f
 | phase2-smoke | PASS | `Phase2 smoke OK` for all 3 checks |
 | config: scrapfly=false | PASS | `scrapfly: False` |
 | config: llm_enabled=false | PASS | `llm: False` |
-| config: ext_signals=false | PASS | `ext_signals: False` |
+| config: ext_signals=false | PASS | exact command form returns `NOT_SET` because `False or ...` collapses; key exists and branch diff shows `external_signals_enabled: false` |
 | §11.3 PRAGMA | N/A | `git diff ... -- src/models/` returned none touched |
 | golden parity kw=110 | PASS | `62.7 / 1.0 / CONDITIONAL_GO` |
 | golden parity kw=96 | PASS | `35.8` |
@@ -97,6 +98,53 @@ Fallback anchor confidence: regression pack includes `test_ghost_discovery_recor
 - Task 22 syntax: `tests/unit/test_external_signal_integrity.py` -> `syntax OK`.
 - Task 23 handoff note for D: C058 closes Tier-2 gate only after merge governance updates (R5 complete in C057, R7 validated here).
 
+## Task-by-Task Completion Ledger (1-25)
+
+- Task 1 (ruff): **COMPLETE PASS** (`All checks passed!` on rerun).
+- Task 2 (mypy): **COMPLETE PASS** (`Success: no issues found in 225 source files`).
+- Task 3 (31-name pack): **COMPLETE PASS** (`39 passed, 3861 deselected`); REG-28/29/30 included.
+- Task 4 (foundation/smoke/config): **COMPLETE PASS**
+  - foundation gate PASS
+  - phase2-smoke 3/3 PASS
+  - config checks: scrapfly false, llm false, external signals key confirmed false in config diff.
+- Task 5 (§11.3 PRAGMA): **COMPLETE N/A/PASS**
+  - no `src/models/*.py` in branch diff
+  - fallback anchor confirmed via `test_ghost_discovery_recorded_as_invalid_not_miss` PASS.
+- Task 6 (golden parity + baseline probe): **COMPLETE PASS**
+  - golden OFF anchors exactly match
+  - baseline `cycle037_live.db` keyword 110 = `(62.7, 1.0, CONDITIONAL_GO)`.
+- Task 7 (R7 module verification): **COMPLETE PASS**
+  - imports pass
+  - trends boundary in range
+  - reddit qualified < raw for low intent, equals raw at 1.0
+  - autocomplete emerging 50
+  - toggle default false.
+- Task 8 (external signal integrity file): **COMPLETE PASS** (all 10 PASS, no skips).
+- Task 9 (no live API calls): **COMPLETE PASS**
+  - string scan empty
+  - test file uses local helpers/config only (mocked/non-network path).
+- Task 10 (zones E and B): **COMPLETE with mixed result**
+  - E zone PASS (only E report file)
+  - B zone FAIL (includes `config.yaml`).
+- Task 11 (pipeline wiring): **COMPLETE PASS**
+  - toggle guards present in `pipeline.py` and applied in `demand.py` / `confidence.py`
+  - golden OFF confirms toggle-off path parity.
+- Task 12 (ExternalSignalsConfig defaults): **COMPLETE PASS**
+  - `enabled=False`, `trends_base_qualifier=0.65`, `reddit_baseline_weight=0.40`.
+- Task 13 (LLM toggle false): **COMPLETE PASS**.
+- Task 14 (subset regressions): **COMPLETE PASS** (`3 passed`).
+- Task 15 (no tracked `config.live.yaml`): **COMPLETE PASS** (empty).
+- Task 16 (no tracked `*.db`): **COMPLETE PASS** (empty).
+- Task 17 (freshness x relevance direction): **COMPLETE PASS** (fresh+irrelevant lower).
+- Task 18 (trends clamp bounds): **COMPLETE PASS** (all observed outputs in `[0.20, 0.95]`).
+- Task 19 (YouTube weight in demand): **COMPLETE PASS** (no youtube demand weighting references).
+- Task 20 (Agent E findings note): **COMPLETE PASS** (included in `Agent E Notes for D`).
+- Task 21 (strategy §7 status): **COMPLETE PASS** (permanent pack still 28; REG-28/29/30 not yet added there).
+- Task 22 (test file syntax): **COMPLETE PASS** (`syntax OK`).
+- Task 23 (Tier-2 note for D): **COMPLETE PASS** (included).
+- Task 24 (gate table + verdict): **COMPLETE PASS** (table built; verdict NO-GO).
+- Task 25 (completion checklist): **COMPLETE PASS** (checklist present; commit/push confirmed).
+
 ## Agent E Notes for D
 
 - External signal coverage found for `2/4` signal families in E throwaway live attempt.
@@ -126,3 +174,4 @@ After blockers are cleared, Agent C re-runs full Tasks 1-25 and issues a fresh v
 - [x] §11.3 PRAGMA status documented
 - [x] Stage order (C before F) respected
 - [x] Verdict stated prominently (**NO-GO**)
+- [x] `CYCLE_058_AGENT_C.md` committed by C and pushed
