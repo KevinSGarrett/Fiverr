@@ -85,6 +85,50 @@ No new live run URL evidence captured in C058 E. No `"Fetching URL:"` live trace
 - Trends raw value range across niches: N/A (no rows)
 - Reddit buyer intent ratio range across keywords: N/A (no rows)
 - ScrapFly credit usage: **SEED / 0 observed** (no live session line emitted)
+- CI DB `external_signals` table presence: `True` (grouped query returned 0 rows)
+
+## Supplemental Diagnostic Query Results
+
+Throwaway DB diagnostic query execution (requested in prompt supplements):
+
+- Signal freshness distribution query: `[]` (no rows)
+- Reddit buyer intent ratio distribution query: schema-blocked (`buyer_intent_posts` / `total_posts` columns absent in current `external_signals` schema)
+- Google Trends direction distribution query: schema-blocked (`trend_direction` column absent)
+- YouTube video count distribution query:
+  - `raw_value` version: schema-blocked (`raw_value` column absent)
+  - `signal_value` fallback: `(None, None, None, 0)` (no youtube rows)
+
+Schema reality captured for audit:
+- Present columns include: `keyword_id`, `signal_type`, `signal_value`, `signal_json`, `source_url`, `collected_at`, `ttl_hours`, `is_stale`, `run_id`, `collection_method`, `error_message`, `id`, `created_at`, `updated_at`
+- Absent columns relevant to prompt SQL variants: `raw_value`, `relevance_score`, `buyer_intent_posts`, `total_posts`, `trend_direction`
+
+## Task-by-Task Closure (1-25)
+
+1. **CI distribution query**: COMPLETE (schema-adjusted to `signal_value`; result 0 rows)
+2. **Throwaway DB + local config**: COMPLETE (`config.live.yaml` created, DB recreated, gitignore checks passed)
+3. **Live signal collection attempt**: COMPLETE-AS-SEED (`SCRAPFLY_API_KEY` missing; no live session line available)
+4. **RSV band sampling**: COMPLETE (`No RSV data`, UNKNOWN-SEED)
+5. **Null handling assessment**: COMPLETE (0 rows => qualifiers operate on defaults/null path)
+6. **DL-207 status**: COMPLETE (`DEFERRED`; no new URL evidence)
+7. **Write/commit/push report**: COMPLETE (docs-only commit/push done; zone check passed)
+8. **Config scrapfly=false check**: COMPLETE (`False`)
+9. **external_signals_enabled presence/value check**: COMPLETE (`analysis.external_signals_enabled=false`)
+10. **Throwaway DB untracked check**: COMPLETE (`git ls-files` empty)
+11. **config.live.yaml untracked check**: COMPLETE (`git ls-files` empty)
+12. **OpenAI key presence check**: COMPLETE (`present`)
+13. **`fiverr_relevance_qualifier` column check**: COMPLETE (`False`)
+14. **Highest signal density niche**: COMPLETE (`N/A`, no rows)
+15. **RSV column anchor check**: COMPLETE (`result_set_relevance_score` present)
+16. **Trends range across niches**: COMPLETE (`N/A`, no rows)
+17. **Reddit buyer-intent range**: COMPLETE (`N/A`, no rows + schema columns absent)
+18. **ScrapFly credit usage**: COMPLETE (`SEED / 0 observed`)
+19. **B config still scrapfly=false**: COMPLETE (`config.yaml` observed false)
+20. **Most external-signal rows niche candidate**: COMPLETE (`N/A`, no rows)
+21. **Mandatory report sections present**: COMPLETE (`##` section scan passed)
+22. **C057 vs C058 comparison**: COMPLETE (no improvement; both UNKNOWN-SEED)
+23. **Signal to Agent C at report bottom**: COMPLETE (kept as final section)
+24. **Staged src/tests accidental check**: COMPLETE (empty)
+25. **Completion checklist**: COMPLETE (all required checklist items marked and evidenced)
 
 ## PM Action Note
 
@@ -105,6 +149,8 @@ Requested PM follow-up: provision `SCRAPFLY_API_KEY` in runtime environment for 
 - [x] No `src/`, `tests/`, or `config.yaml` changes included by Agent E
 - [x] `config.yaml` `scrapfly.enabled=false` confirmed
 - [x] Signal to Agent C placed at bottom
+- [x] Supplemental diagnostic SQL set executed (or schema limitation explicitly recorded)
+- [x] Task-by-task closure (1-25) explicitly documented
 
 ## Signal to Agent C
 
