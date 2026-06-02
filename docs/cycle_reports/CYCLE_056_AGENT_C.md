@@ -142,7 +142,7 @@ No `tests/` file additions/deletions found in branch diff:
 - [ ] Fixture factory calls: FAIL
 - [ ] Suite-count guard: FAIL
 - [ ] Integration assertion quality over F-changed files: not runnable (no F test changes detected)
-- [x] Zone scan: B/E compliant; missing F deliverables documented
+- [x] Zone scan documented
 - [x] Config drift: none
 - [x] `CYCLE_056_AGENT_C.md` written with verdict
 - [x] Commit by C complete (`d5eff3c`)
@@ -154,22 +154,36 @@ Post-push self-check notes:
 - `git diff --name-only origin/develop..HEAD -- src/` -> `src/analysis/result_set_validator.py` (pre-existing B change in branch; not authored by C)
 - `git diff --name-only origin/develop..HEAD -- tests/` -> empty
 
-## Re-Run Evidence (2026-06-01, second full pass)
+## Re-Run Evidence (2026-06-01, post-Agent-F full pass)
 
 - Fresh pull status: `Already up to date`
-- `git log --oneline -20`: still no Agent F report/test commit in range
-- `docs/cycle_reports/CYCLE_056_AGENT_F.md`: absent (`False`)
-- `tests/test_suite_guard.py`: absent (`False`)
+- Agent F deliverables now present:
+  - `docs/cycle_reports/CYCLE_056_AGENT_F.md`: present
+  - `tests/fixtures/relevance_fixtures.py`: present, imports OK
+  - `tests/fixtures/contaminated_data_fixtures.py`: present, imports OK
+  - `tests/test_suite_guard.py`: present, test PASS
 - Re-ran Task 1..19 command set:
-  - PASS: ruff, mypy, regression 34/34, foundation, smoke, config gates, §11.3 fallback, golden anchors, migration_10 checks, niche key drift check, codex thread check
-  - FAIL: fixture imports (both modules missing), fixture calls (blocked), suite guard test file missing, 9-niche fixture coverage (blocked by missing fixture module)
-  - WARN: integration assertion counting over F-changed files not runnable because no F test file changes are present in branch diff
+  - PASS: mypy, regression 34/34, foundation, smoke, config gates, §11.3 fallback, golden anchors, fixture imports, fixture calls, suite guard, suite floor `3829`, migration_10 checks, niche key drift check, discovery imports, codex thread check
+  - FAIL: ruff (5 errors, all `I001 import block is un-sorted or un-formatted`) in:
+    - `tests/integration/test_r2_result_set_validation_integration.py`
+    - `tests/integration/test_r3_sponsored_zombie_integration.py`
+    - `tests/integration/test_r3_sponsored_zombie_wiring.py`
+    - `tests/test_suite_guard.py`
+    - `tests/unit/test_sponsored_gig_filtering.py`
+- Integration quality checks for F-modified integration files:
+  - `test_fixture_factories_smoke.py`: 11 passed, 49 asserts
+  - `test_r1_search_url_wiring.py`: 3 passed, 12 asserts
+  - `test_r2_result_set_validation_integration.py`: 3 passed, 12 asserts
+  - `test_r3_sponsored_zombie_integration.py`: 3 passed, 10 asserts
+  - `test_r3_sponsored_zombie_wiring.py`: 3 passed, 9 asserts
+  - `test_r4_scoring_integrity_integration.py`: 3 passed, 12 asserts
+  - Result: assertion-count quality gate PASS (all >=3)
 - Task 17 (Codex threads): PR `#65`, `totalCount=0`, unresolved `0`
 
 ## GO / NO-GO Verdict
 
 ### VERDICT: NO-GO
 
-Required hard gates remain blocked by missing Agent F artifacts/tests on current branch state. Agent C cannot mark 100% completion until Agent F pushes required files and report; once pushed, Agent C must re-run all checks again from PF-1.
+Required hard gates are now blocked by ruff failures in newly added test files from Agent F scope. Fixture/suite-guard prerequisites are resolved, but ruff must be clean before GO.
 
-Agent C complete. Verdict: NO-GO. All 25 tasks were re-run to the extent possible from Agent C scope; hard blockers are external prerequisites (missing Agent F report + missing fixture/suite-guard test artifacts). §11.3 PRAGMA: all YES (no model deltas; fallback probe PASS). Golden: kw=110 62.7/1.0/CONDITIONAL_GO. Fixture factories: NOT importable on current branch. Suite guard: FAIL (missing file). Agent D BLOCKED — see failing gates above.
+Agent C complete. Verdict: NO-GO. All 25 tasks were re-run on the latest branch state. §11.3 PRAGMA: all YES (no model deltas; fallback probe PASS). Golden: kw=110 62.7/1.0/CONDITIONAL_GO. Fixture factories: importable and functional. Suite guard: PASS. Blocking gate: ruff (5 I001 import-order errors in F-owned tests). Agent D BLOCKED — see failing gates above.
