@@ -1,105 +1,132 @@
-# HYDRATION HEADER — Cycle 055 COMPLETE & MERGED | Cycle 056 (R9) ACTIVE
-# Updated: 2026-06-01 (Agent A C056 scaffold pass; local hydration update)
+# HYDRATION HEADER — Cycle 057 COMPLETE & MERGED | Cycle 058 (R7) READY TO START
+# Updated: 2026-06-02 (post-C057 PM review — all gates verified)
 
-## Cycle Runtime Markers (local hydration)
-- CYCLE_CURRENT: 056
-- CYCLE_BRANCH: cycle/056/integration
-- CYCLE_STATUS: IN_PROGRESS — Agent A scaffolded; B/E parallel; C pending; D pending
-- PR_NUMBER: #65
-- DEVELOP_BASE: 3689b3197992685a4c82c6dcbcfcc816dbab787d
-- LAST_UPDATED: 2026-06-01 by Agent A
-- TIER1_GATE_STATUS: IN PROGRESS (R4 done, R6 done, R9 in progress — closes this cycle)
+## Current State
+- CYCLE_CURRENT: 058
+- CYCLE_STATUS: READY — all C057 verification complete; C058 prompts to be written
+- CYCLE_NEXT_BRANCH: cycle/058/integration (to be created by Agent A)
+- DEVELOP_HEAD: d52f9d723a93829253c3289cfc317178a4ed0ae8 (docs(cycle057): close remaining Agent D checklist details)
+- C057_SQUASH_SHA: 325ef30304de320cb062cea02aeba16dc601a90e
+- OPEN_PRS: NONE
+- TIER1_GATE_STATUS: CLOSED (C056 — R4+R6+R9 complete)
+- TIER2_GATE_STATUS: IN PROGRESS — R5 DONE (C057); R7 (C058) next
 
-## Cycle 056 — IN PROGRESS (PR #65 OPEN)
+## Cycle 057 — VERIFIED COMPLETE & MERGED
+Squash commit: 325ef30304de320cb062cea02aeba16dc601a90e
+PR: #66 | Merged: 2026-06-02 | merged=true, state=closed
+Scope: SRDI R5 — LLM Relevance Classification (Stage 7.5)
+New module: src/analysis/llm_relevance_classifier.py
+Toggle: relevance.llm_relevance_enabled (committed false)
+Suite: 3890 passed | Coverage: 95.81% | Floor >= 90% MET
+Golden parity: PASS (kw=110 62.7/1.0/CONDITIONAL_GO; kw=96 35.8; kw=3 56.66)
+Baseline: data/cycle037_live.db UNTOUCHED (confirmed)
+Config: scrapfly.enabled=False, llm_relevance_enabled=False (committed)
+Regressions: 28 names (36 passed) — strategy §7 v2.0
+REG-23: test_llm_relevance_only_triggers_in_ambiguous_band — PASS
+REG-24: test_llm_ghost_verdict_blocks_recommendation — PASS (no skip)
+Agent F file coverage: 98% on llm_relevance_classifier.py
+Agent E: SEED (no ScrapFly key — band distribution unknown; deferred to live run)
+Codex: 0 threads both runs (G-002 PASS)
+§11: No models touched — parity N/A
+G8 CI: Lint+Tests+Gates=success; codecov/project=success; override:large-pr applied (1515 lines)
+Jira: SCRUM-624/816/625/823/830/835/841 + SCRUM-1011 (control) → all Done
+Branch cycle/057/integration: deleted
+Strategy §7: v2.0 — REG-23/24 added, 28 names permanent
+Governance commit: e2075da7856112c9a94e0a1242460a7e14ae24e9
+C got initial NO-GO (LLMRelevanceConfig import mismatch); B fixed in 48acd16; re-gate issued GO
 
-Branch: cycle/056/integration | PR #65 OPEN
-Branch HEAD: 3689b3197992685a4c82c6dcbcfcc816dbab787d
-Base develop SHA: 3689b3197992685a4c82c6dcbcfcc816dbab787d
-Scope: SRDI R9 — Testing & Validation Framework + Tier-1 gate closure ceremony prep
+## Cycle 056 — COMPLETE & MERGED
+Squash commit: 3617ce4a33ec4e6c2d614d2578de7c90b0cb3cd3
+Scope: SRDI R9 — Testing & Validation Framework + Tier-1 gate closure
+Suite: 3829+ passed; 95%+ coverage; Regression pack: 26 names (34 passed) — §7 v1.8
+Tier-1 gate CLOSED (R4+R6+R9)
 
 ## Cycle 055 — COMPLETE & MERGED
+Squash commit: fabdca9
+Scope: SRDI R6 — Discovery Engine Relevance Gates
 
-Branch: cycle/055/integration | PR #64 CLOSED (merged)
-Squash commit on develop: fabdca9 "feat(discovery): R6 relevance gates (toggle off) (#64)"
-R6 status: DONE and carried into Tier-1 gate with R4 complete.
+## Cycle 054 — COMPLETE & MERGED
+Squash commit: acff870
+Scope: SRDI R4 — Scoring System Integrity Extensions
 
-CI on C055 closeout head: ALL GREEN (Lint/Typecheck/Tests/Gates x2, codecov/patch, codecov/project, Secret Scan, Validate PR, Dependency Audit)
-Suite: 3829 passed, 95.85% coverage
-Golden OFF parity (toggle off): PASS — kw=110 62.7/1.0/CONDITIONAL_GO, kw=96 35.8, kw=3 56.66
-Regression pack: 26 tests (34 passed including supersets) — REG-25/26/27 green
-Agent zones: E ZERO src/tests ✅ | F ZERO src/ ✅ | B sole src/ author ✅
-Config: scrapfly.enabled: false committed ✅ | discovery.enable_relevance_gates: false ✅
-Baseline: data/cycle037_live.db UNTOUCHED ✅ (Agent E probed read-only)
-Agent C process gap (non-blocking): C verified GO but missed the ORM-vs-migration column check (run_id/niche_id/keyword_text in model not covered by migration); added to C prompt hardening task for C056.
-AGENT_B.md missing: only HANDOFF_B.md exists for C055 (process deviation; B must write formal AGENT_B.md on re-run).
-
-## Cycle 054 — VERIFIED COMPLETE & MERGED (PM review backfilled 2026-06-01)
-
-PR #63 (cycle/054/integration -> develop): SQUASH MERGED 2026-06-01T17:06:50Z
-Merge commit (develop squash): acff870e8ef32d8e92bc2ebad4ff14e0675fdbc7
-Scope delivered: SRDI R4 — Quality-Aware Scoring Toggles + Integrity Fields
-- migration_09_keyword_score_integrity_cols.py
-- src/models/keyword_score.py (new integrity columns)
-- src/scoring: competition.py, contracts.py, demand.py, feasibility.py, intent.py, opportunity.py, pipeline.py, profitability.py
-- src/config/models.py (7 new toggles all default false)
-- New regressions: REG-20 (niche_profile_excludes_contaminated_keywords), REG-21 (opportunity_qualified_by_relevance), REG-22 (price_outlier_excluded_from_competition_and_profitability) — pack 20→23
-Config: 7 R4 toggles added all default false; scrapfly.enabled: false ✅
-Golden OFF parity: PASS (kw=110 62.7/1.0/CONDITIONAL_GO anchors held)
-C054 Jira: SCRUM-613/614/615/813/616/617/618/619 all Done ✅
-C054 PM review gap: PM review was NOT performed post-cycle (hydration header not updated, §7 not updated for REG-20/21/22). Both backfilled in this C055 PM review.
-Branch cycle/054/integration: DELETED from origin ✅
-
-## Cycle 053 — VERIFIED COMPLETE & MERGED
-- PR #62 (cycle/053/integration -> develop): MERGED. Post-merge Codex fix (9514786) + steward closeout (3a7a5fe).
-- develop HEAD (before R4): 3a7a5fe "docs(cycle-053): finalize R2 merge gate + prep notes"
-- Scope delivered: SRDI Tier-0 R2 Result-Set Relevance Validation (Stage 3.5): result_set_validator + run_stage_3_5_validation + scoring hooks + eligibility ghost hard block + migration_08 + REG-15/16 (pack 18→20).
-- config.yaml verified: relevance.enable_stage_3_5 = true; scrapfly.enabled = false.
-- SRDI Tier-0 gate (R8+R1+R3+R2): COMPLETE. Cycle 054 began Tier-1 = R4.
-
-## Verified Score State (anchor — kw=110 CONDITIONAL_GO must hold every cycle)
-- ANCHOR kw=110: final_score 62.70 | CM 1.0 | tag CONDITIONAL_GO (niche=support_kb_readiness)
+## Verified Score State (anchor — must hold every cycle)
+- ANCHOR kw=110: final_score 62.70 | CM 1.0 | tag CONDITIONAL_GO
 - ANCHOR kw=96: final_score 35.80 | tag CAUTION
 - ANCHOR kw=3: final_score 56.66 | tag MONITOR
-- Baseline DB: sqlite:///data/cycle037_live.db (NEVER EDIT — golden targets parity_off.db/parity_on.db)
-- Verified: C055 golden OFF run (toggle off) matches all 3 anchors ✅
+- Baseline DB: data/cycle037_live.db (NEVER EDIT)
+- Golden targets: parity_off.db / parity_on.db
 
-## Current Regression Pack: 23 verified on develop (26 pending C055 merge)
-On develop (C054 merged): 23 tests — see strategy §7. Full 26-name expression tested on C055 branch: 34 passed.
-After C055 D re-gate + merge: pack becomes 26 and strategy §7 updated to 1.8.
+## Current Regression Pack (28 names — strategy §7 v2.0 — ALL must stay green)
+test_extract_price_text_from_payload_uses_nested_price_amount
+test_parse_gig_detail_from_html_keeps_zero_review_count
+test_parse_seller_profile_from_html_keeps_zero_review_count_from_hydration
+test_seller_profile_fetcher_maps_parser_fields_for_persistence
+test_gig_detail_fetcher_does_not_overwrite_existing_optional_fields
+test_seller_profile_live_markup_drift_regression_spec
+test_scoring_fallback_queries_scope_to_active_run_id
+test_scoring_fallback_queries_recover_when_latest_run_unlinked
+test_demand_uses_search_result_total_result_count_when_available
+test_competition_score_session_falls_back_to_latest_profile_when_run_mismatch
+test_scoring_uses_card_urls_with_querystrings_for_sparse_links
+test_confidence_modifier_uses_current_run_context_not_none
+test_weakness_multi_row_fallback_does_not_produce_extreme_value
+test_fiverr_search_url_always_includes_category_filter_for_production_niches
+test_unconstrained_search_result_applies_demand_confidence_deduction
+test_eligibility_ghost_hard_block_even_when_forced
+test_demand_qualified_trc_when_rsv_below_080
+test_sponsored_gigs_never_included_in_competition_top10
+test_zombie_gigs_never_used_in_feasibility_review_barrier
+test_organic_trc_adjusted_when_sponsored_fraction_exceeds_20_percent
+test_niche_profile_excludes_contaminated_keywords
+test_opportunity_qualified_by_relevance
+test_price_outlier_excluded_from_competition_and_profitability
+test_ghost_discovery_recorded_as_invalid_not_miss
+test_feedback_excludes_contaminated_outcomes
+test_low_specificity_hypothesis_rejected
+test_llm_relevance_only_triggers_in_ambiguous_band (REG-23 — added C057)
+test_llm_ghost_verdict_blocks_recommendation (REG-24 — added C057)
+Expected passed count: 36 (28 names + 8 supersets)
+After C058: 31 names (REG-28/29/30 added)
 
-## Jira State (verified 2026-06-01)
-- SCRUM-1009 (C055 control): To Do — BLOCKED, Agent B fix required (PM comment added)
-- SCRUM-626/864/627/868/628/873/877/629 (C055 R6 stories): all To Do — blocked
-- SCRUM-613/614/615/813/616/617/618/619 (C054 R4 stories): all Done ✅
-- SCRUM-22 (Epic 07: Discovery Engine): In Progress (C055 R6 blocked)
-- SCRUM-19 (Epic 04: Scoring Engine): In Progress
-- SRDI roadmap position: Tier-1 active — R4 complete; R6 pending merge; R9 next after R6 closes
+## Cycle 058 Scope — R7 External Signal Integrity (Wave H)
+Jira stories: SCRUM-620, SCRUM-847, SCRUM-623, SCRUM-621, SCRUM-851, SCRUM-622, SCRUM-854, SCRUM-858
+New regressions: REG-28 (test_autocomplete_emerging_not_zero_penalized)
+               REG-29 (test_reddit_buyer_intent_qualifies_score)
+               REG-30 (test_trends_qualifier_applied_before_demand)
+New modules: TBD by spec (no new top-level module specified in R7)
+Signals to qualify: Google Trends, Reddit buyer-intent, YouTube category-legitimacy, Autocomplete absence
+New toggles: external_signals_enabled (expected — confirm in spec)
+C058 prompts: TO BE WRITTEN this session
+SRDI spec: PM_Pack\ref\project_plan\13_srdi\03_EPIC_BREAKDOWN_MASTER.md (R7 stories)
+            PM_Pack\ref\project_plan\13_srdi\04_DOD_AND_ACCEPTANCE.md (R7 DoD)
+            PM_Pack\ref\project_plan\13_srdi\06_TEST_PLAN_REGRESSION.md (REG-28/29/30)
+            PM_Pack\ref\project_plan\13_srdi\07_SEQUENCING_ROADMAP.md (Tier-2 R7)
 
-## Carry-Forward Items (PM-flagged this review)
-1. C055 migration fix: Agent B adds migration_10 on cycle/055/integration; D re-gates; PM transitions + merges on PASS.
-2. AGENT_B.md missing for C055 (only HANDOFF_B.md): B must write formal report on re-run. C056 A prompt must require AGENT_B.md explicitly.
-3. Agent C model-vs-migration gap: C's verification checklist must include: for each changed file under src/models/, verify every ORM Mapped column has a corresponding migration ADD. Add to C prompt's mandatory check list.
-4. DL-207 (R1 URL param shape &category_id= vs &filter=category_id:) still not locked in clean runtime; Agent E should revisit in live-validation window.
-5. Re-collection priority: support_kb_readiness (kw=110) first; after R6+R9 closed, schedule re-collection.
-6. Stale stash set (cycle051/047/043/036/029/012): UNTOUCHED, pending explicit PM decision. Dropping is irreversible — surface to user as yes/no; do NOT auto-drop (standing Tier-D item).
-7. artifacts/ directory is untracked (Agent E's cycle055_e2e_validation.json etc.): benign if left untracked. Consider adding artifacts/ to .gitignore in C056 Agent A scope.
+## SRDI Roadmap Position
+Tier-0 COMPLETE: R8, R1, R3, R2
+Tier-1 COMPLETE (C056): R4, R6, R9 — Tier-1 gate CLOSED
+Tier-2: R5 DONE (C057) | R7 ACTIVE (C058) — Tier-2 gate pending R7 completion
+Tier-3 (future): R10 dashboard
+Tier-4 (future): R11 edge/maintenance
 
-## Hard Gates (Permanent — see AGENT_EXECUTION_STRATEGY.md §8)
-- G-001 COVERAGE GATE: ENFORCED is "Lint, Typecheck, Tests, and Gates" CI job + codecov/project SUCCESS. codecov/patch is ADVISORY/non-required.
-- G-002 Codex GraphQL reviewThreads query TWICE; unresolved=0 with REAL fix (no no-op commits).
-- G-003 Agent D merge-gate checklist ALL PASS.
-- G-004 ONE --cov=src run, Agent D only. A/B/C/E/F file-scoped only.
-- G-005 Golden OFF==legacy parity PASS (anchors kw=110/96/3 drift ≤2 pts; kw=110 CONDITIONAL_GO). Baseline data/cycle037_live.db UNTOUCHED. Targets parity_off.db/parity_on.db.
-- CONFIG GATE: scrapfly.enabled stays false in committed config (§10). New toggles ship default false.
-- AGENT ZONES: E commits ONLY its report. F commits ONLY tests + report. src/ ONLY from Agent B.
-- TASK/LENGTH: 25+ LARGE-XXXLARGE tasks per agent; A810/B945/E810/C675/F810/D945 lines; §8.4 blocking self-gate.
-- SQUASH-MERGE CAVEAT: verify merge via merged:true + squash commit on develop (NOT git is-ancestor).
-- CANONICAL DIRECTORY: C:\Fiverr\Fiverr | worktree = 1 | real niche_ids: prd_ai_saas, support_kb_readiness, gumloop_lindy_workflow, mcp_ai_agent, python_automation, ai_tool_llm_integration, ai_agent_development, workflow_automation, python_web_scraping
+## Strategy Doc
+AGENT_EXECUTION_STRATEGY.md: v1.9 + §13 (PM Operating Rules — added 2026-06-02)
+  §7: v2.0 — 28 names, REG-23/24 permanent
+  §12: parallel contract, stage order, D playbook, SRDI nav, new floors
+  §13: verify-state; SHA resolution; scratch cleanup; structural rules; pre-release checklist
 
-## Binding Rules
-- Work only from C:\Fiverr\Fiverr (worktree = 1)
-- New behavior behind config toggles (enable_*), default false
-- data/sessions/ gitignored; .env gitignored — never stage secrets
-- 6-agent order: A (alone) -> [B + E parallel] -> C (after B+E) -> F (after C) -> D (after all)
-- Python interpreter: py -3.12 or C:\Users\kevin\AppData\Local\Programs\Python\Python312\python.exe
-- git/gh commands: use Invoke-Exe helper (ProcessStartInfo, Arguments STRING not ArgumentList)
+## Tier-D Standing Items (ask user before acting)
+1. 6 stale stashes (cycle051/047/043/036/029/012) — dropping is irreversible
+2. R5 live activation (OPENAI_API_KEY present; flip llm_relevance_enabled in config.live.yaml)
+   First niche: python_automation. Monitor LLM calls (<=50/run). Operator decision.
+3. Discovery activation — operator decision when ready
+4. DL-207: search URL parameter shape — still deferred (no live session captured)
+5. Agent E SCRAPFLY_API_KEY missing — live band calibration not yet possible
+
+## PM Pack Files Status (2026-06-02 post-C057)
+All C057 prompts: historical (cycle complete)
+All C058 prompts: TO BE WRITTEN this session
+SHA_RESOLVER_SCRIPT.ps1: present (PM_Pack\03_cursor_agent_system\)
+POST_CYCLE_PM_REVIEW_ADDENDUM_v4_1.md: present
+POST_CYCLE_PM_REVIEW_v4.md: v4.2 (updated this session)
+AGENT_EXECUTION_STRATEGY.md: §13 added (v1.9)
