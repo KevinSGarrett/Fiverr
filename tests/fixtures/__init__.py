@@ -1,18 +1,4 @@
-"""Shared test fixtures package."""
+"""Shared test fixture factories for SRDI test suite (R9.6, SCRUM-631)."""
 
-from tests.fixtures.analysis import (
-    make_complete_market_payload,
-    make_empty_upstream_payload,
-    make_missing_reviews_payload,
-    make_missing_seller_payload,
-    make_sparse_gig_only_payload,
-)
-
-__all__ = [
-    "make_complete_market_payload",
-    "make_empty_upstream_payload",
-    "make_missing_reviews_payload",
-    "make_missing_seller_payload",
-    "make_sparse_gig_only_payload",
-]
+# Import from submodules directly: from tests.fixtures.relevance_fixtures import ...
 
