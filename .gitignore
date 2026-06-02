@@ -85,3 +85,5 @@ config.live.yaml
 config.*.local.yaml
 PM_Pack/scratch_*.ps1
 PM_Pack/scratch_*.txt
+PM_Pack/counts_out.txt
+external_signal_cache.json
