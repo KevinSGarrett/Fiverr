@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from src.analysis.result_set_validator import get_validation_config, validate_result_set
+
 from tests.fixtures.contaminated_data_fixtures import make_niche_validation_input
 
 

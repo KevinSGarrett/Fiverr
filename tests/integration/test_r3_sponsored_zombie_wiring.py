@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 # pylint: disable=protected-access
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.models import Base, Gig, Keyword, Niche, SearchResult, Seller

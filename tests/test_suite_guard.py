@@ -10,7 +10,6 @@ import re
 import subprocess
 import sys
 
-
 SUITE_COUNT_FLOOR = 3829
 """Verified test count after C055 merge. Never decrease this without PM approval."""
 
