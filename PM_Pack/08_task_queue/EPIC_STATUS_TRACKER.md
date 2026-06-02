@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER
-# Updated: 2026-05-31 (post Cycle 053 close) | Active: Cycle 054 (R4) — planning | Cycle 053 COMPLETE (PR #62, develop 3a7a5fe)
+# Updated: 2026-06-01 (post Cycle 055 R6 merge) | Active: Cycle 056 planning | Cycle 055 (R6) COMPLETE (PR #64 squash, develop fabdca9)
 
 ## Active Cycle: 053 — SRDI Tier-0 R2: Result-Set Relevance Validation (Stage 3.5)
 Base: develop @ badb981 | Branch: cycle/053/integration
@@ -19,7 +19,9 @@ KPI: ghost-market rate < 8%. R2 CLOSES the Tier-0 gate.
 | R3 | Sponsored & zombie gig filtering | 0 | C052 | DONE (REG-17/18/19; migration_07; kw=110 held; PR #61) |
 | R2 | Result-set relevance validation (Stage 3.5) | 0 | C053 | **DONE (PR #62; REG-15/16; ghost hard block; parity OFF==legacy; kw=110 held)** |
 | — | **Tier-0 gate** (R8+R1+R3+R2) | 0 | end of C053 | **COMPLETE** |
-| R4 | Scoring quality-aware (Tier-1 head) | 1 | **C054 (active — planning)** | TO DO (REG-20/21/22) |
+| R4 | Scoring quality-aware (Tier-1 head) | 1 | C054 | **DONE (PR #63 squash acff870; REG-20/21/22; 7 toggles default OFF; parity OFF==legacy; kw=110 held @ 62.7; Codex P2 opportunity sign-fix)** |
+| R6 | Discovery engine relevance gates (Tier-1) | 1 | C055 | **DONE (PR #64 squash fabdca9; migration_10 parity fix; REG-25/26/27 green; toggle default OFF; Codex cleared)** |
+| — | **Tier-1 gate** (R4+R6+R9) | 1 | — | R4 DONE; R6 DONE; R9 outstanding → discovery activation still deferred |
 
 ## Score Path Analysis
 - Milestone kw=110 CONDITIONAL_GO @ 62.70 was REACHED in C051 and PRESERVED through C052 (R3). Must

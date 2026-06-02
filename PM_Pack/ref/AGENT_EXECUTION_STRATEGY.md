@@ -37,6 +37,26 @@ These are the required regressions that must stay green during Cycle 053:
 
 REG-15 and REG-16 are now active in the permanent pack for Cycle 053.
 
+### Cycle 054 additions (2026-06-01) — pack now 23
+
+| # | Test name | File | Purpose |
+| --- | --- | --- | --- |
+| 21 | `test_niche_profile_excludes_contaminated_keywords` (REG-20) | `tests/unit/test_competition_score.py` | Niche competitor profile builder drops keywords with RSV relevance < 0.40 |
+| 22 | `test_opportunity_qualified_by_relevance` (REG-21) | `tests/unit/test_opportunity_extended.py` | Opportunity score multiplied by (0.5 + 0.5×RSV) when RSV < 0.70 |
+| 23 | `test_price_outlier_excluded_from_competition_and_profitability` (REG-22) | `tests/unit/test_profitability_score_extended.py` | IQR-based price outlier filter applied in competition and profitability |
+
+REG-20/21/22 added in Cycle 054 (R4 quality-aware scoring), PR #63, merged develop @ acff870. §7 update deferred from C054 PM review (not performed); backfilled in C055 PM review 2026-06-01.
+
+### Cycle 055 additions — MERGED (pack now 26 after C055 close)
+
+| # | Test name | File | Purpose |
+| --- | --- | --- | --- |
+| 24 | `test_ghost_discovery_recorded_as_invalid_not_miss` (REG-25) | `tests/unit/test_discovery_relevance_gates.py` | Ghost discovery outcome recorded as INVALID not a MISS |
+| 25 | `test_feedback_excludes_contaminated_outcomes` (REG-26) | `tests/unit/test_discovery_relevance_gates.py` | Gate-4 feedback aggregation excludes is_invalid and is_contaminated rows |
+| 26 | `test_low_specificity_hypothesis_rejected` (REG-27) | `tests/unit/test_discovery_relevance_gates.py` | Gate-1 rejects hypothesis with specificity_confidence < 0.65 |
+
+NOTE: REG-25/26/27 are merged via PR #64 (squash fabdca9) and remain in the permanent 26-name pack.
+
 Carry-forward Codex-fix guards that must remain named and green:
 
 | Test name | File | Purpose |
@@ -68,6 +88,8 @@ Carry-forward Codex-fix guards that must remain named and green:
 | 1.1 | 2026-05-30 | Cycle 051 Agent B: added R1 search URL category-filter + unconstrained demand-deduction regressions |
 | 1.3 | 2026-05-30 | Cycle 052 Agent B: added REG-17/18/19 (sponsored competition exclusion, zombie feasibility barrier exclusion, TRC sponsored-fraction multiplier). |
 | 1.4 | 2026-05-31 | Cycle 053 Agent B: activated REG-15/16 (ghost hard block and RSV-qualified TRC demand path) and expanded permanent pack to 20 names. |
+| 1.7 | 2026-06-01 | C055 PM review: backfilled C054 (R4) REG-20/21/22 into §7 (pack 20→23 verified merged @ acff870); noted C055 REG-25/26/27 pending merge (pack will be 26 after C055 D re-gate passes). |
+| 1.8 | 2026-06-01 | C055 closeout: confirmed REG-25/26/27 merged with PR #64 (fabdca9), permanent pack is now 26 names. |
 
 ### 12-name accumulated pack (reference)
 
@@ -401,3 +423,106 @@ never be committed by accident.
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.5 | 2026-05-31 | Added §9 PM Direct-Action Authority (4-tier model: PM directly handles reversible Jira/GitHub/docs/hygiene/verification + commits governance docs; never touches src/, tests/, config-behavior, gates, or irreversible/cost actions). Added §10 ScrapFly Collection Backend Policy (verified PerimeterX-bypass transport; committed-off for CI is correct; live work enables it via local uncommitted config + SCRAPFLY_API_KEY; root-caused the 403-degraded live sweeps). |
+
+
+---
+
+## Section 11: MODEL-MIGRATION PARITY RULE (effective Cycle 056+)
+
+**Root cause:** C055 BLOCK — Agent B added ORM `Mapped[]` columns to `discovery_outcome.py`
+(`run_id`, `niche_id`, `keyword_text`, `created_at`) but wrote "Migration added: No (existing
+R8 columns populated)" because the runtime write paths only touched pre-existing columns.
+Agent C confirmed "footprint: clean" because no new migration FILE was added. Both checks were
+wrong-directional. Only Agent D's G7 PRAGMA probe caught it. Full analysis: see
+`PM_Pack/01_pm_instructions/AGENT_B_MIGRATION_PARITY_ROOT_CAUSE.md`.
+
+### 11.1 The invariant (binding on every cycle)
+
+> **Every `Mapped[X]` column in every `src/models/*.py` file that is modified in a cycle MUST
+> have a corresponding migration `ADD COLUMN` (or be part of the original table-creation DDL).
+> "Tests pass" and "no new migration file" are NOT evidence of compliance. PRAGMA is the test.**
+
+### 11.2 Agent B — pre-commit MODEL-MIGRATION PARITY TABLE (BLOCKING)
+
+Applies whenever any `src/models/*.py` file appears in the cycle diff.
+
+**STEP 1 — Enumerate.** For every `F` in `git diff --name-only develop..HEAD -- src/models/`:
+  Open F. List every line matching `Mapped[` with a `mapped_column(...)` assignment.
+  Record: column_name | Python type | nullable | has_default
+
+**STEP 2 — Map to migrations.** For each column, find the migration that provides it:
+  - Either an `ALTER TABLE <table> ADD COLUMN <column_name>` in any migration_NN file, OR
+  - The `CREATE TABLE IF NOT EXISTS` statement that originally defined the table.
+
+**STEP 3 — Build the parity table** (mandatory in HANDOFF_B / AGENT_B report):
+
+  | Column | ORM type | Migration file | DDL line | Present? |
+  |--------|----------|----------------|----------|---------|
+  | run_id | str|None | migration_10   | ADD COLUMN run_id VARCHAR(64) | YES |
+  | ...    | ...      | ...            | ...      | ...     |
+
+**STEP 4 — For any row where Present=NO:** Immediately write a new migration file using the
+  idempotent `_add_column()` pattern from `migration_06` or `migration_09`:
+
+```python
+"""MNN: add <column(s)> to <table>."""
+from sqlalchemy import Engine
+
+def _add_column(connection, table_name, ddl):
+    try:
+        connection.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {ddl}")
+    except Exception:
+        return
+
+def apply(engine: Engine) -> None:
+    with engine.begin() as connection:
+        _add_column(connection, "<table>", "<col_name> <TYPE> [DEFAULT ...]")
+```
+
+  Register it in `run_srdi_r8_migrations.py` after the highest-numbered existing import+call.
+  Run `apply()` against `data/foundation_gate_ci.db`. Verify via PRAGMA. Include in commit.
+  DO NOT commit any src/models change without a complete, all-YES parity table.
+
+### 11.3 Agent C — mandatory PRAGMA cross-check (GO/NO-GO, BLOCKING)
+
+Applies whenever any `src/models/*.py` file appears in the cycle diff.
+
+For every modified model file, run:
+
+```bash
+py -3.12 -c "
+from sqlalchemy import create_engine, inspect
+e = create_engine('sqlite:///data/foundation_gate_ci.db')
+cols = {c['name'] for c in inspect(e).get_columns('<tablename>')}
+print('DB columns:', sorted(cols))
+"
+```
+
+Then list ORM Mapped[] columns from the model file. Every ORM column must appear in DB cols.
+ANY gap = IMMEDIATE NO-GO. Route fix to Agent B. Record result in AGENT_C report.
+
+### 11.4 Table name map
+
+| Model file | Table name |
+|------------|------------|
+| discovery_outcome.py | discovery_outcomes |
+| keyword_score.py | keyword_scores |
+| keyword.py | keywords |
+| gig.py | gigs |
+| search_result.py | search_results |
+| external_signal.py | external_signals |
+| result_set_validation.py | result_set_validations |
+| market.py | markets |
+| competitor_profile.py | competitor_profiles |
+
+### 11.5 C056 one-time retroactive audit
+
+C056 Agent B MUST run the MODEL-MIGRATION PARITY AUDIT on ALL 9 model files above.
+Produce one consolidated parity table in CYCLE_056_AGENT_B.md. Any gap found = write migration.
+Document results even if all rows are YES — the audit itself is the deliverable.
+
+### Version history (Section 11)
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.8 | 2026-06-01 | Added §11 MODEL-MIGRATION PARITY RULE: root-caused C055 G7 block; added §11.2 Agent B pre-commit parity table (BLOCKING) + §11.3 Agent C PRAGMA cross-check (BLOCKING) + §11.4 table map + §11.5 C056 retroactive audit. Ref: AGENT_B_MIGRATION_PARITY_ROOT_CAUSE.md. |
