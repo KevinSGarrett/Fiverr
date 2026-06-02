@@ -288,5 +288,6 @@ Invoke-Exe gh 'api repos/KevinSGarrett/Fiverr/pulls/<PR>/reviews --jq ".[] | {us
   - title: `feat(dashboard): R10 Dashboard & Alerting Integration (#059)`
   - body: R10 panel/badges/alerts/filter summary + story keys
 - PR number and URL:
-  - to be inserted by Agent A immediately after first pushable governance commit
+  - `#68`
+  - <https://github.com/KevinSGarrett/Fiverr/pull/68>
 
