@@ -1,6 +1,6 @@
 # CYCLE_057_AGENT_E — RSV Band Distribution for R5 Calibration
 
-Branch: cycle/057/integration | HEAD (latest E commit): 874b70af865393b8b02af72baf4adb0d4fbfdcb9 | Date: 2026-06-02
+Branch: cycle/057/integration | HEAD: see `git rev-parse HEAD` after E push | Date: 2026-06-02
 ScrapFly enabled: [SEED — key missing and discovery live modes are not wired in current CLI path]
 
 ## ScrapFly Session Summary
@@ -137,6 +137,6 @@ Relationship note:
 
 ## Signal to Agent C
 
-Agent E complete. HEAD (latest E commit): 874b70af865393b8b02af72baf4adb0d4fbfdcb9. Aggregate in-band rate: UNKNOWN-SEED.
+Agent E complete. HEAD: see `git rev-parse HEAD` after E push. Aggregate in-band rate: UNKNOWN-SEED.
 Budget fit: UNKNOWN-SEED. DL-207: DEFERRED. OPENAI key: present.
 Agent C may proceed AFTER Agent B also completes.
