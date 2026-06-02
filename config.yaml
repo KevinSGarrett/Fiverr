@@ -101,6 +101,9 @@ phase2_analysis:
   max_competitors_per_run: 100
   max_text_chars: 12000
 
+analysis:
+  external_signals_enabled: false
+
 scoring:
   active_profile: aggressive_new_seller
   demand:

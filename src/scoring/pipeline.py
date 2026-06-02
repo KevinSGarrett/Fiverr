@@ -770,9 +770,20 @@ def _build_confidence_context(
     reddit_warning_missing = any("reddit_not_implemented" in warning for warning in warnings)
     reddit_signals_available = not reddit_warning_missing
     relevance_cfg = config.get("relevance", {}) if isinstance(config, dict) else {}
+    analysis_cfg = config.get("analysis", {}) if isinstance(config, dict) else {}
+    external_signals_enabled = False
+    external_signals_config: dict[str, Any] = {}
+    if isinstance(analysis_cfg, dict):
+        external_signals_enabled = bool(analysis_cfg.get("external_signals_enabled", False))
+        raw_external_cfg = analysis_cfg.get("external_signals", {})
+        if isinstance(raw_external_cfg, dict):
+            external_signals_config = dict(raw_external_cfg)
     enable_zombie_filter = bool(relevance_cfg.get("enable_zombie_filter", True))
     top_n_for_scoring = max(1, int(relevance_cfg.get("top_n_for_scoring", 10)))
     zombie_fraction = 0.0
+    youtube_video_count: int | None = None
+    signal_age_days = 0
+    signal_relevance_score = 1.0
     if isinstance(db, Session):
         top_results = (
             db.query(SearchResult)
@@ -801,6 +812,36 @@ def _build_confidence_context(
             .count()
         )
         reddit_signals_available = reddit_count > 0
+        youtube_signal = (
+            db.query(ExternalSignal)
+            .filter(
+                ExternalSignal.keyword_id == keyword_id,
+                ExternalSignal.signal_type == ExternalSignal.SIGNAL_YOUTUBE_COUNT,
+            )
+            .order_by(ExternalSignal.collected_at.desc(), ExternalSignal.id.desc())
+            .first()
+        )
+        if youtube_signal is not None:
+            raw_payload = youtube_signal.raw_value_json if isinstance(youtube_signal.raw_value_json, dict) else {}
+            raw_count = raw_payload.get("youtube_result_count", youtube_signal.normalized_value)
+            try:
+                if raw_count is not None:
+                    youtube_video_count = int(raw_count)
+            except (TypeError, ValueError):
+                youtube_video_count = None
+        newest_signal = (
+            db.query(ExternalSignal)
+            .filter(ExternalSignal.keyword_id == keyword_id)
+            .order_by(ExternalSignal.collected_at.desc(), ExternalSignal.id.desc())
+            .first()
+        )
+        if newest_signal is not None and isinstance(newest_signal.collected_at, datetime):
+            now = datetime.now(UTC)
+            delta = now - newest_signal.collected_at
+            signal_age_days = max(0, int(delta.total_seconds() // 86400))
+        rsv = get_result_set_validation(keyword_id, db)
+        if rsv is not None and rsv.result_set_relevance_score is not None:
+            signal_relevance_score = float(rsv.result_set_relevance_score)
     trends_available = scores.get("trend_score") is not None
     gig_detail_collected = True
     llm_quality_incomplete_count = 0
@@ -828,6 +869,11 @@ def _build_confidence_context(
         "mode": depth,
         "enable_zombie_filter": enable_zombie_filter,
         "zombie_fraction": zombie_fraction,
+        "youtube_video_count": youtube_video_count,
+        "signal_age_days": signal_age_days,
+        "signal_relevance_score": signal_relevance_score,
+        "external_signals_enabled": external_signals_enabled,
+        "external_signals_config": external_signals_config,
     }
 
 
