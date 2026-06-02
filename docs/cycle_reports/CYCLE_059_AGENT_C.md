@@ -67,6 +67,33 @@ Stage order enforced: C runs after B+E, before F. C did not wait for F.
   - `CYCLE_059_AGENT_B.md`: root=False, docs=True
   - `CYCLE_059_AGENT_E.md`: root=False, docs=True
 
+## Strict Completion Addendum
+
+- Re-ran the supplemental full inline R10 command block and got:
+  - `Badges: 7 types PASS`
+  - `Alerts: 6 types PASS`
+  - `Ghost default=False PASS`
+  - `NULL-safe score PASS`
+  - `ALL R10 VERIFICATION: PASS`
+- Re-ran supplemental gate checks:
+  - severity sort -> `PASS`
+  - all-types badge coverage -> `Ghost override: PASS | NULL PASS`
+  - TC-2 enforcement test `test_pipeline_raises_on_unseeded_db_not_dry_run_fallback` -> `1 passed`
+- Display-only/no-auto-action checks:
+  - `Get-ChildItem src\\dashboard\\ -File | ... \"session.add|db.add|session.commit\"` -> empty
+  - `Get-ChildItem src\\dashboard\\ -File | ... \"score.*calculate|demand_score|competition_score|confidence_modifier\"` -> empty
+- `run_summary_relevance_block` required-key proof:
+  - direct runtime check confirms keys `run_id`, `alerts`, `ghost_market_print` exist
+  - repository test `test_run_summary_relevance_block_has_human_readable_print` passes
+- Export check:
+  - `from src.dashboard import BADGE_TYPES, ALERT_TYPES` succeeds with counts `7` and `6`.
+- §15.3 six-path sweep at C stage:
+  - present now: `A`, `B`, `C`, `E`
+  - expected absent at C stage: `F`, `D` (created after C by stage order)
+- PF-2 note:
+  - `git log --oneline -10` at current head is dominated by C/E/B cycle commits and does not include A due depth.
+  - A presence was verified via branch history and report artifact (`docs/cycle_reports/CYCLE_059_AGENT_A.md` exists and tracked).
+
 ## Completion Checklist
 
 - [x] ruff PASS | mypy PASS
