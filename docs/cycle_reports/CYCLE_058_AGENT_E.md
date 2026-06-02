@@ -1,14 +1,17 @@
 # CYCLE_058_AGENT_E — External Signal Data Presence & R7 Qualifier Assessment
 
 Branch: `cycle/058/integration` | HEAD at report prep: `4745a4523b29df195042ca28e88dfbe13a5bc6e9` | Agent E final HEAD after push: `ac58b429ba39c55df5ec6798cab5e94b61ca7391` | Date: 2026-06-02
-ScrapFly: **SEED** (`SCRAPFLY_API_KEY` present in `.env`, but current collection path executed as dry-run and emitted no live ScrapFly session)
+ScrapFly: **SEED** (`SCRAPFLY_API_KEY` present in `.env`; both dry-run and full-mode attempts produced no live ScrapFly session evidence and no external signal rows)
 
 ## ScrapFly Status
 
 - `SCRAPFLY_API_KEY`: **PRESENT in `.env`** (validated `scp-` prefix). Initial shell env lacked it; key then loaded into session for re-run.
 - `config.live.yaml`: created locally with `collection.scrapfly.enabled=true` and confirmed gitignored
 - Throwaway DB target: `sqlite:///data/cycle058_e2e_validation.db` created and confirmed gitignored
-- Live collection: attempted with session key loaded, but CLI path still returned `Collection dry run complete` and emitted no `ScrapFly session: requests=N, credits=C` line; C058 remains SEED for Agent E on evidence.
+- Live collection:
+  - Attempt 1 (`collect-only`): returned `Collection dry run complete`; no `ScrapFly session: requests=N, credits=C` line.
+  - Attempt 2 (`run --mode full` with local live toggles enabled in `config.live.yaml`): completed with `Scoring complete: 0 keywords scored`; still no ScrapFly session line and no signal rows.
+  - Result: C058 remains SEED for Agent E on empirical evidence.
 
 ## External Signal Data Presence (CI DB — `foundation_gate_ci.db`)
 
@@ -87,6 +90,7 @@ No new live run URL evidence captured in C058 E. No `"Fetching URL:"` live trace
 - ScrapFly credit usage: **SEED / 0 observed** (no live session line emitted)
 - CI DB `external_signals` table presence: `True` (grouped query returned 0 rows)
 - Re-run with loaded key: `SESSION_KEY_OK` observed, followed by `Collection dry run complete` (still no live session usage evidence)
+- Escalation run with local live toggles + `run --mode full`: `SESSION_KEY_OK`, `Scoring complete: 0 keywords scored`, still 0 `external_signals` rows
 
 ## Supplemental Diagnostic Query Results
 
@@ -107,7 +111,7 @@ Schema reality captured for audit:
 
 1. **CI distribution query**: COMPLETE (schema-adjusted to `signal_value`; result 0 rows)
 2. **Throwaway DB + local config**: COMPLETE (`config.live.yaml` created, DB recreated, gitignore checks passed)
-3. **Live signal collection attempt**: COMPLETE-AS-SEED (`SCRAPFLY_API_KEY` present in `.env` and loaded, but command path remained dry-run; no live session line available)
+3. **Live signal collection attempt**: COMPLETE-AS-SEED (`SCRAPFLY_API_KEY` present in `.env` and loaded; both dry-run and full-mode attempts still produced no live session line and no signal rows)
 4. **RSV band sampling**: COMPLETE (`No RSV data`, UNKNOWN-SEED)
 5. **Null handling assessment**: COMPLETE (0 rows => qualifiers operate on defaults/null path)
 6. **DL-207 status**: COMPLETE (`DEFERRED`; no new URL evidence)
@@ -137,7 +141,10 @@ Schema reality captured for audit:
 - live RSV band calibration evidence for R5
 - live external signal presence validation for R7
 
-Requested PM/engineering follow-up: ensure runtime actually loads `.env` in execution shells and expose a non-dry-run, per-niche/live collection path for Agent E validation runs.
+Requested PM/engineering follow-up:
+- ensure runtime consistently loads `.env` in execution shells
+- identify why `run --mode full` produced `0 keywords scored` in this validation run
+- expose a deterministic non-dry-run, per-niche/live collection path for Agent E evidence capture
 
 ## Completion Checklist
 
@@ -159,4 +166,5 @@ Agent E complete. HEAD: latest Agent E commit on `cycle/058/integration` for thi
 R7 qualifier fire rate: **UNKNOWN-SEED (0/4 observed data types this cycle)**.
 B config check observed: `analysis.external_signals_enabled=false` in current `config.yaml`.
 ScrapFly key note: key is present in `.env`; this cycle remained SEED because executed collection path was dry-run (no `ScrapFly session` evidence).
+Escalation note: full-mode run with local live toggles also produced `0 keywords scored` and no external signal rows.
 Agent C may proceed AFTER Agent B also completes.
