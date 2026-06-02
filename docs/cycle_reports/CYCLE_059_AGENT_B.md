@@ -69,6 +69,16 @@
   - `py -3.12 -c "from src.dashboard.relevance_dashboard import calculate_niche_relevance_quality_score; print('OK')"` -> `OK`
 - Function probe:
   - `calculate_niche_relevance_quality_score(1, 'legacy', session)` on `foundation_gate_ci.db` -> `0.0` and in-range check `True`
+- End-to-end R10 function validation:
+  - in-memory seeded run executed across all 5 exported R10 functions + data-integrity helper
+  - output included:
+    - quality score (`0.475`)
+    - badge mapping (`CONDITIONAL_GO`)
+    - alert generation (`ghost_market_detected`, `relevance_deduction_applied`)
+    - run summary ghost print (`⚠ 1 ghost market keyword(s) flagged`)
+    - opportunities default filter result (`[1]`, ghost excluded)
+    - data-integrity null rendering (`N/A`)
+  - terminal sentinel: `ALL R10 FUNCTIONS: PASS`
 - Unit tests:
   - `py -3.12 -m pytest -q tests/unit/test_badge_rendering.py --no-header` -> `15 passed`
   - `py -3.12 -m pytest -q tests/unit/test_relevance_alerts.py --no-header` -> `4 passed`
@@ -91,6 +101,19 @@
 - No committed config drift:
   - `git diff --name-only origin/develop..HEAD -- config.yaml` -> empty
 - R10 implementation is display-only; no scoring formula changes.
+- Supplemental checks:
+  - alert severities verified present: `critical`, `warning`, `info`
+  - badge renderer verified to have no `config.yaml` dependency (`False` for substring check)
+  - ghost-market NULL filter behavior re-verified in `test_ghost_market_excluded_from_opportunities_by_default`
+  - score panel `0.0` no-row behavior re-verified in `test_quality_score_returns_zero_for_missing_rows`
+  - data integrity `N/A` behavior re-verified in `test_data_integrity_block_renders_na_for_missing_components`
+  - TC-2 empty/unseeded DB failure re-verified in `test_pipeline_raises_on_unseeded_db_not_dry_run_fallback`
+
+## Regression Candidates For D
+- R10 permanent regression candidates for D (`§7 v2.3` registration post-merge):
+  - `test_ghost_market_excluded_from_opportunities_by_default` (`tests/unit/test_relevance_dashboard.py`)
+  - `test_all_non_ghost_tags_render_correctly` (`tests/unit/test_badge_rendering.py`) *(covered by parametrized color/tag mapping block)*
+  - `test_empty_run_returns_no_alerts` (`tests/unit/test_relevance_alerts.py`)
 
 ## Completion Checklist
 - [x] `src/dashboard/` module created with R10 functions

@@ -74,6 +74,12 @@ def test_caution_badge() -> None:
     assert badge["type"] == "CAUTION" and badge["color"] == "red"
 
 
+def test_all_non_ghost_tags_render_correctly() -> None:
+    for tag in ("STRONG_GO", "CONDITIONAL_GO", "MONITOR", "CAUTION", "EMERGING"):
+        badge = render_keyword_integrity_badge(MockKS(tag=tag, ghost=False))
+        assert badge["type"] == tag
+
+
 @pytest.mark.parametrize(
     "tag,expected_color",
     [
