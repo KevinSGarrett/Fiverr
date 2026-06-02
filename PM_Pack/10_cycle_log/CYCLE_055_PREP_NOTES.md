@@ -191,3 +191,20 @@ Handback:
 
 - Agent B fix list issued in `docs/cycle_reports/CYCLE_055_AGENT_D.md` (D-1, D-2).
 - Re-gate required on next pushed SHA after B resolves migration gap + Codex thread.
+
+## 9) Re-gate completion outcome (Agent D follow-up)
+
+- Re-gate date: `2026-06-01`
+- Re-gated branch head: `082fa2944823746d6f5addeb6f8d43d2c2b7ff12`
+- Migration remediation commit verified: `b7db55c66310447df0e6199d4273b3dab270fdd8`
+- Re-gate verdict: **ALL G1-G10 GO**
+- Squash merge completed: `fabdca9e3391ba80ac64262fc56d87a80eac89a4` (`PR #64`)
+
+Closeout executed:
+
+- Jira transitioned to Done with evidence comments:
+  - `SCRUM-1009`, `SCRUM-626`, `SCRUM-864`, `SCRUM-627`, `SCRUM-868`, `SCRUM-628`, `SCRUM-873`, `SCRUM-877`, `SCRUM-629`
+- `SCRUM-22` left In Progress (R9 still pending before Tier-1 activation decision)
+- Remote branch deleted: `cycle/055/integration` (confirmed 404 on ref lookup)
+- Baseline integrity reconfirmed after merge:
+  - `(62.7, 1.0, 'CONDITIONAL_GO')` for latest kw110 in `data/cycle037_live.db`
