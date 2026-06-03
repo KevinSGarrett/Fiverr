@@ -173,5 +173,5 @@ Breaking SEED requires all three conditions to be true in the same execution pat
 ## 16) Final zone verification and E commit record
 
 - `git show --name-only <E_SHA>` verification is required to show only `docs/cycle_reports/CYCLE_062_AGENT_E.md`.
-- This report is committed as a docs-only E artifact, and the resulting SHA is captured in the post-commit command output for this run.
-- Zone verification result is captured immediately after commit via `git show --name-only <sha>` and must list only this report path.
+- Recorded E docs commit SHA: `c1f6afeba209e433a58d043bfedfb48a34fe3468`.
+- Zone verification command output for that SHA listed only: `docs/cycle_reports/CYCLE_062_AGENT_E.md`.
