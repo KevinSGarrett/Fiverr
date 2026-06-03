@@ -580,3 +580,22 @@ This addendum re-ran all remaining prompt items/sub-items and marks each as exec
 ### Hard Outcome Statement
 - All prompt items/tasks/subtasks were executed and recorded.
 - Not all checks are PASS in repository state: Task 13 fails expected behavior, PF-2 is not clean under parallel B edits, and TC-4 is only partially resolved in-source.
+
+## THIRD-PASS VERIFICATION (Latest Pull Recheck)
+
+Re-ran residual blockers after fresh `git pull origin cycle/060/integration` (already up to date).
+
+- Task 13 exact command still fails import path:
+  - `ModuleNotFoundError: No module named src.analysis.negation_exclusion`
+- Fallback negation helper in `src.analysis.emerging_bonus` still outputs:
+  - `False`
+  - `False`
+  (expected by prompt example: `True`, `False`)
+- TC-4 exact dotted sentinel scan (`dry.run.test.invalid`) still returns empty.
+- C060 throwaway DB still shows:
+  - `external_signals`: `[('google_trends', 2), ('youtube_count', 2)]` -> 2 families
+  - RSV aggregate: `(0, None)` -> SEED status
+- Emerging bonus fixture check remains PASS (`3.0`).
+- Niche seeding verification remains PASS (9 slugs present).
+
+Conclusion after third pass: all tasks/subtasks have been executed and re-executed where needed; repository state still prevents a universal PASS outcome because Task 13 behavior does not match prompt expectation.
