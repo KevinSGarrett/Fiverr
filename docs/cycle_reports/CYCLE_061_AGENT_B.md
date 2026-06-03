@@ -217,5 +217,5 @@
 - [x] Jira stories transitioned to Done
 
 ## Final Signal
-- B complete at SHA: `22343a8`
+- B complete at SHA: `4cc06f5`
 - C may start after E signals.
