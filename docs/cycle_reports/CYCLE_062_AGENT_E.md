@@ -173,5 +173,45 @@ Breaking SEED requires all three conditions to be true in the same execution pat
 ## 16) Final zone verification and E commit record
 
 - `git show --name-only <E_SHA>` verification is required to show only `docs/cycle_reports/CYCLE_062_AGENT_E.md`.
-- Recorded E docs commit SHA: `c1f6afeba209e433a58d043bfedfb48a34fe3468`.
-- Zone verification command output for that SHA listed only: `docs/cycle_reports/CYCLE_062_AGENT_E.md`.
+- Recorded E docs commit SHA (initial E delivery): `c1f6afeba209e433a58d043bfedfb48a34fe3468`.
+- Recorded E docs commit SHA (report completion update): `bd7c36468698d2406e5b23e398793009bc9d8d94`.
+- Zone verification command output for both SHAs listed only: `docs/cycle_reports/CYCLE_062_AGENT_E.md`.
+
+## 17) Task-by-task completion ledger (Tasks 0-32)
+
+- Task 0 PREFLIGHT: completed; branch was `cycle/062/integration`, staged diff empty, log captured.
+- Task 1 PULL: completed; pull returned up to date and recent log captured.
+- Task 2 CONFIG CHECK: completed; expected flags confirmed in committed config.
+- Task 3 TC-1 SCHEMA: completed; PASS in `foundation_gate_ci.db`.
+- Task 4 DOTENV KEY: completed; `KEY_PRESENT True PREFIX scp-`.
+- Task 5 SCRAPFLY ATTEMPT: completed per throwaway-run procedure; run produced dry-run completion and no ScrapFly session line.
+- Task 6 RSV BAND: completed; `RSV BAND: SEED` with zero rows and thresholds explicitly checked.
+- Task 7 DL-207 URL SHAPE: completed; constructor PASS. Runtime URL sample unavailable due `search_results=0`.
+- Task 8 EXTERNAL SIGNALS SNAPSHOT: completed; total zero rows documented.
+- Task 9 SEARCH RESULT COUNT: completed; keyword/search/gig counts captured as zero.
+- Task 10 PRICING CODE OBSERVATION: completed; `src/pricing` presence and file listing captured.
+- Task 11 P2 REGRESSION SUBSET: completed; `17 passed`.
+- Task 12 BASELINE DB PROTECTION: completed; `UNTOUCHED`.
+- Task 13 THROWAWAY DB CLEANUP CHECK: completed; DB file not staged/tracked.
+- Task 14 ZONE SELF-VERIFICATION PRE-COMMIT: completed before each E commit; only E report staged.
+- Task 15 COMMIT E WORK: completed with docs-only commits and push; zone checked via `git show --name-only`.
+- E REPORT REQUIRED CHECKLIST: completed and included in this report with evidence.
+- Task 16 KEYWORD EXPANSION CHECK: completed; keyword table count zero in this execution path.
+- Task 17 AUTOCOMPLETE STATUS: completed; zero rows captured.
+- Task 18 GOOGLE TRENDS CHECK: completed; zero rows and zero raw values captured.
+- Task 19 REDDIT SIGNAL CHECK: completed; no rows; `source_mode` query mismatch documented; devvit import dir listed with files present.
+- Task 20 COLLECTION CHECKPOINT CHECK: completed; zero rows; prompt query column mismatch documented (`stage_name` vs `stage` in schema).
+- Task 21 RUN LOG STATUS CHECK: completed; zero rows; prompt query column mismatch documented (`started_at` not present in this table shape).
+- Task 22 COLLECTION SESSION EVENTS CHECK: completed; zero rows.
+- Task 23 NICHE CONFIG VERIFICATION: completed; `niche_configs` empty while `niches` has 9 active slugs; gap documented for B.
+- Task 24 SCORING STAGE EVIDENCE: completed; counts captured; naming mismatch (`price_analyses` vs `price_analysis`) documented.
+- Task 25 RSV HISTORY SUMMARY: completed in section 14.
+- Task 26 DISCOVERY SCHEMA CHECK: completed; all four discovery tables present with column counts.
+- Task 27 SCRAPFLY SESSION LINE SEARCH: completed; no match, recorded as no live signal.
+- Task 28 COLLECTION QUEUE ITEMS CHECK: completed; zero rows.
+- Task 29 PRICING TABLE PRESENCE CHECK: completed; pricing tables listed in throwaway DB.
+- Task 30 FIXTURE-ONLY ROOT CAUSE CHECK: completed; fixture-only and connector flags confirmed.
+- Task 31 PROHIBITED-PADDING SCAN: completed; no prohibited padding-marker patterns found.
+- Task 32 WORD COUNT CHECK: completed; report word count exceeds 600.
+
+All requested tasks were executed and recorded. Where runtime/live evidence was unavailable, the cause was documented with command-backed outputs (dry-run behavior and schema/query mismatches), not inferred.
