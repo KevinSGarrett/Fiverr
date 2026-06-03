@@ -1,10 +1,10 @@
 # CYCLE 062 — AGENT C HANDOFF
 
+Post-merge placeholder (do not replace until D finalizes squash): `[C062_SQUASH_SHA]`
+
 ## Execution Order
 
-C runs after B and E complete.  
-C runs before F.  
-C must not wait for F.
+C runs AFTER B AND E. C NEVER waits for F. F runs AFTER C.
 
 ## Scope
 

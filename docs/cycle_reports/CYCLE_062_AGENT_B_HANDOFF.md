@@ -1,5 +1,7 @@
 # CYCLE 062 — AGENT B HANDOFF
 
+Post-merge placeholder (do not replace until D finalizes squash): `[C062_SQUASH_SHA]`
+
 ## Scope and Zone
 
 - Zone: `src/` + required migration wiring + B report.
@@ -26,30 +28,29 @@
 
 ## Required Files — Create or Replace
 
-### New/Target Files (must exist after B)
+### Exact Files to CREATE (prompt-locked list)
 
-- `src/pricing/__init__.py` (ensure exports match new modules)
+- `src/pricing/init.py`
 - `src/pricing/analysis.py`
 - `src/pricing/new_seller_pricing.py`
-- `src/models/price_analysis.py` (new ORM definitions for canonical tables)
-- `src/migrations/srdi_r8/migration_12_price_analysis_tables.py`  
-  (Repo uses `src/migrations/srdi_r8/`, not Alembic; follow migration_11 pattern.)
+- `src/models/price_analysis.py`
+- `alembic/versions/migration_12_price_analysis_tables.py`
 - `tests/unit/test_price_distribution.py` (>=20 tests)
 - `tests/unit/test_new_seller_pricing.py` (>=20 tests)
 - `tests/unit/test_pricing_integration.py` (>=10 tests)
 
-### Existing Files to Modify
+### Files to MODIFY (prompt-locked list)
 
-- `src/models/__init__.py`
-  - Follow existing import/export style.
-  - Add explicit exports for `PriceAnalysis`, `NichePriceAnalysis`, and `PricingSnapshot` from your canonical pricing model module.
+- `src/models/init.py`
 - `src/models/database.py`
-  - Register any new model classes so schema initialization includes them.
-- `src/orchestrator.py` and/or pricing execution entry point
-  - Wire Stage 10.5 after scoring and before recommendation/opportunity ranking flow.
-- `run.py` (if mode hooks/signatures need adjustment for Stage 10.5 contract)
-- `src/pricing/orchestrator.py`
-  - Replace stub behavior with spec-compliant execution path.
+- `src/analysis/orchestrator.py` or equivalent
+- `alembic/env.py`
+
+### Repository Reality Notes (required for implementation feasibility)
+
+- Repository currently uses `src/models/__init__.py` (not `src/models/init.py`).
+- Repository migration framework currently exists under `src/migrations/srdi_r8/` and no active `alembic/versions` directory is present.
+- Preserve the prompt-locked target filenames in planning, but implement against actual repository structure unless PM governance updates the migration framework.
 
 ## Required Function Signatures (Spec-Locked)
 
@@ -76,6 +77,12 @@ Implement helper functions required by spec:
 - Stage execution uses `run_id` + DB session + config payload, not a pure `(keyword_id, db)` global loop from CLI.
 - Preserve this contract or update both caller and callee consistently.
 
+### Stage caller/signature details for B
+
+- Current stage entry is `src.orchestrator.run_pipeline(mode="price-analysis", config_path, database_url)`.
+- `run_pipeline` gathers keyword ids and calls `src.pricing.orchestrator.run_pricing_stage(run_id, keyword_ids, db, config)`.
+- B’s Stage 10.5 functions must support this run-scoped contract while retaining spec-level per-keyword analysis signatures.
+
 ## Migration Pattern Requirement
 
 Repository migration pattern is file-based under `src/migrations/srdi_r8/` with `apply(engine)` functions.
@@ -89,6 +96,15 @@ For migration_12:
 - create canonical `price_analysis` and `niche_price_analysis` tables
 - reconcile legacy `price_analyses` and existing `pricing_snapshots` without destructive data loss
 - ensure downgrade/rollback guidance is documented if no formal downgrade hook exists
+
+## `src/models/__init__.py` Export Pattern Requirement
+
+Current export style uses explicit import lines plus explicit `__all__` entries.
+
+Add lines in the same style:
+
+- `from src.models.price_analysis import PriceAnalysis, NichePriceAnalysis, PricingSnapshot`
+- Add `"PriceAnalysis"`, `"NichePriceAnalysis"`, and `"PricingSnapshot"` in `__all__`.
 
 ## Dependencies and Environment
 

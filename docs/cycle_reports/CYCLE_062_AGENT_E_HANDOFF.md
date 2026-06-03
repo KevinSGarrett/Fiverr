@@ -1,5 +1,7 @@
 # CYCLE 062 — AGENT E HANDOFF
 
+Post-merge placeholder (do not replace until D finalizes squash): `[C062_SQUASH_SHA]`
+
 ## Mission and Zone (Strict)
 
 - E job is docs-only validation reporting.

@@ -1,5 +1,7 @@
 # CYCLE 062 — AGENT D HANDOFF
 
+Post-merge placeholder (do not replace until D finalizes squash): `[C062_SQUASH_SHA]`
+
 ## Execution Order
 
 D runs after all agents complete:

@@ -1,5 +1,7 @@
 # CYCLE 062 — AGENT F HANDOFF
 
+Post-merge placeholder (do not replace until D finalizes squash): `[C062_SQUASH_SHA]`
+
 ## Execution Order and Zone
 
 - F starts only after C returns GO.
