@@ -1252,6 +1252,7 @@ backfilled to permanent pack in C058 PM review 2026-06-02.
 | --- | --- | --- |
 | 2.2 | 2026-06-02 | C058 PM review: backfilled post-merge Codex P2 fix regressions REG-31/32/33 (datetime normalization + confidence blend guard). Pack now 34 names (42 passed). §14+§15 added (env loading; throwaway DB seeding; external signal schema; Codex timing; report placement). |
 | 2.3 | 2026-06-02 | C059 (R10): REG-34/35/36 added. Dashboard test suite. Tier-3 R10 complete. |
+| 2.4 | 2026-06-03 | C060 (R11): REG-37/38/39/40 added. Codex P2-1/P2-2 fixed. R11 monitors+quality gate. All SRDI epics DONE. |
 
 ### Cycle 059 additions — MERGED (pack now 37 after C059 close)
 
@@ -1263,6 +1264,19 @@ backfilled to permanent pack in C058 PM review 2026-06-02.
 
 REG-34/35/36 added in Cycle 059 (R10 Dashboard & Alerting), PR #68, merged develop @ 1fd62250ff04704d36b2a8606689c596e82a1545.
 
+
+---
+
+### Cycle 060 additions — MERGED (pack now 41 after C060 close)
+
+| # | Test name (REG-NN) | File | Purpose |
+| --- | --- | --- | --- |
+| 38 | `test_ghost_filter_handles_null_and_legacy_rows` (REG-37) | `tests/unit/test_relevance_dashboard.py` | P2-1: ghost=NULL treated as non-ghost (C059 Codex fix) |
+| 39 | `test_llm_alert_counts_actual_stage_7_5_executions` (REG-38) | `tests/unit/test_relevance_alerts.py` | P2-2: LLM alert uses correct KeywordScore field (C059 Codex fix) |
+| 40 | `test_stealth_sponsored_monitor_fires_on_fixture` (REG-39) | `tests/unit/test_monitors.py` | R11 stealth-sponsored monitor fires when count>0 |
+| 41 | `test_first_recommendation_quality_gate_blocks_missing_rsv` (REG-40) | `tests/unit/test_quality_gate.py` | R11 quality gate: missing RSV blocks recommendation |
+
+REG-37/38/39/40 added in Cycle 060 (R11 Edge Cases & Maintenance), PR #69, merged develop @ 9687fb6f38ebca8b01cefa845530ea4f2b609c07.
 
 ---
 
