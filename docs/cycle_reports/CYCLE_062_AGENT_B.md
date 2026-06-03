@@ -74,6 +74,7 @@ Parity verification command result:
   - `run_stage_10_5(keyword_id, db, run_id=...)`
   - `run_stage_10_5_for_niche(niche_id, db, run_id=...)` with structured logging extras.
   - `run_pricing_stage(...)` updated to execute Stage 10.5 end-to-end.
+- Wired into main runner in `src/orchestrator.py` full mode after scoring, so Stage 10.5 executes in sequence.
 - Graceful skip behavior implemented:
   - Returns `{"status": "skipped", "reason": "insufficient_gig_data", ...}` when gig count < 3.
   - Keyword-only / no-gig contexts no longer crash.
@@ -131,4 +132,8 @@ Command run for named smoke group:
 - `6a61ffb`
 
 ## SCRUM-1022
-- Evidence prepared in this report for SCRUM-1022 comment payload.
+- Evidence comment posted to `SCRUM-1022` (Jira comment id `12338`).
+
+## Alembic Note
+- Repo does not contain `alembic/` project scaffolding (`alembic.ini`, `alembic/versions`) and runtime lacked importable Alembic CLI module initially (`No module named alembic`).
+- Implemented migration_12 in the active project migration system (`src/migrations/srdi_r8`) and verified table creation + parity there.

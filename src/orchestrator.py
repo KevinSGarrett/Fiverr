@@ -568,6 +568,7 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
 
     if mode == "full":
         from src.models import Keyword
+        from src.pricing.orchestrator import run_pricing_stage
         from src.scoring.pipeline import score_keyword_batch
 
         profile_name = (
@@ -602,7 +603,14 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
                     config=config_payload if isinstance(config_payload, dict) else {},
                 )
             )
+            pricing_result = run_pricing_stage(
+                run_id=timestamp_stamp(),
+                keyword_ids=keyword_ids,
+                db=db_session,
+                config=config_payload if isinstance(config_payload, dict) else {},
+            )
         print(f"Scoring complete: {len(scored_results)} keywords scored")
+        print(f"Stage 10.5 complete: {pricing_result}")
         return 0
 
     print(f"Mode: {mode}")
