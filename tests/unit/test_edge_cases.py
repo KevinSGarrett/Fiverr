@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from src.analysis.emerging_bonus import (
     compute_emerging_opportunity_bonus,
+)
+from src.analysis.emerging_bonus import (
     negation_aware_exclusion as emerging_bonus_negation_aware_exclusion,
 )
 from src.analysis.negation_exclusion import negation_aware_exclusion
