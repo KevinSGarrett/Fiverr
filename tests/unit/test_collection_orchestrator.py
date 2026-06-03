@@ -6,8 +6,8 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from urllib.parse import urlparse
 from unittest.mock import AsyncMock, Mock
+from urllib.parse import urlparse
 
 import pytest
 import run as run_module

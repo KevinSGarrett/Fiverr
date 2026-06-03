@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import math
 from collections.abc import Generator
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-
 from src.analysis.external_signals import (
     _apply_youtube_confidence_gate,
     _classify_autocomplete_absence,
