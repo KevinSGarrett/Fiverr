@@ -840,6 +840,21 @@ def test_build_fiverr_search_url_special_chars() -> None:
     assert url == "https://www.fiverr.com/search/gigs?query=c%2B%2B/node.js"
 
 
+def test_collection_url_encodes_spaces_correctly() -> None:
+    url = build_fiverr_search_url("python automation script")
+    assert "query=python%20automation%20script" in url
+
+
+def test_collection_url_starts_with_search_gigs() -> None:
+    url = build_fiverr_search_url("python automation script")
+    assert url.startswith("https://www.fiverr.com/search/gigs")
+
+
+def test_collection_url_never_bare_path() -> None:
+    url = build_fiverr_search_url("python automation script")
+    assert "fiverr.com/python" not in url
+
+
 def test_parse_gig_cards_empty() -> None:
     assert parse_gig_cards_from_page({"cards": []}) == []
 

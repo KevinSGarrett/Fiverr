@@ -1,16 +1,46 @@
 """Page 1: Opportunities — dashboard landing page (Story 9.3)."""
 from __future__ import annotations
 
+from src.dashboard.db_helpers import get_db_session
 from src.dashboard.opportunities import build_opportunities_payload
-from src.dashboard.sample_data import build_dashboard_demo_data
 
 
 def render_opportunities_page() -> None:
     import streamlit as st
 
+    from src.models import Keyword, KeywordScore
+
     st.title("Opportunities")
-    data = build_dashboard_demo_data()
-    payload = build_opportunities_payload(records=data["opportunities"])
+    with get_db_session() as db:
+        try:
+            rows = (
+                db.query(KeywordScore, Keyword)
+                .join(Keyword, Keyword.id == KeywordScore.keyword_id)
+                .order_by(KeywordScore.final_score.desc())
+                .limit(50)
+                .all()
+            )
+        except Exception as exc:  # noqa: BLE001
+            st.info(f"No scored keywords yet. Database not ready ({exc}).")
+            return
+    if not rows:
+        st.info("No scored keywords yet. Run: py -3.12 run.py run --mode score-only")
+        return
+
+    records = [
+        {
+            "id": f"opportunity-{score.keyword_id}",
+            "opportunity": keyword.keyword,
+            "keyword_text": keyword.keyword,
+            "niche": str(keyword.niche_id),
+            "score": float(score.final_score or 0.0),
+            "confidence": float(score.confidence_modifier or 0.0),
+            "status": score.tag or "unknown",
+            "keyword_links": [],
+        }
+        for score, keyword in rows
+    ]
+    payload = build_opportunities_payload(records=records)
 
     st.subheader(payload["title"])
     st.write(payload["state"]["message"])
@@ -28,7 +58,7 @@ def render_opportunities_page() -> None:
     if warning_summary.get("warnings"):
         st.warning(" | ".join(warning_summary["warnings"]))
     else:
-        st.success("Opportunity payload is healthy.")
+        st.success("Opportunity data loaded successfully.")
 
 
 if __name__ == "__main__":

@@ -579,7 +579,7 @@ async def _fetch_fiverr_autocomplete(
     page: Any = None
     try:
         page = await session_manager.new_page()
-        url = f"https://www.fiverr.com/search/gigs?query={quote(cleaned_seed)}"
+        url = f"https://www.fiverr.com/search/gigs?query={quote(cleaned_seed, safe='')}"
         await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
 
         items = await page.query_selector_all(AUTOCOMPLETE_ITEM)

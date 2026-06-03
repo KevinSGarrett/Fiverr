@@ -253,6 +253,62 @@ def test_external_signal_has_timestamp_columns() -> None:
     assert hasattr(row, "updated_at")
 
 
+def test_external_signal_raw_value_persists() -> None:
+    session = _session()
+    keyword_id = _keyword_id(session)
+    row = write_external_signal(
+        keyword_id=keyword_id,
+        signal_type="google_trends",
+        signal_value=0.75,
+        signal_json={},
+        run_id="run-raw-value",
+        collection_method="test",
+        db=session,
+        raw_value=0.75,
+    )
+    assert row is not None
+    fetched = session.query(ExternalSignal).filter(ExternalSignal.id == row.id).one()
+    assert fetched.raw_value == 0.75
+    session.close()
+
+
+def test_external_signal_relevance_score_defaults_none() -> None:
+    session = _session()
+    keyword_id = _keyword_id(session)
+    row = write_external_signal(
+        keyword_id=keyword_id,
+        signal_type="google_trends",
+        signal_value=0.25,
+        signal_json={},
+        run_id="run-rel-default",
+        collection_method="test",
+        db=session,
+    )
+    assert row is not None
+    fetched = session.query(ExternalSignal).filter(ExternalSignal.id == row.id).one()
+    assert fetched.relevance_score is None
+    session.close()
+
+
+def test_external_signal_trend_direction_stores_rising() -> None:
+    session = _session()
+    keyword_id = _keyword_id(session)
+    row = write_external_signal(
+        keyword_id=keyword_id,
+        signal_type="google_trends",
+        signal_value=0.8,
+        signal_json={},
+        run_id="run-trend",
+        collection_method="test",
+        db=session,
+        trend_direction="RISING",
+    )
+    assert row is not None
+    fetched = session.query(ExternalSignal).filter(ExternalSignal.id == row.id).one()
+    assert fetched.trend_direction == "RISING"
+    session.close()
+
+
 def test_get_signal_non_session_returns_none() -> None:
     assert get_signal(1, "google_trends", {}) is None
 
