@@ -60,15 +60,30 @@ def detect_relevance_cliff(current_score: float, prev_score: float, cliff_thresh
 
 def check_category_filter_health(niche_id: int, run_id: str, db: Any) -> dict[str, Any]:
     """Check fallback strictness usage for one run."""
-    _ = niche_id
+    from src.models.market import Keyword
     from src.models.result_set_validation import ResultSetValidation
 
-    total = db.execute(select(func.count()).where(ResultSetValidation.run_id == run_id)).scalar() or 0
+    total = (
+        db.execute(
+            select(func.count())
+            .select_from(ResultSetValidation)
+            .join(Keyword, Keyword.id == ResultSetValidation.keyword_id)
+            .where(
+                ResultSetValidation.run_id == run_id,
+                Keyword.niche_id == niche_id,
+            )
+        ).scalar()
+        or 0
+    )
     none_count = (
         db.execute(
-            select(func.count()).where(
+            select(func.count())
+            .select_from(ResultSetValidation)
+            .join(Keyword, Keyword.id == ResultSetValidation.keyword_id)
+            .where(
                 ResultSetValidation.run_id == run_id,
                 ResultSetValidation.search_strictness_used == "NONE",
+                Keyword.niche_id == niche_id,
             )
         ).scalar()
         or 0

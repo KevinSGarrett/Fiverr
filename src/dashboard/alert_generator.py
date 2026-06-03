@@ -106,14 +106,28 @@ def generate_relevance_alerts_for_run(run_id: str, db: Any) -> list[dict[str, An
     )
     _append_alert(alerts, alert_type="relevance_deduction_applied", count=deduction_count)
 
+    latest_score_id = (
+        select(func.max(KeywordScore.id))
+        .where(KeywordScore.keyword_id == ResultSetValidation.keyword_id)
+        .correlate(ResultSetValidation)
+        .scalar_subquery()
+    )
+    latest_llm_present = (
+        select(func.count())
+        .where(
+            KeywordScore.keyword_id == ResultSetValidation.keyword_id,
+            KeywordScore.id == latest_score_id,
+            KeywordScore.llm_inputs_used.is_not(None),
+            KeywordScore.llm_inputs_used != "null",
+        )
+        .correlate(ResultSetValidation)
+        .scalar_subquery()
+    )
     llm_count = _safe_scalar(
         db,
-        select(func.count(distinct(ResultSetValidation.keyword_id)))
-        .select_from(ResultSetValidation)
-        .join(KeywordScore, KeywordScore.keyword_id == ResultSetValidation.keyword_id)
-        .where(
+        select(func.count(distinct(ResultSetValidation.keyword_id))).where(
             ResultSetValidation.run_id == run_id,
-            KeywordScore.llm_inputs_used.is_not(None),
+            latest_llm_present > 0,
         ),
     )
     _append_alert(alerts, alert_type="llm_validation_triggered", count=llm_count)

@@ -349,3 +349,46 @@ def test_llm_alert_counts_actual_stage_7_5_executions() -> None:
         assert llm_alert["count"] == 1
     finally:
         session.close()
+
+
+def test_llm_alert_uses_latest_keyword_score_only() -> None:
+    """Prevent stale historical LLM score rows from contaminating new runs."""
+    session = _build_session()
+    try:
+        niche = Niche(slug="llm-latest-only", name="LLM Latest Only", category_path="A/B")
+        session.add(niche)
+        session.commit()
+        kw = Keyword(niche_id=niche.id, keyword="llm-latest", normalized_keyword="llm-latest")
+        session.add(kw)
+        session.commit()
+
+        session.add(ResultSetValidation(keyword_id=kw.id, run_id="run-latest-llm"))
+        session.add(
+            KeywordScore(
+                keyword_id=kw.id,
+                scoring_profile="default",
+                score_depth="standard",
+                final_score=61.0,
+                tag="CONDITIONAL_GO",
+                llm_inputs_used={"prompt_tokens": 7},
+            )
+        )
+        session.commit()
+
+        session.add(ResultSetValidation(keyword_id=kw.id, run_id="run-latest-non-llm"))
+        session.add(
+            KeywordScore(
+                keyword_id=kw.id,
+                scoring_profile="default",
+                score_depth="standard",
+                final_score=59.0,
+                tag="MONITOR",
+                llm_inputs_used=None,
+            )
+        )
+        session.commit()
+
+        alerts = generate_relevance_alerts_for_run("run-latest-non-llm", session)
+        assert all(item["type"] != "llm_validation_triggered" for item in alerts)
+    finally:
+        session.close()
