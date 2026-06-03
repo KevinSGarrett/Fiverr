@@ -45,6 +45,13 @@ B delivers ALL src/ changes this cycle:
   3. Dashboard live-data: replace build_dashboard_demo_data() in all 9 pages with real SQLAlchemy
   P1: Enable external_signals_enabled after TC-1 PRAGMA verified (config.yaml change)
 
+Execution evidence discipline (mandatory in B report):
+  - Capture BEFORE/AFTER grep output for build_dashboard_demo_data references.
+  - Capture migration_11 registration diff in run_srdi_r8_migrations.py.
+  - Capture PRAGMA output after migration_11 apply() with full sorted column list.
+  - Capture URL-format test output proving %20 encoding for space-separated keywords.
+  - Capture final git show --name-only <B_SHA> for zone proof.
+
 ====================================================================
 PART 1: PREFLIGHT
 ====================================================================
