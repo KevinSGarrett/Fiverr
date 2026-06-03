@@ -173,13 +173,16 @@
 
 ## Additional Findings / Gaps
 - Prompt-specific orchestrator symbol check:
-  - `from src.collection.orchestrator import Orchestrator` -> ImportError (symbol not exported)
-  - `import src.collection.orchestrator as orch` -> module imports OK; `has Orchestrator symbol: False`
-  - Recorded as command-contract mismatch, not a B regression.
+  - `from src.collection.orchestrator import Orchestrator` -> ImportError (`cannot import name 'Orchestrator'`)
+  - Expanded task rule states any such ImportError is a NO-GO route-to-B condition.
 - Demo-data token appears in `src/dashboard/sample_data.py` (not in pages); page-level blocking rule still PASS.
 - Prompt command compatibility mismatches observed and handled:
   - `config-check --niches=9` unsupported
   - Orchestrator test selector in `test_collection_orchestrator.py` had no matching names
+  - Literal dashboard scan without `-File` attempts to read `__pycache__` and raises access denied; corrected file-only scan confirms zero matches.
+- B-zone strict checklist issue:
+  - Expanded checklist expects B commits only in `src/ + tests/ + CYCLE_061_AGENT_B.md`.
+  - B commit `22343a8` includes `config.yaml`, which is a strict-zone deviation.
 
 ## Jira Status Verification
 - Queried C061 stories in Jira cloud `eae77257-a572-4e19-b746-8b184ba2d01f`.
@@ -192,19 +195,41 @@
 - Orchestrator class symbol check in prompt does not match module API (`Orchestrator` symbol absent while module import is healthy).
 - B commit `22343a8` includes `config.yaml` as P1 toggle change; intentional per B report, but noted for strict zone interpretation.
 
-## GO/NO-GO Verdict
-- GO criteria checklist:
-  - [x] TC-1 PRAGMA: all 3 columns present
-  - [x] Dashboard: zero `build_dashboard_demo_data` imports in all pages
-  - [x] Regression pack: `90 passed`, `0 failed`
-  - [x] Golden: `kw=110=62.7/1.0/CONDITIONAL_GO` (plus `kw=96=35.8`, `kw=3=56.66`)
-  - [x] Ruff: PASS
-  - [x] Mypy: PASS
-  - [x] Config gate: `scrapfly.enabled=false`
-  - [x] E zone: only E report in E commits
-  - [x] Foundation-gate + phase2-smoke: PASS
+## Strict Completion Matrix
+- Task 1: COMPLETE (including incompatible prompt flag for `--niches`)
+- Task 2: COMPLETE PASS
+- Task 3: COMPLETE PASS
+- Task 4: COMPLETE PASS (with selector mismatch documented)
+- Task 5: COMPLETE PASS (literal command issue documented + corrected scan PASS)
+- Task 6: COMPLETE PASS
+- Task 7: COMPLETE PASS
+- Task 8: COMPLETE PASS (`90 passed, 0 failed`)
+- Task 9: COMPLETE PASS
+- Task 10: COMPLETE PASS
+- Task 11: COMPLETE PASS
+- Task 12: COMPLETE PASS
+- Task 13: COMPLETE
+- Task 14: COMPLETE (strict verdict below)
+- Task 15: COMPLETE (report committed/pushed; SHA recorded)
+- Task 16: COMPLETE PASS
+- Task 17: COMPLETE PASS
+- Task 18: COMPLETE PASS (`has_quote=True, has_search_gigs=True`)
+- Task 19: COMPLETE with strict zone deviation recorded (`config.yaml` in B impl commit)
+- Task 20: COMPLETE PASS
+- Task 21: COMPLETE PASS (`69 passed`)
+- Task 22: COMPLETE
+- Task 23: COMPLETE PASS
+- Task 24: COMPLETE
+- Task 25: COMPLETE (checklist + verdict + signal documented)
+- Expanded 11-25: COMPLETE with outcomes recorded; strict blockers preserved where triggered
 
-- **Verdict: GO**
+## GO/NO-GO Verdict
+- Core functional gates: PASS.
+- Strict expanded-rule blockers:
+  - Expanded Task 16 import command returns ImportError (`Orchestrator` symbol absent)
+  - Expanded strict B-zone checklist deviation (`config.yaml` present in B impl commit)
+
+- **Verdict: NO-GO (strict prompt compliance)**
 
 ## Signal to F
-- **C issues GO. F may proceed.**
+- **C issues NO-GO. F must wait for B fix/adjudication.**
