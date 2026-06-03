@@ -300,7 +300,7 @@ Completed:
 - Confirmed zero `src/`, zero `tests/`, zero `config.yaml` staged.
 - Commit created and pushed to `cycle/062/integration`.
 
-Final A commit SHA: `04c91cd`
+Final A commit SHA: `c79d8c5`
 
 ## Production Readiness Gate Snapshot (C062 A Close)
 
