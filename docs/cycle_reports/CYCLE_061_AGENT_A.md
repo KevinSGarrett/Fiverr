@@ -357,7 +357,7 @@
 
 ## Final A-stage Signal Draft (for Jira comment)
 - A complete. Branch: `cycle/061/integration`.
-- SHA: `<fill after final A commit>`
+- SHA: `c6be8e4`
 - PR: `#70`
 - Jira: `SCRUM-1017`, `SCRUM-1020`, `SCRUM-1016`, `SCRUM-1015`, `SCRUM-1019`, `SCRUM-1018`.
 - Prompt sizing: `A=538/500 B=652/650 E=604/500 C=427/425 F=594/525 D=748/650`.
