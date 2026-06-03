@@ -97,9 +97,13 @@ Validation:
 - `seed-niches` re-verified on `sqlite:///data/test_seed_060.db`: `niches: 9`, then test DB removed.
 
 ## Zone Check
-- Working set for this run is in `src/`, `tests/`, `run.py`, and `docs/cycle_reports/CYCLE_060_AGENT_B.md`.
+- B implementation commits:
+  - `1441886ed586e9e9c30b331eb1d3502419738737`
+  - `690b69a2ed90e32215e4f286ce1f762a621e9fb0`
+- `git show --name-only 1441886...` -> B code/test/report deliverables (includes `run.py` for TC-3 command requirement).
+- `git show --name-only 690b69a...` -> `src/` + `tests/` + `docs/cycle_reports/CYCLE_060_AGENT_B.md` only.
+- Branch HEAD may include parallel Agent E docs-only commits after B push (expected per §12.1); B zone validation is recorded against B-owned SHAs.
 - Pre-existing unrelated dirty files were present before implementation and left untouched.
-- Commit/sha zone validation pending final commit step.
 
 ## Task 16-25 Explicit Closures
 - Task 16: TC-5 schema dependency check complete -> deferred, documented (not required by R11 monitors).
