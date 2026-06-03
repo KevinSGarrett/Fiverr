@@ -98,3 +98,32 @@ Prompts: TO BE WRITTEN this session
 R11 spec to read: EPIC_BREAKDOWN_MASTER §R11, DOD_AND_ACCEPTANCE §R11
 REG pack baseline entering C060: 37 names (~78 passed) — strategy §7 v2.3
 Codex P2 fixes are mandatory Tier-C for Agent B before anything else
+
+## ADDENDUM — Uncommitted src/dashboard/ Changes Found (2026-06-02 post-review discovery)
+
+Found during §13.1 state verification: 10 modified + 1 new file in src/dashboard/ NOT in b03c077 commit.
+
+### What changed (vs merge commit 1fd6225)
+- `src/dashboard/pages/opportunities.py` — replaced NotImplementedError with Streamlit UI using sample data
+- `src/dashboard/pages/keywords.py` — same pattern
+- `src/dashboard/pages/competitors.py` — same pattern
+- `src/dashboard/pages/discovery.py` — same pattern
+- `src/dashboard/pages/run_history.py` — same pattern
+- `src/dashboard/pages/recommendations.py` — same pattern
+- `src/dashboard/pages/pricing.py` — same pattern
+- `src/dashboard/pages/playbook.py` — same pattern
+- `src/dashboard/pages/llm_costs.py` — same pattern
+- `src/dashboard/app.py` — added `if __name__ == "__main__": main()`
+- `src/dashboard/sample_data.py` — NEW untracked file; `build_dashboard_demo_data()` returns hardcoded demo records
+
+### Assessment
+These appear to be exploratory/demo implementations done locally after the C059 merge —
+not committed to develop. They give each page actual Streamlit rendering via demo data.
+They are NOT tests-accompanied and have NOT gone through a gate. They cannot be committed
+as PM (Tier C — src/ only via agents).
+
+### Routing
+C060 Agent B Tier-C item: properly implement dashboard page stubs with tests.
+Options for the working tree: keep as local exploratory reference OR user can discard
+with `git checkout -- src/dashboard/pages/ src/dashboard/app.py` + `rm src/dashboard/sample_data.py`.
+This is NOT a Tier D item (no data loss — changes are recoverable).
