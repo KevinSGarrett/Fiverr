@@ -199,5 +199,5 @@
   - P1 story: Done (enabled)
 
 ## Final Signal
-- B complete at SHA: `<TO_FILL_AFTER_COMMIT>`
+- B complete at SHA: `22343a8`
 - C may start after E signals.
