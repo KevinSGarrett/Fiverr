@@ -420,6 +420,36 @@ def _ensure_recommendation_columns(engine: Engine) -> None:
                 continue
 
 
+def _ensure_external_signal_tc1_columns(engine: Engine) -> None:
+    """Backfill TC-1 columns on legacy `external_signals` SQLite tables."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "external_signals" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("external_signals")}
+    additions = {
+        "raw_value": "REAL",
+        "relevance_score": "REAL",
+        "trend_direction": "VARCHAR(16)",
+    }
+    missing = {column_name: ddl for column_name, ddl in additions.items() if column_name not in existing_columns}
+    if not missing:
+        return
+
+    with engine.begin() as connection:
+        for column_name, ddl in missing.items():
+            try:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE external_signals ADD COLUMN {column_name} {ddl}"
+                )
+            except Exception:
+                # Keep init idempotent for legacy DBs with partial manual backfills.
+                continue
+
+
 def build_engine(database_url: str | None = None) -> Engine:
     """Build SQLAlchemy engine without creating filesystem side effects."""
     url = normalize_database_url(database_url)
@@ -479,6 +509,7 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     _ensure_review_analyses_table(active_engine)
     _ensure_saturation_scores_table(active_engine)
     _ensure_recommendation_columns(active_engine)
+    _ensure_external_signal_tc1_columns(active_engine)
     return active_engine
 
 

@@ -1,6 +1,8 @@
 """Page 1: Opportunities — dashboard landing page (Story 9.3)."""
 from __future__ import annotations
 
+from sqlalchemy import and_, func
+
 from src.dashboard.db_helpers import get_db_session
 from src.dashboard.opportunities import build_opportunities_payload
 
@@ -13,9 +15,26 @@ def render_opportunities_page() -> None:
     st.title("Opportunities")
     with get_db_session() as db:
         try:
+            latest_score_subquery = (
+                db.query(
+                    KeywordScore.keyword_id.label("keyword_id"),
+                    KeywordScore.scoring_profile.label("scoring_profile"),
+                    func.max(KeywordScore.scored_at).label("latest_scored_at"),
+                )
+                .group_by(KeywordScore.keyword_id, KeywordScore.scoring_profile)
+                .subquery()
+            )
             rows = (
                 db.query(KeywordScore, Keyword)
                 .join(Keyword, Keyword.id == KeywordScore.keyword_id)
+                .join(
+                    latest_score_subquery,
+                    and_(
+                        KeywordScore.keyword_id == latest_score_subquery.c.keyword_id,
+                        KeywordScore.scoring_profile == latest_score_subquery.c.scoring_profile,
+                        KeywordScore.scored_at == latest_score_subquery.c.latest_scored_at,
+                    ),
+                )
                 .order_by(KeywordScore.final_score.desc())
                 .limit(50)
                 .all()

@@ -11,6 +11,7 @@ from src.models.database import (
     _ensure_cluster_labels_table,
     _ensure_competitor_profiles_new_seller_gap_column,
     _ensure_competitor_profiles_table,
+    _ensure_external_signal_tc1_columns,
     _ensure_gig_quality_analyses_table,
     _ensure_keyword_cluster_id_column,
     _ensure_keyword_intent_class_column,
@@ -219,6 +220,58 @@ def test_ensure_saturation_scores_table_short_circuits(monkeypatch: pytest.Monke
     non_sqlite_engine.dialect.name = "postgresql"
     _ensure_saturation_scores_table(non_sqlite_engine)
     non_sqlite_engine.begin.assert_not_called()
+
+
+def test_ensure_external_signal_tc1_columns_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
+    sqlite_engine = MagicMock()
+    sqlite_engine.dialect.name = "sqlite"
+
+    missing_table_inspector = MagicMock()
+    missing_table_inspector.get_table_names.return_value = ["keywords"]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: missing_table_inspector)
+    _ensure_external_signal_tc1_columns(sqlite_engine)
+    missing_table_inspector.get_columns.assert_not_called()
+
+    existing_columns_inspector = MagicMock()
+    existing_columns_inspector.get_table_names.return_value = ["external_signals"]
+    existing_columns_inspector.get_columns.return_value = [
+        {"name": "id"},
+        {"name": "raw_value"},
+        {"name": "relevance_score"},
+        {"name": "trend_direction"},
+    ]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: existing_columns_inspector)
+    _ensure_external_signal_tc1_columns(sqlite_engine)
+    sqlite_engine.begin.assert_not_called()
+
+
+def test_ensure_external_signal_tc1_columns_adds_missing_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = MagicMock()
+    engine.dialect.name = "sqlite"
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["external_signals"]
+    inspector.get_columns.return_value = [{"name": "id"}]
+    monkeypatch.setattr("src.models.database.inspect", lambda _engine: inspector)
+
+    connection = MagicMock()
+
+    class _BeginCtx:
+        def __enter__(self):
+            return connection
+
+        def __exit__(self, *_args):
+            return False
+
+    engine.begin.return_value = _BeginCtx()
+
+    _ensure_external_signal_tc1_columns(engine)
+
+    executed = [call.args[0] for call in connection.exec_driver_sql.call_args_list]
+    assert "ALTER TABLE external_signals ADD COLUMN raw_value REAL" in executed
+    assert "ALTER TABLE external_signals ADD COLUMN relevance_score REAL" in executed
+    assert "ALTER TABLE external_signals ADD COLUMN trend_direction VARCHAR(16)" in executed
 
 
 def test_ensure_saturation_scores_table_creates_schema_when_missing(

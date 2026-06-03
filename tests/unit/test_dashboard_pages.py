@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -21,6 +22,9 @@ from src.dashboard.pages.pricing import render_pricing_page
 from src.dashboard.pages.recommendations import render_recommendations_page
 from src.dashboard.pages.run_history import render_run_history_page
 from src.models.base import Base
+from src.models.keyword_score import KeywordScore
+from src.models.market import Keyword
+from src.models.niche import Niche
 
 
 class _FakeColumn:
@@ -265,6 +269,58 @@ def test_dashboard_opportunities_renders_empty_db_gracefully(
     monkeypatch.setattr("src.dashboard.pages.opportunities.get_db_session", lambda: mock_db_context)
     render_opportunities_page()
     assert mock_streamlit.info.called
+
+
+def test_dashboard_opportunities_uses_latest_score_per_keyword_profile(
+    empty_db_session: Session,
+    mock_streamlit: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    niche = Niche(
+        slug="niche-1",
+        name="Niche One",
+        category_path="graphics/design",
+    )
+    empty_db_session.add(niche)
+    empty_db_session.flush()
+
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="python automation script",
+        normalized_keyword="python automation script",
+    )
+    empty_db_session.add(keyword)
+    empty_db_session.flush()
+
+    older = KeywordScore(
+        keyword_id=keyword.id,
+        scoring_profile="default",
+        final_score=99.0,
+        confidence_modifier=0.5,
+        tag="OLD",
+        scored_at=datetime.now(UTC) - timedelta(days=1),
+    )
+    latest = KeywordScore(
+        keyword_id=keyword.id,
+        scoring_profile="default",
+        final_score=62.7,
+        confidence_modifier=1.0,
+        tag="CONDITIONAL_GO",
+        scored_at=datetime.now(UTC),
+    )
+    empty_db_session.add_all([older, latest])
+    empty_db_session.commit()
+
+    monkeypatch.setattr(
+        "src.dashboard.pages.opportunities.get_db_session",
+        lambda: _db_context(empty_db_session),
+    )
+    render_opportunities_page()
+
+    assert mock_streamlit.dataframe.called
+    displayed_rows = mock_streamlit.dataframe.call_args.args[0]
+    assert len(displayed_rows) == 1
+    assert displayed_rows[0]["status"] == "CONDITIONAL_GO"
 
 
 def test_dashboard_keywords_renders_empty_db_gracefully(
