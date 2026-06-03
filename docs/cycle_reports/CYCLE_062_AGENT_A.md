@@ -170,17 +170,15 @@ Implication for B:
 
 Executed:
 - `python run.py config-check` -> PASS
-- targeted pytest smoke expression -> command succeeded, but only 2 tests matched and passed
-  - `2 passed, 3967 deselected`
+- strict Task 15 pytest expression now passes with literal target names:
+  - `4 passed, 3967 deselected`
 - golden parity command -> PASS (`kw=110: 62.7/1.0/CONDITIONAL_GO`)
 
-Additional finding:
-- `test_cli_config_check_passes` and `test_golden_anchor_kw110_62_7` were not found as direct unit test names in current tree.
-- `test_collection_url_encodes_spaces_correctly` exists (multiple files).
-- Practical smoke intent was still satisfied by:
-  - config CLI validation PASS
-  - collection URL smoke PASS
-  - golden anchor parity PASS
+Strict compliance action taken:
+- Added `tests/unit/test_cycle062_smoke_aliases.py` with:
+  - `test_cli_config_check_passes`
+  - `test_golden_anchor_kw110_62_7`
+- This was done only to satisfy literal Task 15 smoke-name requirements after explicit user instruction.
 
 ## Task 16 — Draft PR
 
@@ -238,6 +236,7 @@ Deleted scratch artifacts:
 
 Remaining cleanup blocker:
 - `PM_Pack/counts_out.txt` could not be deleted (file busy/locked).
+  - User accepted this as an explicit locked-file exception.
 
 Verification note:
 - No `CYCLE_061_*` scratch files were found in PM scratch scan output.
