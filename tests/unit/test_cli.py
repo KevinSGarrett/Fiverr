@@ -70,6 +70,26 @@ def test_help_lists_foundation_export_and_dashboard_commands() -> None:
     assert "saturation-analysis" in result.output
     assert "analysis-dry-run" in result.output
     assert "phase2-smoke" in result.output
+    assert "seed-niches" in result.output
+
+
+def test_seed_niches_inserts_9_rows_from_config(tmp_path: Path) -> None:
+    from src.models.database import create_session_factory, get_session, initialize_database
+    from src.models.niche import Niche
+
+    runner = CliRunner()
+    db_path = tmp_path / "seed_niches.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+
+    result = runner.invoke(cli, ["seed-niches", "--database-url", db_url])
+
+    assert result.exit_code == 0
+    assert "niches seeded: 9" in result.output
+
+    engine = initialize_database(database_url=db_url)
+    session_factory = create_session_factory(engine)
+    with get_session(session_factory) as db:
+        assert int(db.query(Niche).count()) == 9
 
 
 def test_export_recommendation_command_exists() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -213,6 +214,52 @@ def foundation_gate_command(config_path: str, database_url: str) -> None:
             database_url=database_url,
         )
     )
+
+
+@cli.command("seed-niches")
+@click.option("--database-url", default=None, help="Target database URL (or use DATABASE_URL env var).")
+def seed_niches_command(database_url: str | None) -> None:
+    """Seed niche rows from config.yaml into the target database."""
+    from src.models.niche import Niche
+
+    resolved_database_url = database_url or os.environ.get("DATABASE_URL")
+    if not resolved_database_url:
+        raise click.ClickException("Missing --database-url and DATABASE_URL env var.")
+
+    config_payload = _load_recommendation_config()
+    raw_niches = config_payload.get("niches", [])
+    if not isinstance(raw_niches, list):
+        raise click.ClickException("Config niches payload must be a list.")
+
+    normalized_url = normalize_database_url(resolved_database_url)
+    engine = initialize_database(database_url=normalized_url)
+    session_factory = create_session_factory(engine)
+
+    added = 0
+    with get_session(session_factory) as db:
+        for niche_item in raw_niches:
+            if not isinstance(niche_item, dict):
+                continue
+            niche_slug = str(niche_item.get("niche_id", "")).strip()
+            if not niche_slug:
+                continue
+            existing = db.query(Niche).filter(Niche.slug == niche_slug).first()
+            if existing is not None:
+                continue
+            db.add(
+                Niche(
+                    slug=niche_slug,
+                    name=str(niche_item.get("name", niche_slug.replace("_", " ").title())),
+                    category_path=str(niche_item.get("category_path", "uncategorized")),
+                    is_active=bool(niche_item.get("is_active", True)),
+                    description=None,
+                )
+            )
+            added += 1
+        db.commit()
+        total = int(db.query(Niche).count())
+
+    click.echo(f"niches seeded: {total} ({added} new)")
 
 
 @cli.command("export")

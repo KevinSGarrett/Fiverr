@@ -248,3 +248,60 @@ def test_opportunities_filter_empty_run_returns_empty_list() -> None:
 
 def test_opportunities_filter_none_db_returns_empty_list() -> None:
     assert get_opportunities_for_display("any-run", None) == []
+
+
+def test_ghost_filter_handles_null_and_legacy_rows() -> None:
+    """REG-37: Ghost filter excludes TRUE only; NULL/FALSE legacy rows remain visible."""
+    session = _build_session()
+    try:
+        niche = Niche(slug="legacy-ghost", name="Legacy Ghost", category_path="x/y")
+        session.add(niche)
+        session.commit()
+        ghost_kw = Keyword(
+            niche_id=niche.id,
+            keyword="ghost-row",
+            normalized_keyword="ghost-row",
+            ghost_market_flag=True,
+        )
+        non_ghost_kw = Keyword(
+            niche_id=niche.id,
+            keyword="non-ghost-row",
+            normalized_keyword="non-ghost-row",
+            ghost_market_flag=False,
+        )
+        legacy_null_kw = Keyword(
+            niche_id=niche.id,
+            keyword="legacy-null-row",
+            normalized_keyword="legacy-null-row",
+            ghost_market_flag=None,
+        )
+        session.add_all([ghost_kw, non_ghost_kw, legacy_null_kw])
+        session.commit()
+        session.add_all(
+            [
+                ResultSetValidation(
+                    keyword_id=ghost_kw.id,
+                    run_id="run-reg-37",
+                    ghost_market_flag=True,
+                ),
+                ResultSetValidation(
+                    keyword_id=non_ghost_kw.id,
+                    run_id="run-reg-37",
+                    ghost_market_flag=False,
+                ),
+                ResultSetValidation(
+                    keyword_id=legacy_null_kw.id,
+                    run_id="run-reg-37",
+                    ghost_market_flag=False,
+                ),
+            ]
+        )
+        session.commit()
+
+        opportunities = get_opportunities_for_display("run-reg-37", session, show_ghost_markets=False)
+        ids = {row.keyword_id for row in opportunities}
+        assert ghost_kw.id not in ids, "ghost=True must be hidden"
+        assert non_ghost_kw.id in ids, "ghost=False must be visible"
+        assert legacy_null_kw.id in ids, "ghost=NULL must be visible (legacy rows)"
+    finally:
+        session.close()

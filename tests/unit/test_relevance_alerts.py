@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.dashboard.alert_generator import ALERT_TYPES, generate_relevance_alerts_for_run
 from src.models.base import Base
 from src.models.external_signal import ExternalSignal
+from src.models.keyword_score import KeywordScore
 from src.models.market import Keyword
 from src.models.niche import Niche
 from src.models.result_set_validation import ResultSetValidation
@@ -301,3 +302,36 @@ def test_null_run_id_returns_empty_alerts() -> None:
 
 def test_none_db_returns_empty_alerts() -> None:
     assert generate_relevance_alerts_for_run("any-run", None) == []
+
+
+def test_llm_alert_counts_actual_stage_7_5_executions() -> None:
+    """REG-38: LLM alert counts rows with actual LLM inputs used."""
+    session = _build_session()
+    try:
+        niche = Niche(slug="llm-stage-75", name="LLM Stage 7.5", category_path="A/B")
+        session.add(niche)
+        session.commit()
+        kw = Keyword(niche_id=niche.id, keyword="llm-stage-keyword", normalized_keyword="llm-stage-keyword")
+        session.add(kw)
+        session.commit()
+
+        session.add(ResultSetValidation(keyword_id=kw.id, run_id="run-reg-38"))
+        session.add(
+            KeywordScore(
+                keyword_id=kw.id,
+                scoring_profile="default",
+                score_depth="standard",
+                final_score=60.0,
+                tag="CONDITIONAL_GO",
+                llm_inputs_used={"prompt_tokens": 12, "completion_tokens": 8},
+            )
+        )
+        session.commit()
+
+        alerts = generate_relevance_alerts_for_run("run-reg-38", session)
+        types = [item["type"] for item in alerts]
+        assert "llm_validation_triggered" in types, "LLM alert must fire when llm_inputs_used exists"
+        llm_alert = next(item for item in alerts if item["type"] == "llm_validation_triggered")
+        assert llm_alert["count"] == 1
+    finally:
+        session.close()

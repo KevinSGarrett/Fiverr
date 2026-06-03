@@ -82,6 +82,7 @@ def generate_relevance_alerts_for_run(run_id: str, db: Any) -> list[dict[str, An
         return []
 
     from src.models.external_signal import ExternalSignal
+    from src.models.keyword_score import KeywordScore
     from src.models.result_set_validation import ResultSetValidation
     from src.models.search_result import SearchResult
 
@@ -107,10 +108,12 @@ def generate_relevance_alerts_for_run(run_id: str, db: Any) -> list[dict[str, An
 
     llm_count = _safe_scalar(
         db,
-        select(func.count()).where(
+        select(func.count(distinct(ResultSetValidation.keyword_id)))
+        .select_from(ResultSetValidation)
+        .join(KeywordScore, KeywordScore.keyword_id == ResultSetValidation.keyword_id)
+        .where(
             ResultSetValidation.run_id == run_id,
-            ResultSetValidation.validation_method.is_not(None),
-            func.lower(ResultSetValidation.validation_method).like("%llm%"),
+            KeywordScore.llm_inputs_used.is_not(None),
         ),
     )
     _append_alert(alerts, alert_type="llm_validation_triggered", count=llm_count)

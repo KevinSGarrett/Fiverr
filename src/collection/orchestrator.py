@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 from uuid import uuid4
 
 from src.collection.autocomplete import AutocompleteFixtureError, load_autocomplete_fixture
@@ -119,6 +120,16 @@ class _InMemoryQueueDb:
 
     def commit(self) -> None:
         return None
+
+
+def _validate_collection_url_payload(niche_id: str | None, gig_url: str) -> None:
+    normalized_niche_id = (niche_id or "").strip()
+    if normalized_niche_id == "dry_run" or "dry-run-test.invalid" in gig_url:
+        raise ValueError(
+            f"Cannot construct collection URL: niche_id is '{normalized_niche_id or niche_id}'. "
+            "This usually means the throwaway DB was not seeded. "
+            "Run 'py -3.12 run.py seed-niches --database-url <path>' first (strategy §14.3)."
+        )
 
 
 async def run_collection_pipeline(
@@ -270,6 +281,18 @@ async def run_collection_pipeline(
             if niche_id:
                 niche_config_map[niche_id] = value
 
+    queue_niche_id = "dry_run"
+    queue_keyword_text = "_dry_run_test_"
+    first_stage_niche_specs = stage1_result.get("niche_specs", [])
+    if first_stage_niche_specs and isinstance(first_stage_niche_specs[0], dict):
+        queue_niche_id = str(first_stage_niche_specs[0].get("niche_id", "dry_run"))
+        seeds = first_stage_niche_specs[0].get("seeds", [])
+        if isinstance(seeds, list) and seeds and isinstance(seeds[0], str):
+            queue_keyword_text = seeds[0]
+    queue_gig_url = "https://dry-run-test.invalid/"
+    if not dry_run and queue_niche_id != "dry_run":
+        queue_gig_url = f"https://www.fiverr.com/search/gigs?query={quote(queue_keyword_text, safe='')}"
+
     queue_db = _InMemoryQueueDb(
         [
             _DryRunJob(
@@ -279,8 +302,8 @@ async def run_collection_pipeline(
                 stage=3,
                 payload={
                     "keyword_id": 0,
-                    "keyword_text": "_dry_run_test_",
-                    "niche_id": "dry_run",
+                    "keyword_text": queue_keyword_text,
+                    "niche_id": queue_niche_id,
                     "depth": "standard",
                 },
             ),
@@ -290,9 +313,9 @@ async def run_collection_pipeline(
                 job_type="GIG_DETAIL",
                 stage=4,
                 payload={
-                    "gig_url": "https://dry-run-test.invalid/",
+                    "gig_url": queue_gig_url,
                     "keyword_id": 0,
-                    "niche_id": "dry_run",
+                    "niche_id": queue_niche_id,
                     "depth": "standard",
                 },
             ),
@@ -302,8 +325,8 @@ async def run_collection_pipeline(
                 job_type="SELLER_PROFILE",
                 stage=5,
                 payload={
-                    "seller_username": "_dry_run_test_",
-                    "niche_id": "dry_run",
+                    "seller_username": queue_keyword_text,
+                    "niche_id": queue_niche_id,
                 },
             ),
         ]
@@ -331,10 +354,14 @@ async def run_collection_pipeline(
         summary["search_jobs_run"] += 1
 
     async def _handle_stage4(job: _DryRunJob, **_kwargs: Any) -> None:
+        gig_url = str(job.payload["gig_url"])
+        niche_id = str(job.payload["niche_id"])
+        if not dry_run:
+            _validate_collection_url_payload(niche_id=niche_id, gig_url=gig_url)
         await run_gig_detail_collection(
-            gig_url=str(job.payload["gig_url"]),
+            gig_url=gig_url,
             keyword_id=int(job.payload["keyword_id"]),
-            niche_id=str(job.payload["niche_id"]),
+            niche_id=niche_id,
             depth=str(job.payload["depth"]),
             run_id=run_id,
             db=db,
