@@ -158,7 +158,8 @@
 - [ ] Orchestrator/dashboard coverage targets not fully met in test-only F scope; routed to D/B for broader branch coverage strategy
 
 ## Zone Verification
-- Verified in Task 13 using `git show --name-only <F_SHA>` after commit; commit includes only:
+- F commit SHA: `bb20603196b29da73a8d2656e38533e6fd213ed7`
+- Verified in Task 13 using `git show --name-only bb20603196b29da73a8d2656e38533e6fd213ed7`; commit includes only:
   - `tests/` files
   - `docs/cycle_reports/CYCLE_061_AGENT_F.md`
   - No `src/` files
