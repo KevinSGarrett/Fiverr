@@ -125,11 +125,11 @@ Command run for named smoke group:
 - `config.yaml` verified: `collection.scrapfly.enabled: false` (unchanged).
 
 ## Zone Verification
-- Agent B commit `6a61ffb` file list verified zone-clean (no C/E/F/D zone files in B commit).
-- Comprehensive branch-wide scan reports historical non-B commits with handoff files; no violations in B commit payload.
+- B commit SHAs `6a61ffb`, `a55dead`, and `6f2e5df` verified zone-clean (no C/E/F/D zone files).
 
 ## Commit SHA
-- `6a61ffb`
+- `6f2e5df` (latest B implementation commit)
+- prior B commits: `6a61ffb`, `a55dead`
 
 ## SCRUM-1022
 - Evidence comment posted to `SCRUM-1022` (Jira comment id `12338`).
@@ -137,3 +137,7 @@ Command run for named smoke group:
 ## Alembic Note
 - Repo does not contain `alembic/` project scaffolding (`alembic.ini`, `alembic/versions`) and runtime lacked importable Alembic CLI module initially (`No module named alembic`).
 - Implemented migration_12 in the active project migration system (`src/migrations/srdi_r8`) and verified table creation + parity there.
+
+## Backward Compatibility Check (Task 25)
+- `src/analysis/orchestrator.py` scan shows no direct pricing-stage function calls to preserve.
+- Existing `run_pricing_stage(...)` signature in `src/pricing/orchestrator.py` preserved for compatibility with `src/orchestrator.py`.
