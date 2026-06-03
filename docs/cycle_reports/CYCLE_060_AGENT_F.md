@@ -1,6 +1,6 @@
 # CYCLE_060_AGENT_F — Coverage Expansion
 
-Branch: `cycle/060/integration` | HEAD: `75fb88cfcd4f74b92dca9351174c2c19bcf95beb` | Date: 2026-06-02
+Branch: `cycle/060/integration` | HEAD: `6a951a69173d72bbfda7783273e28bf3b1b9b7b2` | Date: 2026-06-02
 
 ## Preconditions
 
@@ -38,6 +38,7 @@ Branch: `cycle/060/integration` | HEAD: `75fb88cfcd4f74b92dca9351174c2c19bcf95be
 - Syntax check: `py -3.12 -m py_compile tests/unit/test_monitors.py tests/unit/test_quality_gate.py tests/unit/test_edge_cases.py` -> **PASS**
 - Duplicate test function names across touched files -> **none**
 - No live API calls in `tests/unit/test_edge_cases.py` (`http|requests|scrapfly`) -> **none**
+- `test_edge_cases.py` collection probe (`test session starts` / `error`) -> **PASS**
 
 ## Task Coverage Notes
 
@@ -61,6 +62,18 @@ Branch: `cycle/060/integration` | HEAD: `75fb88cfcd4f74b92dca9351174c2c19bcf95be
 - F scope respected: tests + F report only.
 - §15.3 respected: report location is `docs/cycle_reports/CYCLE_060_AGENT_F.md`.
 - `src/` edits by F: **none**.
+
+## Completion Checklist (Task 25)
+
+- [x] `test_monitors.py`: boundary tests added (6+ new tests)
+- [x] `test_quality_gate.py`: all 5 gate conditions tested + boundary at 0.70
+- [x] `test_edge_cases.py`: negation + emerging bonus tests added
+- [x] Coverage >=80% on all 3 R11 modules
+- [x] 37-name regressions still PASS (spot-check command)
+- [x] No `src/` in F's commit
+- [x] `docs/cycle_reports/CYCLE_060_AGENT_F.md` committed (not repo root)
+- [x] Zone check PASS
+- [x] Signal to D at bottom
 
 ## Signal to Agent D
 
