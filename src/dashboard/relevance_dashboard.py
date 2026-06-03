@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 
 from src.dashboard.alert_generator import generate_relevance_alerts_for_run
 
@@ -81,9 +81,7 @@ def get_opportunities_for_display(
     )
     if not show_ghost_markets:
         stmt = stmt.where(
-            or_(
-                Keyword.ghost_market_flag.is_(False),
-                Keyword.ghost_market_flag.is_(None),
-            )
+            ResultSetValidation.ghost_market_flag.is_not(True),
+            Keyword.ghost_market_flag.is_not(True),
         )
     return list(db.execute(stmt).scalars().all())

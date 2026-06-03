@@ -82,7 +82,12 @@ def test_orchestrator_scrapfly_disabled_uses_playwright_fetcher(
 
     monkeypatch.setattr(
         "src.collection.workflows.niche_init.run_niche_initialization",
-        AsyncMock(return_value={"niches_processed": 0, "niche_specs": []}),
+        AsyncMock(
+            return_value={
+                "niches_processed": 1,
+                "niche_specs": [{"niche_id": "python_automation", "seeds": ["python automation"]}],
+            }
+        ),
     )
     stage3_mock = AsyncMock(return_value={})
     stage4_mock = AsyncMock(return_value={})
@@ -94,6 +99,14 @@ def test_orchestrator_scrapfly_disabled_uses_playwright_fetcher(
         "src.collection.workflows.autocomplete.run_autocomplete_collection",
         AsyncMock(return_value={}),
     )
+    monkeypatch.setattr("src.collection.workflows.google_trends.run_google_trends_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.reddit_signals.run_reddit_signals_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.youtube_count.run_youtube_count_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", AsyncMock(return_value={"clustered": False}))
+    monkeypatch.setattr("src.analysis.competitor_profiler.run_competitor_profiling_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.saturation_model.run_saturation_analysis_for_niche", AsyncMock(return_value={}))
 
     build_fetcher_mock = Mock(return_value=sentinel_fetcher)
     scrapfly_ctor = Mock()
@@ -137,7 +150,12 @@ def test_orchestrator_scrapfly_enabled_uses_scrapfly_fetcher(monkeypatch: pytest
 
     monkeypatch.setattr(
         "src.collection.workflows.niche_init.run_niche_initialization",
-        AsyncMock(return_value={"niches_processed": 0, "niche_specs": []}),
+        AsyncMock(
+            return_value={
+                "niches_processed": 1,
+                "niche_specs": [{"niche_id": "python_automation", "seeds": ["python automation"]}],
+            }
+        ),
     )
     stage3_mock = AsyncMock(return_value={})
     stage4_mock = AsyncMock(return_value={})
@@ -149,6 +167,14 @@ def test_orchestrator_scrapfly_enabled_uses_scrapfly_fetcher(monkeypatch: pytest
         "src.collection.workflows.autocomplete.run_autocomplete_collection",
         AsyncMock(return_value={}),
     )
+    monkeypatch.setattr("src.collection.workflows.google_trends.run_google_trends_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.reddit_signals.run_reddit_signals_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.youtube_count.run_youtube_count_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", AsyncMock(return_value={"clustered": False}))
+    monkeypatch.setattr("src.analysis.competitor_profiler.run_competitor_profiling_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.saturation_model.run_saturation_analysis_for_niche", AsyncMock(return_value={}))
 
     build_fetcher_mock = Mock(return_value=sentinel_fetcher)
     sf_client = Mock()
@@ -214,6 +240,14 @@ def test_orchestrator_dry_run_never_opens_scrapfly_client(monkeypatch: pytest.Mo
     assert result["errors"] == []
     scrapfly_ctor.assert_not_called()
     build_fetcher_mock.assert_not_called()
+
+
+def test_collection_raises_on_dry_run_niche_not_invalid_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(ValueError, match="Cannot construct collection URL: niche_id is 'dry_run'"):
+        collection_orchestrator._validate_collection_url_payload(
+            niche_id="dry_run",
+            gig_url="https://dry-run-test.invalid/",
+        )
 
 
 def test_collect_only_cli_smoke(monkeypatch: pytest.MonkeyPatch) -> None:

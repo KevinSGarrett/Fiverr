@@ -1,6 +1,9 @@
 """Tests for new audit-remediation modules: utils, models, recommendations, workflows."""
 from __future__ import annotations
 
+import sys
+from types import SimpleNamespace
+
 import pytest
 
 # ── src/utils/datetime ─────────────────────────────────────────────────────────
@@ -467,50 +470,66 @@ class TestVisualSelectors:
 
 
 class TestDashboardPages:
-    def test_opportunities_raises(self) -> None:
+    @staticmethod
+    def _mock_streamlit(monkeypatch) -> None:
+        fake = SimpleNamespace(
+            title=lambda *args, **kwargs: None,
+            subheader=lambda *args, **kwargs: None,
+            write=lambda *args, **kwargs: None,
+            warning=lambda *args, **kwargs: None,
+            success=lambda *args, **kwargs: None,
+            info=lambda *args, **kwargs: None,
+            caption=lambda *args, **kwargs: None,
+            dataframe=lambda *args, **kwargs: None,
+            metric=lambda *args, **kwargs: None,
+            columns=lambda count: [SimpleNamespace(metric=lambda *a, **k: None) for _ in range(max(0, count))],
+        )
+        monkeypatch.setitem(sys.modules, "streamlit", fake)
+
+    def test_opportunities_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_opportunities_page
-        with pytest.raises(NotImplementedError):
-            render_opportunities_page()
+        render_opportunities_page()
 
-    def test_keywords_raises(self) -> None:
+    def test_keywords_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_keywords_page
-        with pytest.raises(NotImplementedError):
-            render_keywords_page()
+        render_keywords_page()
 
-    def test_competitors_raises(self) -> None:
+    def test_competitors_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_competitors_page
-        with pytest.raises(NotImplementedError):
-            render_competitors_page()
+        render_competitors_page()
 
-    def test_recommendations_raises(self) -> None:
+    def test_recommendations_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_recommendations_page
-        with pytest.raises(NotImplementedError):
-            render_recommendations_page()
+        render_recommendations_page()
 
-    def test_run_history_raises(self) -> None:
+    def test_run_history_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_run_history_page
-        with pytest.raises(NotImplementedError):
-            render_run_history_page()
+        render_run_history_page()
 
-    def test_llm_costs_raises(self) -> None:
+    def test_llm_costs_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_llm_costs_page
-        with pytest.raises(NotImplementedError):
-            render_llm_costs_page()
+        render_llm_costs_page()
 
-    def test_discovery_raises(self) -> None:
+    def test_discovery_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_discovery_page
-        with pytest.raises(NotImplementedError):
-            render_discovery_page()
+        render_discovery_page()
 
-    def test_pricing_raises(self) -> None:
+    def test_pricing_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_pricing_page
-        with pytest.raises(NotImplementedError):
-            render_pricing_page()
+        render_pricing_page()
 
-    def test_playbook_raises(self) -> None:
+    def test_playbook_renders(self, monkeypatch) -> None:
+        self._mock_streamlit(monkeypatch)
         from src.dashboard.pages import render_playbook_page
-        with pytest.raises(NotImplementedError):
-            render_playbook_page()
+        render_playbook_page()
 
     def test_legacy_exports_still_present(self) -> None:
         from src.dashboard.pages import (
