@@ -6,7 +6,6 @@ from src.models.analysis import (
     AnalysisSignalRecord,
     CompetitorSnapshot,
     DiscoveryHypothesis,
-    PricingSnapshot,
 )
 from src.models.associations import KeywordGigAssociation
 from src.models.auto_promotion import AutoPromotionLog
@@ -59,7 +58,7 @@ from src.models.market import (
 )
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
-from src.models.pricing import PriceAnalysis
+from src.models.price_analysis import NichePriceAnalysis, PriceAnalysis, PricingSnapshot
 from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
@@ -114,6 +113,7 @@ __all__ = [
     "LLMUsageLog",
     "MetadataJSONMixin",
     "Niche",
+    "NichePriceAnalysis",
     "NicheConfigRecord",
     "Order",
     "PricingSnapshot",

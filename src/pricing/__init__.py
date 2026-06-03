@@ -1,17 +1,13 @@
-"""Pricing engine — E06 implementation module.
-
-Provides price distribution analysis, new-seller entry pricing,
-LLM pricing tasks, price ladder tracking, and revenue gate tracking.
-
-Status: Scaffolded (SCRUM-273). Full implementation in SCRUM-187 through SCRUM-194.
-"""
-
-from __future__ import annotations
+"""Wave 9 Pricing Strategy Engine."""
 
 from src.pricing.analysis import (
-    RawPriceData,
-    extract_raw_price_data_from_db,
-    run_price_distribution_analysis,
+    PriceDistribution as AnalysisPriceDistribution,
+    analyze_niche_pricing,
+    analyze_price_dispersion,
+    analyze_price_distribution,
+    calculate_price_review_correlation,
+    detect_price_clusters,
+    detect_price_gaps,
 )
 from src.pricing.contracts import (
     EntryPricingRecommendation,
@@ -19,26 +15,25 @@ from src.pricing.contracts import (
     PricingInput,
     PricingOutput,
 )
-from src.pricing.new_seller_pricing import (
-    PricingRecommendation,
-    calculate_new_seller_pricing,
-    generate_pricing_strategy_text,
-    project_revenue_at_entry_pricing,
-)
-from src.pricing.orchestrator import PricingOrchestrator, run_pricing_stage
+from src.pricing.new_seller_pricing import PricingRecommendation, calculate_new_seller_pricing
+from src.pricing.orchestrator import PricingOrchestrator, run_pricing_stage, run_stage_10_5, run_stage_10_5_for_niche
 
 __all__ = [
-    "EntryPricingRecommendation",
     "PriceDistribution",
-    "PricingRecommendation",
+    "AnalysisPriceDistribution",
     "PricingInput",
     "PricingOutput",
-    "RawPriceData",
+    "EntryPricingRecommendation",
     "PricingOrchestrator",
+    "analyze_price_distribution",
+    "detect_price_clusters",
+    "detect_price_gaps",
+    "calculate_price_review_correlation",
+    "analyze_price_dispersion",
+    "analyze_niche_pricing",
+    "PricingRecommendation",
     "calculate_new_seller_pricing",
-    "extract_raw_price_data_from_db",
-    "generate_pricing_strategy_text",
-    "project_revenue_at_entry_pricing",
+    "run_stage_10_5",
+    "run_stage_10_5_for_niche",
     "run_pricing_stage",
-    "run_price_distribution_analysis",
 ]

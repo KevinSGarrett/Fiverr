@@ -8,7 +8,6 @@ from src.models.analysis import (
     AnalysisSignalRecord,
     CompetitorSnapshot,
     DiscoveryHypothesis,
-    PricingSnapshot,
 )
 from src.models.collection_runtime import (
     CollectionCheckpoint,
@@ -31,6 +30,7 @@ from src.models.market import (
     SaturationScore,
 )
 from src.models.niche import Niche, NicheConfigRecord
+from src.models.price_analysis import NichePriceAnalysis, PriceAnalysis, PricingSnapshot
 from src.models.result_set_validation import ResultSetValidation
 from src.models.runtime import (
     AlertEvent,
@@ -64,6 +64,8 @@ REGISTERED_MODEL_CLASSES = (
     ExternalSignal,
     AnalysisRun,
     AnalysisResult,
+    PriceAnalysis,
+    NichePriceAnalysis,
     PricingSnapshot,
     DiscoveryHypothesis,
     CompetitorSnapshot,
@@ -110,6 +112,8 @@ SOURCE_REQUIRED_TABLE_NAMES = (
     "niche_configs",
     "niches",
     "pricing_snapshots",
+    "price_analysis",
+    "niche_price_analysis",
     "recommendations",
     "report_runs",
     "report_sections",
@@ -147,6 +151,8 @@ TABLE_DOMAIN_MAP = {
         "analysis_runs",
         "analysis_results",
         "pricing_snapshots",
+        "price_analysis",
+        "niche_price_analysis",
         "discovery_hypotheses",
         "competitor_snapshots",
         "analysis_signal_records",

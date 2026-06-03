@@ -150,7 +150,7 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
     pricing_rec = None
     if isinstance(db, Session):
         try:
-            from src.models.pricing import PriceAnalysis
+            from src.models.price_analysis import PriceAnalysis
 
             price_analysis = (
                 db.query(PriceAnalysis)
@@ -176,7 +176,7 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
                 "median": getattr(price_analysis, "basic_median", None),
                 "mean": getattr(price_analysis, "basic_mean", None),
                 "min": getattr(price_analysis, "basic_min", None),
-                "max": getattr(price_analysis, "basic_max", None),
+                "max": getattr(price_analysis, "basic_p90", None),
                 "cv": getattr(price_analysis, "basic_cv", None),
                 "gaps": getattr(price_analysis, "basic_gaps", None) or [],
             },
@@ -184,13 +184,13 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
                 "median": getattr(price_analysis, "standard_median", None),
                 "mean": getattr(price_analysis, "standard_mean", None),
                 "min": getattr(price_analysis, "standard_min", None),
-                "max": getattr(price_analysis, "standard_max", None),
+                "max": getattr(price_analysis, "standard_p90", None),
             },
             "premium": {
                 "median": getattr(price_analysis, "premium_median", None),
                 "mean": getattr(price_analysis, "premium_mean", None),
                 "min": getattr(price_analysis, "premium_min", None),
-                "max": getattr(price_analysis, "premium_max", None),
+                "max": getattr(price_analysis, "premium_p90", None),
             },
         }
 
@@ -198,7 +198,7 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
     if price_analysis is not None and getattr(price_analysis, "moat_strength", None):
         price_review_correlation = {
             "moat_strength": getattr(price_analysis, "moat_strength", None),
-            "review_premium_usd": getattr(price_analysis, "review_premium", None),
+            "review_premium_usd": getattr(price_analysis, "review_premium_usd", None),
             "pearson": None,
             "new_seller_avg_price": None,
             "new_seller_discount_pct": None,

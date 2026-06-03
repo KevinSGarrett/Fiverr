@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models.base import Base, IntegerPrimaryKeyMixin, SoftStatusMixin, TimestampMixin
+from src.models.price_analysis import PricingSnapshot
 
 
 class AnalysisRun(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixin, Base):
@@ -30,18 +31,6 @@ class AnalysisResult(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixin, Ba
     analysis_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     explanation: Mapped[str | None] = mapped_column(String(4096), nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-    raw_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-
-
-class PricingSnapshot(IntegerPrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "pricing_snapshots"
-
-    run_id: Mapped[int | None] = mapped_column(ForeignKey("analysis_runs.id"), nullable=True, index=True)
-    gig_id: Mapped[int | None] = mapped_column(ForeignKey("gigs.id"), nullable=True, index=True)
-    keyword_id: Mapped[int | None] = mapped_column(ForeignKey("keywords.id"), nullable=True, index=True)
-    package_level: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    price_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
     raw_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
 
