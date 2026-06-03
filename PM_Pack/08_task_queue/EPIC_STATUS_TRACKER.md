@@ -1,7 +1,7 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-02 (C059 PM review — C060 Tier-4 active)
+# Last updated: 2026-06-03 (C060 PM review — SRDI complete)
 
-## SRDI INITIATIVE STATUS
+## SRDI INITIATIVE STATUS — COMPLETE
 
 | Epic | Title | Tier | Status | Cycle | Squash SHA |
 |---|---|---|---|---|---|
@@ -14,52 +14,56 @@
 | R6 | Discovery Engine Relevance Gates | 1 | DONE | C055 | fabdca9 |
 | R9 | Testing & Validation Framework | 1 | DONE | C056 | 3617ce4 |
 | **Tier-1 Gate** | | - | **COMPLETE** | C056 | - |
-| R5 | LLM Relevance Classification | 2 | DONE | C057 | 325ef30304de320cb062cea02aeba16dc601a90e |
-| R7 | External Signal Integrity | 2 | DONE | C058 | a0471fb9247046fd913d57a8421d0bc715493192 |
+| R5 | LLM Relevance Classification | 2 | DONE | C057 | 325ef30 |
+| R7 | External Signal Integrity | 2 | DONE | C058 | a0471fb |
 | **Tier-2 Gate** | | - | **CLOSED** | C058 | - |
-| R10 | Dashboard & Alerting Integration | 3 | **DONE** | C059 | 1fd62250ff04704d36b2a8606689c596e82a1545 |
-| **Tier-3 Gate** | R10 primary | - | **COMPLETE** | C059 | - |
-| **R11** | **Edge Cases & Maintenance** | 4 | **ACTIVE (C060)** | C060 | - |
+| R10 | Dashboard & Alerting Integration | 3 | DONE | C059 | 1fd62250 |
+| **Tier-3 Gate** | | - | **COMPLETE** | C059 | - |
+| R11 | Edge Cases & Maintenance | 4 | **DONE** | **C060** | **9687fb6f** |
+| **Tier-4 Gate** | | - | **COMPLETE** | **C060** | - |
+| **SRDI INITIATIVE** | **All R1-R11** | **0-4** | **CLOSED** | **C060** | **9687fb6f** |
 
 ## REGRESSION PACK STATUS
 
-Current pack (after C059 + governance): **37 names, ~78 passed** — strategy §7 v2.3
-REG-1..34 (prior) + REG-34/35/36 (C059 R10)
-REG-37/38 PENDING (C060 — Codex P2 fixes)
+Current pack (after C060): **41 names, 88 passed** — strategy §7 v2.4
+REG-1..36 (prior) + REG-37/38/39/40 (C060 R11 + C059 Codex P2)
 
-## C059 STATUS — COMPLETE
+## C060 STATUS — COMPLETE
 
-PR #68: merged=true | squash SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
-Issues Done: SCRUM-634/635/636/637/638/897/639/640/1013 all Done
-Suite: 3971 passed | Coverage: 95.62% | Golden: PASS | All gates: G1-G10 PASS
-Codex timing: §15.5 rule added — mark PR ready BEFORE starting 15-min Codex wait
-Post-merge: 2 Codex P2 threads UNRESOLVED on PR #68 — carry to C060 Agent B
-§7: v2.3 (REG-34/35/36). Strategy §16 added (C059 known issues). §15.5 added (Codex draft-PR rule).
-foundation-gate niche seeding: UNRELIABLE (yields 0 niches) — §16.1 correction
-KeywordScore.run_id: does NOT exist as ORM attribute — §16.2 correction
-TC-2 dry-run fix: PARTIAL (ValueError in keyword_expansion but runtime still contaminated)
+PR #69: merged=true | Squash SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
+Issues Done: SCRUM-641/642/901/643/906/644/645/646/1014 all Done
+Suite: 4022 passed | Coverage: 95.58% | Golden: PASS | All gates: G1-G10 PASS
+Codex x2: PR #69 threads (both resolved) + PR #68 old threads (both resolved with C060 SHA)
+§15.5 executed: PR-ready-first. Bot appeared within window.
+§7: v2.4 (REG-37/38/39/40). Dashboard pages implemented + tested.
+TC-3 seed-niches: DONE | TC-4 dry-run guard: DONE | TC-1 ExternalSignal schema: DEFERRED
+External signals C060: 2/4 families (improved from 0/4 in C059); RSV band: SEED (4th consecutive)
 
-## C060 SCOPE
+## POST-REVIEW FINDINGS (C060)
 
-Epic: SRDI R11 — Edge Cases, Future-Proofing & Maintenance (Wave L) — Tier-4
-Jira stories: SCRUM-641 through SCRUM-648 (and/or others per EPIC_BREAKDOWN_MASTER §R11)
-SRDI spec: PM_Pack\ref\project_plan\13_srdi\03_EPIC_BREAKDOWN_MASTER.md §R11
+FINDING-A: Agent E zone violation — commit 59a539b added src/analysis/negation_exclusion.py
+  Impact: LOW (code correct, 88% test coverage). Process: G1 must check ALL commits.
+FINDING-B: E report had 450+ padding lines ("floor-line-NNN"). Prohibited in C061.
+FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b).
 
-MANDATORY C059 CARRY-FORWARD (Agent B Tier-C — must be in C060):
-  P2-1: Fix relevance_dashboard.py:86 ghost filter + REG-37 regression
-  P2-2: Fix alert_generator.py:113 LLM alert query + REG-38 regression
-  §16.1: Add run.py seed-niches command (fix foundation-gate niche seeding gap)
-  §16.4: Fix TC-2 dry-run sentinel URL injection site
+## C061 SCOPE — Post-SRDI Collection Hardening (Wave M)
 
-## NEW GOVERNANCE RULES ADDED IN C059 (strategy doc reference)
+Mission: Break the 4-cycle SEED chain. Fix ExternalSignal schema + URL shape.
+Key deliverables:
+  TC-1: Add raw_value/relevance_score/trend_direction to ExternalSignal model (§11 parity needed)
+  DL-207: Fix Fiverr search URL encoding in src/collection/orchestrator.py
+  Live collection validation: after TC-1+DL-207 fixed, live run should achieve LIVE RSV band
+  Process fix: G1 attribution completeness in D prompt; E report padding prohibition
 
-§15.5 CODEX TRIGGER ANCHOR (added after C059):
-  The Codex bot is triggered by PR `ready_for_review` event, NOT by CI completion.
-  Agent D must: mark PR ready → record ready_for_review timestamp → start 15-min wait.
-  Do NOT start Codex wait while PR is still in draft state.
+Open stories: None yet (Agent A creates in C061)
+C061 control task: "Cycle 061 (Post-SRDI hardening) control"
+C061 dev HEAD at start: b21aa11
 
-§16 C059 KNOWN ISSUES (added in C059 PM review):
-  §16.1: foundation-gate doesn't seed niches (workaround: manual insert)
-  §16.2: KeywordScore.run_id doesn't exist (use ResultSetValidation.run_id)
-  §16.3: Codex P2-1/P2-2 from PR #68 unresolved — C060 Agent B fixes
-  §16.4: TC-2 dry-run contamination partial — sentinel URL injection site not yet fixed
+## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
+§7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)
+§16 remains active: C059 known issues documentation (partially resolved in C060)
+  §16.1 (seeding): RESOLVED — TC-3 seed-niches command added in C060
+  §16.2 (KeywordScore.run_id): Still applicable — RSV.run_id workaround still needed
+  §16.3 (Codex P2 threads): RESOLVED — P2-1/P2-2 fixed in C060 + PR #68 threads resolved
+  §16.4 (TC-2 dry-run): RESOLVED — dry-run sentinel guard added in orchestrator
+  TC-1 (ExternalSignal schema): Still deferred to C061
