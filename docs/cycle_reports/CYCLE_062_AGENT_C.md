@@ -303,4 +303,4 @@ All other blocking gates (1, 2, 3, 4, 6, 7, 8) passed with explicit evidence.
 
 ## C Commit SHA
 
-`PENDING_COMMIT`
+`9fa9855` (initial Agent C integration gate commit)
