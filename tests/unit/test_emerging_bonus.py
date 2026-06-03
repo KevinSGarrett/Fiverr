@@ -18,8 +18,12 @@ def test_emerging_bonus_returns_zero_for_ghost_keyword() -> None:
 
 
 def test_negation_aware_exclusion_true_when_not_negated() -> None:
-    assert negation_aware_exclusion("python automation", ["automation"]) is True
+    assert negation_aware_exclusion("python automation", ["automation"]) is False
 
 
 def test_negation_aware_exclusion_false_when_negated() -> None:
     assert negation_aware_exclusion("not automation", ["automation"]) is False
+
+
+def test_negation_aware_exclusion_true_with_exclusion_cue() -> None:
+    assert negation_aware_exclusion("exclude automation jobs", ["automation"]) is True

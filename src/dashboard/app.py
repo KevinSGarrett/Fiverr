@@ -1034,3 +1034,7 @@ def main() -> None:
         if payload["table"]["warning_rows"]:
             st.write(f"- Warning: {payload['table']['warning_rows'][0]['message']}")
 
+
+if __name__ == "__main__":
+    main()
+

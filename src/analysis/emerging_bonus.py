@@ -6,6 +6,10 @@ import re
 from typing import Any
 
 _NEGATION_PATTERN = re.compile(r"\b(?:not|no|never|dont|don't|cannot|can't)\b", flags=re.IGNORECASE)
+_EXCLUSION_CUE_PATTERN = re.compile(
+    r"\b(?:exclude|excluding|without|disallow|forbid|forbidden|omit|except|avoid|ban)\b",
+    flags=re.IGNORECASE,
+)
 
 
 def compute_emerging_opportunity_bonus(keyword_score_row: Any, rsv_row: Any) -> float:
@@ -27,7 +31,7 @@ def compute_emerging_opportunity_bonus(keyword_score_row: Any, rsv_row: Any) -> 
 
 
 def negation_aware_exclusion(text: str, exclusion_terms: list[str]) -> bool:
-    """Return True when an exclusion term appears without nearby negation."""
+    """Return True only when exclusion language targets a listed term."""
     normalized_text = str(text or "").lower()
     if not normalized_text:
         return False
@@ -39,6 +43,8 @@ def negation_aware_exclusion(text: str, exclusion_terms: list[str]) -> bool:
         for match in re.finditer(re.escape(normalized_term), normalized_text):
             prefix = normalized_text[max(0, match.start() - 30) : match.start()]
             if _NEGATION_PATTERN.search(prefix):
+                continue
+            if not _EXCLUSION_CUE_PATTERN.search(prefix):
                 continue
             return True
     return False
