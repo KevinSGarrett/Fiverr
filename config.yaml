@@ -102,7 +102,7 @@ phase2_analysis:
   max_text_chars: 12000
 
 analysis:
-  external_signals_enabled: false
+  external_signals_enabled: true
 
 scoring:
   active_profile: aggressive_new_seller

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def build_autocomplete_search_url(keyword_text: str) -> str:
     """Build Fiverr search URL used to surface autocomplete suggestions."""
-    return f"https://www.fiverr.com/search/gigs?query={quote(keyword_text)}"
+    return f"https://www.fiverr.com/search/gigs?query={quote(keyword_text.strip(), safe='')}"
 
 
 async def _safe_pacing_wait(pacing_manager: Any, *, dry_run: bool) -> None:

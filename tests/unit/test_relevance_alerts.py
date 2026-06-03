@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from src.dashboard.alert_generator import ALERT_TYPES, generate_relevance_alerts_for_run
-from src.models.base import Base
+from src.models.base import Base, utc_now
 from src.models.external_signal import ExternalSignal
 from src.models.keyword_score import KeywordScore
 from src.models.market import Keyword
@@ -368,6 +370,7 @@ def test_llm_alert_uses_latest_keyword_score_only() -> None:
                 keyword_id=kw.id,
                 scoring_profile="default",
                 score_depth="standard",
+                scored_at=utc_now(),
                 final_score=61.0,
                 tag="CONDITIONAL_GO",
                 llm_inputs_used={"prompt_tokens": 7},
@@ -381,6 +384,7 @@ def test_llm_alert_uses_latest_keyword_score_only() -> None:
                 keyword_id=kw.id,
                 scoring_profile="default",
                 score_depth="standard",
+                scored_at=utc_now() + timedelta(seconds=1),
                 final_score=59.0,
                 tag="MONITOR",
                 llm_inputs_used=None,

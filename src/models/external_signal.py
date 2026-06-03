@@ -57,6 +57,25 @@ class ExternalSignal(IntegerPrimaryKeyMixin, TimestampMixin, Base):
     run_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     collection_method: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    # === TC-1 COLUMNS (C061 Post-SRDI Hardening) ===
+    raw_value: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Original unprocessed signal value from data source before normalization. "
+        "None means raw value was not captured or not applicable.",
+    )
+    relevance_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="R7 qualifier score 0.0-1.0 applied to this signal for demand scoring. "
+        "1.0=fully qualified, 0.0=fully disqualified, None=not yet scored.",
+    )
+    trend_direction: Mapped[str | None] = mapped_column(
+        String(16),
+        nullable=True,
+        comment="Derived trend direction: RISING|STABLE|FALLING|UNKNOWN. "
+        "Max 16 chars. None=direction not yet derived.",
+    )
     keyword_ref: Mapped[Keyword] = relationship("Keyword", back_populates="external_signals")
 
     # Backward-compat field aliases used by current scoring code/tests.
@@ -93,6 +112,10 @@ def write_external_signal(
     run_id: str | None,
     collection_method: str | None,
     db: Any,
+    *,
+    raw_value: float | None = None,
+    relevance_score: float | None = None,
+    trend_direction: str | None = None,
 ) -> ExternalSignal | None:
     """Upsert an external signal row for a keyword/type/run key."""
     if not isinstance(db, Session):
@@ -117,6 +140,9 @@ def write_external_signal(
     row.signal_json = signal_json
     row.collection_method = collection_method
     row.collected_at = utc_now()
+    row.raw_value = raw_value
+    row.relevance_score = relevance_score
+    row.trend_direction = trend_direction
     db.add(row)
     db.commit()
     db.refresh(row)

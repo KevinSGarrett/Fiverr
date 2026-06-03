@@ -325,7 +325,7 @@ async def run_collection_pipeline(
                 job_type="SELLER_PROFILE",
                 stage=5,
                 payload={
-                    "seller_username": queue_keyword_text,
+                    "seller_username": "dry_run_seller_profile",
                     "niche_id": queue_niche_id,
                 },
             ),
