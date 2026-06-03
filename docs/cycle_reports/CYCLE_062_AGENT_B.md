@@ -124,10 +124,11 @@ Command run for named smoke group:
 - `config.yaml` verified: `collection.scrapfly.enabled: false` (unchanged).
 
 ## Zone Verification
-- Pending final commit SHA verification loop after commit creation.
+- Agent B commit `6a61ffb` file list verified zone-clean (no C/E/F/D zone files in B commit).
+- Comprehensive branch-wide scan reports historical non-B commits with handoff files; no violations in B commit payload.
 
 ## Commit SHA
-- Pending (to be filled after commit).
+- `6a61ffb`
 
 ## SCRUM-1022
-- Evidence prepared in this report for posting to SCRUM-1022.
+- Evidence prepared in this report for SCRUM-1022 comment payload.
