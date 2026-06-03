@@ -68,6 +68,8 @@
 - Read: `src/migrations/srdi_r8/run_srdi_r8_migrations.py`
   - Highest registered migration is `migration_10_discovery_outcome_context_cols`.
   - `migration_11` must be imported and invoked after migration 10.
+- Read: `PM_Pack/ref/project_plan/03_data/SCHEMA.md`
+  - Confirmed SRDI addendum expectations for `external_signals` compatibility extensions and migration ordering discipline.
 - PRAGMA check:
   - Command:
     - `py -3.12 -c "from sqlalchemy import create_engine, inspect; e=create_engine('sqlite:///data/foundation_gate_ci.db'); cols=sorted([c['name'] for c in inspect(e).get_columns('external_signals')]); print(cols)"`
@@ -328,6 +330,10 @@
 | D | 650 | 748 | PASS |
 | Total | 3250 | 3563 | PASS |
 
+Note:
+- Prompt sizing was verified and recorded before Stage 2 signal.
+- A-stage zone remediation later restored `CYCLE_061_AGENT_B_PROMPT.md` to `develop` state so final A branch scope remains docs/PM_Pack-only per Task 24.
+
 ## sec13.8 Pre-release Checklist
 - [x] Zero `[C0NN_SQUASH_SHA]` placeholders in all 6 prompts.
 - [x] Task 0 appears in first 30 lines of A prompt.
@@ -357,9 +363,17 @@
 
 ## Final A-stage Signal Draft (for Jira comment)
 - A complete. Branch: `cycle/061/integration`.
-- SHA: `c6be8e4`
+- SHA: `9952b42`
 - PR: `#70`
 - Jira: `SCRUM-1017`, `SCRUM-1020`, `SCRUM-1016`, `SCRUM-1015`, `SCRUM-1019`, `SCRUM-1018`.
 - Prompt sizing: `A=538/500 B=652/650 E=604/500 C=427/425 F=594/525 D=748/650`.
 - G1 process fix included in D prompt (comprehensive commit enumeration).
 - B and E may start in parallel after Task 24 zone verification passes.
+
+## Task 24 Final Scope Verification
+- `git diff --name-only origin/develop..HEAD` final output:
+  - `PM_Pack/ref/project_plan/13_srdi/11_AI_AGENT_HANDOFF.md`
+  - `PM_Pack/ref/project_plan/13_srdi/12_LAUNCH_READINESS.md`
+  - `PM_Pack/ref/project_plan/13_srdi/13_RISK_COMPLIANCE_COST.md`
+  - `docs/cycle_reports/CYCLE_061_AGENT_A.md`
+- No `src/` or `tests/` files present in A-stage branch delta.
