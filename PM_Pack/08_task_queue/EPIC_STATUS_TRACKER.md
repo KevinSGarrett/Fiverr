@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-03 (C060 PM review — SRDI complete)
+# Last updated: 2026-06-03 (C061 post-merge closeout)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -25,8 +25,8 @@
 
 ## REGRESSION PACK STATUS
 
-Current pack (after C060): **41 names, 88 passed** — strategy §7 v2.4
-REG-1..36 (prior) + REG-37/38/39/40 (C060 R11 + C059 Codex P2)
+Current pack (after C061): **45 names, 90 passed** — strategy §7 v2.5
+REG-1..40 (prior) + REG-41/42/43/44 (C061 TC-1 + DL-207 + dashboard)
 
 ## C060 STATUS — COMPLETE
 
@@ -48,16 +48,16 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 
 ## C061 SCOPE — Post-SRDI Collection Hardening (Wave M)
 
-Mission: Break the 4-cycle SEED chain. Fix ExternalSignal schema + URL shape.
-Key deliverables:
-  TC-1: Add raw_value/relevance_score/trend_direction to ExternalSignal model (§11 parity needed)
-  DL-207: Fix Fiverr search URL encoding in src/collection/orchestrator.py
-  Live collection validation: after TC-1+DL-207 fixed, live run should achieve LIVE RSV band
-  Process fix: G1 attribution completeness in D prompt; E report padding prohibition
+| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
+|---|---|---|---|---|---|---|---|
+| C061 | MERGED | cb53dd3d953080a1894a0adb3455de850780b455 | PARTIAL | CLOSED | CLOSED | OPEN | TC-1 schema + DL-207 URL + 9 dashboard pages live-data wiring |
 
-Open stories: None yet (Agent A creates in C061)
-C061 control task: "Cycle 061 (Post-SRDI hardening) control"
-C061 dev HEAD at start: b21aa11
+## C062 PREVIEW
+
+- Wave 9 Pricing Strategy Engine start (`PM_Pack/ref/project_plan/09_pricing/`)
+- Enable `external_signals_enabled` if any environment still has it disabled
+- Start backlog hygiene on stale board-setup tasks
+- Close G-A fully by expanding launch artifacts 11/12/13 from placeholders to full docs
 
 ## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
 §7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)

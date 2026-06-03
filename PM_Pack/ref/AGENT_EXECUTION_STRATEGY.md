@@ -1253,6 +1253,7 @@ backfilled to permanent pack in C058 PM review 2026-06-02.
 | 2.2 | 2026-06-02 | C058 PM review: backfilled post-merge Codex P2 fix regressions REG-31/32/33 (datetime normalization + confidence blend guard). Pack now 34 names (42 passed). §14+§15 added (env loading; throwaway DB seeding; external signal schema; Codex timing; report placement). |
 | 2.3 | 2026-06-02 | C059 (R10): REG-34/35/36 added. Dashboard test suite. Tier-3 R10 complete. |
 | 2.4 | 2026-06-03 | C060 (R11): REG-37/38/39/40 added. Codex P2-1/P2-2 fixed. R11 monitors+quality gate. All SRDI epics DONE. |
+| 2.5 | 2026-06-03 | C061 post-merge: REG-41/42/43/44 added for TC-1 schema persistence, DL-207 URL encoding hardening, and dashboard empty-DB safety. Pack now 45 names (90 passed). |
 
 ### Cycle 059 additions — MERGED (pack now 37 after C059 close)
 
@@ -1277,6 +1278,19 @@ REG-34/35/36 added in Cycle 059 (R10 Dashboard & Alerting), PR #68, merged devel
 | 41 | `test_first_recommendation_quality_gate_blocks_missing_rsv` (REG-40) | `tests/unit/test_quality_gate.py` | R11 quality gate: missing RSV blocks recommendation |
 
 REG-37/38/39/40 added in Cycle 060 (R11 Edge Cases & Maintenance), PR #69, merged develop @ 9687fb6f38ebca8b01cefa845530ea4f2b609c07.
+
+---
+
+### Cycle 061 additions — MERGED (pack now 45 after C061 close)
+
+| # | Test name (REG-NN) | File | Purpose |
+| --- | --- | --- | --- |
+| 42 | `test_external_signal_raw_value_stored_and_retrieved` (REG-41) | `tests/unit/test_external_signal_integrity.py` | TC-1 persistence guard: raw_value survives write/read roundtrip after migration_11 |
+| 43 | `test_collection_url_encodes_spaces_correctly` (REG-42) | `tests/unit/test_collection_orchestrator.py` | DL-207 guard: collection URLs keep `%20` encoding for spaced keywords |
+| 44 | `test_collection_url_never_bare_path` (REG-43) | `tests/unit/test_collection_orchestrator.py` | DL-207 guard: URL builder never regresses to bare path form |
+| 45 | `test_dashboard_opportunities_renders_empty_db_gracefully` (REG-44) | `tests/unit/test_dashboard_pages.py` | Dashboard guard: live-data page remains safe with empty DB and no demo-data fallback |
+
+REG-41/42/43/44 added in Cycle 061 (Post-SRDI production hardening), PR #70, merged develop @ cb53dd3d953080a1894a0adb3455de850780b455.
 
 ---
 

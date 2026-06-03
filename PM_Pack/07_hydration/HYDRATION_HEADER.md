@@ -1,33 +1,33 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-03 (C060 PM review)
+# Updated: 2026-06-03 (C061 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 061
-CYCLE_BRANCH: cycle/061/integration
-STATUS: NOT_STARTED
-CYCLE_DONE: 060
-CYCLE_NEXT: 061
-CYCLE_STATUS_060: COMPLETE - PR #69 squash-merged to develop
-CYCLE_BRANCH_060: DELETED
-TIER_GATE: ALL SRDI TIERS COMPLETE (R1-R11, Tier-0 through Tier-4). SRDI INITIATIVE CLOSED.
+CYCLE_CURRENT: 062
+CYCLE_BRANCH: cycle/062/integration
+STATUS: READY_FOR_A
+CYCLE_DONE: 061
+CYCLE_NEXT: 062
+CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
+CYCLE_BRANCH_061: DELETED
+TIER_GATE: G-B CLOSED (TC-1 schema complete) | G-C CLOSED (dashboard live-data complete) | G-A PARTIAL | G-D OPEN
 
-## DEVELOP HEAD (current after C061 PM review governance)
-develop HEAD: 4d4f8ac (docs(governance): C061 PM review v4.2 -- all 14 plan tracks mandatory, 6 C061 agent prompts)
-C061 GOVERNANCE SHA: 4d4f8ac006d3e289d23236af2aab342d09237e35
+## DEVELOP HEAD (current after C061 squash merge)
+develop HEAD: cb53dd3 (feat(hardening): Post-SRDI Production Hardening -- TC-1 ExternalSignal schema + DL-207 URL fix + dashboard live-data wiring (#70))
+C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C060 gate close)
-Tests: 4022 passed | Coverage: 95.58% | Floor: 90% enforced
+## SUITE STATE (C061 gate close)
+Tests: 3966 passed | Coverage: 94.58% | Floor: 90% enforced
 
-## REGRESSION PACK (strategy §7 v2.4 — 41 names)
-Pack version: v2.4 (C060 — REG-37/38/39/40 added for C059 Codex fixes + R11)
-REG-37: test_ghost_filter_handles_null_and_legacy_rows
-REG-38: test_llm_alert_counts_actual_stage_7_5_executions
-REG-39: test_stealth_sponsored_monitor_fires_on_fixture
-REG-40: test_first_recommendation_quality_gate_blocks_missing_rsv
+## REGRESSION PACK (strategy §7 v2.5 — 45 names)
+Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening)
+REG-41: test_external_signal_raw_value_stored_and_retrieved
+REG-42: test_collection_url_encodes_spaces_correctly
+REG-43: test_collection_url_never_bare_path
+REG-44: test_dashboard_opportunities_renders_empty_db_gracefully
 
 ## C060 VERIFIED FACTS
 Epic: SRDI R11 — Edge Cases, Future-Proofing & Maintenance (Wave L)
