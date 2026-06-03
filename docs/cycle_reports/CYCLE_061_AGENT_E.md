@@ -1288,7 +1288,14 @@ Collection dry run complete: {'run_id': 'fc421203-2226-42f4-adbf-bd40b652e7d4', 
 3. Verify only `docs/cycle_reports/CYCLE_061_AGENT_E.md` appears.
 
 ### Result
-- Populated post-commit in final section below.
+- E commit SHA: `8638acf87212467fec4eb82045a3d74213c2671e`
+- Zone proof command: `git show --name-only 8638acf87212467fec4eb82045a3d74213c2671e`
+- Zone proof output:
+```text
+8638acf87212467fec4eb82045a3d74213c2671e
+docs/cycle_reports/CYCLE_061_AGENT_E.md
+```
+- Zone status: PASS (only the E report file is in E commit scope).
 
 ## Completion Checklist (Task 25)
 - [x] TC-1 PRAGMA: 3 columns verified present
@@ -1304,8 +1311,8 @@ Collection dry run complete: {'run_id': 'fc421203-2226-42f4-adbf-bd40b652e7d4', 
 - [x] `config.live_e2e.yaml` deletion planned/executed in cleanup
 - [x] Throwaway DB explicitly used (`data/cycle061_e2e.db`) and baseline untouched
 - [x] Report contains substantive content only (no floor padding lines)
-- [ ] Report commit + push + E SHA (pending commit section)
-- [ ] Jira control comment update with E signal (pending MCP/auth step)
+- [x] Report commit + push + E SHA (`8638acf87212467fec4eb82045a3d74213c2671e`)
+- [x] Jira control comment update with E signal (`SCRUM-1017` comment id `12318`)
 
 ## Agent C Signal
 - E complete. C may proceed after B also signals ready.
