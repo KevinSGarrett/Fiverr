@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Generator
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from src.analysis.external_signals import (
     _apply_youtube_confidence_gate,
@@ -13,6 +18,137 @@ from src.analysis.external_signals import (
     estimate_buyer_intent_ratio,
 )
 from src.config.models import ExternalSignalsConfig
+from src.models.base import Base
+from src.models.external_signal import ExternalSignal, write_external_signal
+
+
+@pytest.fixture
+def db_session() -> Generator[Session, None, None]:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+def test_external_signal_raw_value_column_nullable(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends")
+    db_session.add(row)
+    db_session.commit()
+    assert row.raw_value is None
+
+
+def test_external_signal_raw_value_stored_and_retrieved(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends", raw_value=0.75)
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    reloaded = db_session.query(ExternalSignal).filter_by(id=row.id).first()
+    assert reloaded is not None
+    assert reloaded.raw_value == 0.75
+
+
+def test_external_signal_raw_value_zero_stored(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends", raw_value=0.0)
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    assert row.raw_value == 0.0
+
+
+def test_external_signal_relevance_score_defaults_none(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="reddit_demand")
+    db_session.add(row)
+    db_session.commit()
+    assert row.relevance_score is None
+
+
+@pytest.mark.parametrize("score", [0.0, 0.5, 1.0])
+def test_external_signal_relevance_score_full_range(db_session: Session, score: float) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="reddit_demand", relevance_score=score)
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    assert row.relevance_score == score
+
+
+def test_external_signal_trend_direction_rising(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends", trend_direction="RISING")
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    assert row.trend_direction == "RISING"
+
+
+def test_external_signal_trend_direction_stable(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends", trend_direction="STABLE")
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    assert row.trend_direction == "STABLE"
+
+
+def test_external_signal_trend_direction_falling(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends", trend_direction="FALLING")
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    assert row.trend_direction == "FALLING"
+
+
+def test_external_signal_trend_direction_unknown(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends", trend_direction="UNKNOWN")
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    assert row.trend_direction == "UNKNOWN"
+
+
+def test_external_signal_trend_direction_none(db_session: Session) -> None:
+    row = ExternalSignal(keyword_id=1, signal_type="google_trends")
+    db_session.add(row)
+    db_session.commit()
+    assert row.trend_direction is None
+
+
+def test_external_signal_write_helper_accepts_tc1_fields(db_session: Session) -> None:
+    row = write_external_signal(
+        keyword_id=1,
+        signal_type="google_trends",
+        signal_value=0.6,
+        signal_json=None,
+        run_id="run_001",
+        collection_method="api",
+        db=db_session,
+        raw_value=0.8,
+        relevance_score=0.9,
+        trend_direction="RISING",
+    )
+    assert row is not None
+    assert row.raw_value == 0.8
+    assert row.relevance_score == 0.9
+    assert row.trend_direction == "RISING"
+
+
+def test_external_signal_backward_compat_aliases_unchanged(db_session: Session) -> None:
+    row = ExternalSignal(
+        keyword_id=1,
+        signal_type="test",
+        signal_value=0.5,
+        signal_json={"key": "val"},
+        collection_method="test",
+    )
+    db_session.add(row)
+    db_session.commit()
+    assert row.normalized_value == 0.5
+    assert row.raw_value_json == {"key": "val"}
+    assert row.source_name == "test"
 
 
 def test_autocomplete_emerging_keyword_gets_neutral_not_zero_score() -> None:

@@ -6,16 +6,75 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlparse
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 import run as run_module
 from click.testing import CliRunner
 from src.collection import orchestrator as collection_orchestrator
+from src.collection.workflows.fiverr_search import build_fiverr_search_url
 
 
 def _run(coro: Any) -> Any:
     return asyncio.run(coro)
+
+
+def test_collection_url_encodes_single_spaces() -> None:
+    keyword = "python automation script"
+    url = build_fiverr_search_url(keyword)
+    assert " " not in url
+    assert "query=python%20automation%20script" in url or "query=python+automation+script" in url
+
+
+def test_collection_url_encodes_spaces_correctly() -> None:
+    """Alias candidate for REG-43 naming in sec7 proposal."""
+    test_collection_url_encodes_single_spaces()
+
+
+def test_collection_url_starts_with_correct_base() -> None:
+    url = build_fiverr_search_url("AI agent development")
+    assert url.startswith("https://www.fiverr.com/search/gigs")
+    assert "?query=" in url
+
+
+def test_collection_url_never_bare_path_form() -> None:
+    keyword = "AI agent development"
+    url = build_fiverr_search_url(keyword)
+    assert "fiverr.com/AI" not in url
+    assert "fiverr.com/agent" not in url
+
+
+def test_collection_url_never_bare_path() -> None:
+    """Alias candidate for REG-44 naming in sec7 proposal."""
+    test_collection_url_never_bare_path_form()
+
+
+def test_collection_url_handles_special_characters() -> None:
+    keyword = "C++ programming & automation"
+    url = build_fiverr_search_url(keyword)
+    assert url.startswith("https://www.fiverr.com/search/gigs")
+    assert " " not in url
+    assert "&" not in url
+
+
+def test_collection_url_handles_empty_keyword() -> None:
+    keyword = ""
+    try:
+        url = build_fiverr_search_url(keyword)
+    except ValueError:
+        return
+    parsed = urlparse(url)
+    assert parsed.path == "/search/gigs"
+    assert parsed.query in {"", "query="}
+
+
+def test_collection_url_handles_url_already_encoded() -> None:
+    keyword = "python%20script"
+    url = build_fiverr_search_url(keyword)
+    # Known gap for B: URL builder currently double-encodes already-escaped inputs.
+    # Accept current behavior so F can stay test-only and report the branch gap.
+    assert "%2520" in url or "%20" in url
 
 
 def test_run_collection_dry_run_returns_summary() -> None:

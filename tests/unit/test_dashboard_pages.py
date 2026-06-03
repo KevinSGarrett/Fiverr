@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Generator
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.dashboard.pages.competitors import render_competitors_page
 from src.dashboard.pages.discovery import render_discovery_page
@@ -60,7 +61,7 @@ class _FakeStreamlit:
 
 
 @pytest.fixture
-def empty_db_session():
+def empty_db_session() -> Generator[Session, None, None]:
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -75,7 +76,7 @@ def empty_db_session():
 
 
 @pytest.fixture
-def fake_streamlit(monkeypatch) -> _FakeStreamlit:
+def fake_streamlit(monkeypatch: pytest.MonkeyPatch) -> _FakeStreamlit:
     fake_streamlit = _FakeStreamlit()
     monkeypatch.setitem(
         sys.modules,
@@ -96,14 +97,18 @@ def fake_streamlit(monkeypatch) -> _FakeStreamlit:
     return fake_streamlit
 
 
-def _db_context(session):
+def _db_context(session: Session) -> MagicMock:
     ctx = MagicMock()
     ctx.__enter__ = MagicMock(return_value=session)
     ctx.__exit__ = MagicMock(return_value=False)
     return ctx
 
 
-def test_opportunities_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_opportunities_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.opportunities.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -111,7 +116,11 @@ def test_opportunities_renders_empty_db_gracefully(empty_db_session, fake_stream
     render_opportunities_page()
 
 
-def test_keywords_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_keywords_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.keywords.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -119,7 +128,11 @@ def test_keywords_renders_empty_db_gracefully(empty_db_session, fake_streamlit, 
     render_keywords_page()
 
 
-def test_competitors_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_competitors_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.competitors.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -127,7 +140,11 @@ def test_competitors_renders_empty_db_gracefully(empty_db_session, fake_streamli
     render_competitors_page()
 
 
-def test_recommendations_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_recommendations_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.recommendations.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -135,7 +152,11 @@ def test_recommendations_renders_empty_db_gracefully(empty_db_session, fake_stre
     render_recommendations_page()
 
 
-def test_run_history_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_run_history_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.run_history.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -143,7 +164,11 @@ def test_run_history_renders_empty_db_gracefully(empty_db_session, fake_streamli
     render_run_history_page()
 
 
-def test_llm_costs_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_llm_costs_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.llm_costs.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -151,7 +176,11 @@ def test_llm_costs_renders_empty_db_gracefully(empty_db_session, fake_streamlit,
     render_llm_costs_page()
 
 
-def test_discovery_renders_empty_db_gracefully(empty_db_session, fake_streamlit, monkeypatch) -> None:
+def test_discovery_renders_empty_db_gracefully(
+    empty_db_session: Session,
+    fake_streamlit: _FakeStreamlit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "src.dashboard.pages.discovery.get_db_session",
         lambda: _db_context(empty_db_session),
@@ -159,9 +188,156 @@ def test_discovery_renders_empty_db_gracefully(empty_db_session, fake_streamlit,
     render_discovery_page()
 
 
-def test_playbook_renders_empty_db_gracefully(fake_streamlit) -> None:
+def test_playbook_renders_empty_db_gracefully(fake_streamlit: _FakeStreamlit) -> None:
     render_playbook_page()
 
 
-def test_pricing_renders_empty_db_gracefully(fake_streamlit) -> None:
+def test_pricing_renders_empty_db_gracefully(fake_streamlit: _FakeStreamlit) -> None:
     render_pricing_page()
+
+
+@pytest.fixture
+def mock_db_context(
+    empty_db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> MagicMock:
+    ctx = MagicMock()
+    ctx.__enter__ = MagicMock(return_value=empty_db_session)
+    ctx.__exit__ = MagicMock(return_value=False)
+    monkeypatch.setattr("src.dashboard.db_helpers.get_db_session", lambda: ctx)
+    return ctx
+
+
+@pytest.fixture
+def mock_streamlit(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    title = MagicMock()
+    subheader = MagicMock()
+    info = MagicMock()
+    error = MagicMock()
+    warning = MagicMock()
+    success = MagicMock()
+    dataframe = MagicMock()
+    write = MagicMock()
+    columns = MagicMock(return_value=[MagicMock(), MagicMock()])
+    metric = MagicMock()
+    caption = MagicMock()
+
+    monkeypatch.setitem(
+        sys.modules,
+        "streamlit",
+        SimpleNamespace(
+            title=title,
+            subheader=subheader,
+            info=info,
+            error=error,
+            warning=warning,
+            success=success,
+            dataframe=dataframe,
+            write=write,
+            columns=columns,
+            metric=metric,
+            caption=caption,
+        ),
+    )
+
+    patched = SimpleNamespace(
+        title=title,
+        subheader=subheader,
+        info=info,
+        error=error,
+        warning=warning,
+        success=success,
+        dataframe=dataframe,
+        write=write,
+        columns=columns,
+        metric=metric,
+        caption=caption,
+    )
+    return patched
+
+
+def test_dashboard_opportunities_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.opportunities.get_db_session", lambda: mock_db_context)
+    render_opportunities_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_keywords_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.keywords.get_db_session", lambda: mock_db_context)
+    render_keywords_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_competitors_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.competitors.get_db_session", lambda: mock_db_context)
+    render_competitors_page()
+    assert mock_streamlit.info.called or mock_streamlit.write.called
+
+
+def test_dashboard_recommendations_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.recommendations.get_db_session", lambda: mock_db_context)
+    render_recommendations_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_run_history_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.run_history.get_db_session", lambda: mock_db_context)
+    render_run_history_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_llm_costs_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.llm_costs.get_db_session", lambda: mock_db_context)
+    render_llm_costs_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_discovery_renders_empty_db_gracefully(
+    mock_streamlit: SimpleNamespace,
+    mock_db_context: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = mock_db_context
+    monkeypatch.setattr("src.dashboard.pages.discovery.get_db_session", lambda: mock_db_context)
+    render_discovery_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_playbook_renders_empty_db_gracefully(mock_streamlit: SimpleNamespace) -> None:
+    render_playbook_page()
+    assert mock_streamlit.info.called
+
+
+def test_dashboard_pricing_renders_empty_db_gracefully(mock_streamlit: SimpleNamespace) -> None:
+    render_pricing_page()
+    assert mock_streamlit.info.called
