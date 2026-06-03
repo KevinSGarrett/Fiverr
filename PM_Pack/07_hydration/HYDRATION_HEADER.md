@@ -1,4 +1,4 @@
-# HYDRATION HEADER — Fiverr Research System
+﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
 # Updated: 2026-06-03 (C060 PM review)
 
@@ -12,8 +12,9 @@ CYCLE_STATUS_060: COMPLETE - PR #69 squash-merged to develop
 CYCLE_BRANCH_060: DELETED
 TIER_GATE: ALL SRDI TIERS COMPLETE (R1-R11, Tier-0 through Tier-4). SRDI INITIATIVE CLOSED.
 
-## DEVELOP HEAD (current after C060 PM review governance)
-develop HEAD: b21aa11 (docs(cycle060): publish Agent D final gate and governance closure)
+## DEVELOP HEAD (current after C061 PM review governance)
+develop HEAD: 4d4f8ac (docs(governance): C061 PM review v4.2 -- all 14 plan tracks mandatory, 6 C061 agent prompts)
+C061 GOVERNANCE SHA: 4d4f8ac006d3e289d23236af2aab342d09237e35
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
@@ -84,7 +85,7 @@ Expected: DL-207 fixes URL encoding in collection orchestrator
 Expected: Live collection achieves LIVE band for first time (RSV rows in throwaway DB)
 Also: Process fix for G1 attribution completeness; prohibition on pad lines in E reports
 C061 control task: "Cycle 061 (Post-SRDI hardening) control"
-C061 dev HEAD at start: b21aa11
+C061 dev HEAD at start: 4d4f8ac (after governance commit) | C061 prompts: COMPLETE, all 6 written
 
 ## GOLDEN ANCHORS (READ-ONLY FOREVER)
 kw=110: 62.7 / 1.0 / CONDITIONAL_GO | kw=96: 35.8 | kw=3: 56.66
