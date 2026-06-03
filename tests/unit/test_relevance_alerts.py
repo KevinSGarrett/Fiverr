@@ -161,11 +161,15 @@ def test_llm_validation_alert_generated() -> None:
         kw = Keyword(niche_id=niche.id, keyword="llm kw", normalized_keyword="llm kw")
         session.add(kw)
         session.commit()
+        session.add(ResultSetValidation(keyword_id=kw.id, run_id="run-llm", validation_method="llm_stage_7_5"))
         session.add(
-            ResultSetValidation(
+            KeywordScore(
                 keyword_id=kw.id,
-                run_id="run-llm",
-                validation_method="llm_stage_7_5",
+                scoring_profile="default",
+                score_depth="standard",
+                final_score=60.0,
+                tag="CONDITIONAL_GO",
+                llm_inputs_used={"prompt_tokens": 20},
             )
         )
         session.commit()
@@ -253,6 +257,16 @@ def test_info_only_alerts_stay_info_severity() -> None:
                 relevance_deduction=0.0,
                 ghost_market_flag=False,
                 category_contamination_flag=False,
+            )
+        )
+        session.add(
+            KeywordScore(
+                keyword_id=kw.id,
+                scoring_profile="default",
+                score_depth="standard",
+                final_score=55.0,
+                tag="MONITOR",
+                llm_inputs_used={"prompt_tokens": 9},
             )
         )
         session.add(SearchResult(keyword_id=kw.id, run_id="run-info-only", page_collected=1, rank=1))
