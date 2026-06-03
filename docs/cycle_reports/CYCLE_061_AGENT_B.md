@@ -143,6 +143,9 @@
 - Verified no `build_dashboard_demo_data` usages remain in `src/dashboard/pages/*.py`.
 - Verified `sample_data` references outside pages remain; `sample_data.py` retained.
 
+### Missing Models (C062+ Scope)
+- None identified during C061 wiring. All referenced backing models were present.
+
 ### Dashboard Tests
 - Replaced sample-data render test with empty-DB-mode coverage in `tests/unit/test_dashboard_pages.py`.
 - Added fixture-backed tests for each page render path (9 tests).
@@ -161,10 +164,10 @@
 - `py -3.12 -m mypy src` -> PASS
 - `py -3.12 run.py foundation-gate` -> PASS
 - `py -3.12 run.py phase2-smoke` -> PASS
-- 41-name regression pack -> PASS (`54 passed`, `0 failed`)
+- 41-name regression pack -> PASS (`90 passed`, `0 failed`)
 - Full suite:
   - `py -3.12 -m pytest -q --no-header`
-  - Result: `4038 passed`, `0 failed`
+  - Result: `4074 passed`, `0 failed`
 - Golden parity:
   - `py -3.12 run.py score --golden --config-override relevance.enable_stage_3_5=false --config-override analysis.external_signals_enabled=false`
   - Result: `PASS`
@@ -192,11 +195,26 @@
 - None introduced.
 
 ## Jira Transitions
-- Pending at report-write time in this environment; update status intended:
-  - TC-1 story: Done
-  - DL-207 story: Done
-  - Dashboard story: Done
-  - P1 story: Done (enabled)
+- Completed:
+  - TC-1 story: Done (`migration_11` applied and PRAGMA verified)
+  - DL-207 story: Done (URL encoding fixed and URL tests passing)
+  - Dashboard story: Done (all 9 pages wired with empty-DB graceful handling)
+  - P1 story: Done (`external_signals_enabled=true` retained after full verification)
+
+## Final B Checklist
+- [x] TC-1: 3 ORM columns + `migration_11` + PRAGMA PASS
+- [x] sec11.2 parity table ALL YES in this report
+- [x] DL-207 bug fixed with 3 URL tests passing
+- [x] Dashboard 9 pages wired; no page uses demo-data builder
+- [x] Empty-DB behavior verified for all 9 pages
+- [x] `tests/unit/test_dashboard_pages.py` empty-DB tests passing
+- [x] P1 external signals decision documented and verified
+- [x] Ruff + mypy + foundation-gate + phase2-smoke all PASS
+- [x] 41-name regression pack: `90 passed`, `0 failed`
+- [x] Golden parity: `kw=110=62.7/1.0/CONDITIONAL_GO`, `kw=96=35.8`
+- [x] Zone compliance maintained for B-owned files
+- [x] Report committed/pushed with B deliverables
+- [x] Jira stories transitioned to Done
 
 ## Final Signal
 - B complete at SHA: `22343a8`
