@@ -234,9 +234,9 @@ Deleted scratch artifacts:
 - `PM_Pack/03_cursor_agent_system/SHA_RESOLVER_SCRIPT.ps1`
 - multiple PM_Pack non-whitelisted `.txt` scratch outputs
 
-Remaining cleanup blocker:
-- `PM_Pack/counts_out.txt` could not be deleted (file busy/locked).
-  - User accepted this as an explicit locked-file exception.
+Scratch cleanup final state:
+- `PM_Pack/counts_out.txt` was initially locked, then successfully deleted in final cleanup pass.
+- PM scratch scan now contains only intentional artifact `PM_Pack/SHA_RESOLVER_062.ps1`.
 
 Verification note:
 - No `CYCLE_061_*` scratch files were found in PM scratch scan output.
@@ -300,7 +300,7 @@ Completed:
 - Confirmed zero `src/`, zero `tests/`, zero `config.yaml` staged.
 - Commit created and pushed to `cycle/062/integration`.
 
-Final A commit SHA: `42f2ffe`
+Final A commit SHA: `04c91cd`
 
 ## Production Readiness Gate Snapshot (C062 A Close)
 
