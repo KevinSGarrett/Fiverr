@@ -50,6 +50,13 @@
 ## Migration 12
 - Added `src/migrations/srdi_r8/migration_12_price_analysis_tables.py`.
 - Registered in `src/migrations/srdi_r8/run_srdi_r8_migrations.py`.
+- Added standard Alembic scaffolding and revisions:
+  - `alembic.ini`
+  - `alembic/env.py`
+  - `alembic/script.py.mako`
+  - `alembic/versions/migration_11_external_signal_tc1_cols.py`
+  - `alembic/versions/migration_12_price_analysis_tables.py`
+- Executed: `python -m alembic upgrade head` (PASS).
 - Migration verified against `data/foundation_gate_ci.db`:
   - `price_analysis` present
   - `niche_price_analysis` present
@@ -105,7 +112,7 @@ Result:
 
 ## Regression Smoke (Task 14)
 Command run for named smoke group:
-- Result: `6 passed` (includes targeted set and alias match), PASS.
+- Result: targeted smoke set PASS (`6 passed`, includes the required 5 named tests).
 
 ## Test Count Confirmation (Task 32)
 - Post-change unit collection count: `4050 tests collected`.
@@ -114,29 +121,31 @@ Command run for named smoke group:
 
 ## Coverage (Task 15)
 - Full run command executed with `--cov-fail-under=90`: PASS.
-- Total: `94.39%`.
+- Total: `94.40%`.
 - New pricing module coverage:
   - `src/pricing/analysis.py`: `89%`
   - `src/pricing/new_seller_pricing.py`: `89%`
-  - `src/pricing/orchestrator.py`: `85%`
+  - `src/pricing/orchestrator.py`: `87%`
 - Pass count from full run: `4050 passed`.
 
 ## Config Gate (Task 17)
 - `config.yaml` verified: `collection.scrapfly.enabled: false` (unchanged).
 
 ## Zone Verification
-- B commit SHAs `6a61ffb`, `a55dead`, and `6f2e5df` verified zone-clean (no C/E/F/D zone files).
+- B commit SHAs `6a61ffb`, `a55dead`, `6f2e5df`, and `4c86b1d` verified zone-clean (no C/E/F/D zone files in B commits).
+- Comprehensive `$base..HEAD` zone scan reports historical non-B commits containing Agent A/E handoff/report files; no violations introduced by B-owned commits.
 
 ## Commit SHA
-- `6f2e5df` (latest B implementation commit)
-- prior B commits: `6a61ffb`, `a55dead`
+- `4c86b1d` (latest B docs evidence update commit)
+- prior B commits: `6f2e5df`, `6a61ffb`, `a55dead`
 
 ## SCRUM-1022
 - Evidence comment posted to `SCRUM-1022` (Jira comment id `12338`).
 
 ## Alembic Note
-- Repo does not contain `alembic/` project scaffolding (`alembic.ini`, `alembic/versions`) and runtime lacked importable Alembic CLI module initially (`No module named alembic`).
-- Implemented migration_12 in the active project migration system (`src/migrations/srdi_r8`) and verified table creation + parity there.
+- Initial environment lacked importable Alembic module; installed and verified CLI.
+- Standard Alembic project scaffolding + revisions now present and `alembic upgrade head` succeeds.
+- Wave 9 pricing table parity verified after Alembic head upgrade.
 
 ## Backward Compatibility Check (Task 25)
 - `src/analysis/orchestrator.py` scan shows no direct pricing-stage function calls to preserve.
