@@ -12,9 +12,10 @@ CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-B CLOSED (TC-1 schema complete) | G-C CLOSED (dashboard live-data complete) | G-A PARTIAL | G-D OPEN
 
-## DEVELOP HEAD (current after C061 squash merge)
-develop HEAD: cb53dd3 (feat(hardening): Post-SRDI Production Hardening -- TC-1 ExternalSignal schema + DL-207 URL fix + dashboard live-data wiring (#70))
+## DEVELOP HEAD (current after C061 squash merge + post-merge governance)
+develop HEAD: 39f5701 (chore(governance): C061 post-merge hydration update)
 C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
+C062 dev HEAD at start: 39f5701
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
@@ -94,10 +95,11 @@ data/cycle037_live.db NEVER EDITED
 ## SRDI ROADMAP (final state)
 Tier-0: DONE | Tier-1: DONE | Tier-2: DONE | Tier-3: DONE | Tier-4: DONE
 SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
-POST-SRDI: C061 → Collection Hardening (Wave M)
+## POST-SRDI: C061 → Collection Hardening (Wave M) — COMPLETE
+POST-SRDI: C062 → Wave 9 Pricing Strategy Engine (Wave N) — IN PROGRESS
 
 ## TOGGLES
-analysis.external_signals_enabled: false | relevance.llm_relevance_enabled: false
+analysis.external_signals_enabled: true (enabled in C061 post-TC-1 close) | relevance.llm_relevance_enabled: false
 collection.scrapfly.enabled: false (always false in committed config)
 
 ## 9 NICHE IDS
