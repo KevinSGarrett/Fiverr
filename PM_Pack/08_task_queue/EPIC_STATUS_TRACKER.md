@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-03 (C062 post-merge closeout)
+# Last updated: 2026-06-04 (C063 post-merge closeout)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -58,12 +58,18 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 |---|---|---|---|---|---|---|---|
 | C062 | MERGED | de528f84def67b453cae8a1a2831808328a0633c | PARTIAL | CLOSED | CLOSED | OPEN (Wave 9 started) | 9A price distribution + 9B new seller pricing + migration_12 |
 
-## C063 PREVIEW
+## C063 SCOPE — Wave 9 Pricing Strategy Engine Phase 2
 
-- Wave 9 Phase 2: 9C Pricing LLM Task (`src/pricing/llm_task.py`) + 9D Dashboard Pricing Widgets
-- OR Wave 10 start if Wave 9 Phase 2 deferred
+| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
+|---|---|---|---|---|---|---|---|
+| C063 | MERGED | 19a69708de734d7d41991bedf8783f048f37fbdf | CLOSED | CLOSED | CLOSED | OPEN (Phase 2 done) | 9C pricing LLM task + 9D dashboard widgets |
+
+## C064 PREVIEW
+
+- Wave 9 remainder: 9E price ladder tracker + 9F revenue gate tracker (+ 9G pricing export follow-on)
+- OR Wave 10 Discovery start if Wave 9 Phase 3 deferred
 - Continue stale Jira governance cleanup (`SCRUM-106` through `SCRUM-124`)
-- G-A: close fully if A's C062 artifact expansion is substantial enough
+- G-D remains open until Waves 10-12 are implemented and verified
 
 ## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
 §7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)

@@ -1,30 +1,33 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-03 (C062 post-merge)
+# Updated: 2026-06-04 (C063 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 063
-CYCLE_BRANCH: cycle/063/integration
+CYCLE_CURRENT: 064
+CYCLE_BRANCH: cycle/064/integration
 STATUS: READY_FOR_A
-CYCLE_DONE: 062
-CYCLE_NEXT: 063
+CYCLE_DONE: 063
+CYCLE_NEXT: 064
+CYCLE_STATUS_063: COMPLETE - PR #72 squash-merged to develop
+CYCLE_BRANCH_063: DELETED
 CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
 CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-B CLOSED (C061) | G-C CLOSED (C061) | G-A PARTIAL | G-D OPEN (Wave 9 started C062)
+TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phase 2 done C063; Wave 9 Phase 3+ remains)
 
-## DEVELOP HEAD (current after C062 squash merge)
-develop HEAD: de528f8 (feat(pricing): C062 Wave 9 -- price distribution analysis + new seller entry pricing model + Stage 10.5 (#71))
-C062 SQUASH SHA: de528f84def67b453cae8a1a2831808328a0633c
+## DEVELOP HEAD (current after C063 squash)
+develop HEAD: 19a69708de734d7d41991bedf8783f048f37fbdf (feat(pricing): C063 Wave 9 Phase 2 -- pricing LLM task + dashboard widgets)
+C063 SQUASH SHA: 19a69708de734d7d41991bedf8783f048f37fbdf (PR #72)
+C062 SQUASH SHA: de528f84def67b453cae8a1a2831808328a0633c (PR #71)
+C063 governance SHA: PENDING_D_COMMIT
 C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
-C062 dev HEAD at start: 2e8c2a9
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C062 post-merge D sanity)
-Tests: 4122 passed | Coverage: 94.64% | Floor: 90% enforced
+## SUITE STATE (C063 post-merge D sanity)
+Tests: 4203 passed | Coverage: 94.51% | Floor: 90% enforced
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -62,7 +65,7 @@ ISSUE-B: E report padding — 450+ "floor-line-NNN" pad lines in CYCLE_060_AGENT
 ISSUE-C: D's G1 attribution check insufficient — only checked SHAs from C's report.
   G1 must use git log --all to enumerate ALL commits, then verify each one.
 
-## OPEN CARRY-FORWARDS (C063 scope)
+## OPEN CARRY-FORWARDS (C064 scope)
 RESOLVED in C061:
 - TC-1 ExternalSignal schema: RESOLVED
 - DL-207 Fiverr search URL shape: RESOLVED (`collection/orchestrator.py` uses encoded URL path)
@@ -70,10 +73,10 @@ RESOLVED in C061:
 RESOLVED/ADVANCED in C062:
 - Wave 9 pricing stub: STARTED (S6.1 price distribution + S6.2 new seller pricing implemented)
 
-STILL OPEN for C063:
+STILL OPEN for C064:
 - RSV band: still SEED (per E C062 report; dry-run path, live run still needs TierD-2 approval)
 - LLM toggles: `llm_relevance_enabled=false` by design
-- Wave 9 remainder: S6.3 pricing LLM task, S6.4 price ladder tracker, S6.5 revenue gate
+- Wave 9 remainder: S6.4 price ladder tracker, S6.5 revenue gate, S6.8 pricing export
 - Wave 10-12: unstarted
 
 ## OPEN TIER-D ITEMS
@@ -86,11 +89,11 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## C063 PREVIEW
-- Wave 9 Phase 2: 9C Pricing LLM Task (`src/pricing/llm_task.py`) + 9D Dashboard Pricing Widgets
-- OR Wave 10 start if Wave 9 Phase 2 deferred
-- Continue stale Jira governance cleanup (`SCRUM-106` through `SCRUM-124`)
-- G-A: close fully if A C062 artifact expansion is deemed sufficient
+## C064 PREVIEW
+- Wave 9 Phase 3 candidate: 9E price ladder tracker (`src/pricing/ladder_tracker.py`) + 9F revenue gate tracker.
+- Alternative candidate: Wave 10 Discovery start if Wave 9 Phase 3 is deferred.
+- Continue stale Jira governance cleanup (SCRUM-116 onwards, ~10 per cycle).
+- RSV remains SEED until TierD-2 ScrapFly budget approval unlocks live collection mode.
 
 ## GOLDEN ANCHORS (READ-ONLY FOREVER)
 kw=110: 62.7 / 1.0 / CONDITIONAL_GO | kw=96: 35.8 | kw=3: 56.66
@@ -100,7 +103,14 @@ data/cycle037_live.db NEVER EDITED
 Tier-0: DONE | Tier-1: DONE | Tier-2: DONE | Tier-3: DONE | Tier-4: DONE
 SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
 ## POST-SRDI: C061 → Collection Hardening (Wave M) — COMPLETE
-POST-SRDI: C062 → Wave 9 Pricing Engine (Wave N) — COMPLETE
+POST-SRDI: C062 → Wave 9 Pricing Engine Phase 1 (9A+9B) — COMPLETE
+POST-SRDI: C063 → Wave 9 Pricing Engine Phase 2 (9C+9D) — COMPLETE
+
+## G-D WAVE STATUS (after C063)
+G-D: Waves 0-8 complete. Wave 9 Phase 1 (9A+9B, C062) complete. Wave 9 Phase 2 (9C+9D, C063) complete.
+Wave 9 remaining: 9E price ladder tracker + 9F revenue gate tracker + 9G pricing export.
+Waves 10-12 (Discovery, Playbook, Dashboard UX): unstarted.
+G-D closes only after all 12 waves have verified implementation in `src/`.
 
 ## TOGGLES
 analysis.external_signals_enabled: true (enabled in C061 post-TC-1 close) | relevance.llm_relevance_enabled: false
