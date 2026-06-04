@@ -189,6 +189,7 @@ Spec states pricing is task 12.
 
 Observed in code:
 
+- Spec confirmation file: `PM_Pack/ref/project_plan/09_pricing/PRICING_RECOMMENDATIONS_LLM.md` documents `Task Number | 12`.
 - Legacy docstring in `src/recommendations/executor.py` still says "11 recommendation LLM tasks" (stale wording).
 - Active gather list in `src/recommendations/tasks.py` runs 12 tasks and places `pricing_llm_task(...)` after `generate_niche_viability(...)`, i.e., as task 12.
 
@@ -285,7 +286,7 @@ Post-C063 expected additions:
 - [x] Regression subsets PASS
 - [x] Baseline DB UNTOUCHED
 - [x] Prohibited-pattern scan clean
-- [x] E commit SHA captured: `c644fee4e8aaf9f4f30bbd8490e606c26dcd2c8b`
+- [x] E commit SHA captured: `21cd3d4f3fcbb2a3865e9d9f0884001c0596a150`
 
 ## Task 18/31/19 - Zone Verification and Commit Evidence
 
@@ -298,4 +299,4 @@ Post-C063 expected additions:
   - `origin cycle/063/integration`
 - Post-commit verification:
   - `git show --name-only <E_SHA>` must list only `docs/cycle_reports/CYCLE_063_AGENT_E.md`
-  - Verified commit SHA: `c644fee4e8aaf9f4f30bbd8490e606c26dcd2c8b`
+  - Verified commit SHA: `21cd3d4f3fcbb2a3865e9d9f0884001c0596a150`
