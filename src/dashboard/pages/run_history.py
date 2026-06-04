@@ -1,11 +1,15 @@
 """Page 5: Run History (Story 9.7)."""
 from __future__ import annotations
 
+from typing import Any
+
+from sqlalchemy.orm import Session
+
 from src.dashboard.db_helpers import get_db_session
 from src.dashboard.run_history import build_run_history_payload
 
 
-def render_revenue_projection(keyword_id: int, db: object) -> None:
+def render_revenue_projection(keyword_id: int, db: Session) -> None:
     """Render projected monthly revenue for pricing ladder milestones."""
     import json
 
@@ -33,10 +37,11 @@ def render_revenue_projection(keyword_id: int, db: object) -> None:
     for step in ladder:
         if not isinstance(step, dict):
             continue
-        milestone = step.get("milestone_reviews", step.get("milestone", 0))
+        milestone_raw: Any = step.get("milestone_reviews", step.get("milestone", 0))
+        milestone = int(milestone_raw or 0)
         basic_price = float(step.get("basic", 0) or 0)
         revenue = basic_price * monthly_orders
-        st.write(f"At {int(milestone)} reviews: ${basic_price:.0f}/gig -> ${revenue:.0f}/mo")
+        st.write(f"At {milestone} reviews: ${basic_price:.0f}/gig -> ${revenue:.0f}/mo")
 
 
 def render_run_history_page() -> None:

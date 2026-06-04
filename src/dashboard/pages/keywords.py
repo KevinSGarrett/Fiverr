@@ -1,11 +1,13 @@
 """Page 2: Keywords (Story 9.4)."""
 from __future__ import annotations
 
+from sqlalchemy.orm import Session
+
 from src.dashboard.db_helpers import get_db_session
 from src.dashboard.keywords import build_keywords_payload
 
 
-def get_pricing_summary_for_keyword(keyword_id: int, db: object) -> dict[str, float | None]:
+def get_pricing_summary_for_keyword(keyword_id: int, db: Session) -> dict[str, float | str | None]:
     """Return median tier pricing summary for a keyword."""
     from src.models.price_analysis import PriceAnalysis
 
@@ -20,10 +22,10 @@ def get_pricing_summary_for_keyword(keyword_id: int, db: object) -> dict[str, fl
     }
 
 
-def render_price_heatmap(niche_id: str, db: object) -> None:
+def render_price_heatmap(niche_id: str, db: Session) -> None:
     """Render cross-keyword pricing heatmap for basic/standard/premium medians."""
-    import pandas as pd
-    import plotly.graph_objects as go
+    import pandas as pd  # type: ignore[import-untyped]
+    import plotly.graph_objects as go  # type: ignore[import-untyped]
     import streamlit as st
 
     from src.models import Keyword

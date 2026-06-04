@@ -1,10 +1,12 @@
 """Page 4: Recommendations (Story 9.6)."""
 from __future__ import annotations
 
+from sqlalchemy.orm import Session
+
 from src.dashboard.db_helpers import get_db_session
 
 
-def render_pricing_strategy_card(keyword_id: int, recommendation: object, db: object) -> None:
+def render_pricing_strategy_card(keyword_id: int, recommendation: object, db: Session) -> None:
     """Render pricing summary and LLM narrative for a recommendation keyword."""
     import streamlit as st
 
