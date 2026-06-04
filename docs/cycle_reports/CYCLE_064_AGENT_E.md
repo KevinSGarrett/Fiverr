@@ -210,4 +210,3 @@ S6.8 pricing export remains a C065+ candidate.
 - E commit SHA: `14a694e`
 - Verification: `git show --name-only 14a694e` shows only:
   - `docs/cycle_reports/CYCLE_064_AGENT_E.md`
-
