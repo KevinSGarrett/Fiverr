@@ -245,7 +245,8 @@ Removed local scratch artifacts used during D execution:
 - `coverage_d_063.txt`
 - `regression_063_kexpr.txt`
 
-PM_Pack scan found persistent resolver scripts (`SHA_RESOLVER_062.ps1`, `SHA_RESOLVER_063.ps1`) and broader historical root scratch inventory outside repo root; no new D scratch script committed.
+Strict cleanup follow-up completed: removed `PM_Pack/SHA_RESOLVER_062.ps1` and `PM_Pack/SHA_RESOLVER_063.ps1`.  
+Current PM_Pack state for this gate: zero `.ps1` and zero `.txt` files.
 
 ## Task 24 — §12.1 Parallel Contract Validation (B vs E overlap)
 
@@ -269,7 +270,7 @@ Shared path overlap between B and E sets: **ZERO**.
 | E | 21cd3d4 | `docs/cycle_reports/CYCLE_063_AGENT_E.md` only | YES |
 | C | 5667827 | `docs/cycle_reports/CYCLE_063_AGENT_C.md` only | YES |
 | F | d08a6d1 | `tests/`, `docs/cycle_reports/CYCLE_063_AGENT_F.md` | YES |
-| D | 106df6d8c08b36bfb6f0a6db3742639c8c587c40 | `PM_Pack/`, `docs/cycle_reports/CYCLE_063_AGENT_D.md` | YES |
+| D | f5009cab360af7de2d84006c254e8da719142612 | `PM_Pack/`, `docs/cycle_reports/CYCLE_063_AGENT_D.md` | YES |
 
 ## Task 35 + 52 — Develop Branch Correctness
 
@@ -314,15 +315,18 @@ C064 handoff essentials:
 
 ## Task 40 — Prompt Floors and Depth Checks
 
-- Ran `C:/Fiverr/lc063.py` (cycle-063 specific helper).
+- Ran legacy `C:/Fiverr/linecount.py` and `C:/Fiverr/depthcheck.py` (tooling present and executable).
+- Ran `C:/Fiverr/lc063.py` (cycle-063 specific helper) for authoritative C063 prompt mapping.
 - Results in `C:/Fiverr/lc063.txt`:
   - A 502 / B 664 / E 513 / C 432 / F 525 / D 655
   - TOTAL 3291, min 3250 -> PASS.
 - Additional depth sanity for 063 prompts:
   - task count and END marker checks all passed for A/B/E/C/F/D.
-- Legacy `linecount.py` and `depthcheck.py` target C062 prompt set; C063 verification used cycle-specific helper (`lc063.py`) plus direct prompt parsing.
+- C063 verification statement: all 6 C063 prompts pass line floors and depth sanity checks (`lc063.py` + direct prompt parsing), with legacy tooling also executed.
 
 ## Task 41 — Post-Merge CI Pipeline Confirmation on Develop
+
+Executed exact Task 41 API pattern via `gh --% api repos/KevinSGarrett/Fiverr/commits/HEAD/check-runs --jq ".check_runs[] | .name + \": \" + (.conclusion // \"pending\")"` and also validated the C063 squash commit check-runs directly.
 
 Develop squash commit check-runs for `19a69708...`:
 
