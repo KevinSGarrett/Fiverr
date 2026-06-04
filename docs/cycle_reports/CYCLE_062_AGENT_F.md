@@ -37,6 +37,14 @@ From pre-uplift run (`--cov=src/dashboard/pages`):
 - `discovery.py`: **76%**
 - `playbook.py`: **83%**
 
+Prompt-provided C061 baseline reference (as provided in Agent F prompt text):
+
+- `opportunities.py`: **52%** (prompt baseline reference)
+- `keywords.py`: **57%**
+- `recommendations.py`: **50%**
+- `run_history.py`: **47%**
+- `llm_costs.py`: **50%**
+
 ## Post-F Coverage (After F)
 
 From post-uplift run (`--cov=src/dashboard/pages`):
@@ -99,6 +107,13 @@ From `--cov=src/pricing` run:
 - Full suite gate:
   - `pytest -q --cov=src --cov-fail-under=90 --no-header tests/unit/`
   - Result: **4122 passed**, coverage **94.64%**, gate satisfied.
+- Exact prompt pipeline variants rerun:
+  - Task 1 filtered command rerun via `Select-String`: captured all page rows.
+  - Task 5 filtered command rerun via `Select-String`: targeted 4-page uplift rows captured.
+  - Task 6 rerun via `Select-Object -Last 5`: captured `"Required test coverage of 90% reached."`
+  - Task 17 rerun via `Select-Object -Last 8`: captured total coverage + total test count.
+  - Task 21 rerun via `Select-String "pricing|analysis|new_seller|TOTAL"`: pricing rows confirmed >=80%.
+  - Task 22 rerun via `Select-Object -Last 5`: isolated uplift file remains green.
 
 ## Count/Delta Record
 
@@ -120,4 +135,44 @@ From `--cov=src/pricing` run:
 ## Zone Check and Commit Record
 
 - Staged zone check before commit: **PASS** (only `tests/` and this report).
-- F commit SHA: **82d50b0**
+- F commit SHA(s):
+  - **82d50b0** (`tests/` + initial F report)
+  - **56f3f24** (F report evidence update only)
+- Per-commit file-zone verification:
+  - `git show --name-only 82d50b0`: only `tests/` and `docs/cycle_reports/CYCLE_062_AGENT_F.md`
+  - `git show --name-only 56f3f24`: only `docs/cycle_reports/CYCLE_062_AGENT_F.md`
+
+## Task-by-Task Completion Matrix (0-31)
+
+- Task 0: **Complete** (pull/log/branch + C GO verified)
+- Task 1: **Complete** (exact filtered coverage command rerun and recorded)
+- Task 2: **Complete** (target page files read; missing lines identified)
+- Task 3: **Complete** (`tests/unit/test_dashboard_coverage_uplift.py` created and passing)
+- Task 4: **Complete** (`src/pricing/*` coverage run; all files >=80%)
+- Task 5: **Complete** (exact filtered post-uplift page coverage command rerun)
+- Task 6: **Complete** (full suite + 90% gate confirmed)
+- Task 7: **Complete** (commit range + per-F-SHA file checks)
+- Task 8: **Complete** (F work committed and pushed)
+- Task 9: **Complete** (Gate 23 values extracted and used for priorities)
+- Task 10: **Complete** (run history data+empty+error coverage tests added)
+- Task 11: **Complete** (llm_costs data+empty+aggregation coverage tests added)
+- Task 12: **Complete** (recommendations data+empty+decision-path tests added)
+- Task 13: **Complete** (opportunities with-data path tests added)
+- Task 14: **Complete** (`tests/unit/conftest_dashboard.py` shared fixtures added)
+- Task 15: **Complete** (keywords with-data coverage tests added)
+- Task 16: **Complete** (condition not met; no pricing file below 80%)
+- Task 17: **Complete** (full-suite regression check rerun with before/after record)
+- Task 18: **Complete** (prompt regression selector pack passes)
+- Task 19: **Complete** (collect-only duplicate/conflict scan clean)
+- Task 20: **Complete** (import-pattern scan run; no external API imports in F additions)
+- Task 21: **Complete** (pricing coverage filtered report rerun and recorded)
+- Task 22: **Complete** (F uplift file isolation run passes)
+- Task 23: **Complete** (staged-zone check command verified)
+- Task 24: **Complete** (before/after coverage table filled with measured values)
+- Task 25: **Complete** (final F commit flow executed and pushed)
+- Task 26: **Complete** (opportunities pricing-path forward-compatible test present)
+- Task 27: **Complete** (`seeded_db_with_scores` and `seeded_db_with_prices` fixtures implemented)
+- Task 28: **Complete** (9-niche parameterized tests included and counted)
+- Task 29: **Complete** (file placement check confirms `tests/unit/`)
+- Task 30: **Complete** (forward-compatible alert tests added)
+- Task 31: **Complete** (uplift file count/line count command executed and recorded)
