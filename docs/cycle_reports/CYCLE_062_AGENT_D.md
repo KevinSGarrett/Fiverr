@@ -434,7 +434,7 @@ Status: **PASS**
 | E | `2a5cde15054ad80356cbfd4f8b0fb96001722fee` | `docs/CYCLE_062_AGENT_E.md` only | YES |
 | C | `9fa98556b7ac82f9f7d7a1ea1ffc41849531718c` | `docs/CYCLE_062_AGENT_C.md` | YES |
 | F | `82d50b0a600906ad48902b11d280050dacc54755` | `tests/`, `docs/CYCLE_062_AGENT_F.md` | YES |
-| D | `TBD_GOV_SHA` | `PM_Pack/`, `docs/CYCLE_062_AGENT_D.md` | YES |
+| D | `86f0102cfca05110f68c92e5a765b4b32ab1f4ad` | `PM_Pack/`, `docs/CYCLE_062_AGENT_D.md` | YES |
 
 ---
 
@@ -540,4 +540,5 @@ SCRATCH:
 
 **D COMPLETE — C062 closed and handed off to C063.**
 
-Remaining work for this file: replace `TBD_GOV_SHA` with D governance commit SHA after final docs commit and push.
+D governance SHA: `86f0102cfca05110f68c92e5a765b4b32ab1f4ad`  
+D report update SHA: pending final sync commit (this commit).
