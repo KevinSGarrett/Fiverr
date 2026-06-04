@@ -2,7 +2,7 @@
 Tests added: 80 new tests across 3 files.
 Coverage changes: [table from Task 14].
 Full suite: 4202 passed, 94.51% coverage (>=90% PASS).
-F commit SHA: PENDING_COMMIT.
+F commit SHA: c2af2ea.
 
 ## Preflight
 
@@ -123,10 +123,12 @@ F commit SHA: PENDING_COMMIT.
 ## Zone and Commit Verification
 
 - Zone rule enforced during edits: only `tests/` and this F report touched.
-- Pending after commit:
-  - record F commit SHA
-  - run merge-base/log show-name-only zone verification
-  - confirm staged set includes only `tests/*` and `docs/cycle_reports/CYCLE_063_AGENT_F.md`
+- `git show --name-only c2af2ea`:
+  - `docs/cycle_reports/CYCLE_063_AGENT_F.md`
+  - `tests/unit/conftest.py`
+  - `tests/unit/test_dashboard_pricing_widgets.py`
+  - `tests/unit/test_pricing_llm_task.py`
+- Zone result: PASS (no `src/` touched by F commit).
 
 ## Task 20 Checklist
 
@@ -139,5 +141,5 @@ F commit SHA: PENDING_COMMIT.
 - [x] Widget tests: count per class
 - [x] Full suite: >=90%, pass count
 - [x] Regression smoke: 4 named PASS
-- [ ] Zone check: F commits = tests/ + F.md only (finalize after commit)
-- [ ] F commit SHA (finalize after commit)
+- [x] Zone check: F commits = tests/ + F.md only
+- [x] F commit SHA
