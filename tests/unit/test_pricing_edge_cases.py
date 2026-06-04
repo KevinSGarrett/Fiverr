@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-
 from src.pricing.analysis import (
     PriceDistribution,
     detect_price_clusters,

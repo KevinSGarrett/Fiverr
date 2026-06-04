@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -12,7 +12,14 @@ from scipy.signal import find_peaks
 from scipy.stats import gaussian_kde
 from sqlalchemy.orm import Session
 
-from src.models import Gig, Keyword, Niche, NichePriceAnalysis, PriceAnalysis, PricingSnapshot, get_gigs_for_keyword
+from src.models import (
+    Keyword,
+    Niche,
+    NichePriceAnalysis,
+    PriceAnalysis,
+    PricingSnapshot,
+    get_gigs_for_keyword,
+)
 
 
 @dataclass
@@ -396,7 +403,6 @@ def persist_keyword_pricing(keyword_id: int, run_id: str, db: Any) -> tuple[Pric
     distributions = analyze_price_distribution(keyword_id, db)
     if "basic" not in distributions:
         return None, None
-    keyword = db.query(Keyword).filter(Keyword.id == keyword_id).first() if isinstance(db, Session) else None
     niche_id = _resolve_keyword_niche_id(keyword_id, db)
     corr = calculate_price_review_correlation(keyword_id, db)
     dispersion = analyze_price_dispersion(distributions["basic"])

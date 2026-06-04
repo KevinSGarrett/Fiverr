@@ -2,6 +2,8 @@
 
 from src.pricing.analysis import (
     PriceDistribution as AnalysisPriceDistribution,
+)
+from src.pricing.analysis import (
     analyze_niche_pricing,
     analyze_price_dispersion,
     analyze_price_distribution,
@@ -16,7 +18,12 @@ from src.pricing.contracts import (
     PricingOutput,
 )
 from src.pricing.new_seller_pricing import PricingRecommendation, calculate_new_seller_pricing
-from src.pricing.orchestrator import PricingOrchestrator, run_pricing_stage, run_stage_10_5, run_stage_10_5_for_niche
+from src.pricing.orchestrator import (
+    PricingOrchestrator,
+    run_pricing_stage,
+    run_stage_10_5,
+    run_stage_10_5_for_niche,
+)
 
 __all__ = [
     "PriceDistribution",

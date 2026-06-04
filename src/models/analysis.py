@@ -8,7 +8,6 @@ from sqlalchemy import JSON, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models.base import Base, IntegerPrimaryKeyMixin, SoftStatusMixin, TimestampMixin
-from src.models.price_analysis import PricingSnapshot
 
 
 class AnalysisRun(IntegerPrimaryKeyMixin, TimestampMixin, SoftStatusMixin, Base):

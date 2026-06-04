@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-
 from src.models import Base, Gig, Keyword, Niche
 from src.pricing.analysis import (
     PriceDistribution,
@@ -22,8 +21,8 @@ from src.pricing.analysis import (
     calculate_price_review_correlation,
     detect_price_clusters,
     detect_price_gaps,
-    extract_raw_price_data_from_db,
     extract_extras_pricing,
+    extract_raw_price_data_from_db,
     extract_tier_prices,
     get_keywords_for_niche,
     get_niche_name,
