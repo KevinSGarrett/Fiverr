@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from src.pricing.llm_task import (
     PRICING_MODEL,
@@ -326,3 +329,129 @@ def test_log_llm_usage_rolls_back_on_flush_error(monkeypatch: Any) -> None:
         )
     )
     assert session.rolled_back is True
+
+
+def test_returns_none_on_empty_price_distribution_only() -> None:
+    context = _context()
+    context.price_distribution = {}
+    context.calculated_entry_prices = {"basic": 70, "standard": 140, "premium": 260}
+    result = asyncio.run(pricing_llm_task(1, context, db=None, client=_chat_client()))
+    assert result is None
+
+
+def test_returns_none_on_timeout_error() -> None:
+    client = _chat_client()
+    client.chat.completions.create.side_effect = TimeoutError("timed out")
+    result = asyncio.run(pricing_llm_task(1, _context(), db=None, client=client))
+    assert result is None
+
+
+def test_returns_none_on_api_error() -> None:
+    client = _chat_client()
+    client.chat.completions.create.side_effect = ValueError("api error")
+    result = asyncio.run(pricing_llm_task(1, _context(), db=None, client=client))
+    assert result is None
+
+
+def test_cache_key_uses_price_distribution_sha256(monkeypatch: Any) -> None:
+    observed: dict[str, Any] = {}
+
+    async def _capture_cache(_client: Any, cache_key: str, *, db: Any) -> str | None:
+        del _client, db
+        observed["key"] = cache_key
+        return None
+
+    monkeypatch.setattr("src.pricing.llm_task.check_cache", _capture_cache)
+    _ = asyncio.run(pricing_llm_task(1, _context(), db=None, client=_chat_client("ok")))
+    key = observed["key"]
+    expected_dist_hash = hashlib.sha256(repr(_context().price_distribution).encode("utf-8")).hexdigest()[:12]
+    assert expected_dist_hash in key
+
+
+def test_log_llm_usage_model_name_is_gpt_4o(monkeypatch: Any) -> None:
+    observed: dict[str, Any] = {}
+
+    async def _capture_log(
+        keyword_id: int,
+        model_name: str,
+        usage: Any,
+        task_type: str,
+        db: Any,
+        request_hash: str,
+    ) -> None:
+        del keyword_id, usage, task_type, db, request_hash
+        observed["model"] = model_name
+
+    monkeypatch.setattr("src.pricing.llm_task.log_llm_usage", _capture_log)
+    _ = asyncio.run(pricing_llm_task(1, _context(), db=None, client=_chat_client("ok")))
+    assert observed["model"] == "gpt-4o"
+
+
+def test_build_pricing_prompt_handles_zero_prices() -> None:
+    context = _context()
+    context.price_distribution = {"basic": {"median": 0, "q1": 0, "q3": 0}}
+    context.calculated_entry_prices = {"basic": 0, "standard": 0, "premium": 0}
+    prompt = build_pricing_prompt(context)
+    assert "Median: $0" in prompt
+    assert "Basic $0" in prompt
+
+
+@pytest.mark.parametrize(
+    ("market_type", "expected_undercut_range"),
+    [
+        ("COMMODITY", (0.05, 0.15)),
+        ("MODERATE_SPREAD", (0.15, 0.25)),
+        ("WIDE_SPREAD", (0.25, 0.40)),
+        ("FRAGMENTED", (0.20, 0.40)),
+    ],
+)
+def test_pricing_prompt_includes_market_type(
+    market_type: str,
+    expected_undercut_range: tuple[float, float],
+) -> None:
+    del expected_undercut_range
+    context = RecommendationContext(
+        keyword_text="test keyword",
+        market_type=market_type,
+        price_distribution={"basic": {"median": 100, "q1": 75, "q3": 125}},
+        calculated_entry_prices={"basic": 65, "standard": 145, "premium": 280},
+    )
+    prompt = build_pricing_prompt(context)
+    assert market_type in prompt
+
+
+def test_build_context_populates_price_distribution(seeded_price_db: Any) -> None:
+    from sqlalchemy.orm import Session
+
+    with Session(seeded_price_db) as session:
+        context = build_context(1, session)
+        assert context.price_distribution is not None
+        assert "basic" in context.price_distribution
+
+
+def test_build_context_price_fields_none_when_no_analysis(empty_db: Any) -> None:
+    from sqlalchemy.orm import Session
+
+    with Session(empty_db) as session:
+        context = build_context(999, session)
+        assert context.price_distribution is None
+        assert context.market_type is None
+        assert context.calculated_entry_prices is None
+
+
+def test_recommendation_stores_none_pricing_strategy_without_error(seeded_snapshot_db: Any) -> None:
+    from sqlalchemy.orm import Session
+
+    from src.models import Recommendation
+
+    with Session(seeded_snapshot_db) as session:
+        recommendation = Recommendation(
+            keyword_id=1,
+            niche_id="test_niche",
+            recommendation_type="pricing_strategy",
+            recommendation_text="Generated strategy placeholder",
+            raw_json={"pricing_strategy": None},
+        )
+        session.add(recommendation)
+        session.commit()
+        assert recommendation.id is not None

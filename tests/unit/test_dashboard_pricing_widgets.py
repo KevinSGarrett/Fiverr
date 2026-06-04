@@ -287,3 +287,134 @@ def test_get_pricing_summary_returns_none_shape() -> None:
     db = _FakeDb({PriceAnalysis: []})
     result = get_pricing_summary_for_keyword(1, db)
     assert result == {"basic": None, "standard": None, "premium": None}
+
+
+def test_get_pricing_summary_returns_none_when_no_analysis(empty_db: object) -> None:
+    from sqlalchemy.orm import Session
+
+    result = get_pricing_summary_for_keyword(999, Session(empty_db))
+    assert result["basic"] is None
+    assert result["standard"] is None
+    assert result["premium"] is None
+
+
+def test_get_pricing_summary_returns_medians(seeded_price_db: object) -> None:
+    from sqlalchemy.orm import Session
+
+    result = get_pricing_summary_for_keyword(1, Session(seeded_price_db))
+    assert result["basic"] == 95.0
+    assert result["market_type"] == "WIDE_SPREAD"
+
+
+@pytest.mark.parametrize(
+    "niche_id",
+    [
+        "prd_ai_saas",
+        "support_kb_readiness",
+        "gumloop_lindy_workflow",
+        "mcp_ai_agent",
+        "python_automation",
+        "ai_tool_llm_integration",
+        "ai_agent_development",
+        "workflow_automation",
+        "python_web_scraping",
+    ],
+)
+def test_price_heatmap_all_niches_no_crash(
+    niche_id: str,
+    empty_db: object,
+    fake_st: SimpleNamespace,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    render_price_heatmap(niche_id, Session(empty_db))
+    assert fake_st.info.called
+
+
+def test_histogram_uses_plotly_figure(seeded_price_db: object, fake_st: SimpleNamespace) -> None:
+    from sqlalchemy.orm import Session
+
+    import plotly.graph_objects as go
+
+    render_price_distribution_chart(1, Session(seeded_price_db))
+    assert fake_st.plotly_chart.called
+    fig = fake_st.plotly_chart.call_args.args[0]
+    assert isinstance(fig, go.Figure)
+
+
+def test_renders_gracefully_when_analysis_exists_but_no_gigs(
+    seeded_analysis_no_gigs: object,
+    fake_st: SimpleNamespace,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    render_price_distribution_chart(1, Session(seeded_analysis_no_gigs))
+    assert fake_st.caption.called
+
+
+def test_pricing_strategy_card_metrics_count_with_snapshot(
+    seeded_snapshot_db: object,
+    fake_st: SimpleNamespace,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    render_pricing_strategy_card(1, recommendation=None, db=Session(seeded_snapshot_db))
+    columns = fake_st.columns.return_value
+    metric_calls = sum(getattr(col, "metric").call_count for col in columns)
+    assert metric_calls >= 3
+
+
+def test_pricing_strategy_card_writes_narrative_text(
+    seeded_snapshot_db: object,
+    fake_st: SimpleNamespace,
+    mock_recommendation: SimpleNamespace,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    mock_recommendation.pricing_strategy = "Test pricing strategy text."
+    render_pricing_strategy_card(1, recommendation=mock_recommendation, db=Session(seeded_snapshot_db))
+    assert any("Test pricing strategy text." in str(call.args) for call in fake_st.write.call_args_list)
+
+
+def test_price_heatmap_truncates_long_keyword_names(
+    seeded_long_name_db: object,
+    fake_st: SimpleNamespace,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    render_price_heatmap(1, Session(seeded_long_name_db))
+    assert fake_st.plotly_chart.called
+    figure = fake_st.plotly_chart.call_args.args[0]
+    labels = getattr(figure.data[0], "y", []) if figure.data else []
+    assert all(len(str(label)) <= 30 for label in labels)
+
+
+@pytest.mark.parametrize(
+    ("milestone", "expected_position"),
+    [(5, 0), (10, 1), (25, 2), (50, 3), (100, 4)],
+)
+def test_revenue_projection_milestone_ordering(
+    milestone: int,
+    expected_position: int,
+    seeded_snapshot_db: object,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    from src.models.price_analysis import PricingSnapshot
+
+    with Session(seeded_snapshot_db) as session:
+        snapshot = session.query(PricingSnapshot).first()
+        assert snapshot is not None
+        ladder = snapshot.price_ladder
+        assert isinstance(ladder, list)
+        assert ladder[expected_position]["milestone"] == milestone
+
+
+def test_revenue_projection_handles_json_ladder_string(
+    seeded_snapshot_json_db: object,
+    fake_st: SimpleNamespace,
+) -> None:
+    from sqlalchemy.orm import Session
+
+    render_revenue_projection(1, Session(seeded_snapshot_json_db))
+    assert fake_st.write.call_count == 5
