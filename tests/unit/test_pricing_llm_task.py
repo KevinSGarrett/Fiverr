@@ -445,13 +445,17 @@ def test_recommendation_stores_none_pricing_strategy_without_error(seeded_snapsh
     from src.models import Recommendation
 
     with Session(seeded_snapshot_db) as session:
-        recommendation = Recommendation(
-            keyword_id=1,
-            niche_id="test_niche",
-            recommendation_type="pricing_strategy",
-            recommendation_text="Generated strategy placeholder",
-            raw_json={"pricing_strategy": None},
-        )
+        try:
+            recommendation = Recommendation(keyword_id=1, pricing_strategy=None)
+        except TypeError:
+            # Model currently stores task outputs in raw_json, not a top-level pricing_strategy column.
+            recommendation = Recommendation(
+                keyword_id=1,
+                niche_id="test_niche",
+                recommendation_type="pricing_strategy",
+                recommendation_text="Generated strategy placeholder",
+                raw_json={"pricing_strategy": None},
+            )
         session.add(recommendation)
         session.commit()
         assert recommendation.id is not None

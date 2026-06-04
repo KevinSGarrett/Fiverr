@@ -1,7 +1,7 @@
 # F COMPLETE — Zone: ZERO src/ files in F commits.
-Tests added: 80 new tests across 3 files.
+Tests added: 81 new tests across 2 files.
 Coverage changes: [table from Task 14].
-Full suite: 4202 passed, 94.51% coverage (>=90% PASS).
+Full suite: 4203 passed, 94.51% coverage (≥90% PASS).
 F commit SHA: c2af2ea.
 
 ## Preflight
@@ -39,12 +39,23 @@ F commit SHA: c2af2ea.
 
 | File | Before F | After F | Delta | Target met? |
 |------|----------|---------|-------|-------------|
-| src/pricing/llm_task.py | 97% | 97% | +0% | >=80% PASS |
-| src/dashboard/pages/opportunities.py | 95% | 95% | +0% | >=70% PASS |
-| src/dashboard/pages/keywords.py | 93% | 95% | +2% | >=70% PASS |
-| src/dashboard/pages/recommendations.py | 80% | 80% | +0% | >=70% PASS |
-| src/dashboard/pages/run_history.py | 83% | 83% | +0% | >=70% PASS |
-| TOTAL (all src) | 94.50% | 94.51% | +0.01% | >=90% PASS |
+| src/pricing/llm_task.py | 97% | 97% | +0% | ≥80% PASS |
+| src/dashboard/pages/opportunities.py | 95% | 95% | +0% | ≥70% PASS |
+| src/dashboard/pages/keywords.py | 93% | 95% | +2% | ≥70% PASS |
+| src/dashboard/pages/recommendations.py | 80% | 80% | +0% | ≥70% PASS |
+| src/dashboard/pages/run_history.py | 83% | 83% | +0% | ≥70% PASS |
+| TOTAL (all src) | 94.50% | 94.51% | +0.01% | ≥90% PASS |
+
+## Final Coverage Table (Task 31 format)
+
+| File | Before F | After F | Delta | Status |
+|------|----------|---------|-------|--------|
+| src/pricing/llm_task.py | 97% | 97% | +0% | ≥80% PASS |
+| src/dashboard/pages/opportunities.py | 95% | 95% | +0% | ≥70% PASS |
+| src/dashboard/pages/keywords.py | 93% | 95% | +2% | ≥70% PASS |
+| src/dashboard/pages/recommendations.py | 80% | 80% | +0% | ≥70% PASS |
+| src/dashboard/pages/run_history.py | 83% | 83% | +0% | ≥70% PASS |
+| Total (src) | 94.50% | 94.51% | +0.01% | ≥90% PASS |
 
 ## Fixtures Added
 
@@ -70,6 +81,7 @@ F commit SHA: c2af2ea.
     - revenue ladder ordering (5/10/25/50/100) parameterized coverage
     - json-string ladder handling
     - pricing summary medians + market type + no-analysis result shape
+    - explicit `get_pricing_summary_market_type_included` assertion
 - File: `tests/unit/test_pricing_llm_task.py`
   - Added edge cases for:
     - empty price distribution only -> None
@@ -95,7 +107,7 @@ F commit SHA: c2af2ea.
 ## Verification Runs
 
 - Isolated new tests:
-  - `80 passed in 3.00s` for
+  - `81 passed in 2.88s` for
     - `tests/unit/test_dashboard_pricing_widgets.py`
     - `tests/unit/test_pricing_llm_task.py`
 - Regression smoke (required 4 names):
@@ -105,20 +117,38 @@ F commit SHA: c2af2ea.
   - `test_dashboard_opportunities_renders_empty_db_gracefully`: PASS
 - Command result: `8 passed, 4194 deselected`.
 - Full suite:
-  - `4202 passed, 2 warnings`
+  - `4203 passed, 2 warnings`
   - `Required test coverage of 90% reached. Total coverage: 94.51%`
 
 ## Collection and Duplication Checks
 
 - `pytest --collect-only -q tests/unit/` succeeded.
-- `4202 tests collected`.
-- No `ERROR collecting`, `PytestCollectionWarning`, or duplicate-collection warning lines.
+- `4203 tests collected`.
+- Exact Task 13 command output matched test names containing `warning`/`duplicate` substrings.
+- Verification of actual collection health (`ERROR collecting|PytestCollectionWarning|WARNING:`) returned no lines.
+
+## Task 24 Redundancy Review
+
+- Existing B-era `test_pricing_llm_task.py` tests were reviewed before additions.
+- Added tests focused on uncovered edge cases only (timeout/api errors, empty dict-only path, SHA256 key path, parameterized market-type prompt, context-builder pricing fields, none-pricing-strategy persistence behavior).
+- No duplicate test function names introduced.
+
+## Task 29 Test Count Delta
+
+- Before F suite count: `4122`.
+- After F collect-only count: `4203 tests collected`.
+- Delta: `+81` tests.
+- Added across files:
+  - `tests/unit/test_dashboard_pricing_widgets.py`
+  - `tests/unit/test_pricing_llm_task.py`
 
 ## Test Location Check
 
-- Pricing test files are under `tests/unit/`:
-  - `tests/unit/test_pricing_llm_task.py`
-  - `tests/unit/test_dashboard_pricing_widgets.py`
+- Task 15 command intent verified:
+  - `.py` matches:
+    - `tests/unit/test_pricing_llm_task.py`
+    - `tests/unit/test_dashboard_pricing_widgets.py`
+  - no `tests/integration` matches for these files.
 
 ## Zone and Commit Verification
 
@@ -128,6 +158,8 @@ F commit SHA: c2af2ea.
   - `tests/unit/conftest.py`
   - `tests/unit/test_dashboard_pricing_widgets.py`
   - `tests/unit/test_pricing_llm_task.py`
+- `git show --name-only 38db258`:
+  - `docs/cycle_reports/CYCLE_063_AGENT_F.md`
 - Zone result: PASS (no `src/` touched by F commit).
 
 ## Task 20 Checklist
@@ -139,7 +171,7 @@ F commit SHA: c2af2ea.
 - [x] Fixtures added (list names)
 - [x] Edge case tests added to llm_task tests
 - [x] Widget tests: count per class
-- [x] Full suite: >=90%, pass count
+- [x] Full suite: ≥90%, pass count
 - [x] Regression smoke: 4 named PASS
 - [x] Zone check: F commits = tests/ + F.md only
 - [x] F commit SHA

@@ -306,6 +306,13 @@ def test_get_pricing_summary_returns_medians(seeded_price_db: object) -> None:
     assert result["market_type"] == "WIDE_SPREAD"
 
 
+def test_get_pricing_summary_market_type_included(seeded_price_db: object) -> None:
+    from sqlalchemy.orm import Session
+
+    result = get_pricing_summary_for_keyword(1, Session(seeded_price_db))
+    assert "market_type" in result
+
+
 @pytest.mark.parametrize(
     "niche_id",
     [
