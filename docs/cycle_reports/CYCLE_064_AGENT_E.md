@@ -207,7 +207,7 @@ S6.8 pricing export remains a C065+ candidate.
 
 - Pre-stage zone check: `git status --short` empty; staged area empty before add.
 - E commit was created with only this report file.
-- E commit SHA: `4de8295`
-- Verification: `git show --name-only 4de8295` shows only:
+- E commit SHA: `14a694e`
+- Verification: `git show --name-only 14a694e` shows only:
   - `docs/cycle_reports/CYCLE_064_AGENT_E.md`
 
