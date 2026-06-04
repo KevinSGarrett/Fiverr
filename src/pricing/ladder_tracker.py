@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
 LADDER_TOLERANCE = 0.15
 LADDER_MILESTONES = [5, 10, 25, 50, 100]
+
+if TYPE_CHECKING:
+    from src.models.price_ladder_snapshot import PriceLadderSnapshot
 
 
 def get_nearest_milestone(review_count: int) -> int:
@@ -59,7 +62,7 @@ def track_price_ladder(
     actual_premium: float,
     review_count: int,
     db: Session,
-):
+) -> PriceLadderSnapshot:
     """Create a ladder snapshot by comparing actual and recommended pricing."""
     from src.models.price_analysis import PricingSnapshot
     from src.models.price_ladder_snapshot import PriceLadderSnapshot

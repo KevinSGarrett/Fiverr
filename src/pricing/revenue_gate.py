@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy.orm import Session
 
 from src.pricing.ladder_tracker import get_recommended_prices_at_milestone
@@ -9,8 +11,13 @@ from src.pricing.ladder_tracker import get_recommended_prices_at_milestone
 REVENUE_GATE_MILESTONES = [5, 10, 25, 50, 100]
 MONTHLY_ORDERS_ESTIMATE = 4
 
+if TYPE_CHECKING:
+    from src.models.revenue_gate_record import RevenueGateRecord
 
-def check_revenue_gates(keyword_id: int, db: Session, actual_review_count: int = 0):
+
+def check_revenue_gates(
+    keyword_id: int, db: Session, actual_review_count: int = 0
+) -> list[RevenueGateRecord]:
     """Create revenue gate records for milestone checks."""
     from src.models.revenue_gate_record import RevenueGateRecord
 
