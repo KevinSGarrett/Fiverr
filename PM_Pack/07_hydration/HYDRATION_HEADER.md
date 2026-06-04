@@ -16,11 +16,13 @@ CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phase 2 done C063; Wave 9 Phase 3+ remains)
 
-## DEVELOP HEAD (current after C063 squash)
-develop HEAD: 19a69708de734d7d41991bedf8783f048f37fbdf (feat(pricing): C063 Wave 9 Phase 2 -- pricing LLM task + dashboard widgets)
+## DEVELOP HEAD (current after C063 squash + D finalization commits)
+develop HEAD: fec8d9d (chore(governance): record final D SHA in C063 report)
 C063 SQUASH SHA: 19a69708de734d7d41991bedf8783f048f37fbdf (PR #72)
+C063 POST-MERGE GOVERNANCE SHA: 106df6d8c08b36bfb6f0a6db3742639c8c587c40
+C063 D FINALIZATION SHA: fec8d9d
+C064 dev HEAD at start: fec8d9d
 C062 SQUASH SHA: de528f84def67b453cae8a1a2831808328a0633c (PR #71)
-C063 governance SHA: 106df6d8c08b36bfb6f0a6db3742639c8c587c40
 C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
@@ -80,7 +82,7 @@ STILL OPEN for C064:
 - Wave 10-12: unstarted
 
 ## OPEN TIER-D ITEMS
-TierD-1: 6 stale git stashes (cycle051/047/043/036/029/012) — confirm with user before dropping
+TierD-1: 12 stale git stashes (expanded from 6 — additional stashes accumulated across later cycles: cycle051/047/043/036/029/012 + 6 more) — confirm full list with user before dropping any
 TierD-2: ScrapFly credit budget for full live collection — confirm with user
 
 ## .ENV KEY INVENTORY (presence only)
@@ -90,10 +92,17 @@ DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
 ## C064 PREVIEW
-- Wave 9 Phase 3 candidate: 9E price ladder tracker (`src/pricing/ladder_tracker.py`) + 9F revenue gate tracker.
-- Alternative candidate: Wave 10 Discovery start if Wave 9 Phase 3 is deferred.
-- Continue stale Jira governance cleanup (SCRUM-116 onwards, ~10 per cycle).
-- RSV remains SEED until TierD-2 ScrapFly budget approval unlocks live collection mode.
+- Wave 9 Phase 3: 9E Price Ladder Tracker (`src/pricing/ladder_tracker.py`) + 9F Revenue Gate Tracker (`src/pricing/revenue_gate.py`) + add `task_type` column to `llm_usage_logs` (observability gap from C063)
+- Jira: SCRUM-1025 (control), SCRUM-1026 (story, parent SCRUM-21)
+- Also consider: pricing export (S6.8) if Phase 3 scope is light
+- Continue stale Jira governance cleanup (SCRUM-126 onwards, ~10 per cycle)
+- RSV remains SEED until TierD-2 ScrapFly budget approval unlocks live collection mode
+
+## C063 OBSERVABILITY GAPS (carry forward to C064)
+- `llm_usage_logs.task_type` column absent — pricing_strategy LLM calls not separately trackable
+- `recommendations.pricing_strategy` stored via JSON payload (not dedicated column) — E/D documented as advisory
+- `price_analyses` legacy table still exists alongside canonical `price_analysis` — advisory only
+- Stale docstring in `src/recommendations/executor.py` says "11 tasks" (actually 12 now)
 
 ## GOLDEN ANCHORS (READ-ONLY FOREVER)
 kw=110: 62.7 / 1.0 / CONDITIONAL_GO | kw=96: 35.8 | kw=3: 56.66
