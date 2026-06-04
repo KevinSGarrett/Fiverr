@@ -34,6 +34,8 @@ Wave 9 Phase 2 implementation for:
 - [x] Dashboard pages contain zero demo-data helper references
 - [x] Pricing import smoke check PASS
 - [x] Context builder pricing integration check executed
+- [x] Recommendation tabs/pattern check documented (`st.tabs` additive pattern)
+- [x] Keywords table pattern check documented (`st.dataframe` + row enrichment path)
 
 ## Verification Evidence
 
@@ -57,6 +59,21 @@ Wave 9 Phase 2 implementation for:
   - PASS; `RecommendationOutput(pricing_strategy=None)` accepted
 - Context integration probe on `foundation_gate_ci.db`:
   - Database currently has no keywords (`No keywords in DB`) in this environment
+
+## Pattern Verification Notes
+
+- Task 24 (`recommendations.py`):
+  - Existing page now uses additive tab pattern:
+  - `["Overview", "Pricing Strategy", "Details"]`
+- Task 27 (`keywords.py`):
+  - Table rendering path uses `st.dataframe(...)`.
+  - Pricing column is injected by iterating rows and enriching each row before dataframe render.
+
+## Preflight Note
+
+- Prompt preflight commands were executed (`pull`, recent `log`, branch, `config-check`).
+- Repository had one pre-existing unrelated modified file outside B scope (`PM_Pack/07_hydration/HYDRATION_HEADER.md`), which was intentionally left untouched per non-revert safety rules.
+- B scoped changes remained isolated to `src/`, `tests/`, and B report files.
 
 ## Files Added
 

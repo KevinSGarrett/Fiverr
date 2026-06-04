@@ -249,7 +249,7 @@ async def generate_recommendation(
         generate_upsell_structure(context, llm_client, cache),
         generate_red_flags(context, llm_client, cache),
         generate_niche_viability(context, llm_client, cache),
-        generate_pricing_strategy(context, llm_client, cache),
+        pricing_llm_task(keyword_id, context, db, llm_client),
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -257,7 +257,7 @@ async def generate_recommendation(
     all_succeeded = True
     total_cost = 0.0
 
-    for field_name, result in zip(RECOMMENDATION_FIELD_NAMES, results, strict=False):
+    for field_name, result in zip(RECOMMENDATION_FIELD_NAMES[:-1], results[:-1], strict=False):
         if isinstance(result, Exception) or not isinstance(result, Mapping):
             recommendation_data[field_name] = None
             all_succeeded = False
@@ -268,6 +268,17 @@ async def generate_recommendation(
         if output is None:
             all_succeeded = False
         total_cost += _to_float(result.get("cost_usd"), default=0.0)
+
+    pricing_result = results[11] if len(results) > 11 else None
+    if isinstance(pricing_result, Exception):
+        recommendation_data["pricing_strategy"] = None
+        all_succeeded = False
+    else:
+        recommendation_data["pricing_strategy"] = pricing_result
+        if pricing_result is None:
+            all_succeeded = False
+        else:
+            total_cost += 0.01
 
     recommendation_data["generation_complete"] = all_succeeded
     recommendation_data["llm_cost_usd"] = total_cost
@@ -450,21 +461,6 @@ async def _complete_pricing_strategy(llm_client: Any, prompt: str) -> Any:
     if asyncio.iscoroutine(result):
         return await result
     return await asyncio.to_thread(lambda: result)
-
-
-async def _generate_pricing_strategy_task(
-    keyword_id: int,
-    context: RecommendationContext,
-    db: Any,
-    llm_client: Any,
-) -> dict[str, Any]:
-    result = await pricing_llm_task(
-        keyword_id=keyword_id,
-        context=context,
-        db=db,
-        client=llm_client,
-    )
-    return {"output": result, "cost_usd": 0.0}
 
 
 def _extract_usage_cost(response: Any) -> float:

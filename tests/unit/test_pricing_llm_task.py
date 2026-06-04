@@ -169,10 +169,7 @@ def test_full_pipeline_includes_pricing_strategy_field(monkeypatch: Any) -> None
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _task_value)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _task_value)
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _task_value)
-    monkeypatch.setattr(
-        "src.recommendations.tasks.generate_pricing_strategy",
-        AsyncMock(return_value={"output": "pricing copy", "cost_usd": 0.0}),
-    )
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value="pricing copy"))
     result = asyncio.run(generate_recommendation(11, context, llm_client=MagicMock(), cache=None, db=MagicMock()))
     assert result["pricing_strategy"] == "pricing copy"
 
@@ -198,7 +195,7 @@ def test_none_result_stored_gracefully_in_pipeline(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _none_task)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _none_task)
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _none_task)
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _none_task)
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value=None))
     result = asyncio.run(generate_recommendation(11, context, llm_client=MagicMock(), cache=None, db=MagicMock()))
     assert result["pricing_strategy"] is None
 

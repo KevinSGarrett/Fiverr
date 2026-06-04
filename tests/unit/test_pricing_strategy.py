@@ -6,7 +6,7 @@ import asyncio
 import json
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pydantic import ValidationError
@@ -177,7 +177,7 @@ def test_generate_recommendation_12_tasks(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value={"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert all(name in result for name in RECOMMENDATION_FIELD_NAMES)
     assert len([name for name in RECOMMENDATION_FIELD_NAMES if name in result]) == 12
