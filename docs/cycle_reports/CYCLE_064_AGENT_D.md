@@ -317,6 +317,64 @@ Verification query for future use:
 - [x] Governance commit pushed to `develop`
 - [x] Scratch artifacts cleanup complete
 
+## Complete Task Ledger (0-54)
+
+- [x] Task 0 - preflight verification complete
+- [x] Task 1 - `override:large-pr` label applied
+- [x] Task 2 - G1 full attribution + zone table complete
+- [x] Task 3 - CI gate checks validated
+- [x] Task 4 - Codex GraphQL x2 raw JSON recorded
+- [x] Task 5 - independent gates complete (imports/PRAGMA/demo-data/golden/page count)
+- [x] Task 6 - coverage gate complete (`94.48%`, `4303 passed`)
+- [x] Task 7 - regression pack run complete and recorded
+- [x] Task 8 - config gate (`scrapfly.enabled=false`) confirmed
+- [x] Task 9 - worktree count check complete (one worktree)
+- [x] Task 10 - token scan complete (no findings)
+- [x] Task 11 - executor docstring verification complete
+- [x] Task 12 - squash merge performed
+- [x] Task 13 - merged-state verification (`state`, `mergedAt`, `mergeCommit`) complete
+- [x] Task 14 - cycle branch deletion verified
+- [x] Task 15 - post-merge sanity suite complete
+- [x] Task 16 - post-merge golden parity complete
+- [x] Task 17 - Jira closeout comments + Done transitions complete
+- [x] Task 18 - hydration header updated for C065 handoff
+- [x] Task 19 - epic tracker C064 row added
+- [x] Task 20 - regression pack currency check complete (`v2.5` unchanged)
+- [x] Task 21 - Wave 9 advancement documented in report + hydration
+- [x] Task 22 - stash status captured (12)
+- [x] Task 23 - scratch artifacts cleaned
+- [x] Task 24 - B/E parallel contract overlap validation complete
+- [x] Task 25 - governance commit + push completed
+- [x] Task 26 - post-merge pricing smoke complete
+- [x] Task 27 - deliverables table included
+- [x] Task 28 - C064 -> C065 handoff record included
+- [x] Task 29 - final develop-state checks complete
+- [x] Task 30 - final §13.8 checklist completed
+- [x] Task 31 - post-merge ladder/gate integration smoke complete
+- [x] Task 32 - post-merge §11 parity checks complete
+- [x] Task 33 - final ticket comment content delivered with actual cycle metrics
+- [x] Task 34 - baseline DB mtime note and verification included
+- [x] Task 35 - `log_llm_usage` `task_type` check completed
+- [x] Task 36 - Wave 9 scorecard included
+- [x] Task 37 - develop-branch verification completed
+- [x] Task 38 - stash list pasted in full
+- [x] Task 39 - v2.5 / REG-44 currency confirmation complete
+- [x] Task 40 - C062/C063/C064 metrics table completed
+- [x] Task 41 - all 5 pricing tables + `task_type` presence verified
+- [x] Task 42 - executor 12-task docstring verification completed
+- [x] Task 43 - C065 scope options documented
+- [x] Task 44 - stash list (TierD-1) documented
+- [x] Task 45 - self-audit checklist completed
+- [x] Task 46 - comprehensive Wave 9 pricing engine scorecard included
+- [x] Task 47 - develop-head governance-branch verification completed
+- [x] Task 48 - ScrapFly status verification documented
+- [x] Task 49 - develop HEAD check-runs confirmed `success`
+- [x] Task 50 - three-cycle Wave 9 narrative recorded
+- [x] Task 51 - observability evolution note recorded
+- [x] Task 52 - final merge-gate health triplet verified
+- [x] Task 53 - hydration `TIER_GATE` updated to "Phases 1+2+3 done"
+- [x] Task 54 - complete pricing export surface from `src.pricing` verified
+
 ## Final Verdict
 
 **C064 MERGE GATE: PASS**  
