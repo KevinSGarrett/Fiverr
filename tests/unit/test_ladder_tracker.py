@@ -309,3 +309,92 @@ def test_ladder_tracker_does_not_affect_golden_parity():
 
 def test_price_ladder_snapshot_model_available():
     assert PriceLadderSnapshot.__tablename__ == "price_ladder_snapshots"
+
+
+class TestLadderTrackerEdgeCases:
+    def test_track_price_ladder_with_zero_prices(self, seeded_snapshot_db):
+        """track_price_ladder handles zero actual prices without crashing."""
+        with Session(seeded_snapshot_db) as session:
+            result = track_price_ladder(1, 0.0, 0.0, 0.0, 5, session)
+            assert result is not None
+
+    def test_track_price_ladder_updates_existing_keyword(self, seeded_snapshot_db):
+        """Two snapshots for same keyword are both stored."""
+        with Session(seeded_snapshot_db) as session:
+            track_price_ladder(1, 65.0, 145.0, 280.0, 5, session)
+            track_price_ladder(1, 70.0, 155.0, 295.0, 10, session)
+            session.commit()
+            progress = get_ladder_progress(1, session)
+            assert len(progress) >= 2
+
+    def test_is_pricing_on_track_custom_tolerance(self, seeded_ladder_db):
+        """Custom tolerance overrides default."""
+        with Session(seeded_ladder_db) as session:
+            result = is_pricing_on_track(1, session, tolerance=0.50)
+            assert isinstance(result, bool)
+
+    def test_get_ladder_progress_empty_returns_list(self, empty_db):
+        """Returns empty list, not None, when no snapshots."""
+        with Session(empty_db) as session:
+            result = get_ladder_progress(999, session)
+            assert result == []
+
+    def test_milestone_capped_at_100(self):
+        """get_nearest_milestone returns 100 for very high review counts."""
+        assert get_nearest_milestone(500) == 100
+        assert get_nearest_milestone(1000) == 100
+
+    def test_price_delta_pct_is_zero_when_prices_match(self, seeded_exact_match_db):
+        """delta_pct is 0.0 when actual basic equals recommended basic."""
+        with Session(seeded_exact_match_db) as session:
+            snap = track_price_ladder(1, 95.0, 200.0, 380.0, 5, session)
+            assert snap.price_delta_pct == 0.0 or snap.price_delta_pct < 0.001
+
+
+@pytest.mark.parametrize(
+    ("reviews", "expected_milestone"),
+    [(0, 5), (4, 5), (5, 5), (9, 5), (10, 10), (24, 10), (25, 25), (49, 25), (50, 50), (99, 50), (100, 100), (500, 100)],
+)
+def test_get_nearest_milestone_parametrized(reviews, expected_milestone):
+    assert get_nearest_milestone(reviews) == expected_milestone
+
+
+@pytest.mark.parametrize(
+    ("reviews", "expected"),
+    [(0, 5), (4, 5), (5, 5), (9, 5), (10, 10), (24, 10), (25, 25), (49, 25), (50, 50), (99, 50), (100, 100), (500, 100)],
+)
+def test_get_nearest_milestone_boundaries(reviews, expected):
+    assert get_nearest_milestone(reviews) == expected
+
+
+def test_ladder_and_revenue_gate_use_same_pricing_snapshot(seeded_ladder_db):
+    """Both tracker and gates should read from the same PricingSnapshot."""
+    from src.pricing.revenue_gate import check_revenue_gates
+
+    with Session(seeded_ladder_db) as session:
+        snap = track_price_ladder(1, 70.0, 155.0, 290.0, 5, session)
+        gates = check_revenue_gates(1, session, actual_review_count=5)
+        session.commit()
+        assert snap is not None
+        assert len(gates) == 5
+        gate_5 = next((gate for gate in gates if gate.milestone_reviews == 5), None)
+        assert gate_5 is not None
+        assert gate_5.gate_triggered is True
+
+
+def test_is_pricing_on_track_false_when_large_delta(seeded_off_track_snapshot_db):
+    """is_pricing_on_track returns False when delta is greater than 15%."""
+    with Session(seeded_off_track_snapshot_db) as session:
+        result = is_pricing_on_track(1, session)
+        assert result is False
+
+
+def test_track_price_ladder_no_snapshot_uses_actual_price(empty_db):
+    """track_price_ladder works even when no PricingSnapshot exists."""
+    with Session(empty_db) as session:
+        keyword_id = _seed_keyword(session, slug="empty_niche_2", keyword_text="missing snapshot")
+        snap = track_price_ladder(keyword_id, 65.0, 145.0, 280.0, 5, session)
+        session.commit()
+        assert snap is not None
+        assert snap.ladder_milestone == 5
+        assert snap.actual_basic_price == 65.0

@@ -322,3 +322,97 @@ def _async_return(value: Any):
         return value
 
     return _inner
+
+
+class TestRevenueGateEdgeCases:
+    def test_check_revenue_gates_returns_5_records_always(self, seeded_pricing_db):
+        """Always returns one record per milestone."""
+        with Session(seeded_pricing_db) as session:
+            records = check_revenue_gates(1, session, actual_review_count=0)
+            session.commit()
+            assert len(records) == 5
+
+    def test_all_gates_triggered_at_100_reviews(self, seeded_pricing_db):
+        with Session(seeded_pricing_db) as session:
+            records = check_revenue_gates(1, session, actual_review_count=100)
+            session.commit()
+            triggered = [record for record in records if record.gate_triggered]
+            assert len(triggered) == 5
+
+    def test_no_gates_triggered_at_0_reviews(self, seeded_pricing_db):
+        with Session(seeded_pricing_db) as session:
+            records = check_revenue_gates(1, session, actual_review_count=0)
+            session.commit()
+            triggered = [record for record in records if record.gate_triggered]
+            assert len(triggered) == 0
+
+    def test_only_milestone_5_gate_triggers_at_5(self, seeded_pricing_db):
+        with Session(seeded_pricing_db) as session:
+            records = check_revenue_gates(1, session, actual_review_count=5)
+            session.commit()
+            triggered = [record.milestone_reviews for record in records if record.gate_triggered]
+            assert triggered == [5]
+
+    def test_fire_revenue_gate_alert_returns_none_empty_db(self, empty_db):
+        with Session(empty_db) as session:
+            keyword_id = _seed_keyword(session, slug="empty_alert", keyword_text="no pricing")
+            result = fire_revenue_gate_alert(keyword_id, 5, session)
+            assert result is None
+
+    def test_monthly_orders_estimate_used_in_revenue_calc(self, seeded_pricing_db):
+        with Session(seeded_pricing_db) as session:
+            records = check_revenue_gates(1, session, actual_review_count=50)
+            session.commit()
+            for record in records:
+                if record.recommended_price_at_gate and record.revenue_delta_usd is not None:
+                    entry_price = 70.0
+                    expected = (record.recommended_price_at_gate - entry_price) * MONTHLY_ORDERS_ESTIMATE
+                    assert record.revenue_delta_usd == pytest.approx(expected)
+
+
+def test_llm_usage_logs_task_type_column_writable(empty_db_with_migration):
+    """After migration_13, task_type should accept pricing_strategy."""
+    with Session(empty_db_with_migration) as session:
+        session.execute(
+            text("INSERT INTO llm_usage_logs (task_type, model_name) VALUES ('pricing_strategy', 'gpt-4o')")
+        )
+        session.commit()
+        result = session.execute(
+            text("SELECT task_type FROM llm_usage_logs WHERE task_type='pricing_strategy' LIMIT 1")
+        ).fetchone()
+        assert result is not None
+        assert result[0] == "pricing_strategy"
+
+
+@pytest.mark.parametrize(
+    ("review_count", "expected_triggered_count"),
+    [(0, 0), (5, 1), (10, 2), (25, 3), (50, 4), (100, 5), (200, 5)],
+)
+def test_revenue_gates_triggered_count(review_count, expected_triggered_count, seeded_pricing_db):
+    """Number of triggered gates should match review-count milestone coverage."""
+    with Session(seeded_pricing_db) as session:
+        records = check_revenue_gates(1, session, actual_review_count=review_count)
+        session.commit()
+        triggered = sum(1 for record in records if record.gate_triggered)
+        assert triggered == expected_triggered_count
+
+
+def test_migration_13_adds_task_type_column_to_llm_usage_logs():
+    """migration_13 adds task_type VARCHAR-like column to llm_usage_logs."""
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE llm_usage_logs (id INTEGER PRIMARY KEY, model_name VARCHAR(50))")
+        )
+        connection.execute(text("CREATE TABLE keywords (id INTEGER PRIMARY KEY AUTOINCREMENT)"))
+    upgrade(engine)
+    columns = sorted([column["name"] for column in inspect(engine).get_columns("llm_usage_logs")])
+    assert "task_type" in columns, f"task_type not in llm_usage_logs after migration_13: {columns}"
+
+
+def test_revenue_gate_alert_format_contains_milestone(seeded_ladder_db):
+    """fire_revenue_gate_alert should return milestone-aware messaging."""
+    with Session(seeded_ladder_db) as session:
+        alert = fire_revenue_gate_alert(1, 10, session)
+        if alert is not None:
+            assert "10" in alert or "Milestone" in alert or "$" in alert

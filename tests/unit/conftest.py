@@ -6,10 +6,11 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
-from src.models import Base, Gig, Keyword, Niche, PriceAnalysis, PricingSnapshot
+from src.migrations.migration_13_ladder_revenue_llm_observability import upgrade
+from src.models import Base, Gig, Keyword, Niche, PriceAnalysis, PriceLadderSnapshot, PricingSnapshot
 
 
 def _engine():
@@ -216,3 +217,116 @@ def mock_recommendation():
 def empty_db():
     """In-memory DB with schema and no seeded rows."""
     return _engine()
+
+
+@pytest.fixture
+def seeded_ladder_db():
+    """DB with PricingSnapshot containing a ladder and one PriceLadderSnapshot."""
+    engine = _engine()
+    with Session(engine) as session:
+        keyword = _seed_keyword(session)
+        ladder = [
+            {"milestone": m, "basic": 65 + m, "standard": 145 + m, "premium": 280 + m}
+            for m in [5, 10, 25, 50, 100]
+        ]
+        session.add(
+            PricingSnapshot(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="test",
+                entry_basic=65.0,
+                entry_standard=145.0,
+                entry_premium=280.0,
+                price_ladder=json.dumps(ladder),
+                market_type="WIDE_SPREAD",
+                confidence="MEDIUM",
+            )
+        )
+        session.add(
+            PriceLadderSnapshot(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="test",
+                reviews_at_snapshot=5,
+                ladder_milestone=5,
+                actual_basic_price=70.0,
+                recommended_basic_price=70.0,
+                price_delta_pct=0.0,
+                on_track=True,
+                tolerance=0.15,
+            )
+        )
+        session.commit()
+    return engine
+
+
+@pytest.fixture
+def seeded_exact_match_db():
+    """DB where actual basic price can exactly match recommendation (delta=0)."""
+    engine = _engine()
+    with Session(engine) as session:
+        keyword = _seed_keyword(session)
+        ladder = [{"milestone": 5, "basic": 95.0, "standard": 200.0, "premium": 380.0}]
+        session.add(
+            PricingSnapshot(
+                keyword_id=keyword.id,
+                niche_id="test",
+                run_id="test",
+                entry_basic=65.0,
+                entry_standard=145.0,
+                entry_premium=280.0,
+                price_ladder=json.dumps(ladder),
+                market_type="WIDE_SPREAD",
+                confidence="HIGH",
+            )
+        )
+        session.commit()
+    return engine
+
+
+@pytest.fixture
+def seeded_off_track_snapshot_db():
+    """DB with a PriceLadderSnapshot where price_delta_pct > 0.15."""
+    engine = _engine()
+    with Session(engine) as session:
+        keyword = _seed_keyword(session)
+        session.add(
+            PriceLadderSnapshot(
+                keyword_id=keyword.id,
+                niche_id="test",
+                run_id="test",
+                reviews_at_snapshot=10,
+                ladder_milestone=10,
+                actual_basic_price=120.0,
+                recommended_basic_price=95.0,
+                price_delta_pct=0.263,
+                on_track=False,
+                tolerance=0.15,
+            )
+        )
+        session.commit()
+    return engine
+
+
+@pytest.fixture
+def empty_db_with_migration():
+    """Pre-migration schema for llm_usage_logs then upgrade() to add task_type."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE llm_usage_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    model_name VARCHAR(128)
+                )
+                """
+            )
+        )
+        connection.execute(text("CREATE TABLE keywords (id INTEGER PRIMARY KEY AUTOINCREMENT)"))
+    upgrade(engine)
+    return engine
