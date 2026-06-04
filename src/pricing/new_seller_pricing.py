@@ -1,33 +1,23 @@
-"""New-seller pricing recommendation engine."""
+"""Wave 9 new-seller pricing model."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
-from jinja2 import Template
+from sqlalchemy.orm import Session
 
-from src.models import Keyword
-
-REVENUE_GATES = {4: 1720, 6: 4770, 9: 17795, 10: 25045, 12: 37500}
-PRICING_STRATEGY_TEMPLATE = Template(
-    "Enter at ${{ entry_basic }} Basic / ${{ entry_standard }} Standard / ${{ entry_premium }} Premium"
-    " - {{ undercut_pct }}% below market median."
-    "{% if gap_note %} {{ gap_note }}{% endif %}"
-    "{% if moat_note %} {{ moat_note }}{% endif %} "
-    "Price ladder: {{ ladder_summary }}. "
-    "Target prices at 100 reviews: ${{ target_basic }} / ${{ target_standard }} / ${{ target_premium }}. "
-    "Confidence: {{ confidence }}."
-)
+from src.config import ConfigLoader
+from src.models import Keyword, Niche
 
 
 @dataclass
 class PricingRecommendation:
-    """Complete pricing recommendation for one keyword."""
+    """Complete pricing recommendation for a new seller."""
 
     keyword_id: int
     keyword_text: str
-    niche_id: int | None
+    niche_id: str
     entry_basic: float
     entry_standard: float
     entry_premium: float
@@ -52,22 +42,21 @@ def calculate_new_seller_pricing(
     niche_config: dict[str, Any],
     db: Any,
 ) -> PricingRecommendation:
-    """Calculate entry, acquisition, and ladder pricing for a new seller."""
+    """Calculate optimal pricing for a new seller entering a keyword."""
+    keyword = db.query(Keyword).filter(Keyword.id == keyword_id).first() if isinstance(db, Session) else None
+    keyword_text = _keyword_text(keyword)
+    niche_id = _keyword_niche_id(keyword, db)
 
-    starter_basic, starter_standard, starter_premium = _resolve_starter_prices(niche_config)
-    keyword = db.query(Keyword).filter(Keyword.id == keyword_id).first() if db is not None else None
-    keyword_text = getattr(keyword, "keyword", f"keyword-{keyword_id}")
-    niche_id = getattr(keyword, "niche_id", None)
-
-    ref_basic = _coerce_positive(getattr(price_analysis, "basic_median", None), starter_basic)
-    ref_standard = _coerce_positive(getattr(price_analysis, "standard_median", None), starter_standard)
-    ref_premium = _coerce_positive(getattr(price_analysis, "premium_median", None), starter_premium)
+    starter_prices = niche_config.get("starter_prices", {}) if isinstance(niche_config, dict) else {}
+    ref_basic = _to_positive(getattr(price_analysis, "basic_median", None), starter_prices.get("basic", 75.0))
+    ref_standard = _to_positive(getattr(price_analysis, "standard_median", None), starter_prices.get("standard", 175.0))
+    ref_premium = _to_positive(getattr(price_analysis, "premium_median", None), starter_prices.get("premium", 325.0))
 
     undercut_pct = _calculate_undercut(price_analysis)
     moat_adj = _calculate_moat_adjustment(price_analysis)
     gap_target, gap_used = _find_gap_opportunity(price_analysis)
-
     total_discount = undercut_pct + moat_adj
+
     entry_basic = _apply_discount(ref_basic, total_discount)
     entry_standard = _apply_discount(ref_standard, total_discount)
     entry_premium = _apply_discount(ref_premium, total_discount)
@@ -83,26 +72,15 @@ def calculate_new_seller_pricing(
     entry_premium = max(entry_premium, entry_standard * 1.4)
 
     acquisition_basic = max(_apply_discount(entry_basic, 0.15), _get_floor_price("basic", niche_config))
-    acquisition_standard = max(
-        _apply_discount(entry_standard, 0.10),
-        _get_floor_price("standard", niche_config),
-    )
-    acquisition_premium = max(
-        _apply_discount(entry_premium, 0.05),
-        _get_floor_price("premium", niche_config),
-    )
+    acquisition_standard = max(_apply_discount(entry_standard, 0.10), _get_floor_price("standard", niche_config))
+    acquisition_premium = max(_apply_discount(entry_premium, 0.05), _get_floor_price("premium", niche_config))
 
-    target_basic = ref_basic * 1.0
-    target_standard = ref_standard * 1.0
-    target_premium = ref_premium * 1.05
+    target_basic = max(ref_basic, entry_basic)
+    target_standard = max(ref_standard, entry_standard)
+    target_premium = max(ref_premium * 1.05, entry_premium)
 
     price_ladder = _build_price_ladder(
-        entry_basic,
-        entry_standard,
-        entry_premium,
-        target_basic,
-        target_standard,
-        target_premium,
+        entry_basic, entry_standard, entry_premium, target_basic, target_standard, target_premium
     )
     confidence = _assess_pricing_confidence(price_analysis)
 
@@ -124,166 +102,133 @@ def calculate_new_seller_pricing(
         moat_adjustment=round(moat_adj * 100, 1),
         gap_pricing_used=gap_used,
         gap_target=float(round(gap_target, 0)) if gap_target is not None else None,
-        market_type=getattr(price_analysis, "market_type", None) or "UNKNOWN",
+        market_type=str(getattr(price_analysis, "market_type", "UNKNOWN") or "UNKNOWN"),
         confidence=confidence,
     )
 
 
-def generate_pricing_strategy_text(
-    pricing: PricingRecommendation,
-    niche_config: dict[str, Any] | None = None,
-) -> str:
-    """Generate deterministic human-readable pricing strategy narrative."""
-    del niche_config  # Reserved for future copy customizations by niche.
-    ladder_summary = " -> ".join(
-        f"${step['basic']:.0f} ({step['milestone_reviews']}r)" for step in pricing.price_ladder[:5]
-    )
-    gap_note = (
-        f"A price gap exists at ${pricing.gap_target:.0f}."
-        if pricing.gap_pricing_used and pricing.gap_target is not None
-        else ""
-    )
-    moat_note = (
-        "Review moat detected - established sellers command a premium."
-        if pricing.moat_adjustment > 0
-        else ""
-    )
-    return PRICING_STRATEGY_TEMPLATE.render(
-        entry_basic=f"{pricing.entry_basic:.0f}",
-        entry_standard=f"{pricing.entry_standard:.0f}",
-        entry_premium=f"{pricing.entry_premium:.0f}",
-        undercut_pct=f"{pricing.undercut_pct:.0f}",
-        ladder_summary=ladder_summary,
-        target_basic=f"{pricing.target_basic:.0f}",
-        target_standard=f"{pricing.target_standard:.0f}",
-        target_premium=f"{pricing.target_premium:.0f}",
-        confidence=pricing.confidence,
-        gap_note=gap_note,
-        moat_note=moat_note,
-    )
+def get_niche_config(keyword_id: int, db: Any) -> dict[str, Any]:
+    """Return niche config dictionary for keyword's niche."""
+    config = ConfigLoader("config.yaml").load().model_dump()
+    if not isinstance(db, Session):
+        return {}
+    keyword = db.query(Keyword).filter(Keyword.id == keyword_id).first()
+    if keyword is None:
+        return {}
+    niche = db.query(Niche).filter(Niche.id == keyword.niche_id).first()
+    candidates = config.get("niches", [])
+    if not isinstance(candidates, list):
+        return {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        candidate_id = str(candidate.get("niche_id", ""))
+        if niche is not None and candidate_id == str(niche.slug):
+            return candidate
+        if candidate_id == str(keyword.niche_id):
+            return candidate
+    return {}
 
 
 def _calculate_undercut(price_analysis: Any) -> float:
-    """Return base undercut percentage by market conditions."""
-
+    """Base undercut % by market type, sample density, and skewness."""
     market_type = getattr(price_analysis, "market_type", None)
-    market_key = market_type if isinstance(market_type, str) else ""
     base_undercut = {
         "COMMODITY": 0.10,
         "MODERATE_SPREAD": 0.20,
         "WIDE_SPREAD": 0.25,
         "FRAGMENTED": 0.20,
-    }.get(market_key, 0.20)
+    }.get(str(market_type), 0.20)
 
-    basic_n = getattr(price_analysis, "basic_n", None)
-    if basic_n is not None and basic_n > 15:
+    basic_n = int(getattr(price_analysis, "basic_n", 0) or 0)
+    if basic_n > 15:
         base_undercut += 0.05
-    elif basic_n is not None and basic_n < 5:
+    elif 0 < basic_n < 5:
         base_undercut -= 0.05
 
-    basic_skewness = getattr(price_analysis, "basic_skewness", None)
-    if basic_skewness is not None and basic_skewness > 0.5:
+    skewness = float(getattr(price_analysis, "basic_skewness", 0.0) or 0.0)
+    if skewness > 0.5:
         base_undercut -= 0.05
-    elif basic_skewness is not None and basic_skewness < -0.3:
+    elif skewness < -0.3:
         base_undercut += 0.05
-
     return max(0.05, min(0.40, base_undercut))
 
 
 def _calculate_moat_adjustment(price_analysis: Any) -> float:
-    """Apply extra discount in moat-heavy markets."""
-
-    moat = getattr(price_analysis, "moat_strength", None)
+    """Return extra discount % for strong moat markets."""
+    moat = str(getattr(price_analysis, "moat_strength", "LOW") or "LOW")
     if moat == "HIGH":
         return 0.10
     if moat == "MEDIUM":
         return 0.05
-    return 0.00
+    return 0.0
 
 
 def _find_gap_opportunity(price_analysis: Any) -> tuple[float | None, bool]:
-    """Pick the strongest lower-half basic-tier price gap."""
-
-    gaps = getattr(price_analysis, "basic_gaps", None)
-    if not gaps:
+    """Pick best lower-half basic-tier price gap candidate."""
+    gaps = getattr(price_analysis, "basic_gaps", None) or []
+    if not isinstance(gaps, list):
         return None, False
-
-    basic_median = float(getattr(price_analysis, "basic_median", None) or 0.0)
+    basic_median = float(getattr(price_analysis, "basic_median", 0.0) or 0.0)
     best_gap: dict[str, Any] | None = None
     for gap in gaps:
         if not isinstance(gap, dict):
             continue
-        gap_mid = float(gap.get("gap_midpoint", 0))
-        pct = float(gap.get("pct_of_range", 0))
-        if gap_mid < basic_median and pct > 15:
-            if best_gap is None or float(gap.get("gap_width", 0)) > float(best_gap.get("gap_width", 0)):
+        gap_mid = float(gap.get("gap_midpoint", 0.0) or 0.0)
+        pct = float(gap.get("pct_of_range", 0.0) or 0.0)
+        if gap_mid < basic_median and pct > 15.0:
+            if best_gap is None or float(gap.get("gap_width", 0.0)) > float(best_gap.get("gap_width", 0.0)):
                 best_gap = gap
-
     if best_gap is None:
         return None, False
     return float(best_gap.get("gap_midpoint", 0.0)), True
 
 
-def _get_floor_price(tier: str, niche_config: dict[str, Any]) -> float:
-    """Return tier floor price using dignity + optional niche floors."""
+def _apply_discount(price: float, discount: float) -> float:
+    """Apply percentage discount and clamp to non-negative output."""
+    bounded_discount = max(0.0, min(discount, 0.95))
+    return max(0.0, price * (1.0 - bounded_discount))
 
-    dignity_floors = {"basic": 15.0, "standard": 30.0, "premium": 50.0}
-    config_floor = niche_config.get(f"price_floor_{tier}", 0.0)
-    return max(5.0, dignity_floors.get(tier, 10.0), float(config_floor))
+
+def _get_floor_price(tier: str, niche_config: dict[str, Any]) -> float:
+    """Return floor from niche starter_prices with dignity/fiverr minimums."""
+    starter_prices = niche_config.get("starter_prices", {}) if isinstance(niche_config, dict) else {}
+    starter_floor = _to_positive(starter_prices.get(tier), 0.0)
+    dignity = {"basic": 15.0, "standard": 30.0, "premium": 50.0}
+    return max(5.0, dignity.get(tier, 10.0), starter_floor)
 
 
 def _build_price_ladder(
     entry_basic: float,
     entry_standard: float,
     entry_premium: float,
-    target_basic: float,
-    target_standard: float,
-    target_premium: float,
+    ref_basic: float,
+    ref_standard: float,
+    ref_premium: float,
 ) -> list[dict[str, Any]]:
-    """Build six milestone steps from entry to target prices."""
-
-    milestones: tuple[tuple[int, str, float], ...] = (
-        (0, "Launch (0 reviews)", 0.00),
-        (5, "First proof (5 reviews)", 0.25),
-        (10, "Established (10 reviews)", 0.45),
-        (25, "Growing (25 reviews)", 0.65),
-        (50, "Proven (50 reviews)", 0.85),
-        (100, "Authority (100 reviews)", 1.00),
-    )
+    """Build exactly five review milestones with ordered tier prices."""
+    milestones = [5, 10, 25, 50, 100]
     ladder: list[dict[str, Any]] = []
-    for reviews, label, progress in milestones:
-        basic_price = _lerp(entry_basic, target_basic, progress)
-        standard_price = _lerp(entry_standard, target_standard, progress)
-        premium_price = _lerp(entry_premium, target_premium, progress)
+    for milestone in milestones:
+        pct = milestone / 100.0
+        basic = round(entry_basic + (ref_basic - entry_basic) * pct, 0)
+        standard = round(entry_standard + (ref_standard - entry_standard) * pct, 0)
+        premium = round(entry_premium + (ref_premium - entry_premium) * pct, 0)
+        standard = max(standard, basic * 1.4)
+        premium = max(premium, standard * 1.3)
         ladder.append(
             {
-                "milestone_reviews": reviews,
-                "label": label,
-                "basic": float(round(basic_price, 0)),
-                "standard": float(round(standard_price, 0)),
-                "premium": float(round(premium_price, 0)),
-                "basic_increase_pct": round(((basic_price / entry_basic) - 1) * 100, 1) if entry_basic > 0 else 0.0,
+                "milestone": milestone,
+                "basic": float(basic),
+                "standard": float(standard),
+                "premium": float(premium),
             }
         )
     return ladder
 
 
-def _lerp(start: float, end: float, progress: float) -> float:
-    """Linear interpolation helper."""
-
-    return start + (end - start) * progress
-
-
-def _apply_discount(price: float, discount_pct: float) -> float:
-    """Apply percentage discount to a price."""
-
-    bounded_discount = max(0.0, min(discount_pct, 0.95))
-    return price * (1 - bounded_discount)
-
-
 def _assess_pricing_confidence(price_analysis: Any) -> str:
-    """Confidence by sample size."""
-
+    """Assess confidence by number of observed gigs."""
     n = int(getattr(price_analysis, "basic_n", 0) or 0)
     if n >= 10:
         return "HIGH"
@@ -292,62 +237,71 @@ def _assess_pricing_confidence(price_analysis: Any) -> str:
     return "LOW"
 
 
+def generate_pricing_strategy_text(pricing: PricingRecommendation, niche_config: dict[str, Any] | None = None) -> str:
+    """Generate deterministic plain-language strategy text."""
+    del niche_config
+    ladder = " -> ".join(f"{step['milestone']}r:${step['basic']:.0f}" for step in pricing.price_ladder)
+    return (
+        f"Enter at ${pricing.entry_basic:.0f}/${pricing.entry_standard:.0f}/${pricing.entry_premium:.0f} "
+        f"with {pricing.undercut_pct:.1f}% undercut. Ladder {ladder}. "
+        f"Target ${pricing.target_basic:.0f}/${pricing.target_standard:.0f}/${pricing.target_premium:.0f}. "
+        f"Confidence={pricing.confidence}."
+    )
+
+
 def project_revenue_at_entry_pricing(pricing: PricingRecommendation, niche_config: dict[str, Any]) -> dict[str, Any]:
-    """Project order volume needed to hit revenue gates."""
+    """Compatibility helper retained for recommendation pipeline."""
+    del niche_config
+    entry_aov = pricing.entry_basic * 0.6 + pricing.entry_standard * 0.3 + pricing.entry_premium * 0.1
+    return {"entry_aov": round(entry_aov, 2)}
 
-    del niche_config  # Reserved for future niche-specific throughput modeling.
-    entry_aov = pricing.entry_basic * 0.60 + pricing.entry_standard * 0.30 + pricing.entry_premium * 0.10
-    projections: dict[str, Any] = {}
-    for month, target_gross in REVENUE_GATES.items():
-        orders_needed = target_gross / entry_aov if entry_aov > 0 else float("inf")
-        orders_per_month = orders_needed / month if month > 0 else float("inf")
-        orders_per_week = orders_per_month / 4.33
-        projections[f"month_{month}"] = {
-            "target_gross": target_gross,
-            "entry_aov": round(entry_aov, 2),
-            "orders_needed": round(orders_needed, 0),
-            "orders_per_month": round(orders_per_month, 1),
-            "orders_per_week": round(orders_per_week, 1),
-            "feasible": orders_per_week <= 10,
-        }
 
-    for step in pricing.price_ladder:
-        step_aov = step["basic"] * 0.50 + step["standard"] * 0.35 + step["premium"] * 0.15
-        step["projected_aov"] = round(step_aov, 2)
-        step["month_12_orders_needed"] = round(37500 / step_aov, 0) if step_aov > 0 else None
-    return projections
+def _keyword_text(keyword: Any) -> str:
+    if keyword is None:
+        return ""
+    return str(getattr(keyword, "keyword_text", None) or getattr(keyword, "keyword", ""))
+
+
+def _keyword_niche_id(keyword: Any, db: Any) -> str:
+    if keyword is None:
+        return "unknown"
+    niche_fk = getattr(keyword, "niche_id", None)
+    if not isinstance(db, Session) or niche_fk is None:
+        return str(niche_fk) if niche_fk is not None else "unknown"
+    niche = db.query(Niche).filter(Niche.id == niche_fk).first()
+    if niche is not None and niche.slug:
+        return str(niche.slug)
+    return str(niche_fk)
+
+
+def _to_positive(value: Any, default: float) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    return numeric if numeric > 0 else default
+
+
+def to_dict(pricing: PricingRecommendation) -> dict[str, Any]:
+    """Dataclass serialization convenience for JSON storage."""
+    return asdict(pricing)
+
+
+def _lerp(start: float, end: float, progress: float) -> float:
+    """Backward-compatible interpolation helper."""
+    return start + (end - start) * progress
 
 
 def _resolve_starter_prices(niche_config: dict[str, Any]) -> tuple[float, float, float]:
-    """Support both starter_price_* and starter_prices.* styles."""
-
-    basic = niche_config.get("starter_price_basic")
-    standard = niche_config.get("starter_price_standard")
-    premium = niche_config.get("starter_price_premium")
-    starter_prices = niche_config.get("starter_prices")
-    if isinstance(starter_prices, dict):
-        basic = basic if basic is not None else starter_prices.get("basic")
-        standard = standard if standard is not None else starter_prices.get("standard")
-        premium = premium if premium is not None else starter_prices.get("premium")
-
-    metadata = niche_config.get("metadata")
-    if isinstance(metadata, dict):
-        basic = basic if basic is not None else metadata.get("starter_price_basic")
-        standard = standard if standard is not None else metadata.get("starter_price_standard")
-        premium = premium if premium is not None else metadata.get("starter_price_premium")
-
+    """Backward-compatible starter price resolver."""
+    starter_prices = niche_config.get("starter_prices", {}) if isinstance(niche_config, dict) else {}
     return (
-        _coerce_positive(basic, 75.0),
-        _coerce_positive(standard, 175.0),
-        _coerce_positive(premium, 325.0),
+        _to_positive(starter_prices.get("basic"), 75.0),
+        _to_positive(starter_prices.get("standard"), 175.0),
+        _to_positive(starter_prices.get("premium"), 325.0),
     )
 
 
 def _coerce_positive(value: Any, fallback: float) -> float:
-    """Coerce value to positive float with fallback."""
-
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return fallback
-    return numeric if numeric > 0 else fallback
+    """Backward-compatible numeric coercion."""
+    return _to_positive(value, fallback)
