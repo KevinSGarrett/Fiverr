@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 from src.models import (
     AnalysisResult,
@@ -852,7 +852,7 @@ def test_generate_recommendation_all_succeed(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value={"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["generation_complete"] is True
     assert result["gig_titles"] == ["t1"]
@@ -877,7 +877,7 @@ def test_generate_recommendation_partial_failure(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _raise)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value={"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["generation_complete"] is False
     assert result["package_structure"] is None
@@ -897,7 +897,7 @@ def test_generate_recommendation_cost_accumulated(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}], cost=0.01))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"], cost=0.02))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}, cost=0.04))
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}, cost=0.01))
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value={"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert abs(result["llm_cost_usd"] - 0.22) < 1e-9
 
@@ -919,7 +919,7 @@ def test_generate_recommendation_exception_handling(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _success_task([{"name": "u1"}]))
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _success_task(["risk"]))
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _success_task({"verdict": "good"}))
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _success_task({"entry_prices": {}}))
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", AsyncMock(return_value={"entry_prices": {}}))
     result = asyncio.run(generate_recommendation(101, context, llm_client=Mock(), cache=None, db=Mock()))
     assert result["gig_titles"] is None
     assert result["generation_complete"] is False

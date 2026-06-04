@@ -7,8 +7,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from src.llm import TemplateRenderer
+from src.pricing.llm_task import PRICING_MODEL, PRICING_TEMPERATURE, pricing_llm_task
 from src.recommendations.context import RecommendationContext
-from src.schemas.pricing_output import PricingStrategy
 from src.utils.json import safe_json_loads
 
 _RENDERER = TemplateRenderer()
@@ -208,8 +208,7 @@ async def generate_pricing_strategy(
         parsed = safe_json_loads(_extract_llm_text(response))
         if not isinstance(parsed, Mapping) or not isinstance(parsed.get("pricing_strategy"), Mapping):
             return {"output": None, "cost_usd": 0.0}
-        strategy = PricingStrategy(**dict(parsed["pricing_strategy"]))
-        return {"output": strategy.model_dump(), "cost_usd": _extract_usage_cost(response)}
+        return {"output": dict(parsed["pricing_strategy"]), "cost_usd": _extract_usage_cost(response)}
     except Exception:
         return {"output": None, "cost_usd": 0.0}
 
@@ -238,7 +237,6 @@ async def generate_recommendation(
     db: Any,
 ) -> dict[str, Any]:
     """Run all 12 LLM tasks concurrently for a single keyword."""
-    del keyword_id, db
     tasks = [
         generate_gig_titles(context, llm_client, cache),
         generate_tag_sets(context, llm_client, cache),
@@ -251,7 +249,7 @@ async def generate_recommendation(
         generate_upsell_structure(context, llm_client, cache),
         generate_red_flags(context, llm_client, cache),
         generate_niche_viability(context, llm_client, cache),
-        generate_pricing_strategy(context, llm_client, cache),
+        pricing_llm_task(keyword_id, context, db, llm_client),
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -259,7 +257,7 @@ async def generate_recommendation(
     all_succeeded = True
     total_cost = 0.0
 
-    for field_name, result in zip(RECOMMENDATION_FIELD_NAMES, results, strict=False):
+    for field_name, result in zip(RECOMMENDATION_FIELD_NAMES[:-1], results[:-1], strict=False):
         if isinstance(result, Exception) or not isinstance(result, Mapping):
             recommendation_data[field_name] = None
             all_succeeded = False
@@ -270,6 +268,17 @@ async def generate_recommendation(
         if output is None:
             all_succeeded = False
         total_cost += _to_float(result.get("cost_usd"), default=0.0)
+
+    pricing_result = results[11] if len(results) > 11 else None
+    if isinstance(pricing_result, Exception):
+        recommendation_data["pricing_strategy"] = None
+        all_succeeded = False
+    else:
+        recommendation_data["pricing_strategy"] = pricing_result
+        if pricing_result is None:
+            all_succeeded = False
+        else:
+            total_cost += 0.01
 
     recommendation_data["generation_complete"] = all_succeeded
     recommendation_data["llm_cost_usd"] = total_cost
@@ -438,8 +447,8 @@ async def _complete_pricing_strategy(llm_client: Any, prompt: str) -> Any:
 
     kwargs = {
         "prompt": prompt,
-        "model": "gpt-4o",
-        "temperature": 0.2,
+        "model": PRICING_MODEL,
+        "temperature": PRICING_TEMPERATURE,
         "response_format": {"type": "json_object"},
     }
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -19,6 +20,7 @@ from src.models import (
     ScoreComponent,
     SearchResult,
 )
+from src.pricing.analysis import extract_tier_prices
 
 
 class RecommendationContext(BaseModel):
@@ -148,6 +150,7 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
 
     price_analysis = None
     pricing_rec = None
+    pricing_snapshot = None
     if isinstance(db, Session):
         try:
             from src.models.price_analysis import PriceAnalysis
@@ -160,6 +163,18 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
             )
         except Exception:
             price_analysis = None
+
+        try:
+            from src.models.price_analysis import PricingSnapshot
+
+            pricing_snapshot = (
+                db.query(PricingSnapshot)
+                .filter(PricingSnapshot.keyword_id == keyword_id)
+                .order_by(PricingSnapshot.created_at.desc())
+                .first()
+            )
+        except Exception:
+            pricing_snapshot = None
 
     if price_analysis is not None:
         try:
@@ -177,7 +192,10 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
                 "mean": getattr(price_analysis, "basic_mean", None),
                 "min": getattr(price_analysis, "basic_min", None),
                 "max": getattr(price_analysis, "basic_p90", None),
+                "q1": getattr(price_analysis, "basic_q1", None),
+                "q3": getattr(price_analysis, "basic_q3", None),
                 "cv": getattr(price_analysis, "basic_cv", None),
+                "clusters": getattr(price_analysis, "basic_clusters", None) or [],
                 "gaps": getattr(price_analysis, "basic_gaps", None) or [],
             },
             "standard": {
@@ -185,12 +203,20 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
                 "mean": getattr(price_analysis, "standard_mean", None),
                 "min": getattr(price_analysis, "standard_min", None),
                 "max": getattr(price_analysis, "standard_p90", None),
+                "q1": getattr(price_analysis, "standard_q1", None),
+                "q3": getattr(price_analysis, "standard_q3", None),
+                "clusters": getattr(price_analysis, "standard_clusters", None) or [],
+                "gaps": getattr(price_analysis, "standard_gaps", None) or [],
             },
             "premium": {
                 "median": getattr(price_analysis, "premium_median", None),
                 "mean": getattr(price_analysis, "premium_mean", None),
                 "min": getattr(price_analysis, "premium_min", None),
                 "max": getattr(price_analysis, "premium_p90", None),
+                "q1": getattr(price_analysis, "premium_q1", None),
+                "q3": getattr(price_analysis, "premium_q3", None),
+                "clusters": getattr(price_analysis, "premium_clusters", None) or [],
+                "gaps": getattr(price_analysis, "premium_gaps", None) or [],
             },
         }
 
@@ -222,13 +248,20 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
             for _, gig, seller in top_rows:
                 if gig is None:
                     continue
+                basic_prices = extract_tier_prices([gig], "basic")
+                standard_prices = extract_tier_prices([gig], "standard")
+                premium_prices = extract_tier_prices([gig], "premium")
                 competitor_price_positions.append(
                     {
                         "seller": getattr(seller, "seller_handle", None) or "UNKNOWN",
                         "level": getattr(seller, "level", None) or "UNKNOWN",
                         "reviews": getattr(gig, "review_count", None) or 0,
-                        "basic": _to_int(getattr(gig, "starting_price", None), default=0),
-                        "standard": None,
+                        "basic": _to_int(
+                            basic_prices[0] if basic_prices else getattr(gig, "starting_price", None),
+                            default=0,
+                        ),
+                        "standard": _to_int(standard_prices[0], default=0) if standard_prices else None,
+                        "premium": _to_int(premium_prices[0], default=0) if premium_prices else None,
                     }
                 )
             if not competitor_price_positions:
@@ -238,7 +271,38 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
 
     calculated_entry_prices: dict[str, Any] | None = None
     calculated_price_ladder: list[dict[str, Any]] | None = None
-    if pricing_rec is not None:
+    if pricing_snapshot is not None:
+        calculated_entry_prices = {
+            "basic": _to_int(getattr(pricing_snapshot, "entry_basic", None), default=0),
+            "standard": _to_int(getattr(pricing_snapshot, "entry_standard", None), default=0),
+            "premium": _to_int(getattr(pricing_snapshot, "entry_premium", None), default=0),
+        }
+
+        raw_ladder = getattr(pricing_snapshot, "price_ladder", None)
+        ladder_payload: list[dict[str, Any]] = []
+        if isinstance(raw_ladder, str):
+            try:
+                decoded = json.loads(raw_ladder)
+            except json.JSONDecodeError:
+                decoded = []
+            raw_ladder = decoded
+        if isinstance(raw_ladder, list):
+            for step in raw_ladder:
+                if not isinstance(step, dict):
+                    continue
+                ladder_payload.append(
+                    {
+                        "milestone_reviews": _to_int(
+                            step.get("milestone_reviews", step.get("milestone")),
+                            default=0,
+                        ),
+                        "basic": _to_int(step.get("basic"), default=0),
+                        "standard": _to_int(step.get("standard"), default=0),
+                        "premium": _to_int(step.get("premium"), default=0),
+                    }
+                )
+        calculated_price_ladder = ladder_payload or None
+    elif pricing_rec is not None:
         calculated_entry_prices = {
             "basic": _to_int(getattr(pricing_rec, "entry_basic", None), default=0),
             "standard": _to_int(getattr(pricing_rec, "entry_standard", None), default=0),
@@ -296,9 +360,18 @@ def build_recommendation_context(keyword_id: int, db: Any, config: Mapping[str, 
         market_type=getattr(price_analysis, "market_type", None) if price_analysis is not None else None,
         calculated_entry_prices=calculated_entry_prices,
         calculated_price_ladder=calculated_price_ladder,
-        new_seller_discount_pct=None,
+        new_seller_discount_pct=(
+            _to_opt_float(getattr(pricing_snapshot, "undercut_pct", None))
+            if pricing_snapshot is not None
+            else _to_opt_float(getattr(price_analysis, "new_seller_discount_pct", None))
+        ),
         competitor_price_positions=competitor_price_positions,
     )
+
+
+def build_context(keyword_id: int, db: Any, config: Mapping[str, Any] | None = None) -> RecommendationContext:
+    """Compatibility alias for recommendation context construction."""
+    return build_recommendation_context(keyword_id, db, config or {})
 
 
 def _score_component_payload(component_rows: list[ScoreComponent], final_raw: dict[str, Any]) -> dict[str, Any]:

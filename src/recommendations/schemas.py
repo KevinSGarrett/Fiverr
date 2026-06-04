@@ -171,6 +171,7 @@ class RecommendationOutput(RecommendationSchemaBase):
     upsell_structure: UpsellStructureOutput | None = None
     red_flags: RedFlagsOutput | None = None
     niche_viability: NicheViabilityOutput | None = None
+    pricing_strategy: str | None = None
 
     generation_complete: bool = False
     failed_tasks: list[str] = Field(default_factory=list)
