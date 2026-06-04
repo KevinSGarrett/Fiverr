@@ -7,6 +7,55 @@ from src.dashboard.db_helpers import get_db_session
 from src.dashboard.opportunities import build_opportunities_payload
 
 
+def render_price_distribution_chart(keyword_id: int, db: object) -> None:
+    """Render a compact Basic-tier competitor price histogram for one keyword."""
+    import streamlit as st
+    import plotly.graph_objects as go
+
+    from src.models.price_analysis import PriceAnalysis
+    from src.pricing.analysis import extract_tier_prices
+    from src.models.gig import Gig
+
+    price_data = db.query(PriceAnalysis).filter(PriceAnalysis.keyword_id == keyword_id).first()
+    if not price_data or not price_data.basic_n:
+        st.caption("No pricing data available")
+        return
+
+    gigs = db.query(Gig).filter(Gig.keyword_id == keyword_id).all()
+    basic_prices = [price for price in extract_tier_prices(gigs, "basic") if price > 0]
+    if not basic_prices:
+        st.caption("No price data")
+        return
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=basic_prices,
+            nbinsx=min(20, len(basic_prices)),
+            name="Competitors",
+            marker_color="rgba(99,110,250,0.6)",
+        )
+    )
+    if price_data.basic_median:
+        fig.add_vline(
+            x=price_data.basic_median,
+            line_dash="dash",
+            line_color="orange",
+            annotation_text=f"Median ${price_data.basic_median:.0f}",
+        )
+    fig.update_layout(
+        height=200,
+        margin={"l": 0, "r": 0, "t": 20, "b": 0},
+        showlegend=False,
+        xaxis_title="Price ($)",
+        yaxis_title="Count",
+    )
+    if hasattr(st, "plotly_chart"):
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.caption("Price distribution chart unavailable in current Streamlit runtime.")
+
+
 def render_opportunities_page() -> None:
     import streamlit as st
 
@@ -24,7 +73,7 @@ def render_opportunities_page() -> None:
                 .group_by(KeywordScore.keyword_id, KeywordScore.scoring_profile)
                 .subquery()
             )
-            rows = (
+            query_rows = (
                 db.query(KeywordScore, Keyword)
                 .join(Keyword, Keyword.id == KeywordScore.keyword_id)
                 .join(
@@ -42,10 +91,11 @@ def render_opportunities_page() -> None:
         except Exception as exc:  # noqa: BLE001
             st.info(f"No scored keywords yet. Database not ready ({exc}).")
             return
-    if not rows:
+    if not query_rows:
         st.info("No scored keywords yet. Run: py -3.12 run.py run --mode score-only")
         return
 
+    top_keyword_id = query_rows[0][0].keyword_id if query_rows else None
     records = [
         {
             "id": f"opportunity-{score.keyword_id}",
@@ -57,7 +107,7 @@ def render_opportunities_page() -> None:
             "status": score.tag or "unknown",
             "keyword_links": [],
         }
-        for score, keyword in rows
+        for score, keyword in query_rows
     ]
     payload = build_opportunities_payload(records=records)
 
@@ -78,6 +128,14 @@ def render_opportunities_page() -> None:
         st.warning(" | ".join(warning_summary["warnings"]))
     else:
         st.success("Opportunity data loaded successfully.")
+
+    if top_keyword_id:
+        if hasattr(st, "markdown"):
+            st.markdown("#### W-PRICE-1 Basic Tier Distribution")
+        else:
+            st.caption("W-PRICE-1 Basic Tier Distribution")
+        with get_db_session() as db:
+            render_price_distribution_chart(int(top_keyword_id), db)
 
 
 if __name__ == "__main__":

@@ -7,8 +7,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from src.llm import TemplateRenderer
+from src.pricing.llm_task import PRICING_MODEL, PRICING_TEMPERATURE, pricing_llm_task
 from src.recommendations.context import RecommendationContext
-from src.schemas.pricing_output import PricingStrategy
 from src.utils.json import safe_json_loads
 
 _RENDERER = TemplateRenderer()
@@ -208,8 +208,7 @@ async def generate_pricing_strategy(
         parsed = safe_json_loads(_extract_llm_text(response))
         if not isinstance(parsed, Mapping) or not isinstance(parsed.get("pricing_strategy"), Mapping):
             return {"output": None, "cost_usd": 0.0}
-        strategy = PricingStrategy(**dict(parsed["pricing_strategy"]))
-        return {"output": strategy.model_dump(), "cost_usd": _extract_usage_cost(response)}
+        return {"output": dict(parsed["pricing_strategy"]), "cost_usd": _extract_usage_cost(response)}
     except Exception:
         return {"output": None, "cost_usd": 0.0}
 
@@ -238,7 +237,6 @@ async def generate_recommendation(
     db: Any,
 ) -> dict[str, Any]:
     """Run all 12 LLM tasks concurrently for a single keyword."""
-    del keyword_id, db
     tasks = [
         generate_gig_titles(context, llm_client, cache),
         generate_tag_sets(context, llm_client, cache),
@@ -438,8 +436,8 @@ async def _complete_pricing_strategy(llm_client: Any, prompt: str) -> Any:
 
     kwargs = {
         "prompt": prompt,
-        "model": "gpt-4o",
-        "temperature": 0.2,
+        "model": PRICING_MODEL,
+        "temperature": PRICING_TEMPERATURE,
         "response_format": {"type": "json_object"},
     }
 
@@ -452,6 +450,21 @@ async def _complete_pricing_strategy(llm_client: Any, prompt: str) -> Any:
     if asyncio.iscoroutine(result):
         return await result
     return await asyncio.to_thread(lambda: result)
+
+
+async def _generate_pricing_strategy_task(
+    keyword_id: int,
+    context: RecommendationContext,
+    db: Any,
+    llm_client: Any,
+) -> dict[str, Any]:
+    result = await pricing_llm_task(
+        keyword_id=keyword_id,
+        context=context,
+        db=db,
+        client=llm_client,
+    )
+    return {"output": result, "cost_usd": 0.0}
 
 
 def _extract_usage_cost(response: Any) -> float:

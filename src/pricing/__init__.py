@@ -24,6 +24,7 @@ from src.pricing.orchestrator import (
     run_stage_10_5,
     run_stage_10_5_for_niche,
 )
+from src.pricing.llm_task import PRICING_MODEL, pricing_llm_task
 
 __all__ = [
     "PriceDistribution",
@@ -43,4 +44,6 @@ __all__ = [
     "run_stage_10_5",
     "run_stage_10_5_for_niche",
     "run_pricing_stage",
+    "pricing_llm_task",
+    "PRICING_MODEL",
 ]
