@@ -220,7 +220,15 @@ def test_e05_generate_recommendation_all_tasks_mock(monkeypatch: Any) -> None:
     monkeypatch.setattr("src.recommendations.tasks.generate_upsell_structure", _ok)
     monkeypatch.setattr("src.recommendations.tasks.generate_red_flags", _ok)
     monkeypatch.setattr("src.recommendations.tasks.generate_niche_viability", _ok)
-    monkeypatch.setattr("src.recommendations.tasks.generate_pricing_strategy", _ok)
+    async def _pricing_ok(
+        _keyword_id: int,
+        _context: RecommendationContext,
+        _db: Any,
+        _llm_client: Any,
+    ) -> str:
+        return "pricing strategy"
+
+    monkeypatch.setattr("src.recommendations.tasks.pricing_llm_task", _pricing_ok)
 
     context = RecommendationContext(keyword_id=1, keyword_text="AI SaaS PRD", niche_id=1)
     result = asyncio.run(generate_recommendation(1, context, llm_client=SimpleNamespace(), cache=None, db=None))
