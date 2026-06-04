@@ -169,6 +169,7 @@ async def log_llm_usage(
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         total_cost_usd=None,
+        task_type=task_type,
         request_hash=request_hash,
         request_json={"task_type": task_type},
         response_json={"total_tokens": total_tokens},

@@ -66,7 +66,7 @@ async def generate_recommendation_async(
     llm_client: Any,
     cache: Any,
 ) -> RecommendationOutput:
-    """Runs all 11 recommendation LLM tasks concurrently."""
+    """Runs all 12 recommendation LLM tasks concurrently (including pricing strategy)."""
     tasks = [
         task_gig_titles(context, llm_client, cache),
         task_tag_sets(context, llm_client, cache),

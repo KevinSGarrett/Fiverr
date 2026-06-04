@@ -59,12 +59,14 @@ from src.models.market import (
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.price_analysis import NichePriceAnalysis, PriceAnalysis, PricingSnapshot
+from src.models.price_ladder_snapshot import PriceLadderSnapshot
 from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
     get_registered_table_names,
 )
 from src.models.result_set_validation import ResultSetValidation
+from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
@@ -117,12 +119,14 @@ __all__ = [
     "NicheConfigRecord",
     "Order",
     "PricingSnapshot",
+    "PriceLadderSnapshot",
     "PriceAnalysis",
     "Recommendation",
     "ResultSetValidation",
     "ReviewAnalysis",
     "Review",
     "RunLog",
+    "RevenueGateRecord",
     "SaturationScore",
     "ScoreComponent",
     "SearchResult",
