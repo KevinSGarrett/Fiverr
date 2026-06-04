@@ -2,7 +2,7 @@
 Tests added: 81 new tests across 2 files.
 Coverage changes: [table from Task 14].
 Full suite: 4203 passed, 94.51% coverage (≥90% PASS).
-F commit SHA: c2af2ea.
+F commit SHA: d08a6d1.
 
 ## Preflight
 
@@ -160,6 +160,10 @@ F commit SHA: c2af2ea.
   - `tests/unit/test_pricing_llm_task.py`
 - `git show --name-only 38db258`:
   - `docs/cycle_reports/CYCLE_063_AGENT_F.md`
+- `git show --name-only d08a6d1`:
+  - `docs/cycle_reports/CYCLE_063_AGENT_F.md`
+  - `tests/unit/test_dashboard_pricing_widgets.py`
+  - `tests/unit/test_pricing_llm_task.py`
 - Zone result: PASS (no `src/` touched by F commit).
 
 ## Task 20 Checklist
