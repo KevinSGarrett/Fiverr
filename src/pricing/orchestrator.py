@@ -8,9 +8,14 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from src.models import Gig, Keyword, Niche, PriceAnalysis, PricingSnapshot
-from src.pricing.analysis import analyze_price_distribution, persist_keyword_pricing
-from src.pricing.contracts import EntryPricingRecommendation, PriceDistribution, PricingInput, PricingOutput
+from src.models import Gig, Keyword, Niche, PricingSnapshot
+from src.pricing.analysis import persist_keyword_pricing
+from src.pricing.contracts import (
+    EntryPricingRecommendation,
+    PriceDistribution,
+    PricingInput,
+    PricingOutput,
+)
 from src.pricing.new_seller_pricing import calculate_new_seller_pricing, get_niche_config
 
 logger = logging.getLogger(__name__)

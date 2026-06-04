@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.orm import Session
-
 from src.dashboard.alerts import build_dashboard_alerts
 from src.dashboard.opportunities import build_opportunities_payload
 from src.dashboard.pages.keywords import render_keywords_page

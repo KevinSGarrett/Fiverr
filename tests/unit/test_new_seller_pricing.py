@@ -4,7 +4,6 @@ from dataclasses import asdict
 from types import SimpleNamespace
 
 import pytest
-
 from src.pricing.new_seller_pricing import (
     PricingRecommendation,
     _assess_pricing_confidence,
@@ -167,7 +166,8 @@ def test_find_gap_opportunity_returns_tuple() -> None:
 
 
 def test_pricing_package_imports_exposed() -> None:
-    from src.pricing import PriceDistribution as ImportedDistribution, PricingRecommendation as ImportedRecommendation
+    from src.pricing import PriceDistribution as ImportedDistribution
+    from src.pricing import PricingRecommendation as ImportedRecommendation
 
     assert ImportedDistribution is not None
     assert ImportedRecommendation is not None
