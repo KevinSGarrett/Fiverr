@@ -10,7 +10,15 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 from src.migrations.migration_13_ladder_revenue_llm_observability import upgrade
-from src.models import Base, Gig, Keyword, Niche, PriceAnalysis, PriceLadderSnapshot, PricingSnapshot
+from src.models import (
+    Base,
+    Gig,
+    Keyword,
+    Niche,
+    PriceAnalysis,
+    PriceLadderSnapshot,
+    PricingSnapshot,
+)
 
 
 def _engine():

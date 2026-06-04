@@ -61,8 +61,8 @@ def track_price_ladder(
     db: Session,
 ):
     """Create a ladder snapshot by comparing actual and recommended pricing."""
-    from src.models.price_ladder_snapshot import PriceLadderSnapshot
     from src.models.price_analysis import PricingSnapshot
+    from src.models.price_ladder_snapshot import PriceLadderSnapshot
 
     milestone = get_nearest_milestone(review_count)
     recommended = get_recommended_prices_at_milestone(keyword_id, milestone, db)

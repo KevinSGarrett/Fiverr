@@ -66,6 +66,7 @@ from src.models.registry import (
     get_registered_table_names,
 )
 from src.models.result_set_validation import ResultSetValidation
+from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
@@ -77,7 +78,6 @@ from src.models.runtime import (
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
 from src.models.search_result import SearchResult, get_latest_search_result, write_search_result
 from src.models.seller import Seller, get_seller, write_seller_profile
-from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.visual import GigVisualAnalysis
 
 __all__ = [

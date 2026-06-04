@@ -9,7 +9,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
-
 from src.models import Base, Keyword, Niche, PriceLadderSnapshot, PricingSnapshot
 from src.pricing.ladder_tracker import (
     LADDER_MILESTONES,

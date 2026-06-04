@@ -11,7 +11,6 @@ import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
-
 from src.migrations.migration_13_ladder_revenue_llm_observability import upgrade
 from src.models import Base, Keyword, LLMUsageLog, Niche, PricingSnapshot, RevenueGateRecord
 from src.pricing.llm_task import pricing_llm_task
