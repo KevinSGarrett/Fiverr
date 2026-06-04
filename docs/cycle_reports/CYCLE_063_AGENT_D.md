@@ -269,7 +269,7 @@ Shared path overlap between B and E sets: **ZERO**.
 | E | 21cd3d4 | `docs/cycle_reports/CYCLE_063_AGENT_E.md` only | YES |
 | C | 5667827 | `docs/cycle_reports/CYCLE_063_AGENT_C.md` only | YES |
 | F | d08a6d1 | `tests/`, `docs/cycle_reports/CYCLE_063_AGENT_F.md` | YES |
-| D | GOVERNANCE_SHA_PENDING | `PM_Pack/`, `docs/cycle_reports/CYCLE_063_AGENT_D.md` | YES |
+| D | 106df6d8c08b36bfb6f0a6db3742639c8c587c40 | `PM_Pack/`, `docs/cycle_reports/CYCLE_063_AGENT_D.md` | YES |
 
 ## Task 35 + 52 — Develop Branch Correctness
 
