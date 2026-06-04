@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-04 (C063 post-merge closeout)
+# Last updated: 2026-06-04 (C064 post-merge closeout)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -64,10 +64,15 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 |---|---|---|---|---|---|---|---|
 | C063 | MERGED | 19a69708de734d7d41991bedf8783f048f37fbdf | CLOSED | CLOSED | CLOSED | OPEN (Phase 2 done) | 9C pricing LLM task + 9D dashboard widgets |
 
-## C064 PREVIEW
+## C064 SCOPE — Wave 9 Pricing Strategy Engine Phase 3
 
-- Wave 9 remainder: 9E price ladder tracker + 9F revenue gate tracker (+ 9G pricing export follow-on)
-- OR Wave 10 Discovery start if Wave 9 Phase 3 deferred
+| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
+|---|---|---|---|---|---|---|---|
+| C064 | MERGED | 7af0b1c8c191a4c80f870609e1c4645d35e8927a | CLOSED | CLOSED | CLOSED | OPEN (9E+9F done) | PriceLadder + RevenueGate + migration_13 |
+
+## C065 PREVIEW
+
+- Wave 9 remainder: 9G pricing export (S6.8) OR Wave 10 Discovery start
 - Continue stale Jira governance cleanup (`SCRUM-106` through `SCRUM-124`)
 - G-D remains open until Waves 10-12 are implemented and verified
 

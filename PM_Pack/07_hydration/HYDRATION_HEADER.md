@@ -1,35 +1,36 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-04 (C063 post-merge)
+# Updated: 2026-06-04 (C064 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 064
-CYCLE_BRANCH: cycle/064/integration
+CYCLE_CURRENT: 065
+CYCLE_BRANCH: cycle/065/integration
 STATUS: READY_FOR_A
-CYCLE_DONE: 063
-CYCLE_NEXT: 064
+CYCLE_DONE: 064
+CYCLE_NEXT: 065
+CYCLE_STATUS_064: COMPLETE - PR #73 squash-merged to develop
+CYCLE_BRANCH_064: DELETED
 CYCLE_STATUS_063: COMPLETE - PR #72 squash-merged to develop
 CYCLE_BRANCH_063: DELETED
 CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
 CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phase 2 done C063; Wave 9 Phase 3+ remains)
+TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phases 1+2+3 done; S6.8+Waves 10-12 remain)
 
-## DEVELOP HEAD (current after C063 squash + D finalization commits)
-develop HEAD: fec8d9d (chore(governance): record final D SHA in C063 report)
-C063 SQUASH SHA: 19a69708de734d7d41991bedf8783f048f37fbdf (PR #72)
-C063 POST-MERGE GOVERNANCE SHA: 106df6d8c08b36bfb6f0a6db3742639c8c587c40
-C063 D FINALIZATION SHA: fec8d9d
+## DEVELOP HEAD (current after C064 squash)
+develop HEAD: 7af0b1c (feat(pricing): C064 Wave 9 Phase 3 -- price ladder tracker + revenue gate + migration_13 (#73))
+C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
 C064 dev HEAD at start: fec8d9d
+C063 SQUASH SHA: 19a69708de734d7d41991bedf8783f048f37fbdf (PR #72)
 C062 SQUASH SHA: de528f84def67b453cae8a1a2831808328a0633c (PR #71)
 C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C063 post-merge D sanity)
-Tests: 4203 passed | Coverage: 94.51% | Floor: 90% enforced
+## SUITE STATE (C064 post-merge D sanity)
+Tests: 4303 passed | Coverage: 94.48% | Floor: 90% enforced
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -91,11 +92,10 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## C064 PREVIEW
-- Wave 9 Phase 3: 9E Price Ladder Tracker (`src/pricing/ladder_tracker.py`) + 9F Revenue Gate Tracker (`src/pricing/revenue_gate.py`) + add `task_type` column to `llm_usage_logs` (observability gap from C063)
-- Jira: SCRUM-1025 (control), SCRUM-1026 (story, parent SCRUM-21)
-- Also consider: pricing export (S6.8) if Phase 3 scope is light
-- Continue stale Jira governance cleanup (SCRUM-126 onwards, ~10 per cycle)
+## C065 PREVIEW
+- Wave 9 Phase 4 candidate: S6.8 Pricing Export (`src/pricing/pricing_export.py`)
+- Alternative: Wave 10 discovery start (S7.1 core loop)
+- C064 delivered 9E + 9F + migration_13 + `llm_usage_logs.task_type`
 - RSV remains SEED until TierD-2 ScrapFly budget approval unlocks live collection mode
 
 ## C063 OBSERVABILITY GAPS (carry forward to C064)
@@ -115,9 +115,9 @@ SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
 POST-SRDI: C062 → Wave 9 Pricing Engine Phase 1 (9A+9B) — COMPLETE
 POST-SRDI: C063 → Wave 9 Pricing Engine Phase 2 (9C+9D) — COMPLETE
 
-## G-D WAVE STATUS (after C063)
-G-D: Waves 0-8 complete. Wave 9 Phase 1 (9A+9B, C062) complete. Wave 9 Phase 2 (9C+9D, C063) complete.
-Wave 9 remaining: 9E price ladder tracker + 9F revenue gate tracker + 9G pricing export.
+## G-D WAVE STATUS (after C064)
+G-D: Waves 0-8 complete. Wave 9 Phase 1 (9A+9B, C062) complete. Wave 9 Phase 2 (9C+9D, C063) complete. Wave 9 Phase 3 (9E+9F, C064) complete.
+Wave 9 remaining: 9G pricing export.
 Waves 10-12 (Discovery, Playbook, Dashboard UX): unstarted.
 G-D closes only after all 12 waves have verified implementation in `src/`.
 
