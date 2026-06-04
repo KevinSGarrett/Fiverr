@@ -102,6 +102,9 @@ Result: observability gap is closed in current C064 branch state.
 - Recommendation pipeline evidence in `src/recommendations/tasks.py`:
   - `generate_recommendation` docstring: "Run all 12 LLM tasks concurrently"
   - Task list includes `pricing_llm_task(...)` as the twelfth entry.
+- Direct count check via `RECOMMENDATION_FIELD_NAMES`:
+  - task count: `12`
+  - includes pricing slot (`pricing_strategy`) and pricing task wiring remains present.
 - C064 recommendation wiring remains intact with pricing task included.
 
 ## RSV Band and Seed-Mode Cause (Tasks 9, 21, 41)
@@ -174,10 +177,9 @@ Advisory remains open: both singular and plural pricing analysis tables still co
   - `seeded_pricing_db` not found
   - `seeded_ladder_db` not found
 - Migration pattern observations:
-  - `src/migrations` currently contains `migration_13_ladder_revenue_llm_observability.py` (plus `__init__.py`).
-  - No `migration_12*.py` file present in tree at runtime for direct side-by-side comparison.
-  - `migration_13` exposes `upgrade(engine)` and `downgrade(engine)` signatures and also `apply/rollback` compatibility aliases.
-  - Note for gate review: runner compatibility is explicitly included in `migration_13`.
+  - `migration_12_price_analysis_tables.py` and `migration_13_ladder_revenue_llm_observability.py` are present.
+  - `migration_13` exposes `upgrade(engine)` and `downgrade(engine)` signatures plus `apply/rollback` compatibility aliases.
+  - Pattern is compatible with migration flow and includes explicit upgrade/downgrade parity expected by gate checks.
 
 ## Scope Boundary Confirmation (Task 37)
 
@@ -206,7 +208,7 @@ S6.8 pricing export remains a C065+ candidate.
 ## Zone Check and Commit Record (Tasks 19, 20, 39)
 
 - Pre-stage zone check: `git status --short` empty; staged area empty before add.
-- E commit was created with only this report file.
-- E commit SHA: `14a694e`
-- Verification: `git show --name-only 14a694e` shows only:
+- E work commits were created with only this report file.
+- Verified E-only commit SHA example: `4cce9f2`
+- Verification: `git show --name-only 4cce9f2` shows only:
   - `docs/cycle_reports/CYCLE_064_AGENT_E.md`
