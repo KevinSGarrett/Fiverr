@@ -32,8 +32,8 @@ from src.models.market import (
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.price_analysis import NichePriceAnalysis, PriceAnalysis, PricingSnapshot
 from src.models.price_ladder_snapshot import PriceLadderSnapshot
-from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.result_set_validation import ResultSetValidation
+from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.runtime import (
     AlertEvent,
     ExportArtifact,
