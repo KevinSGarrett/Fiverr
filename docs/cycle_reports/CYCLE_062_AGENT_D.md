@@ -541,4 +541,4 @@ SCRATCH:
 **D COMPLETE — C062 closed and handed off to C063.**
 
 D governance SHA: `86f0102cfca05110f68c92e5a765b4b32ab1f4ad`  
-D report update SHA: pending final sync commit (this commit).
+D report update SHA: `8415bd2811a3c8b1d92b5374cb7354a0a97c5af3`.
