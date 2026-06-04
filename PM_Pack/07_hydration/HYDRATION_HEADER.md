@@ -18,8 +18,8 @@ CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phases 1+2+3 done; S6.8+Waves 10-12 remain)
 
-## DEVELOP HEAD (current after C064 squash)
-develop HEAD: 7af0b1c (feat(pricing): C064 Wave 9 Phase 3 -- price ladder tracker + revenue gate + migration_13 (#73))
+## DEVELOP HEAD (current after C064 squash + governance closeout)
+develop HEAD: 49cb379 (chore(governance): C064 post-merge hydration update -- SHA, Wave 9 Phase 3, G-D note)
 C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
 C064 dev HEAD at start: fec8d9d
 C063 SQUASH SHA: 19a69708de734d7d41991bedf8783f048f37fbdf (PR #72)

@@ -174,6 +174,15 @@ Full list:
 
 TierD-1 remains user-decision; no stash drop performed.
 
+## Task 24 Parallel Contract Validation (B vs E file overlap)
+
+Validated with independent `git show --name-only` checks:
+
+- `E_SHA=38005d4` shows only `docs/cycle_reports/CYCLE_064_AGENT_E.md`
+- `B_SHA=e28b286` shows `src/`, `tests/`, and B report files
+
+Result: zero shared file-path overlap between B and E commit scopes.
+
 ## Task 27 Deliverables Table
 
 | Agent | Commit SHA | Key files | Zone OK? |
@@ -261,6 +270,33 @@ Observability progression:
 Verification query for future use:
 `SELECT task_type, COUNT(*), SUM(cost_usd) FROM llm_usage_logs GROUP BY task_type`
 
+## Task 29/37/47/49/52 Final Develop Health Confirmation
+
+- Branch: `develop`
+- Worktree: exactly one
+- Remote branches: no `origin/cycle/064/integration`
+- `origin/develop` head chain confirms governance commit on top:
+  - `49cb379 chore(governance): C064 post-merge hydration update -- SHA, Wave 9 Phase 3, G-D note`
+  - `7af0b1c feat(pricing): C064 Wave 9 Phase 3 -- price ladder tracker + revenue gate + migration_13 (#73)`
+- Post-merge CI on governance head (`49cb379`) required checks:
+  - `Lint, Typecheck, Tests, and Gates: success`
+  - `Dependency Audit: success`
+  - `Secret Scan: success`
+  - `codecov/project: success`
+
+## Task 30 Final Checklist
+
+- [x] State verified (`git log`, open PR query, branch/worktree status)
+- [x] Stage order honored: A -> (B+E) -> C -> F -> D
+- [x] D playbook enforced: `override:large-pr`, Codex x2, codecov advisory policy, mergeable state handling
+- [x] G1 attribution complete with zone verification for all commits
+- [x] Independent gates complete: PRAGMA, demo-data zero, golden, page count, executor parity
+- [x] Jira closeout complete: `SCRUM-1025` + `SCRUM-1026` moved to Done with final comments
+- [x] PM pack updates complete: hydration + epic tracker updated for C065 handoff
+- [x] Scratch cleanup complete: codex and coverage temp artifacts removed
+- [x] Tier-D status documented: TierD-1 stash list captured; TierD-2 ScrapFly pending
+- [x] C064 prompt files have no stale `[C0NN_SQUASH_SHA]` placeholders or stale `754e977` handoff token values
+
 ## Task 45 Final D Self-Audit
 
 - [x] §12.3 playbook documented
@@ -278,8 +314,8 @@ Verification query for future use:
 - [x] Stash list (12) documented
 - [x] ScrapFly TierD-2 status documented
 - [x] Cycle branch deleted
-- [x] Governance commit prepared on `develop`
-- [x] Scratch artifacts cleanup pending at final commit step
+- [x] Governance commit pushed to `develop`
+- [x] Scratch artifacts cleanup complete
 
 ## Final Verdict
 
