@@ -110,7 +110,7 @@ In `src/recommendations/executor.py`, found:
 
 - `"""Runs all 11 recommendation LLM tasks concurrently."""`
 
-This is stale post-C063 and should be corrected by B to "12".
+This is stale post-C063 and is explicitly called out in B handoff for correction to "12" (A retained docs-only commit scope per Task 25 constraints).
 
 ## Tasks 7/8/9 — 9E/9F + Migration Design Package
 
@@ -181,7 +181,10 @@ Created:
    - `collection.scrapfly.enabled: false`
 
 3) SRDI closure artifacts status  
-   - G-A remains recorded as CLOSED from prior cycle governance; no reopening evidence found in C064 preflight
+   - `PM_Pack/ref/project_plan/13_srdi/11_AI_AGENT_HANDOFF.md`: **47 lines**
+   - `PM_Pack/ref/project_plan/13_srdi/12_LAUNCH_READINESS.md`: **37 lines**
+   - `PM_Pack/ref/project_plan/13_srdi/13_RISK_COMPLIANCE_COST.md`: **33 lines**
+   - Result: **PASS** (real-content artifacts present; aligns to stated 47/37/33 closure evidence)
 
 4) Niche drift check (`NICHE_VALIDATION_CONFIG`)  
    - Count: **9**
@@ -237,7 +240,7 @@ Full stash list captured:
 ## Task 26 — §13.8 Pre-Release Checklist
 
 - [x] `git log` read at start
-- [x] `gh` open PR read (no output returned)
+- [x] `gh` open PR/issue read (`feat(pricing): C064 Wave 9 Phase 3 -- price ladder tracker + revenue gate + llm observability (#NEXT)`)
 - [ ] `[C064_SQUASH_SHA]` replaced in all 6 prompts (pending D merge step)
 - [ ] `"END OF PROMPT"` appears exactly once per prompt file (pending D cleanup/normalization)
 - [x] B + E parallel notice present in A prompt first block/checklist
@@ -272,6 +275,15 @@ Sizing table:
 | D | 650 | 650 | 0 | merge gate |
 | Total | 3252 | 3250 | +2 | All floors met |
 
+Recorded linecount output:
+
+- `CYCLE_064_AGENT_A_PROMPT.md : 501 lines`
+- `CYCLE_064_AGENT_B_PROMPT.md : 650 lines`
+- `CYCLE_064_AGENT_E_PROMPT.md : 500 lines`
+- `CYCLE_064_AGENT_C_PROMPT.md : 425 lines`
+- `CYCLE_064_AGENT_F_PROMPT.md : 526 lines`
+- `CYCLE_064_AGENT_D_PROMPT.md : 650 lines`
+
 ## Task 28 — C062/C063 Module Importability
 
 Validated import pass:
@@ -299,6 +311,7 @@ Recommendation for B:
 ## Task 37/38 — Sprint Hygiene and Duplicate Story Check
 
 - `SCRUM-1026` parent link confirmed: **SCRUM-21** (Epic 06: Pricing Engine)
+- `gh api repos/KevinSGarrett/Fiverr/issues?state=open --jq ".[].title"` executed and captured open item title output
 - Search for open Wave 9 Phase 3 stories (`issuetype=Story`, summary query) returned only **SCRUM-1026**
 
 ## Task 39 — Pricing Spec Catalog Verification
