@@ -1,6 +1,6 @@
 # CYCLE 064 — AGENT F COVERAGE UPLIFT REPORT
 
-F COMPLETE — Zone: ZERO src/ files. Tests added: 100 across 2 files. Coverage: ladder_tracker 88%, revenue_gate 100%, Total 94.48%. F commit SHA: PENDING_COMMIT.
+F COMPLETE — Zone: ZERO src/ files. Tests added: 100 across 2 files. Coverage: ladder_tracker 88%, revenue_gate 100%, Total 94.48%. F commit SHA: 9967eb1.
 
 Date: 2026-06-04  
 Branch: `cycle/064/integration`  
@@ -91,4 +91,4 @@ Added coverage-focused tests in:
 - [x] `ladder_tracker` and `revenue_gate` each >= 80%.
 - [x] Collection checks show no duplicate-collection errors.
 - [x] Coverage table includes before/after deltas.
-- [ ] Replace `PENDING_COMMIT` with final pushed SHA after commit.
+- [x] F commit SHA recorded in report header.
