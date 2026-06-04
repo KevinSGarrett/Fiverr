@@ -241,8 +241,8 @@ Full stash list captured:
 
 - [x] `git log` read at start
 - [x] `gh` open PR/issue read (`feat(pricing): C064 Wave 9 Phase 3 -- price ladder tracker + revenue gate + llm observability (#NEXT)`)
-- [ ] `[C064_SQUASH_SHA]` replaced in all 6 prompts (pending D merge step)
-- [ ] `"END OF PROMPT"` appears exactly once per prompt file (pending D cleanup/normalization)
+- [x] `[C064_SQUASH_SHA]` replaced in all 6 prompts (0 matches; normalized to `754e977`)
+- [x] `"END OF PROMPT"` appears exactly once per prompt file
 - [x] B + E parallel notice present in A prompt first block/checklist
 - [x] E `src/` prohibition explicit
 - [x] C ordering text explicit (after B AND E, before F)
@@ -256,32 +256,32 @@ Full stash list captured:
 
 Prompt line counts:
 
-- A: 501
+- A: 500
 - B: 650
 - E: 500
 - C: 425
-- F: 526
+- F: 525
 - D: 650
 
 Sizing table:
 
 | Agent | Lines | Floor | Gap | Notes |
 | --- | ---: | ---: | ---: | --- |
-| A | 501 | 500 | +1 | 14-track review, handoffs |
+| A | 500 | 500 | 0 | 14-track review, handoffs |
 | B | 650 | 650 | 0 | 9E+9F implementation |
 | E | 500 | 500 | 0 | validation only |
 | C | 425 | 425 | 0 | gate validation |
-| F | 526 | 525 | +1 | edge-case tests |
+| F | 525 | 525 | 0 | edge-case tests |
 | D | 650 | 650 | 0 | merge gate |
-| Total | 3252 | 3250 | +2 | All floors met |
+| Total | 3250 | 3250 | 0 | All floors met |
 
 Recorded linecount output:
 
-- `CYCLE_064_AGENT_A_PROMPT.md : 501 lines`
+- `CYCLE_064_AGENT_A_PROMPT.md : 500 lines`
 - `CYCLE_064_AGENT_B_PROMPT.md : 650 lines`
 - `CYCLE_064_AGENT_E_PROMPT.md : 500 lines`
 - `CYCLE_064_AGENT_C_PROMPT.md : 425 lines`
-- `CYCLE_064_AGENT_F_PROMPT.md : 526 lines`
+- `CYCLE_064_AGENT_F_PROMPT.md : 525 lines`
 - `CYCLE_064_AGENT_D_PROMPT.md : 650 lines`
 
 ## Task 28 — C062/C063 Module Importability
