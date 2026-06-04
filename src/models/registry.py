@@ -31,6 +31,8 @@ from src.models.market import (
 )
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.price_analysis import NichePriceAnalysis, PriceAnalysis, PricingSnapshot
+from src.models.price_ladder_snapshot import PriceLadderSnapshot
+from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.result_set_validation import ResultSetValidation
 from src.models.runtime import (
     AlertEvent,
@@ -67,6 +69,8 @@ REGISTERED_MODEL_CLASSES = (
     PriceAnalysis,
     NichePriceAnalysis,
     PricingSnapshot,
+    PriceLadderSnapshot,
+    RevenueGateRecord,
     DiscoveryHypothesis,
     CompetitorSnapshot,
     AnalysisSignalRecord,
@@ -112,8 +116,10 @@ SOURCE_REQUIRED_TABLE_NAMES = (
     "niche_configs",
     "niches",
     "pricing_snapshots",
+    "price_ladder_snapshots",
     "price_analysis",
     "niche_price_analysis",
+    "revenue_gate_records",
     "recommendations",
     "report_runs",
     "report_sections",
@@ -151,6 +157,8 @@ TABLE_DOMAIN_MAP = {
         "analysis_runs",
         "analysis_results",
         "pricing_snapshots",
+        "price_ladder_snapshots",
+        "revenue_gate_records",
         "price_analysis",
         "niche_price_analysis",
         "discovery_hypotheses",

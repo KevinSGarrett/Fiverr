@@ -59,6 +59,7 @@ from src.models.market import (
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.order import Order
 from src.models.price_analysis import NichePriceAnalysis, PriceAnalysis, PricingSnapshot
+from src.models.price_ladder_snapshot import PriceLadderSnapshot
 from src.models.registry import (
     get_missing_source_tables,
     get_registered_model_classes,
@@ -76,6 +77,7 @@ from src.models.runtime import (
 from src.models.scoring import FinalScore, Recommendation, ScoreComponent
 from src.models.search_result import SearchResult, get_latest_search_result, write_search_result
 from src.models.seller import Seller, get_seller, write_seller_profile
+from src.models.revenue_gate_record import RevenueGateRecord
 from src.models.visual import GigVisualAnalysis
 
 __all__ = [
@@ -117,12 +119,14 @@ __all__ = [
     "NicheConfigRecord",
     "Order",
     "PricingSnapshot",
+    "PriceLadderSnapshot",
     "PriceAnalysis",
     "Recommendation",
     "ResultSetValidation",
     "ReviewAnalysis",
     "Review",
     "RunLog",
+    "RevenueGateRecord",
     "SaturationScore",
     "ScoreComponent",
     "SearchResult",

@@ -19,6 +19,7 @@ from . import (
     migration_10_discovery_outcome_context_cols,
     migration_11_external_signal_tc1_cols,
     migration_12_price_analysis_tables,
+    migration_13_ladder_revenue_llm_observability,
 )
 
 
@@ -37,3 +38,4 @@ def run_srdi_r8_migrations(database_url: str | None = None, engine: Engine | Non
     migration_10_discovery_outcome_context_cols.apply(active_engine)
     migration_11_external_signal_tc1_cols.apply(active_engine)
     migration_12_price_analysis_tables.apply(active_engine)
+    migration_13_ladder_revenue_llm_observability.apply(active_engine)
