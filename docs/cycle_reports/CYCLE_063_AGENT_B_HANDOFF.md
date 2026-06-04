@@ -7,7 +7,7 @@
 
 ## Files To Create
 - `src/pricing/llm_task.py` (Task #12 pricing LLM task; align with existing client/cache/logging pattern)
-- `src/llm/templates/stage13_recommendations/pricing_strategy.j2` (template location used by current recommendation stack)
+- `src/recommendations/templates/pricing_strategy.j2` (prompt-specified target)
 - `tests/unit/test_pricing_llm_task.py` (>=20 tests)
 - `tests/unit/test_dashboard_pricing_widgets.py` (>=15 tests)
 
@@ -60,6 +60,9 @@
   - `_TASK_FIELD_ORDER`
 - Template loading currently uses:
   - `src/llm/templates/stage13_recommendations/*.j2` via `load_template(...)` in `src/recommendations/llm_tasks.py`
+- Implementation instruction for B:
+  - satisfy prompt contract by creating `src/recommendations/templates/pricing_strategy.j2`,
+    then wire/bridge loader logic so runtime resolves this template consistently with existing Stage-13 loading.
 - Current dashboard page function entry points for 9D:
   - `render_opportunities_page()` in `src/dashboard/pages/opportunities.py`
   - `render_keywords_page()` in `src/dashboard/pages/keywords.py`

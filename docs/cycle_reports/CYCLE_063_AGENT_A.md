@@ -206,7 +206,7 @@
 ## Task 30 — Prompt Sizing Handoff Table
 | Agent | Expected tasks | Expected new src/ files | Notes |
 |---|---:|---|---|
-| B | 25+ | `src/pricing/llm_task.py`, `src/llm/templates/stage13_recommendations/pricing_strategy.j2` | + context/schema/gather + 4 page modifications |
+| B | 25+ | `src/pricing/llm_task.py`, `src/recommendations/templates/pricing_strategy.j2` | + context/schema/gather + 4 page modifications |
 | E | 25+ | 0 (docs-only zone) | live validation + pricing snapshot/log evidence |
 | C | 25+ | 0 (reports-only zone) | gate validation only |
 | F | 25+ | 0 (tests-only zone) | widget + pricing-task coverage uplift |
@@ -244,6 +244,16 @@
 - `CYCLE_063_AGENT_F_PROMPT.md`: 525 (>=525 PASS)
 - `CYCLE_063_AGENT_D_PROMPT.md`: 655 (>=650 PASS)
 
+## Task 31 — Commit Agent A Work
+- Staged only `PM_Pack/` and `docs/` paths for A-scope artifacts.
+- Verified staged-file scope with `git diff --cached --name-only` path review.
+- Committed and pushed on `cycle/063/integration`.
+- Primary Agent A handoff commit message used:
+  - `docs(cycle063): Agent A -- Wave 9 Phase 2 handoff, 14-track review, SCRUM-1023/1024 in progress`
+- Commit SHAs created during A execution:
+  - `e398e0f` (handoff package)
+  - `b6addfc` (report metadata update)
+
 ## Finalization
-- A commit SHA: `e398e0f`
+- A commit SHA: `b6addfc`
 - Draft PR: `https://github.com/KevinSGarrett/Fiverr/pull/72`
