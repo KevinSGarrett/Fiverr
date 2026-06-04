@@ -161,10 +161,9 @@ PASS: widget handles empty DB
 ### Gate 17 — single worktree check
 
 ```text
-C:/Fiverr/Fiverr  d79d0fd [cycle/063/integration]
+C:/Fiverr/Fiverr  0802ed2 [cycle/063/integration]
+PASS: single worktree
 ```
-
-Interpretation: single worktree detected.
 
 ### Gate 18 — 9D widget functions present
 
@@ -189,10 +188,11 @@ Observation: duplicate naming still exists (`price_analysis` vs `price_analyses`
 ### Gate 20 — §11 parity check
 
 ```text
+migration_13 file: NOT FOUND
 pricing_strategy in DB: False
 ```
 
-No direct ORM `pricing_strategy` field found under `src/models/` during C scan, so explicit ORM-vs-DB parity violation condition was not triggered in this run.
+No direct ORM `pricing_strategy` field found under `src/models/` during C scan, and `migration_13` was not present, so explicit ORM-vs-DB parity violation condition was not triggered in this run.
 
 ### Gate 21 — llm_usage_logs fields
 
@@ -214,7 +214,16 @@ src\dashboard\pages\recommendations.py      59     12    80%   31, 73-82, 97
 src\dashboard\pages\run_history.py          64     11    83%   25-26, 28-29, 35, 88, 95-99, 103
 ```
 
-Pricing task coverage (module-specific run via pricing package scope):
+Pricing command from prompt (exact) output:
+
+```text
+python -m pytest -q --cov=src/pricing/llm_task --cov-report=term-missing --no-header tests/unit/ 2>&1 | Select-String "llm_task|TOTAL"
+CoverageWarning: Module src/pricing/llm_task was never imported.
+ERROR: Coverage failure: total of 0 is less than fail-under=90
+FAIL Required test coverage of 90.0% not reached. Total coverage: 0.00%
+```
+
+Because the exact command did not return per-file lines for `llm_task`, a supplemental package-scoped run was executed to extract the actionable per-file coverage requested for F:
 
 ```text
 src\pricing\llm_task.py                99      3    97%   146-147, 185
@@ -223,6 +232,16 @@ TOTAL                                 800    524    34%
 ```
 
 ### Gate 23 — context builder populates pricing fields
+
+Prompt snippet exact output:
+
+```text
+Traceback (most recent call last):
+  from src.models.keyword import Keyword
+ModuleNotFoundError: No module named 'src.models.keyword'
+```
+
+Adjusted repo-compatible check output:
 
 ```text
 No keyword rows found
@@ -288,7 +307,17 @@ Advisory: template exists under `src/llm/prompts/` instead of `src/recommendatio
 No snapshots yet or empty ladder
 ```
 
-Advisory only due data absence in checked DB snapshot.
+Code wiring evidence for W-PRICE-4 usage path:
+
+```text
+run_history.py:14 from src.models.price_analysis import PricingSnapshot
+run_history.py:17 if not snapshot or not snapshot.price_ladder:
+run_history.py:21 ladder = snapshot.price_ladder
+run_history.py:36 milestone = step.get("milestone_reviews", step.get("milestone", 0))
+run_history.py:39 st.write(f"At {int(milestone)} reviews: ...")
+```
+
+Advisory only due data absence in checked DB snapshot; wiring to `PricingSnapshot.price_ladder` is present.
 
 ## Gate 33 — pricing LLM temperature check
 
@@ -307,26 +336,35 @@ Select-String matplotlib|seaborn|altair src/pricing/*.py src/dashboard/pages/*.p
 (no matches)
 ```
 
-## Gate 25 — Final GO / NO-GO Verdict Summary
+## Gate 25 — Final GO/NO-GO Verdict Table
 
-- Gate 1 Context fields: PASS — Missing fields: NONE
-- Gate 2 Output schema: PASS — `pricing_strategy` field PRESENT
-- Gate 3 LLM task import: PASS — `PRICING_MODEL=gpt-4o`
-- Gate 4 Task in pipeline: PASS — `pricing_llm_task` in recommendations gather path
-- Gate 5 Demo data: PASS — 0 references
-- Gate 6 Golden: PASS — `62.7 / 1.0 / CONDITIONAL_GO`
-- Gate 7 Regression pack: PASS — `44 passed, 4123 deselected`
-- Gate 8 Coverage: PASS — required test coverage reached (`94.50%`)
-- Gate 9 LLM task tests: PASS — `29 passed` (>=20)
-- Gate 10 Widget tests: PASS — `16 passed` (>=15)
-- Gate 11 Page count: PASS — `9`
-- Gate 12 Config gate: PASS — `scrapfly.enabled: false`
-- Gate 13 Baseline: PASS — delta `0.0000`
-- Gate 14 E zone: CLEAN — E commit includes only E report file
-- Gates 15–24 supplemental: PASS/advisory — see individual sections
+| Gate | Result | Evidence |
+| ------ | ------ | ------ |
+| 1 Context fields | PASS | 7 fields present (`Missing fields: NONE`) |
+| 2 Output schema | PASS | `pricing_strategy` PRESENT |
+| 3 LLM task import | PASS | `PRICING_MODEL=gpt-4o` |
+| 4 Task in pipeline | PASS | `pricing_llm_task` + `gather` wiring present |
+| 5 Demo data | PASS | `PASS: 0 demo-data refs` |
+| 6 Golden | PASS | `62.7/1.0/CONDITIONAL_GO` |
+| 7 Regression pack | PASS | `44 passed, 4123 deselected` |
+| 8 Coverage | PASS | `Required test coverage of 90% reached` |
+| 9 LLM task tests | PASS | `29 passed` (>=20) |
+| 10 Widget tests | PASS | `16 passed` (>=15) |
+| 11 Page count | PASS | `PASS: page count = 9` |
+| 12 Config gate | PASS | `scrapfly.enabled: false` |
+| 13 Baseline | PASS | `Baseline delta: 0.0000 -- PASS` |
+| 14 E zone | CLEAN | `git show --name-only` returned only E.md |
+| 15-24 supplemental | PASS/advisory | Per-gate evidence above |
 
 ## Final Verdict
 
 ### VERDICT: GO
 
 All 14 blocking gates passed with direct command evidence. Advisory findings (non-blocking) were recorded for schema/observability and data-presence gaps: Gate 19 duplicate table naming, Gate 21 `llm_usage_logs` expected fields not present, Gate 23/31 empty DB data for deeper runtime validation, and Gate 30 template location variance.
+
+## Gate 29 — Final commit report evidence standard
+
+- Gate 6 golden line included: `62.7/1.0/CONDITIONAL_GO`
+- Gate 8 coverage line included: `Required test coverage of 90% reached. Total coverage: 94.50%`
+- Gate 7 regression line included: `44 passed, 4123 deselected in 14.02s`
+- Report includes raw outputs for each gate execution path, including exact-command failures where present (Gates 22 and 23 exact snippets).
