@@ -104,3 +104,5 @@ Wave 9 Phase 2 implementation for:
 - Agent B commit SHA: `4f00153d4b35efe0e88386dd9233a052d7c38b47`
 - Pushed to: `origin/cycle/063/integration`
 - SCRUM-1024 comment posted with implementation and gate evidence (Jira comment id `12407`)
+- Strict parity follow-up commit SHA: `7061277ca7f8d9e21bd6a5b415ab3746f17b03df`
+- SCRUM-1024 follow-up parity comment posted (Jira comment id `12440`)
