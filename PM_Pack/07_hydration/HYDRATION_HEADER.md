@@ -1,30 +1,33 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-03 (C061 post-merge)
+# Updated: 2026-06-03 (C062 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 062
-CYCLE_BRANCH: cycle/062/integration
+CYCLE_CURRENT: 063
+CYCLE_BRANCH: cycle/063/integration
 STATUS: READY_FOR_A
-CYCLE_DONE: 061
-CYCLE_NEXT: 062
+CYCLE_DONE: 062
+CYCLE_NEXT: 063
+CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
+CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-B CLOSED (TC-1 schema complete) | G-C CLOSED (dashboard live-data complete) | G-A PARTIAL | G-D OPEN
+TIER_GATE: G-B CLOSED (C061) | G-C CLOSED (C061) | G-A PARTIAL | G-D OPEN (Wave 9 started C062)
 
-## DEVELOP HEAD (current after C061 squash merge + post-merge governance)
-develop HEAD: 39f5701 (chore(governance): C061 post-merge hydration update)
+## DEVELOP HEAD (current after C062 squash merge)
+develop HEAD: de528f8 (feat(pricing): C062 Wave 9 -- price distribution analysis + new seller entry pricing model + Stage 10.5 (#71))
+C062 SQUASH SHA: de528f84def67b453cae8a1a2831808328a0633c
 C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
-C062 dev HEAD at start: 39f5701
+C062 dev HEAD at start: 2e8c2a9
 C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C061 gate close)
-Tests: 3966 passed | Coverage: 94.58% | Floor: 90% enforced
+## SUITE STATE (C062 post-merge D sanity)
+Tests: 4122 passed | Coverage: 94.64% | Floor: 90% enforced
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
-Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening)
+Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
 REG-41: test_external_signal_raw_value_stored_and_retrieved
 REG-42: test_collection_url_encodes_spaces_correctly
 REG-43: test_collection_url_never_bare_path
@@ -59,18 +62,23 @@ ISSUE-B: E report padding — 450+ "floor-line-NNN" pad lines in CYCLE_060_AGENT
 ISSUE-C: D's G1 attribution check insufficient — only checked SHAs from C's report.
   G1 must use git log --all to enumerate ALL commits, then verify each one.
 
-## OPEN CARRY-FORWARDS (C061 scope)
-TC-1: ExternalSignal schema deferred (raw_value/relevance_score/trend_direction columns absent)
-DL-207: Fiverr search URL shape — malformed URL path form (captured in E's C060 live logs)
-        URL shape: "https://www.fiverr.com/Python automation script" (space-separated, not encoded)
-RSV band: 4th consecutive SEED (C057/C058/C059/C060). 2/4 external signal families in C060.
-          Root causes: TC-1 missing columns + DL-207 URL shape
-Process: G1 attribution completeness (see ISSUE-A above)
+## OPEN CARRY-FORWARDS (C063 scope)
+RESOLVED in C061:
+- TC-1 ExternalSignal schema: RESOLVED
+- DL-207 Fiverr search URL shape: RESOLVED (`collection/orchestrator.py` uses encoded URL path)
+
+RESOLVED/ADVANCED in C062:
+- Wave 9 pricing stub: STARTED (S6.1 price distribution + S6.2 new seller pricing implemented)
+
+STILL OPEN for C063:
+- RSV band: still SEED (per E C062 report; dry-run path, live run still needs TierD-2 approval)
+- LLM toggles: `llm_relevance_enabled=false` by design
+- Wave 9 remainder: S6.3 pricing LLM task, S6.4 price ladder tracker, S6.5 revenue gate
+- Wave 10-12: unstarted
 
 ## OPEN TIER-D ITEMS
 TierD-1: 6 stale git stashes (cycle051/047/043/036/029/012) — confirm with user before dropping
 TierD-2: ScrapFly credit budget for full live collection — confirm with user
-TierD-3: DL-207 (search URL shape) — TC-1 + DL-207 fix needed first
 
 ## .ENV KEY INVENTORY (presence only)
 OPENAI_API_KEY: PRESENT (sk- prefix, len=164)
@@ -78,15 +86,11 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## C061 SCOPE
-Initiative: Post-SRDI Collection Hardening (Wave M)
-Primary goals: Fix TC-1 (ExternalSignal schema) + DL-207 (URL shape) + break SEED chain
-Expected: TC-1 adds raw_value/relevance_score/trend_direction to ExternalSignal model (§11 parity)
-Expected: DL-207 fixes URL encoding in collection orchestrator
-Expected: Live collection achieves LIVE band for first time (RSV rows in throwaway DB)
-Also: Process fix for G1 attribution completeness; prohibition on pad lines in E reports
-C061 control task: "Cycle 061 (Post-SRDI hardening) control"
-C061 dev HEAD at start: 4d4f8ac (after governance commit) | C061 prompts: COMPLETE, all 6 written
+## C063 PREVIEW
+- Wave 9 Phase 2: 9C Pricing LLM Task (`src/pricing/llm_task.py`) + 9D Dashboard Pricing Widgets
+- OR Wave 10 start if Wave 9 Phase 2 deferred
+- Continue stale Jira governance cleanup (`SCRUM-106` through `SCRUM-124`)
+- G-A: close fully if A C062 artifact expansion is deemed sufficient
 
 ## GOLDEN ANCHORS (READ-ONLY FOREVER)
 kw=110: 62.7 / 1.0 / CONDITIONAL_GO | kw=96: 35.8 | kw=3: 56.66
@@ -96,7 +100,7 @@ data/cycle037_live.db NEVER EDITED
 Tier-0: DONE | Tier-1: DONE | Tier-2: DONE | Tier-3: DONE | Tier-4: DONE
 SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
 ## POST-SRDI: C061 → Collection Hardening (Wave M) — COMPLETE
-POST-SRDI: C062 → Wave 9 Pricing Strategy Engine (Wave N) — IN PROGRESS
+POST-SRDI: C062 → Wave 9 Pricing Engine (Wave N) — COMPLETE
 
 ## TOGGLES
 analysis.external_signals_enabled: true (enabled in C061 post-TC-1 close) | relevance.llm_relevance_enabled: false
