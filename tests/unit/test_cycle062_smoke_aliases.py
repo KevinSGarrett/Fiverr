@@ -8,6 +8,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -23,6 +25,9 @@ def _run_command(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 @lru_cache(maxsize=1)
 def _golden_output() -> str:
+    baseline_db = REPO_ROOT / "data" / "cycle037_live.db"
+    if not baseline_db.exists():
+        pytest.skip("Golden baseline DB unavailable in current environment")
     result = _run_command(
         [
             "run.py",
