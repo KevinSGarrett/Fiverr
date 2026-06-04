@@ -9,12 +9,12 @@ from src.dashboard.opportunities import build_opportunities_payload
 
 def render_price_distribution_chart(keyword_id: int, db: object) -> None:
     """Render a compact Basic-tier competitor price histogram for one keyword."""
-    import streamlit as st
     import plotly.graph_objects as go
+    import streamlit as st
 
+    from src.models.gig import Gig
     from src.models.price_analysis import PriceAnalysis
     from src.pricing.analysis import extract_tier_prices
-    from src.models.gig import Gig
 
     price_data = db.query(PriceAnalysis).filter(PriceAnalysis.keyword_id == keyword_id).first()
     if not price_data or not price_data.basic_n:

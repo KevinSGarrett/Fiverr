@@ -17,6 +17,7 @@ from src.pricing.contracts import (
     PricingInput,
     PricingOutput,
 )
+from src.pricing.llm_task import PRICING_MODEL, pricing_llm_task
 from src.pricing.new_seller_pricing import PricingRecommendation, calculate_new_seller_pricing
 from src.pricing.orchestrator import (
     PricingOrchestrator,
@@ -24,7 +25,6 @@ from src.pricing.orchestrator import (
     run_stage_10_5,
     run_stage_10_5_for_niche,
 )
-from src.pricing.llm_task import PRICING_MODEL, pricing_llm_task
 
 __all__ = [
     "PriceDistribution",

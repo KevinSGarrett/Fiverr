@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.dashboard.pages.keywords import (
     get_pricing_summary_for_keyword,
     render_price_heatmap,
@@ -339,9 +338,8 @@ def test_price_heatmap_all_niches_no_crash(
 
 
 def test_histogram_uses_plotly_figure(seeded_price_db: object, fake_st: SimpleNamespace) -> None:
-    from sqlalchemy.orm import Session
-
     import plotly.graph_objects as go
+    from sqlalchemy.orm import Session
 
     render_price_distribution_chart(1, Session(seeded_price_db))
     assert fake_st.plotly_chart.called
@@ -367,7 +365,7 @@ def test_pricing_strategy_card_metrics_count_with_snapshot(
 
     render_pricing_strategy_card(1, recommendation=None, db=Session(seeded_snapshot_db))
     columns = fake_st.columns.return_value
-    metric_calls = sum(getattr(col, "metric").call_count for col in columns)
+    metric_calls = sum(col.metric.call_count for col in columns)
     assert metric_calls >= 3
 
 
@@ -406,7 +404,6 @@ def test_revenue_projection_milestone_ordering(
     seeded_snapshot_db: object,
 ) -> None:
     from sqlalchemy.orm import Session
-
     from src.models.price_analysis import PricingSnapshot
 
     with Session(seeded_snapshot_db) as session:

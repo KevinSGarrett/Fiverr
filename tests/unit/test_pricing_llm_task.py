@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
+from src.pricing import llm_task as pricing_module
 from src.pricing.llm_task import (
     PRICING_MODEL,
     PRICING_TEMPERATURE,
@@ -19,7 +19,6 @@ from src.pricing.llm_task import (
     pricing_llm_task,
     store_cache,
 )
-from src.pricing import llm_task as pricing_module
 from src.recommendations.context import RecommendationContext, build_context
 from src.recommendations.schemas import RecommendationOutput
 from src.recommendations.tasks import RECOMMENDATION_FIELD_NAMES, generate_recommendation
@@ -441,7 +440,6 @@ def test_build_context_price_fields_none_when_no_analysis(empty_db: Any) -> None
 
 def test_recommendation_stores_none_pricing_strategy_without_error(seeded_snapshot_db: Any) -> None:
     from sqlalchemy.orm import Session
-
     from src.models import Recommendation
 
     with Session(seeded_snapshot_db) as session:

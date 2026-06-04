@@ -21,7 +21,7 @@ PRICING_CACHE_PREFIX = "pricing_strategy"
 
 async def pricing_llm_task(
     keyword_id: int,
-    context: "RecommendationContext",
+    context: RecommendationContext,
     db: Any,
     client: Any,
 ) -> str | None:
@@ -96,7 +96,7 @@ async def pricing_llm_task(
         return None
 
 
-def build_pricing_prompt(context: "RecommendationContext") -> str:
+def build_pricing_prompt(context: RecommendationContext) -> str:
     """Build a concise pricing strategy prompt from recommendation context."""
     distribution = context.price_distribution or {}
     basic = distribution.get("basic", {}) if isinstance(distribution, Mapping) else {}
