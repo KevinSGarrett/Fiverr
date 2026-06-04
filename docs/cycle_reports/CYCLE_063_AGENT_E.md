@@ -285,7 +285,7 @@ Post-C063 expected additions:
 - [x] Regression subsets PASS
 - [x] Baseline DB UNTOUCHED
 - [x] Prohibited-pattern scan clean
-- [ ] E commit SHA (populate post-commit)
+- [x] E commit SHA captured: `c644fee4e8aaf9f4f30bbd8490e606c26dcd2c8b`
 
 ## Task 18/31/19 - Zone Verification and Commit Evidence
 
@@ -298,3 +298,4 @@ Post-C063 expected additions:
   - `origin cycle/063/integration`
 - Post-commit verification:
   - `git show --name-only <E_SHA>` must list only `docs/cycle_reports/CYCLE_063_AGENT_E.md`
+  - Verified commit SHA: `c644fee4e8aaf9f4f30bbd8490e606c26dcd2c8b`
