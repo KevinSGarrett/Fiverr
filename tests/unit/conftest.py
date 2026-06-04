@@ -9,7 +9,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
-
 from src.models import Base, Gig, Keyword, Niche, PriceAnalysis, PricingSnapshot
 
 
