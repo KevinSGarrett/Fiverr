@@ -20,9 +20,12 @@ CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 COMPLETE C062-C065; Wave 10 Discovery unstarted)
 
-## DEVELOP HEAD (current after C065 squash)
-develop HEAD: 5b5868bf1a17ecd36f59c02542558562ca80d035 (feat(pricing): C065 Wave 9 Phase 4 -- pricing export S6.8 (#74))
+## DEVELOP HEAD (current after C065 squash + D finalization commits)
+develop HEAD: bd70011 (docs(governance): close remaining C065 D strict checklist gaps)
 C065 SQUASH SHA: 5b5868bf1a17ecd36f59c02542558562ca80d035 (PR #74)
+C065 POST-MERGE GOVERNANCE SHA: bc792b2
+C065 D FINALIZATION SHA: bd70011
+C066 dev HEAD at start: bd70011
 C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
 C064 POST-MERGE GOVERNANCE SHA: 49cb379
 C064 D FINALIZATION SHA: 5d58d43
@@ -100,10 +103,22 @@ DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
 ## C066 PREVIEW
-- Wave 10 start candidate A: S7.1 Discovery Core Loop (`SCRUM-196`)
-- Wave 10 start candidate B: S7.1 + S7.2 combined (`SCRUM-196` + `SCRUM-197`)
-- PM review selects final C066 scope
+- Wave 10 Discovery: S7.2 Adjacent Keyword Hypothesis Mode (SCRUM-197, parent SCRUM-22)
+- NOTE: S7.1 scaffold already exists (SCRUM-273 SRDI); SCRUM-196 correctly Done in Jira.
+- NOTE: SCRUM-1028 (C066 control) already created by D during C065 -- To Do, ready to use.
+- C066 scope: implement generate_hypotheses() for adjacent_keyword mode in src/discovery/hypothesis.py
+  + budget gate (confidence >= 0.50) + confidence scoring + DiscoveryCandidate persistence + tests
+- Jira: SCRUM-1028 (control, exists), SCRUM-197 (story, parent SCRUM-22)
 - RSV remains SEED until TierD-2 ScrapFly budget approval
+- Advisory carry-forward from C065: pricing-export CLI mode not wired in run.py (add to C066 B scope)
+
+## C065 PM REVIEW DISCOVERIES
+- src/discovery/ scaffold EXISTS (SRDI SCRUM-273): orchestrator.py, hypothesis.py, contracts.py, candidates.py, __init__.py
+- generate_hypotheses(), score_and_filter(), promote_keywords() are all stubs
+- SCRUM-196 (S7.1): correctly marked Done for scaffold — C066 does NOT need to implement S7.1
+- C066 first real work: S7.2 Adjacent Keyword implementation (SCRUM-197)
+- pricing-export CLI mode was NOT wired in run.py (D noted advisory carry-forward)
+- export_artifacts table appeared unexpectedly in new-table check (D advisory)
 
 ## C064 PM REVIEW JIRA CORRECTIONS (done during review)
 - SCRUM-189 (S6.3 Pricing LLM Task): closed Done — implemented C063
@@ -128,9 +143,12 @@ SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
 POST-SRDI: C062 → Wave 9 Pricing Engine Phase 1 (9A+9B) — COMPLETE
 POST-SRDI: C063 → Wave 9 Pricing Engine Phase 2 (9C+9D) — COMPLETE
 
-## G-D WAVE STATUS (after C065)
+## G-D WAVE STATUS (after C065, corrected after discovery of SRDI scaffold)
 G-D: Waves 0-8 COMPLETE. Wave 9 COMPLETE (C062-C065, S6.1-S6.8).
-Wave 10 (Discovery): NOT STARTED.
+Wave 10 (Discovery): SCAFFOLDED by SRDI (SCRUM-273) — src/discovery/ has orchestrator.py, hypothesis.py, contracts.py, candidates.py as stubs.
+  S7.1 Discovery Core Loop (SCRUM-196): DONE (scaffold, marked Done in SRDI era) — generate_hypotheses() is stub returning [].
+  S7.2 Adjacent Keyword (SCRUM-197): TO DO — first real hypothesis mode to implement in C066.
+  S7.3-S7.9 (SCRUM-198-204): TO DO — deferred.
 Wave 11 (Playbook): NOT STARTED.
 Wave 12 (Dashboard UX): NOT STARTED.
 G-D closes only after all 12 waves have verified implementation in `src/`.
