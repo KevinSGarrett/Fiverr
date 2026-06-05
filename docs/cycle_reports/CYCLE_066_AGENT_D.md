@@ -167,6 +167,36 @@ Wave 10 four-cycle planning note:
 - TierD-2 (ScrapFly budget): still pending; RSV remains SEED chain C057-C066 (10 cycles).
 - Neither TierD item blocks C067 kickoff.
 
+## Comprehensive Gate Evidence Table
+
+| Gate | Command | Output | Pass? |
+|---|---|---|---|
+| 1 Imports | python import bundle from `src.discovery.hypothesis` | all symbols importable | PASS |
+| 2 Budget gate | `min_confidence=0.99` | all rejected | PASS |
+| 3 Duplicate filter | existing term exclusion | no duplicate emitted | PASS |
+| 4 Empty seed | `seed_keywords=[]` | `[]` | PASS |
+| 5 Golden parity | `run.py score --golden ...` | `62.7 / 1.0 / CONDITIONAL_GO` | PASS |
+| 6 Regression 45 | pytest 45-name selection | `45 passed` | PASS |
+| 7 New S7.2 tests | adjacent keyword test file | file present, suite includes >=20 tests | PASS |
+| 8 Coverage | pytest with `--cov-fail-under=90` | `94.31%` total, `97%` hypothesis.py | PASS |
+| 9 Demo data | page scan for `build_dashboard_demo_data` | `0` hits | PASS |
+| 10 Page count | list `src/dashboard/pages/*.py` minus init | `9` | PASS |
+
+## Final Develop State Snapshot
+
+- Governance commit SHA (D final): `58aa37e6847b7e16243b326206341b589867061b`
+- Branch: `develop`
+- Status: clean (`git status --short` empty)
+- Worktree list: one entry (`C:/Fiverr/Fiverr 58aa37e [develop]`)
+- `origin/develop` last 5:
+  - `58aa37e` chore(governance): C066 post-merge -- S7.2 adjacent keyword done, Wave 10 progress note
+  - `36f6f32` feat(discovery): C066 Wave 10 S7.2 -- adjacent keyword hypothesis mode (#75)
+  - `7fc6b99` docs(governance): C065 PM review v4.2 complete ...
+  - `bd70011` docs(governance): close remaining C065 D strict checklist gaps
+  - `bc792b2` chore(governance): C065 post-merge -- Wave 9 complete ...
+- Remote branches: only `origin/develop` (no `cycle/066/*`).
+- Hydration header post-commit verification: `git diff HEAD PM_Pack/07_hydration/HYDRATION_HEADER.md` returned no diff.
+
 ## Final Self-Audit Checklist
 
 - [x] §12.3 playbook documented and executed
