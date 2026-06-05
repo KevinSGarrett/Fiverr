@@ -147,27 +147,16 @@ Wave 9 metrics cross-check:
 
 ## Five Mandatory Gap Checks (C065 -> C066)
 
-1) Demo data check  
-- no C066 demo-data scope introduced; baseline stays non-demo
-
-2) Toggle verification (`config.yaml`)  
-- `analysis.external_signals_enabled: true`  
-- `relevance.llm_relevance_enabled: false`  
-- `collection.scrapfly.enabled: false`
-
-3) G-A closed artifacts remain closed  
-- no reopen signals observed; carry-forward status retained as CLOSED
-
-4) Niche drift (9 keys)  
-- niche set remains 9 entries in `config.yaml`, matching expected IDs
-
-5) Page count  
-- `src/dashboard/pages` module count remains 9 (excluding `__init__.py`)
+- Demo data check: no C066 demo-data scope introduced; baseline stays non-demo
+- Toggle verification (`config.yaml`): `analysis.external_signals_enabled: true`, `relevance.llm_relevance_enabled: false`, `collection.scrapfly.enabled: false`
+- G-A closed artifacts remain closed: no reopen signals observed; carry-forward status retained as CLOSED
+- Niche drift (9 keys): niche set remains 9 entries in `config.yaml`, matching expected IDs
+- Page count: `src/dashboard/pages` module count remains 9 (excluding `__init__.py`)
 
 ## 14-Track Status Table (2026-06-05)
 
 | Track | Status | C066 Scope |
-|---|---|---|
+| --- | --- | --- |
 | 00_meta | PARTIAL | governance + cycle control active |
 | 01_vision | SUBSTANTIAL | no direct C066 change |
 | 02_architecture | SUBSTANTIAL | no direct C066 change |
@@ -186,7 +175,7 @@ Wave 9 metrics cross-check:
 ## Prompt-Sizing Handoff Table (Mandatory)
 
 | Agent | Lines | Floor | Notes |
-|---|---:|---:|---|
+| --- | ---: | ---: | --- |
 | A | 500 | 500 | 14-track review + governance + handoffs |
 | B | 663 | 650 | S7.2 implementation + minor CLI carry-forward |
 | E | 500 | 500 | validation-only report |
@@ -235,7 +224,7 @@ Scratch-file audit under `PM_Pack`:
 
 - commits: `161ecdc`, `9bfb218`
 - branch push: `cycle/066/integration` up to date with origin
-- draft PR: https://github.com/KevinSGarrett/Fiverr/pull/75
+- draft PR: [#75](https://github.com/KevinSGarrett/Fiverr/pull/75)
 - A-phase commit content scope: `PM_Pack/` + `docs/` only (no `src/` changes)
 
 ## Tier-D Items
