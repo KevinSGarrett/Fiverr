@@ -121,6 +121,7 @@ Result: `0 unresolved threads` (PASS).
 - Regression pack:
   - Strategy remains `v2.5`.
   - No new REG entries added by B/F requiring v2.6 bump in this cycle.
+  - Exact v2.5 name-expression rerun: `45 passed, 4324 deselected` (PASS).
 
 ## 7) Wave 9 Completion Scorecard (Mandatory)
 
@@ -170,7 +171,7 @@ Test count delta row:
 | Golden | `run.py score --golden ...` | `62.7/1.0/CONDITIONAL_GO` | PASS |
 | Page count | `os.listdir('src/dashboard/pages')` | 9 | PASS |
 | Coverage | `pytest --cov=src --cov-fail-under=90` | 94.30% | PASS |
-| Regression | full `tests/unit/` suite | 4369 passed | PASS |
+| Regression | `pytest -k <v2.5 45-name expression>` | 45/45 passed | PASS |
 | Config | `config.yaml` scrapfly check | `enabled: false` | PASS |
 
 ## 10) Merge and Post-Merge Operations
@@ -207,13 +208,17 @@ Option B:
 - Combined S7.1 + S7.2 (`SCRUM-196` + `SCRUM-197`) in same cycle.
 - Scope: core loop plus adjacent keyword hypothesis pipeline.
 
-Wave 10 Jira stories (`SCRUM-196` through `SCRUM-204`) exist and are To Do.
+Wave 10 Jira stories check (live Jira):
+- `SCRUM-196` exists and is currently `Done`.
+- `SCRUM-197` through `SCRUM-204` exist and are `To Do`.
 
 ## 13) Tier-D Tracking
 
 - TierD-1: stashes currently `12` (user decision pending).
 - TierD-2: ScrapFly live budget approval pending; RSV chain remains SEED.
 - Neither TierD item blocks C066 kickoff.
+- SHA placeholder sweep:
+  - `Get-ChildItem PM_Pack/03_cursor_agent_system/CYCLE_065_*.md | Select-String "C065_SQUASH_SHA"` -> `0 matches`.
 
 ## 14) Deliverables Table
 
@@ -225,6 +230,11 @@ Wave 10 Jira stories (`SCRUM-196` through `SCRUM-204`) exist and are To Do.
 | C | `340275f` | ONLY `CYCLE_065_AGENT_C.md` | YES |
 | F | `751fb9a` | `tests/`, `CYCLE_065_AGENT_F.md` | YES |
 | D | governance commit on `develop` | `PM_Pack/`, `CYCLE_065_AGENT_D.md` | YES |
+
+§12.1 parallel-contract validation:
+- B SHA set: `3a77ee8`, `307dfdb`, `4f989c8`
+- E SHA set: `483861c`, `62927b0`, `d4f2ad0`, `9219d9e`
+- Shared file paths: `NONE -- PASS`
 
 ## 15) C065 -> C066 Handoff
 
@@ -250,7 +260,7 @@ Wave 10 Jira stories (`SCRUM-196` through `SCRUM-204`) exist and are To Do.
 - [x] Wave 9 scorecard and four-cycle narrative included
 - [x] Stash list documented
 - [x] Branch deleted
-- [x] Governance commit pending push on `develop`
+- [x] Governance commit pushed to `develop`
 
 C065 MERGE GATE: PASS. PR #74 merged to develop as 5b5868bf1a17ecd36f59c02542558562ca80d035.  
 Wave 9 Pricing Engine COMPLETE (C062-C065, 8 stories, 4 phases).  

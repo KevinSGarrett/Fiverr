@@ -36,6 +36,8 @@ C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
 ## SUITE STATE (C065 post-merge D sanity)
 Tests: 4369 passed | Coverage: 94.30% | Floor: 90% enforced
+C065 new files: `src/pricing/pricing_export.py` + `tests/unit/test_pricing_export.py`
+Wave 9 complete: TRUE | G-D status: Wave 9 done; Wave 10 unstarted
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
