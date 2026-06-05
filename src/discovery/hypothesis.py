@@ -19,6 +19,22 @@ _WEIGHTS = {
 
 GATE1_SPECIFICITY_THRESHOLD = 0.75
 _GENERIC_DELIVERABLE_TERMS = {"support", "automation", "services", "agent", "python", "help", "scraping"}
+_ADJACENT_QUALIFIERS = [
+    "advanced",
+    "professional",
+    "expert",
+    "automated",
+    "custom",
+    "fast",
+    "reliable",
+    "scalable",
+]
+_ADJACENT_SCOPE_MODS = [
+    "for startups",
+    "for e-commerce",
+    "for small business",
+    "for agencies",
+]
 
 
 @dataclass(slots=True)
@@ -116,6 +132,120 @@ def score_hypothesis_signals(
     total_weight = sum(_WEIGHTS[name] for name in present)
     weighted_score = sum(value * _WEIGHTS[name] for name, value in present.items())
     return weighted_score / total_weight if total_weight else None
+
+
+def _build_adjacent_candidates(
+    seed: str,
+    niche_id: str,
+    *,
+    max_per_seed: int = 5,
+) -> list[str]:
+    """Generate adjacent keyword candidates from a seed keyword."""
+    del niche_id  # Stage 16 orchestration will apply niche-aware refinements.
+    normalized_seed = seed.strip().lower()
+    if not normalized_seed or max_per_seed <= 0:
+        return []
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    for qualifier in _ADJACENT_QUALIFIERS:
+        if qualifier in normalized_seed:
+            continue
+        candidate = f"{qualifier} {normalized_seed}"
+        if candidate not in seen:
+            seen.add(candidate)
+            candidates.append(candidate)
+
+    for modifier in _ADJACENT_SCOPE_MODS:
+        candidate = f"{normalized_seed} {modifier}"
+        if candidate not in seen:
+            seen.add(candidate)
+            candidates.append(candidate)
+
+    filtered = [
+        candidate
+        for candidate in candidates
+        if candidate != normalized_seed and len(candidate.split()) <= 6
+    ]
+    return filtered[:max_per_seed]
+
+
+def _score_candidate_confidence(
+    candidate: str,
+    seed_keywords: list[str],
+) -> float:
+    """Score confidence for an adjacent keyword candidate."""
+    if not seed_keywords:
+        return 0.0
+
+    candidate_terms = set(candidate.lower().split())
+    if not candidate_terms:
+        return 0.0
+
+    seed_pool: set[str] = set()
+    for seed_keyword in seed_keywords:
+        seed_pool.update(seed_keyword.lower().split())
+
+    overlap = len(candidate_terms & seed_pool) / max(len(candidate_terms), 1)
+    generic_penalty = 0.15 * len(candidate_terms & _GENERIC_DELIVERABLE_TERMS)
+    length_bonus = 0.1 if 3 <= len(candidate_terms) <= 5 else 0.0
+    confidence = overlap + length_bonus - generic_penalty
+    return min(1.0, max(0.0, confidence))
+
+
+def generate_adjacent_keyword_hypotheses(
+    source_niche_id: str,
+    seed_keywords: list[str],
+    existing_keywords: list[str],
+    *,
+    max_hypotheses: int = 10,
+    min_confidence: float = 0.50,
+) -> list[HypothesisContract]:
+    """Generate adjacent keyword hypotheses using deterministic rule expansion.
+
+    This helper is S7.2-only and intentionally in-memory: it returns contracts
+    for both accepted and rejected candidates so downstream stages can audit
+    budget-gate behavior before Stage 16 persistence wiring lands.
+    """
+    if not seed_keywords:
+        return []
+
+    existing_lower = {keyword.lower().strip() for keyword in existing_keywords if keyword.strip()}
+    seen: set[str] = set()
+    results: list[HypothesisContract] = []
+    accepted_count = 0
+
+    for seed in seed_keywords:
+        for candidate in _build_adjacent_candidates(seed, source_niche_id):
+            normalized_candidate = candidate.lower().strip()
+            if not normalized_candidate or normalized_candidate in existing_lower or normalized_candidate in seen:
+                continue
+
+            seen.add(normalized_candidate)
+            confidence = _score_candidate_confidence(candidate, seed_keywords)
+            accepted = confidence >= min_confidence and accepted_count < max_hypotheses
+            if accepted:
+                accepted_count += 1
+
+            reason = (
+                f"confidence {confidence:.2f} >= {min_confidence:.2f} (ACCEPTED)"
+                if accepted
+                else f"confidence {confidence:.2f} < {min_confidence:.2f} (REJECTED)"
+            )
+            results.append(
+                HypothesisContract(
+                    hypothesis_text=candidate,
+                    niche_id=source_niche_id,
+                    buyer=None,
+                    deliverable=candidate,
+                    specificity_score=confidence,
+                    accepted=accepted,
+                    reason=reason,
+                )
+            )
+
+    return results
 
 
 def _coerce_json_payload(response: Any) -> dict[str, Any] | list[Any] | None:
