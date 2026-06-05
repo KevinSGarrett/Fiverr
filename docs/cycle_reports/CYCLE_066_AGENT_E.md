@@ -332,7 +332,7 @@ Exact required summary:
 
 ## Task 50 - Required Final E Observation Summary
 
-S7.2 implementation verified: generate_adjacent_keyword_hypotheses() rule-based (no LLM). Budget gate: min_confidence=0.50 enforced. Duplicate filtering: existing_keywords excluded. No new DB tables: DiscoveryCandidate exists from SRDI scaffold but S7.2 does not persist. Wave 9 pricing unaffected. Discovery scaffold intact. RSV SEED: 10 consecutive cycles (C057-C066). TierD-2 still pending. Pricing-export CLI: wired per B commit. E commit SHA: e5aafcb. Zone: ONLY CYCLE_066_AGENT_E.md.
+S7.2 implementation verified: generate_adjacent_keyword_hypotheses() rule-based (no LLM). Budget gate: min_confidence=0.50 enforced. Duplicate filtering: existing_keywords excluded. No new DB tables: DiscoveryCandidate exists from SRDI scaffold but S7.2 does not persist. Wave 9 pricing unaffected. Discovery scaffold intact. RSV SEED: 10 consecutive cycles (C057-C066). TierD-2 still pending. Pricing-export CLI: wired per B commit. E commit SHA: 499facd. Zone: ONLY CYCLE_066_AGENT_E.md.
 
 ## Task 51 - Scratchfile Cleanup Observation
 
@@ -602,4 +602,5 @@ S7.2 implementation verified: generate_adjacent_keyword_hypotheses() rule-based 
 
 - Staged file policy: only `docs/cycle_reports/CYCLE_066_AGENT_E.md`.
 - Anti-filler policy: satisfied (zero forbidden filler markers).
-- E commit SHA (initial docs commit): `e5aafcb`.
+- E commit SHA (current final E report commit): `499facd`.
+- Previous E report commit in same zone: `e5aafcb`.
