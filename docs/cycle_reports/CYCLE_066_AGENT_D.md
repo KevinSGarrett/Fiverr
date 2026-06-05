@@ -161,11 +161,26 @@ Wave 10 four-cycle planning note:
 - C067 natural scope candidate: **S7.3 Adjacent Niche** (`SCRUM-198`, parent `SCRUM-22`)
 - C067 baseline suite count: **4484 tests collected**
 
+## Wave 10 Function Summary
+
+Original scaffold functions (SRDI scaffold preserved):
+- `generate_niche_hypotheses()` (stub behavior retained)
+- `_gate_hypotheses()` (internal gating helper)
+- `parse_hypothesis_contracts()` (contract parsing helper)
+
+C066 S7.2 additions:
+- `generate_adjacent_keyword_hypotheses()` (rule-based adjacent keyword expansion)
+- `_build_adjacent_candidates()` (candidate string generation from seed)
+- `_score_candidate_confidence()` (confidence scoring in `0.0..1.0`)
+
+Budget gate default remains `min_confidence=0.50` (configurable).
+
 ## TierD tracking
 
 - TierD-1 (stashes): **12** entries currently present (user decision pending).
 - TierD-2 (ScrapFly budget): still pending; RSV remains SEED chain C057-C066 (10 cycles).
 - Neither TierD item blocks C067 kickoff.
+- SHA resolver sweep: searched all 6 C066 agent prompts for `[C066_SQUASH_SHA]` => **0 matches**.
 
 ## Comprehensive Gate Evidence Table
 
@@ -185,18 +200,19 @@ Wave 10 four-cycle planning note:
 ## Final Develop State Snapshot
 
 - Governance commit SHA: `58aa37e6847b7e16243b326206341b589867061b`
-- D finalization SHA (current develop HEAD): `ca2d52dd62e51e087a2e339602599ce0124f0f88`
+- D finalization SHA (current develop HEAD): `d991c3c2c30ab23b328e624cc9b045027aae4a9f`
 - Branch: `develop`
 - Status: clean (`git status --short` empty)
-- Worktree list: one entry (`C:/Fiverr/Fiverr ca2d52d [develop]`)
+- Worktree list: one entry (`C:/Fiverr/Fiverr d991c3c [develop]`)
 - `origin/develop` last 5:
+  - `d991c3c` docs(governance): align C066 D finalization SHAs
   - `ca2d52d` docs(cycle066): finalize Agent D merge gate evidence
   - `58aa37e` chore(governance): C066 post-merge -- S7.2 adjacent keyword done, Wave 10 progress note
   - `36f6f32` feat(discovery): C066 Wave 10 S7.2 -- adjacent keyword hypothesis mode (#75)
   - `7fc6b99` docs(governance): C065 PM review v4.2 complete ...
-  - `bd70011` docs(governance): close remaining C065 D strict checklist gaps
 - Remote branches: only `origin/develop` (no `cycle/066/*`).
 - Hydration header post-commit verification: `git diff HEAD PM_Pack/07_hydration/HYDRATION_HEADER.md` returned no diff.
+- `run.py pricing-export --help` smoke output: `Usage: run.py pricing-export [OPTIONS]`.
 
 ## Final Self-Audit Checklist
 
@@ -216,6 +232,11 @@ Wave 10 four-cycle planning note:
 - [x] Branch deleted/pruned; no `cycle/066` remote branch
 - [x] Token scans clean
 - [x] Final develop health snapshot captured
+
+## §12.5 Floor Note
+
+- Prompt reconciliation includes all listed/duplicated task groups and playbook conditions.
+- D report documents command evidence and outcomes for the full merge-gate run.
 
 ## C066 COMPLETE DECLARATION
 
