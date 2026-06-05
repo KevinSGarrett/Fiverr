@@ -1,8 +1,8 @@
 # CYCLE 065 — AGENT F COVERAGE UPLIFT REPORT
 
 F COMPLETE -- Zone: tests/ + F.md only. ZERO src/ files.
-Tests added: 53. Coverage: pricing_export.py 93%, Total 94.30%.
-F commit SHA: [pending]
+Tests added: 66. Coverage: pricing_export.py 93%, Total 94.30%.
+F commit SHA: 94c5cd78695b2d62c1e67cd3ebfa53094906d554
 
 Date: 2026-06-04  
 Branch: `cycle/065/integration`  
@@ -48,12 +48,12 @@ Fixture additions:
 ### Isolated export tests
 
 - Command: `python -m pytest -q tests/unit/test_pricing_export.py --no-header`
-- Result: `52 passed`
+- Result: `65 passed`
 
 ### Isolation check (`-x`)
 
 - Command: `python -m pytest -q tests/unit/test_pricing_export.py --no-header -x`
-- Result: `52 passed`
+- Result: `65 passed`
 
 ### Regression smoke selector
 
@@ -66,12 +66,17 @@ Fixture additions:
 - Command: `python -m pytest -q --cov=src --cov-fail-under=90 --no-header tests/unit/`
 - Result:
   - `Required test coverage of 90% reached. Total coverage: 94.30%`
-  - `4356 passed`
+  - `4369 passed`
 
 ### pricing_export per-file coverage
 
-- Direct command form `--cov=src/pricing/pricing_export` has known environment warning (`module-not-imported`) in this repo (same as C report).
-- Equivalent successful extraction command:
+- Exact Task 30 command (`--cov=src/pricing/pricing_export --cov-report=term-missing`) still reports the known slash-style coverage target warning in this environment:
+  - `CoverageWarning: Module src/pricing/pricing_export was never imported`
+  - `FAIL Required test coverage of 90.0% not reached. Total coverage: 0.00%`
+- Exact Task 38 command (`--cov=src/pricing/pricing_export --cov-report=term`) succeeds and reports:
+  - `TOTAL ... 91%`
+  - `Required test coverage of 90.0% reached. Total coverage: 91.06%`
+- Equivalent successful extraction command (used for per-file line visibility):
   - `python -m pytest -q --cov=src/pricing --cov-report=term-missing --no-header tests/unit/ | Select-String "pricing_export|TOTAL"`
 - Result:
   - `src\pricing\pricing_export.py ... 93%`
@@ -87,10 +92,10 @@ Fixture additions:
 ## Test Count Delta
 
 - Baseline before count: `4303`
-- Current collect-only count: `4356`
-- Delta: `+53`
+- Current collect-only count: `4369`
+- Delta: `+66`
 
-Statement: **53 new tests added. Total: 4356.**
+Statement: **66 new tests added. Total: 4369.**
 
 ## Wave 9 Export Test Scope Note
 
@@ -108,7 +113,7 @@ Statement: **53 new tests added. Total: 4356.**
 
 ## Final Completion Summary
 
-F COMPLETE -- Zone: ZERO src/ files. Tests added: 53 across 2 test files.
-Coverage: pricing_export 93%, Total 94.30%. F commit SHA: [pending].
+F COMPLETE -- Zone: ZERO src/ files. Tests added: 66 across 2 test files.
+Coverage: pricing_export 93%, Total 94.30%. F commit SHA: 94c5cd78695b2d62c1e67cd3ebfa53094906d554.
 
 Hydration token placeholder: `[C065_SQUASH_SHA]`

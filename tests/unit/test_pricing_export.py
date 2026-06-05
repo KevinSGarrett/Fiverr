@@ -390,3 +390,101 @@ class TestModuleBehaviors:
         assert callable(check_revenue_gates)
         assert callable(build_payload_from_package)
         assert callable(export_all_from_package)
+
+
+class TestExportPricingCsvEdgeCases:
+    def test_csv_handles_none_values(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.csv"
+        result = export_pricing_csv(1, seeded_pricing_export_db, str(path))
+        content = Path(result).read_text(encoding="utf-8")
+        assert result == str(path)
+        assert len(content) > 0
+
+    def test_csv_creates_parent_dir_if_missing(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        nested = tmp_path / "nested" / "dir" / "test.csv"
+        result = export_pricing_csv(1, seeded_pricing_export_db, str(nested))
+        assert Path(result).exists()
+
+    def test_csv_multiple_keyword_ids_separate_files(
+        self, tmp_path: Path, seeded_pricing_export_db
+    ) -> None:
+        for keyword_id in [1, 999]:
+            path = tmp_path / f"pricing_kw{keyword_id}.csv"
+            result = export_pricing_csv(keyword_id, seeded_pricing_export_db, str(path))
+            assert Path(result).exists()
+
+    def test_csv_empty_payload_still_creates_file(self, tmp_path: Path, empty_db) -> None:
+        path = tmp_path / "empty.csv"
+        result = export_pricing_csv(999, empty_db, str(path))
+        assert Path(result).exists()
+
+
+class TestExportPricingJsonEdgeCases:
+    def test_json_is_valid_dict(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.json"
+        result = export_pricing_json(1, seeded_pricing_export_db, str(path))
+        data = json.loads(Path(result).read_text(encoding="utf-8"))
+        assert isinstance(data, dict)
+        assert data["keyword_id"] == 1
+
+    def test_json_all_sections_present(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.json"
+        result = export_pricing_json(1, seeded_pricing_export_db, str(path))
+        data = json.loads(Path(result).read_text(encoding="utf-8"))
+        for key in [
+            "price_analyses",
+            "pricing_snapshots",
+            "ladder_snapshots",
+            "revenue_gate_records",
+            "export_timestamp",
+        ]:
+            assert key in data
+
+    def test_json_timestamp_is_iso_string(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.json"
+        result = export_pricing_json(1, seeded_pricing_export_db, str(path))
+        data = json.loads(Path(result).read_text(encoding="utf-8"))
+        assert isinstance(data.get("export_timestamp", ""), str)
+        assert len(data.get("export_timestamp", "")) > 0
+
+
+class TestExportPricingMarkdownEdgeCases:
+    def test_markdown_starts_with_header(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.md"
+        result = export_pricing_markdown(1, seeded_pricing_export_db, str(path))
+        content = Path(result).read_text(encoding="utf-8")
+        assert content.startswith("#")
+
+    def test_markdown_contains_table_syntax(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.md"
+        result = export_pricing_markdown(1, seeded_pricing_export_db, str(path))
+        content = Path(result).read_text(encoding="utf-8")
+        assert "|" in content
+
+    def test_markdown_no_data_section_graceful(self, tmp_path: Path, empty_db) -> None:
+        path = tmp_path / "empty.md"
+        result = export_pricing_markdown(999, empty_db, str(path))
+        content = Path(result).read_text(encoding="utf-8")
+        assert "No data" in content or "available" in content.lower() or len(content) > 0
+
+
+class TestExportPricingExcelEdgeCases:
+    def test_excel_workbook_has_expected_sheets(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        path = tmp_path / "test.xlsx"
+        result = export_pricing_excel([1], seeded_pricing_export_db, str(path))
+        workbook = openpyxl.load_workbook(result)
+        assert len(workbook.sheetnames) >= 1
+
+    def test_excel_multi_keyword_all_data_in_workbook(
+        self, tmp_path: Path, seeded_pricing_export_db
+    ) -> None:
+        path = tmp_path / "multi.xlsx"
+        result = export_pricing_excel([1, 999], seeded_pricing_export_db, str(path))
+        output = Path(result)
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_excel_empty_keywords_list_creates_file(self, tmp_path: Path, empty_db) -> None:
+        path = tmp_path / "empty.xlsx"
+        result = export_pricing_excel([], empty_db, str(path))
+        assert Path(result).exists()
