@@ -17,6 +17,7 @@ from src.recommendations.tasks import (
     _extract_usage_cost,
     generate_pricing_strategy,
     generate_recommendation,
+    get_recommendation_tasks,
 )
 from src.schemas.pricing_output import EntryPrices, PricingStrategy
 
@@ -185,6 +186,13 @@ def test_generate_recommendation_12_tasks(monkeypatch: Any) -> None:
 
 def test_field_names_count() -> None:
     assert len(RECOMMENDATION_FIELD_NAMES) == 12
+
+
+def test_get_recommendation_tasks_contains_pricing_llm_task() -> None:
+    tasks = get_recommendation_tasks()
+    task_names = [task.__name__ for task in tasks]
+    assert len(task_names) == 12
+    assert "pricing_llm_task" in task_names
 
 
 def test_entry_prices_premium_must_exceed_standard() -> None:
