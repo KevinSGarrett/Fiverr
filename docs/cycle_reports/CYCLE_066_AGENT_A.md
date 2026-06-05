@@ -140,6 +140,11 @@ Four-test smoke preflight:
 
 - PASS (`7 passed` under alias expansion / selection)
 
+Wave 9 metrics cross-check:
+
+- observed test inventory at start: `4369`
+- carried metric reference from C065 handoff: `94.30%` coverage baseline
+
 ## Five Mandatory Gap Checks (C065 -> C066)
 
 1) Demo data check  
@@ -203,6 +208,35 @@ Four-test smoke preflight:
 - [x] SCRUM-1028 + SCRUM-197 set In Progress
 - [x] no API token pattern matches in C066 prompts
 - [x] Tier-D surfaced
+
+## Additional Governance Checks
+
+Prompt file existence + lines:
+
+- `CYCLE_066_AGENT_A_PROMPT.md`: 500
+- `CYCLE_066_AGENT_B_PROMPT.md`: 663
+- `CYCLE_066_AGENT_E_PROMPT.md`: 500
+- `CYCLE_066_AGENT_C_PROMPT.md`: 426
+- `CYCLE_066_AGENT_F_PROMPT.md`: 525
+- `CYCLE_066_AGENT_D_PROMPT.md`: 650
+
+Pricing/export advisory checks:
+
+- pricing export functions importability check: PASS
+- `export_artifacts` table exists in `data/foundation_gate_ci.db`: `True` (advisory, no C066 action)
+
+Scratch-file audit under `PM_Pack`:
+
+- `*.txt`: 0
+- `*.ps1`: 3 (`SHA_RESOLVER_064.ps1`, `SHA_RESOLVER_065.ps1`, `SHA_RESOLVER_066.ps1`)  
+  Resolver scripts are intentional governance artifacts, not temporary scratch notes.
+
+## PR + Commit Record
+
+- commit: `161ecdc`
+- branch push: `cycle/066/integration` up to date with origin
+- draft PR: https://github.com/KevinSGarrett/Fiverr/pull/75
+- A-phase commit content scope: `PM_Pack/` + `docs/` only (no `src/` changes)
 
 ## Tier-D Items
 
