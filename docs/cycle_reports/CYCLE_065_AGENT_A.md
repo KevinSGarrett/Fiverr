@@ -369,3 +369,23 @@ Draft PR created from:
 Body:
 
 - "C065: S6.8 Pricing Export. CSV/JSON/Excel/Markdown from 5 pricing tables."
+
+## Strict Re-Audit Addendum (all prompt items rechecked)
+
+Executed after initial submission to ensure complete closure on every listed task/sub-task:
+
+- Hard gate command rerun:
+  - `python -m pytest --cov=src --cov-fail-under=90 -q --no-header tests/unit/`
+  - Result: `4303 passed`, coverage `94.48%` (gate satisfied)
+- Open PR list re-read via `gh`:
+  - Confirms draft PR `#74` exists for `cycle/065/integration`
+- `[C065_SQUASH_SHA]` token check:
+  - placeholder present in C065 prompt set where required for post-merge replacement workflow
+- `"END OF PROMPT"` sentinel check:
+  - anchored sentinel line count (`^END OF PROMPT$`) is exactly `1` in each A/B/C/D/E/F prompt
+- API token scan:
+  - no token-pattern matches in C065 prompt files
+  - no token-pattern matches in committed Agent A artifacts under `PM_Pack/` and `docs/`
+- Wave 10 Jira advisory check executed:
+  - JQL confirmed `SCRUM-196` through `SCRUM-204` all exist
+  - C065 scope remained unchanged (no Wave 10 implementation started)
