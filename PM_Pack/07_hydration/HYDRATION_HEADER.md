@@ -19,9 +19,11 @@ CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phases 1+2+3 done; S6.8+Waves 10-12 remain)
 
 ## DEVELOP HEAD (current after C064 squash + governance closeout)
-develop HEAD: 32a9a3e (chore(governance): finalize C064 D checklist evidence and head sync)
+develop HEAD: 5d58d43 (chore(governance): add full C064 task ledger and head refresh)
 C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
-C064 dev HEAD at start: fec8d9d
+C064 POST-MERGE GOVERNANCE SHA: 49cb379
+C064 D FINALIZATION SHA: 5d58d43
+C065 dev HEAD at start: 5d58d43
 C063 SQUASH SHA: 19a69708de734d7d41991bedf8783f048f37fbdf (PR #72)
 C062 SQUASH SHA: de528f84def67b453cae8a1a2831808328a0633c (PR #71)
 C061 SQUASH SHA: cb53dd3d953080a1894a0adb3455de850780b455
@@ -93,10 +95,17 @@ DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
 ## C065 PREVIEW
-- Wave 9 Phase 4 candidate: S6.8 Pricing Export (`src/pricing/pricing_export.py`)
-- Alternative: Wave 10 discovery start (S7.1 core loop)
-- C064 delivered 9E + 9F + migration_13 + `llm_usage_logs.task_type`
-- RSV remains SEED until TierD-2 ScrapFly budget approval unlocks live collection mode
+- Wave 9 Phase 4: S6.8 Pricing Export (`src/pricing/pricing_export.py`) — exports pricing analysis, ladder, revenue gate, and LLM pricing outputs in CSV/JSON/Excel/Markdown formats
+- Jira: SCRUM-1027 (control), SCRUM-194 (story — existing Wave 19 S6.8 story, parent SCRUM-21)
+- NOTE: C065 uses existing SCRUM-194 as the story (already in Jira from Wave 19 import) — no new story needed
+- Continue stale Jira governance cleanup (Wave 19 stories for implemented features)
+- RSV remains SEED until TierD-2 ScrapFly budget approval
+
+## C064 PM REVIEW JIRA CORRECTIONS (done during review)
+- SCRUM-189 (S6.3 Pricing LLM Task): closed Done — implemented C063
+- SCRUM-190 (S6.4 Price Ladder Tracker): closed Done — implemented C064
+- SCRUM-191 (S6.5 Revenue Gate Tracker): closed Done — implemented C064
+- SCRUM-193 (S6.7 Pricing Dashboard Widgets Data Layer): closed Done — implemented C063
 
 ## C063 OBSERVABILITY GAPS (carry forward to C064)
 - `llm_usage_logs.task_type` column absent — pricing_strategy LLM calls not separately trackable
