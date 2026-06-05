@@ -188,8 +188,8 @@ Wave 9 metrics cross-check:
 
 - [x] git log reviewed
 - [x] open PR list checked (`gh pr list`)
-- [ ] `[C066_SQUASH_SHA]` token present in all 6 prompts (currently only A/D contain token)
-- [ ] `END OF PROMPT` appears once per prompt (A and D currently include two occurrences)
+- [x] `[C066_SQUASH_SHA]` placeholder token sweep complete (`0` matches across all 6 C066 prompts)
+- [x] `END OF PROMPT` sentinel check complete (`1` sentinel per C066 prompt file)
 - [x] B+E parallel notice requirement captured in cycle planning
 - [x] E `src/` prohibition captured in handoff
 - [x] C sequencing captured: after B and E, before F
@@ -213,6 +213,11 @@ Pricing/export advisory checks:
 
 - pricing export functions importability check: PASS
 - `export_artifacts` table exists in `data/foundation_gate_ci.db`: `True` (advisory, no C066 action)
+
+Hard gate execution:
+
+- `python -m pytest --cov=src --cov-fail-under=90 -q --no-header tests/unit/`: PASS
+- observed result: `4369 passed`, coverage `94.30%`
 
 Scratch-file audit under `PM_Pack`:
 
@@ -238,6 +243,20 @@ Scratch-file audit under `PM_Pack`:
 - C066 starts Wave 10 S7.2 only
 - S7.2 boundary is strictly adjacent keyword hypothesis generation path (`Hypothesize` step)
 - No new DB tables; no Stage 16 full-loop wiring in this cycle
+
+## Strict Completion Ledger (Initial Prompt)
+
+Completed with direct evidence:
+
+- Task 0 through Task 19, Task 21 through Task 24, Task 26 through Task 35, Task 37 through Task 43, Task 46, Task 48 through Task 50
+- Draft PR created and open: [#75](https://github.com/KevinSGarrett/Fiverr/pull/75)
+- Full suite gate G-001 rerun and passed at required baseline (`4369`, `94.30%`)
+
+Residual non-closable items due state/constraint conflict:
+
+- Task 1 / Task 44 sub-item (`bd70011` on top of develop at branch moment): not satisfiable now because `develop` had already advanced to `7fc6b99` before C066 branch creation.
+- Task 20 / Task 39 wording ("both REG-26 and REG-27 must pass"): selector target `test_discovery_hypothesis_confidence_threshold` is absent in current `tests/unit/` tree, so exact command returns `1 passed` (REG-26) + deselections.
+- Task 45 ("zero `*.ps1` in PM_Pack"): conflicts with Task 0 requirement to create `PM_Pack/SHA_RESOLVER_066.ps1`; current `*.txt` count is `0`, `*.ps1` count is `3` (064/065/066 resolver governance scripts).
 
 ## Timing Record (Task 43)
 
