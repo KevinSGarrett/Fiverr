@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import openpyxl
+import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
@@ -254,6 +255,39 @@ class TestExportAllPricing:
         default_formats = signature.parameters["formats"].default
         assert default_formats is None
 
+    @pytest.mark.parametrize("fmt", ["csv", "json", "excel", "md"])
+    def test_single_format_parametrized(self, tmp_path: Path, seeded_pricing_export_db, fmt: str) -> None:
+        results = export_all_pricing([1], seeded_pricing_export_db, str(tmp_path), formats=[fmt])
+        assert len(results) >= 1
+        assert all(Path(path).exists() for path in results.values())
+
+    def test_export_all_pricing_creates_missing_output_dir(
+        self, tmp_path: Path, seeded_pricing_export_db
+    ) -> None:
+        output_dir = tmp_path / "brand_new_dir" / "subdir"
+        assert not output_dir.exists()
+        results = export_all_pricing([1], seeded_pricing_export_db, str(output_dir), formats=["json"])
+        assert output_dir.is_dir()
+        assert len(results) >= 1
+
+    def test_export_all_empty_keywords_returns_no_per_kw_files(self, tmp_path: Path, empty_db) -> None:
+        results = export_all_pricing([], empty_db, str(tmp_path), formats=["csv", "json", "md"])
+        csv_files = [value for value in results.values() if str(value).endswith(".csv")]
+        json_files = [value for value in results.values() if str(value).endswith(".json")]
+        assert len(csv_files) == 0
+        assert len(json_files) == 0
+
+    def test_wave9_complete_export_pipeline(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        results = export_all_pricing(
+            [1],
+            seeded_pricing_export_db,
+            str(tmp_path),
+            formats=["csv", "json", "excel", "md"],
+        )
+        assert len(results) == 4
+        for path in results.values():
+            assert Path(path).exists()
+
 
 class TestModuleBehaviors:
     def test_markdown_source_has_row_cap(self) -> None:
@@ -269,3 +303,90 @@ class TestModuleBehaviors:
         source = Path("src/pricing/pricing_export.py").read_text(encoding="utf-8")
         assert "from tests" not in source
         assert "import tests" not in source
+
+    def test_build_payload_only_returns_requested_keyword_data(self, seeded_pricing_export_db) -> None:
+        payload_kw1 = build_pricing_export_payload(1, seeded_pricing_export_db)
+        payload_kw999 = build_pricing_export_payload(999, seeded_pricing_export_db)
+        assert payload_kw1["keyword_id"] == 1
+        assert payload_kw999["keyword_id"] == 999
+        for key in ["price_analyses", "pricing_snapshots", "ladder_snapshots", "revenue_gate_records"]:
+            assert payload_kw999.get(key, []) == []
+
+    def test_markdown_caps_rows_at_20_with_large_fixture(self, tmp_path: Path, seeded_large_pricing_db) -> None:
+        output = tmp_path / "large_cap.md"
+        export_pricing_markdown(1, seeded_large_pricing_db, str(output))
+        assert output.exists()
+        text = output.read_text(encoding="utf-8")
+        ladder_section = text.split("## Price Ladder Progress", maxsplit=1)[1]
+        ladder_section = ladder_section.split("## Revenue Gate Records", maxsplit=1)[0]
+        row_lines = [line for line in ladder_section.splitlines() if line.startswith("| ")]
+        assert len(row_lines) == 22
+
+    def test_json_export_serializes_datetime_objects(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        output = tmp_path / "datetime_payload.json"
+        export_pricing_json(1, seeded_pricing_export_db, str(output))
+        data = json.loads(output.read_text(encoding="utf-8"))
+        assert isinstance(data, dict)
+        assert isinstance(data.get("export_timestamp"), str)
+
+    def test_csv_has_section_label_for_each_data_type(
+        self, tmp_path: Path, seeded_pricing_export_db
+    ) -> None:
+        output = tmp_path / "sections.csv"
+        export_pricing_csv(1, seeded_pricing_export_db, str(output))
+        content = output.read_text(encoding="utf-8")
+        section_lines = [line for line in content.splitlines() if line.startswith("# ")]
+        assert len(section_lines) >= 1
+
+    def test_build_payload_all_sections_populated(self, seeded_pricing_export_db) -> None:
+        payload = build_pricing_export_payload(1, seeded_pricing_export_db)
+        assert len(payload["niche_price_analyses"]) > 0
+        assert len(payload["price_analyses"]) > 0
+        assert len(payload["pricing_snapshots"]) > 0
+        assert len(payload["ladder_snapshots"]) > 0
+        assert len(payload["revenue_gate_records"]) > 0
+
+    def test_row_to_dict_includes_all_columns(self, seeded_pricing_export_db) -> None:
+        with Session(seeded_pricing_export_db) as session:
+            row = session.query(PriceAnalysis).first()
+            assert row is not None
+            exported = row_to_dict(row)
+            columns = {
+                column["name"] for column in sa_inspect(seeded_pricing_export_db).get_columns("price_analysis")
+            }
+            assert set(exported.keys()) == columns
+            assert "keyword_id" in exported
+            assert "niche_id" in exported
+
+    def test_complete_wave9_export_round_trip(self, tmp_path: Path, seeded_pricing_export_db) -> None:
+        output = tmp_path / "roundtrip.json"
+        export_pricing_json(1, seeded_pricing_export_db, str(output))
+        assert output.exists()
+        data = json.loads(output.read_text(encoding="utf-8"))
+        assert data["keyword_id"] == 1
+        for section in [
+            "price_analyses",
+            "pricing_snapshots",
+            "ladder_snapshots",
+            "revenue_gate_records",
+        ]:
+            assert isinstance(data.get(section, []), list)
+
+    def test_wave9_all_pricing_modules_coexist(self) -> None:
+        from src.pricing import (
+            analyze_price_distribution,
+            build_pricing_export_payload as build_payload_from_package,
+            calculate_new_seller_pricing,
+            check_revenue_gates,
+            export_all_pricing as export_all_from_package,
+            pricing_llm_task,
+            track_price_ladder,
+        )
+
+        assert callable(analyze_price_distribution)
+        assert callable(calculate_new_seller_pricing)
+        assert callable(pricing_llm_task)
+        assert callable(track_price_ladder)
+        assert callable(check_revenue_gates)
+        assert callable(build_payload_from_package)
+        assert callable(export_all_from_package)

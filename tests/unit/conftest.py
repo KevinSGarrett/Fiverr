@@ -274,6 +274,44 @@ def seeded_multi_keyword_db():
 
 
 @pytest.fixture
+def seeded_large_pricing_db():
+    """DB with >20 ladder rows to test markdown row caps."""
+    engine = _engine()
+    with Session(engine) as session:
+        keyword = _seed_keyword(session)
+        session.add(
+            PriceAnalysis(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="test-run",
+                basic_n=30,
+                basic_median=95.0,
+                standard_n=30,
+                standard_median=145.0,
+                premium_n=30,
+                premium_median=280.0,
+                market_type="WIDE_SPREAD",
+            )
+        )
+        for idx in range(30):
+            session.add(
+                PriceLadderSnapshot(
+                    keyword_id=keyword.id,
+                    niche_id="test_niche",
+                    run_id=f"r{idx}",
+                    reviews_at_snapshot=idx + 1,
+                    ladder_milestone=5,
+                    actual_basic_price=70.0 + idx,
+                    recommended_basic_price=65.0,
+                    price_delta_pct=0.1,
+                    on_track=True,
+                )
+            )
+        session.commit()
+    return engine
+
+
+@pytest.fixture
 def seeded_long_name_db():
     """DB with long keyword names for truncation checks."""
     engine = _engine()
