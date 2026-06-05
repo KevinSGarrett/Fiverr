@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,7 +27,7 @@ def row_to_dict(row: Any) -> dict[str, Any]:
 
 
 @contextmanager
-def _session_scope(db: Any):
+def _session_scope(db: Any) -> Iterator[Session]:
     if isinstance(db, Session):
         yield db
         return
@@ -148,7 +149,7 @@ def export_pricing_json(keyword_id: int, db: Any, output_path: str) -> str:
 
 def export_pricing_excel(keyword_ids: list[int], db: Any, output_path: str) -> str:
     """Export pricing payloads as workbook sheets and return file path."""
-    import pandas as pd
+    import pandas as pd  # type: ignore[import-untyped]
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
