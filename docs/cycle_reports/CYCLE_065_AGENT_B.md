@@ -106,5 +106,5 @@ Story: `SCRUM-194` (Wave 9 / Phase 4 / S6.8 Pricing Export)
 
 ## Commit / Hydration
 
-- B commit SHA: `[TO_BE_FILLED_AFTER_COMMIT]`
+- B commit SHA: `307dfdbf6b6f1f3de7236e651f0235a7f01f0d72`
 - Hydration token: `[C065_SQUASH_SHA]`
