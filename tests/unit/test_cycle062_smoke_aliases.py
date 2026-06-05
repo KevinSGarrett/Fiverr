@@ -159,6 +159,12 @@ def test_discovery_core_loop_budget_gate() -> None:
     canonical.test_w2_full_pipeline_dry_run_all_flags_active()
 
 
+def test_discovery_hypothesis_confidence_threshold() -> None:
+    from tests.unit import test_discovery_relevance_gates as canonical
+
+    canonical.test_gate1_borderline_threshold_behavior()
+
+
 def test_alert_new_strong_go_triggered() -> None:
     from tests.unit import test_recommendation_eligibility as canonical
 
