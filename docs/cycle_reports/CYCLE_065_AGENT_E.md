@@ -260,12 +260,12 @@
 - [x] Regression subset pass status documented.
 - [x] No filler lines policy applied.
 - [x] Hydration token placeholder present.
-- [ ] E commit SHA (populate post-commit).
+- [x] E commit SHA recorded.
 
 ## 23) Hydration Token Placeholder
 - `[C065_SQUASH_SHA]`
 
 ## 24) E Commit Evidence (Post-Commit Fill)
-- Commit SHA: `PENDING`
-- Staged file scope: `PENDING`
-- `git show --name-only HEAD` single-file proof: `PENDING`
+- Commit SHA: `483861c`.
+- Staged file scope: `docs/cycle_reports/CYCLE_065_AGENT_E.md` only.
+- `git show --name-only HEAD` single-file proof: PASS (only `docs/cycle_reports/CYCLE_065_AGENT_E.md` listed).
