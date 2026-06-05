@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import argparse
-from typing import Sequence
+from collections.abc import Sequence
 
-from src.models.database import create_session_factory, get_session, initialize_database, normalize_database_url
+from src.models.database import (
+    create_session_factory,
+    get_session,
+    initialize_database,
+    normalize_database_url,
+)
 from src.models.price_analysis import PriceAnalysis
 from src.pricing.pricing_export import export_all_pricing
 

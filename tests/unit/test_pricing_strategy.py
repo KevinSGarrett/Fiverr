@@ -15,9 +15,9 @@ from src.recommendations.tasks import (
     RECOMMENDATION_FIELD_NAMES,
     _complete_pricing_strategy,
     _extract_usage_cost,
-    get_recommendation_tasks,
     generate_pricing_strategy,
     generate_recommendation,
+    get_recommendation_tasks,
 )
 from src.schemas.pricing_output import EntryPrices, PricingStrategy
 

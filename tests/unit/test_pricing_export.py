@@ -10,7 +10,6 @@ import openpyxl
 import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
-
 from src.models.price_analysis import PriceAnalysis
 from src.models.price_ladder_snapshot import PriceLadderSnapshot
 from src.pricing.pricing_export import (
@@ -375,12 +374,16 @@ class TestModuleBehaviors:
     def test_wave9_all_pricing_modules_coexist(self) -> None:
         from src.pricing import (
             analyze_price_distribution,
-            build_pricing_export_payload as build_payload_from_package,
             calculate_new_seller_pricing,
             check_revenue_gates,
-            export_all_pricing as export_all_from_package,
             pricing_llm_task,
             track_price_ladder,
+        )
+        from src.pricing import (
+            build_pricing_export_payload as build_payload_from_package,
+        )
+        from src.pricing import (
+            export_all_pricing as export_all_from_package,
         )
 
         assert callable(analyze_price_distribution)
