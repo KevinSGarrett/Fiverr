@@ -15,9 +15,12 @@ from src.models import (
     Gig,
     Keyword,
     Niche,
+    NichePriceAnalysis,
     PriceAnalysis,
     PriceLadderSnapshot,
     PricingSnapshot,
+    Recommendation,
+    RevenueGateRecord,
 )
 
 
@@ -147,6 +150,92 @@ def seeded_snapshot_json_db():
                 price_ladder=json.dumps(ladder),
                 market_type="WIDE_SPREAD",
                 confidence="MEDIUM",
+            )
+        )
+        session.commit()
+    return engine
+
+
+@pytest.fixture
+def seeded_pricing_export_db():
+    """DB with rows in all pricing export sources for keyword 1."""
+    engine = _engine()
+    with Session(engine) as session:
+        keyword = _seed_keyword(session)
+        ladder = [
+            {"milestone": m, "basic": 60 + m, "standard": 140 + m, "premium": 270 + m}
+            for m in [5, 10, 25, 50, 100]
+        ]
+        session.add(
+            NichePriceAnalysis(
+                niche_id="test_niche",
+                run_id="r1",
+                keywords_analyzed=1,
+                basic_median=95.0,
+                standard_median=145.0,
+                premium_median=280.0,
+                moat_strength="LOW",
+            )
+        )
+        session.add(
+            PriceAnalysis(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="r1",
+                basic_n=5,
+                basic_median=95.0,
+                basic_mean=98.0,
+                standard_n=5,
+                standard_median=145.0,
+                premium_n=5,
+                premium_median=280.0,
+                market_type="WIDE_SPREAD",
+            )
+        )
+        session.add(
+            PricingSnapshot(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="r1",
+                entry_basic=65.0,
+                entry_standard=145.0,
+                entry_premium=280.0,
+                price_ladder=json.dumps(ladder),
+                market_type="WIDE_SPREAD",
+                confidence="MEDIUM",
+            )
+        )
+        session.add(
+            PriceLadderSnapshot(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="r1",
+                reviews_at_snapshot=5,
+                ladder_milestone=5,
+                actual_basic_price=68.0,
+                recommended_basic_price=65.0,
+                price_delta_pct=0.046,
+                on_track=True,
+            )
+        )
+        session.add(
+            RevenueGateRecord(
+                keyword_id=keyword.id,
+                niche_id="test_niche",
+                run_id="r1",
+                milestone_reviews=5,
+                gate_triggered=True,
+                recommended_price_at_gate=65.0,
+                revenue_delta_usd=260.0,
+            )
+        )
+        session.add(
+            Recommendation(
+                keyword_id=keyword.id,
+                recommendation_type="pricing_strategy",
+                recommendation_text="Use ladder progression anchored to milestone wins.",
+                confidence=0.88,
+                raw_json={"pricing_strategy": {"entry": 65.0, "confidence": "MEDIUM"}},
             )
         )
         session.commit()

@@ -32,6 +32,14 @@ from src.pricing.orchestrator import (
     run_stage_10_5,
     run_stage_10_5_for_niche,
 )
+from src.pricing.pricing_export import (
+    build_pricing_export_payload,
+    export_all_pricing,
+    export_pricing_csv,
+    export_pricing_excel,
+    export_pricing_json,
+    export_pricing_markdown,
+)
 from src.pricing.revenue_gate import check_revenue_gates, fire_revenue_gate_alert
 
 __all__ = [
@@ -61,4 +69,10 @@ __all__ = [
     "get_recommended_prices_at_milestone",
     "check_revenue_gates",
     "fire_revenue_gate_alert",
+    "build_pricing_export_payload",
+    "export_pricing_csv",
+    "export_pricing_json",
+    "export_pricing_excel",
+    "export_pricing_markdown",
+    "export_all_pricing",
 ]
