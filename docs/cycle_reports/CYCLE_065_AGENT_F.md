@@ -59,7 +59,7 @@ Fixture additions:
 
 - Command:
   - `python -m pytest -q tests/unit/ -k "test_golden_anchor_kw110_62_7 or test_cli_config_check_passes or test_external_signal_raw_value_stored_and_retrieved or test_export_csv_includes_score_components" --no-header`
-- Result: `7 passed, 4349 deselected`
+- Result: `7 passed, 4362 deselected`
 
 ### Full suite coverage gate
 
@@ -96,6 +96,14 @@ Fixture additions:
 - Delta: `+66`
 
 Statement: **66 new tests added. Total: 4369.**
+
+## Final F Summary Metrics (Task 36)
+
+- Files modified: `tests/unit/test_pricing_export.py` and `tests/unit/conftest.py`
+- Tests added by F: `66`
+- Total suite: `4369` tests
+- pricing_export.py coverage before F: `93%`
+- pricing_export.py coverage after F: `93%`
 
 ## Wave 9 Export Test Scope Note
 
