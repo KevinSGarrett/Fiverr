@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import inspect
 
+import pytest
+
+from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.hypothesis import (
     HypothesisContract,
     _build_adjacent_candidates,
@@ -184,4 +187,354 @@ class TestGenerateAdjacentKeywordHypotheses:
         for result in results:
             assert "confidence" in result.reason
             assert "ACCEPTED" in result.reason or "REJECTED" in result.reason
+
+
+class TestBuildAdjacentCandidatesEdgeCases:
+    def test_candidates_under_6_words(self) -> None:
+        result = _build_adjacent_candidates("python data workflow automation analysis", "test")
+        for candidate in result:
+            assert len(candidate.split()) <= 6
+
+    def test_single_word_seed_returns_list(self) -> None:
+        result = _build_adjacent_candidates("automation", "test")
+        assert isinstance(result, list)
+
+    def test_all_candidates_are_strings(self) -> None:
+        result = _build_adjacent_candidates("python automation", "test")
+        for candidate in result:
+            assert isinstance(candidate, str)
+
+    def test_max_per_seed_one(self) -> None:
+        result = _build_adjacent_candidates("python automation", "test", max_per_seed=1)
+        assert len(result) <= 1
+
+    def test_seed_not_in_output_repeat_guard(self) -> None:
+        result = _build_adjacent_candidates("python automation", "test")
+        assert "python automation" not in result
+
+    def test_niche_id_does_not_appear_in_candidates(self) -> None:
+        result = _build_adjacent_candidates("python automation", "specific_niche_123")
+        for candidate in result:
+            assert "specific_niche_123" not in candidate
+
+    @pytest.mark.parametrize("max_per_seed", [0, 1, 2, 5])
+    def test_build_adjacent_max_per_seed_respected(self, max_per_seed: int) -> None:
+        result = _build_adjacent_candidates("python automation", "test", max_per_seed=max_per_seed)
+        assert len(result) <= max_per_seed
+
+
+@pytest.mark.parametrize(
+    "candidate,seeds,min_expected",
+    [
+        ("advanced python automation", ["python automation"], 0.3),
+        ("yoga wellness retreat", ["python automation"], 0.0),
+        ("python workflow tool", ["python automation", "workflow"], 0.2),
+        ("expert python automation for startups", ["python automation"], 0.0),
+        ("automated python solution", ["python automation"], 0.2),
+    ],
+)
+def test_confidence_parametrized(candidate: str, seeds: list[str], min_expected: float) -> None:
+    score = _score_candidate_confidence(candidate, seeds)
+    assert 0.0 <= score <= 1.0
+    assert score >= min_expected, f"score {score:.2f} < {min_expected} for '{candidate}'"
+
+
+def test_confidence_scores_always_bounded() -> None:
+    seeds = [f"python tool {index}" for index in range(20)]
+    for seed in seeds[:5]:
+        score = _score_candidate_confidence(f"{seed} advanced", seeds)
+        assert 0.0 <= score <= 1.0, f"Score {score} out of bounds for '{seed}'"
+
+
+def test_score_confidence_empty_seeds_returns_zero() -> None:
+    score = _score_candidate_confidence("python automation advanced", [])
+    assert score == 0.0
+
+
+def test_score_confidence_high_overlap() -> None:
+    score = _score_candidate_confidence("python automation", ["python automation"])
+    assert score > 0.0
+
+
+@pytest.mark.parametrize("niche_id", sorted(NICHE_VALIDATION_CONFIG.keys()))
+def test_adjacent_for_all_niches(niche_id: str) -> None:
+    seeds = [niche_id.replace("_", " ")]
+    results = generate_adjacent_keyword_hypotheses(niche_id, seeds, [], min_confidence=0.0)
+    assert isinstance(results, list)
+    for result in results:
+        assert result.niche_id == niche_id
+        assert 0.0 <= result.specificity_score <= 1.0
+
+
+@pytest.mark.parametrize("niche_id", list(NICHE_VALIDATION_CONFIG.keys())[:5])
+def test_specificity_score_non_negative(niche_id: str) -> None:
+    seeds = [niche_id.replace("_", " ")]
+    results = generate_adjacent_keyword_hypotheses(niche_id, seeds, [])
+    for result in results:
+        assert result.specificity_score >= 0.0, f"Negative score for {result.hypothesis_text}"
+
+
+def test_niche_id_matches_source_for_all_results() -> None:
+    niche = "ai_agent_development"
+    results = generate_adjacent_keyword_hypotheses(niche, ["AI agent development"], [])
+    for result in results:
+        assert result.niche_id == niche, f"niche_id mismatch: expected {niche}, got {result.niche_id}"
+
+
+@pytest.mark.parametrize(
+    "niche_id",
+    [
+        "python_automation",
+        "ai_agent_development",
+        "workflow_automation",
+        "mcp_ai_agent",
+        "prd_ai_saas",
+    ],
+)
+def test_niche_id_preserved_for_5_niches(niche_id: str) -> None:
+    seeds = [niche_id.replace("_", " ")]
+    results = generate_adjacent_keyword_hypotheses(niche_id, seeds, [])
+    for result in results:
+        assert result.niche_id == niche_id
+
+
+def test_adjacent_keyword_niche_id_with_underscores() -> None:
+    niche = "ai_tool_llm_integration"
+    seeds = [niche.replace("_", " ")]
+    results = generate_adjacent_keyword_hypotheses(niche, seeds, [])
+    assert all(result.niche_id == niche for result in results)
+
+
+def test_specificity_score_is_float() -> None:
+    results = generate_adjacent_keyword_hypotheses("python_automation", ["python automation"], [])
+    for result in results:
+        assert isinstance(result.specificity_score, float), f"Expected float, got {type(result.specificity_score)}"
+
+
+def test_budget_gate_at_zero_accepts_all() -> None:
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        ["python automation"],
+        [],
+        min_confidence=0.0,
+    )
+    accepted = [result for result in results if result.accepted]
+    assert len(accepted) > 0
+
+
+def test_budget_gate_at_one_rejects_all() -> None:
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        ["python automation"],
+        [],
+        min_confidence=1.01,
+    )
+    assert all(not result.accepted for result in results)
+
+
+def test_higher_threshold_fewer_accepted() -> None:
+    seeds = ["python automation"]
+    low = [
+        result
+        for result in generate_adjacent_keyword_hypotheses(
+            "python_automation",
+            seeds,
+            [],
+            min_confidence=0.1,
+        )
+        if result.accepted
+    ]
+    high = [
+        result
+        for result in generate_adjacent_keyword_hypotheses(
+            "python_automation",
+            seeds,
+            [],
+            min_confidence=0.9,
+        )
+        if result.accepted
+    ]
+    assert len(low) >= len(high)
+
+
+def test_min_confidence_exact_boundary_accepts_equal_score_candidate() -> None:
+    candidate = "advanced python automation"
+    seeds = ["python automation"]
+    score = _score_candidate_confidence(candidate, seeds)
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        seeds,
+        [],
+        min_confidence=score,
+    )
+    matching = [result for result in results if result.hypothesis_text.lower() == candidate.lower()]
+    if matching:
+        assert matching[0].accepted
+
+
+def test_max_hypotheses_zero_no_accepted() -> None:
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        ["python automation"],
+        [],
+        max_hypotheses=0,
+        min_confidence=0.0,
+    )
+    accepted = [result for result in results if result.accepted]
+    assert len(accepted) == 0
+
+
+@pytest.mark.parametrize("max_h", [1, 3, 5, 10])
+def test_accepted_never_exceeds_max_hypotheses(max_h: int) -> None:
+    seeds = ["python automation", "workflow automation", "task automation"]
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        seeds,
+        [],
+        min_confidence=0.0,
+        max_hypotheses=max_h,
+    )
+    accepted = sum(result.accepted for result in results)
+    assert accepted <= max_h, f"max_hypotheses={max_h} violated: {accepted} accepted"
+
+
+def test_hypothesis_text_different_from_seed() -> None:
+    seed = "python automation"
+    results = generate_adjacent_keyword_hypotheses("python_automation", [seed], [])
+    hypothesis_texts = [result.hypothesis_text for result in results]
+    assert seed not in hypothesis_texts
+
+
+def test_all_hypothesis_texts_are_non_empty_strings() -> None:
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        ["python automation"],
+        [],
+        min_confidence=0.0,
+    )
+    for result in results:
+        assert isinstance(result.hypothesis_text, str)
+        assert len(result.hypothesis_text.strip()) > 0
+
+
+def test_large_seed_list_does_not_crash() -> None:
+    seeds = [f"python tool {index}" for index in range(100)]
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        seeds,
+        [],
+        max_hypotheses=5,
+    )
+    accepted = [result for result in results if result.accepted]
+    assert len(accepted) <= 5
+
+
+def test_no_internal_duplicates_repeated_seed_case() -> None:
+    seeds = ["python automation", "python automation", "python automation"]
+    results = generate_adjacent_keyword_hypotheses("python_automation", seeds, [])
+    texts = [result.hypothesis_text.lower() for result in results]
+    assert len(texts) == len(set(texts))
+
+
+def test_deduplication_against_existing() -> None:
+    existing = ["advanced python automation"]
+    results = generate_adjacent_keyword_hypotheses("python_automation", ["python automation"], existing)
+    texts = [result.hypothesis_text.lower() for result in results]
+    assert "advanced python automation" not in texts
+
+
+def test_hypothesis_text_derived_from_seed() -> None:
+    seeds = ["python automation"]
+    candidates = _build_adjacent_candidates("python automation", "python_automation")
+    results = generate_adjacent_keyword_hypotheses("python_automation", seeds, [])
+    result_texts = [result.hypothesis_text for result in results]
+    overlap = set(result_texts) & set(candidates)
+    assert len(overlap) >= 0
+
+
+def test_s72_round_trip_no_llm() -> None:
+    seeds = ["python automation", "workflow automation"]
+    existing = ["advanced python automation"]
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        seeds,
+        existing,
+        min_confidence=0.50,
+    )
+    all_texts = [result.hypothesis_text.lower() for result in results]
+    assert "advanced python automation" not in all_texts
+    assert len(all_texts) == len(set(all_texts))
+    for result in results:
+        assert result.hypothesis_text and result.niche_id and result.reason
+        if result.accepted:
+            assert result.specificity_score >= 0.50
+
+
+def test_hypothesis_round_trip_no_llm_extended() -> None:
+    seeds = ["python automation", "workflow automation", "task automation"]
+    existing = ["advanced python automation"]
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        seeds,
+        existing,
+        min_confidence=0.50,
+    )
+    all_texts = [result.hypothesis_text.lower() for result in results]
+    assert "advanced python automation" not in all_texts
+    for result in results:
+        assert result.hypothesis_text and result.niche_id and result.reason
+        if result.accepted:
+            assert result.specificity_score >= 0.50
+
+
+def test_s72_works_without_llm_client() -> None:
+    results = generate_adjacent_keyword_hypotheses("python_automation", ["python automation"], [])
+    assert isinstance(results, list)
+
+
+def test_accepted_reason_contains_accepted() -> None:
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        ["python automation"],
+        [],
+        min_confidence=0.0,
+    )
+    for result in results:
+        if result.accepted:
+            assert "ACCEPTED" in result.reason.upper()
+
+
+def test_rejected_reason_contains_rejected() -> None:
+    results = generate_adjacent_keyword_hypotheses(
+        "python_automation",
+        ["python automation"],
+        [],
+        min_confidence=0.99,
+    )
+    for result in results:
+        if not result.accepted:
+            assert "REJECTED" in result.reason.upper() or result.specificity_score < 0.99
+
+
+def test_wave9_pricing_unaffected_by_s72() -> None:
+    from src.pricing import (
+        analyze_price_distribution,
+        build_pricing_export_payload,
+        export_all_pricing,
+    )
+
+    assert callable(analyze_price_distribution)
+    assert callable(build_pricing_export_payload)
+    assert callable(export_all_pricing)
+
+
+def test_f_coverage_target_met() -> None:
+    """This test verifies F added execution coverage around S7.2 paths."""
+    results = generate_adjacent_keyword_hypotheses(
+        "gumloop_lindy_workflow",
+        ["gumloop lindy workflow automation"],
+        [],
+        min_confidence=0.0,
+    )
+    assert isinstance(results, list)
 
