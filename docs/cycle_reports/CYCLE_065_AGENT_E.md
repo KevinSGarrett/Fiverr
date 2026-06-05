@@ -266,6 +266,7 @@
 - `[C065_SQUASH_SHA]`
 
 ## 24) E Commit Evidence (Post-Commit Fill)
-- Commit SHA: `483861c`.
+- Primary report commit SHA: `483861c`.
+- Evidence refresh commit SHA: `62927b0` (current HEAD).
 - Staged file scope: `docs/cycle_reports/CYCLE_065_AGENT_E.md` only.
 - `git show --name-only HEAD` single-file proof: PASS (only `docs/cycle_reports/CYCLE_065_AGENT_E.md` listed).
