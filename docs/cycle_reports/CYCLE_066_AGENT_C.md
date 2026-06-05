@@ -119,7 +119,8 @@ Target for F:
 ## Commit Record (Agent C)
 
 - Staged file: `docs/cycle_reports/CYCLE_066_AGENT_C.md` only.
-- Commit SHA: `3521d66`
+- Initial C gate commit SHA: `3521d66`
+- Final C reconciliation commit SHA: `81d529f`
 
 ## Final Decision
 
