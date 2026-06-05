@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 
 import pytest
-
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.hypothesis import (
     HypothesisContract,
@@ -614,8 +613,8 @@ def test_rejected_reason_contains_rejected() -> None:
 def test_wave9_pricing_unaffected_by_s72() -> None:
     from src.pricing import (
         analyze_price_distribution,
-        calculate_new_seller_pricing,
         build_pricing_export_payload,
+        calculate_new_seller_pricing,
         export_all_pricing,
     )
 
