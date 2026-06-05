@@ -184,16 +184,17 @@ Wave 10 four-cycle planning note:
 
 ## Final Develop State Snapshot
 
-- Governance commit SHA (D final): `58aa37e6847b7e16243b326206341b589867061b`
+- Governance commit SHA: `58aa37e6847b7e16243b326206341b589867061b`
+- D finalization SHA (current develop HEAD): `ca2d52dd62e51e087a2e339602599ce0124f0f88`
 - Branch: `develop`
 - Status: clean (`git status --short` empty)
-- Worktree list: one entry (`C:/Fiverr/Fiverr 58aa37e [develop]`)
+- Worktree list: one entry (`C:/Fiverr/Fiverr ca2d52d [develop]`)
 - `origin/develop` last 5:
+  - `ca2d52d` docs(cycle066): finalize Agent D merge gate evidence
   - `58aa37e` chore(governance): C066 post-merge -- S7.2 adjacent keyword done, Wave 10 progress note
   - `36f6f32` feat(discovery): C066 Wave 10 S7.2 -- adjacent keyword hypothesis mode (#75)
   - `7fc6b99` docs(governance): C065 PM review v4.2 complete ...
   - `bd70011` docs(governance): close remaining C065 D strict checklist gaps
-  - `bc792b2` chore(governance): C065 post-merge -- Wave 9 complete ...
 - Remote branches: only `origin/develop` (no `cycle/066/*`).
 - Hydration header post-commit verification: `git diff HEAD PM_Pack/07_hydration/HYDRATION_HEADER.md` returned no diff.
 
