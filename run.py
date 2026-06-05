@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+from sqlalchemy import select
 from src.collection.session_manager import SessionManager, validate_session_file
 from src.config import ConfigLoader
 from src.models import Recommendation
@@ -20,6 +21,7 @@ from src.models.database import (
     initialize_database,
     normalize_database_url,
 )
+from src.models.price_analysis import PriceAnalysis
 from src.orchestrator import (
     AVAILABLE_MODES,
     normalize_cli_config_path,
@@ -34,6 +36,7 @@ from src.orchestrator import (
     run_pipeline,
     run_smoke_checks,
 )
+from src.pricing.pricing_export import export_all_pricing
 from src.recommendations.export import (
     export_all_recommendations,
     export_recommendation_by_keyword,
@@ -274,6 +277,20 @@ def seed_niches_command(database_url: str | None) -> None:
 def export_command(export_format: str, input_path: str) -> None:
     """Validate export command surface for future Epic 09 implementation."""
     raise SystemExit(run_export_stub(export_format=export_format.lower(), input_path=input_path))
+
+
+@cli.command("pricing-export")
+@click.option("--output-dir", default="exports/pricing", show_default=True, help="Output directory for pricing exports.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def pricing_export_command(output_dir: str, database_url: str | None) -> None:
+    """Export pricing snapshots for all keyword ids with pricing analyses."""
+    with _recommendation_db_session(database_url) as db:
+        keyword_ids = [row[0] for row in db.execute(select(PriceAnalysis.keyword_id).distinct()).fetchall()]
+        if not keyword_ids:
+            click.echo("No pricing rows found; nothing exported.")
+            raise SystemExit(0)
+        results = export_all_pricing(keyword_ids, db, output_dir)
+    click.echo(f"Exported {len(results)} files to {output_dir}")
 
 
 @cli.command("export-recommendation")
