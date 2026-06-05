@@ -1,9 +1,9 @@
 # CYCLE 065 - AGENT B REPORT
 
-B COMPLETE. Branch: cycle/065/integration. Suite: 4340 tests, 94.46% coverage.
+B COMPLETE. Branch: cycle/065/integration. Suite: 4341 tests, 94.30% coverage.
 New module: src/pricing/pricing_export.py (S6.8 -- 6 export functions).
 Tests: tests/unit/test_pricing_export.py (>= 25 tests).
-CLI: pricing-export mode wired in src/cli.py.
+CLI: pricing-export mode wired in run.py/cli.py.
 requirements.txt: pandas + openpyxl added (if they were missing).
 Wave 9 complete: all S6.1-S6.8 symbols exportable from src.pricing.
 Zone: ZERO PM_Pack/ or docs/ files in B commits.
@@ -72,7 +72,7 @@ Story: `SCRUM-194` (Wave 9 / Phase 4 / S6.8 Pricing Export)
 
 - Full suite gate:
   - `python -m pytest -q --cov=src --cov-report=term-missing --cov-fail-under=90 --no-header tests/unit/`
-  - Result: `4340 passed`, total coverage `94.46%`
+  - Result: `4341 passed`, total coverage `94.30%`
   - `src/pricing/pricing_export.py`: `93%`
 
 - Regression smoke selector:
@@ -102,7 +102,7 @@ Story: `SCRUM-194` (Wave 9 / Phase 4 / S6.8 Pricing Export)
 
 - Wave 9 S6.1-S6.8 is complete in `src/pricing` after C065.
 - Pricing exports now include the S6.8 surface and are re-exported from `src.pricing`.
-- `src.pricing` now exposes 30 public symbols total, including all six S6.8 export symbols.
+- Wave 9 complete after C065. src.pricing exports 13 symbols.
 
 ## Commit / Hydration
 

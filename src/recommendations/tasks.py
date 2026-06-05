@@ -229,6 +229,24 @@ RECOMMENDATION_FIELD_NAMES = [
 ]
 
 
+def get_recommendation_tasks() -> list[Any]:
+    """Return the canonical 12-task recommendation execution list."""
+    return [
+        generate_gig_titles,
+        generate_tag_sets,
+        generate_package_structure,
+        generate_description_outline,
+        generate_faq_entries,
+        generate_differentiation_angle,
+        generate_buyer_persona,
+        generate_thumbnail_direction,
+        generate_upsell_structure,
+        generate_red_flags,
+        generate_niche_viability,
+        pricing_llm_task,
+    ]
+
+
 async def generate_recommendation(
     keyword_id: int,
     context: RecommendationContext,
