@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-04 (C064 post-merge closeout)
+# Last updated: 2026-06-04 (C065 start - Wave 9 Phase 4)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -75,6 +75,7 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 - Wave 9 remainder: 9G pricing export (S6.8) OR Wave 10 Discovery start
 - Continue stale Jira governance cleanup (`SCRUM-106` through `SCRUM-124`)
 - G-D remains open until Waves 10-12 are implemented and verified
+- C065 branch initialized: `cycle/065/integration` (Wave 9 Phase 4 S6.8 pricing export)
 
 ## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
 §7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)
