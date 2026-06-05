@@ -287,7 +287,7 @@ Observed counts:
 
 - [x] git log read at start
 - [x] gh open PRs read
-- [ ] `[C065_SQUASH_SHA]` in all 6 prompts (post-merge resolver step)
+- [x] `[C065_SQUASH_SHA]` in all 6 prompts
 - [x] "END OF PROMPT" once per file (present in all six prompt files)
 - [x] B + E parallel notice present in prompt set
 - [x] E prompt includes src/ prohibition
@@ -308,17 +308,19 @@ C065 start note added in this cycle update:
 
 ## Task 36 - Prompt-Sizing Handoff Table
 
-Note: `linecount.py` was not found in this repository; line counts captured via file line-count command.
+Recorded using `PM_Pack/linecount.py` output:
+`CYCLE_065_AGENT_A: 500`, `CYCLE_065_AGENT_B: 652`, `CYCLE_065_AGENT_E: 502`,
+`CYCLE_065_AGENT_C: 427`, `CYCLE_065_AGENT_F: 527`, `CYCLE_065_AGENT_D: 651`.
 
 | Agent | Lines | Floor | Gap | Notes |
 |---|---:|---:|---:|---|
 | A | 500 | 500 | 0 | planning + governance |
-| B | 651 | 650 | +1 | pricing export implementation |
-| E | 501 | 500 | +1 | validation observation |
-| C | 426 | 425 | +1 | gate validation sequencing |
-| F | 526 | 525 | +1 | test + coverage focus |
+| B | 652 | 650 | +2 | pricing export implementation |
+| E | 502 | 500 | +2 | validation observation |
+| C | 427 | 425 | +2 | gate validation sequencing |
+| F | 527 | 525 | +2 | test + coverage focus |
 | D | 651 | 650 | +1 | merge gate + closeout |
-| Total | 3255 | 3250 | +5 | floor satisfied |
+| Total | 3259 | 3250 | +9 | floor satisfied |
 
 ## Tasks 38 + 39 - Worktree and Develop Head
 
