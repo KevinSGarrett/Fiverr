@@ -167,11 +167,14 @@ Result: **PASS**
 
 ### GATE 15 — COVERAGE GAP LIST FOR F
 
-Requested command was attempted; `--cov=src/pricing/pricing_export` form produced a coverage module warning (`module-not-imported`) and non-zero exit.
+Requested command was attempted; `--cov=src/pricing/pricing_export` form produced a coverage module warning (`module-not-imported`) and non-zero exit in this environment.
 
-Fallback evidence source:
+Equivalent per-file coverage extraction (successful):
 
-- Full coverage run (`--cov=src`) captured `src\pricing\pricing_export.py ... 93%`.
+- `python -m pytest -q --cov=src/pricing --cov-report=term-missing --no-header tests/unit/ 2>&1 | Select-String "pricing_export|TOTAL"`
+- Output:
+  - `src\pricing\pricing_export.py 161 12 93%`
+  - `TOTAL 1063 95 91%`
 - Missing lines from coverage output:
   - `31-32`
   - `45`
@@ -181,7 +184,7 @@ Fallback evidence source:
   - `76-77`
   - `84-85`
 
-Result: **PASS (ADVISORY, F-target extraction completed from full-suite coverage artifact)**
+Result: **PASS** (per-file % captured for F uplift targets)
 
 ### GATE 16 — MARKDOWN EXPORT CONTAINS SECTION HEADERS
 
@@ -523,7 +526,7 @@ All S6.1-S6.8 implemented. G-D advances to Wave 10.
 - Gate 15 literal command form executed exactly:
   - `python -m pytest -q --cov=src/pricing/pricing_export --cov-report=term-missing --no-header tests/unit/ 2>&1 | Select-String "pricing_export|TOTAL"`
   - Returned coverage warning (`module-not-imported`) and fail-under error due slash-style cov target in current pytest-cov environment.
-  - F-target uncovered-line evidence therefore remains sourced from successful full-suite `--cov=src` artifact (`src/pricing/pricing_export.py` at 93%, missing lines listed in Gate 15).
+  - Equivalent successful extraction was then run with `--cov=src/pricing`, yielding `src\pricing\pricing_export.py 93%` and `TOTAL 91%` for F targeting.
 
 ---
 
