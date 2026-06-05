@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-04 (C065 start - Wave 9 Phase 4)
+# Last updated: 2026-06-05 (C065 merged; C066 ready)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -70,12 +70,25 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 |---|---|---|---|---|---|---|---|
 | C064 | MERGED | 7af0b1c8c191a4c80f870609e1c4645d35e8927a | CLOSED | CLOSED | CLOSED | OPEN (9E+9F done) | PriceLadder + RevenueGate + migration_13 |
 
-## C065 PREVIEW
+## C065 SCOPE — Wave 9 Pricing Strategy Engine Phase 4
 
-- Wave 9 remainder: 9G pricing export (S6.8) OR Wave 10 Discovery start
-- Continue stale Jira governance cleanup (`SCRUM-106` through `SCRUM-124`)
-- G-D remains open until Waves 10-12 are implemented and verified
-- C065 branch initialized: `cycle/065/integration` (Wave 9 Phase 4 S6.8 pricing export)
+| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
+|---|---|---|---|---|---|---|---|
+| C065 | MERGED | 5b5868bf1a17ecd36f59c02542558562ca80d035 | CLOSED | CLOSED | CLOSED | OPEN (Wave 9 complete) | Pricing Export S6.8 (CSV/JSON/Excel/Markdown) |
+
+## WAVE PROGRESS STATUS
+
+- Wave 9 (Pricing): COMPLETE (C062-C065)
+- Wave 10 (Discovery): NOT STARTED
+- Wave 11 (Playbook): NOT STARTED
+- Wave 12 (Dashboard UX): NOT STARTED
+
+## C066 PREVIEW
+
+- Option A: Wave 10 start at S7.1 Discovery Core Loop (`SCRUM-196`)
+- Option B: Combined S7.1 + S7.2 (`SCRUM-196` + `SCRUM-197`)
+- C065 is complete; Wave 9 is now closed
+- G-D remains open pending Waves 10-12
 
 ## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
 §7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)

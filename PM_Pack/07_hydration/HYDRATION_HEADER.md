@@ -1,13 +1,15 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-04 (C064 post-merge)
+# Updated: 2026-06-05 (C065 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 065
-CYCLE_BRANCH: cycle/065/integration
+CYCLE_CURRENT: 066
+CYCLE_BRANCH: cycle/066/integration
 STATUS: READY_FOR_A
-CYCLE_DONE: 064
-CYCLE_NEXT: 065
+CYCLE_DONE: 065
+CYCLE_NEXT: 066
+CYCLE_STATUS_065: COMPLETE - PR #74 squash-merged to develop
+CYCLE_BRANCH_065: DELETED
 CYCLE_STATUS_064: COMPLETE - PR #73 squash-merged to develop
 CYCLE_BRANCH_064: DELETED
 CYCLE_STATUS_063: COMPLETE - PR #72 squash-merged to develop
@@ -16,10 +18,11 @@ CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
 CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 Phases 1+2+3 done; S6.8+Waves 10-12 remain)
+TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 COMPLETE C062-C065; Wave 10 Discovery unstarted)
 
-## DEVELOP HEAD (current after C064 squash + governance closeout)
-develop HEAD: 5d58d43 (chore(governance): add full C064 task ledger and head refresh)
+## DEVELOP HEAD (current after C065 squash)
+develop HEAD: 5b5868bf1a17ecd36f59c02542558562ca80d035 (feat(pricing): C065 Wave 9 Phase 4 -- pricing export S6.8 (#74))
+C065 SQUASH SHA: 5b5868bf1a17ecd36f59c02542558562ca80d035 (PR #74)
 C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
 C064 POST-MERGE GOVERNANCE SHA: 49cb379
 C064 D FINALIZATION SHA: 5d58d43
@@ -31,8 +34,8 @@ C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C064 post-merge D sanity)
-Tests: 4303 passed | Coverage: 94.48% | Floor: 90% enforced
+## SUITE STATE (C065 post-merge D sanity)
+Tests: 4369 passed | Coverage: 94.30% | Floor: 90% enforced
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -94,11 +97,10 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## C065 PREVIEW
-- Wave 9 Phase 4: S6.8 Pricing Export (`src/pricing/pricing_export.py`) — exports pricing analysis, ladder, revenue gate, and LLM pricing outputs in CSV/JSON/Excel/Markdown formats
-- Jira: SCRUM-1027 (control), SCRUM-194 (story — existing Wave 19 S6.8 story, parent SCRUM-21)
-- NOTE: C065 uses existing SCRUM-194 as the story (already in Jira from Wave 19 import) — no new story needed
-- Continue stale Jira governance cleanup (Wave 19 stories for implemented features)
+## C066 PREVIEW
+- Wave 10 start candidate A: S7.1 Discovery Core Loop (`SCRUM-196`)
+- Wave 10 start candidate B: S7.1 + S7.2 combined (`SCRUM-196` + `SCRUM-197`)
+- PM review selects final C066 scope
 - RSV remains SEED until TierD-2 ScrapFly budget approval
 
 ## C064 PM REVIEW JIRA CORRECTIONS (done during review)
@@ -124,10 +126,11 @@ SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
 POST-SRDI: C062 → Wave 9 Pricing Engine Phase 1 (9A+9B) — COMPLETE
 POST-SRDI: C063 → Wave 9 Pricing Engine Phase 2 (9C+9D) — COMPLETE
 
-## G-D WAVE STATUS (after C064)
-G-D: Waves 0-8 complete. Wave 9 Phase 1 (9A+9B, C062) complete. Wave 9 Phase 2 (9C+9D, C063) complete. Wave 9 Phase 3 (9E+9F, C064) complete.
-Wave 9 remaining: 9G pricing export.
-Waves 10-12 (Discovery, Playbook, Dashboard UX): unstarted.
+## G-D WAVE STATUS (after C065)
+G-D: Waves 0-8 COMPLETE. Wave 9 COMPLETE (C062-C065, S6.1-S6.8).
+Wave 10 (Discovery): NOT STARTED.
+Wave 11 (Playbook): NOT STARTED.
+Wave 12 (Dashboard UX): NOT STARTED.
 G-D closes only after all 12 waves have verified implementation in `src/`.
 
 ## TOGGLES
