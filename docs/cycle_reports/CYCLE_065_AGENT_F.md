@@ -107,6 +107,11 @@ Statement: **66 new tests added. Total: 4369.**
 - Parametrized: 4 format cases
 - End-to-end: full pipeline all 4 formats
 
+## Fixture Scope Note (Task 40)
+
+- `seeded_pricing_export_db` uses default pytest function scope.
+- Each test receives a fresh in-memory SQLite engine, so there is no test-order dependency or fixture bleed between classes.
+
 ## Anti-Filler Scan
 
 - Prohibited filler marker scan in this report: **0 matches**
