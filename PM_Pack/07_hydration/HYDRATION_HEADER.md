@@ -1,13 +1,15 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-05 (C065 post-merge)
+# Updated: 2026-06-05 (C066 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 066
-CYCLE_BRANCH: cycle/066/integration
+CYCLE_CURRENT: 067
+CYCLE_BRANCH: cycle/067/integration
 STATUS: READY_FOR_A
-CYCLE_DONE: 065
-CYCLE_NEXT: 066
+CYCLE_DONE: 066
+CYCLE_NEXT: 067
+CYCLE_STATUS_066: COMPLETE - PR #75 squash-merged to develop
+CYCLE_BRANCH_066: DELETED
 CYCLE_STATUS_065: COMPLETE - PR #74 squash-merged to develop
 CYCLE_BRANCH_065: DELETED
 CYCLE_STATUS_064: COMPLETE - PR #73 squash-merged to develop
@@ -18,14 +20,15 @@ CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
 CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 9 COMPLETE C062-C065; Wave 10 Discovery unstarted)
+TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.2 done; S7.3-S7.9 + Waves 11-12 remain)
 
-## DEVELOP HEAD (current after C065 squash + D finalization commits)
-develop HEAD: bd70011 (docs(governance): close remaining C065 D strict checklist gaps)
+## DEVELOP HEAD (current after C066 squash + D finalization commits)
+develop HEAD: 36f6f32 (feat(discovery): C066 Wave 10 S7.2 -- adjacent keyword hypothesis mode (#75))
+C066 SQUASH SHA: 36f6f328a767afaf17316f79beac05c9eafaab42 (PR #75)
 C065 SQUASH SHA: 5b5868bf1a17ecd36f59c02542558562ca80d035 (PR #74)
 C065 POST-MERGE GOVERNANCE SHA: bc792b2
 C065 D FINALIZATION SHA: bd70011
-C066 dev HEAD at start: bd70011
+C067 dev HEAD at start: 36f6f32
 C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
 C064 POST-MERGE GOVERNANCE SHA: 49cb379
 C064 D FINALIZATION SHA: 5d58d43
@@ -37,10 +40,10 @@ C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C065 post-merge D sanity)
-Tests: 4369 passed | Coverage: 94.30% | Floor: 90% enforced
-C065 new files: `src/pricing/pricing_export.py` + `tests/unit/test_pricing_export.py`
-Wave 9 complete: TRUE | G-D status: Wave 9 done; Wave 10 unstarted
+## SUITE STATE (C066 post-merge D sanity)
+Tests: 4484 passed | Coverage: 94.31% | Floor: 90% enforced
+C066 core file: `src/discovery/hypothesis.py` (+ S7.2 adjacent keyword mode)
+Wave 10 status: S7.1 scaffold done (SRDI), S7.2 done (C066), S7.3-S7.9 TO DO
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -102,15 +105,13 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## C066 PREVIEW
-- Wave 10 Discovery: S7.2 Adjacent Keyword Hypothesis Mode (SCRUM-197, parent SCRUM-22)
-- NOTE: S7.1 scaffold already exists (SCRUM-273 SRDI); SCRUM-196 correctly Done in Jira.
-- NOTE: SCRUM-1028 (C066 control) already created by D during C065 -- To Do, ready to use.
-- C066 scope: implement generate_hypotheses() for adjacent_keyword mode in src/discovery/hypothesis.py
-  + budget gate (confidence >= 0.50) + confidence scoring + DiscoveryCandidate persistence + tests
-- Jira: SCRUM-1028 (control, exists), SCRUM-197 (story, parent SCRUM-22)
-- RSV remains SEED until TierD-2 ScrapFly budget approval
-- Advisory carry-forward from C065: pricing-export CLI mode not wired in run.py (add to C066 B scope)
+## C067 PREVIEW
+- Wave 10 Discovery: S7.3 Adjacent Niche Hypothesis Mode (SCRUM-198, parent SCRUM-22)
+- C066 delivered S7.2 Adjacent Keyword in `src/discovery/hypothesis.py`:
+  `generate_adjacent_keyword_hypotheses()`, `_build_adjacent_candidates()`, `_score_candidate_confidence()`
+- Budget gate default `min_confidence=0.50`; no LLM required; duplicate filtering active.
+- pricing-export CLI carry-forward from C065 is resolved in C066 (`run.py pricing-export`).
+- RSV remains SEED until TierD-2 ScrapFly budget approval.
 
 ## C065 PM REVIEW DISCOVERIES
 - src/discovery/ scaffold EXISTS (SRDI SCRUM-273): orchestrator.py, hypothesis.py, contracts.py, candidates.py, __init__.py
@@ -143,12 +144,12 @@ SRDI INITIATIVE: COMPLETE (C049-C060, 11 epics, 85 stories)
 POST-SRDI: C062 → Wave 9 Pricing Engine Phase 1 (9A+9B) — COMPLETE
 POST-SRDI: C063 → Wave 9 Pricing Engine Phase 2 (9C+9D) — COMPLETE
 
-## G-D WAVE STATUS (after C065, corrected after discovery of SRDI scaffold)
+## G-D WAVE STATUS (after C066 merge)
 G-D: Waves 0-8 COMPLETE. Wave 9 COMPLETE (C062-C065, S6.1-S6.8).
-Wave 10 (Discovery): SCAFFOLDED by SRDI (SCRUM-273) — src/discovery/ has orchestrator.py, hypothesis.py, contracts.py, candidates.py as stubs.
-  S7.1 Discovery Core Loop (SCRUM-196): DONE (scaffold, marked Done in SRDI era) — generate_hypotheses() is stub returning [].
-  S7.2 Adjacent Keyword (SCRUM-197): TO DO — first real hypothesis mode to implement in C066.
-  S7.3-S7.9 (SCRUM-198-204): TO DO — deferred.
+Wave 10 (Discovery):
+  S7.1 Discovery Core Loop (SCRUM-196): DONE (SRDI scaffold era).
+  S7.2 Adjacent Keyword (SCRUM-197): DONE C066 (`generate_adjacent_keyword_hypotheses` in `hypothesis.py`).
+  S7.3-S7.9 (SCRUM-198-204): TO DO (planned C067+).
 Wave 11 (Playbook): NOT STARTED.
 Wave 12 (Dashboard UX): NOT STARTED.
 G-D closes only after all 12 waves have verified implementation in `src/`.

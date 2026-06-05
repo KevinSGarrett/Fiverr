@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-05 (C065 merged; C066 ready)
+# Last updated: 2026-06-05 (C066 merged; C067 ready)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -76,19 +76,24 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 |---|---|---|---|---|---|---|---|
 | C065 | MERGED | 5b5868bf1a17ecd36f59c02542558562ca80d035 | CLOSED | CLOSED | CLOSED | OPEN (Wave 9 complete) | Pricing Export S6.8 (CSV/JSON/Excel/Markdown) |
 
+## C066 SCOPE — Wave 10 Discovery S7.2
+
+| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
+|---|---|---|---|---|---|---|---|
+| C066 | MERGED | 36f6f328a767afaf17316f79beac05c9eafaab42 | CLOSED | CLOSED | CLOSED | OPEN (S7.2 done) | S7.2 adjacent keyword mode + helpers in `src/discovery/hypothesis.py`; pricing-export carry-forward resolved |
+
 ## WAVE PROGRESS STATUS
 
 - Wave 9 (Pricing): COMPLETE (C062-C065)
-- Wave 10 (Discovery): NOT STARTED
+- Wave 10 (Discovery): IN PROGRESS (S7.1 scaffold done, S7.2 done in C066, S7.3-S7.9 pending)
 - Wave 11 (Playbook): NOT STARTED
 - Wave 12 (Dashboard UX): NOT STARTED
 
-## C066 PREVIEW
+## C067 PREVIEW
 
-- Option A: Wave 10 start at S7.1 Discovery Core Loop (`SCRUM-196`)
-- Option B: Combined S7.1 + S7.2 (`SCRUM-196` + `SCRUM-197`)
-- C065 is complete; Wave 9 is now closed
-- G-D remains open pending Waves 10-12
+- Natural scope: S7.3 Adjacent Niche Hypothesis Mode (`SCRUM-198`, parent `SCRUM-22`)
+- Constraint pattern same as C066: no LLM requirement, no new DB tables
+- G-D remains open pending completion of S7.3-S7.9 + Waves 11-12
 
 ## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
 §7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)
