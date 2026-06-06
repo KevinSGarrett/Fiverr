@@ -34,6 +34,7 @@ Create/extend `tests/unit/test_adjacent_niche_hypotheses.py` to include >=30 tes
 - `TestGenerateAdjacentNicheHypotheses` (>=19 tests)
 
 Use explicit Arrange/Act/Assert structure and mirror S7.2 class organization where appropriate.
+F execution plan should still enumerate 55 substantive test tasks in the F prompt (v4.3 requirement), with each task carrying explicit arrange/act/assert intent.
 
 ## Regression Safety
 

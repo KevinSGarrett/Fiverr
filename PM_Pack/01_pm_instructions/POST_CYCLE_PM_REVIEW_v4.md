@@ -29,6 +29,7 @@ v4.2: §12 parallel contract (B+E notice; zone check fix; C before F; D playbook
 v4.3: TASK MINIMUM RAISED 25 -> 55 (effective C067+). TASK CATEGORY: LARGE-XXLARGE only
       (XXXLARGE retired — decompose into 2-3 XXLARGE tasks). NEW LINE FLOORS:
       A:1000 | B:1200 | E:950 | C:900 | F:1000 | D:1200 | TOTAL:6,250.
+      Compliance shorthand: A>=1000, B>=1200, E>=950, C>=900, F>=1000, D>=1200.
       Old floors (A500/B650/E500/C425/F525/D650 = 3,250) applied C057-C066 only.
       RATIONALE: 55 LARGE-XXLARGE tasks × ~18-22 lines = 1,000-1,200 lines per agent,
       ensuring substantive inline code, test stubs, and commands per task that drive

@@ -62,6 +62,40 @@ ADJACENT_NICHE_RELATIONSHIPS = {
 }
 ```
 
+## Required Inline Code Skeleton (Task 48)
+
+```python
+# In src/discovery/hypothesis.py
+
+ADJACENT_NICHE_RELATIONSHIPS: dict[str, list[str]] = {
+    "python_automation": ["ai_agent_development", "workflow_automation", "gumloop_lindy_workflow"],
+    # ... all 9 niches ...
+}
+
+def _build_adjacent_niche_candidates(
+    source_niche_id: str,
+    seed_keywords: list[str],
+    *,
+    max_per_niche: int = 5,
+) -> list[str]:
+    """Returns list of adjacent niche IDs from ADJACENT_NICHE_RELATIONSHIPS."""
+    del seed_keywords
+    return ADJACENT_NICHE_RELATIONSHIPS.get(source_niche_id, [])[:max_per_niche]
+
+def _score_niche_candidate_confidence(
+    candidate_niche_id: str,
+    seed_keywords: list[str],
+    target_niche_keywords: list[str] | None = None,
+) -> float:
+    """Confidence = keyword overlap between source seeds and target niche keywords."""
+    if not seed_keywords:
+        return 0.0
+    target = set(k.lower() for k in (target_niche_keywords or candidate_niche_id.replace("_", " ").split()))
+    seed_pool = set(t for k in seed_keywords for t in k.lower().split())
+    overlap = len(seed_pool & target) / max(len(target), 1)
+    return min(1.0, max(0.0, overlap + 0.30))  # 0.30 base for adjacency relationship
+```
+
 ## Implementation Pattern Requirement
 
 S7.3 must mirror S7.2 structure:
@@ -119,3 +153,15 @@ Out-of-scope:
 - `HypothesisMode` already includes `ADJACENT_NICHE="adjacent_niche"` at C067 start.
 - Existing adjacent keyword pattern file: `tests/unit/test_adjacent_keyword_hypotheses.py` (77 tests, class-based pattern available for reuse).
 - Golden parity currently PASS (`kw=110 -> 62.7 / 1.0 / CONDITIONAL_GO`).
+
+## Full B Package Checklist (Task 57)
+
+1. Add `ADJACENT_NICHE_RELATIONSHIPS` constant (9-niche dict) in `src/discovery/hypothesis.py`.
+2. Add `_build_adjacent_niche_candidates(...) -> list[str]`.
+3. Add `_score_niche_candidate_confidence(...) -> float`.
+4. Add `generate_adjacent_niche_hypotheses(...) -> list[HypothesisContract]`.
+5. Ensure `HypothesisMode.ADJACENT_NICHE = "adjacent_niche"` exists in `src/discovery/contracts.py` (already present at baseline).
+6. Create `TestAdjacentNicheRelationshipsMap` tests (3).
+7. Create `TestBuildAdjacentNicheCandidates` tests (6).
+8. Create `TestScoreNicheCandidateConfidence` tests (4+).
+9. Create `TestGenerateAdjacentNicheHypotheses` tests (17+), for at least 30 total tests.

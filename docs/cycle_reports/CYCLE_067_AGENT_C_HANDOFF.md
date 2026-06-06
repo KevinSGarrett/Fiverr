@@ -22,6 +22,27 @@ Minimum verification set:
 - New S7.3 tests present and passing.
 - Coverage threshold remains >=90% overall and target path coverage acceptable.
 
+### 18 Blocking Gates (explicit)
+
+1. Module import gate (`generate_adjacent_niche_hypotheses`) PASS.
+2. Helper import gate (`_build_adjacent_niche_candidates`) PASS.
+3. Helper import gate (`_score_niche_candidate_confidence`) PASS.
+4. Relationships map size gate (=9) PASS.
+5. HypothesisMode enum gate (`adjacent_niche`) PASS.
+6. Unknown source niche returns empty list.
+7. Empty seed list path returns deterministic output.
+8. Dedup against `existing_niches` enforced.
+9. Internal dedup across generated candidates enforced.
+10. No self-referential candidate equals source niche.
+11. Budget threshold gate (`min_confidence=0.50`) enforced.
+12. `max_hypotheses` cap enforced.
+13. Reason strings populated for accepted/rejected contracts.
+14. Lineage preserved (`niche_id == source_niche_id`).
+15. Golden parity anchor unchanged (`kw110=62.7/1.0/CONDITIONAL_GO`).
+16. Regression pack 45-name slice remains green.
+17. Discovery + adjacent test collections include new S7.3 tests.
+18. Coverage floor >=90% overall and no drop below quality gate.
+
 ## Additional Verification Focus
 
 - No changes outside C067 scope boundaries (no Stage 16 wiring, no dashboard widget wiring).

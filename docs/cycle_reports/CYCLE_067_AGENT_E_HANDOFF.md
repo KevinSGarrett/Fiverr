@@ -24,6 +24,7 @@ Anti-filler rule is strict: no placeholder/pad lines; every line must be substan
 6. 5 gap checks hold: demo=0, ext=true, llm=false, scrapfly=false, niches=9, pages=9.
 7. RSV band documented as SEED; no ScrapFly dependency for S7.3.
 8. Baseline DB untouched check noted.
+9. Use throwaway DB path `data/cycle067_e2e.db` for observation commands when needed.
 
 ## E Report Required Final Section
 
@@ -47,6 +48,7 @@ Include exactly this structure in `CYCLE_067_AGENT_E.md`:
 
 - Policy v4.3 is active: 55 LARGE-XXLARGE tasks minimum.
 - E report floor target is 950 lines.
+- E report must explicitly state RSV chain as SEED x11 and anti-filler compliance.
 
 ## Suggested E Validation Commands
 
