@@ -36,6 +36,19 @@ _ADJACENT_SCOPE_MODS = [
     "for agencies",
 ]
 
+# S7.3: Adjacent niche relationship map - rule-based, no LLM required.
+ADJACENT_NICHE_RELATIONSHIPS: dict[str, list[str]] = {
+    "python_automation": ["ai_agent_development", "workflow_automation", "gumloop_lindy_workflow"],
+    "ai_agent_development": ["python_automation", "mcp_ai_agent", "ai_tool_llm_integration"],
+    "workflow_automation": ["python_automation", "gumloop_lindy_workflow", "ai_agent_development"],
+    "gumloop_lindy_workflow": ["workflow_automation", "ai_agent_development", "python_automation"],
+    "prd_ai_saas": ["mcp_ai_agent", "ai_tool_llm_integration", "ai_agent_development"],
+    "mcp_ai_agent": ["prd_ai_saas", "ai_tool_llm_integration", "ai_agent_development"],
+    "ai_tool_llm_integration": ["mcp_ai_agent", "prd_ai_saas", "ai_agent_development"],
+    "python_web_scraping": ["python_automation", "workflow_automation"],
+    "support_kb_readiness": ["ai_tool_llm_integration", "prd_ai_saas"],
+}
+
 
 @dataclass(slots=True)
 class HypothesisContract:
@@ -244,6 +257,123 @@ def generate_adjacent_keyword_hypotheses(
                     reason=reason,
                 )
             )
+
+    return results
+
+
+def _build_adjacent_niche_candidates(
+    source_niche_id: str,
+    seed_keywords: list[str],
+    *,
+    max_per_niche: int = 5,
+) -> list[str]:
+    """Return adjacent niche IDs from the adjacency map.
+
+    Rule-based and deterministic: this helper does not call an LLM.
+    Returns up to ``max_per_niche`` mapped adjacent niches for ``source_niche_id``.
+    If ``source_niche_id`` is unknown or ``max_per_niche`` is non-positive, returns an empty list.
+    """
+    del seed_keywords  # Reserved for future ranking refinements.
+    if max_per_niche <= 0:
+        return []
+    return ADJACENT_NICHE_RELATIONSHIPS.get(source_niche_id, [])[:max_per_niche]
+
+
+def _score_niche_candidate_confidence(
+    candidate_niche_id: str,
+    seed_keywords: list[str],
+    niche_validation_config: dict[str, Any] | None = None,
+) -> float:
+    """Score confidence for an adjacent niche candidate in ``[0.0, 1.0]``.
+
+    Confidence factors:
+    1. Keyword overlap between ``seed_keywords`` and target niche keywords.
+    2. Base adjacency bonus (0.30): any niche in ``ADJACENT_NICHE_RELATIONSHIPS``
+       is hand-curated as relevant, so this constant gives meaningful baseline
+       relevance even for short seeds and helps overlap + adjacency reach the
+       default 0.50 budget gate.
+    3. Generic term penalty (same generic-term pool used in S7.2 scoring).
+    """
+    if not seed_keywords:
+        return 0.0
+
+    if niche_validation_config is None:
+        niche_validation_config = NICHE_VALIDATION_CONFIG
+
+    target_cfg = niche_validation_config.get(candidate_niche_id, {})
+    configured_keywords = target_cfg.get("seed_keywords", [])
+    if configured_keywords:
+        target_terms = {
+            token
+            for keyword in configured_keywords
+            for token in keyword.lower().split()
+        }
+    else:
+        target_terms = set(candidate_niche_id.replace("_", " ").split())
+
+    seed_pool = {
+        token
+        for keyword in seed_keywords
+        for token in keyword.lower().split()
+    }
+    overlap = len(seed_pool & target_terms) / max(len(target_terms), 1)
+    generic_penalty = 0.10 * len(seed_pool & _GENERIC_DELIVERABLE_TERMS)
+    base_adjacency_bonus = 0.30
+    return min(1.0, max(0.0, overlap + base_adjacency_bonus - generic_penalty))
+
+
+def generate_adjacent_niche_hypotheses(
+    source_niche_id: str,
+    seed_keywords: list[str],
+    existing_niches: list[str],
+    *,
+    max_hypotheses: int = 10,
+    min_confidence: float = 0.50,
+) -> list[HypothesisContract]:
+    """Generate S7.3 adjacent-niche hypotheses from source niche context.
+
+    This mode is rule-based (no LLM), deduplicates against ``existing_niches``,
+    applies a budget gate, and returns **all** contracts (accepted and rejected)
+    for auditability.
+
+    Design note: in adjacent-niche mode, ``hypothesis_text`` is the candidate
+    niche ID (for example ``"ai_agent_development"``), while ``niche_id`` keeps
+    the source niche ID (for example ``"python_automation"``).
+    """
+    if not source_niche_id:
+        return []
+
+    existing_lower = {niche.lower().strip() for niche in existing_niches if niche.strip()}
+    candidates = _build_adjacent_niche_candidates(source_niche_id, seed_keywords)
+    results: list[HypothesisContract] = []
+    accepted_count = 0
+
+    for candidate_niche_id in candidates:
+        normalized_candidate = candidate_niche_id.lower().strip()
+        if not normalized_candidate or normalized_candidate in existing_lower:
+            continue
+
+        confidence = _score_niche_candidate_confidence(candidate_niche_id, seed_keywords)
+        accepted = confidence >= min_confidence and accepted_count < max_hypotheses
+        if accepted:
+            accepted_count += 1
+
+        reason = (
+            f"niche confidence {confidence:.2f} >= {min_confidence:.2f} (ACCEPTED)"
+            if accepted
+            else f"niche confidence {confidence:.2f} < {min_confidence:.2f} (REJECTED)"
+        )
+        results.append(
+            HypothesisContract(
+                hypothesis_text=candidate_niche_id,
+                niche_id=source_niche_id,
+                buyer=None,
+                deliverable=candidate_niche_id.replace("_", " "),
+                specificity_score=confidence,
+                accepted=accepted,
+                reason=reason,
+            )
+        )
 
     return results
 

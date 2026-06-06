@@ -158,7 +158,7 @@ class TestDiscoveryScaffold:
         from src.discovery import HypothesisMode
         assert HypothesisMode.ADJACENT_KEYWORD.value == "adjacent_keyword"
         assert HypothesisMode.ADJACENT_NICHE.value == "adjacent_niche"
-        assert HypothesisMode.GAP_OPPORTUNITY.value == "gap_opportunity"
+        assert HypothesisMode.GAP_EXPLOIT.value == "gap_exploit"
         assert HypothesisMode.TREND_CHASE.value == "trend_chase"
 
     def test_hypothesis_status_values(self) -> None:

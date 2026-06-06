@@ -15,7 +15,7 @@ class HypothesisMode(str, Enum):
 
     ADJACENT_KEYWORD = "adjacent_keyword"
     ADJACENT_NICHE = "adjacent_niche"
-    GAP_OPPORTUNITY = "gap_opportunity"
+    GAP_EXPLOIT = "gap_exploit"
     TREND_CHASE = "trend_chase"
 
 
