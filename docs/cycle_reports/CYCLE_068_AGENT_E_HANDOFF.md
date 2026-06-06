@@ -7,6 +7,7 @@ Depends on: B commit(s) landing first
 ## Scope Boundary (Strict)
 
 HARD RULE: You commit ONLY CYCLE_068_AGENT_E.md. If a src/ module is missing, record the gap for B — DO NOT add it. floor-line-NNN filler lines are PROHIBITED. Every line must be substantive.
+CRITICAL: E commits ONLY CYCLE_068_AGENT_E.md. If you observe a missing src/ symbol, record it in your report for B — DO NOT add it. floor-line-NNN filler lines are PROHIBITED. Every line must be substantive.
 
 - Allowed output: `docs/cycle_reports/CYCLE_068_AGENT_E.md` only.
 - Forbidden changes: any `src/`, `tests/`, `config.yaml`, migration, or prompt edits.
