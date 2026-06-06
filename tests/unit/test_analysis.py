@@ -424,7 +424,7 @@ def test_review_analysis_mixed_sentiment_contract_shape_is_stable() -> None:
 
 
 def test_review_analysis_redacts_secret_like_strings() -> None:
-    secret = "api_key=sk-test1234567890abcdef"
+    secret = "api_key=sk-test1234"
     result = analyze_reviews(
         ReviewAnalysisInput(
             source_id="rev-src",

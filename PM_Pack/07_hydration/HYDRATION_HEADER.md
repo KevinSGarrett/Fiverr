@@ -23,14 +23,14 @@ CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.2 done; S7.3-S7.9 + Waves 11-12 remain)
 
 ## DEVELOP HEAD (current after C066 squash + D finalization commits)
-develop HEAD: d991c3c (docs(governance): align C066 D finalization SHAs)
+develop HEAD: 0bafd81 (docs(cycle066): close remaining D checklist gaps)
 C066 SQUASH SHA: 36f6f328a767afaf17316f79beac05c9eafaab42 (PR #75)
 C066 POST-MERGE GOVERNANCE SHA: 58aa37e
 C066 D FINALIZATION SHA: d991c3c
 C065 SQUASH SHA: 5b5868bf1a17ecd36f59c02542558562ca80d035 (PR #74)
 C065 POST-MERGE GOVERNANCE SHA: bc792b2
 C065 D FINALIZATION SHA: bd70011
-C067 dev HEAD at start: d991c3c
+C067 dev HEAD at start: 0bafd81
 C064 SQUASH SHA: 7af0b1c8c191a4c80f870609e1c4645d35e8927a (PR #73)
 C064 POST-MERGE GOVERNANCE SHA: 49cb379
 C064 D FINALIZATION SHA: 5d58d43
@@ -109,6 +109,10 @@ REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
 ## C067 PREVIEW
 - Wave 10 Discovery: S7.3 Adjacent Niche Hypothesis Mode (SCRUM-198, parent SCRUM-22)
+- SCRUM-1029 (C067 control): CREATED at C066 PM review. To Do.
+- POLICY CHANGE (effective C067+): 55 LARGE-XXLARGE tasks minimum per agent (raised from 25).
+  New line floors: A:1,000 | B:1,200 | E:950 | C:900 | F:1,000 | D:1,200 | TOTAL:6,250
+  Documented in AGENT_EXECUTION_STRATEGY.md §8.1/§8.3 (v4.3) and POST_CYCLE_PM_REVIEW_v4.md (v4.3)
 - C066 delivered S7.2 Adjacent Keyword in `src/discovery/hypothesis.py`:
   `generate_adjacent_keyword_hypotheses()`, `_build_adjacent_candidates()`, `_score_candidate_confidence()`
 - Budget gate default `min_confidence=0.50`; no LLM required; duplicate filtering active.

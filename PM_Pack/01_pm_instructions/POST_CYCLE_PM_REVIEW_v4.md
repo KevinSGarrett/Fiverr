@@ -1,7 +1,7 @@
 ====================================================================
 FIVERR RESEARCH SYSTEM — UNIVERSAL POST-CYCLE PM REVIEW PROMPT
 
-Version: 4.2 (Universal — no cycle-number editing required)
+Version: 4.3 (Universal — no cycle-number editing required)
 Canonical home: PM_Pack\01_pm_instructions\POST_CYCLE_PM_REVIEW_v4.md
 Strategy doc:   PM_Pack\ref\AGENT_EXECUTION_STRATEGY.md
   (§7 regressions; §8 sizing; §9 PM authority; §10 ScrapFly;
@@ -26,6 +26,14 @@ v4.2: §12 parallel contract (B+E notice; zone check fix; C before F; D playbook
       gates G-A through G-D defined; comprehensive Jira board audit (not just sprint stories);
       D's G1 attribution fix (enumerate ALL commits, not just C's report SHAs); E zone/pad fix;
       Jira-to-plan cross-reference; wave status table; updated Part 7 and Part 8.
+v4.3: TASK MINIMUM RAISED 25 -> 55 (effective C067+). TASK CATEGORY: LARGE-XXLARGE only
+      (XXXLARGE retired — decompose into 2-3 XXLARGE tasks). NEW LINE FLOORS:
+      A:1000 | B:1200 | E:950 | C:900 | F:1000 | D:1200 | TOTAL:6,250.
+      Compliance shorthand: A>=1000, B>=1200, E>=950, C>=900, F>=1000, D>=1200.
+      Old floors (A500/B650/E500/C425/F525/D650 = 3,250) applied C057-C066 only.
+      RATIONALE: 55 LARGE-XXLARGE tasks × ~18-22 lines = 1,000-1,200 lines per agent,
+      ensuring substantive inline code, test stubs, and commands per task that drive
+      project toward full production-grade completion.
 
 AUTHENTICATION (read first):
 - Jira/GitHub auth is via the already-authorized Atlassian + GitHub connectors.
@@ -550,7 +558,7 @@ EVERY PROMPT MUST CONTAIN:
   c) Verified starting state: develop SHA; suite count; coverage; toggles; gate status
   d) ALL regression test names by exact name (§7 — never "see §7")
   e) Mandatory preflight command block
-  f) 25+ LARGE-XXXLARGE tasks
+  f) 55+ LARGE-XXLARGE tasks
   g) Completion-standard checklist
   h) 9 real niche_ids where relevant
 
@@ -684,7 +692,7 @@ PM PACK & GOVERNANCE
 
 PROMPT QUALITY (§13.8)
 [ ] SHA resolved in all 6 → zero matches?
-[ ] Line floors: A≥500 B≥650 E≥500 C≥425 F≥525 D≥650?
+[ ] Line floors (v4.3 C067+): A≥1000 B≥1200 E≥950 C≥900 F≥1000 D≥1200?
 [ ] All 7 depth quality checks pass per prompt?
 [ ] B and E: §12.1 notice in first 25 lines + correct zone check?
 [ ] E: explicit src/ prohibition ("record gap for B, do not add it")?
