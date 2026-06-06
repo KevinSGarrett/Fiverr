@@ -110,4 +110,9 @@ S7.4 is data-driven and commercially prioritized because it captures immediate m
 
 ## B Commit SHA
 
-B implementation SHA: TO_BE_FILLED_POST_COMMIT
+B implementation SHA: `1e4c64ca3e2a31d5523bd8a04510efc593643ae3`
+
+Zone verification (`git show --name-only 1e4c64c`) shows only:
+- `docs/cycle_reports/CYCLE_068_AGENT_B.md`
+- `src/discovery/hypothesis.py`
+- `tests/unit/test_gap_exploit_hypotheses.py`
