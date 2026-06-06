@@ -2,16 +2,16 @@
 
 Date: 2026-06-06  
 C GO verdict SHA: 52afe98  
-F commit SHA: 6b201e96262c5f1f395f80f702b18d12fe20d6be  
+F commit SHA: 1b29696e9aad17d95593f32ef22f674cec0dcbe5  
 Branch: cycle/067/integration  
-F SHA: 6b201e96262c5f1f395f80f702b18d12fe20d6be | Zone: tests/ + F.md only
+F SHA: 1b29696e9aad17d95593f32ef22f674cec0dcbe5 | Zone: tests/ + F.md only
 
 ## Coverage Delta
 
 | File | Before F (B's run) | After F | Target |
 | --- | --- | --- | --- |
-| src/discovery/hypothesis.py | 97% | 97% | >= 80% |
-| Total (src) | 94.31% | 94.32% | >= 90% |
+| src/discovery/hypothesis.py | 97% | 99% | >= 80% |
+| Total (src) | 94.31% | 94.34% | >= 90% |
 
 ## Tests Added
 
@@ -25,9 +25,9 @@ New tests in `tests/unit/test_adjacent_niche_hypotheses.py`:
 - Parametrized: 9 niche sources (generation + niche_id consistency + accepted-threshold consistency)
 
 Total new test functions: 72  
-Total module tests after F: 175 passed  
-AST integrity after F: 125 `test_` functions across 7 classes  
-Total suite after F: 4659 passed
+Total module tests after F: 191 passed  
+AST integrity after F: 141 `test_` functions across 13 classes  
+Total suite after F: 4675 passed
 
 ## Uncovered Lines Addressed
 
@@ -42,17 +42,17 @@ Resolution:
 
 ## Verification Commands and Results
 
-- Full suite + coverage gate: `4659 passed, 2 warnings`; `TOTAL 94.32%`; `src/discovery/hypothesis.py 97%`
-- Regression smoke subset: `6 passed, 4653 deselected`
+- Full suite + coverage gate: `4675 passed, 2 warnings`; `TOTAL 94.34%`; `src/discovery/hypothesis.py 99%`
+- Regression smoke subset: `6 passed, 4669 deselected`
 - REG-27 confidence threshold smoke: passing (covered in smoke subset and standalone rerun)
-- Collect-only total: `4659 tests collected`
-- Discovery-scope coverage check (`--cov=src/discovery`): `contracts.py 100%`, `hypothesis.py 97%`, discovery TOTAL `99%`
-- Adjacent pair focused slice (`test_adjacent_niche_hypotheses.py` + `test_adjacent_keyword_hypotheses.py`): `hypothesis.py 54%` (expected focused-slice behavior)
+- Collect-only total: `4675 tests collected`
+- Discovery-scope coverage check (`--cov=src/discovery`): `contracts.py 100%`, `hypothesis.py 99%`, discovery TOTAL `99%`
+- Adjacent pair focused slice (`test_adjacent_niche_hypotheses.py` + `test_adjacent_keyword_hypotheses.py`): `hypothesis.py 97%` (>=80 target satisfied)
 - Prompt line-count verification: `PM_Pack/03_cursor_agent_system/CYCLE_067_AGENT_F_PROMPT.md` -> `1011` lines (>= 1000 PASS)
 
 ## Zone Verification
 
-F SHA: 6b201e96262c5f1f395f80f702b18d12fe20d6be  
+F SHA: 1b29696e9aad17d95593f32ef22f674cec0dcbe5  
 Files: `tests/unit/test_adjacent_niche_hypotheses.py`, `docs/cycle_reports/CYCLE_067_AGENT_F.md`  
 src/ files modified: NONE  
 F scope boundaries respected: YES
@@ -68,12 +68,12 @@ hypothesis.py: PASS (>= 80%)
 All F tests pass: YES  
 F scope boundaries respected: YES
 
-F COMPLETE -- Zone: ZERO src/ files. Tests added: 72. hypothesis.py: 97%>=80%. Total coverage: 94.32%>=90%.
+F COMPLETE -- Zone: ZERO src/ files. Tests added: 72. hypothesis.py: 99%>=80%. Total coverage: 94.34%>=90%.
 
-Coverage delta: hypothesis.py 97% -> 97% (>= 80%); total 94.31% -> 94.32% (>= 90%).  
+Coverage delta: hypothesis.py 97% -> 99% (>= 80%); total 94.31% -> 94.34% (>= 90%).  
 Tests added: 72.  
 All tests pass: YES.  
 Zone verified: PASS (zero src/ files).  
 Policy v4.3: F floor 1000 lines. This prompt: 1011 lines. PASS.
 
-F COMPLETE. Zone verified: ONLY tests/ + F.md. hypothesis.py coverage: 97% >= 80%. Total coverage: 94.32% >= 90%. Total tests added: 175 module total over 4484 base. Total suite: 4659. S7.3 test quality: all spec tasks 7.3.1-7.3.4 covered.
+F COMPLETE. Zone verified: ONLY tests/ + F.md. hypothesis.py coverage: 99% >= 80%. Total coverage: 94.34% >= 90%. Total tests added: 191 module total over 4484 base. Total suite: 4675. S7.3 test quality: all spec tasks 7.3.1-7.3.4 covered.

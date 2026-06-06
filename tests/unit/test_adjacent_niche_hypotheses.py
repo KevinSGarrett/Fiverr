@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import inspect
+import json
+import asyncio
 
 import pytest
 
+import src.discovery.hypothesis as hypothesis_module
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.hypothesis import (
     ADJACENT_NICHE_RELATIONSHIPS,
@@ -971,3 +974,172 @@ class TestPromptExactNameCoverage:
 
         result = _score_niche_candidate_confidence("ai_agent_development", ["python"])
         assert not math.isinf(result)
+
+
+class TestHypothesisModuleFocusedCoverage:
+    def test_score_hypothesis_signals_handles_empty(self) -> None:
+        assert hypothesis_module.score_hypothesis_signals(None, None, None, None) is None
+
+    def test_score_hypothesis_signals_weighted_average(self) -> None:
+        score = hypothesis_module.score_hypothesis_signals(None, 0.5, 0.8, 0.2)
+        assert score is not None
+        assert 0.0 <= score <= 1.0
+
+    def test_score_candidate_confidence_handles_empty_candidate(self) -> None:
+        assert hypothesis_module._score_candidate_confidence("", ["python"]) == 0.0
+
+    def test_score_niche_confidence_uses_configured_keywords_branch(self) -> None:
+        score = _score_niche_candidate_confidence("ai_agent_development", ["ai", "agent", "development"])
+        assert 0.0 <= score <= 1.0
+
+    def test_coerce_json_payload_handles_invalid_string(self) -> None:
+        assert hypothesis_module._coerce_json_payload("not-json") is None
+
+    def test_coerce_json_payload_handles_dict(self) -> None:
+        payload = {"hypotheses": []}
+        assert hypothesis_module._coerce_json_payload(payload) == payload
+
+    def test_parse_hypothesis_contracts_skips_invalid_entries(self) -> None:
+        contracts = hypothesis_module.parse_hypothesis_contracts(
+            [None, {"keyword": ""}, {"hypothesis_text": "ai support workflow", "buyer": "ops"}],
+            source_niche_id="python_automation",
+        )
+        assert len(contracts) == 1
+        assert contracts[0].hypothesis_text == "ai support workflow"
+
+    def test_normalize_hypotheses_legacy_filters_and_normalizes(self) -> None:
+        normalized = hypothesis_module._normalize_hypotheses_legacy(
+            [
+                None,
+                {"keyword": "workflow automation for agencies", "mode": "adjacent_keyword"},
+                {"hypothesis_text": ""},
+            ]
+        )
+        assert len(normalized) == 1
+        assert normalized[0]["hypothesis_type"] == "adjacent_keyword"
+
+    def test_build_gated_prompt_contains_scope_and_guardrails(self) -> None:
+        prompt = hypothesis_module._build_gated_prompt(
+            source_niche_id="python_automation",
+            existing_keywords=["python automation"],
+        )
+        assert "source_niche_id=python_automation" in prompt
+        assert "buyer and deliverable" in prompt
+
+    def test_render_niche_scope_fallback_branch(self) -> None:
+        scope = hypothesis_module._render_niche_scope("unknown_niche_for_test")
+        assert isinstance(scope, str)
+        assert scope
+
+    def test_normalize_optional_and_text_helpers(self) -> None:
+        assert hypothesis_module._normalize_optional("") is None
+        assert hypothesis_module._normalize_optional("  buyer  ") == "buyer"
+        assert hypothesis_module._normalized_text("AI-Agent!!!") == "ai agent"
+
+    def test_deliverable_scope_and_overbroad_helpers(self) -> None:
+        in_scope = hypothesis_module._deliverable_in_scope("python automation workflow", "python_automation")
+        assert isinstance(in_scope, bool)
+        assert hypothesis_module._is_overbroad_single_term("support")
+        assert not hypothesis_module._is_overbroad_single_term("custom workflow automation script")
+
+    def test_score_specificity_and_gate_paths(self) -> None:
+        accepted_contract = HypothesisContract(
+            hypothesis_text="python automation workflow",
+            niche_id="python_automation",
+            buyer="agency owner",
+            deliverable="python automation workflow",
+        )
+        rejected_contract = HypothesisContract(
+            hypothesis_text="support",
+            niche_id="python_automation",
+            buyer=None,
+            deliverable=None,
+        )
+        scored = hypothesis_module._gate_hypotheses([accepted_contract, rejected_contract], threshold=0.60)
+        assert len(scored) == 1
+        assert accepted_contract.accepted
+        assert not rejected_contract.accepted
+        assert rejected_contract.reason
+
+    def test_generate_niche_hypotheses_handles_llm_unavailable(self) -> None:
+        result = asyncio.run(
+            hypothesis_module.generate_niche_hypotheses(
+                "python_automation",
+                ["python automation"],
+                None,
+                None,
+            )
+        )
+        assert result == []
+
+    def test_generate_niche_hypotheses_legacy_and_gated_paths(self) -> None:
+        class FakeResponse:
+            def __init__(self, text: str) -> None:
+                self.text = text
+
+        class FakeClient:
+            def __init__(self, payload: list[dict[str, str]]) -> None:
+                self.payload = payload
+
+            def complete(self, **_: object) -> FakeResponse:
+                return FakeResponse(json.dumps({"hypotheses": self.payload}))
+
+        payload = [
+            {
+                "hypothesis_text": "python automation workflow",
+                "buyer": "agency owner",
+                "deliverable": "python automation workflow",
+            }
+        ]
+        client = FakeClient(payload)
+        legacy = asyncio.run(
+            hypothesis_module.generate_niche_hypotheses(
+                "python_automation",
+                ["python automation"],
+                client,
+                None,
+                enable_relevance_gates=False,
+            )
+        )
+        gated = asyncio.run(
+            hypothesis_module.generate_niche_hypotheses(
+                "python_automation",
+                ["python automation"],
+                client,
+                None,
+                enable_relevance_gates=True,
+            )
+        )
+        assert isinstance(legacy, list)
+        assert isinstance(gated, list)
+
+    def test_generate_niche_hypotheses_handles_invalid_payload_and_exception(self) -> None:
+        class BadClient:
+            def complete(self, **_: object) -> str:
+                raise RuntimeError("boom")
+
+        class InvalidPayloadClient:
+            def complete(self, **_: object) -> object:
+                class R:
+                    text = "not-json"
+
+                return R()
+
+        raised = asyncio.run(
+            hypothesis_module.generate_niche_hypotheses(
+                "python_automation",
+                ["python automation"],
+                BadClient(),
+                None,
+            )
+        )
+        invalid = asyncio.run(
+            hypothesis_module.generate_niche_hypotheses(
+                "python_automation",
+                ["python automation"],
+                InvalidPayloadClient(),
+                None,
+            )
+        )
+        assert raised == []
+        assert invalid == []
