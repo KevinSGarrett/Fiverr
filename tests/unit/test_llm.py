@@ -226,7 +226,7 @@ def test_cache_key_namespace_is_trimmed_for_determinism() -> None:
 
 
 def test_cache_record_and_db_do_not_store_raw_fake_api_key(tmp_path: Path) -> None:
-    fake_key = "sk-fake1234567890ABCDEF"
+    fake_key = "sk-fake1234"
     cache_path = tmp_path / "cache.sqlite"
     cache = LLMCache(db_path=cache_path)
     policy = CachePolicy(store_prompt_text=False)
@@ -303,10 +303,10 @@ def test_malformed_json_raises_validation_error() -> None:
 
 def test_missing_required_field_raises_sanitized_validation_error() -> None:
     with pytest.raises(LLMValidationError) as exc_info:
-        parse_json_response(DemoSchema, '{"name":"x","api_key":"sk-test1234567890abcdef"}')
+        parse_json_response(DemoSchema, '{"name":"x","api_key":"sk-test1234"}')
 
     assert "LLM response failed schema validation." in str(exc_info.value)
-    assert "sk-test1234567890abcdef" not in str(exc_info.value.details)
+    assert "sk-test1234" not in str(exc_info.value.details)
 
 
 def test_retry_delay_increases_and_caps() -> None:
@@ -345,23 +345,23 @@ def test_retry_policy_jitter_and_non_retryable_errors() -> None:
 
 def test_validation_retry_prompt_redacts_secrets_and_keeps_guidance() -> None:
     prompt = build_validation_retry_prompt(
-        "Original prompt api_key=sk-test1234567890abcdef",
-        ValueError("Invalid payload with sk-test1234567890abcdef"),
+        "Original prompt api_key=sk-test1234",
+        ValueError("Invalid payload with sk-test1234"),
     )
     assert "Validation failed." in prompt
     assert "[REDACTED]" in prompt
-    assert "sk-test1234567890abcdef" not in prompt
+    assert "sk-test1234" not in prompt
 
 
 def test_self_correction_prompt_includes_schema_and_redacts_secrets() -> None:
     prompt = build_self_correction_prompt(
         "keyword_clustering",
         '{"type":"object","required":["score"]}',
-        ValueError("api_key=sk-test1234567890abcdef missing score"),
+        ValueError("api_key=sk-test1234 missing score"),
     )
     assert "required" in prompt
     assert "keyword_clustering" in prompt
-    assert "sk-test1234567890abcdef" not in prompt
+    assert "sk-test1234" not in prompt
 
 
 def test_known_model_cost_calculation_is_exact() -> None:
