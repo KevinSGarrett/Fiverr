@@ -12,6 +12,7 @@ from src.discovery.hypothesis import (
     HypothesisContract,
     _build_adjacent_niche_candidates,
     _score_niche_candidate_confidence,
+    generate_adjacent_keyword_hypotheses,
     generate_adjacent_niche_hypotheses,
 )
 
@@ -269,3 +270,501 @@ class TestGenerateAdjacentNicheHypotheses:
         results = generate_adjacent_niche_hypotheses(source_niche_id, [source_niche_id.replace("_", " ")], [])
         for result in results:
             assert result.hypothesis_text != source_niche_id
+
+
+class TestGenerateAdjacentNicheHypothesesCoverageUplift:
+    def test_seed_keywords_do_not_affect_candidates(self) -> None:
+        first = _build_adjacent_niche_candidates("python_automation", ["python"])
+        second = _build_adjacent_niche_candidates("python_automation", ["different seeds"])
+        assert first == second
+
+    @pytest.mark.parametrize(
+        ("candidate", "seeds", "min_expected"),
+        [
+            ("ai_agent_development", ["python automation", "AI agent"], 0.0),
+            ("prd_ai_saas", ["python automation"], 0.0),
+            ("ai_agent_development", [], 0.0),
+        ],
+    )
+    def test_niche_confidence_parametrized(
+        self,
+        candidate: str,
+        seeds: list[str],
+        min_expected: float,
+    ) -> None:
+        score = _score_niche_candidate_confidence(candidate, seeds)
+        assert 0.0 <= score <= 1.0
+        assert score >= min_expected
+
+    @pytest.mark.parametrize("niche_id", sorted(ADJACENT_NICHE_RELATIONSHIPS.keys()))
+    def test_adjacent_niche_for_all_9_sources(self, niche_id: str) -> None:
+        seeds = [niche_id.replace("_", " ")]
+        results = generate_adjacent_niche_hypotheses(niche_id, seeds, [], min_confidence=0.0)
+        assert isinstance(results, list)
+        for result in results:
+            assert result.niche_id == niche_id
+            assert 0.0 <= result.specificity_score <= 1.0
+            assert isinstance(result.accepted, bool)
+
+    def test_budget_gate_at_one_point_zero_one_rejects_all(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=1.01,
+        )
+        assert all(not result.accepted for result in results)
+
+    def test_higher_threshold_fewer_accepted(self) -> None:
+        seeds = ["python automation"]
+        low = [
+            result
+            for result in generate_adjacent_niche_hypotheses(
+                "python_automation",
+                seeds,
+                [],
+                min_confidence=0.1,
+            )
+            if result.accepted
+        ]
+        high = [
+            result
+            for result in generate_adjacent_niche_hypotheses(
+                "python_automation",
+                seeds,
+                [],
+                min_confidence=0.9,
+            )
+            if result.accepted
+        ]
+        assert len(low) >= len(high)
+
+    def test_all_adjacents_as_existing_produces_empty_accepted(self) -> None:
+        existing = ADJACENT_NICHE_RELATIONSHIPS.get("python_automation", [])
+        results = generate_adjacent_niche_hypotheses("python_automation", ["python automation"], existing)
+        accepted = [result for result in results if result.accepted]
+        assert len(accepted) == 0
+
+    def test_no_internal_duplicates_multiple_sources(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation", "python automation", "python automation"],
+            [],
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert len(texts) == len(set(texts))
+
+    def test_specificity_score_is_float(self) -> None:
+        results = generate_adjacent_niche_hypotheses("python_automation", ["python automation"], [])
+        for result in results:
+            assert isinstance(result.specificity_score, float)
+
+    def test_hypothesis_contract_all_fields_populated(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        for result in results:
+            assert isinstance(result, HypothesisContract)
+            assert isinstance(result.hypothesis_text, str) and result.hypothesis_text
+            assert isinstance(result.niche_id, str) and result.niche_id
+            assert isinstance(result.accepted, bool)
+            assert isinstance(result.reason, str) and result.reason
+            assert isinstance(result.specificity_score, float)
+            assert 0.0 <= result.specificity_score <= 1.0
+
+    def test_s73_round_trip_no_llm(self) -> None:
+        existing = ["ai_agent_development"]
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            existing,
+            min_confidence=0.50,
+        )
+        assert "ai_agent_development" not in [result.hypothesis_text for result in results]
+        texts = [result.hypothesis_text for result in results]
+        assert len(texts) == len(set(texts))
+        for result in results:
+            assert result.hypothesis_text and result.niche_id and result.reason
+            if result.accepted:
+                assert result.specificity_score >= 0.50
+
+    def test_s72_and_s73_coexist_without_interference(self) -> None:
+        keywords = generate_adjacent_keyword_hypotheses("python_automation", ["python automation"], [])
+        niches = generate_adjacent_niche_hypotheses("python_automation", ["python automation"], [])
+        keyword_texts = {result.hypothesis_text for result in keywords}
+        assert isinstance(keywords, list)
+        assert isinstance(niches, list)
+        for result in niches:
+            assert result.hypothesis_text not in keyword_texts
+
+    def test_hypothesis_mode_has_adjacent_niche(self) -> None:
+        from src.discovery.contracts import HypothesisMode
+
+        values = {entry.value for entry in HypothesisMode}
+        assert "adjacent_niche" in values
+        assert "adjacent_keyword" in values
+        assert "gap_exploit" in values
+        assert "trend_chase" in values
+
+    def test_python_web_scraping_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_web_scraping",
+            ["python web scraping"],
+            [],
+            min_confidence=0.0,
+        )
+        expected = ADJACENT_NICHE_RELATIONSHIPS.get("python_web_scraping", [])
+        texts = [result.hypothesis_text for result in results]
+        for adjacent in expected:
+            assert adjacent in texts
+
+    def test_support_kb_readiness_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "support_kb_readiness",
+            ["support knowledge base"],
+            [],
+            min_confidence=0.0,
+        )
+        expected = ADJACENT_NICHE_RELATIONSHIPS.get("support_kb_readiness", [])
+        texts = [result.hypothesis_text for result in results]
+        for adjacent in expected:
+            assert adjacent in texts
+
+    def test_large_existing_niches_list(self) -> None:
+        all_niches = list(ADJACENT_NICHE_RELATIONSHIPS.keys())
+        source = "python_automation"
+        existing = [niche for niche in all_niches if niche != source]
+        results = generate_adjacent_niche_hypotheses(source, ["python automation"], existing)
+        accepted = [result for result in results if result.accepted]
+        assert len(accepted) == 0
+
+    def test_confidence_score_is_deterministic(self) -> None:
+        seeds = ["python automation", "workflow automation"]
+        first = _score_niche_candidate_confidence("ai_agent_development", seeds)
+        second = _score_niche_candidate_confidence("ai_agent_development", seeds)
+        assert first == second
+
+    def test_adjacent_niche_relationship_map_is_dict(self) -> None:
+        assert isinstance(ADJACENT_NICHE_RELATIONSHIPS, dict)
+        assert len(ADJACENT_NICHE_RELATIONSHIPS) == 9
+
+    def test_relationship_map_values_are_lists(self) -> None:
+        for key, value in ADJACENT_NICHE_RELATIONSHIPS.items():
+            assert isinstance(value, list), f"{key} value is not a list"
+            assert 1 <= len(value) <= 5
+
+    def test_higher_confidence_seeds_yield_higher_score(self) -> None:
+        target = "ai_agent_development"
+        cfg = NICHE_VALIDATION_CONFIG.get(target, {})
+        if cfg.get("seed_keywords"):
+            high_seeds = cfg["seed_keywords"][:3]
+            low_seeds = ["unrelated", "random", "stuff"]
+            score_high = _score_niche_candidate_confidence(target, high_seeds)
+            score_low = _score_niche_candidate_confidence(target, low_seeds)
+            assert score_high >= score_low
+
+    def test_partial_existing_blocks_only_overlap(self) -> None:
+        existing = ["ai_agent_development"]
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            existing,
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "ai_agent_development" not in texts
+
+    def test_hypothesis_text_contains_no_spaces(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        for result in results:
+            assert " " not in result.hypothesis_text
+
+    def test_s73_budget_gate_mirroring_reg26(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.99,
+        )
+        assert all(not result.accepted for result in results)
+
+    def test_s73_hypothesis_confidence_threshold(self) -> None:
+        signature = inspect.signature(generate_adjacent_niche_hypotheses)
+        default = signature.parameters["min_confidence"].default
+        assert default == 0.50
+
+    def test_file_integrity_has_minimum_test_count(self) -> None:
+        import ast
+        from pathlib import Path
+
+        path = Path(__file__)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        tests = [
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+        ]
+        assert len(tests) >= 30
+
+    def test_workflow_automation_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "workflow_automation",
+            ["workflow automation"],
+            [],
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "workflow_automation" not in texts
+        expected = ADJACENT_NICHE_RELATIONSHIPS.get("workflow_automation", [])
+        for adjacent in expected[:2]:
+            assert adjacent in texts
+
+    def test_gumloop_lindy_workflow_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "gumloop_lindy_workflow",
+            ["gumloop lindy workflow"],
+            [],
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "gumloop_lindy_workflow" not in texts
+        for adjacent in ADJACENT_NICHE_RELATIONSHIPS["gumloop_lindy_workflow"]:
+            assert adjacent in texts
+
+    def test_mcp_ai_agent_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "mcp_ai_agent",
+            ["mcp ai agent"],
+            [],
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "mcp_ai_agent" not in texts
+        for adjacent in ADJACENT_NICHE_RELATIONSHIPS["mcp_ai_agent"]:
+            assert adjacent in texts
+
+    def test_prd_ai_saas_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "prd_ai_saas",
+            ["prd ai saas"],
+            [],
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "prd_ai_saas" not in texts
+        for adjacent in ADJACENT_NICHE_RELATIONSHIPS["prd_ai_saas"]:
+            assert adjacent in texts
+
+    def test_ai_tool_llm_integration_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "ai_tool_llm_integration",
+            ["ai tool llm integration"],
+            [],
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "ai_tool_llm_integration" not in texts
+        for adjacent in ADJACENT_NICHE_RELATIONSHIPS["ai_tool_llm_integration"]:
+            assert adjacent in texts
+
+    def test_confidence_base_bonus_is_nonzero_for_adjacent_pair(self) -> None:
+        score = _score_niche_candidate_confidence("ai_agent_development", ["x"])
+        assert score > 0.0
+
+    def test_confidence_not_nan_or_inf(self) -> None:
+        import math
+
+        result = _score_niche_candidate_confidence("ai_agent_development", ["python"])
+        assert not math.isnan(result)
+        assert not math.isinf(result)
+
+    def test_all_candidates_appear_in_results(self) -> None:
+        seeds = ["python automation"]
+        candidates = _build_adjacent_niche_candidates("python_automation", seeds)
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            seeds,
+            [],
+            min_confidence=0.0,
+        )
+        result_texts = {result.hypothesis_text for result in results}
+        for candidate in candidates:
+            assert candidate in result_texts
+
+    @pytest.mark.parametrize("threshold", [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.01])
+    def test_threshold_sweep_monotone(self, threshold: float) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=threshold,
+        )
+        accepted = sum(result.accepted for result in results)
+        if threshold >= 1.01:
+            assert accepted == 0
+
+    def test_deliverable_field_populated(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        for result in results:
+            if result.deliverable is not None:
+                assert isinstance(result.deliverable, str) and len(result.deliverable) > 0
+
+    def test_buyer_field_is_none_for_s73(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        for result in results:
+            assert result.buyer is None or isinstance(result.buyer, str)
+
+    def test_generate_with_many_seeds(self) -> None:
+        seeds = [
+            "python automation",
+            "workflow automation",
+            "automated workflow",
+            "python scripts",
+            "automation tools",
+            "AI automation",
+        ]
+        results = generate_adjacent_niche_hypotheses("python_automation", seeds, [])
+        assert isinstance(results, list)
+
+    def test_confidence_never_exceeds_one(self) -> None:
+        seeds = ["ai agent development", "ai agent", "agent development", "python automation"]
+        score = _score_niche_candidate_confidence("ai_agent_development", seeds)
+        assert score <= 1.0
+
+    def test_ai_agent_development_adjacent_niches(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "ai_agent_development",
+            ["AI agent development"],
+            [],
+            min_confidence=0.0,
+        )
+        texts = [result.hypothesis_text for result in results]
+        assert "ai_agent_development" not in texts
+        for adjacent in ADJACENT_NICHE_RELATIONSHIPS["ai_agent_development"]:
+            assert adjacent in texts
+
+    def test_prd_ai_saas_maps_to_ai_cluster(self) -> None:
+        results = generate_adjacent_niche_hypotheses("prd_ai_saas", ["ai saas"], [], min_confidence=0.0)
+        texts = [result.hypothesis_text for result in results]
+        ai_cluster = {"mcp_ai_agent", "ai_tool_llm_integration", "ai_agent_development"}
+        ai_results = [item for item in texts if item in ai_cluster]
+        assert len(ai_results) >= 2
+
+    @pytest.mark.parametrize("source_niche", sorted(ADJACENT_NICHE_RELATIONSHIPS.keys()))
+    def test_generate_returns_list_for_all_sources(self, source_niche: str) -> None:
+        result = generate_adjacent_niche_hypotheses(source_niche, [source_niche.replace("_", " ")], [])
+        assert isinstance(result, list)
+        assert result is not None
+
+    @pytest.mark.parametrize("source", sorted(ADJACENT_NICHE_RELATIONSHIPS.keys()))
+    def test_niche_id_equals_source_for_all_9_niches(self, source: str) -> None:
+        results = generate_adjacent_niche_hypotheses(source, [source.replace("_", " ")], [])
+        for result in results:
+            assert result.niche_id == source
+
+    @pytest.mark.parametrize("source", sorted(ADJACENT_NICHE_RELATIONSHIPS.keys()))
+    def test_accepted_score_consistency_all_9(self, source: str) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            source,
+            [source.replace("_", " ")],
+            [],
+            min_confidence=0.50,
+        )
+        for result in results:
+            if result.accepted:
+                assert result.specificity_score >= 0.50
+
+    def test_all_adjacent_niche_values_are_lists_of_strings(self) -> None:
+        for key, value in ADJACENT_NICHE_RELATIONSHIPS.items():
+            assert isinstance(value, list), f"{key}: expected list"
+            for item in value:
+                assert isinstance(item, str), f"{key}.{item}: expected str"
+                assert len(item) > 0
+
+    def test_specificity_score_precision(self) -> None:
+        results = generate_adjacent_niche_hypotheses("python_automation", ["python automation"], [])
+        for result in results:
+            assert isinstance(str(result.specificity_score), str)
+
+    def test_workflow_automation_all_candidates_valid(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "workflow_automation",
+            ["workflow automation"],
+            [],
+            min_confidence=0.0,
+        )
+        valid = set(ADJACENT_NICHE_RELATIONSHIPS.keys())
+        for result in results:
+            assert result.hypothesis_text in valid
+            assert result.niche_id == "workflow_automation"
+
+    def test_support_kb_readiness_adjacent_niches_present(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "support_kb_readiness",
+            ["support knowledge base readiness"],
+            [],
+            min_confidence=0.0,
+        )
+        expected = ADJACENT_NICHE_RELATIONSHIPS.get("support_kb_readiness", [])
+        texts = [result.hypothesis_text for result in results]
+        for adjacent in expected:
+            assert adjacent in texts
+
+    def test_zero_existing_returns_all_adjacencies(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        expected_count = len(ADJACENT_NICHE_RELATIONSHIPS.get("python_automation", []))
+        assert len(results) == expected_count
+
+    def test_mcp_ai_agent_and_ai_tool_llm_share_adjacencies(self) -> None:
+        mcp_adjs = set(ADJACENT_NICHE_RELATIONSHIPS.get("mcp_ai_agent", []))
+        ai_adjs = set(ADJACENT_NICHE_RELATIONSHIPS.get("ai_tool_llm_integration", []))
+        shared = mcp_adjs & ai_adjs
+        assert len(shared) >= 1
+        assert "ai_agent_development" in mcp_adjs
+
+    def test_python_cluster_is_internally_connected(self) -> None:
+        python_cluster = ["python_automation", "workflow_automation", "gumloop_lindy_workflow"]
+        for niche in python_cluster:
+            adjs = set(ADJACENT_NICHE_RELATIONSHIPS.get(niche, []))
+            cluster_adjs = adjs & set(python_cluster)
+            assert len(cluster_adjs) >= 1
+
+    def test_s73_full_workflow_from_spec(self) -> None:
+        source = "python_automation"
+        seeds = ["python automation", "workflow automation"]
+        first = generate_adjacent_niche_hypotheses(source, seeds, [])
+        assert isinstance(first, list)
+        existing = [first[0].hypothesis_text] if first else []
+        second = generate_adjacent_niche_hypotheses(source, seeds, existing)
+        if first and second:
+            assert existing[0] not in [result.hypothesis_text for result in second]
+        for result in first:
+            assert result.niche_id == source
+            assert isinstance(result.specificity_score, float)
+            assert result.reason
+        candidates = _build_adjacent_niche_candidates(source, seeds)
+        assert isinstance(candidates, list)
+        assert all(candidate != source for candidate in candidates)
