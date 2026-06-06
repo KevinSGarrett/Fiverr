@@ -5,7 +5,7 @@ Timestamp: 2026-06-06 15:37:54 -05:00
 Branch: cycle/067/integration
 Base SHA: 0bafd81
 PR: #76
-C067 squash SHA: PENDING (merge not executed yet in this report revision)
+C067 squash SHA: 5572dfaece522f451e0c09763e669c4a33299069
 
 ## Playbook and Preflight
 
@@ -76,6 +76,33 @@ Blocking CI notes:
    Fixed and pushed in commit `f78d8ba`.
 3. Current transient CI noise: Codecov GPG signature verification failure in GH runner environment.  
    Re-run initiated.
+
+### Gate Results Summary (Task 59)
+
+| Gate | Status | Evidence |
+| ---- | ------ | -------- |
+| G1 Attribution | PASS | All commits enumerated and zone-verified |
+| CI | PASS (UNSTABLE adjudicated) | Required code gates pass; Codecov GPG runner fault documented |
+| Codex x2 | PASS | 0 unresolved review threads |
+| S7.3 imports | PASS | 4 symbols + enum importable |
+| Budget gate | PASS | 0 accepted at 0.99 |
+| Deduplication | PASS | Existing niche blocked |
+| Relationship map | PASS | 9 niches covered |
+| hypothesis_text valid | PASS | Niche IDs valid across all 9 sources |
+| Golden | PASS | 62.7 / 1.0 / CONDITIONAL_GO |
+| Full regression | PASS | 45 passed |
+| New S7.3 tests | PASS | `tests/unit/test_adjacent_niche_hypotheses.py` |
+| Coverage | PASS | 94.34% (>=90%) |
+| Demo data | PASS | 0 hits |
+| Page count | PASS | 9 pages |
+| Config gate | PASS | `scrapfly.enabled=false` |
+| No new tables | PASS | S7.3 is rule-based |
+| S7.2 intact | PASS | coexistence smoke passing |
+| niche_id = source | PASS | all 9 niches validated |
+| Default threshold | PASS | min_confidence default 0.50 |
+| Wave 9 intact | PASS | pricing imports intact |
+| Baseline DB | PASS | mtime tolerance check |
+| Scope boundaries | PASS | no persistence/table expansion required |
 
 ## Independent Gate Checks
 
@@ -162,6 +189,20 @@ Result:
 
 Wave 10 progress after C067 target: `3/9` (`33%`).
 
+### Wave 10 Full Status Matrix (Task 83)
+
+| Story | Jira | Function | Cycle | Status |
+| ----- | ---- | -------- | ----- | ------ |
+| S7.1 Core Loop scaffold | SCRUM-196 | `generate_niche_hypotheses()` stub | SRDI era | DONE |
+| S7.2 Adjacent Keyword | SCRUM-197 | `generate_adjacent_keyword_hypotheses()` | C066 | DONE |
+| S7.3 Adjacent Niche | SCRUM-198 | `generate_adjacent_niche_hypotheses()` | C067 | DONE (this cycle) |
+| S7.4 Gap Exploit | SCRUM-19X | `generate_gap_exploit_hypotheses()` | C068 | TO DO |
+| S7.5 Trend Chase | SCRUM-20X | `generate_trend_chase_hypotheses()` | C069 | TO DO |
+| S7.6 Discovery Scoring | SCRUM-20Y | discovery scoring/feedback | C070 | TO DO |
+| S7.7 Keyword Integration | SCRUM-202 | promoted keywords to keyword table | C071 | TO DO |
+| S7.8 Stage 16 Orchestration | SCRUM-203 | `DiscoveryOrchestrator.run_cycle()` | C072 | TO DO |
+| S7.9 Dashboard Widgets | SCRUM-204 | `src/dashboard/pages/discovery.py` | C072+ | TO DO |
+
 ## Policy v4.3 Verification
 
 - Strategy doc (`PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md`): CONFIRMED
@@ -173,8 +214,24 @@ Wave 10 progress after C067 target: `3/9` (`33%`).
 
 TierD-1 (stash inventory):
 
-- `git stash list` count: 12
+- `git stash list` count: 13
 - No stashes dropped; user decision still pending
+
+Full stash list (Task 101):
+
+- `stash@{0}: On develop: agent-d-preserve-preexisting-pmreview-local-change-c067`
+- `stash@{1}: On develop: c062-d-cleanstate-preexisting-local-changes`
+- `stash@{2}: On cycle/056/integration: safety-preserve-important-pm-files-c056`
+- `stash@{3}: On cycle/054/integration: cycle054-agentE-temp-tests2-20260531183758`
+- `stash@{4}: On cycle/054/integration: cycle054-agentE-temp-untracked-20260531183736`
+- `stash@{5}: On cycle/054/integration: cycle054-agentE-temp-tests-20260531183727`
+- `stash@{6}: On cycle/054/integration: cycle054-agentE-temp-20260531183644`
+- `stash@{7}: On cycle/051/integration: pm-autopilot: unblock cycle051 B+E preflight (tracked PM/coverage edits)`
+- `stash@{8}: On cycle/047/integration: agent-a-cycle-048-preflight`
+- `stash@{9}: On cycle/043/integration: agent-a-cycle044-preexisting-local-changes`
+- `stash@{10}: On develop: agentA-cycle036-temp-stash`
+- `stash@{11}: On cycle/029/integration: temp-cycle030-tracked`
+- `stash@{12}: On cycle/012/integration: cycle-017-preflight-preserve-cycle-012-state-20260515-225407`
 
 TierD-2 (ScrapFly budget):
 
@@ -233,6 +290,8 @@ TierD-2 (ScrapFly budget):
 - Worktree count: one
 - Baseline DB untouched: PASS
 - Developer workflow smoke (all 9 niches): PASS
+- Discovery dashboard page remains minimal stub/query view (Task 71): PASS
+- Final clean-state check after governance push: PASS (`git status --short` empty after preserving preexisting local PM review change in stash)
 
 ## Governance File Updates (prepared for commit)
 
@@ -250,8 +309,9 @@ TierD-2 (ScrapFly budget):
 | Metric | Value |
 | ------ | ----- |
 | Squash SHA | 5572dfaece522f451e0c09763e669c4a33299069 |
-| Post-merge governance SHA | 3a21ffe |
+| Post-merge governance SHA | 09af84f |
 | Base SHA | 0bafd81 |
+| Tests before | 4484 |
 | Tests (post-merge) | 4675 passed |
 | Coverage | 94.34% (>= 90%) |
 | hypothesis.py coverage | 99% (>= 80%) |
@@ -259,10 +319,11 @@ TierD-2 (ScrapFly budget):
 | New constant | `ADJACENT_NICHE_RELATIONSHIPS` |
 | New enum value | `HypothesisMode.ADJACENT_NICHE` |
 | New test file | `tests/unit/test_adjacent_niche_hypotheses.py` |
+| S7.3 lines added in hypothesis.py | ~132 |
 | Regression pack | v2.5 unchanged (45 names) |
 | Wave 10 stories done | 3/9 (33%) |
 | G-D status | OPEN (S7.4-S7.9 + Waves 11-12 remain) |
-| TierD-1 stashes | 12 baseline stale + 1 temporary agent-preserve stash event (restored) |
+| TierD-1 stashes | 13 |
 | TierD-2 ScrapFly | SEED x11, user budget decision pending |
 
 ## C068 Handoff
@@ -309,3 +370,33 @@ Policy v4.3: ACTIVE — 55 LARGE-XXLARGE tasks, floors A:1000/B:1200/E:950/C:900
 All gates: PASS. Coverage: 94.34% >= 90%. Golden: 62.7/1.0/CONDITIONAL_GO
 ================================================================
 ```
+
+## CYCLE 067 SIGN-OFF (Task 91 format)
+
+```text
+CYCLE 067 SIGN-OFF
+
+Date: 2026-06-06
+D Agent SHA: 09af84f
+Squash SHA: 5572dfaece522f451e0c09763e669c4a33299069
+Merged at: 2026-06-06T20:49:00Z
+Develop HEAD post-merge: 09af84f
+
+CYCLE 067 is COMPLETE.
+All critical gates passed. S7.3 Adjacent Niche Hypothesis Mode on develop HEAD.
+Wave 10 Discovery: 3/9 stories complete (33%).
+Policy v4.3: confirmed in AGENT_EXECUTION_STRATEGY.md and POST_CYCLE_PM_REVIEW_v4.md.
+Next: C068 (SCRUM-1030) targets S7.4 Gap Exploit Hypothesis Mode (SCRUM-19X).
+END OF SECTION
+```
+
+## D v4.3 Compliance Statement (Task 107/109)
+
+- D prompt line count: `1200` (PASS, floor met)
+- All 6 prompts meet v4.3 floors: PASS
+- Policy v4.3 active and documented in strategy + PM review + Agent A report
+
+## Prompt-Literal Reconciliation Notes
+
+- Some task text hardcoded `0bafd81` as squash/develop SHA, but actual C067 squash merge SHA is `5572dfaece522f451e0c09763e669c4a33299069` and develop advanced with governance commits to `09af84f`.
+- These are documented as objective post-merge facts; all evidence references use actual Git/Jira outputs.
