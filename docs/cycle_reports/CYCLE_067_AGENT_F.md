@@ -2,9 +2,9 @@
 
 Date: 2026-06-06  
 C GO verdict SHA: 52afe98  
-F commit SHA: 1b29696e9aad17d95593f32ef22f674cec0dcbe5  
+F commit SHA: a3b51f35b38258ef230fb7c23113887d9f9e765b  
 Branch: cycle/067/integration  
-F SHA: 1b29696e9aad17d95593f32ef22f674cec0dcbe5 | Zone: tests/ + F.md only
+F SHA: a3b51f35b38258ef230fb7c23113887d9f9e765b | Zone: tests/ + F.md only
 
 ## Coverage Delta
 
@@ -52,7 +52,7 @@ Resolution:
 
 ## Zone Verification
 
-F SHA: 1b29696e9aad17d95593f32ef22f674cec0dcbe5  
+F SHA: a3b51f35b38258ef230fb7c23113887d9f9e765b  
 Files: `tests/unit/test_adjacent_niche_hypotheses.py`, `docs/cycle_reports/CYCLE_067_AGENT_F.md`  
 src/ files modified: NONE  
 F scope boundaries respected: YES
