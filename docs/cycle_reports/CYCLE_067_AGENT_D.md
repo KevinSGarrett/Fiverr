@@ -250,6 +250,7 @@ TierD-2 (ScrapFly budget):
 | Metric | Value |
 | ------ | ----- |
 | Squash SHA | 5572dfaece522f451e0c09763e669c4a33299069 |
+| Post-merge governance SHA | 3a21ffe |
 | Base SHA | 0bafd81 |
 | Tests (post-merge) | 4675 passed |
 | Coverage | 94.34% (>= 90%) |
@@ -298,6 +299,7 @@ CYCLE 067 COMPLETE — OFFICIAL SIGN-OFF
 ================================================================
 Date: 2026-06-06
 Merge SHA: 5572dfaece522f451e0c09763e669c4a33299069
+Develop HEAD post-governance: 3a21ffe
 Merged PR: #76
 Wave 10 status: 3 of 9 stories done (S7.1 S7.2 S7.3)
 Next cycle: C068 — S7.4 Gap Exploit Hypothesis (SCRUM-1030 / SCRUM-19X)
