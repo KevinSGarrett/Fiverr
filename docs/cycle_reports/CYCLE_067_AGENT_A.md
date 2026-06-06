@@ -174,9 +174,9 @@ CYCLE 067 PROMPTS AUTHORIZED FOR RELEASE
 
 All 14 tracks reviewed. 5 gap checks PASS. Jira clean.
 
-CYCLE 067 PROMPTS AUTHORIZED FOR RELEASE Policy v4.3 applied: 55 LARGE-XXLARGE tasks per agent, new floors A:1000/B:1200/E:950/C:900/F:1000/D:1200. All 14 tracks verified from src/. 5 gap checks PASS. Jira clean. SCRUM-1029 In Progress. SCRUM-198 In Progress. SCRUM-22 In Progress. Base SHA: 0bafd81. Suite: 4484/94.31%. TierD-1: 12 stashes pending user decision. TierD-2: ScrapFly budget pending user decision (11 SEED cycles).
+CYCLE 067 PROMPTS AUTHORIZED FOR RELEASE Policy v4.3 applied: 55 LARGE-XXLARGE tasks per agent, new floors A:1000/B:1200/E:950/C:900/F:1000/D:1200. All 14 tracks verified from src/. 5 gap checks PASS. Jira clean. SCRUM-1029 In Progress. SCRUM-198 In Progress. SCRUM-22 In Progress. Base SHA: 0bafd81. Suite: 4484/94.31%. TierD-1: 12 stashes pending user decision. TierD-2: ScrapFly budget pending user decision (10 SEED cycles).
 
-A REPORT FINAL: All 6 C067 prompts comply with policy v4.3. 55 LARGE-XXLARGE tasks per agent. Floors met: A>=1000, B>=1200, E>=950, C>=900, F>=1000, D>=1200. SCRUM-1029 In Progress. SCRUM-198 In Progress. SCRUM-22 In Progress. C067 AUTHORIZED FOR AGENT EXECUTION.
+A REPORT FINAL: All 6 C067 prompts comply with policy v4.3. 55 LARGE-XXLARGE tasks per agent. Floors met: A≥1000, B≥1200, E≥950, C≥900, F≥1000, D≥1200. SCRUM-1029 In Progress. SCRUM-198 In Progress. SCRUM-22 In Progress. C067 AUTHORIZED FOR AGENT EXECUTION.
 
 A completed. All handoffs written. All specs read. SCRUM-1029/198 In Progress. 14-track review done. 5 gap checks PASS. Policy v4.3 confirmed. Prompts authorized. Release to agents.
 
