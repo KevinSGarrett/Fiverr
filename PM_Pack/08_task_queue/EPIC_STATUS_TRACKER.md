@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-05 (C066 merged; C067 ready)
+# Last updated: 2026-06-06 (C067 merged; C068 ready)
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
@@ -82,17 +82,24 @@ FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b)
 |---|---|---|---|---|---|---|---|
 | C066 | MERGED | 36f6f328a767afaf17316f79beac05c9eafaab42 | CLOSED | CLOSED | CLOSED | OPEN (S7.2 done) | S7.2 adjacent keyword mode + helpers in `src/discovery/hypothesis.py`; pricing-export carry-forward resolved |
 
+## C067 SCOPE — Wave 10 Discovery S7.3
+
+| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
+|---|---|---|---|---|---|---|---|
+| C067 | MERGED | 5572dfaece522f451e0c09763e669c4a33299069 | CLOSED | CLOSED | CLOSED | OPEN (S7.3 done) | S7.3 adjacent niche mode + relationship map in `src/discovery/hypothesis.py`; `HypothesisMode.ADJACENT_NICHE` added |
+
 ## WAVE PROGRESS STATUS
 
 - Wave 9 (Pricing): COMPLETE (C062-C065)
-- Wave 10 (Discovery): IN PROGRESS (S7.1 scaffold done, S7.2 done in C066, S7.3-S7.9 pending)
+- Wave 10 (Discovery): IN PROGRESS (S7.1 scaffold done, S7.2 done in C066, S7.3 done in C067, S7.4-S7.9 pending)
 - Wave 11 (Playbook): NOT STARTED
 - Wave 12 (Dashboard UX): NOT STARTED
 
-## C067 PREVIEW
+## C068 PREVIEW
 
-- Natural scope: S7.3 Adjacent Niche Hypothesis Mode (`SCRUM-198`, parent `SCRUM-22`)
-- Constraint pattern same as C066: no LLM requirement, no new DB tables
+- Natural scope: S7.4 Gap Exploit Hypothesis Mode (`SCRUM-19X`, parent `SCRUM-22`)
+- C068 control task: `SCRUM-1030`
+- Constraint pattern: no LLM requirement initially, no new DB tables expected in first increment
 - G-D remains open pending completion of S7.3-S7.9 + Waves 11-12
 
 ## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
