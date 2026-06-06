@@ -116,3 +116,38 @@ Zone verification (`git show --name-only 1e4c64c`) shows only:
 - `docs/cycle_reports/CYCLE_068_AGENT_B.md`
 - `src/discovery/hypothesis.py`
 - `tests/unit/test_gap_exploit_hypotheses.py`
+
+## Minimum Required Sections (Explicit)
+
+- SHA: `1e4c64ca3e2a31d5523bd8a04510efc593643ae3`
+- Zone verification command: `git show --name-only 1e4c64c`
+- Files modified:
+  - `src/discovery/hypothesis.py`
+  - `src/discovery/contracts.py` (verified unchanged; `GAP_EXPLOIT` already present)
+- Files created:
+  - `tests/unit/test_gap_exploit_hypotheses.py`
+- Test count:
+  - dedicated S7.4 file: `52 passed`
+  - full suite total: `4727 passed`
+- Coverage:
+  - `src/discovery/hypothesis.py`: `99%`
+  - overall: `94.35%`
+- S7.4 functions:
+  - `generate_gap_exploit_hypotheses()`
+  - `_identify_gap_keywords()`
+  - `_score_gap_hypothesis_confidence()`
+- Constants:
+  - `GAP_DEMAND_THRESHOLD=0.60`
+  - `GAP_COMPETITION_THRESHOLD=0.40`
+  - `GAP_DEMAND_WEIGHT=0.60`
+  - `GAP_OPPORTUNITY_WEIGHT=0.40`
+- Golden:
+  - `62.7 / 1.0 / CONDITIONAL_GO`
+- Coexistence:
+  - S7.2 + S7.3 + Wave 9 intact.
+
+## Final B Closure
+
+S7.4 Gap Opportunity: `generate_gap_exploit_hypotheses()` committed. Data-driven. No static map. No LLM. No new tables. Budget gate `0.50`.
+
+B DONE: 55-task prompt requirements satisfied for implementation/testing evidence, S7.4 implemented, floor policy constraints preserved.
