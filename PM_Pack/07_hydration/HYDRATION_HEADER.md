@@ -141,8 +141,8 @@ Path to 100%: Wave 11 Playbook + Wave 12 Dashboard UX + live production runs
 
 ## C068 PREVIEW
 - Wave 10 Discovery: S7.4 Gap Opportunity Hypothesis Mode (SCRUM-199, parent SCRUM-22)
-- SCRUM-1030 (C068 control): CREATED (D post-merge). To Do.
-- SCRUM-199: To Do. S7.4 generates gap_opportunity hypotheses from scoring data.
+- SCRUM-1030 (C068 control): In Progress on cycle/068/integration.
+- SCRUM-199: In Progress. S7.4 generates gap_opportunity hypotheses from scoring data.
   Function: generate_gap_exploit_hypotheses() in src/discovery/hypothesis.py
   Unlike S7.2/S7.3 (static maps), S7.4 queries existing keyword scores to find
   high-demand/low-competition gaps. Needs scoring data; no LLM required.

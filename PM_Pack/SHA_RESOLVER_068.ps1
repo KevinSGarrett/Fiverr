@@ -21,7 +21,7 @@ try {
         throw "Unable to read git log origin/develop --oneline -1"
     }
 
-    $first = $logLine[0].Trim()
+    $first = "$logLine".Trim()
     if ($first -notmatch "^([0-9a-f]{7,40})\s+") {
         throw "Could not parse SHA from: $first"
     }

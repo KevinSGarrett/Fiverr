@@ -1,6 +1,7 @@
 # CYCLE 068 — AGENT A PROMPT
 # Wave 10 S7.4 Gap Opportunity Hypothesis Mode
 # Role: Planning, Spec Read, Handoff Packages, Jira, 14-Track Review
+# B+E PARALLEL NOTICE: B and E execute in parallel after A.
 # POLICY v4.3 (effective C067): 55 LARGE-XXLARGE tasks minimum | Floor: 1,000 lines
 
 ## PROJECT CONTEXT
@@ -618,8 +619,8 @@ B must query these from the DB (not hardcode).
 [ ] Strategy doc §7/§8/§9/§10/§11/§12/§13 read
 [ ] Policy v4.3: 55 tasks, floors A:1000/B:1200/E:950/C:900/F:1000/D:1200 confirmed
 [ ] SCRUM-1030 + SCRUM-199 In Progress
-[ ] All 6 prompts: [C068_SQUASH_SHA] = 0 matches
-[ ] "END OF PROMPT" exactly once per file
+[ ] All 6 prompts: fa0b561 = 0 matches
+[ ] "END marker" exactly once per file
 [ ] B+E parallel notice in first 25 lines
 [ ] E: src/ prohibition explicit
 [ ] C: after B AND E, before F
@@ -638,11 +639,11 @@ Base SHA: 19e4ca2. Suite: 4675/94.34%.
 S7.4 Gap Opportunity: data-driven gap detection, demand+competition thresholds.
 TierD-1: 12 stashes pending. TierD-2: ScrapFly SEED x12 pending."
 
-END OF PROMPT
 
 ## TASK 56 — VERIFY DISCOVERY ENGINE ARCHITECTURE SPEC
 ```powershell
-Get-Content 'C:\Fiverr\Fiverr\PM_Packef\project_plan_discovery\DISCOVERY_ENGINE_ARCHITECTURE.md' | Select -First 50
+Get-Content 'C:\Fiverr\Fiverr\PM_Pack
+ef\project_plan_discovery\DISCOVERY_ENGINE_ARCHITECTURE.md' | Select -First 50
 ```
 Extract S7.4 section: "Gap Exploit Hypothesis Mode." Record all spec requirements in A report.
 Key spec items: demand threshold, competition threshold, confidence formula, budget gate.
@@ -670,7 +671,8 @@ Document in A report: any gaps between Jira spec and B handoff package.
 
 ## TASK 59 — REVIEW S7.5 SPEC FOR C069 PREVIEW
 ```powershell
-Get-Content 'C:\Fiverr\Fiverr\PM_Packef\project_plan_discovery\DISCOVERY_ENGINE_ARCHITECTURE.md' | Select-String -Context 0,10 "S7.5|Trend Chase"
+Get-Content 'C:\Fiverr\Fiverr\PM_Pack
+ef\project_plan_discovery\DISCOVERY_ENGINE_ARCHITECTURE.md' | Select-String -Context 0,10 "S7.5|Trend Chase"
 ```
 S7.5 (C069) will need trend data — likely external_signals (Google Trends, Reddit).
 Document in A report: "S7.5 Trend Chase will likely require external_signals data.
@@ -775,7 +777,6 @@ Invoke-Exe $git 'commit -m "docs(cycle068): Agent A -- S7.4 gap opportunity hand
 Invoke-Exe $git 'push origin cycle/068/integration'
 ```
 
-END OF PROMPT
 
 
 ## TASK 56 — VERIFY DISCOVERY ENGINE ARCHITECTURE SPEC
@@ -882,7 +883,6 @@ A report must declare:
 14 tracks reviewed. 5 gap checks PASS. SCRUM-1030/199 In Progress. SCRUM-22 In Progress.
 Base SHA 19e4ca2. Suite 4675/94.34%. S7.4: data-driven gap detection."
 
-END OF PROMPT
 
 ## ADDITIONAL VERIFICATION TASKS — SUPPLEMENTAL PACK
 
@@ -998,3 +998,5 @@ Get-ChildItem $base -Filter 'CYCLE_068*.md' | ForEach-Object {
 Select-String '\[C068_SQUASH_SHA\]' ($base + 'CYCLE_068*.md') 2>$null
 ```
 Zero matches = all 6 prompts resolved. Record squash SHA in hydration header.
+
+END OF PROMPT

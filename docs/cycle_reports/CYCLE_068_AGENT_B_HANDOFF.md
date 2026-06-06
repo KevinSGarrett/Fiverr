@@ -143,6 +143,16 @@ Per story acceptance:
 
 This handoff covers `7.4.1` through `7.4.4`.
 
+Verbatim Jira acceptance criteria:
+- Gap-based hypotheses are generated from competitor weakness and scoring context.
+- Hypotheses preserve rationale, lineage, confidence, and budget context.
+- Tests cover candidate generation, duplicate handling, sparse inputs, and empty outputs.
+
+Carry-forward clarification:
+- Jira story text does not explicitly spell out fixed numeric thresholds.
+- C068 implementation contract sets `demand >= 0.60`, `competition <= 0.40`, and
+  `min_confidence >= 0.50` per cycle prompt governance requirements.
+
 ## 9 Valid Source Niches
 
 `source_niche_id` must accept any of:

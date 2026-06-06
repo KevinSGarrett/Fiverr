@@ -51,6 +51,12 @@ ADJACENT_NICHE_RELATIONSHIPS: dict[str, list[str]] = {
     "support_kb_readiness": ["ai_tool_llm_integration", "prd_ai_saas"],
 }
 
+# S7.4 Gap Exploit defaults. Kept as named constants for auditability.
+GAP_DEMAND_THRESHOLD: float = 0.60
+GAP_COMPETITION_THRESHOLD: float = 0.40
+GAP_DEMAND_WEIGHT: float = 0.60
+GAP_OPPORTUNITY_WEIGHT: float = 0.40
+
 
 @dataclass(slots=True)
 class HypothesisContract:
@@ -378,6 +384,95 @@ def generate_adjacent_niche_hypotheses(
         )
 
     return results
+
+
+def _identify_gap_keywords(
+    keyword_scores: list[dict[str, Any]],
+    *,
+    demand_threshold: float = GAP_DEMAND_THRESHOLD,
+    competition_threshold: float = GAP_COMPETITION_THRESHOLD,
+) -> list[dict[str, Any]]:
+    """Return keyword score rows that satisfy gap criteria."""
+    gap_rows: list[dict[str, Any]] = []
+    for item in keyword_scores:
+        if not isinstance(item, dict):
+            continue
+        keyword = str(item.get("keyword", "")).strip()
+        if not keyword:
+            continue
+        demand_score = float(item.get("demand_score") or 0.0)
+        competition_score = float(item.get("competition_score") or 0.0)
+        if demand_score >= demand_threshold and competition_score <= competition_threshold:
+            gap_rows.append(item)
+    return gap_rows
+
+
+def _score_gap_hypothesis_confidence(
+    kw_data: dict[str, Any],
+    *,
+    demand_weight: float = GAP_DEMAND_WEIGHT,
+    opportunity_weight: float = GAP_OPPORTUNITY_WEIGHT,
+) -> float:
+    """Score S7.4 confidence from demand + opportunity components only."""
+    demand_score = float(kw_data.get("demand_score") or 0.0)
+    opportunity_score = float(kw_data.get("opportunity_score") or 0.0)
+    confidence = (demand_weight * demand_score) + (opportunity_weight * opportunity_score)
+    return max(0.0, min(1.0, confidence))
+
+
+def generate_gap_exploit_hypotheses(
+    source_niche_id: str,
+    keyword_scores: list[dict[str, Any]],
+    existing_hypotheses: list[str],
+    *,
+    max_hypotheses: int = 10,
+    min_confidence: float = 0.50,
+    demand_threshold: float = GAP_DEMAND_THRESHOLD,
+    competition_threshold: float = GAP_COMPETITION_THRESHOLD,
+) -> list[HypothesisContract]:
+    """Generate S7.4 gap opportunity hypotheses from scored keyword rows."""
+    if not source_niche_id or not keyword_scores:
+        return []
+
+    existing_lower = {item.lower().strip() for item in existing_hypotheses if item.strip()}
+    seen: set[str] = set()
+    contracts: list[HypothesisContract] = []
+    accepted_count = 0
+
+    for kw_data in _identify_gap_keywords(
+        keyword_scores,
+        demand_threshold=demand_threshold,
+        competition_threshold=competition_threshold,
+    ):
+        hypothesis_text = str(kw_data.get("keyword", "")).strip()
+        normalized = hypothesis_text.lower()
+        if not normalized or normalized in existing_lower or normalized in seen:
+            continue
+        seen.add(normalized)
+
+        confidence = _score_gap_hypothesis_confidence(kw_data)
+        accepted = confidence >= min_confidence and accepted_count < max_hypotheses
+        if accepted:
+            accepted_count += 1
+
+        reason = (
+            f"gap confidence {confidence:.2f} >= {min_confidence:.2f} (ACCEPTED)"
+            if accepted
+            else f"gap confidence {confidence:.2f} < {min_confidence:.2f} (REJECTED)"
+        )
+        contracts.append(
+            HypothesisContract(
+                hypothesis_text=hypothesis_text,
+                niche_id=source_niche_id,
+                buyer=None,
+                deliverable=hypothesis_text,
+                specificity_score=confidence,
+                accepted=accepted,
+                reason=reason,
+            )
+        )
+
+    return contracts
 
 
 def _coerce_json_payload(response: Any) -> dict[str, Any] | list[Any] | None:

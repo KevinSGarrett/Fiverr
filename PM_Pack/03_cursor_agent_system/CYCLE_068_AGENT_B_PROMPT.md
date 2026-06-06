@@ -1,6 +1,7 @@
 # CYCLE 068 — AGENT B PROMPT
 # Wave 10 S7.4 Gap Opportunity Hypothesis Mode
 # Role: SOLE src/ author.
+# B+E PARALLEL NOTICE: B and E execute in parallel after A.
 # §12.1 PARALLEL: B and E run IN PARALLEL after A. Do NOT wait for E.
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 1,200 lines
 
@@ -902,7 +903,6 @@ C:\Users\kevin\AppData\Local\Programs\Python\Python311\python.exe -m pytest -q t
 ## TASK 55 — FINAL B COMMIT SHA RECORD
 Record B SHA in B report. C will use this for zone verification.
 
-END OF PROMPT
 
 
 ## TASK 56 — ADDITIONAL PARAMETRIZED TESTS
@@ -1067,7 +1067,6 @@ Invoke-Exe $git 'commit -m "feat(discovery): C068 Wave 10 S7.4 -- gap opportunit
 Invoke-Exe $git 'push origin cycle/068/integration'
 ```
 
-END OF PROMPT
 
 ## SUPPLEMENTAL TESTS FOR B — FINAL BLOCK
 
@@ -1198,3 +1197,5 @@ S7.4 Gap Opportunity: generate_gap_exploit_hypotheses() committed.
 Data-driven. No static map. No LLM. No new tables. Budget gate 0.50.
 
 ## B DONE: 55 tasks complete. S7.4 implemented. Floor met.
+
+END OF PROMPT
