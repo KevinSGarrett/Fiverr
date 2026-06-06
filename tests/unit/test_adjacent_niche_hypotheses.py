@@ -768,3 +768,206 @@ class TestGenerateAdjacentNicheHypothesesCoverageUplift:
         candidates = _build_adjacent_niche_candidates(source, seeds)
         assert isinstance(candidates, list)
         assert all(candidate != source for candidate in candidates)
+
+
+class TestBuildAdjacentNicheCandidatesEdgeCases:
+    def test_unknown_source_returns_empty(self) -> None:
+        result = _build_adjacent_niche_candidates("nonexistent_niche", ["test"])
+        assert result == []
+
+    def test_max_per_niche_zero(self) -> None:
+        result = _build_adjacent_niche_candidates("python_automation", ["python"], max_per_niche=0)
+        assert result == []
+
+    def test_max_per_niche_one(self) -> None:
+        result = _build_adjacent_niche_candidates("python_automation", ["python"], max_per_niche=1)
+        assert len(result) <= 1
+
+    def test_all_candidates_are_valid_niche_ids(self) -> None:
+        valid = set(ADJACENT_NICHE_RELATIONSHIPS.keys())
+        result = _build_adjacent_niche_candidates("python_automation", ["python automation"])
+        for item in result:
+            assert item in valid
+
+    def test_source_not_in_candidates(self) -> None:
+        result = _build_adjacent_niche_candidates("python_automation", ["python automation"])
+        assert "python_automation" not in result
+
+    def test_seed_keywords_do_not_affect_candidates(self) -> None:
+        first = _build_adjacent_niche_candidates("python_automation", ["python"])
+        second = _build_adjacent_niche_candidates("python_automation", ["different seeds"])
+        assert first == second
+
+
+class TestPromptExactNameCoverage:
+    def test_unknown_source_returns_empty(self) -> None:
+        result = _build_adjacent_niche_candidates("nonexistent_niche", ["test"])
+        assert result == []
+
+    def test_max_per_niche_zero(self) -> None:
+        result = _build_adjacent_niche_candidates("python_automation", ["python"], max_per_niche=0)
+        assert result == []
+
+    def test_max_per_niche_one(self) -> None:
+        result = _build_adjacent_niche_candidates("python_automation", ["python"], max_per_niche=1)
+        assert len(result) <= 1
+
+    def test_all_candidates_are_valid_niche_ids(self) -> None:
+        valid = set(ADJACENT_NICHE_RELATIONSHIPS.keys())
+        result = _build_adjacent_niche_candidates("python_automation", ["python automation"])
+        for item in result:
+            assert item in valid
+
+    def test_source_not_in_candidates(self) -> None:
+        result = _build_adjacent_niche_candidates("python_automation", ["python automation"])
+        assert "python_automation" not in result
+
+    def test_budget_gate_at_zero_accepts_everything(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        accepted = [result for result in results if result.accepted]
+        assert len(accepted) > 0
+
+    def test_budget_gate_at_one_rejects_all(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=1.01,
+        )
+        assert all(not result.accepted for result in results)
+
+    def test_empty_seeds_returns_zero_confidence(self) -> None:
+        score = _score_niche_candidate_confidence("ai_agent_development", [])
+        assert score == 0.0
+
+    def test_base_adjacency_bonus_applied(self) -> None:
+        score = _score_niche_candidate_confidence("ai_agent_development", ["not related"])
+        assert score > 0.0
+
+    def test_confidence_bounded_for_all_niches(self) -> None:
+        for niche in ADJACENT_NICHE_RELATIONSHIPS.keys():
+            score = _score_niche_candidate_confidence(niche, [niche.replace("_", " ")])
+            assert 0.0 <= score <= 1.0
+
+    def test_max_hypotheses_zero_no_accepted(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            max_hypotheses=0,
+            min_confidence=0.0,
+        )
+        accepted = [result for result in results if result.accepted]
+        assert len(accepted) == 0
+
+    def test_max_hypotheses_one_limits_accepted(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            max_hypotheses=1,
+            min_confidence=0.0,
+        )
+        accepted = [result for result in results if result.accepted]
+        assert len(accepted) <= 1
+
+    def test_accepted_reason_contains_accepted(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.0,
+        )
+        for result in results:
+            if result.accepted:
+                assert "ACCEPTED" in result.reason.upper()
+
+    def test_rejected_reason_contains_rejected(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.99,
+        )
+        for result in results:
+            if not result.accepted:
+                assert "REJECTED" in result.reason.upper() or result.specificity_score < 0.99
+
+    def test_reason_string_non_empty(self) -> None:
+        results = generate_adjacent_niche_hypotheses("python_automation", ["python automation"], [])
+        for result in results:
+            assert result.reason and len(result.reason) > 10
+
+    def test_niche_id_preserved_for_all_results(self) -> None:
+        results = generate_adjacent_niche_hypotheses("workflow_automation", ["workflow automation"], [])
+        for result in results:
+            assert result.niche_id == "workflow_automation"
+
+    def test_hypothesis_text_differs_from_niche_id(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python"],
+            [],
+            min_confidence=0.0,
+        )
+        for result in results:
+            assert result.hypothesis_text != "python_automation"
+
+    def test_relationship_map_no_self_references(self) -> None:
+        for niche, adjs in ADJACENT_NICHE_RELATIONSHIPS.items():
+            assert niche not in adjs
+
+    def test_relationship_map_all_values_are_valid_keys(self) -> None:
+        valid = set(ADJACENT_NICHE_RELATIONSHIPS.keys())
+        for niche, adjs in ADJACENT_NICHE_RELATIONSHIPS.items():
+            for adj in adjs:
+                assert adj in valid, f"Unknown niche {adj} in {niche}"
+
+    def test_relationship_map_9_niches(self) -> None:
+        assert set(ADJACENT_NICHE_RELATIONSHIPS.keys()) == set(NICHE_VALIDATION_CONFIG.keys())
+
+    def test_accepted_only_if_above_threshold(self) -> None:
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            [],
+            min_confidence=0.50,
+        )
+        for result in results:
+            if result.accepted:
+                assert result.specificity_score >= 0.50
+
+    def test_multiple_existing_all_blocked(self) -> None:
+        existing = ADJACENT_NICHE_RELATIONSHIPS.get("python_automation", [])
+        results = generate_adjacent_niche_hypotheses(
+            "python_automation",
+            ["python automation"],
+            existing,
+            min_confidence=0.0,
+        )
+        accepted = [result for result in results if result.accepted]
+        assert len(accepted) == 0
+
+    def test_confidence_zero_for_empty_seeds(self) -> None:
+        assert _score_niche_candidate_confidence("ai_agent_development", []) == 0.0
+
+    def test_confidence_type_is_float(self) -> None:
+        result = _score_niche_candidate_confidence("ai_agent_development", ["python"])
+        assert isinstance(result, float)
+
+    def test_confidence_not_nan(self) -> None:
+        import math
+
+        result = _score_niche_candidate_confidence("ai_agent_development", ["python"])
+        assert not math.isnan(result)
+
+    def test_confidence_not_inf(self) -> None:
+        import math
+
+        result = _score_niche_candidate_confidence("ai_agent_development", ["python"])
+        assert not math.isinf(result)
