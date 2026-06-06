@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
-import asyncio
 
 import pytest
-
 import src.discovery.hypothesis as hypothesis_module
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.hypothesis import (
