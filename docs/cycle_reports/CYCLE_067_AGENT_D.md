@@ -309,7 +309,7 @@ TierD-2 (ScrapFly budget):
 | Metric | Value |
 | ------ | ----- |
 | Squash SHA | 5572dfaece522f451e0c09763e669c4a33299069 |
-| Post-merge governance SHA | 09af84f |
+| Post-merge governance SHA | 9725248 |
 | Base SHA | 0bafd81 |
 | Tests before | 4484 |
 | Tests (post-merge) | 4675 passed |
@@ -360,7 +360,7 @@ CYCLE 067 COMPLETE — OFFICIAL SIGN-OFF
 ================================================================
 Date: 2026-06-06
 Merge SHA: 5572dfaece522f451e0c09763e669c4a33299069
-Develop HEAD post-governance: 3a21ffe
+Develop HEAD post-governance: 9725248
 Merged PR: #76
 Wave 10 status: 3 of 9 stories done (S7.1 S7.2 S7.3)
 Next cycle: C068 — S7.4 Gap Exploit Hypothesis (SCRUM-1030 / SCRUM-19X)
@@ -377,10 +377,10 @@ All gates: PASS. Coverage: 94.34% >= 90%. Golden: 62.7/1.0/CONDITIONAL_GO
 CYCLE 067 SIGN-OFF
 
 Date: 2026-06-06
-D Agent SHA: 09af84f
+D Agent SHA: 9725248
 Squash SHA: 5572dfaece522f451e0c09763e669c4a33299069
 Merged at: 2026-06-06T20:49:00Z
-Develop HEAD post-merge: 09af84f
+Develop HEAD post-merge: 9725248
 
 CYCLE 067 is COMPLETE.
 All critical gates passed. S7.3 Adjacent Niche Hypothesis Mode on develop HEAD.
@@ -398,5 +398,5 @@ END OF SECTION
 
 ## Prompt-Literal Reconciliation Notes
 
-- Some task text hardcoded `0bafd81` as squash/develop SHA, but actual C067 squash merge SHA is `5572dfaece522f451e0c09763e669c4a33299069` and develop advanced with governance commits to `09af84f`.
+- Some task text hardcoded `0bafd81` as squash/develop SHA, but actual C067 squash merge SHA is `5572dfaece522f451e0c09763e669c4a33299069` and develop advanced with governance commits to `9725248`.
 - These are documented as objective post-merge facts; all evidence references use actual Git/Jira outputs.

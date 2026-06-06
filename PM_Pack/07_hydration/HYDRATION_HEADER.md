@@ -24,9 +24,10 @@ CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.3 done; S7.4-S7.9 + Waves 11-12 remain)
 
-## DEVELOP HEAD (current after C067 squash)
-develop HEAD: 5572dfa (feat(discovery): C067 Wave 10 S7.3 -- adjacent niche hypothesis mode (#76))
+## DEVELOP HEAD (current after C067 squash + governance)
+develop HEAD: 9725248 (docs(cycle067): complete remaining Agent D prompt compliance items)
 C067 SQUASH SHA: 5572dfaece522f451e0c09763e669c4a33299069 (PR #76)
+C067 POST-MERGE GOVERNANCE SHA: 9725248
 C066 SQUASH SHA: 36f6f328a767afaf17316f79beac05c9eafaab42 (PR #75)
 C066 POST-MERGE GOVERNANCE SHA: 58aa37e
 C066 D FINALIZATION SHA: d991c3c
