@@ -52,10 +52,10 @@ ADJACENT_NICHE_RELATIONSHIPS: dict[str, list[str]] = {
 }
 
 # S7.4 Gap Exploit defaults. Kept as named constants for auditability.
-GAP_DEMAND_THRESHOLD: float = 0.60
-GAP_COMPETITION_THRESHOLD: float = 0.40
-GAP_DEMAND_WEIGHT: float = 0.60
-GAP_OPPORTUNITY_WEIGHT: float = 0.40
+GAP_DEMAND_THRESHOLD = 0.60
+GAP_COMPETITION_THRESHOLD = 0.40
+GAP_DEMAND_WEIGHT = 0.60
+GAP_OPPORTUNITY_WEIGHT = 0.40
 
 
 @dataclass(slots=True)
@@ -439,11 +439,19 @@ def generate_gap_exploit_hypotheses(
     contracts: list[HypothesisContract] = []
     accepted_count = 0
 
-    for kw_data in _identify_gap_keywords(
+    gap_keywords = _identify_gap_keywords(
         keyword_scores,
         demand_threshold=demand_threshold,
         competition_threshold=competition_threshold,
-    ):
+    )
+    # Prioritize strongest commercial candidates first (confidence-derived ordering).
+    gap_keywords = sorted(
+        gap_keywords,
+        key=lambda kw: _score_gap_hypothesis_confidence(kw),
+        reverse=True,
+    )
+
+    for kw_data in gap_keywords:
         hypothesis_text = str(kw_data.get("keyword", "")).strip()
         normalized = hypothesis_text.lower()
         if not normalized or normalized in existing_lower or normalized in seen:
@@ -451,14 +459,22 @@ def generate_gap_exploit_hypotheses(
         seen.add(normalized)
 
         confidence = _score_gap_hypothesis_confidence(kw_data)
+        demand_value = float(kw_data.get("demand_score") or 0.0)
+        competition_value = float(kw_data.get("competition_score") or 0.0)
         accepted = confidence >= min_confidence and accepted_count < max_hypotheses
         if accepted:
             accepted_count += 1
 
         reason = (
-            f"gap confidence {confidence:.2f} >= {min_confidence:.2f} (ACCEPTED)"
+            f"gap confidence {confidence:.2f} >= {min_confidence:.2f} "
+            f"(demand={demand_value:.2f}, competition={competition_value:.2f}) "
+            f"(ACCEPTED)"
             if accepted
-            else f"gap confidence {confidence:.2f} < {min_confidence:.2f} (REJECTED)"
+            else (
+                f"gap confidence {confidence:.2f} < {min_confidence:.2f} "
+                f"(demand={demand_value:.2f}, competition={competition_value:.2f}) "
+                f"(REJECTED)"
+            )
         )
         contracts.append(
             HypothesisContract(
