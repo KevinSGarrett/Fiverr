@@ -13,10 +13,10 @@ from typing import Any
 class HypothesisMode(str, Enum):
     """Supported discovery hypothesis generation modes."""
 
-    ADJACENT_KEYWORD = "adjacent_keyword"
-    ADJACENT_NICHE = "adjacent_niche"
-    GAP_EXPLOIT = "gap_exploit"
-    TREND_CHASE = "trend_chase"
+    ADJACENT_KEYWORD = "adjacent_keyword"  # S7.2
+    ADJACENT_NICHE = "adjacent_niche"  # S7.3
+    GAP_EXPLOIT = "gap_exploit"  # S7.4
+    TREND_CHASE = "trend_chase"  # S7.5
 
 
 class HypothesisStatus(str, Enum):
