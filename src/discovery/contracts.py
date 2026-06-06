@@ -11,7 +11,7 @@ from typing import Any
 
 
 class HypothesisMode(str, Enum):
-    """Supported discovery hypothesis generation modes."""
+    """Supported discovery hypothesis generation modes for S7.2-S7.5."""
 
     ADJACENT_KEYWORD = "adjacent_keyword"  # S7.2
     ADJACENT_NICHE = "adjacent_niche"  # S7.3

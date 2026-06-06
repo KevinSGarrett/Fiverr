@@ -193,6 +193,7 @@ class TestGenerateAdjacentNicheHypotheses:
             assert isinstance(result.reason, str) and len(result.reason) > 0
 
     def test_reason_contains_decision_token(self) -> None:
+        """Audit strings should always include acceptance/rejection status."""
         results = generate_adjacent_niche_hypotheses("python_automation", ["python"], [])
         for result in results:
             assert "ACCEPTED" in result.reason or "REJECTED" in result.reason

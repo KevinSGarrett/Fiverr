@@ -38,6 +38,7 @@ _ADJACENT_SCOPE_MODS = [
 
 # S7.3: Adjacent niche relationship map - rule-based, no LLM required.
 # Keep this map as a module-level constant for deterministic hypothesis generation.
+# The mapping intentionally captures adjacency, not strict bidirectional symmetry.
 ADJACENT_NICHE_RELATIONSHIPS: dict[str, list[str]] = {
     "python_automation": ["ai_agent_development", "workflow_automation", "gumloop_lindy_workflow"],
     "ai_agent_development": ["python_automation", "mcp_ai_agent", "ai_tool_llm_integration"],
