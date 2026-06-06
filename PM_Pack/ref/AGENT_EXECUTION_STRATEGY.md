@@ -138,39 +138,48 @@ Expected: 20 passed (12 named regressions + superset matches).
 This section is authoritative for per-agent task counts and prompt length minimums. It
 supersedes the older "18+/20+ task" and prior length figures referenced anywhere else.
 
-### 8.1 Task minimum (raised 20 -> 25)
+### 8.1 Task minimum (raised 25 -> 55 — effective C067+)
 
-Every cursor-agent prompt MUST contain **at least 25 tasks**, each sized LARGE, XLARGE,
-XXLARGE, or **XXXLARGE**. No standalone small/medium tasks.
+Every cursor-agent prompt MUST contain **at least 55 tasks**, each sized LARGE, XLARGE,
+or **XXLARGE**. No standalone small/medium tasks. XXXLARGE category is retired — tasks at
+that scope must be decomposed into 2-3 separate XXLARGE tasks with individual acceptance
+criteria. This change (25 → 55) is effective C067 and all subsequent cycles.
 
 | Size | Sub-steps | Typical use |
 | --- | --- | --- |
 | LARGE | 4-6 | a single focused deliverable (one module section, one test group) |
 | XLARGE | 6-8 | a multi-part deliverable with verification |
 | XXLARGE | 8-12 | a subsystem + its tests + its wiring |
-| XXXLARGE | 12+ (or spans >=2 files with cross-checks) | a full feature slice end-to-end, or a migration + model + wiring + tests |
+| ~~XXXLARGE~~ | **(RETIRED)** — decompose into 2-3 XXLARGE tasks | retired effective C067 |
 
 ### 8.2 Legitimacy rule (binding)
 
 Every task must be **real, project-advancing work** that moves the system toward end-to-end
-completion. Filler, busywork, or padding tasks invented only to reach the count of 25 are a
+completion. Filler, busywork, or padding tasks invented only to reach the count of 55 are a
 PM failure and an agent failure. Each task must map to: a spec requirement, an acceptance
 criterion, a regression, a gate, a re-collection/validation need, or a concrete integration
-step. If a cycle's real scope does not yield 25 substantive tasks for an agent, the PM splits
+step. If a cycle's real scope does not yield 55 substantive tasks for an agent, the PM splits
 larger deliverables into legitimately separable verification-bearing steps -- never invents
 hollow ones.
 
-### 8.3 Prompt length minimum (raised +35%)
+### 8.3 Prompt length minimum (v4.3 — 55-task floors, effective C067+)
 
-| Agent | Old min | New min (+35%) |
-| --- | --- | --- |
-| A | 600 | **810** |
-| B | 700 | **945** |
-| E | 600 | **810** |
-| C | 500 | **675** |
-| F | 600 | **810** |
-| D | 700 | **945** |
-| **Total** | 3,700 | **4,995** |
+**FLOOR RATIONALE:** 55 LARGE-XXLARGE tasks × ~18-22 lines per task (inline code blocks,
+command sequences, verification steps, acceptance criteria) = 1,000-1,200 substantive lines
+per agent. These floors are the minimum that ensures every task has real inline content.
+
+| Agent | Old floor (25-task era) | **New floor (55-task era — C067+)** | Change | Rationale |
+| --- | --- | --- | --- | --- |
+| A | 810 | **1,000** | +190 | 55 planning/handoff/spec tasks with inline commands |
+| B | 945 | **1,200** | +255 | 55 implementation tasks with inline code skeletons |
+| E | 810 | **950** | +140 | 55 validation/observation tasks with inline checks |
+| C | 675 | **900** | +225 | 55 integration gate tasks with inline evidence commands |
+| F | 810 | **1,000** | +190 | 55 test tasks with arrange/act/assert stubs |
+| D | 945 | **1,200** | +255 | 55 merge gate tasks + §12.3 operational playbook |
+| **Total** | 4,995 | **6,250** | +1,255 | 25% above 55×~18-line average per 6 agents |
+
+**BINDING FROM C067:** Any prompt below its C067+ floor is NOT DONE and may not be released.
+The old floors (A810/B945/E810/C675/F810/D945) applied to C057-C066 only.
 
 Length is a floor, not a target; it must be filled with substantive content (code skeletons,
 test stubs, verbatim queries, deliverable matrices, decision records, trace ledgers, report
@@ -179,15 +188,15 @@ templates) -- never filler to hit a line count.
 ### 8.4 Prompt-sizing enforcement (BLOCKING self-gate on the PM's own work)
 
 Before the PM may declare a cycle's prompt-writing complete -- and before any prompt is handed
-to an agent -- the PM MUST verify EVERY agent prompt against BOTH §8.1 (>=25 substantive
-LARGE-XXXLARGE tasks) AND §8.3 (per-agent line floor). Verification is mechanical and recorded,
+to an agent -- the PM MUST verify EVERY agent prompt against BOTH §8.1 (>=55 substantive
+LARGE-XXLARGE tasks) AND §8.3 (per-agent line floor). Verification is mechanical and recorded,
 never eyeballed:
 
 1. Run `(Get-Content <prompt_path>).Count` on all six prompts and record the ACTUAL line counts
-   next to their floors (A810 / B945 / E810 / C675 / F810 / D945; total 4995).
-2. Count the numbered tasks in each prompt; confirm >=25, each genuinely LARGE-XXXLARGE -- not a
+   next to their floors (A1000 / B1200 / E950 / C900 / F1000 / D1200; total 6250).
+2. Count the numbered tasks in each prompt; confirm >=55, each genuinely LARGE-XXLARGE -- not a
    one-line stub masquerading as a task.
-3. ANY prompt under its line floor OR under 25 substantive tasks is **NOT DONE**. The PM MUST
+3. ANY prompt under its line floor OR under 55 substantive tasks is **NOT DONE**. The PM MUST
    expand it with GENUINE content per §8.3 -- full inline code/dataclass skeletons, full inline
    test-file skeletons with every test-function stub, verbatim command/query/gate blocks,
    per-niche and per-file procedures, deliverable + Definition-of-Done matrices, worked numeric
@@ -219,7 +228,7 @@ substitute for the floor. This subsection removes that loophole. It is binding o
 2. **RECORDED + SHOWN.** For each prompt, run `(Get-Content <path>).Count`, record the number next
    to its floor, and SHOW it (in the reply to the user AND in the cycle prep notes). A prompt whose
    count has not been shown is not done.
-3. **UNDER FLOOR = DOES NOT EXIST.** A prompt below its floor (A810/B945/E810/C675/F810/D945) is NOT
+3. **UNDER FLOOR = DOES NOT EXIST.** A prompt below its floor (A1000/B1200/E950/C900/F1000/D1200) is NOT
    WRITTEN. It may not be called complete, surfaced as a deliverable, committed as final, or handed
    to an agent. There is no "draft now, expand later." Content completeness is necessary but NOT
    sufficient; the floor is the minimum bar, not a target to approach.
@@ -237,7 +246,7 @@ Every prompt MUST contain, INLINE (never "go read X"): header/role/branch/base-S
 mission tied to the cycle's Jira story keys; project context + connector-only auth note (no secrets);
 verified starting state (SHAs, counts, config flags, the 9 real niche_ids); 6-agent architecture +
 file zones + the hard gates verbatim (G-001..G-004, CONFIG, PARITY); a mandatory preflight command
-block (real commands); 25+ tasks each LARGE-XXXLARGE with numbered sub-steps; the FULL accumulated
+block (real commands); 55+ tasks each LARGE-XXLARGE with numbered sub-steps; the FULL accumulated
 regression list by exact name (not "see §7"); a completion-standard checklist.
 
 Agent-type-specific mandatory blocks (their absence is why a prompt is under floor):
