@@ -25,6 +25,7 @@ CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.4 done; S7.5-S7.9 + Waves 11-12 remain)
+D_REPORT_COMPLETE_068: YES (CYCLE 068 CLOSED)
 
 ## DEVELOP HEAD (current after C068 squash + governance)
 develop HEAD: d0f3f19 (feat(discovery): C068 Wave 10 S7.4 -- gap opportunity hypothesis mode (#77))
@@ -108,6 +109,7 @@ STILL OPEN for C064:
 ## OPEN TIER-D ITEMS
 TierD-1: 12 stale git stashes (expanded from 6 — additional stashes accumulated across later cycles: cycle051/047/043/036/029/012 + 6 more) — confirm full list with user before dropping any
 TierD-2: ScrapFly credit budget for full live collection — confirm with user
+TierD-2 status detail: RSV SEED x12 complete
 
 ## .ENV KEY INVENTORY (presence only)
 OPENAI_API_KEY: PRESENT (sk- prefix, len=164)
@@ -124,7 +126,7 @@ Next milestone: ~62% after C069 (S7.5 Trend Chase complete)
 Track breakdown:
   01 Foundation:       93% | CLI passes, config-check OK, single worktree
   02 Data/models:      90% | 30+ ORM models, migrations 1-13, ext_signals live
-  03 Collection:       55% | Code 95% done; TierD-2 PENDING; RSV SEED x11 cycles
+  03 Collection:       55% | Code 95% done; TierD-2 PENDING; RSV SEED x12 cycles
   04 Scoring:          90% | All 7 dims; golden kw=110 62.7/1.0/CONDITIONAL_GO
   05 Analysis:         78% | ext_signals=true; llm_relevance=false (by design)
   06 LLM recs:         70% | 12 tasks built; not run live against real data
