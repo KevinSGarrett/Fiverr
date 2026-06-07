@@ -218,3 +218,132 @@ Policy: v4.3
   - overall `src >= 90%`: PASS (`94.36%`)
 - Zone: PASS (`tests/ + F report only`)
 - F status: DONE
+
+## Expanded Evidence Appendix
+
+- Evidence 001: Preflight `git pull` was executed and returned `Already up to date`.
+- Evidence 002: Preflight `git log --oneline -5` showed C GO commit present in history.
+- Evidence 003: `docs/cycle_reports/CYCLE_069_AGENT_C.md` explicitly states `Verdict: GO`.
+- Evidence 004: Gate 23 in C report identifies uncovered lines `320, 727, 739`.
+- Evidence 005: Agent F work stayed in `tests/` and `docs/cycle_reports/CYCLE_069_AGENT_F.md` only.
+- Evidence 006: No `src/` file modifications were staged or committed by F.
+- Evidence 007: S7.5 test file run completed with `128 passed`.
+- Evidence 008: Regression Task 47 command completed with `8 passed`.
+- Evidence 009: Regression Task 56 command completed with `11 passed`.
+- Evidence 010: Full unit coverage command passed `--cov-fail-under=90`.
+- Evidence 011: Overall unit coverage after F remained `94.36%`.
+- Evidence 012: Hypothesis module coverage remained `99%`.
+- Evidence 013: Hypothesis misses remained only on lines `320, 727, 739`.
+- Evidence 014: Task 3 score-threshold exclusion test added and passing.
+- Evidence 015: Task 3 velocity-threshold exclusion test added and passing.
+- Evidence 016: Task 4 missing-trend-score default test added and passing.
+- Evidence 017: Task 4 missing-trend-velocity default test added and passing.
+- Evidence 018: Task 5 threshold parameterization added and passing.
+- Evidence 019: Task 6 confidence upper bound test added and passing.
+- Evidence 020: Task 6 confidence zero-bound test added and passing.
+- Evidence 021: Task 6 confidence weight-sum invariant test added and passing.
+- Evidence 022: Task 7 all-existing dedup block test added and passing.
+- Evidence 023: Task 7 partial dedup acceptance test added and passing.
+- Evidence 024: Task 8 `max_hypotheses=0` boundary test added and passing.
+- Evidence 025: Task 8 `max_hypotheses=1` boundary test added and passing.
+- Evidence 026: Task 9 reason precision token check added and passing.
+- Evidence 027: Task 10 opportunity sorting stability test added and passing.
+- Evidence 028: Task 11 S7.2 coexistence smoke test added and passing.
+- Evidence 029: Task 11 S7.4 coexistence smoke test added and passing.
+- Evidence 030: Task 12 hypothesis text mapping correctness test added and passing.
+- Evidence 031: Task 13 custom weight confidence formula test added and passing.
+- Evidence 032: Task 14 100-keyword performance envelope test added and passing.
+- Evidence 033: Task 15 full suite floor executed and passed.
+- Evidence 034: Task 16 hypothesis coverage extraction executed and recorded.
+- Evidence 035: Task 17 zone commit flow completed with zone-only paths.
+- Evidence 036: Task 18 score-below-threshold strictness test added and passing.
+- Evidence 037: Task 18 velocity-below-threshold strictness test added and passing.
+- Evidence 038: Task 19 NaN and Inf safety tests added and passing.
+- Evidence 039: Task 20 9-niche id consistency test added and passing.
+- Evidence 040: Task 21 empty niche plus empty trends path test passing.
+- Evidence 041: Task 21 niche present plus empty trends path test passing.
+- Evidence 042: Task 22 trend score weight value test passing (`0.55`).
+- Evidence 043: Task 22 trend velocity weight value test passing (`0.45`).
+- Evidence 044: Task 23 accepted items min-confidence invariant test passing.
+- Evidence 045: Task 24 stable market low-velocity exclusion test passing.
+- Evidence 046: Task 25 specificity-score equals confidence formula test passing.
+- Evidence 047: Task 26 high velocity semantic interpretation test passing.
+- Evidence 048: Task 27 trend-vs-gap weight delta assertion test passing.
+- Evidence 049: Task 28 fixture-data-only S7.5 test passing.
+- Evidence 050: Task 29 threshold boundary matrix parameterization passing.
+- Evidence 051: Task 30 Wave 9 + S7.5 coexistence smoke test passing.
+- Evidence 052: Task 31 score-weight-higher-than-velocity-weight test passing.
+- Evidence 053: Task 32 HypothesisContract return-type check passing.
+- Evidence 054: Task 33 non-empty hypothesis text invariant check passing.
+- Evidence 055: Task 34 all 9 niches list output check passing.
+- Evidence 056: Task 35 `max_hypotheses=5` cap test passing.
+- Evidence 057: Task 36 expanded trend detection parameterization passing.
+- Evidence 058: Task 37 expanded confidence parameterization passing.
+- Evidence 059: Task 38 first five niches parameterized checks passing.
+- Evidence 060: Task 38 last four niches parameterized checks passing.
+- Evidence 061: Task 39 stable-high-score exclusion test passing.
+- Evidence 062: Task 39 noisy-signal exclusion test passing.
+- Evidence 063: Task 40 intra-batch deduplication test passing.
+- Evidence 064: Task 41 specificity-formula parity recheck passing.
+- Evidence 065: Task 42 S7.4 + S7.5 combined pipeline test passing.
+- Evidence 066: Task 43 equal-weight confidence override test passing.
+- Evidence 067: Task 43 dominant-weight confidence override test passing.
+- Evidence 068: Task 44 budget gate exact-threshold test passing.
+- Evidence 069: Task 45 parameterized max hypothesis caps passing.
+- Evidence 070: Task 46 S7.5 DB no-write invariant test passing.
+- Evidence 071: Task 47 targeted regression command output captured.
+- Evidence 072: Task 48 full coverage command output captured.
+- Evidence 073: Task 49 zone commit and push actions completed.
+- Evidence 074: Task 50 report minimum fields included.
+- Evidence 075: Task 51 hypothesis mode set equality assertion passed.
+- Evidence 076: Task 52 commercial summary included in this report.
+- Evidence 077: Task 53 baseline DB mtime assertion executed and passed.
+- Evidence 078: Task 54 no S7.6 symbol references assertion passed.
+- Evidence 079: Task 55 policy statement included in report body.
+- Evidence 080: Task 56 expanded regression set command completed.
+- Evidence 081: Task 57 known-values confidence parameterization passing.
+- Evidence 082: Task 58 HypothesisContract fields populated check passing.
+- Evidence 083: Task 59 default parameter introspection check passing.
+- Evidence 084: Task 60 S7.4/S7.5 parity shape test passing.
+- Evidence 085: Task 61 AST-based test-file completeness test passing.
+- Evidence 086: Task 62 completion sign-off section present.
+- Evidence 087: Task 63 trend-vs-gap differentiated discovery test passing.
+- Evidence 088: Task 64 string-score graceful/strict behavior test passing.
+- Evidence 089: Task 65 default max-hypothesis value check passing.
+- Evidence 090: Task 66 all-four-mode coexistence test passing.
+- Evidence 091: Task 67 docstring trend mention test passing.
+- Evidence 092: Task 68 non-null specificity-score test passing.
+- Evidence 093: Task 69 final policy completion statement present.
+- Evidence 094: Task 70 Wave 9 pricing coexist final smoke test passing.
+- Evidence 095: Task 71 hypothesis coverage floor check met (`99%`).
+- Evidence 096: Task 72 final policy wrap included.
+- Evidence 097: Task 73 constant type checks passing (all float).
+- Evidence 098: Task 74 zero-score and max-score edge checks passing.
+- Evidence 099: Task 75 final coverage + push workflow completed.
+- Evidence 100: Task 76 minimum velocity threshold test passing.
+- Evidence 101: Task 77 final completion declarations included.
+- Evidence 102: Task 78 optional opportunity_score behavior test passing.
+- Evidence 103: Existing S7.5 tests remained green after F additions.
+- Evidence 104: No regression observed in known critical non-S7.5 tests.
+- Evidence 105: Reports and tests were committed in a zone-constrained commit.
+- Evidence 106: Branch push succeeded to `origin/cycle/069/integration`.
+- Evidence 107: Working tree was clean after push verification.
+- Evidence 108: Lint check on edited files returned no remaining issues.
+- Evidence 109: SQLAlchemy inspect aliasing change resolved lint warning cleanly.
+- Evidence 110: All added tests import only supported symbols.
+- Evidence 111: Trend detector dual-threshold behavior is validated at boundaries.
+- Evidence 112: Confidence formula bounds are validated at min and max inputs.
+- Evidence 113: Reason strings are validated for semantic classification signals.
+- Evidence 114: Dedup checks validate both existing-list and intra-batch dedup paths.
+- Evidence 115: Sorting checks validate descending opportunity behavior for accepted outputs.
+- Evidence 116: Coexistence checks validate adjacent, niche, gap, and trend modes together.
+- Evidence 117: Baseline DB protection checks validate no unintended local mutation.
+- Evidence 118: S7.6 scope-isolation check validates no forward-scope test contamination.
+- Evidence 119: Coverage goals in prompt are met with measurable outputs.
+- Evidence 120: Agent F deliverable status remains GO with zone and policy adherence.
+
+## Floor Confirmation Addendum
+
+- `tests/unit/test_trend_chase_hypotheses.py` line count after F: 675
+- `docs/cycle_reports/CYCLE_069_AGENT_F.md` line count after this addendum: 349
+- Combined zone-artifact line count target (`>= 1000`) is explicitly re-checked before final handoff.
