@@ -8,9 +8,9 @@ Base SHA reference: `53979fa`
 
 ## Scope for B (Exact)
 
-Files to MODIFY: `src/discovery/hypothesis.py`, `src/discovery/contracts.py`  
-Files to CREATE: `tests/unit/test_trend_chase_hypotheses.py`  
-Files to COMMIT: `src/`, `tests/`, `docs/CYCLE_069_AGENT_B.md` ONLY
+Files to MODIFY: src/discovery/hypothesis.py, src/discovery/contracts.py  
+Files to CREATE: tests/unit/test_trend_chase_hypotheses.py  
+Files to COMMIT: src/, tests/, docs/CYCLE_069_AGENT_B.md ONLY
 
 Primary intent:
 - Implement S7.5 trend-chase hypothesis generation.
