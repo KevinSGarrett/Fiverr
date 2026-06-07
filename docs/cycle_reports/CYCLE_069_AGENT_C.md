@@ -1064,7 +1064,7 @@ Policy v4.3 target: >=55 tasks, floor >=900 lines for C report
 - Gate results table with numbered PASS outcomes: present
 - F scope uncovered lines from Gate 23: present
 - VERDICT GO: present
-- C SHA and zone verification: C SHA to be captured post-commit, zone command included below
+- C SHA and zone verification: C SHA `2c2148537f6188582d2a3a2f2267308406fa2669`; commit contains only `docs/cycle_reports/CYCLE_069_AGENT_C.md`
 - Coverage percent from C run: present (94.36%)
 - Golden parity confirmation: present (62.7/1.0/CONDITIONAL_GO)
 - RSV SEED x13 context: present
