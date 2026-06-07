@@ -28,7 +28,7 @@ TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.4 done; S
 D_REPORT_COMPLETE_068: YES (CYCLE 068 CLOSED)
 
 ## DEVELOP HEAD (current after C068 squash + governance)
-develop HEAD: d0f3f19 (feat(discovery): C068 Wave 10 S7.4 -- gap opportunity hypothesis mode (#77))
+develop HEAD: 53979fa (docs(cycle068): finalize D strict-completion evidence addendum)
 C068 SQUASH SHA: d0f3f19d6e3b5f1bab0675b5098720d8a2d17004 (PR #77)
 C067 SQUASH SHA: 5572dfaece522f451e0c09763e669c4a33299069 (PR #76)
 C067 POST-MERGE GOVERNANCE SHA: 9725248
@@ -55,6 +55,7 @@ Tests: 4815 passed | Coverage: 94.35% | Floor: 90% enforced
 C068 core file: `src/discovery/hypothesis.py` (641 lines, 99% coverage post-C068)
 hypothesis.py: `generate_gap_exploit_hypotheses()` + `_identify_gap_keywords()` + `_score_gap_hypothesis_confidence()`
 Wave 10 status: S7.1 scaffold done (SRDI), S7.2 done (C066), S7.3 done (C067), S7.4 done (C068), S7.5-S7.9 TO DO
+C069 control: SCRUM-1031 (To Do) | C069 story: SCRUM-200 (S7.5 Trend Chase, To Do)
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -118,8 +119,8 @@ DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
 ## PROJECT COMPLETION (Part 5.7 v4.4 — updated C068 PM review 2026-06-06)
-COMPLETION: ~61% production-ready
-Delta from C067: +0.5% (S7.4 gap opportunity confirmed merged; smoke test PASS; baseline unchanged)
+COMPLETION: ~61% production-ready (CONFIRMED by C068 PM review 2026-06-07)
+Delta from C067: +0.8% (S7.4 gap opportunity confirmed; Track 09 Discovery 25%->30%; 4/9 stories done)
 Biggest single lever: Approve TierD-2 (ScrapFly live collection) -> immediate +7-8%
 Next milestone: ~62% after C069 (S7.5 Trend Chase complete)
 
