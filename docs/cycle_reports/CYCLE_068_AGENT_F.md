@@ -474,8 +474,8 @@ Interpretation:
 
 S7.4 coverage-uplift objective is delivered with expanded edge-case and scenario tests, preserved suite health, and strict zone compliance.
 
-F SHA: `PENDING_COMMIT`
-Zone check: `PENDING_COMMIT_SHOW`
+F SHA: `6848e88a84559c9554860a061f5c4771079d0ffc`
+Zone check: `git show --name-only 6848e88a84559c9554860a061f5c4771079d0ffc` confirms only `tests/unit/test_gap_exploit_hypotheses.py` and `docs/cycle_reports/CYCLE_068_AGENT_F.md`.
 Policy v4.3 floor statement: included.
 
 ## Extended F Evidence Appendix
