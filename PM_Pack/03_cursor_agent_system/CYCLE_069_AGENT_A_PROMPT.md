@@ -987,20 +987,16 @@ Document in A report.
 ## C070 next: S7.6 Discovery Scoring and Feedback (SCRUM-1032)
 ## All Wave 10 hypothesis modes complete after C069.
 ## SCRUM-1031 Done | SCRUM-200 Done | SCRUM-22 In Progress | SCRUM-1032 To Do
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## A: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
+
+
+## TASK 84 — FINAL PRE-RELEASE: VERIFY C069 PROMPTS HAVE [C069_SQUASH_SHA] PLACEHOLDERS
+```powershell
+# Run after writing all 6 prompts but BEFORE governance commit
+Select-String "\[C069_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_069*.md 2>$null | Measure-Object | Select Count
+```
+Count > 0 = placeholders present (correct — D will resolve them after merge).
+Count = 0 = something wrong — D needs SHAs to replace.
+
+
+## TASK 85 — VERIFY SCRUM-22 COMMENT CAPTURES ALL 4 MODES DONE
+A posts In Progress comment on SCRUM-22 at cycle start. Comment must list: S7.2 (C066), S7.3 (C067), S7.4 (C068) all done — and that S7.5 (C069) is in progress.

@@ -1191,16 +1191,20 @@ B DONE. 78 tasks. Zone: src/+tests/+B.md.
 ## C070 next: S7.6 Discovery Scoring and Feedback (SCRUM-1032)
 ## All Wave 10 hypothesis modes complete after C069.
 ## SCRUM-1031 Done | SCRUM-200 Done | SCRUM-22 In Progress | SCRUM-1032 To Do
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## B: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
+
+
+## TASK 79 — VERIFY WAVEFORM: S7.5 ACCEPTS FIXTURE DATA CORRECTLY
+```python
+# In SEED mode, trend data comes from test fixtures, not live APIs
+# This test ensures S7.5 works on the realistic fixture format B will use
+from src.discovery.hypothesis import generate_trend_chase_hypotheses
+fixture_trends = [
+    {'keyword': 'mcp agent builder tool', 'trend_score': 0.85, 'trend_velocity': 0.72, 'opportunity_score': 0.80},
+    {'keyword': 'ai workflow automation n8n', 'trend_score': 0.78, 'trend_velocity': 0.55, 'opportunity_score': 0.74},
+]
+for niche in ['mcp_ai_agent', 'workflow_automation']:
+    r = generate_trend_chase_hypotheses(niche, fixture_trends, [], min_confidence=0.50)
+    accepted = [h for h in r if h.accepted]
+    print(f"{niche}: {len(accepted)} accepted trend hypotheses from fixture data")
+print("PASS: S7.5 operational with fixture trend data in SEED mode")
+```

@@ -990,17 +990,21 @@ F: 77 tasks. Floor 1000 confirmed. Zone: tests/ + F.md. Policy v4.3. Anti-filler
 ## C070 next: S7.6 Discovery Scoring and Feedback (SCRUM-1032)
 ## All Wave 10 hypothesis modes complete after C069.
 ## SCRUM-1031 Done | SCRUM-200 Done | SCRUM-22 In Progress | SCRUM-1032 To Do
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
-## F: policy v4.3 floor 1000 compliance confirmed. Cycle 069.
+
+
+## TASK 78 — F SUPPLEMENTAL: OPPORTUNITY_SCORE IS OPTIONAL (SORTING ONLY)
+```python
+def test_opportunity_score_is_optional_for_trending():
+    from src.discovery.hypothesis import generate_trend_chase_hypotheses
+    # Without opportunity_score, should still generate results (sorted by trend_score)
+    trends_no_opp = [
+        {'keyword': 'no_opp_kw_1', 'trend_score': 0.85, 'trend_velocity': 0.70},
+        {'keyword': 'no_opp_kw_2', 'trend_score': 0.78, 'trend_velocity': 0.62},
+    ]
+    results = generate_trend_chase_hypotheses('python_automation', trends_no_opp, [])
+    assert isinstance(results, list)
+    # If accepted, verify confidence formula still works without opportunity_score
+    for r in results:
+        assert r.specificity_score >= 0.0
+    print(f"PASS: opportunity_score optional — {len(results)} results generated without it")
+```

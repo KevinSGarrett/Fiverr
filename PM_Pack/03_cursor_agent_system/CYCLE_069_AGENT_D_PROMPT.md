@@ -1152,55 +1152,50 @@ S7.5 Trend Chase CONFIRMED on develop HEAD:
 ## C070 next: S7.6 Discovery Scoring and Feedback (SCRUM-1032)
 ## All Wave 10 hypothesis modes complete after C069.
 ## SCRUM-1031 Done | SCRUM-200 Done | SCRUM-22 In Progress | SCRUM-1032 To Do
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
-## D: policy v4.3 floor 1200 compliance confirmed. Cycle 069.
+
+
+## TASK 104 — VERIFY OPPORTUNITY_SCORE DOES NOT AFFECT CONFIDENCE (D INDEPENDENT CHECK)
+```python
+from src.discovery.hypothesis import _score_trend_hypothesis_confidence
+# Confidence formula uses ONLY trend_score and trend_velocity, not opportunity_score
+kw_with_high_opp = {'trend_score': 0.80, 'trend_velocity': 0.65, 'opportunity_score': 0.99}
+kw_with_low_opp = {'trend_score': 0.80, 'trend_velocity': 0.65, 'opportunity_score': 0.01}
+high_conf = _score_trend_hypothesis_confidence(kw_with_high_opp)
+low_conf = _score_trend_hypothesis_confidence(kw_with_low_opp)
+assert abs(high_conf - low_conf) < 0.001, "opportunity_score must NOT affect confidence formula"
+print(f"PASS: confidence={high_conf:.3f} unchanged by opportunity_score (used for sorting only)")
+```
+
+## TASK 105 — VERIFY HYPOTHESIS COUNT EQUALS UNIQUE TRENDING KEYWORDS
+```python
+from src.discovery.hypothesis import generate_trend_chase_hypotheses, _identify_trending_keywords
+trends = [
+    {'keyword': 'trend_a', 'trend_score': 0.85, 'trend_velocity': 0.70, 'opportunity_score': 0.90},
+    {'keyword': 'trend_b', 'trend_score': 0.78, 'trend_velocity': 0.62, 'opportunity_score': 0.75},
+    {'keyword': 'not_trend', 'trend_score': 0.90, 'trend_velocity': 0.05, 'opportunity_score': 0.85},
+]
+trending = _identify_trending_keywords(trends)
+results = generate_trend_chase_hypotheses('python_automation', trends, [], min_confidence=0.0)
+# Every trending keyword should have an entry in results
+trending_kws = {t['keyword'] for t in trending}
+result_kws = {r.hypothesis_text for r in results}
+assert trending_kws == result_kws, f"Trending keywords missing from results: {trending_kws - result_kws}"
+print(f"PASS: all {len(trending)} trending keywords appear in results")
+```
+
+## TASK 106 — VERIFY TREND CHASE DOES NOT PROMOTE TO DB ON DEVELOP
+```python
+# S7.5 is pure hypothesis GENERATION — no DB writes, no keyword table insertion
+# Promotion is S7.7's responsibility (C071 scope)
+from sqlalchemy import create_engine, text
+engine = create_engine('sqlite:///data/foundation_gate_ci.db')
+with engine.connect() as conn:
+    before = conn.execute(text("SELECT COUNT(*) FROM keywords WHERE source='discovery'")).scalar()
+from src.discovery.hypothesis import generate_trend_chase_hypotheses
+trends = [{'keyword': 'test trend', 'trend_score': 0.82, 'trend_velocity': 0.65, 'opportunity_score': 0.78}]
+generate_trend_chase_hypotheses('python_automation', trends, [])
+with engine.connect() as conn:
+    after = conn.execute(text("SELECT COUNT(*) FROM keywords WHERE source='discovery'")).scalar()
+assert before == after, f"S7.5 must not write to keywords table (before={before} after={after})"
+print(f"PASS: S7.5 does not insert to keywords table (count={before} unchanged)")
+```
