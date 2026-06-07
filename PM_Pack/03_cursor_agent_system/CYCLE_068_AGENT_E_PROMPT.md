@@ -1,7 +1,9 @@
 # CYCLE 068 — AGENT E PROMPT
 # Wave 10 S7.4 Gap Opportunity Hypothesis Mode — Validation Observer
 # §12.1 PARALLEL: E and B run IN PARALLEL after A. Do NOT wait for B.
+# B+E PARALLEL NOTICE: B and E execute in parallel after A.
 # HARD RULE: commit ONLY docs/cycle_reports/CYCLE_068_AGENT_E.md
+# HARD RULE: You commit ONLY CYCLE_068_AGENT_E.md. If a src/ module is missing, record the gap for B — DO NOT add it. floor-line-NNN filler lines are PROHIBITED. Every line must be substantive.
 # NO PAD LINES: every line substantive. floor-line-NNN PROHIBITED.
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 950 lines
 
@@ -592,7 +594,6 @@ print("E ZONE: commit ONLY CYCLE_068_AGENT_E.md. Zero src/. Zero tests/. Zero co
 print("E COMPLETE. Anti-filler verified. Policy v4.3. Floor 950. RSV SEED x12 documented.")
 ```
 
-END OF PROMPT
 
 
 ## TASK 36 — OBSERVE MODULE STRUCTURE POST-S7.4
@@ -809,7 +810,6 @@ $sha = (Invoke-Exe $git 'rev-parse HEAD').Out.Trim()
 (Invoke-Exe $git "show --name-only $sha").Out  # confirm zone
 ```
 
-END OF PROMPT
 
 ## SUPPLEMENTAL OBSERVATIONS — E FINAL BLOCK
 
@@ -949,3 +949,5 @@ Policy v4.3: floor 950, zero filler. Anti-filler verified.
 ## E DONE: All observations recorded. S7.4 data-driven gap detection confirmed.
 
 ## E: All 55 observation tasks complete. Policy v4.3 floor met.
+
+END OF PROMPT

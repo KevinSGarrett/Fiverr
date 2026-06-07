@@ -1,6 +1,7 @@
 # CYCLE 068 — AGENT D PROMPT
 # Merge Gate — Codex Review, Squash Merge, Jira Closeout
 # Runs AFTER all 5 agents (A, B, E, C, F).
+# B+E PARALLEL NOTICE: B and E execute in parallel after A.
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 1,200 lines
 
 ## PROJECT CONTEXT
@@ -48,6 +49,8 @@ Invoke-Exe $gh "api -X POST repos/KevinSGarrett/Fiverr/issues/$pr/labels --field
 ```powershell
 $base = (Invoke-Exe $git 'merge-base origin/develop HEAD').Out.Trim()
 (Invoke-Exe $git "log --oneline $base..HEAD").Out
+# canonical form required by policy docs:
+# git log --oneline <base_sha>..HEAD
 ```
 For EACH SHA: Invoke-Exe $git "show --name-only <sha>"
 Zone: A=PM_Pack+docs | B=src+tests+B.md | E=E.md ONLY | C=C.md | F=tests+F.md
@@ -169,7 +172,7 @@ Invoke-Exe $gh "pr merge $pr --squash --subject 'feat(discovery): C068 Wave 10 S
 Invoke-Exe $git 'fetch origin'
 Invoke-Exe $git 'log origin/develop --oneline -3'
 ```
-Record squash SHA = [C068_SQUASH_SHA].
+Record squash SHA = fa0b561.
 
 ## TASK 18 — VERIFY MERGE
 ```powershell
@@ -192,21 +195,21 @@ C:\Users\kevin\AppData\Local\Programs\Python\Python311\python.exe -m pytest -q -
 
 ## TASK 21 — JIRA: SCRUM-199 DONE
 Transition SCRUM-199 → Done (id 41):
-"C068 COMPLETE -- PR #N squash [C068_SQUASH_SHA].
+"C068 COMPLETE -- PR #N squash fa0b561.
 S7.4 Gap Opportunity: generate_gap_exploit_hypotheses() + _identify_gap_keywords() + _score_gap_hypothesis_confidence().
 Constants: GAP_DEMAND_THRESHOLD=0.60, GAP_COMPETITION_THRESHOLD=0.40, weights 0.60+0.40=1.0.
 Data-driven (no static map). Budget gate min_confidence=0.50. No LLM required.
 Tests: N total. hypothesis.py coverage: X%. Overall: X%."
 
 ## TASK 22 — JIRA: SCRUM-1030 DONE
-"C068 cycle complete. PR #N SHA: [C068_SQUASH_SHA]. All gates PASS.
+"C068 cycle complete. PR #N SHA: fa0b561. All gates PASS.
 S7.4 Gap Opportunity done. Wave 10: 4/9 stories (44%). S7.5 Trend Chase = C069."
 
 ## TASK 23 — HYDRATION HEADER UPDATE
 ```
 CYCLE_CURRENT: 069
 CYCLE_DONE: 068
-develop HEAD: [C068_SQUASH_SHA]
+develop HEAD: fa0b561
 Suite: N passed | X% coverage
 G-A: CLOSED | G-B: CLOSED | G-C: CLOSED | G-D: OPEN (Wave 10 S7.4 done; S7.5-S7.9 + Waves 11-12 remain)
 Wave 10: S7.1-S7.4 done (4/9 = 44%); S7.5-S7.9 TO DO
@@ -233,7 +236,7 @@ Write-Host "Scratch cleanup complete"
 
 ## TASK 26 — CREATE SCRUM-1031 (C069 control)
 "Cycle 069 (Wave 10 Discovery: S7.5 Trend Chase Hypothesis) control"
-Description: S7.5 Trend Chase, SCRUM-200, base SHA [C068_SQUASH_SHA], policy v4.3.
+Description: S7.5 Trend Chase, SCRUM-200, base SHA fa0b561, policy v4.3.
 S7.5 will need external_signals data (Google Trends, Reddit) — TierD-2 may matter more here.
 
 ## TASK 27 — GOVERNANCE COMMIT
@@ -397,7 +400,6 @@ Wave 10: 4/9 stories (44%). PROJECT COMPLETION: ~61%.
 TierD-1: 12 stashes pending user. TierD-2: ScrapFly SEED x12 pending user.
 C069 scope: S7.5 Trend Chase (SCRUM-1031 / SCRUM-200)."
 
-END OF PROMPT
 
 
 ## TASK 42 — VERIFY hypothesis.py EXPORTS CONSISTENT
@@ -469,7 +471,7 @@ TierD-2 (ScrapFly) may help with live trend signals before C069."
 
 ## TASK 49 — SCRUM-199 DONE COMMENT REQUIRED FIELDS
 Must include:
-1. PR number and squash SHA [C068_SQUASH_SHA]
+1. PR number and squash SHA fa0b561
 2. Functions: generate_gap_exploit_hypotheses() + _identify_gap_keywords() + _score_gap_hypothesis_confidence()
 3. Constants: GAP_DEMAND_THRESHOLD=0.60, GAP_COMPETITION_THRESHOLD=0.40, weights=0.60+0.40
 4. "Data-driven (no static map). Budget gate min_confidence=0.50."
@@ -542,7 +544,6 @@ D SIGN-OFF: "CYCLE 068 COMPLETE. S7.4 on develop HEAD. Data-driven gap detection
 Wave 10: 4/9 (44%). Project ~61%. TierD-1: 12 stashes. TierD-2: SEED x12.
 C069: S7.5 Trend Chase — SCRUM-1031."
 
-END OF PROMPT
 
 ## SUPPLEMENTAL D TASKS — FINAL BLOCK
 
@@ -770,13 +771,13 @@ Document in SCRUM-1031 for A to read when C069 starts.
 ## TASK 81 — VERIFY GOVERNANCE COMMIT SHA RECORDED
 D records governance commit SHA in D report.
 This SHA is the post-merge metadata commit pushed to develop.
-It is separate from the squash SHA [C068_SQUASH_SHA].
+It is separate from the squash SHA fa0b561.
 
 ## TASK 82 — VERIFY HYDRATION HEADER COMPLETE
 Hydration header after C068 must have:
 - CYCLE_CURRENT: 069
 - CYCLE_DONE: 068
-- develop HEAD: [C068_SQUASH_SHA]
+- develop HEAD: fa0b561
 - TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.4 done; S7.5-S7.9+Waves 11-12 remain)
 - PROJECT COMPLETION: ~61% (4/9 Wave 10 stories done)
 - TierD-1: 12 stashes | TierD-2: SEED x12
@@ -958,7 +959,7 @@ C:\Users\kevin\AppData\Local\Programs\Python\Python311\python.exe -m pytest -q `
 Record count and coverage for C069 baseline.
 
 ## TASK 98 — FINAL STATE SUMMARY
-Develop HEAD: [C068_SQUASH_SHA] + governance commit
+Develop HEAD: fa0b561 + governance commit
 Suite: [N] passed | [X]% coverage | floor 90%
 Wave 10: 4/9 stories = 44%
 PROJECT COMPLETION: ~61%
@@ -1146,7 +1147,7 @@ Remaining: S7.5-S7.9 (C069-C072+).
 C069 scope: S7.5 Trend Chase hypothesis mode."
 
 ## TASK 114 — SHA RESOLVER VERIFIED
-All 6 CYCLE_068 prompts: zero [C068_SQUASH_SHA] placeholders after D runs resolver.
+All 6 CYCLE_068 prompts: zero fa0b561 placeholders after D runs resolver.
 ```powershell
 Select-String "\[C068_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_068*.md 2>$null | Measure-Object | Select Count
 ```
@@ -1177,7 +1178,7 @@ print("Golden anchors: kw=110 62.7 | kw=96 35.8 | kw=3 56.66 — never change.")
 ## TASK 116 — FINAL COMPLETE STATE RECORD (C069 BASELINE)
 ```
 C069 baseline state (from C068 post-merge):
-  develop HEAD: [C068_SQUASH_SHA] + governance commit
+  develop HEAD: fa0b561 + governance commit
   Suite: [N] passed | [X]% coverage | floor 90%
   hypothesis.py: [lines] lines | [Y]% coverage
   hypothesis functions: generate_niche_hypotheses, generate_adjacent_keyword_hypotheses,
@@ -1192,9 +1193,10 @@ C069 baseline state (from C068 post-merge):
   C069 story: SCRUM-200 (S7.5 Trend Chase) — To Do
 ```
 
-END OF PROMPT
 
 ## D policy v4.3: floor 1200. All 6 agents verified against floor.
 
 ## D: All 116 tasks complete. C068 cycle governance closed.
 ## Floor 1200 met. Policy v4.3 compliant.
+
+END OF PROMPT

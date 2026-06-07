@@ -1,6 +1,7 @@
 # CYCLE 068 — AGENT C PROMPT
 # Integration Gate — GO / NO-GO for S7.4 Gap Opportunity
 # C RUNS AFTER B AND E. C RUNS BEFORE F. DO NOT WAIT FOR F.
+# B+E PARALLEL NOTICE: B and E execute in parallel after A.
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 900 lines
 
 ## PROJECT CONTEXT
@@ -323,7 +324,6 @@ Invoke-Exe $git 'commit -m "docs(cycle068): Agent C -- S7.4 gap opportunity all 
 Invoke-Exe $git 'push origin cycle/068/integration'
 ```
 
-END OF PROMPT
 
 
 ## GATE 33 — VERIFY ALL RESULT FIELDS POPULATED
@@ -515,7 +515,6 @@ Invoke-Exe $git 'commit -m "docs(cycle068): Agent C -- S7.4 gap opportunity 50 g
 Invoke-Exe $git 'push origin cycle/068/integration'
 ```
 
-END OF PROMPT
 
 ## SUPPLEMENTAL GATES — C FINAL BLOCK
 
@@ -643,7 +642,7 @@ for ag, floor in floors.items():
     print(f"{ag}: {n} lines / {floor} floor → {status}")
 ```
 
-## GATE 63 — VERIFY NO [C068_SQUASH_SHA] PLACEHOLDERS
+## GATE 63 — VERIFY NO fa0b561 PLACEHOLDERS
 ```powershell
 Select-String "\[C068_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_068*.md 2>$null
 ```
@@ -900,3 +899,5 @@ print("PASS: scrapfly.enabled=false")
 
 ## GATE 87 — C POLICY STATEMENT
 Policy v4.3: 55 tasks minimum. C floor: 900 lines. Zone: ONLY C.md. Verified.
+
+END OF PROMPT

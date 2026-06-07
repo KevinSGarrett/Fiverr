@@ -1,6 +1,7 @@
 # CYCLE 068 — AGENT F PROMPT
 # Coverage Uplift for S7.4 Gap Opportunity Hypothesis
 # Zone: tests/ + F report only. NEVER src/.
+# B+E PARALLEL NOTICE: B and E execute in parallel after A.
 # Prerequisite: C must issue GO verdict.
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 1,000 lines
 
@@ -296,7 +297,6 @@ Zone verified: PASS (zero src/ files)
 Policy v4.3: F floor 1000 lines.
 ```
 
-END OF PROMPT
 
 
 ## TASK 21 — ADDITIONAL EDGE CASES (F appends to test file)
@@ -524,7 +524,6 @@ $sha = (Invoke-Exe $git 'rev-parse HEAD').Out.Trim()
 (Invoke-Exe $git "show --name-only $sha").Out
 ```
 
-END OF PROMPT
 
 ## SUPPLEMENTAL F TESTS — FINAL BLOCK
 
@@ -998,3 +997,5 @@ All F tasks complete. Coverage uplift delivered.
 Zone: ONLY tests/unit/test_gap_exploit_hypotheses.py + CYCLE_068_AGENT_F.md.
 Policy v4.3: floor 1000 lines met. Zero filler.
 S7.4 gap opportunity edge cases, boundary conditions, and commercial scenarios covered.
+
+END OF PROMPT
