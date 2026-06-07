@@ -4,7 +4,7 @@
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 900 lines
 
 ## PROJECT CONTEXT
-- Branch: cycle/069/integration | Base SHA: 53979fa
+- Branch: cycle/069/integration | Base SHA: [C069_SQUASH_SHA]
 - Suite at start: 4815 passed | 94.35% | Floor: 90%
 
 ## INVOKE-EXE HELPER

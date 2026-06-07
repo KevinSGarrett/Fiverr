@@ -5,7 +5,7 @@
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 1,200 lines
 
 ## PROJECT CONTEXT
-- Branch: cycle/069/integration | Base SHA: 53979fa
+- Branch: cycle/069/integration | Base SHA: [C069_SQUASH_SHA]
 - Python: C:\Users\kevin\AppData\Local\Programs\Python\Python311\python.exe
 - Suite at start: 4815 passed | 94.35% | Floor: 90%
 - C069 story: SCRUM-200 | Parent: SCRUM-22

@@ -668,7 +668,7 @@ except ImportError:
 [ ] Policy v4.3 confirmed: 55 tasks, floors A:1000/B:1200/E:950/C:900/F:1000/D:1200
 [ ] SCRUM-1031 + SCRUM-200 In Progress
 [ ] All 6 prompts: [C069_SQUASH_SHA] = 0 matches
-[ ] "END OF PROMPT" exactly once per file
+[ ] end marker appears exactly once per file
 [ ] B+E parallel notice in first 25 lines
 [ ] E: src/ prohibition explicit
 [ ] C: after B AND E, before F
