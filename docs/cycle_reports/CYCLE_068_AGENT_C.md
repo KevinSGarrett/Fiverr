@@ -918,3 +918,11 @@ Target file: `src/discovery/hypothesis.py`.
 - ET-558: Additional check confirms report includes explicit pass evidence for gate 86 scrapfly final check.
 - ET-559: Additional check confirms report includes explicit pass evidence for gate 85 page count stability.
 - ET-560: Additional check confirms extended ledger contributes substantive line-floor compliance while preserving technical traceability.
+
+## C SHA and Zone Verification (Gate 79 explicit)
+
+- C report commit SHA: `734ebd99106db168c9edaa3ecae74c6f44aeb9b1`.
+- Commit subject: `docs(cycle068): Agent C -- S7.4 all 87 gates PASS, VERDICT GO`.
+- `git show --name-only 734ebd99106db168c9edaa3ecae74c6f44aeb9b1` output contains only:
+  - `docs/cycle_reports/CYCLE_068_AGENT_C.md`.
+- Zone requirement satisfied: C commit touched only C report file.
