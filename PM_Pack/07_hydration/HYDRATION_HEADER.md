@@ -1,13 +1,15 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-06 (C067 post-merge)
+# Updated: 2026-06-06 (C068 post-merge)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 068
-CYCLE_BRANCH: cycle/068/integration
+CYCLE_CURRENT: 069
+CYCLE_BRANCH: cycle/069/integration
 STATUS: READY_FOR_A
-CYCLE_DONE: 067
-CYCLE_NEXT: 068
+CYCLE_DONE: 068
+CYCLE_NEXT: 069
+CYCLE_STATUS_068: COMPLETE - PR #77 squash-merged to develop
+CYCLE_BRANCH_068: DELETED
 CYCLE_STATUS_067: COMPLETE - PR #76 squash-merged to develop
 CYCLE_BRANCH_067: DELETED
 CYCLE_STATUS_066: COMPLETE - PR #75 squash-merged to develop
@@ -22,10 +24,11 @@ CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
 CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.3 done; S7.4-S7.9 + Waves 11-12 remain)
+TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.4 done; S7.5-S7.9 + Waves 11-12 remain)
 
-## DEVELOP HEAD (current after C067 squash + governance)
-develop HEAD: 19e4ca2 (docs(cycle067): align final compliance metadata to latest develop head)
+## DEVELOP HEAD (current after C068 squash + governance)
+develop HEAD: d0f3f19 (feat(discovery): C068 Wave 10 S7.4 -- gap opportunity hypothesis mode (#77))
+C068 SQUASH SHA: d0f3f19d6e3b5f1bab0675b5098720d8a2d17004 (PR #77)
 C067 SQUASH SHA: 5572dfaece522f451e0c09763e669c4a33299069 (PR #76)
 C067 POST-MERGE GOVERNANCE SHA: 9725248
 C066 SQUASH SHA: 36f6f328a767afaf17316f79beac05c9eafaab42 (PR #75)
@@ -46,11 +49,11 @@ C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C067 post-merge D sanity)
-Tests: 4675 passed | Coverage: 94.34% | Floor: 90% enforced
-C067 core file: `src/discovery/hypothesis.py` (530 lines, 99% coverage post-C067)
-hypothesis.py: generate_adjacent_niche_hypotheses() + ADJACENT_NICHE_RELATIONSHIPS (9 niches)
-Wave 10 status: S7.1 scaffold done (SRDI), S7.2 done (C066), S7.3 done (C067), S7.4-S7.9 TO DO
+## SUITE STATE (C068 post-merge D sanity)
+Tests: 4815 passed | Coverage: 94.35% | Floor: 90% enforced
+C068 core file: `src/discovery/hypothesis.py` (641 lines, 99% coverage post-C068)
+hypothesis.py: `generate_gap_exploit_hypotheses()` + `_identify_gap_keywords()` + `_score_gap_hypothesis_confidence()`
+Wave 10 status: S7.1 scaffold done (SRDI), S7.2 done (C066), S7.3 done (C067), S7.4 done (C068), S7.5-S7.9 TO DO
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -112,11 +115,11 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## PROJECT COMPLETION (Part 5.7 v4.4 — updated C067 PM review 2026-06-06)
+## PROJECT COMPLETION (Part 5.7 v4.4 — updated C068 PM review 2026-06-06)
 COMPLETION: ~61% production-ready
-Delta from C066: +1% (S7.3 adjacent niche confirmed merged; smoke test PASS; baseline unchanged)
+Delta from C067: +0.5% (S7.4 gap opportunity confirmed merged; smoke test PASS; baseline unchanged)
 Biggest single lever: Approve TierD-2 (ScrapFly live collection) -> immediate +7-8%
-Next milestone: ~62% after C068 (S7.4 Gap Opportunity complete)
+Next milestone: ~62% after C069 (S7.5 Trend Chase complete)
 
 Track breakdown:
   01 Foundation:       93% | CLI passes, config-check OK, single worktree
@@ -127,25 +130,24 @@ Track breakdown:
   06 LLM recs:         70% | 12 tasks built; not run live against real data
   07 Dashboard:        72% | 9 pages live data; discovery.py stub; playbook.py stub
   08 Pricing:          88% | S6.1-S6.8 done; pricing-export CLI confirmed C066
-  09 Discovery:        25% | S7.1+S7.2+S7.3 done (3/9); S7.4-S7.9 not started
+  09 Discovery:        30% | S7.1+S7.2+S7.3+S7.4 done (4/9); S7.5-S7.9 not started
   10 Playbook:          8% | Prompt templates only; no pipeline; Wave 11 unstarted
   11 Dashboard UX:     10% | Spec done; Streamlit defaults; Wave 12 unstarted
   12 SRDI:             90% | R1-R11 done; G-A CLOSED; all integrity checks pass
 
 Weighted: (0.05x93)+(0.08x90)+(0.14x55)+(0.10x90)+(0.09x78)+(0.09x70)
-         +(0.07x72)+(0.08x88)+(0.10x25)+(0.10x8)+(0.07x10)+(0.03x90) = 60.65% -> ~61%
+         +(0.07x72)+(0.08x88)+(0.10x30)+(0.10x8)+(0.07x10)+(0.03x90) = 61.15% -> ~61%
 
 Path to 70%: TierD-2 approval (+7-8%) + complete Wave 10 S7.4-S7.7 (~4 cycles, +3-4%)
 Path to 80%: Wave 10 complete (S7.8+S7.9) + live validated pipeline
 Path to 100%: Wave 11 Playbook + Wave 12 Dashboard UX + live production runs
 
-## C068 PREVIEW
-- Wave 10 Discovery: S7.4 Gap Opportunity Hypothesis Mode (SCRUM-199, parent SCRUM-22)
-- SCRUM-1030 (C068 control): In Progress on cycle/068/integration.
-- SCRUM-199: In Progress. S7.4 generates gap_opportunity hypotheses from scoring data.
-  Function: generate_gap_exploit_hypotheses() in src/discovery/hypothesis.py
-  Unlike S7.2/S7.3 (static maps), S7.4 queries existing keyword scores to find
-  high-demand/low-competition gaps. Needs scoring data; no LLM required.
+## C069 PREVIEW
+- Wave 10 Discovery: S7.5 Trend Chase Hypothesis Mode (SCRUM-200, parent SCRUM-22)
+- SCRUM-1031 (C069 control): To Do.
+- S7.5 target: `generate_trend_chase_hypotheses()` in `src/discovery/hypothesis.py`.
+- Unlike S7.2/S7.3/S7.4, S7.5 may require external trend/signal sources (Google Trends + Reddit).
+- TierD-2 (ScrapFly) approval remains recommended before live trend collection.
 - POLICY CHANGE (effective C067+): 55 LARGE-XXLARGE tasks minimum per agent (raised from 25).
   New line floors: A:1,000 | B:1,200 | E:950 | C:900 | F:1,000 | D:1,200 | TOTAL:6,250
   Documented in AGENT_EXECUTION_STRATEGY.md §8.1/§8.3 (v4.3) and POST_CYCLE_PM_REVIEW_v4.md (v4.3)
