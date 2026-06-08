@@ -6,8 +6,10 @@ builds compact feedback summaries that can be passed into the next cycle.
 
 from __future__ import annotations
 
+import importlib
 import logging
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -124,19 +126,24 @@ def _get_keyword_tag(keyword: Keyword, db: Any) -> str | None:
 
 def _fire_gold_alert(keyword: Keyword, final_score: float, db: Any) -> None:
     """Best-effort gold alert dispatch with graceful fallback."""
-    create_alert = None
+    create_alert: Callable[..., Any] | None = None
     try:
-        from src.monitoring.monitors import create_alert as _create_alert
-
-        create_alert = _create_alert
+        monitors = importlib.import_module("src.monitoring.monitors")
+        create_alert = getattr(monitors, "create_alert", None)
     except Exception:
-        try:
-            from src.alerts import create_alert as _create_alert
+        create_alert = None
 
-            create_alert = _create_alert
+    if create_alert is None:
+        try:
+            alerts = importlib.import_module("src.alerts")
+            create_alert = getattr(alerts, "create_alert", None)
         except Exception:
             log.warning("Gold discovery alert skipped: create_alert not available")
             return
+
+    if create_alert is None:
+        log.warning("Gold discovery alert skipped: create_alert not available")
+        return
 
     try:
         create_alert(
