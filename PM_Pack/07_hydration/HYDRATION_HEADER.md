@@ -30,7 +30,7 @@ TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.1-S7.5 do
 D_REPORT_COMPLETE_069: YES (CYCLE 069 CLOSED)
 
 ## DEVELOP HEAD (current after C069 replay squash)
-develop HEAD: d8b440c2a2674aaeb2938c7982f8f6875d65f988 (feat(discovery): C069 Wave 10 S7.5 -- trend chase hypothesis mode (#79))
+develop HEAD: e880e80 (chore(governance): C069 replay closeout and SHA resolution)
 C069 SQUASH SHA: d8b440c2a2674aaeb2938c7982f8f6875d65f988 (PR #79)
 C068 SQUASH SHA: d0f3f19d6e3b5f1bab0675b5098720d8a2d17004 (PR #77)
 C067 SQUASH SHA: 5572dfaece522f451e0c09763e669c4a33299069 (PR #76)
