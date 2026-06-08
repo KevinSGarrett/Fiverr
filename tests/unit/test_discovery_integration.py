@@ -848,8 +848,15 @@ class TestFAgentCoverageUplift:
 
     def test_s77_complete_smoke(self) -> None:
         from src.discovery.contracts import HypothesisMode
-        from src.discovery.feedback import GOLD_THRESHOLD, build_feedback_summary, evaluate_discovery_results
-        from src.discovery.hypothesis import generate_gap_exploit_hypotheses, generate_trend_chase_hypotheses
+        from src.discovery.feedback import (
+            GOLD_THRESHOLD,
+            build_feedback_summary,
+            evaluate_discovery_results,
+        )
+        from src.discovery.hypothesis import (
+            generate_gap_exploit_hypotheses,
+            generate_trend_chase_hypotheses,
+        )
         from src.discovery.integration import (
             check_discovery_keyword_exists,
             get_pending_discovery_keywords,
