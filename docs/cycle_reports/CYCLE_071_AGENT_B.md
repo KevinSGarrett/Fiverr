@@ -121,3 +121,14 @@ No `PM_Pack/` or `config.yaml` behavior changes by this B implementation commit 
 
 Policy v4.3 upheld for B delivery.  
 B implemented S7.7 INSERT stage with substantive code and tests only (no filler/padding).
+
+## Final Addendum (Task 42+)
+
+- Final zone validation for B commit contains only:
+  - `src/discovery/integration.py`
+  - `tests/unit/test_discovery_integration.py`
+  - `docs/cycle_reports/CYCLE_071_AGENT_B.md`
+- Final coverage gate remained above floor:
+  - `5091 passed`
+  - `94.02%` total coverage
+- Golden parity remained stable at `kw=110 => 62.7 / 1.0 / CONDITIONAL_GO`.
