@@ -1,6 +1,6 @@
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-08 (C070 post-merge)
+# Updated: 2026-06-08 (C070 post-merge + Codex P2 follow-up)
 
 ## CYCLE STATE
 CYCLE_CURRENT: 071
@@ -31,9 +31,10 @@ CYCLE_BRANCH_061: DELETED
 TIER_GATE: G-A CLOSED | G-B CLOSED (re-verified post S7.6 migration) | G-C CLOSED | G-D OPEN (Wave 10 S7.7-S7.9 + Waves 11-12 remain)
 D_REPORT_COMPLETE_070: YES (CYCLE 070 CLOSED)
 
-## DEVELOP HEAD (current after C070 squash)
-develop HEAD: e880e80 -> a8c0a7d (feat(discovery): C070 Wave 10 S7.6 -- discovery scoring and feedback (#80))
+## DEVELOP HEAD (current after C070 squash + follow-up fix)
+develop HEAD: e880e80 -> 4234ff6 (fix(discovery): ignore unscored legacy outcomes in feedback summary)
 C070 SQUASH SHA: a8c0a7d (PR #80)
+C070 POST-SQUASH FIX SHA: 4234ff6 (Codex P2 legacy-outcome filter in build_feedback_summary)
 C069 SQUASH SHA: d8b440c2a2674aaeb2938c7982f8f6875d65f988 (PR #79)
 C068 SQUASH SHA: d0f3f19d6e3b5f1bab0675b5098720d8a2d17004 (PR #77)
 C067 SQUASH SHA: 5572dfaece522f451e0c09763e669c4a33299069 (PR #76)
@@ -57,7 +58,7 @@ C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
 ## SUITE STATE (C070 post-merge D sanity)
-Tests: 5049 passed | Coverage: 94.01% | Floor: 90% enforced
+Tests: 5050 passed | Coverage: 94.01% | Floor: 90% enforced
 C069 core file: `src/discovery/hypothesis.py` (764 lines, 99% coverage in full-suite term-missing run)
 hypothesis.py: `generate_trend_chase_hypotheses()` + `_identify_trending_keywords()` + `_score_trend_hypothesis_confidence()`
 Wave 10 status: S7.1 scaffold done (SRDI), S7.2 done (C066), S7.3 done (C067), S7.4 done (C068), S7.5 done (C069), S7.6 done (C070), S7.7-S7.9 TO DO
@@ -148,7 +149,7 @@ Track breakdown:
 Weighted: (0.05x93)+(0.08x92)+(0.14x55)+(0.10x90)+(0.09x78)+(0.09x70)
          +(0.07x72)+(0.08x88)+(0.10x46)+(0.10x8)+(0.07x10)+(0.03x90) = 63.15% -> ~63%
 
-Path to 70%: TierD-2 approval (+7-8%) + complete Wave 10 S7.4-S7.7 (~4 cycles, +3-4%)
+Path to 70%: TierD-2 approval (+7-8%) + complete Wave 10 S7.7-S7.9 (~3 cycles, +3-4%)
 Path to 80%: Wave 10 complete (S7.8+S7.9) + live validated pipeline
 Path to 100%: Wave 11 Playbook + Wave 12 Dashboard UX + live production runs
 

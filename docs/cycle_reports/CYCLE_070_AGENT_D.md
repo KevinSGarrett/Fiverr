@@ -4,6 +4,7 @@ Date: 2026-06-08
 Branch at completion: `develop`
 Base SHA from prompt: `e880e80`
 C070 squash SHA: `a8c0a7d` (PR #80)
+Post-squash fix SHA: `4234ff6` (Codex P2 legacy-outcome filter)
 Post-merge governance SHA: `7731927`
 Policy target: v4.3 floor 1200 lines
 
@@ -13,13 +14,14 @@ C070 is CLOSED. S7.6 Discovery Scoring and Feedback is merged to `develop` and v
 
 - PR #80 labeled and squash-merged.
 - Required gates (imports, thresholds, schema, golden anchor, regressions, coverage floor) passed.
+- Codex thread follow-up complete: unresolved review thread resolved and re-queried twice with zero unresolved.
 - Jira closeout executed: SCRUM-201 Done, SCRUM-1032 Done, SCRUM-22 remains In Progress, SCRUM-1033 exists in To Do.
 - Hydration header updated for C071 kickoff.
 - Governance commit pushed with hydration-only change.
 
 ## Key Metrics
 
-- Full suite post-merge: 5049 passed, coverage 94.01%.
+- Full suite post-merge: 5050 passed, coverage 94.01%.
 - Discovery coverage snapshot: feedback.py 81%, hypothesis.py 99%, discovery total 96%.
 - Golden parity anchor (`kw=110`) = 62.7 / 1.0 / CONDITIONAL_GO (PASS).
 - Wave 10 progress: 6/9 (S7.1-S7.6 complete; S7.7-S7.9 pending).
@@ -49,7 +51,7 @@ C070 is CLOSED. S7.6 Discovery Scoring and Feedback is merged to `develop` and v
 
 ### Task 4
 - Status: PASS
-- GraphQL reviewThreads query executed twice; both returned zero unresolved threads (`nodes: []`).
+- GraphQL reviewThreads query executed twice; unresolved thread identified, resolved, then re-run twice with zero unresolved threads (`nodes: []`).
 - Evidence source: shell command output, Python assertion, git/gh output, or Jira API response.
 
 ### Task 5
@@ -1301,3 +1303,5 @@ C070 is CLOSED. S7.6 Discovery Scoring and Feedback is merged to `develop` and v
 D complete. C070 closed on develop. S7.6 merged and verified. Wave 10 at 6/9. Project completion ~63%.
 SCRUM-1032 Done | SCRUM-201 Done | SCRUM-22 In Progress | SCRUM-1033 To Do.
 C071 target: S7.7 Discovery Keyword Integration.
+
+Post-closeout verification note (2026-06-08): `build_feedback_summary` now excludes legacy unscored outcomes via commit `4234ff6`; full unit suite re-run at `5050 passed` with `94.01%` coverage.
