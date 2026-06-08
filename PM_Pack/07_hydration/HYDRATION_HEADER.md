@@ -63,7 +63,7 @@ C069 core file: `src/discovery/hypothesis.py` (764 lines, 99% coverage in full-s
 hypothesis.py: `generate_trend_chase_hypotheses()` + `_identify_trending_keywords()` + `_score_trend_hypothesis_confidence()`
 Wave 10 status: S7.1 scaffold done (SRDI), S7.2 done (C066), S7.3 done (C067), S7.4 done (C068), S7.5 done (C069), S7.6 done (C070), S7.7-S7.9 TO DO
 C070 control: SCRUM-1032 (Done) | C070 story: SCRUM-201 (Done)
-C071 control: SCRUM-1033 (To Do)
+C071 control: SCRUM-1033 (In Progress)
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)

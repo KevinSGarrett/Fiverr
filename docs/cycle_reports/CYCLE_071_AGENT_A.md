@@ -26,6 +26,11 @@ Develop baseline reference for C071 planning scope: `afbfcf1` (includes hotfix `
 - `SCRUM-202` transitioned to **In Progress**.
 - `SCRUM-22` remains **In Progress** and updated with Wave 10 progress note.
 
+## Production Readiness Gates Update
+
+G-A: CLOSED | G-B: CLOSED | G-C: CLOSED | G-D: OPEN (S7.7-S7.9 remain; Waves 11-12).  
+G-B note: S7.7 adds no new tables/columns and only inserts to existing `keywords`; G-B does not need re-verification after C071 merge when migration_14 is untouched.
+
 ## S7.7 Scope Confirmation
 
 S7.7 is the Discovery INSERT stage:
@@ -94,6 +99,7 @@ Conclusion: **no migration needed for S7.7**.
 - Discovery seed-mode counts: `discovery_outcomes=0`, discovery keywords in gate DB `=0`.
 - Wave 9 pricing imports are intact.
 - `ADJACENT_NICHE_RELATIONSHIPS` count remains `9`.
+- Existing keyword insertion/query idioms were surveyed in `src/collection/orchestrator.py`; B should follow current ORM/write patterns and repository field naming.
 
 ## Dedup and Lineage Contract for B
 
@@ -135,6 +141,14 @@ Conclusion: **no migration needed for S7.7**.
 - S7.8 (C072): orchestration stage wiring.
 - S7.9 (C073): dashboard presentation for discovery outcomes.
 
+Wave 10 stage map (documentation requirement):
+
+- GENERATE (S7.2-S7.5) - `hypothesis.py` - DONE
+- EVALUATE (S7.6) - `feedback.py` - DONE
+- INSERT (S7.7) - `integration.py` - THIS CYCLE
+- ORCHESTRATE (S7.8) - `orchestrator.py` - C072
+- DISPLAY (S7.9) - `dashboard/pages/` - C073
+
 ## Wave 10 Scorecard
 
 | Story | Cycle | Status |
@@ -155,7 +169,7 @@ Conclusion: **no migration needed for S7.7**.
 | --- | ---: | --- |
 | 01 Foundation | 93% | CLI and branch/worktree checks green |
 | 02 Data/models | 92% | migration_14 already contains S7.7 fields |
-| 03 Collection | 55% | TierD-2 still pending |
+| 03 Collection | 55% | TierD-2 PENDING; RSV SEED x15; code 95% done |
 | 04 Scoring | 90% | Golden anchor parity pass |
 | 05 Analysis | 78% | ext signals enabled, llm relevance disabled |
 | 06 LLM recs | 70% | Built but not fully live-run |
@@ -242,7 +256,50 @@ REG-45: test_legacy_unscored_rows_are_ignored
 
 S7.7 unlocks direct commercial value by converting accepted hypotheses into first-class keywords that flow through collection, scoring, and later feedback. Without INSERT, generation output remains inert. With INSERT, discovery ideas become executable pipeline candidates on the next run.
 
+## run_id Convention Survey and Recommendation
+
+- Existing codebase patterns use both UUID-based and timestamp-based run identifiers.
+- B should follow orchestrator-compatible conventions for consistency.
+- Fallback recommendation if no helper applies: `discovery-YYYYMMDD-HHMMSS`.
+
+## S7.7 Design Note (Required)
+
+For implementation guidance, `integration.py` should use lazy imports for model access inside function bodies (for example `from src.models import Keyword` within functions) to minimize circular-import risk, consistent with discovery module patterns.
+
+## SCRUM-202 Acceptance Criteria Check (Required)
+
+1. Approved discovery keywords integrate into keyword table with source lineage -> covered by `insert_discovery_keyword()` contract.
+2. Duplicates are prevented -> covered by case-insensitive dedup on keyword+niche scope.
+3. Promotion confidence preserved -> `hypothesis_confidence` lineage field requirement captured.
+4. Tests cover promotion/duplicate/missing-data/rollback behavior -> directed to `tests/unit/test_discovery_integration.py` with >=30 tests.
+
 ## Required Authorization Statements
+
+Task 50 authorization statement (verbatim requirement):
+
+"CYCLE 071 PROMPTS AUTHORIZED FOR RELEASE.
+Policy v4.3: 55 LARGE-XXLARGE tasks, floors A:1000/B:1200/E:950/C:900/F:1000/D:1200.
+14 tracks reviewed. 5 gap checks PASS. Jira clean.
+SCRUM-1033 In Progress. SCRUM-202 In Progress. SCRUM-22 In Progress.
+Base SHA: afbfcf1 (includes C070 hotfix 4234ff6). Suite: 5050/94.01%.
+S7.7 Discovery Keyword Integration:
+  NEW FILE: src/discovery/integration.py (INSERT stage)
+  Functions: insert_discovery_keyword(), process_accepted_hypotheses(),
+             get_pending_discovery_keywords(), check_discovery_keyword_exists(),
+             queue_discovery_collection()
+  NO NEW MIGRATION (migration_14 from C070 has all required columns)
+  Dedup: case-insensitive (keyword_text, niche_id) check
+  Lineage: all 7 discovery fields populated on insert
+Wave 10: 7/9 stories after C071. Project ~64%.
+TierD-1: 12 stashes. TierD-2: SEED x14. Approve TierD-2 before C072."
+
+Task 59 final paragraph format (verbatim requirement):
+
+"CYCLE 071 PROMPTS AUTHORIZED FOR RELEASE.
+Policy v4.3 floors: A:1000 B:1200 E:950 C:900 F:1000 D:1200.
+S7.7 Discovery Keyword Integration. INSERT stage.
+No migration. integration.py only. Wave 10: 7/9 after C071.
+Project ~64%."
 
 CYCLE 071 PROMPTS AUTHORIZED FOR RELEASE.  
 Policy v4.3: floors A:1000 B:1200 E:950 C:900 F:1000 D:1200.  
