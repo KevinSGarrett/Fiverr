@@ -5,7 +5,7 @@
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 1,000 lines
 
 ## PROJECT CONTEXT
-- Branch: cycle/069/integration | Base SHA: 53979fa
+- Branch: cycle/069/integration | Base SHA: [C069_SQUASH_SHA]
 
 ## INVOKE-EXE HELPER
 ```powershell
