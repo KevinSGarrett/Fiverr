@@ -213,14 +213,14 @@ Input: keyword_trends with trend_score + trend_velocity (external signal data).
 Thresholds: trend_score>=0.60 AND trend_velocity>=0.40 (both required).
 Confidence: 0.55×trend_score + 0.45×trend_velocity (no base bonus).
 Budget gate: min_confidence=0.50. No LLM. No new DB tables.
-PR #[N] squash SHA [C069_SQUASH_SHA].
+PR #[N] squash SHA 398295d70d3433149d70b686991d73c18476e0c5.
 Suite: [N] passed | [X]% coverage.
 Wave 10: 5/9 stories complete after this merge."
 
 ## TASK 22 — SCRUM-1031 TRANSITION TO DONE
 Transition SCRUM-1031 → Done.
 Comment: "C069 complete. S7.5 Trend Chase merged.
-SHA: [C069_SQUASH_SHA]. 
+SHA: 398295d70d3433149d70b686991d73c18476e0c5. 
 SCRUM-200 closed. SCRUM-22 In Progress."
 
 ## TASK 23 — HYDRATION HEADER UPDATE
@@ -229,7 +229,7 @@ Update PM_Pack/07_hydration/HYDRATION_HEADER.md:
 - CYCLE_DONE: 069
 - CYCLE_NEXT: 070
 - CYCLE_STATUS_069: COMPLETE — PR #[N] squash-merged to develop
-- develop HEAD: [C069_SQUASH_SHA]
+- develop HEAD: 398295d70d3433149d70b686991d73c18476e0c5
 - C069 SQUASH SHA: [full SHA]
 - Suite: [N] passed | [X]%
 - Wave 10 status: S7.1-S7.5 all done | S7.6-S7.9 TO DO
@@ -252,7 +252,7 @@ Remove-Item C:\Fiverr\*.py, C:\Fiverr\*.json, C:\Fiverr\*.txt -Force -ErrorActio
 Create SCRUM-1032: "Cycle 070 (Wave 10 Discovery: S7.6 Discovery Scoring and Feedback) control"
 Description: "C070 control task. S7.6 Discovery Scoring/Feedback loop.
 Scope: SCRUM-201. Story: S7.6 (parent SCRUM-22).
-Base SHA: [C069_SQUASH_SHA]. Policy v4.3."
+Base SHA: 398295d70d3433149d70b686991d73c18476e0c5. Policy v4.3."
 
 ## TASK 27 — GOVERNANCE COMMIT
 ```powershell
@@ -464,7 +464,7 @@ assert len(pages) == 9; print(f"PASS: {len(pages)} pages on develop HEAD")
 
 ## TASK 49 — SHA RESOLVER (ZERO PLACEHOLDERS)
 ```powershell
-Select-String "\[C069_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_069*.md 2>$null | Measure-Object | Select Count
+Select-String "398295d70d3433149d70b686991d73c18476e0c5" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_069*.md 2>$null | Measure-Object | Select Count
 ```
 Count MUST be 0.
 
@@ -698,7 +698,7 @@ C070 scope: S7.6 Discovery Scoring and Feedback."
 SCRUM-1032 summary: "Cycle 070 (Wave 10 Discovery: S7.6 Discovery Scoring and Feedback) control"
 Description: "C070 control. S7.6 Discovery Scoring/Feedback loop.
 Scope: SCRUM-201 (if exists) or S7.6 spec tasks 7.6.1-7.6.4.
-Story parent: SCRUM-22. Base SHA: [C069_SQUASH_SHA]. Policy v4.3."
+Story parent: SCRUM-22. Base SHA: 398295d70d3433149d70b686991d73c18476e0c5. Policy v4.3."
 
 ## TASK 70 — VERIFY NICHE_VALIDATION_CONFIG ON DEVELOP
 ```python
@@ -739,7 +739,7 @@ Full 100% production readiness estimate: ~C080-C085 if pace maintained.
 D report must contain:
 1. Date and cycle number
 2. All gate results (G1-G10 or similar)
-3. PR number and squash SHA [C069_SQUASH_SHA]
+3. PR number and squash SHA 398295d70d3433149d70b686991d73c18476e0c5
 4. S7.5 design: dual threshold (score AND velocity), 0.55/0.45 weights, no base bonus
 5. Suite: [N] passed | [X]% coverage
 6. Wave 10: 5/9 stories (55.6%) after C069
@@ -853,7 +853,7 @@ Document in D report under "S7.5 Commercial Value".
 ## TASK 82 — FINAL D SIGN-OFF CHECKLIST
 ```
 CYCLE 069 CHECKLIST:
-[ ] PR #[N] squash merged | SHA: [C069_SQUASH_SHA]
+[ ] PR #[N] squash merged | SHA: 398295d70d3433149d70b686991d73c18476e0c5
 [ ] Branch cycle/069/integration deleted
 [ ] Codex x2 zero threads
 [ ] CI all required checks green
@@ -988,7 +988,7 @@ C:\Users\kevin\AppData\Local\Programs\Python\Python311\python.exe -m pytest -q `
 SCRUM-1032 must contain:
 1. "C070 control task"
 2. "S7.6 Discovery Scoring and Feedback"
-3. "Base SHA: [C069_SQUASH_SHA]"
+3. "Base SHA: 398295d70d3433149d70b686991d73c18476e0c5"
 4. "Policy v4.3"
 5. Parent SCRUM-22 or SCRUM-23 reference
 
@@ -1011,7 +1011,7 @@ print("PASS: Wave 9 pricing intact on develop HEAD post-C069 merge")
 
 ## TASK 95 — FINAL D CHECKLIST VERIFIED
 ```
-[x] PR #N squash merged to develop | C069_SQUASH_SHA recorded
+[x] PR #N squash merged to develop | 398295d70d3433149d70b686991d73c18476e0c5 recorded
 [x] cycle/069/integration branch deleted and pruned
 [x] Codex x2 zero unresolved threads
 [x] CI: all required checks green

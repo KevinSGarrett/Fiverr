@@ -89,8 +89,8 @@ $sha = (Invoke-Exe $git 'log origin/develop --oneline -1').Out.Split()[0]
 $base = 'C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\'
 Get-ChildItem $base -Filter 'CYCLE_069*.md' | ForEach-Object {
     $c = Get-Content $_.FullName -Raw
-    Set-Content $_.FullName ($c -replace '\[C069_SQUASH_SHA\]', $sha) }
-Select-String '\[C069_SQUASH_SHA\]' ($base + 'CYCLE_069*.md') 2>$null
+    Set-Content $_.FullName ($c -replace '398295d70d3433149d70b686991d73c18476e0c5', $sha) }
+Select-String '398295d70d3433149d70b686991d73c18476e0c5' ($base + 'CYCLE_069*.md') 2>$null
 ```
 Run after D's squash merge. Zero matches = all 6 prompts resolved.
 
@@ -667,7 +667,7 @@ except ImportError:
 [ ] Strategy doc §7/§8/§9/§10/§11/§12/§13 read
 [ ] Policy v4.3 confirmed: 55 tasks, floors A:1000/B:1200/E:950/C:900/F:1000/D:1200
 [ ] SCRUM-1031 + SCRUM-200 In Progress
-[ ] All 6 prompts: [C069_SQUASH_SHA] = 0 matches
+[ ] All 6 prompts: 398295d = 0 matches
 [ ] end marker appears exactly once per file
 [ ] B+E parallel notice in first 25 lines
 [ ] E: src/ prohibition explicit
@@ -838,7 +838,7 @@ S7.5 source tasks 7.5.1-7.5.4:
 Document in B handoff: all 4 subtasks must be implemented.
 
 ## TASK 71 — VERIFY D SHA RESOLVER IN PROMPTS
-All 6 CYCLE_069 prompts must contain [C069_SQUASH_SHA] placeholders.
+All 6 CYCLE_069 prompts must contain 398295d placeholders.
 D runs the SHA resolver after merge to replace all placeholders.
 Verify at least one placeholder exists before release.
 
@@ -989,10 +989,10 @@ Document in A report.
 ## SCRUM-1031 Done | SCRUM-200 Done | SCRUM-22 In Progress | SCRUM-1032 To Do
 
 
-## TASK 84 — FINAL PRE-RELEASE: VERIFY C069 PROMPTS HAVE [C069_SQUASH_SHA] PLACEHOLDERS
+## TASK 84 — FINAL PRE-RELEASE: VERIFY C069 PROMPTS HAVE 398295d PLACEHOLDERS
 ```powershell
 # Run after writing all 6 prompts but BEFORE governance commit
-Select-String "\[C069_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_069*.md 2>$null | Measure-Object | Select Count
+Select-String "398295d70d3433149d70b686991d73c18476e0c5" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_069*.md 2>$null | Measure-Object | Select Count
 ```
 Count > 0 = placeholders present (correct — D will resolve them after merge).
 Count = 0 = something wrong — D needs SHAs to replace.
@@ -1000,3 +1000,4 @@ Count = 0 = something wrong — D needs SHAs to replace.
 
 ## TASK 85 — VERIFY SCRUM-22 COMMENT CAPTURES ALL 4 MODES DONE
 A posts In Progress comment on SCRUM-22 at cycle start. Comment must list: S7.2 (C066), S7.3 (C067), S7.4 (C068) all done — and that S7.5 (C069) is in progress.
+
