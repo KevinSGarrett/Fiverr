@@ -6,9 +6,9 @@ builds compact feedback summaries that can be passed into the next cycle.
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from datetime import UTC, datetime
-import logging
 from typing import Any
 
 from src.models import DiscoveryCycleLog, DiscoveryOutcome, Keyword

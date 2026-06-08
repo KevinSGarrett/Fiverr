@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import importlib.util
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 import sqlalchemy
 
 _feedback_path = Path("src/discovery/feedback.py").resolve()
