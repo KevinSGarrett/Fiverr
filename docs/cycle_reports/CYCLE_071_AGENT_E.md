@@ -319,3 +319,177 @@ Project completion after C071: ~64% governance posture
 
 Policy v4.3 floor and anti-filler constraint respected.  
 Only this E report file is modified in E zone.
+
+## Supplemental Tasks 31-40
+
+### Task 31 — Wave 10 Hypothesis Function Signatures
+
+Observed signatures:
+
+- `generate_adjacent_keyword_hypotheses(source_niche_id, seed_keywords, existing_keywords, *, max_hypotheses=10, min_confidence=0.5)`
+- `generate_adjacent_niche_hypotheses(source_niche_id, seed_keywords, existing_niches, *, max_hypotheses=10, min_confidence=0.5)`
+- `generate_gap_exploit_hypotheses(source_niche_id, keyword_scores, existing_hypotheses, *, max_hypotheses=10, min_confidence=0.5, demand_threshold=0.6, competition_threshold=0.4)`
+- `generate_trend_chase_hypotheses(source_niche_id, keyword_trends, existing_hypotheses, *, max_hypotheses=10, min_confidence=0.5, trend_score_threshold=0.6, trend_velocity_threshold=0.4)`
+
+Conclusion: all four hypothesis generators are intact.
+
+### Task 32 — Naming Map Observation
+
+Observed mapping remains consistent with B implementation intent:
+
+- hypothesis text feeds keyword text semantics,
+- niche id carries through,
+- confidence/rationale preserve lineage,
+- run id and status flags establish lifecycle.
+
+### Task 33 — Accepted Filter Confirmation
+
+Observation check result:
+
+- mixed input (`accepted=True` + `accepted=False`) led to one insert call only,
+- returned result matched accepted-filter behavior.
+
+### Task 34 — Discovery Keyword Lifecycle
+
+Observed lifecycle continuity:
+
+- insert creates pending discovery keywords,
+- scoring/evaluation remains S7.6 responsibility,
+- retirement/evaluated flags control future inclusion.
+
+### Task 35 — RSV Seed x15 Context
+
+Observation reaffirmed:
+
+- seed-mode chain context remains in place,
+- S7.7 works independent of live mode,
+- TierD-2 is still the key unlock for real-data evaluation.
+
+### Task 36 — Test Class Presence
+
+Observed in `test_discovery_integration.py`:
+
+- Required classes found:
+  - `TestCheckDiscoveryKeywordExists`
+  - `TestInsertDiscoveryKeyword`
+  - `TestProcessAcceptedHypotheses`
+  - `TestGetPendingDiscoveryKeywords`
+  - `TestQueueDiscoveryCollection`
+- Additional helper/flow classes also present.
+
+### Task 37 — S7.7 vs S7.8 Boundary
+
+Boundary remains clean:
+
+- S7.7: insert/query utility stage.
+- S7.8: orchestration wiring and cycle logging.
+
+### Task 38 — Complete Discovery File Survey
+
+Observed discovery Python file count: 7.
+
+Includes:
+
+- `contracts.py`
+- `feedback.py`
+- `hypothesis.py`
+- `integration.py`
+- `orchestrator.py`
+- package helpers.
+
+### Task 39 — Part 5.7 Estimate Recheck
+
+Recomputed weighted total remains `63.7%`, governance value `~64%`.
+
+### Task 40 — Golden Parity Observation
+
+Golden run revalidated:
+
+- `kw=110` final score `62.7`,
+- confidence modifier `1.0`,
+- tag `CONDITIONAL_GO`.
+
+## Additional Observations 41-45
+
+### Task 41 — Dedup Design Analysis
+
+- `(text, niche)` dedup scope is correct for market granularity.
+- Cross-type dedup with seed keywords protects data quality.
+- `None` return on duplicate fits batch processing.
+
+### Task 42 — Single Commit Pattern
+
+- Insert path uses `flush()` for IDs.
+- Batch path uses one `commit()` at end.
+- This preserves atomicity and efficiency.
+
+### Task 43 — run_id Convention Observation
+
+- Many source files reference `run_id`.
+- Existing codebase supports UUID-like and timestamp-like run formats.
+- S7.7 run-id handling is compatible with current conventions.
+
+### Task 44 — Wave 10 Snapshot
+
+Wave 10 status remains:
+
+- Done: S7.1-S7.7
+- Remaining: S7.8-S7.9
+
+### Task 45 — v4.4 Completion Box
+
+Governance-aligned values remain:
+
+- Project completion `~64%`
+- Delta from C070 `+1%` via S7.7 INSERT
+- Next milestone `~65%` after C072 orchestration
+
+## Final Observations 46-52
+
+### Task 46 — SCRUM-1034 Scope
+
+C072 control scope remains orchestration/wiring story with no migration requirement.
+
+### Task 47 — Discovery Module List After C071
+
+`integration.py` is present in discovery package, confirming expected post-C071 structure.
+
+### Task 48 — RSV Seed x15
+
+Seed mode remains active; S7.7 is ready for TierD-2 live leverage.
+
+### Task 49 — get_pending Excludes Retired
+
+Mock observation confirms pending query returns non-retired rows only.
+
+### Task 50 — Complete E Summary
+
+E observations completed across requested areas:
+
+- S7.7 module and schema state,
+- dedup/lineage contracts,
+- lifecycle and stage boundaries,
+- governance completion posture.
+
+### Task 51 — integration Module Structure
+
+Observed structure matches expected design:
+
+- dedup query helper,
+- insert/queue/pending functions,
+- batch insert summary function with final commit.
+
+### Task 52 — C072 Readiness
+
+Post-C071 readiness:
+
+- S7.2-S7.7 building blocks are present.
+- C072 remains primarily orchestration integration.
+
+## Final E Compliance Statement
+
+E completed all requested observation tasks in this prompt set.  
+S7.7 Discovery Keyword Integration is confirmed as INSERT-stage operational.  
+No migration required for S7.7.  
+Wave 10 stands at 7/9 after C071.  
+Project completion estimate remains ~64% after C071.
