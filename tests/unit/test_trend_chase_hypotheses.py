@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 
 import pytest
-
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.contracts import HypothesisMode
 from src.discovery.hypothesis import (
@@ -538,7 +537,8 @@ class TestTrendChaseCoverageUpliftAgentF:
         assert sum(r.accepted for r in results) <= max_hyp
 
     def test_s75_no_db_writes(self) -> None:
-        from sqlalchemy import create_engine, inspect as sa_inspect
+        from sqlalchemy import create_engine
+        from sqlalchemy import inspect as sa_inspect
 
         engine = create_engine("sqlite:///data/foundation_gate_ci.db")
         tables_before = set(sa_inspect(engine).get_table_names())
