@@ -7,6 +7,7 @@ Observed `origin/develop` HEAD at branch cut: `6eba290`
 C070 control: `SCRUM-1032` (In Progress)  
 C070 story: `SCRUM-201` (In Progress, parent `SCRUM-22`)  
 Baseline suite evidence: `4943 tests collected`, golden parity PASS
+A report commit SHA: `a4220d8`
 
 ## Policy v4.3 Confirmation
 
