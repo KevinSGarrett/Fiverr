@@ -25,9 +25,11 @@ After merge and migration application:
 ## Functional Verification Targets
 
 - `src/discovery/feedback.py` importable with 4 required functions.
+- `src/discovery/feedback.py` exports 4 constants (`GOLD_THRESHOLD`, `HIT_THRESHOLD`, `MISS_THRESHOLD`, `AUTO_RETIRE_THRESHOLD`).
 - Empty DB returns graceful summary note.
 - Golden baseline remains `kw=110 -> 62.7/1.0/CONDITIONAL_GO`.
 - Coverage remains >=90%.
+- S7.6 tests added >=30.
 - S7.2-S7.5 hypothesis functions remain unchanged/available.
 
 ## C071 Preview

@@ -518,7 +518,7 @@ Remaining after C070: S7.7-S7.9 (integration, orchestration, dashboard)."
 Track 02 (Data/models): S7.6 adds migration → update % from 90% to 92%
 Track 09 (Discovery): S7.6 adds feedback loop → update from 38% to 46%
 
-## TASK 35 — VERIFY C070 PROMPTS: [C070_SQUASH_SHA] PLACEHOLDERS PRESENT
+## TASK 35 — VERIFY C070 PROMPTS: 6eba290 PLACEHOLDERS PRESENT
 ```powershell
 Select-String "\[C070_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_070*.md 2>$null | Measure-Object | Select Count
 ```

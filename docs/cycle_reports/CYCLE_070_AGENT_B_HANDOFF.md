@@ -8,6 +8,7 @@ Cycle scope: S7.6 Discovery Scoring and Feedback
 - S7.6 is **not** an extension of S7.2-S7.5 hypothesis generation.
 - S7.2-S7.5: generation-only logic in `src/discovery/hypothesis.py`.
 - S7.6: evaluation/feedback with DB writes, schema migration, and new module.
+- Explicit requirement: `S7.6 DIFFERS from S7.2-S7.5. S7.2-S7.5 added functions to hypothesis.py with no DB. S7.6 creates a NEW FILE (feedback.py), NEW MODELS (DiscoveryOutcome+DiscoveryCycleLog), and a NEW MIGRATION (keywords 7 columns + 2 new tables). DB writes are required.`
 
 ## Required File Actions
 
@@ -98,6 +99,11 @@ Empty-history contract:
 8. Add `keywords.discovery_evaluated` BOOLEAN DEFAULT FALSE.
 9. Add `keywords.is_retired` BOOLEAN DEFAULT FALSE.
 10. Add indexes: `is_discovery`, `discovery_evaluated`, `is_retired`.
+
+Table field requirements:
+
+- `discovery_outcomes` includes `keyword_id` FK and outcome flags: `is_gold`, `is_hit`, `is_miss`.
+- `discovery_cycle_logs` includes `run_id` and `feedback_summary` JSON payload.
 
 Migration properties:
 
