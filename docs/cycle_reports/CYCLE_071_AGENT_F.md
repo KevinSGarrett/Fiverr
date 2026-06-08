@@ -1015,7 +1015,7 @@ Edge-case breadth materially expanded for S7.7 integration.
 ## F Commit Checkpoints
 
 - Checkpoint A (Task 20) commit SHA: `9e64c73`
-- Checkpoint B (F FINAL COMMIT) commit SHA: pending at time of section creation
+- Checkpoint B (F FINAL COMMIT) commit SHA: `1320d5e`
 - Files in both checkpoints restricted to:
   - `tests/unit/test_discovery_integration.py`
   - `docs/cycle_reports/CYCLE_071_AGENT_F.md`
