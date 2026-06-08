@@ -164,7 +164,8 @@ def _fire_gold_alert(keyword: Keyword, final_score: float, db: Any) -> None:
 
 def build_feedback_summary(db: Any) -> dict[str, Any]:
     """Build aggregate feedback payload for next-cycle context."""
-    outcomes = db.query(DiscoveryOutcome).all()
+    # Ignore legacy orchestrator-only rows that never received scored outcome fields.
+    outcomes = [o for o in db.query(DiscoveryOutcome).all() if o.actual_final_score is not None]
     if not outcomes:
         return {"total_hypotheses": 0, "note": "No discovery history yet - first cycle"}
 

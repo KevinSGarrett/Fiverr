@@ -187,6 +187,21 @@ class TestBuildFeedbackSummary:
         assert isinstance(result["pattern_notes"], str)
         assert result["pattern_notes"] != ""
 
+    def test_legacy_unscored_rows_are_ignored(self) -> None:
+        db = MagicMock()
+        legacy = MagicMock()
+        legacy.actual_final_score = None
+        legacy.is_gold = False
+        legacy.is_hit = False
+        legacy.is_miss = False
+        legacy.niche_id = "python_automation"
+        legacy.discovery_mode = "legacy"
+        legacy.hypothesis_confidence = 0.7
+        db.query.return_value.all.return_value = [legacy, _make_outcome(score=70.0, is_hit=True, is_miss=False)]
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 1
+        assert result["hits"] == 1
+
 
 class TestPatternNotes:
     def test_empty_notes_fallback(self) -> None:
