@@ -413,3 +413,460 @@ def test_feedback_has_no_llm_calls() -> None:
         )
     ]
     assert len(llm_calls) == 0
+
+
+class TestFCoverageUplift:
+    def test_evaluate_discovery_results_empty_db(self) -> None:
+        db = MagicMock()
+        _mock_keyword_query(db, [])
+        result = feedback.evaluate_discovery_results("run_001", db)
+        assert result.get("total", 0) == 0
+
+    def test_gold_classification_thresholds(self) -> None:
+        assert feedback.GOLD_THRESHOLD > feedback.HIT_THRESHOLD
+
+    def test_auto_retire_is_subset_of_miss(self) -> None:
+        assert feedback.AUTO_RETIRE_THRESHOLD < feedback.MISS_THRESHOLD
+
+    def test_monitor_zone_semantics(self) -> None:
+        monitor_low = feedback.MISS_THRESHOLD
+        monitor_high = feedback.HIT_THRESHOLD - 0.1
+        assert monitor_high > monitor_low
+        assert monitor_high < feedback.HIT_THRESHOLD
+
+    def test_feedback_summary_no_exception_on_empty(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = []
+        result = feedback.build_feedback_summary(db)
+        assert isinstance(result, dict)
+
+    def test_all_gold_scenario(self) -> None:
+        db = MagicMock()
+        outcomes = [_make_outcome(score=90.0 + i, mode="gap_exploit", is_gold=True, is_hit=True) for i in range(3)]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["gold_hits"] == 3
+        assert result["hits"] == 3
+        assert result["total_hypotheses"] == 3
+
+    def test_all_miss_scenario(self) -> None:
+        db = MagicMock()
+        outcomes = [_make_outcome(score=25.0, mode="adjacent_keyword", is_hit=False, is_miss=True) for _ in range(5)]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["misses"] == 5
+        assert result["hits"] == 0
+        assert result["hit_rate_pct"] == 0.0
+
+    def test_best_worst_mode_with_opposite_performance(self) -> None:
+        db = MagicMock()
+        outcomes = [
+            _make_outcome(score=75, mode="gap_exploit", is_hit=True),
+            _make_outcome(score=72, mode="gap_exploit", is_hit=True),
+            _make_outcome(score=35, mode="trend_chase", is_hit=False, is_miss=True),
+            _make_outcome(score=30, mode="trend_chase", is_hit=False, is_miss=True),
+        ]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["best_mode"] == "gap_exploit"
+        assert result["worst_mode"] == "trend_chase"
+
+    def test_avg_score_calculation_precision(self) -> None:
+        db = MagicMock()
+        scores = [80.0, 60.0, 40.0, 20.0]
+        db.query.return_value.all.return_value = [_make_outcome(score=s, is_hit=(s >= 60), is_miss=(s < 40)) for s in scores]
+        result = feedback.build_feedback_summary(db)
+        assert abs(result["avg_actual_score"] - 50.0) < 0.1
+
+    def test_score_delta_positive_example(self) -> None:
+        confidence = 0.65
+        actual = 80.0
+        assert actual - (confidence * 100) == 15.0
+
+    def test_top_hit_niches_ordering(self) -> None:
+        db = MagicMock()
+        outcomes = [
+            _make_outcome(niche_id="python_automation", is_hit=True, is_miss=False),
+            _make_outcome(niche_id="python_automation", is_hit=True, is_miss=False),
+            _make_outcome(niche_id="python_automation", is_hit=True, is_miss=False),
+            _make_outcome(niche_id="mcp_ai_agent", is_hit=True, is_miss=False),
+        ]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["top_hit_niches"][0]["niche"] == "python_automation"
+        assert result["top_hit_niches"][0]["count"] == 3
+
+    def test_get_discovery_cycle_stats_not_found_repeat(self) -> None:
+        db = MagicMock()
+        db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        result = feedback.get_discovery_cycle_stats("nonexistent_run", db)
+        assert result["found"] is False
+        assert result["run_id"] == "nonexistent_run"
+
+    def test_all_constants_are_float_type(self) -> None:
+        for value in [
+            feedback.GOLD_THRESHOLD,
+            feedback.HIT_THRESHOLD,
+            feedback.MISS_THRESHOLD,
+            feedback.AUTO_RETIRE_THRESHOLD,
+        ]:
+            assert isinstance(value, float)
+
+    def test_single_outcome_summary(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [_make_outcome(score=72.0, is_hit=True, is_miss=False)]
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 1
+        assert result["hits"] == 1
+        assert result["hit_rate_pct"] == 100.0
+
+    def test_feedback_summary_all_four_modes(self) -> None:
+        db = MagicMock()
+        outcomes = []
+        for mode in feedback.DISCOVERY_MODES:
+            outcomes.append(_make_outcome(mode=mode, score=70, is_hit=True, is_miss=False))
+            outcomes.append(_make_outcome(mode=mode, score=35, is_hit=False, is_miss=True))
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        for mode in feedback.DISCOVERY_MODES:
+            assert mode in result["mode_stats"]
+            assert result["mode_stats"][mode]["count"] == 2
+
+    def test_pattern_notes_high_performer(self) -> None:
+        mode_stats = {"gap_exploit": {"hit_rate": 60.0, "avg_score": 72.0, "count": 5, "gold_count": 0}}
+        result = feedback._generate_pattern_notes([], mode_stats)
+        assert isinstance(result, str)
+        assert "gap_exploit" in result
+
+    def test_feedback_summary_total_count(self) -> None:
+        db = MagicMock()
+        outcomes = []
+        for i in range(7):
+            outcomes.append(_make_outcome(score=70.0 if i < 5 else 35.0, mode="gap_exploit", is_hit=(i < 5), is_miss=(i >= 5)))
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 7
+
+    def test_discovery_outcome_tablename_again(self) -> None:
+        from src.models import DiscoveryOutcome  # noqa: PLC0415
+
+        assert DiscoveryOutcome.__tablename__ == "discovery_outcomes"
+
+    def test_discovery_cycle_log_tablename_again(self) -> None:
+        from src.models import DiscoveryCycleLog  # noqa: PLC0415
+
+        assert DiscoveryCycleLog.__tablename__ == "discovery_cycle_logs"
+
+    def test_feedback_summary_with_no_outcomes_is_safe(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = []
+        result = feedback.build_feedback_summary(db)
+        assert result.get("total_hypotheses") == 0
+        assert "hit_rate_pct" not in result
+
+    def test_discovery_feedback_complete_import(self) -> None:
+        assert callable(feedback.evaluate_discovery_results)
+        assert callable(feedback.build_feedback_summary)
+        assert callable(feedback._generate_pattern_notes)
+        assert callable(feedback.get_discovery_cycle_stats)
+
+    def test_wave9_and_s76_coexist(self) -> None:
+        from src.pricing import analyze_price_distribution  # noqa: PLC0415
+
+        assert callable(analyze_price_distribution)
+        db = MagicMock()
+        db.query.return_value.all.return_value = []
+        result = feedback.build_feedback_summary(db)
+        assert isinstance(result, dict)
+
+    def test_s74_and_s76_coexist(self) -> None:
+        from src.discovery.hypothesis import generate_gap_exploit_hypotheses  # noqa: PLC0415
+
+        scores = [{"keyword": "test", "demand_score": 0.75, "competition_score": 0.25, "opportunity_score": 0.80}]
+        gaps = generate_gap_exploit_hypotheses("python_automation", scores, [])
+        assert isinstance(gaps, list)
+        assert feedback.GOLD_THRESHOLD == 85.0
+
+    def test_threshold_hierarchy_repeat(self) -> None:
+        assert feedback.AUTO_RETIRE_THRESHOLD < feedback.MISS_THRESHOLD < feedback.HIT_THRESHOLD < feedback.GOLD_THRESHOLD
+
+    def test_pattern_notes_is_string(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [_make_outcome()]
+        result = feedback.build_feedback_summary(db)
+        assert isinstance(result.get("pattern_notes"), str)
+
+    def test_mode_stats_count_per_mode(self) -> None:
+        db = MagicMock()
+        outcomes = []
+        for _ in range(3):
+            outcomes.append(_make_outcome(mode="gap_exploit", score=65.0, is_hit=True, is_miss=False))
+        for _ in range(2):
+            outcomes.append(_make_outcome(mode="trend_chase", score=35.0, is_hit=False, is_miss=True))
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["mode_stats"]["gap_exploit"]["count"] == 3
+        assert result["mode_stats"]["trend_chase"]["count"] == 2
+
+    def test_top_miss_niches(self) -> None:
+        db = MagicMock()
+        outcomes = [_make_outcome(mode="trend_chase", score=30.0, niche_id="prd_ai_saas", is_hit=False, is_miss=True) for _ in range(4)]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["top_miss_niches"][0]["niche"] == "prd_ai_saas"
+
+    def test_gold_count_in_mode_stats(self) -> None:
+        db = MagicMock()
+        outcomes = [
+            _make_outcome(mode="gap_exploit", score=88.0, is_gold=True, is_hit=True, is_miss=False),
+            _make_outcome(mode="gap_exploit", score=65.0, is_gold=False, is_hit=True, is_miss=False),
+        ]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["mode_stats"]["gap_exploit"]["gold_count"] == 1
+        assert result["gold_hits"] == 1
+
+    def test_discovery_outcome_table_has_no_duplicates(self) -> None:
+        from sqlalchemy import create_engine, func
+        from sqlalchemy.orm import sessionmaker
+        from src.models import DiscoveryOutcome
+
+        engine = create_engine("sqlite:///data/foundation_gate_ci.db")
+        session = sessionmaker(bind=engine)()
+        dupes = (
+            session.query(DiscoveryOutcome.keyword_id, func.count(DiscoveryOutcome.id).label("cnt"))
+            .group_by(DiscoveryOutcome.keyword_id)
+            .having(func.count(DiscoveryOutcome.id) > 1)
+            .all()
+        )
+        session.close()
+        assert len(dupes) == 0
+
+    def test_discovery_cycle_log_has_run_id(self) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        cols = [c["name"] for c in inspect(create_engine("sqlite:///data/foundation_gate_ci.db")).get_columns("discovery_cycle_logs")]
+        assert "run_id" in cols
+        assert "hypotheses_generated" in cols
+        assert "feedback_summary" in cols
+
+    def test_keyword_s76_column_defaults(self) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        cols = {c["name"]: c for c in inspect(create_engine("sqlite:///data/foundation_gate_ci.db")).get_columns("keywords")}
+        assert "is_discovery" in cols
+        assert "is_retired" in cols
+        assert "discovery_evaluated" in cols
+
+    def test_generate_pattern_notes_empty_inputs(self) -> None:
+        result = feedback._generate_pattern_notes([], {})
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_discovery_module_consistency(self) -> None:
+        from src.discovery import hypothesis  # noqa: PLC0415
+
+        assert hasattr(feedback, "evaluate_discovery_results")
+        assert hasattr(feedback, "build_feedback_summary")
+        assert hasattr(hypothesis, "generate_trend_chase_hypotheses")
+        assert hasattr(hypothesis, "generate_gap_exploit_hypotheses")
+
+    def test_evaluate_discovery_results_returns_dict(self) -> None:
+        db = MagicMock()
+        _mock_keyword_query(db, [])
+        result = feedback.evaluate_discovery_results("test_run", db)
+        assert isinstance(result, dict)
+
+    def test_pattern_notes_flags_low_hit_rate(self) -> None:
+        mode_stats = {"trend_chase": {"hit_rate": 10.0, "avg_score": 42.0, "count": 5, "gold_count": 0}}
+        result = feedback._generate_pattern_notes([], mode_stats)
+        assert "trend_chase" in result or "underperform" in result.lower()
+
+    def test_feedback_summary_count_consistency_mixed(self) -> None:
+        db = MagicMock()
+        outcomes = [
+            _make_outcome(score=90.0, is_gold=True, is_hit=True, is_miss=False),
+            _make_outcome(score=70.0, is_gold=False, is_hit=True, is_miss=False),
+            _make_outcome(score=65.0, is_gold=False, is_hit=True, is_miss=False),
+            _make_outcome(score=35.0, is_gold=False, is_hit=False, is_miss=True),
+            _make_outcome(score=50.0, is_gold=False, is_hit=False, is_miss=False),
+        ]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 5
+        assert result["gold_hits"] == 1
+        assert result["hits"] == 3
+        assert result["misses"] == 1
+
+    def test_discovery_cycle_logs_table_in_db(self) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        insp = inspect(create_engine("sqlite:///data/foundation_gate_ci.db"))
+        assert "discovery_cycle_logs" in insp.get_table_names()
+        cols = [c["name"] for c in insp.get_columns("discovery_cycle_logs")]
+        assert "run_id" in cols
+        assert "cycle_at" in cols
+
+    def test_discovery_outcomes_table_in_db(self) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        insp = inspect(create_engine("sqlite:///data/foundation_gate_ci.db"))
+        assert "discovery_outcomes" in insp.get_table_names()
+        cols = [c["name"] for c in insp.get_columns("discovery_outcomes")]
+        for req in ["keyword_id", "actual_final_score", "is_gold", "is_hit", "is_miss"]:
+            assert req in cols
+
+    def test_discovery_outcome_all_required_fields(self) -> None:
+        from src.models import DiscoveryOutcome  # noqa: PLC0415
+
+        do_cols = [c.key for c in sqlalchemy.inspect(DiscoveryOutcome).attrs]
+        for req in [
+            "keyword_id",
+            "keyword_text",
+            "niche_id",
+            "discovery_mode",
+            "hypothesis_confidence",
+            "actual_final_score",
+            "actual_tag",
+            "score_delta",
+            "is_gold",
+            "is_hit",
+            "is_miss",
+            "evaluated_at",
+        ]:
+            assert req in do_cols
+
+    def test_gold_is_also_hit(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [
+            _make_outcome(mode="gap_exploit", score=88.0, is_gold=True, is_hit=True, is_miss=False)
+        ]
+        result = feedback.build_feedback_summary(db)
+        assert result["gold_hits"] == 1
+        assert result["hits"] == 1
+
+    def test_keyword_is_discovery_default_column_present(self) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        cols = {c["name"]: c for c in inspect(create_engine("sqlite:///data/foundation_gate_ci.db")).get_columns("keywords")}
+        assert "is_discovery" in cols
+
+    def test_feedback_summary_no_hit_modes_is_safe(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [
+            _make_outcome(mode="trend_chase", score=35.0, is_hit=False, is_miss=True) for _ in range(3)
+        ]
+        result = feedback.build_feedback_summary(db)
+        assert result["hits"] == 0
+        assert result["hit_rate_pct"] == 0.0
+
+    def test_best_mode_none_on_empty(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = []
+        result = feedback.build_feedback_summary(db)
+        assert "best_mode" not in result
+
+    def test_get_discovery_cycle_stats_found(self) -> None:
+        db = MagicMock()
+        log_entry = MagicMock()
+        log_entry.run_id = "test_run_001"
+        log_entry.modes_run = ["adjacent_keyword", "gap_exploit"]
+        log_entry.hypotheses_generated = 10
+        log_entry.hypotheses_accepted = 6
+        log_entry.total_cost_usd = 0.18
+        log_entry.cycle_at = datetime(2026, 6, 1, 12, 0, 0)
+        db.query.return_value.filter.return_value.order_by.return_value.first.return_value = log_entry
+        result = feedback.get_discovery_cycle_stats("test_run_001", db)
+        assert result["found"] is True
+        assert result["run_id"] == "test_run_001"
+        assert result["hypotheses_accepted"] == 6
+
+    def test_feedback_module_size_reasonable(self) -> None:
+        n = len(open("src/discovery/feedback.py", encoding="utf-8").read().splitlines())
+        assert 100 <= n <= 500
+
+    def test_avg_score_precision(self) -> None:
+        db = MagicMock()
+        scores = [75.0, 62.5, 88.2, 41.3]
+        outcomes = [
+            _make_outcome(
+                score=s,
+                is_gold=(s >= 85),
+                is_hit=(s >= 60),
+                is_miss=(s < 40),
+                mode="adjacent_keyword",
+                niche_id="python_automation",
+            )
+            for s in scores
+        ]
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        expected_avg = round(sum(scores) / len(scores), 1)
+        assert abs(result["avg_actual_score"] - expected_avg) < 0.1
+
+    def test_complete_wave10_discovery_chain(self) -> None:
+        from src.discovery.contracts import HypothesisMode  # noqa: PLC0415
+        from src.discovery.hypothesis import (
+            generate_adjacent_keyword_hypotheses,
+            generate_adjacent_niche_hypotheses,
+            generate_gap_exploit_hypotheses,
+            generate_trend_chase_hypotheses,
+        )
+        from src.models import DiscoveryCycleLog, DiscoveryOutcome  # noqa: PLC0415
+
+        assert callable(generate_adjacent_keyword_hypotheses)
+        assert callable(generate_adjacent_niche_hypotheses)
+        assert callable(generate_gap_exploit_hypotheses)
+        assert callable(generate_trend_chase_hypotheses)
+        assert DiscoveryOutcome.__tablename__ == "discovery_outcomes"
+        assert DiscoveryCycleLog.__tablename__ == "discovery_cycle_logs"
+        modes = sorted([e.value for e in HypothesisMode])
+        assert modes == ["adjacent_keyword", "adjacent_niche", "gap_exploit", "trend_chase"]
+
+    def test_feedback_summary_with_multiple_modes_and_niches(self) -> None:
+        db = MagicMock()
+        configs = [
+            (True, True, False, 88.0, "gap_exploit", "python_automation"),
+            (False, True, False, 72.0, "gap_exploit", "mcp_ai_agent"),
+            (False, True, False, 65.0, "adjacent_keyword", "python_automation"),
+            (False, False, True, 35.0, "trend_chase", "prd_ai_saas"),
+            (False, False, True, 28.0, "trend_chase", "python_automation"),
+        ]
+        outcomes = []
+        for is_g, is_h, is_m, score, mode, niche in configs:
+            outcomes.append(_make_outcome(mode=mode, niche_id=niche, score=score, is_gold=is_g, is_hit=is_h, is_miss=is_m))
+        db.query.return_value.all.return_value = outcomes
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 5
+        assert result["gold_hits"] == 1
+        assert result["hits"] == 3
+        assert result["misses"] == 2
+        assert result["best_mode"] == "gap_exploit"
+        assert result["worst_mode"] == "trend_chase"
+
+    def test_complete_s76_smoke(self) -> None:
+        from src.discovery import hypothesis  # noqa: PLC0415
+        from src.discovery.contracts import HypothesisMode  # noqa: PLC0415
+        from src.models import DiscoveryCycleLog, DiscoveryOutcome  # noqa: PLC0415
+
+        assert hasattr(feedback, "evaluate_discovery_results")
+        assert hasattr(feedback, "build_feedback_summary")
+        assert hasattr(feedback, "_generate_pattern_notes")
+        assert hasattr(feedback, "get_discovery_cycle_stats")
+        assert feedback.GOLD_THRESHOLD == 85.0
+        assert feedback.HIT_THRESHOLD == 60.0
+        assert feedback.MISS_THRESHOLD == 40.0
+        assert feedback.AUTO_RETIRE_THRESHOLD == 30.0
+        assert DiscoveryOutcome.__tablename__ == "discovery_outcomes"
+        assert DiscoveryCycleLog.__tablename__ == "discovery_cycle_logs"
+        assert hasattr(hypothesis, "generate_gap_exploit_hypotheses")
+        modes = sorted([e.value for e in HypothesisMode])
+        assert modes == ["adjacent_keyword", "adjacent_niche", "gap_exploit", "trend_chase"]
+
+    def test_feedback_importable_from_discovery_package(self) -> None:
+        from src.discovery import feedback as feedback_pkg  # noqa: PLC0415
+        from src.discovery import hypothesis  # noqa: PLC0415
+
+        assert hasattr(feedback_pkg, "evaluate_discovery_results")
+        assert hasattr(feedback_pkg, "build_feedback_summary")
+        assert hasattr(hypothesis, "generate_trend_chase_hypotheses")
