@@ -6,7 +6,7 @@
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 950 lines
 
 ## PROJECT CONTEXT
-- Branch: cycle/069/integration | Base SHA: [C069_SQUASH_SHA]
+- Branch: cycle/069/integration | Base SHA: d8b440c2a2674aaeb2938c7982f8f6875d65f988
 - Python: C:\Users\kevin\AppData\Local\Programs\Python\Python311\python.exe
 - RSV SEED x13 (C057-C069) | S7.5 uses fixture trend data (no live ScrapFly needed)
 

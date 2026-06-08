@@ -667,7 +667,7 @@ except ImportError:
 [ ] Strategy doc §7/§8/§9/§10/§11/§12/§13 read
 [ ] Policy v4.3 confirmed: 55 tasks, floors A:1000/B:1200/E:950/C:900/F:1000/D:1200
 [ ] SCRUM-1031 + SCRUM-200 In Progress
-[ ] All 6 prompts: [C069_SQUASH_SHA] = 0 matches
+[ ] All 6 prompts: d8b440c2a2674aaeb2938c7982f8f6875d65f988 = 0 matches
 [ ] end marker appears exactly once per file
 [ ] B+E parallel notice in first 25 lines
 [ ] E: src/ prohibition explicit
@@ -838,7 +838,7 @@ S7.5 source tasks 7.5.1-7.5.4:
 Document in B handoff: all 4 subtasks must be implemented.
 
 ## TASK 71 — VERIFY D SHA RESOLVER IN PROMPTS
-All 6 CYCLE_069 prompts must contain [C069_SQUASH_SHA] placeholders.
+All 6 CYCLE_069 prompts must contain d8b440c2a2674aaeb2938c7982f8f6875d65f988 references.
 D runs the SHA resolver after merge to replace all placeholders.
 Verify at least one placeholder exists before release.
 
@@ -989,7 +989,7 @@ Document in A report.
 ## SCRUM-1031 Done | SCRUM-200 Done | SCRUM-22 In Progress | SCRUM-1032 To Do
 
 
-## TASK 84 — FINAL PRE-RELEASE: VERIFY C069 PROMPTS HAVE [C069_SQUASH_SHA] PLACEHOLDERS
+## TASK 84 — FINAL PRE-RELEASE: VERIFY C069 PROMPTS HAVE RESOLVED SHA REFERENCES
 ```powershell
 # Run after writing all 6 prompts but BEFORE governance commit
 Select-String "\[C069_SQUASH_SHA\]" C:\Fiverr\Fiverr\PM_Pack\03_cursor_agent_system\CYCLE_069*.md 2>$null | Measure-Object | Select Count
