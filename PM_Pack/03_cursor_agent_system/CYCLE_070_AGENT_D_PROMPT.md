@@ -229,14 +229,14 @@ Thresholds: gold=85, hit=60, miss=40, auto-retire=30.
 New tables: discovery_outcomes + discovery_cycle_logs.
 Keywords: 7 new S7.6 columns (is_discovery, discovery_mode, etc.)
 Migration applied. Idempotency via discovery_evaluated flag.
-PR #[N] squash SHA [C070_SQUASH_SHA].
+PR #[N] squash SHA 6eba290.
 Suite: [N] passed | [X]% coverage.
 Wave 10: 6/9 stories complete after this merge."
 
 ## TASK 23 — SCRUM-1032 TRANSITION TO DONE
 Transition SCRUM-1032 → Done.
 Comment: "C070 complete. S7.6 Discovery Scoring/Feedback merged.
-SHA: [C070_SQUASH_SHA].
+SHA: 6eba290.
 SCRUM-201 closed. SCRUM-22 In Progress."
 
 ## TASK 24 — HYDRATION HEADER UPDATE
@@ -246,7 +246,7 @@ Update PM_Pack/07_hydration/HYDRATION_HEADER.md:
 - CYCLE_NEXT: 071
 - CYCLE_STATUS_070: COMPLETE — PR #[N] squash-merged to develop
 - develop HEAD: e880e80 → [actual new HEAD post-merge]
-- C070 SQUASH SHA: [C070_SQUASH_SHA]
+- C070 SQUASH SHA: 6eba290
 - Suite: [N] passed | [X]%
 - Wave 10: S7.1-S7.6 done | S7.7-S7.9 TO DO
 - G-D: OPEN (Wave 10 S7.7-S7.9; Waves 11-12 remain)
@@ -264,7 +264,7 @@ Remove-Item C:\Fiverr\*.py, C:\Fiverr\*.json, C:\Fiverr\*.txt -Force -ErrorActio
 Create SCRUM-1033: "Cycle 071 (Wave 10 Discovery: S7.7 Discovery Keyword Integration) control"
 Description: "C071 control task. S7.7 Discovery Keyword Integration.
 Scope: SCRUM-202 (S7.7) if exists, or source tasks 7.7.1+.
-Story parent: SCRUM-22. Base SHA: [C070_SQUASH_SHA]. Policy v4.3."
+Story parent: SCRUM-22. Base SHA: 6eba290. Policy v4.3."
 
 ## TASK 27 — GOVERNANCE COMMIT
 ```powershell
