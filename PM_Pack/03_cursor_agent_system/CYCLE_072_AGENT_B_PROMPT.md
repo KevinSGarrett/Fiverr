@@ -1100,109 +1100,115 @@ def test_complete_s78_integration_chain():
 ```
 
 ## B COMPLETE: 42 tasks. Floor 1200. Zone: src/+tests/+B.md+run.py.
+
+## TASK 43 -- VERIFY DRY_RUN_SENTINEL IN DISCOVER COMMAND
+```python
+content = open("run.py", encoding="utf-8").read()
+if "DRY_RUN_SENTINEL" in content:
+    print("PASS: run.py has DRY_RUN_SENTINEL check")
+else:
+    print("INFO: B adds DRY_RUN_SENTINEL to discover command")
+    print("  Pattern: if os.getenv(DRY_RUN_SENTINEL): print(skip); return")
+```
+
+## TASK 44 -- VERIFY COMPLETE S7.2-S7.8 IMPORT CHAIN ON BRANCH
+```python
+import sys; sys.path.insert(0, "C:/Fiverr/Fiverr")
+from src.discovery.stage16 import run_discovery_cycle, _select_modes
+from src.discovery.stage16 import DEFAULT_MIN_CONFIDENCE, DEFAULT_MAX_HYPOTHESES, _BASE_MODES
+from src.discovery.integration import (process_accepted_hypotheses, insert_discovery_keyword,
+    get_pending_discovery_keywords)
+from src.discovery.feedback import build_feedback_summary, evaluate_discovery_results
+from src.discovery.feedback import GOLD_THRESHOLD, HIT_THRESHOLD, MISS_THRESHOLD
+from src.discovery.hypothesis import (generate_adjacent_keyword_hypotheses,
+    generate_adjacent_niche_hypotheses, generate_gap_exploit_hypotheses,
+    generate_trend_chase_hypotheses)
+from src.models import DiscoveryCycleLog, DiscoveryOutcome, Keyword
+from src.discovery.contracts import HypothesisMode
+modes = sorted([e.value for e in HypothesisMode])
+print(f"PASS: S7.2-S7.8 complete import: {modes}")
+print(f"  gold={GOLD_THRESHOLD} hit={HIT_THRESHOLD} min_conf={DEFAULT_MIN_CONFIDENCE} max={DEFAULT_MAX_HYPOTHESES}")
+print(f"  base_modes={_BASE_MODES}")
+```
+
+## TASK 45 -- VERIFY NO NEW MIGRATION FILES
+```python
+import os, time
+migration_dir = "src/database/migrations/"
+if os.path.exists(migration_dir):
+    new_files = [f for f in os.listdir(migration_dir)
+                 if os.path.getmtime(migration_dir+f) > time.time() - 7200]
+    assert new_files == [], f"New migration created: {new_files}"
+    print(f"PASS: no new migrations (B scope: stage16.py + tests only)")
+else:
+    print("INFO: migrations dir not found -- check alembic structure")
+```
+
+## TASK 46 -- VERIFY test_discovery_stage16.py COVERS SELECT_MODES EDGE CASES
+```python
+import ast
+f = "tests/unit/test_discovery_stage16.py"
+tree = ast.parse(open(f, encoding="utf-8").read())
+test_names = [n.name for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")]
+select_modes_tests = [t for t in test_names if "select_modes" in t or "modes" in t.lower()]
+print(f"PASS: select_modes edge case tests: {select_modes_tests}")
+assert len(select_modes_tests) >= 4, f"Need >= 4 mode tests, got {len(select_modes_tests)}"
+```
+
+## TASK 47 -- VERIFY stage16.py SIZE IS REASONABLE
+```python
+n = len(open("src/discovery/stage16.py", encoding="utf-8").readlines())
+assert 100 <= n <= 600, f"stage16.py has {n} lines (expected 100-600)"
+import ast
+tree = ast.parse(open("src/discovery/stage16.py", encoding="utf-8").read())
+pub_fns = [nd.name for nd in ast.walk(tree)
+           if isinstance(nd, ast.FunctionDef) and not nd.name.startswith("__")]
+print(f"PASS: stage16.py {n} lines, functions: {pub_fns}")
+```
+
+## TASK 48 -- FULL SUITE BEFORE COMMIT
+```powershell
+python.exe -m pytest -q --cov=src --cov-fail-under=90 --no-header tests/unit/
+    | Select-Object -Last 5
+# Must show: N passed, 94%+
+```
+
+## TASK 49 -- VERIFY WAVE 9 PRICING INTACT
+```python
+from src.pricing import (analyze_price_distribution, calculate_new_seller_pricing,
+    build_pricing_export_payload, export_all_pricing)
+from src.discovery.stage16 import run_discovery_cycle
+print("PASS: Wave 9 pricing and S7.8 stage16 coexist on branch")
+```
+
+## TASK 50 -- VERIFY HYPOTHESIS.PY UNCHANGED
+```python
+import ast
+n = len(open("src/discovery/hypothesis.py", encoding="utf-8").readlines())
+assert 760 <= n <= 770, f"hypothesis.py changed: {n} lines"
+tree = ast.parse(open("src/discovery/hypothesis.py", encoding="utf-8").read())
+fns = [f.name for f in ast.walk(tree) if isinstance(f, ast.FunctionDef)]
+assert "generate_adjacent_keyword_hypotheses" in fns
+assert "generate_gap_exploit_hypotheses" in fns
+assert "generate_trend_chase_hypotheses" in fns
+print(f"PASS: hypothesis.py unchanged: {n} lines, key fns present")
+```
+
+## TASK 51 -- VERIFY INTEGRATION.PY UNCHANGED
+```python
+n = len(open("src/discovery/integration.py", encoding="utf-8").readlines())
+assert 220 <= n <= 240, f"integration.py changed: {n} lines"
+print(f"PASS: integration.py unchanged: {n} lines")
+```
+
+## TASK 52 -- VERIFY BASELINE DB UNTOUCHED
+```python
+import os
+mtime = os.path.getmtime("data/cycle037_live.db")
+assert abs(mtime - 1780553758) < 10, f"Baseline modified: mtime={mtime}"
+print(f"PASS: baseline UNTOUCHED mtime={mtime:.0f}")
+```
+
+## B COMPLETE: 52 tasks. Floor 1200. Zone: src/+tests/+B.md+run.py.
 END OF PROMPT
-
-## B FINAL COMPLIANCE BLOCK (97 lines needed for floor 1200)
-
-## TASK 100 -- VERIFY STAGE16_TEST
-```python
-# B compliance: stage16 test
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 100: stage16 test -- PASS")
-```
-
-## TASK 101 -- VERIFY RUN_DISCOVERY_CYCLE
-```python
-# B compliance: run_discovery_cycle
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 101: run_discovery_cycle -- PASS")
-```
-
-## TASK 102 -- VERIFY _BUILD_SEED_DATA
-```python
-# B compliance: _build_seed_data
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 102: _build_seed_data -- PASS")
-```
-
-## TASK 103 -- VERIFY NO_LLM_CALLS
-```python
-# B compliance: no LLM calls
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 103: no LLM calls -- PASS")
-```
-
-## TASK 104 -- VERIFY _SELECT_MODES
-```python
-# B compliance: _select_modes
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 104: _select_modes -- PASS")
-```
-
-## TASK 105 -- VERIFY STAGE16_TEST
-```python
-# B compliance: stage16 test
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 105: stage16 test -- PASS")
-```
-
-## TASK 106 -- VERIFY RUN_DISCOVERY_CYCLE
-```python
-# B compliance: run_discovery_cycle
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 106: run_discovery_cycle -- PASS")
-```
-
-## TASK 107 -- VERIFY _BUILD_SEED_DATA
-```python
-# B compliance: _build_seed_data
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 107: _build_seed_data -- PASS")
-```
-
-## TASK 108 -- VERIFY NO_LLM_CALLS
-```python
-# B compliance: no LLM calls
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 108: no LLM calls -- PASS")
-```
-
-## TASK 109 -- VERIFY _SELECT_MODES
-```python
-# B compliance: _select_modes
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 109: _select_modes -- PASS")
-```
-
-## TASK 110 -- VERIFY STAGE16_TEST
-```python
-# B compliance: stage16 test
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 110: stage16 test -- PASS")
-```
-
-## TASK 111 -- VERIFY RUN_DISCOVERY_CYCLE
-```python
-# B compliance: run_discovery_cycle
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 111: run_discovery_cycle -- PASS")
-```
-
-## TASK 112 -- VERIFY _BUILD_SEED_DATA
-```python
-# B compliance: _build_seed_data
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 112: _build_seed_data -- PASS")
-```
-
-## TASK 113 -- VERIFY NO_LLM_CALLS
-```python
-# B compliance: no LLM calls
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
-print(f"TASK 113: no LLM calls -- PASS")
-```
-
-## TASK 114 -- VERIFY _SELECT_MODES
-```python
-# B compliance: _select_modes
-# Policy v4.3 floor 1200. Anti-filler. Substantive verification.
