@@ -875,7 +875,7 @@ SCRUM-1034 description (for D to create):
   New function: run_discovery_cycle(db, run_id, config) → DiscoveryCycleLog.
   Wires: evaluate → feedback → generate → insert stages.
   No new migration. Uses DiscoveryCycleLog from C070.
-  Policy v4.3. Base SHA: [C071_SQUASH_SHA]."
+  Policy v4.3. Base SHA: 9762c3d."
 
 ## TASK 62 — FINAL AUTHORIZATION: C071 PROMPTS ALL AUTHORIZED
 A report must state explicitly:
@@ -937,70 +937,3 @@ No migration. 5 functions. Dedup. Lineage. Batch.
 Wave 10: 7/9 after C071. Project ~64%.
 TierD-1: 12 stashes. TierD-2: SEED x15.
 ```
-## A: 67 tasks. Floor 1000 CONFIRMED. Zone: PM_Pack/+docs/.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
-## A: project 64%. Policy v4.3 floor 1000.
-## A: floor 1000. Policy v4.3 floor 1000.
-## A: INSERT authorized. Policy v4.3 floor 1000.
-## A: no migration. Policy v4.3 floor 1000.
-## A: wave 10 7/9. Policy v4.3 floor 1000.
