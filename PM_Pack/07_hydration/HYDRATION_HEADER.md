@@ -158,7 +158,7 @@ Path to 100%: Wave 11 Playbook + Wave 12 Dashboard UX + live production runs
 
 ## C072 PREVIEW
 - Wave 10 Discovery: S7.8 Stage 16 Orchestration (SCRUM-203)
-- C072 control: SCRUM-1036 (To Do; SCRUM-1034 already used in prior cycle governance)
+- C072 control: SCRUM-1034 (To Do)
 - S7.8 target: run_discovery_cycle() wires S7.2-S7.7 into one automated stage-16 pipeline.
 - Wave 10 planning marker: S7.1-S7.7 done | S7.8-S7.9 TO DO
 - TierD-2 (ScrapFly) approval remains strongly recommended before first C072 orchestration run.
