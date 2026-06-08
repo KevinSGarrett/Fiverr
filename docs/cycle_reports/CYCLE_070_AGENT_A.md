@@ -8,6 +8,7 @@ C070 control: `SCRUM-1032` (In Progress)
 C070 story: `SCRUM-201` (In Progress, parent `SCRUM-22`)  
 Baseline suite evidence: `4943 tests collected`, golden parity PASS
 A report commit SHA: `a4220d8`
+Supplemental completion commit SHAs: `dd14c29` (Task 40), pending final Task 55 commit
 
 ## Policy v4.3 Confirmation
 
