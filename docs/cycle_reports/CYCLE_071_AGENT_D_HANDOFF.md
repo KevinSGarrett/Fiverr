@@ -17,7 +17,7 @@
 
 Use this description:
 
-`C072 control task. S7.8 Stage 16 Orchestration. New function: run_discovery_cycle(db, run_id, config) -> DiscoveryCycleLog. Wires evaluate -> feedback -> generate -> insert stages. No new migration. Uses DiscoveryCycleLog from C070. Policy v4.3. Base SHA: [C071_SQUASH_SHA].`
+`C072 control task. S7.8 Stage 16 Orchestration. New function: run_discovery_cycle(db, run_id, config) -> DiscoveryCycleLog. Wires evaluate -> feedback -> generate -> insert stages. No new migration. Uses DiscoveryCycleLog from C070. Policy v4.3. Base SHA: 9762c3d.`
 
 ## G-B Note
 

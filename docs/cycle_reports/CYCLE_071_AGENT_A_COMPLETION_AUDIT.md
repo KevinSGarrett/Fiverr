@@ -4,7 +4,7 @@ Status key: DONE = completed with evidence captured in reports, handoffs, Jira, 
 
 ## Tasks 0-9
 
-- Task 0 (SHA resolver): DONE - `[C071_SQUASH_SHA]` placeholders resolved in C071 prompt files under `PM_Pack/03_cursor_agent_system/`.
+- Task 0 (SHA resolver): DONE - C071_SQUASH_SHA placeholders resolved in C071 prompt files under `PM_Pack/03_cursor_agent_system/`.
 - Task 1 (branch creation): DONE - `cycle/071/integration` created, pushed, and active.
 - Task 2 (discovery module survey): DONE - baseline module existence/functions captured in A report.
 - Task 3 (keywords S7.7 columns): DONE - all required columns verified present.
@@ -83,7 +83,7 @@ Status key: DONE = completed with evidence captured in reports, handoffs, Jira, 
 ## Tasks 60-67
 
 - Task 60 (lazy import design note): DONE - required integration lazy-import note included in A report.
-- Task 61 (SCRUM-1034 scope): DONE - scope text documented in D handoff.
+- Task 61 (SCRUM-1034 scope): DONE - scope text documented in D handoff with resolved Base SHA `9762c3d`.
 - Task 62 (final authorization statement): DONE - required statement included.
 - Task 63 (v4.4 compliance): DONE - Part 5.7 requirement explicitly documented.
 - Task 64 (hydration completion lines): DONE - hydration header updated with ~64% and delta line.
