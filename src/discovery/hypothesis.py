@@ -57,12 +57,6 @@ GAP_COMPETITION_THRESHOLD = 0.40
 GAP_DEMAND_WEIGHT = 0.60
 GAP_OPPORTUNITY_WEIGHT = 0.40
 
-# S7.5 Trend Chase defaults. Keep as module-level constants for auditability.
-TREND_SCORE_THRESHOLD = 0.60
-TREND_VELOCITY_THRESHOLD = 0.40
-TREND_SCORE_WEIGHT = 0.55
-TREND_VELOCITY_WEIGHT = 0.45
-
 
 @dataclass(slots=True)
 class HypothesisContract:
@@ -480,123 +474,6 @@ def generate_gap_exploit_hypotheses(
                 f"gap confidence {confidence:.2f} < {min_confidence:.2f} "
                 f"(demand={demand_value:.2f}, competition={competition_value:.2f}) "
                 f"(REJECTED)"
-            )
-        )
-        contracts.append(
-            HypothesisContract(
-                hypothesis_text=hypothesis_text,
-                niche_id=source_niche_id,
-                buyer=None,
-                deliverable=hypothesis_text,
-                specificity_score=confidence,
-                accepted=accepted,
-                reason=reason,
-            )
-        )
-
-    return contracts
-
-
-def _identify_trending_keywords(
-    keyword_trends: list[dict[str, Any]],
-    *,
-    trend_score_threshold: float = TREND_SCORE_THRESHOLD,
-    trend_velocity_threshold: float = TREND_VELOCITY_THRESHOLD,
-) -> list[dict[str, Any]]:
-    """Filter keyword_trends to rows representing rising momentum.
-
-    A keyword is trending only when BOTH:
-    - trend_score >= trend_score_threshold
-    - trend_velocity >= trend_velocity_threshold
-
-    Missing score/velocity keys default to 0.0 and non-dict rows are ignored.
-    """
-    trending: list[dict[str, Any]] = []
-    for kw_data in keyword_trends:
-        if not isinstance(kw_data, dict):
-            continue
-        trend_score = float(kw_data.get("trend_score") or 0.0)
-        trend_velocity = float(kw_data.get("trend_velocity") or 0.0)
-        if trend_score >= trend_score_threshold and trend_velocity >= trend_velocity_threshold:
-            trending.append(kw_data)
-    return trending
-
-
-def _score_trend_hypothesis_confidence(
-    kw_data: dict[str, Any],
-    *,
-    trend_score_weight: float = TREND_SCORE_WEIGHT,
-    trend_velocity_weight: float = TREND_VELOCITY_WEIGHT,
-) -> float:
-    """Score S7.5 confidence from trend score and trend velocity.
-
-    Confidence = trend_score_weight * trend_score + trend_velocity_weight * trend_velocity.
-    There is no base bonus; the score is fully data-driven and bounded to [0.0, 1.0].
-    """
-    trend_score = float(kw_data.get("trend_score") or 0.0)
-    trend_velocity = float(kw_data.get("trend_velocity") or 0.0)
-    confidence = (trend_score_weight * trend_score) + (trend_velocity_weight * trend_velocity)
-    return max(0.0, min(1.0, confidence))
-
-
-def generate_trend_chase_hypotheses(
-    source_niche_id: str,
-    keyword_trends: list[dict[str, Any]],
-    existing_hypotheses: list[str],
-    *,
-    max_hypotheses: int = 10,
-    min_confidence: float = 0.50,
-    trend_score_threshold: float = TREND_SCORE_THRESHOLD,
-    trend_velocity_threshold: float = TREND_VELOCITY_THRESHOLD,
-) -> list[HypothesisContract]:
-    """Generate S7.5 trend-chase hypotheses from trend signal rows.
-
-    Unlike S7.4 (demand/competition from scoring pipeline), S7.5 evaluates trend data:
-    trend_score + trend_velocity. Candidates are filtered by dual thresholds, then
-    confidence-scored and budget-gated. Returns accepted and rejected contracts as an
-    audit trail (for qualifying trending candidates).
-    """
-    if not source_niche_id or not keyword_trends:
-        return []
-
-    existing_lower = {item.lower().strip() for item in existing_hypotheses if item.strip()}
-    seen: set[str] = set()
-    contracts: list[HypothesisContract] = []
-    accepted_count = 0
-
-    trending_keywords = _identify_trending_keywords(
-        keyword_trends,
-        trend_score_threshold=trend_score_threshold,
-        trend_velocity_threshold=trend_velocity_threshold,
-    )
-    trending_keywords = sorted(
-        trending_keywords,
-        key=lambda kw: float(kw.get("opportunity_score") or kw.get("trend_score") or 0.0),
-        reverse=True,
-    )
-
-    for kw_data in trending_keywords:
-        hypothesis_text = str(kw_data.get("keyword") or "").strip()
-        normalized = hypothesis_text.lower()
-        if not normalized or normalized in existing_lower or normalized in seen:
-            continue
-        seen.add(normalized)
-
-        confidence = _score_trend_hypothesis_confidence(kw_data)
-        trend_score = float(kw_data.get("trend_score") or 0.0)
-        trend_velocity = float(kw_data.get("trend_velocity") or 0.0)
-
-        accepted = confidence >= min_confidence and accepted_count < max_hypotheses
-        if accepted:
-            accepted_count += 1
-
-        reason = (
-            f"trend confidence {confidence:.2f} >= {min_confidence:.2f} "
-            f"(trend_score={trend_score:.2f}, velocity={trend_velocity:.2f}) (ACCEPTED)"
-            if accepted
-            else (
-                f"trend confidence {confidence:.2f} < {min_confidence:.2f} "
-                f"(trend_score={trend_score:.2f}, velocity={trend_velocity:.2f}) (REJECTED)"
             )
         )
         contracts.append(
