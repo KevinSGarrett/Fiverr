@@ -55,7 +55,9 @@ jobs:
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
+          # Codecov transport/signature outages should not block core quality gates.
+          # Coverage enforcement is already handled by pytest/coverage and codecov_project job.
+          fail_ci_if_error: false
           verbose: true
 
       - name: Config check
