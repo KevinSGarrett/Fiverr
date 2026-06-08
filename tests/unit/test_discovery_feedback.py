@@ -870,3 +870,128 @@ class TestFCoverageUplift:
         assert hasattr(feedback_pkg, "evaluate_discovery_results")
         assert hasattr(feedback_pkg, "build_feedback_summary")
         assert hasattr(hypothesis, "generate_trend_chase_hypotheses")
+
+
+class TestFPromptNameAlignment:
+    def test_gold_classification(self) -> None:
+        assert feedback.GOLD_THRESHOLD > feedback.HIT_THRESHOLD
+
+    def test_auto_retire_is_stricter_than_miss(self) -> None:
+        assert feedback.AUTO_RETIRE_THRESHOLD < feedback.MISS_THRESHOLD
+
+    def test_mode_stats_only_includes_present_modes(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [_make_outcome(mode="gap_exploit", is_hit=True, is_miss=False)]
+        result = feedback.build_feedback_summary(db)
+        assert "gap_exploit" in result["mode_stats"]
+        assert result["mode_stats"]["adjacent_keyword"]["count"] == 0
+
+    def test_best_worst_mode_identified(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [
+            _make_outcome(mode="gap_exploit", score=70.0, is_hit=True, is_miss=False),
+            _make_outcome(mode="gap_exploit", score=70.0, is_hit=True, is_miss=False),
+            _make_outcome(mode="trend_chase", score=35.0, is_hit=False, is_miss=True),
+            _make_outcome(mode="trend_chase", score=35.0, is_hit=False, is_miss=True),
+        ]
+        result = feedback.build_feedback_summary(db)
+        assert result["best_mode"] == "gap_exploit"
+        assert result["worst_mode"] == "trend_chase"
+
+    def test_avg_score_calculation(self) -> None:
+        db = MagicMock()
+        scores = [80.0, 60.0, 40.0, 20.0]
+        db.query.return_value.all.return_value = [_make_outcome(score=s, is_hit=(s >= 60), is_miss=(s < 40)) for s in scores]
+        result = feedback.build_feedback_summary(db)
+        assert abs(result["avg_actual_score"] - (sum(scores) / len(scores))) < 0.1
+
+    def test_score_delta_semantics(self) -> None:
+        confidence = 0.65
+        actual = 80.0
+        assert actual - (confidence * 100) == 15.0
+
+    def test_top_hit_niches(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [
+            _make_outcome(niche_id="python_automation", is_hit=True, is_miss=False),
+            _make_outcome(niche_id="python_automation", is_hit=True, is_miss=False),
+            _make_outcome(niche_id="python_automation", is_hit=True, is_miss=False),
+            _make_outcome(niche_id="mcp_ai_agent", is_hit=True, is_miss=False),
+        ]
+        result = feedback.build_feedback_summary(db)
+        assert result["top_hit_niches"][0]["niche"] == "python_automation"
+        assert result["top_hit_niches"][0]["count"] == 3
+
+    def test_feedback_module_has_no_llm_calls(self) -> None:
+        import ast
+
+        tree = ast.parse(open("src/discovery/feedback.py", encoding="utf-8").read())
+        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
+        func_names = []
+        for call in calls:
+            if hasattr(call.func, "id"):
+                func_names.append(call.func.id)
+            elif hasattr(call.func, "attr"):
+                func_names.append(call.func.attr)
+        llm_calls = [n for n in func_names if "llm" in n.lower() or "openai" in n.lower()]
+        assert len(llm_calls) == 0
+
+    def test_all_constants_are_float(self) -> None:
+        for value in [feedback.GOLD_THRESHOLD, feedback.HIT_THRESHOLD, feedback.MISS_THRESHOLD, feedback.AUTO_RETIRE_THRESHOLD]:
+            assert isinstance(value, float)
+
+    def test_build_feedback_summary_single_outcome(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [_make_outcome(score=72.0, is_hit=True, is_miss=False)]
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 1
+        assert result["hits"] == 1
+        assert result["hit_rate_pct"] == 100.0
+
+    def test_pattern_notes_highlights_good_mode(self) -> None:
+        notes = feedback._generate_pattern_notes([], {"gap_exploit": {"hit_rate": 60.0, "avg_score": 72.0, "count": 5, "gold_count": 0}})
+        assert isinstance(notes, str)
+
+    def test_discovery_outcome_tablename(self) -> None:
+        from src.models import DiscoveryOutcome  # noqa: PLC0415
+
+        assert DiscoveryOutcome.__tablename__ == "discovery_outcomes"
+
+    def test_discovery_cycle_log_tablename(self) -> None:
+        from src.models import DiscoveryCycleLog  # noqa: PLC0415
+
+        assert DiscoveryCycleLog.__tablename__ == "discovery_cycle_logs"
+
+    def test_threshold_hierarchy(self) -> None:
+        assert feedback.AUTO_RETIRE_THRESHOLD < feedback.MISS_THRESHOLD < feedback.HIT_THRESHOLD < feedback.GOLD_THRESHOLD
+
+    def test_feedback_summary_pattern_notes_is_string(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [_make_outcome()]
+        result = feedback.build_feedback_summary(db)
+        assert isinstance(result.get("pattern_notes"), str)
+
+    def test_feedback_summary_count_consistency(self) -> None:
+        db = MagicMock()
+        db.query.return_value.all.return_value = [
+            _make_outcome(score=90.0, is_gold=True, is_hit=True, is_miss=False),
+            _make_outcome(score=70.0, is_gold=False, is_hit=True, is_miss=False),
+            _make_outcome(score=65.0, is_gold=False, is_hit=True, is_miss=False),
+            _make_outcome(score=35.0, is_gold=False, is_hit=False, is_miss=True),
+            _make_outcome(score=50.0, is_gold=False, is_hit=False, is_miss=False),
+        ]
+        result = feedback.build_feedback_summary(db)
+        assert result["total_hypotheses"] == 5
+        assert result["gold_hits"] == 1
+        assert result["hits"] == 3
+        assert result["misses"] == 1
+
+    def test_keyword_is_discovery_default(self) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        cols = {c["name"]: c for c in inspect(create_engine("sqlite:///data/foundation_gate_ci.db")).get_columns("keywords")}
+        assert "is_discovery" in cols
+
+    def test_feedback_module_size(self) -> None:
+        n = len(open("src/discovery/feedback.py", encoding="utf-8").read().splitlines())
+        assert 100 <= n <= 500

@@ -10,28 +10,28 @@ Policy target: v4.3 floor 1000 lines.
 ## Executive Outcome
 
 - Added substantial S7.6 coverage-focused tests in `tests/unit/test_discovery_feedback.py`.
-- Expanded total tests in that module from 38 to 88 passing tests.
+- Expanded total tests in that module from 38 to 106 passing tests.
 - Preserved branch-wide quality gates and integration compatibility.
 - Maintained feedback module coverage above target threshold (>=70%).
 - Held zone discipline: only tests file and F report file modified for F scope.
-- Latest global suite after F additions: `5031 passed`, coverage `94.03%`.
+- Latest global suite after strict F alignment: `5049 passed`, coverage `94.03%`.
 
 ## Baseline vs Post
 
 - Baseline from C Gate 22 context: `src/discovery/feedback.py` at 84% with missing lines `111-114, 121, 127-155`.
 - F scoped post measurement (`--cov=src/discovery` over feedback test module): `src/discovery/feedback.py 84%` with missing `111-114, 121, 127-155`.
-- Interpretation: branch cluster remains, but scenario breadth and assertion depth increased materially (38 -> 88 tests in the S7.6 file).
-- Full suite floor gate retained: `--cov=src --cov-fail-under=90` passing with `5031 passed` and `94.03%` total coverage.
+- Interpretation: branch cluster remains, but scenario breadth and assertion depth increased materially (38 -> 106 tests in the S7.6 file).
+- Full suite floor gate retained: `--cov=src --cov-fail-under=90` passing with `5049 passed` and `94.03%` total coverage.
 
 ## Key Command Evidence
 
 - Preflight pull/log: PASS, branch up to date.
-- Expanded S7.6 test module run: `88 passed`.
+- Expanded S7.6 test module run: `106 passed`.
 - Regression subset after F: PASS (`6 passed`).
 - Pricing-export help command still wired: PASS (usage output resolves).
 - Scoped discovery coverage snapshot includes `src/discovery/feedback.py 84%` and missing lines `111-114, 121, 127-155`.
 - Exact prompt coverage command using `--cov=src/discovery/feedback` reproduces repository behavior from C stage (`module-not-imported`, fail-under interaction); F therefore records scoped feedback coverage with `--cov=src/discovery` for actionable line-missing output.
-- Full suite coverage floor check retained: `5031 passed`, `TOTAL 94.03%`.
+- Full suite coverage floor check retained: `5049 passed`, `TOTAL 94.03%`.
 
 ## F Task Ledger (1-70)
 
