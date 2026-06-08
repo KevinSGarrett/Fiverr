@@ -4,7 +4,7 @@
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 900 lines
 
 ## PROJECT CONTEXT
-- Branch: cycle/069/integration | Base SHA: 398295d
+- Branch: cycle/069/integration | Base SHA: [C069_SQUASH_SHA]
 - Suite at start: 4815 passed | 94.35% | Floor: 90%
 
 ## INVOKE-EXE HELPER
@@ -901,4 +901,3 @@ print(f"PASS: no duplicate trend hypotheses in accepted list: {unique_texts}")
 
 ## GATE 86 — FINAL VERDICT: SCRUM-200 ACCEPTANCE CRITERIA ALL MET
 All four S7.5 source tasks (7.5.1-7.5.4) are implemented and verified across C gates 1-86.
-

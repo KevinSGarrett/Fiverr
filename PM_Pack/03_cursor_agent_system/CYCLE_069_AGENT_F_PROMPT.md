@@ -5,7 +5,7 @@
 # POLICY v4.3: 55 LARGE-XXLARGE tasks | Floor: 1,000 lines
 
 ## PROJECT CONTEXT
-- Branch: cycle/069/integration | Base SHA: 398295d
+- Branch: cycle/069/integration | Base SHA: [C069_SQUASH_SHA]
 
 ## INVOKE-EXE HELPER
 ```powershell
@@ -1008,4 +1008,3 @@ def test_opportunity_score_is_optional_for_trending():
         assert r.specificity_score >= 0.0
     print(f"PASS: opportunity_score optional — {len(results)} results generated without it")
 ```
-
