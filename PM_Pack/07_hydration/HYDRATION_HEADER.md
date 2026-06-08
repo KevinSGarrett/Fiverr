@@ -32,7 +32,7 @@ TIER_GATE: G-A CLOSED | G-B CLOSED (re-verified post S7.6 migration) | G-C CLOSE
 D_REPORT_COMPLETE_070: YES (CYCLE 070 CLOSED)
 
 ## DEVELOP HEAD (current after C070 squash + follow-up fix)
-develop HEAD: e880e80 -> 4234ff6 (fix(discovery): ignore unscored legacy outcomes in feedback summary)
+develop HEAD: afbfcf1 (chore(governance): C070 post-closeout verification addendum) (fix(discovery): ignore unscored legacy outcomes in feedback summary)
 C070 SQUASH SHA: a8c0a7d (PR #80)
 C070 POST-SQUASH FIX SHA: 4234ff6 (Codex P2 legacy-outcome filter in build_feedback_summary)
 C069 SQUASH SHA: d8b440c2a2674aaeb2938c7982f8f6875d65f988 (PR #79)
@@ -118,7 +118,7 @@ STILL OPEN for C064:
 ## OPEN TIER-D ITEMS
 TierD-1: 12 stale git stashes (expanded from 6 — additional stashes accumulated across later cycles: cycle051/047/043/036/029/012 + 6 more) — confirm full list with user before dropping any
 TierD-2: ScrapFly credit budget for full live collection — confirm with user
-TierD-2 status detail: RSV SEED x13 complete
+TierD-2 status detail: RSV SEED x14 complete (C057-C070)
 
 ## .ENV KEY INVENTORY (presence only)
 OPENAI_API_KEY: PRESENT (sk- prefix, len=164)
@@ -130,12 +130,12 @@ REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 COMPLETION: ~63% production-ready (CONFIRMED by C070 post-merge D run 2026-06-08)
 Delta from C069: +1.0% (S7.6 scoring/feedback done; Track 09 Discovery 38%->46%; Wave 10 now 6/9 done)
 Biggest single lever: Approve TierD-2 (ScrapFly live collection) -> immediate +7-8%
-Next milestone: ~62% after C069 (S7.5 Trend Chase complete)
+Next milestone: ~64% after C071 (S7.7 Keyword Integration complete)
 
 Track breakdown:
   01 Foundation:       93% | CLI passes, config-check OK, single worktree
   02 Data/models:      92% | migration_14 adds discovery_outcomes/discovery_cycle_logs + keywords S7.6 fields
-  03 Collection:       55% | Code 95% done; TierD-2 PENDING; RSV SEED x12 cycles
+  03 Collection:       55% | Code 95% done; TierD-2 PENDING; RSV SEED x14 cycles (C057-C070)
   04 Scoring:          90% | All 7 dims; golden kw=110 62.7/1.0/CONDITIONAL_GO
   05 Analysis:         78% | ext_signals=true; llm_relevance=false (by design)
   06 LLM recs:         70% | 12 tasks built; not run live against real data
