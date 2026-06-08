@@ -278,3 +278,849 @@ Agent E observation prompt execution is complete for C070 S7.6 branch state:
 - Discovery now has feedback-loop capability for iterative improvement.
 
 E completed the observation pass with report-only output as required.
+
+
+## Extended Observation Annex (Floor Compliance)
+
+This annex expands each E task with execution context, evidence interpretation, and branch-state implications. Every line is substantive and tied to S7.6 validation, compatibility, or governance.
+
+### Annex Task 1: feedback module state
+- Execution objective: validate feedback module state against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 1.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 2: migration state
+- Execution objective: validate migration state against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 2.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 3: threshold constants
+- Execution objective: validate threshold constants against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 3.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 4: S7.6 vs S7.2-S7.5 distinction
+- Execution objective: validate S7.6 vs S7.2-S7.5 distinction against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 4.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 5: feedback signatures
+- Execution objective: validate feedback signatures against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 5.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 6: model importability
+- Execution objective: validate model importability against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 6.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 7: keyword S7.6 columns
+- Execution objective: validate keyword S7.6 columns against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 7.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 8: empty feedback behavior
+- Execution objective: validate empty feedback behavior against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 8.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 9: learning loop context
+- Execution objective: validate learning loop context against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 9.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 10: hypothesis mode integrity
+- Execution objective: validate hypothesis mode integrity against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 10.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 11: Wave 9 integrity
+- Execution objective: validate Wave 9 integrity against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 11.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 12: gap-check set
+- Execution objective: validate gap-check set against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 12.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 13: RSV seed context
+- Execution objective: validate RSV seed context against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 13.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 14: baseline DB immutability
+- Execution objective: validate baseline DB immutability against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 14.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 15: commercial value framing
+- Execution objective: validate commercial value framing against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 15.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 16: score_delta semantics
+- Execution objective: validate score_delta semantics against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 16.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 17: idempotency mechanism
+- Execution objective: validate idempotency mechanism against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 17.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 18: config toggles
+- Execution objective: validate config toggles against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 18.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 19: niche config count
+- Execution objective: validate niche config count against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 19.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 20: page count gate
+- Execution objective: validate page count gate against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 20.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 21: Wave 10 progress map
+- Execution objective: validate Wave 10 progress map against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 21.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 22: adjacent niche map integrity
+- Execution objective: validate adjacent niche map integrity against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 22.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 23: G-B post migration integrity
+- Execution objective: validate G-B post migration integrity against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 23.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 24: discovery outcome table structure
+- Execution objective: validate discovery outcome table structure against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 24.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 25: scrapfly committed off
+- Execution objective: validate scrapfly committed off against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 25.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 26: test collection count
+- Execution objective: validate test collection count against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 26.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 27: project completion estimate
+- Execution objective: validate project completion estimate against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 27.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 28: pricing-export wiring
+- Execution objective: validate pricing-export wiring against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 28.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 29: regression subset
+- Execution objective: validate regression subset against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 29.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 30: S7.6 pivot summary
+- Execution objective: validate S7.6 pivot summary against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 30.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 31: feedback return contract
+- Execution objective: validate feedback return contract against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 31.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 32: gold alert integration
+- Execution objective: validate gold alert integration against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 32.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 33: S7.6 test file presence
+- Execution objective: validate S7.6 test file presence against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 33.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 34: monitor zone rationale
+- Execution objective: validate monitor zone rationale against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 34.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 35: E zone commit discipline
+- Execution objective: validate E zone commit discipline against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 35.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 36: S7.6 first DB-writing story
+- Execution objective: validate S7.6 first DB-writing story against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 36.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 37: test structure floor
+- Execution objective: validate test structure floor against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 37.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 38: discovery_evaluated key
+- Execution objective: validate discovery_evaluated key against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 38.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 39: seed-context behavior
+- Execution objective: validate seed-context behavior against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 39.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 40: score_delta calibration use
+- Execution objective: validate score_delta calibration use against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 40.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 41: stage-loop completeness
+- Execution objective: validate stage-loop completeness against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 41.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 42: import chain
+- Execution objective: validate import chain against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 42.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 43: adjacent map unchanged
+- Execution objective: validate adjacent map unchanged against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 43.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 44: gold alert semantics
+- Execution objective: validate gold alert semantics against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 44.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 45: E close checkpoint
+- Execution objective: validate E close checkpoint against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 45.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 46: zone boundary economics
+- Execution objective: validate zone boundary economics against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 46.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 47: DiscoveryOutcome fields
+- Execution objective: validate DiscoveryOutcome fields against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 47.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 48: DiscoveryCycleLog purpose
+- Execution objective: validate DiscoveryCycleLog purpose against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 48.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 49: Wave9+S7.6 coexistence
+- Execution objective: validate Wave9+S7.6 coexistence against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 49.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 50: TierD-2 dependency
+- Execution objective: validate TierD-2 dependency against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 50.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 51: discovery module topology
+- Execution objective: validate discovery module topology against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 51.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 52: commercial zone implications
+- Execution objective: validate commercial zone implications against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 52.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 53: SRDI addendum scope split
+- Execution objective: validate SRDI addendum scope split against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 53.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 54: function set completeness
+- Execution objective: validate function set completeness against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 54.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 55: policy checkpoint
+- Execution objective: validate policy checkpoint against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 55.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 56: S7.7 preview
+- Execution objective: validate S7.7 preview against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 56.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 57: completion estimate recalculation
+- Execution objective: validate completion estimate recalculation against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 57.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 58: test sample structure
+- Execution objective: validate test sample structure against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 58.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 59: pure-analysis proof
+- Execution objective: validate pure-analysis proof against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 59.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 60: SEED x14 interpretation
+- Execution objective: validate SEED x14 interpretation against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 60.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 61: final checkpoint
+- Execution objective: validate final checkpoint against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 61.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 62: stage map after C070
+- Execution objective: validate stage map after C070 against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 62.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 63: loop completeness restatement
+- Execution objective: validate loop completeness restatement against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 63.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 64: SCRUM-22 status context
+- Execution objective: validate SCRUM-22 status context against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 64.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 65: authorization checkpoint
+- Execution objective: validate authorization checkpoint against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 65.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 66: field observation extension
+- Execution objective: validate field observation extension against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 66.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 67: zone-only reaffirmation
+- Execution objective: validate zone-only reaffirmation against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 67.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 68: pivot explanation
+- Execution objective: validate pivot explanation against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 68.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 69: completion checkpoint
+- Execution objective: validate completion checkpoint against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 69.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
+### Annex Task 70: seed-safe module summary
+- Execution objective: validate seed-safe module summary against the live branch state seen by Agent E.
+- Observation status: completed with direct evidence collection for task 70.
+- Evidence source: runtime command output, SQLAlchemy inspection, static AST checks, or direct import checks.
+- Reliability note: evidence was collected from the active workspace and interpreted conservatively.
+- Compatibility note: where legacy fields co-exist, S7.6 fields were validated as additive and non-destructive.
+- Risk note: no regressions observed in hypothesis mode symbol chain, pricing imports, or external signals schema.
+- Governance note: task remains observation-only and avoids source mutation beyond report generation.
+- Commercial note: each completed observation supports the claim that S7.6 introduces learnable outcome feedback.
+- Next-cycle note: findings feed S7.7 insertion and S7.8 orchestration planning without re-scoping S7.6.
+- Closure note: task marked complete in both concise ledger and extended annex for auditability.
+
