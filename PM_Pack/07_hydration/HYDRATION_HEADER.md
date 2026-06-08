@@ -126,11 +126,11 @@ SCRAPFLY_API_KEY: PRESENT (scp- prefix, len=41) — load from .env (§14.2)
 DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
-## PROJECT COMPLETION (Part 5.7 v4.4 — updated C070 post-merge 2026-06-08)
-COMPLETION: ~63% production-ready (CONFIRMED by C070 post-merge D run 2026-06-08)
-Delta from C069: +1.0% (S7.6 scoring/feedback done; Track 09 Discovery 38%->46%; Wave 10 now 6/9 done)
+## PROJECT COMPLETION (Part 5.7 v4.4 — updated C071 governance 2026-06-08)
+COMPLETION: ~64% production-ready (CONFIRMED by C071 post-merge)
+Delta from C071: +1% (S7.7 INSERT; Track 09: 46%->54%)
 Biggest single lever: Approve TierD-2 (ScrapFly live collection) -> immediate +7-8%
-Next milestone: ~64% after C071 (S7.7 Keyword Integration complete)
+Next milestone: ~65% after C072 (S7.8 Stage 16 Orchestration)
 
 Track breakdown:
   01 Foundation:       93% | CLI passes, config-check OK, single worktree

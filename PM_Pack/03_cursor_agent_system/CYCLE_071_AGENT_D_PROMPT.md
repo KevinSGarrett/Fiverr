@@ -226,14 +226,14 @@ Functions: insert_discovery_keyword(), process_accepted_hypotheses(),
 Dedup: case-insensitive (keyword_text, niche_id) — applies to all keywords.
 Lineage: all 7 discovery fields populated on insert.
 No new migration (migration_14 from C070 covers all required columns).
-PR #[N] squash SHA [C071_SQUASH_SHA].
+PR #[N] squash SHA 9762c3d.
 Suite: [N] passed | [X]% coverage.
 Wave 10: 7/9 stories complete after this merge."
 
 ## TASK 23 — SCRUM-1033 TRANSITION TO DONE
 Transition SCRUM-1033 → Done.
 Comment: "C071 complete. S7.7 Keyword Integration merged.
-SHA: [C071_SQUASH_SHA].
+SHA: 9762c3d.
 SCRUM-202 closed. SCRUM-22 In Progress."
 
 ## TASK 24 — HYDRATION HEADER UPDATE
@@ -241,7 +241,7 @@ Update PM_Pack/07_hydration/HYDRATION_HEADER.md:
 - CYCLE_CURRENT: 072
 - CYCLE_DONE: 071
 - CYCLE_STATUS_071: COMPLETE — PR #[N] squash-merged to develop
-- develop HEAD: [C071_SQUASH_SHA]
+- develop HEAD: 9762c3d
 - Suite: [N] passed | [X]%
 - Wave 10: S7.1-S7.7 done | S7.8-S7.9 TO DO
 - G-D: OPEN (Wave 10 S7.8-S7.9; Waves 11-12 remain)
@@ -259,7 +259,7 @@ Remove-Item C:\Fiverr\*.py, C:\Fiverr\*.json, C:\Fiverr\*.txt -Force -ErrorActio
 Create SCRUM-1034: "Cycle 072 (Wave 10 Discovery: S7.8 Stage 16 Orchestration) control"
 Description: "C072 control task. S7.8 Stage 16 Orchestration.
 Scope: run_discovery_cycle() wires S7.2-S7.7 stages into automated pipeline.
-Story: SCRUM-203 (S7.8) if exists. Base SHA: [C071_SQUASH_SHA]. Policy v4.3."
+Story: SCRUM-203 (S7.8) if exists. Base SHA: 9762c3d. Policy v4.3."
 
 ## TASK 27 — GOVERNANCE COMMIT
 ```powershell
