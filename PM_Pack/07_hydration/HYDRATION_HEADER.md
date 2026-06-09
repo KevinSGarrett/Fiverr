@@ -1,4 +1,4 @@
-## C072 PM REVIEW COMPLETED 2026-06-09
+﻿## C072 PM REVIEW COMPLETED 2026-06-09
 POST-SQUASH FIX: 85b119b (lint: remove unused typing import; add D report) -- LEGITIMATE
 C072 SQUASH: 243ce1e (PR #82) | POST-SQUASH FIX: 85b119b | HEAD: bcac7ab (governance)
 Suite: 5214 passed | 94.01% | Floor 90%
@@ -15,14 +15,16 @@ TierD-2: ScrapFly SEED x16 (C057-C072) -- PENDING USER APPROVAL
 
 ﻿# HYDRATION HEADER — Fiverr Research System
 # Read this file first in every session to orient before any action.
-# Updated: 2026-06-09 (C072 PM review complete; C073 prompts v4.3 all floors PASS (6,296 lines))
+# Updated: 2026-06-09 (C073 complete; PR #84 squash-merged to develop)
 
 ## CYCLE STATE
-CYCLE_CURRENT: 073
+CYCLE_CURRENT: 074
 CYCLE_BRANCH: develop
 STATUS: READY_FOR_A
-CYCLE_DONE: 072
-CYCLE_NEXT: 073
+CYCLE_DONE: 073
+CYCLE_NEXT: 074
+CYCLE_STATUS_073: COMPLETE - PR #84 squash-merged to develop
+CYCLE_BRANCH_073: DELETED
 CYCLE_STATUS_072: COMPLETE - PR #82 squash-merged to develop
 CYCLE_BRANCH_072: DELETED
 CYCLE_STATUS_071: COMPLETE - PR #81 squash-merged to develop
@@ -47,11 +49,12 @@ CYCLE_STATUS_062: COMPLETE - PR #71 squash-merged to develop
 CYCLE_BRANCH_062: DELETED
 CYCLE_STATUS_061: COMPLETE - PR #70 squash-merged to develop
 CYCLE_BRANCH_061: DELETED
-TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Wave 10 S7.9 + Waves 11-12 remain)
-D_REPORT_COMPLETE_072: YES (CYCLE 072 CLOSED)
+TIER_GATE: G-A CLOSED | G-B CLOSED | G-C CLOSED | G-D OPEN (Waves 11-12 remain)
+D_REPORT_COMPLETE_073: YES (CYCLE 073 CLOSED)
 
-## DEVELOP HEAD (current after C072 squash)
-develop HEAD: 243ce1e (feat(discovery): C072 Wave 10 S7.8 -- stage 16 orchestration, run_discovery_cycle (#82))
+## DEVELOP HEAD (current after C073 squash)
+develop HEAD: 7762132f2c48146359c827f8ffd8320772eda8bc (C073: S7.9 discovery dashboard integration (#84))
+C073 SQUASH SHA: 7762132f2c48146359c827f8ffd8320772eda8bc (PR #84)
 C072 SQUASH SHA: 243ce1e (PR #82)
 C071 SQUASH SHA: 2b4e320 (PR #81)
 C070 SQUASH SHA: a8c0a7d (PR #80)
@@ -78,14 +81,17 @@ C060 SQUASH SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
 C059 SQUASH SHA: 1fd62250ff04704d36b2a8606689c596e82a1545
 C058 SQUASH SHA: a0471fb9247046fd913d57a8421d0bc715493192
 
-## SUITE STATE (C072 post-merge D sanity)
-Tests: 5214 passed | Coverage: 94.01% | Floor: 90% enforced
+## SUITE STATE (C073 post-merge D sanity)
+Tests: 5271 passed | Coverage: 94.04% | Floor: 90% enforced
 C069 core file: `src/discovery/hypothesis.py` (764 lines, 99% coverage in full-suite term-missing run)
 hypothesis.py: `generate_trend_chase_hypotheses()` + `_identify_trending_keywords()` + `_score_trend_hypothesis_confidence()`
-Wave 10 status: S7.1-S7.8 done, S7.9 TO DO (C073 authorized)
+Wave 10 status: S7.1-S7.9 DONE (9/9 COMPLETE)
 C070 control: SCRUM-1032 (Done) | C070 story: SCRUM-201 (Done)
 C071 control: SCRUM-1033 (Done) | C071 story: SCRUM-202 (Done)
 C072 control: SCRUM-1034 (Done) | C072 story: SCRUM-203 (Done)
+C073 control: SCRUM-1035 (Done) | C073 story: SCRUM-204 (Done)
+SCRUM-22 Epic 07 Discovery Engine: CLOSED
+SCRUM-1036: To Do (C074 Wave 11 kickoff control)
 
 ## REGRESSION PACK (strategy §7 v2.5 — 45 names)
 Pack version: v2.5 (C061 — REG-41/42/43/44 added for TC-1 + DL-207 + dashboard hardening; C062 verified green)
@@ -149,10 +155,10 @@ DATABASE_URL: PRESENT (sqlite prefix, len=33)
 REDDIT_* suite: PRESENT | REDDIT_BRIDGE_SHARED_SECRET: PRESENT (len=44)
 
 ## PROJECT COMPLETION (Part 5.7 v4.4 — updated C071 governance 2026-06-08)
-COMPLETION: ~65% production-ready (CONFIRMED by C072 post-merge)
-Delta from C071: +1% (S7.8 ORCHESTRATE; Track 09: 54%->62%)
+COMPLETION: ~66% production-ready (CONFIRMED by C073 post-merge)
+Delta from C072: +1% (S7.9 done; Track 09: 70%->78%)
 Biggest single lever: Approve TierD-2 (ScrapFly live collection) -> immediate +7-8%
-Next milestone: ~66% after C073 (S7.9 Discovery Dashboard Widgets)
+Next milestone: ~67% after C074 (Wave 11 Gig Creation Playbook kickoff)
 
 Track breakdown:
   01 Foundation:       93% | CLI passes, config-check OK, single worktree
@@ -161,26 +167,25 @@ Track breakdown:
   04 Scoring:          90% | All 7 dims; golden kw=110 62.7/1.0/CONDITIONAL_GO
   05 Analysis:         78% | ext_signals=true; llm_relevance=false (by design)
   06 LLM recs:         70% | 12 tasks built; not run live against real data
-  07 Dashboard:        72% | 9 pages live data; discovery.py stub; playbook.py stub
+  07 Dashboard:        75% | 9 pages live data; discovery.py real data widgets
   08 Pricing:          88% | S6.1-S6.8 done; pricing-export CLI confirmed C066
-  09 Discovery:        62% | S7.1-S7.8 done (8/9); S7.9 pending
+  09 Discovery:        78% | S7.1-S7.9 done (9/9)
   10 Playbook:          8% | Prompt templates only; no pipeline; Wave 11 unstarted
   11 Dashboard UX:     10% | Spec done; Streamlit defaults; Wave 12 unstarted
   12 SRDI:             90% | R1-R11 done; G-A CLOSED; all integrity checks pass
 
 Weighted: (0.05x93)+(0.08x92)+(0.14x55)+(0.10x90)+(0.09x78)+(0.09x70)
-         +(0.07x72)+(0.08x88)+(0.10x62)+(0.10x8)+(0.07x10)+(0.03x90) = 64.75% -> ~65%
+         +(0.07x75)+(0.08x88)+(0.10x78)+(0.10x8)+(0.07x10)+(0.03x90) = 66.05% -> ~66%
 
 Path to 70%: TierD-2 approval (+7-8%) + complete Wave 10 S7.7-S7.9 (~3 cycles, +3-4%)
 Path to 80%: Wave 10 complete (S7.8+S7.9) + live validated pipeline
 Path to 100%: Wave 11 Playbook + Wave 12 Dashboard UX + live production runs
 
-## C073 PREVIEW
-- Wave 10 Discovery: S7.9 Discovery Dashboard Widgets (SCRUM-204)
-- C073 control: SCRUM-1035 (To Do)
-- S7.9 target: implement `get_discovery_stats()` and `get_gold_discoveries()` in `src/dashboard/pages/discovery.py`.
-- Wave 10 planning marker: S7.1-S7.8 done | S7.9 TO DO
-- TierD-2 (ScrapFly) approval remains strongly recommended before first C073 dashboard validation run.
+## C074 PREVIEW
+- Wave 11 Gig Creation Playbook kickoff (SCRUM-1036 control).
+- Track 10 currently 8%; first target is playbook engine scaffold and data structure.
+- Wave 10 now complete (S7.1-S7.9, 9/9 delivered).
+- TierD-2 status: ScrapFly SEED x17 complete (C057-C073); live-data window now optimal.
 - POLICY CHANGE (effective C067+): 55 LARGE-XXLARGE tasks minimum per agent (raised from 25).
   New line floors: A:1,000 | B:1,200 | E:950 | C:900 | F:1,000 | D:1,200 | TOTAL:6,250
   Documented in AGENT_EXECUTION_STRATEGY.md §8.1/§8.3 (v4.3) and POST_CYCLE_PM_REVIEW_v4.md (v4.3)
