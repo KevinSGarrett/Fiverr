@@ -162,3 +162,7 @@ Details for noted items:
   - `src/dashboard/pages/discovery.py 97%`
   - `TOTAL 94%`
   - `5244 passed`
+
+Additional strict-conformance run:
+
+- Task 20 style staging+commit sequence revalidated with exact three-file scope and no `src/discovery/*` or `config.yaml` drift.

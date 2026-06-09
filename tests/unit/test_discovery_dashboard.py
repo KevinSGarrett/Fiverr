@@ -1,4 +1,4 @@
-"""S7.9 discovery dashboard data-layer tests."""
+"""S7.9 discovery dashboard data-layer tests (Agent B)."""
 
 from __future__ import annotations
 
