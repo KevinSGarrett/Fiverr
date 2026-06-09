@@ -1,4 +1,4 @@
-"""Page 7: Discovery (Story 9.9)."""
+"""Page 7: Discovery (Story 9.9, S7.9 data widgets)."""
 from __future__ import annotations
 
 from typing import Any
