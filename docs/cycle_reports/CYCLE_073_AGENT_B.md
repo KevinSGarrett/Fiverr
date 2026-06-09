@@ -146,3 +146,19 @@ No B-introduced edits to:
 
 B prompt execution completed with S7.9 data-layer implementation, dedicated tests, gate passes, and governance reporting.  
 Post-B test suite state: `5244` tests, `94.04%` coverage, golden parity PASS.
+
+## Strict Completion Matrix (Tasks 1-59)
+
+- Tasks marked **PASS**: 1, 3, 5-14, 16-20, 21-34, 36-59
+- Tasks marked **PASS (observed post-change state)**: 2
+- Tasks marked **PASS with environment/schema note**: 4, 15, 35
+
+Details for noted items:
+
+- **Task 2**: prompt expected pre-change stub (`46` lines, one function). On this branch, B implementation is already present by design (`4` functions). Survey executed and recorded.
+- **Task 4**: `keywords.specificity_score` is not present in current schema; `hypothesis_confidence` is present and used as safe fallback in implementation.
+- **Task 15**: prompt migration path `src/database/migrations/` does not exist in this repo layout; git scope and file checks confirm no migration additions from B changes.
+- **Task 35**: module-specific coverage invocation with slash path triggered coverage/import tool issues in this local environment; equivalent gated evidence captured from full suite run showing:
+  - `src/dashboard/pages/discovery.py 97%`
+  - `TOTAL 94%`
+  - `5244 passed`
