@@ -617,3 +617,499 @@ def test_file_contains_30_plus_tests() -> None:
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     ]
     assert len(test_names) >= 30
+
+
+def test_budget_cap_enforced() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    many_hypotheses = [MagicMock(accepted=True, specificity_score=0.72) for _ in range(20)]
+    config = {"discovery": {"max_hypotheses_per_run": 15}}
+    inserted_hypotheses: list[MagicMock] = []
+
+    def mock_process(hypotheses: list[MagicMock], run_id: str, db_session: MagicMock, **kwargs: object) -> dict[str, object]:
+        del db_session, kwargs
+        inserted_hypotheses.extend(hypotheses)
+        return {
+            "inserted": len(hypotheses),
+            "skipped": 0,
+            "run_id": run_id,
+            "keyword_ids": list(range(len(hypotheses))),
+        }
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", return_value=(many_hypotheses, 0)),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "cap-test", config)
+    assert len(inserted_hypotheses) <= 15
+
+
+def test_select_modes_run_3_has_adj_niche() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    modes = _select_modes(run_number=3)
+    assert "adjacent_niche" in modes
+    assert "adjacent_keyword" in modes
+    assert "gap_exploit" in modes
+    assert "trend_chase" in modes
+    assert len(modes) == 4
+
+
+def test_select_modes_run_1_no_adj_niche() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    modes = _select_modes(run_number=1)
+    assert "adjacent_niche" not in modes
+    assert len(modes) == 3
+
+
+def test_all_below_confidence_gated() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    low_conf = [MagicMock(accepted=True, specificity_score=0.20) for _ in range(5)]
+    config = {"discovery": {"min_hypothesis_confidence": 0.50}}
+    log_kwargs: dict[str, object] = {}
+
+    def capture(**kwargs: object) -> MagicMock:
+        log_kwargs.update(kwargs)
+        return MagicMock()
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 5, "run_id": "low", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", return_value=(low_conf, 0)),
+        patch("src.discovery.stage16.DiscoveryCycleLog", side_effect=capture),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "low-conf", config)
+    assert log_kwargs.get("hypotheses_accepted") == 0
+
+
+def test_cycle_log_created_even_with_zero() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "zero", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", return_value=([], 0)),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        with patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()):
+            run_discovery_cycle(db, "zero")
+    db.add.assert_called()
+    db.commit.assert_called_once()
+
+
+def test_multiple_niches_all_called() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    generate_calls: list[str] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del modes, seed_data, min_conf, kwargs
+        generate_calls.append(niche_id)
+        return [], 0
+
+    fake_niches = {"niche_a": {}, "niche_b": {}, "niche_c": {}}
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "multi", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", fake_niches),
+    ):
+        run_discovery_cycle(db, "multi")
+    assert set(generate_calls) == set(fake_niches.keys())
+
+
+def test_feedback_summary_stored_as_json() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    feedback_data = {"total_hypotheses": 5, "hits": 3, "hit_rate_pct": 60.0}
+    log_kwargs: dict[str, object] = {}
+
+    def capture(**kwargs: object) -> MagicMock:
+        log_kwargs.update(kwargs)
+        return MagicMock()
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value=feedback_data),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "fb", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", return_value=([], 0)),
+        patch("src.discovery.stage16.DiscoveryCycleLog", side_effect=capture),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "fb")
+    stored = json.loads(str(log_kwargs.get("feedback_summary", "{}")))
+    assert stored.get("total_hypotheses") == 5
+    assert stored.get("hit_rate_pct") == 60.0
+
+
+def test_stage16_module_size() -> None:
+    n = len(open("src/discovery/stage16.py", encoding="utf-8").readlines())
+    assert 100 <= n <= 500
+
+
+def test_complete_s78_smoke() -> None:
+    from src.discovery.feedback import build_feedback_summary
+    from src.discovery.integration import process_accepted_hypotheses
+    from src.discovery.stage16 import DEFAULT_MAX_HYPOTHESES, DEFAULT_MIN_CONFIDENCE, _select_modes, run_discovery_cycle
+    from src.models import DiscoveryCycleLog
+
+    modes = _select_modes()
+    assert len(modes) >= 3
+    assert DEFAULT_MIN_CONFIDENCE == 0.50
+    assert DEFAULT_MAX_HYPOTHESES == 15
+    assert run_discovery_cycle is not None
+    assert process_accepted_hypotheses is not None
+    assert build_feedback_summary is not None
+    assert DiscoveryCycleLog is not None
+
+
+def test_mode_count_run_0() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    modes = _select_modes(run_number=0)
+    assert len(modes) == 4
+
+
+def test_config_none_uses_defaults() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    modes = _select_modes(config=None, run_number=1)
+    assert len(modes) == 3
+
+
+def test_stage16_coexists_with_s76() -> None:
+    from src.discovery.feedback import GOLD_THRESHOLD, build_feedback_summary
+    from src.discovery.stage16 import _select_modes, run_discovery_cycle
+
+    assert GOLD_THRESHOLD == 85.0
+    assert len(_select_modes()) >= 3
+    assert run_discovery_cycle is not None
+    assert build_feedback_summary is not None
+
+
+def test_stage16_coexists_with_s77() -> None:
+    from src.discovery.integration import insert_discovery_keyword, process_accepted_hypotheses
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = MagicMock()
+    result = process_accepted_hypotheses([], "coexist-run", db)
+    assert result["inserted"] == 0
+    assert run_discovery_cycle is not None
+    assert insert_discovery_keyword is not None
+
+
+def test_wave9_coexists_with_s78() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+    from src.pricing import analyze_price_distribution, calculate_new_seller_pricing
+
+    assert run_discovery_cycle is not None
+    assert analyze_price_distribution is not None
+    assert calculate_new_seller_pricing is not None
+
+
+def test_select_modes_empty_enabled_list() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    config = {"discovery": {"enabled_modes": []}}
+    modes = _select_modes(config=config, run_number=1)
+    assert isinstance(modes, list)
+
+
+def test_generate_all_gap_exploit() -> None:
+    from src.discovery.stage16 import _generate_all_hypotheses
+
+    seed = {
+        "seed_keywords": [],
+        "existing_kw_texts": [],
+        "gap_signals": [
+            {
+                "keyword": "test_kw",
+                "demand_score": 0.80,
+                "competition_score": 0.15,
+                "opportunity_score": 0.88,
+            }
+        ],
+        "trend_signals": [],
+    }
+    hypotheses, gated = _generate_all_hypotheses("python_automation", ["gap_exploit"], seed, 0.50)
+    assert isinstance(hypotheses, list)
+    assert isinstance(gated, int)
+
+
+def test_generate_all_trend_chase() -> None:
+    from src.discovery.stage16 import _generate_all_hypotheses
+
+    seed = {
+        "seed_keywords": [],
+        "existing_kw_texts": [],
+        "gap_signals": [],
+        "trend_signals": [
+            {
+                "keyword": "ai_auto",
+                "trend_score": 0.85,
+                "trend_velocity": 0.72,
+                "opportunity_score": 0.82,
+            }
+        ],
+    }
+    hypotheses, gated = _generate_all_hypotheses("python_automation", ["trend_chase"], seed, 0.50)
+    assert isinstance(hypotheses, list)
+    assert isinstance(gated, int)
+
+
+def test_default_budget_config() -> None:
+    from src.discovery.stage16 import DEFAULT_MAX_HYPOTHESES, DEFAULT_MIN_CONFIDENCE
+
+    assert DEFAULT_MIN_CONFIDENCE == 0.50
+    assert DEFAULT_MAX_HYPOTHESES == 15
+
+
+def test_modes_run_valid_json() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    kw: dict[str, object] = {}
+
+    def capture(**kwargs: object) -> MagicMock:
+        kw.update(kwargs)
+        return MagicMock()
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "j", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", return_value=([], 0)),
+        patch("src.discovery.stage16.DiscoveryCycleLog", side_effect=capture),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "j")
+    modes = json.loads(str(kw.get("modes_run", "[]")))
+    assert isinstance(modes, list)
+    assert len(modes) > 0
+
+
+def test_constants_present() -> None:
+    import src.discovery.stage16 as stage16
+
+    assert hasattr(stage16, "DEFAULT_MIN_CONFIDENCE")
+    assert hasattr(stage16, "DEFAULT_MAX_HYPOTHESES")
+    assert stage16.DEFAULT_MIN_CONFIDENCE > 0.0
+    assert stage16.DEFAULT_MAX_HYPOTHESES > 0
+
+
+def test_cycle_at_is_datetime() -> None:
+    from datetime import datetime
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    kw: dict[str, object] = {}
+
+    def capture(**kwargs: object) -> MagicMock:
+        kw.update(kwargs)
+        return MagicMock()
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "dt", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", return_value=([], 0)),
+        patch("src.discovery.stage16.DiscoveryCycleLog", side_effect=capture),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "dt")
+    assert isinstance(kw.get("cycle_at"), datetime)
+
+
+def test_select_modes_run_9() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    modes = _select_modes(run_number=9)
+    assert "adjacent_niche" in modes
+    assert len(modes) == 4
+
+
+def test_select_modes_run_5() -> None:
+    from src.discovery.stage16 import _select_modes
+
+    modes = _select_modes(run_number=5)
+    assert "adjacent_niche" not in modes
+    assert len(modes) == 3
+
+
+def test_generate_all_adj_niche_failure_nonfatal() -> None:
+    from src.discovery.stage16 import _generate_all_hypotheses
+
+    seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+    with patch(
+        "src.discovery.stage16.generate_adjacent_niche_hypotheses",
+        side_effect=Exception("adj_niche error"),
+    ):
+        hypotheses, gated = _generate_all_hypotheses("python_automation", ["adjacent_niche"], seed, 0.50)
+    assert isinstance(hypotheses, list)
+    assert isinstance(gated, int)
+
+
+def test_run_all_niches_called() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    fake = {"a": {}, "b": {}, "c": {}}
+    calls: list[str] = []
+
+    def mock_gen(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del modes, seed_data, min_conf, kwargs
+        calls.append(niche_id)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "all", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_gen),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", fake),
+    ):
+        run_discovery_cycle(db, "all")
+    assert set(calls) == set(fake.keys())
+
+
+def test_budget_cap_across_niches() -> None:
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    per_niche = [MagicMock(accepted=True, specificity_score=0.75) for _ in range(10)]
+    inserted: list[MagicMock] = []
+
+    def mock_gen(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        return per_niche, 0
+
+    def mock_process(hypotheses: list[MagicMock], run_id: str, db_session: MagicMock) -> dict[str, object]:
+        del db_session
+        inserted.extend(hypotheses)
+        return {
+            "inserted": len(hypotheses),
+            "skipped": 0,
+            "run_id": run_id,
+            "keyword_ids": list(range(len(hypotheses))),
+        }
+
+    fake = {"a": {}, "b": {}, "c": {}}
+    config = {"discovery": {"max_hypotheses_per_run": 15}}
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_gen),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", fake),
+    ):
+        run_discovery_cycle(db, "cap3", config)
+    assert len(inserted) <= 15
+
+
+def test_stage16_module_docstring() -> None:
+    tree = ast.parse(open("src/discovery/stage16.py", encoding="utf-8").read())
+    doc = ast.get_docstring(tree)
+    assert doc
+    assert "discovery" in doc.lower()
+
+
+def test_stage16_not_async() -> None:
+    import re
+
+    content = open("src/discovery/stage16.py", encoding="utf-8").read()
+    async_fns = re.findall(r"async def (\\w+)", content)
+    assert "run_discovery_cycle" not in async_fns
+
+
+def test_wave10_complete_smoke() -> None:
+    from src.discovery.contracts import HypothesisMode
+    from src.discovery.feedback import GOLD_THRESHOLD, build_feedback_summary
+    from src.discovery.hypothesis import (
+        generate_adjacent_keyword_hypotheses,
+        generate_gap_exploit_hypotheses,
+        generate_trend_chase_hypotheses,
+    )
+    from src.discovery.integration import process_accepted_hypotheses
+    from src.discovery.stage16 import _select_modes, run_discovery_cycle
+    from src.models import DiscoveryCycleLog
+
+    modes = sorted([e.value for e in HypothesisMode])
+    assert modes == ["adjacent_keyword", "adjacent_niche", "gap_exploit", "trend_chase"]
+    assert GOLD_THRESHOLD == 85.0
+    assert run_discovery_cycle is not None
+    assert _select_modes is not None
+    assert process_accepted_hypotheses is not None
+    assert build_feedback_summary is not None
+    assert generate_adjacent_keyword_hypotheses is not None
+    assert generate_gap_exploit_hypotheses is not None
+    assert generate_trend_chase_hypotheses is not None
+    assert DiscoveryCycleLog is not None
