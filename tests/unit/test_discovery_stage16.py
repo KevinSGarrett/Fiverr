@@ -788,7 +788,12 @@ def test_stage16_module_size() -> None:
 def test_complete_s78_smoke() -> None:
     from src.discovery.feedback import build_feedback_summary
     from src.discovery.integration import process_accepted_hypotheses
-    from src.discovery.stage16 import DEFAULT_MAX_HYPOTHESES, DEFAULT_MIN_CONFIDENCE, _select_modes, run_discovery_cycle
+    from src.discovery.stage16 import (
+        DEFAULT_MAX_HYPOTHESES,
+        DEFAULT_MIN_CONFIDENCE,
+        _select_modes,
+        run_discovery_cycle,
+    )
     from src.models import DiscoveryCycleLog
 
     modes = _select_modes()
@@ -940,6 +945,7 @@ def test_constants_present() -> None:
 
 def test_cycle_at_is_datetime() -> None:
     from datetime import datetime
+
     from src.discovery.stage16 import run_discovery_cycle
 
     db = _mock_db()

@@ -21,7 +21,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.feedback import build_feedback_summary, evaluate_discovery_results
@@ -33,9 +33,6 @@ from src.discovery.hypothesis import (
 )
 from src.discovery.integration import get_pending_discovery_keywords, process_accepted_hypotheses
 from src.models import DiscoveryCycleLog, Keyword, KeywordScore, Niche
-
-if TYPE_CHECKING:
-    from src.discovery.hypothesis import HypothesisContract
 
 log = logging.getLogger(__name__)
 
