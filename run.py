@@ -424,6 +424,29 @@ def dashboard_command(mode: str) -> None:
     raise SystemExit(run_dashboard_stub(mode=mode))
 
 
+@cli.command("discover")
+@click.option("--run-id", default=None, help="Discovery run ID (generated if not provided).")
+@click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
+@click.option("--database-url", default=None, help="Database URL override.")
+def discover_command(run_id: str | None, config_path: str, database_url: str | None) -> None:
+    """Run Stage 16 discovery cycle orchestration."""
+    dry_run_sentinel = os.getenv("DRY_RUN_SENTINEL")
+    if dry_run_sentinel:
+        click.echo(f"DRY_RUN_SENTINEL set ({dry_run_sentinel}); skipping discovery writes.")
+        raise SystemExit(0)
+
+    from src.discovery.stage16 import run_discovery_cycle
+
+    config_payload = _load_recommendation_config(config_path=config_path)
+    with _recommendation_db_session(database_url) as db:
+        cycle_log = run_discovery_cycle(
+            db=db,
+            run_id=run_id,
+            config=config_payload,
+        )
+    click.echo(f"Discovery complete: {cycle_log.hypotheses_accepted} keywords inserted")
+
+
 @cli.command("run")
 @click.option(
     "--mode",
