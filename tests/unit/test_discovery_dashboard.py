@@ -603,7 +603,12 @@ class TestS79CoverageUplift:
         assert isinstance(result["adj_kw"]["avg_specificity"], float)
 
     def test_stage16_intact_after_c073(self) -> None:
-        from src.discovery.stage16 import DEFAULT_MAX_HYPOTHESES, DEFAULT_MIN_CONFIDENCE, _select_modes, run_discovery_cycle
+        from src.discovery.stage16 import (
+            DEFAULT_MAX_HYPOTHESES,
+            DEFAULT_MIN_CONFIDENCE,
+            _select_modes,
+            run_discovery_cycle,
+        )
 
         assert callable(run_discovery_cycle)
         assert callable(_select_modes)
