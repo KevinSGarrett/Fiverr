@@ -1,118 +1,146 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-06 (C068 merged; C069 ready)
+# Last updated: 2026-06-09 (PM Governance Correction — C073 complete; C074 current)
+# CANONICAL SOURCE: PM_Pack/CURRENT_STATE_CANONICAL.md
+
+---
 
 ## SRDI INITIATIVE STATUS — COMPLETE
 
-| Epic | Title | Tier | Status | Cycle | Squash SHA |
-|---|---|---|---|---|---|
-| R8 | Data Schema Extensions | 0 | DONE | C049 | (C049 SHA) |
-| R1 | Search URL Hardening | 0 | DONE | C051 | (C051 SHA) |
-| R3 | Sponsored & Zombie Filtering | 0 | DONE | C052 | (C052 SHA) |
-| R2 | Result-Set Relevance Validation | 0 | DONE | C053 | (C053 SHA) |
-| **Tier-0 Gate** | | - | **COMPLETE** | C053 | - |
-| R4 | Scoring System Integrity | 1 | DONE | C054 | acff870 |
-| R6 | Discovery Engine Relevance Gates | 1 | DONE | C055 | fabdca9 |
-| R9 | Testing & Validation Framework | 1 | DONE | C056 | 3617ce4 |
-| **Tier-1 Gate** | | - | **COMPLETE** | C056 | - |
-| R5 | LLM Relevance Classification | 2 | DONE | C057 | 325ef30 |
-| R7 | External Signal Integrity | 2 | DONE | C058 | a0471fb |
-| **Tier-2 Gate** | | - | **CLOSED** | C058 | - |
-| R10 | Dashboard & Alerting Integration | 3 | DONE | C059 | 1fd62250 |
-| **Tier-3 Gate** | | - | **COMPLETE** | C059 | - |
-| R11 | Edge Cases & Maintenance | 4 | **DONE** | **C060** | **9687fb6f** |
-| **Tier-4 Gate** | | - | **COMPLETE** | **C060** | - |
-| **SRDI INITIATIVE** | **All R1-R11** | **0-4** | **CLOSED** | **C060** | **9687fb6f** |
+| Epic | Title | Tier | Status | Cycle |
+|---|---|---|---|---|
+| R1 | Search URL Hardening | 0 | DONE | C051 |
+| R2 | Result-Set Relevance Validation | 0 | DONE | C053 |
+| R3 | Sponsored & Zombie Filtering | 0 | DONE | C052 |
+| R4 | Scoring System Integrity | 1 | DONE | C054 |
+| R5 | LLM Relevance Classification | 2 | DONE | C057 |
+| R6 | Discovery Engine Relevance Gates | 1 | DONE | C055 |
+| R7 | External Signal Integrity | 2 | DONE | C058 |
+| R8 | Data Schema Extensions | 0 | DONE | C049 |
+| R9 | Testing & Validation Framework | 1 | DONE | C056 |
+| R10 | Dashboard & Alerting Integration | 3 | DONE | C059 |
+| R11 | Edge Cases & Maintenance | 4 | DONE | C060 |
+| **SRDI INITIATIVE** | **All R1-R11** | **ALL** | **CLOSED** | **C060** |
+
+---
+
+## POST-SRDI CYCLE LOG (C061–C073)
+
+| Cycle | Status | Squash SHA | Wave | Story |
+|---|---|---|---|---|
+| C061 | MERGED | cb53dd3d | Collection hardening | Wave M (post-SRDI) |
+| C062 | MERGED | de528f84 | Wave 9 Pricing Phase 1 | S6.1+S6.2 |
+| C063 | MERGED | 19a69708 | Wave 9 Pricing Phase 2 | S6.3+S6.4 |
+| C064 | MERGED | 7af0b1c8 | Wave 9 Pricing Phase 3 | S6.5+S6.6 |
+| C065 | MERGED | 5b5868bf | Wave 9 Pricing Phase 4 | S6.7+S6.8 |
+| C066 | MERGED | 36f6f328 | Wave 10 Discovery | S7.2 Adjacent Keyword |
+| C067 | MERGED | 5572dfae | Wave 10 Discovery | S7.3 Adjacent Niche |
+| C068 | MERGED | d0f3f19d | Wave 10 Discovery | S7.4 Gap Exploit |
+| C069 | MERGED | d8b440c2 | Wave 10 Discovery | S7.5 Trend Chase |
+| C070 | MERGED | a8c0a7d | Wave 10 Discovery | S7.6 Scoring Feedback |
+| C071 | MERGED | 2b4e320 | Wave 10 Discovery | S7.7 KW Integration |
+| C072 | MERGED | 243ce1e | Wave 10 Discovery | S7.8 Stage 16 Orchestration |
+| C073 | MERGED | 33ebd24/7762132 | Wave 10 Discovery | S7.9 Discovery Dashboard |
+
+---
+
+## CURRENT WAVE STATUS
+
+### Wave 9 — Pricing Strategy Engine: COMPLETE (C062–C065)
+- S6.1 Price Distribution Analysis: DONE
+- S6.2 New Seller Pricing Model: DONE
+- S6.3 Pricing Recommendations LLM (Task 12): DONE
+- S6.4 Price Ladder Tracker: DONE
+- S6.5 Revenue Gate Tracker: DONE
+- S6.6 Pricing CLI integration: DONE
+- S6.7 Pricing Dashboard Widgets data layer: DONE
+- S6.8 Pricing Export (CSV/JSON/Excel/Markdown): DONE
+
+### Wave 10 — LLM-Powered Niche Discovery: COMPLETE (C066–C073)
+- S7.1 Discovery Core Loop Scaffold: DONE (SRDI era)
+- S7.2 Adjacent Keyword Mode: DONE (C066, SCRUM-197)
+- S7.3 Adjacent Niche Mode: DONE (C067, SCRUM-198)
+- S7.4 Gap Exploit Mode: DONE (C068, SCRUM-199)
+- S7.5 Trend Chase Mode: DONE (C069, SCRUM-200)
+- S7.6 Scoring Feedback Loop: DONE (C070, SCRUM-201)
+- S7.7 Keyword Integration: DONE (C071, SCRUM-202)
+- S7.8 Stage 16 Orchestration: DONE (C072, SCRUM-203)
+- S7.9 Discovery Dashboard Widgets: DONE (C073, SCRUM-204)
+- Epic SCRUM-22 (Discovery Engine): CLOSED
+
+### Wave 11 — Gig Creation Playbook: IN PLANNING (C074+)
+- S8.1 Gig Visual Analysis: To Do (C075 target)
+- S8.2 Seller Profile Optimization: To Do (C076 target)
+- S8.3 Seller Setup Playbook: To Do (C074 target — FROZEN pending PM Governance Correction)
+- NOTE: All C074 prompts FROZEN. See CYCLE_074_PROMPT_CORRECTION_PROTOCOL.md
+
+### Wave 12 — Dashboard UX Overhaul: NOT STARTED
+
+---
+
+## CURRENT JIRA STATE
+
+| Key | Description | Status |
+|---|---|---|
+| SCRUM-22 | Epic 07 Discovery Engine | CLOSED (C073) |
+| SCRUM-204 | S7.9 Discovery Dashboard | Done |
+| SCRUM-203 | S7.8 Stage 16 Orchestration | Done |
+| SCRUM-1035 | C073 control | Done |
+| SCRUM-1036 | C074 control | To Do |
+
+---
+
+## PRODUCTION READINESS GATES
+
+| Gate | Status | Notes |
+|---|---|---|
+| G-A: SRDI Launch Artifacts | CLOSED | C066 — 3 files verified |
+| G-B: Data Schema Completeness | CLOSED | migration_14 — discovery_cycle_logs + discovery_outcomes |
+| G-C: Dashboard Live Data | CLOSED | C061+ — 9 pages, get_db_session, no demo data |
+| G-D: Wave Implementation Coverage | OPEN | Waves 11–12 not implemented |
+
+---
+
+## COMPLETION SCORES (Two-Score Model — see PRODUCTION_READINESS_SCORECARD.md)
+
+Internal Engineering Build Progress: ~66%
+End-to-End Production-Grade Readiness: ~45% (range 42–50%)
+
+Key distinction: The ~66% figure measures internal implementation progress.
+It does NOT measure production-grade system usability.
+The ~45% E2E score is capped at ~50% until live collection is validated (TierD-2).
+
+---
+
+## TIER-D OPEN ITEMS
+
+TierD-1: 12 stale git stashes — user decision required before dropping
+TierD-2: ScrapFly live collection — PENDING USER APPROVAL
+  Seeds complete: x17 (C057–C073)
+  Impact: Most important currently available production-readiness lever
+  Without TierD-2: E2E production readiness is capped at ~50%
+  With TierD-2 validated: E2E production readiness could reach ~55–65%
+
+---
 
 ## REGRESSION PACK STATUS
 
-Current pack (after C061): **45 names, 90 passed** — strategy §7 v2.5
-REG-1..40 (prior) + REG-41/42/43/44 (C061 TC-1 + DL-207 + dashboard)
+Pack version: v2.5 (C061 — REG-41/42/43/44 added)
+45 regression tests, all passing as of C073
 
-## C060 STATUS — COMPLETE
+---
 
-PR #69: merged=true | Squash SHA: 9687fb6f38ebca8b01cefa845530ea4f2b609c07
-Issues Done: SCRUM-641/642/901/643/906/644/645/646/1014 all Done
-Suite: 4022 passed | Coverage: 95.58% | Golden: PASS | All gates: G1-G10 PASS
-Codex x2: PR #69 threads (both resolved) + PR #68 old threads (both resolved with C060 SHA)
-§15.5 executed: PR-ready-first. Bot appeared within window.
-§7: v2.4 (REG-37/38/39/40). Dashboard pages implemented + tested.
-TC-3 seed-niches: DONE | TC-4 dry-run guard: DONE | TC-1 ExternalSignal schema: DEFERRED
-External signals C060: 2/4 families (improved from 0/4 in C059); RSV band: SEED (4th consecutive)
+## PM GOVERNANCE CORRECTION STATUS (2026-06-09)
 
-## POST-REVIEW FINDINGS (C060)
+All required correction documents created:
+- PM_Pack/CURRENT_STATE_CANONICAL.md
+- PM_Pack/PRODUCTION_READINESS_SCORECARD.md
+- PM_Pack/TASK_SUBSTANCE_GATE.md
+- PM_Pack/CYCLE_PRODUCTION_ADVANCEMENT_GATE.md
+- PM_Pack/STALE_DOCUMENT_REGISTER.md
+- PM_Pack/CYCLE_074_PROMPT_CORRECTION_PROTOCOL.md (pending)
+- PM_Pack/PM_CORRECTION_MASTER_REPORT.md (pending)
 
-FINDING-A: Agent E zone violation — commit 59a539b added src/analysis/negation_exclusion.py
-  Impact: LOW (code correct, 88% test coverage). Process: G1 must check ALL commits.
-FINDING-B: E report had 450+ padding lines ("floor-line-NNN"). Prohibited in C061.
-FINDING-C: D's G1 attribution check incomplete (missed E's third commit 59a539b).
-
-## C061 SCOPE — Post-SRDI Collection Hardening (Wave M)
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C061 | MERGED | cb53dd3d953080a1894a0adb3455de850780b455 | PARTIAL | CLOSED | CLOSED | OPEN | TC-1 schema + DL-207 URL + 9 dashboard pages live-data wiring |
-
-## C062 SCOPE — Wave 9 Pricing Strategy Engine Phase 1 (Wave N)
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C062 | MERGED | de528f84def67b453cae8a1a2831808328a0633c | PARTIAL | CLOSED | CLOSED | OPEN (Wave 9 started) | 9A price distribution + 9B new seller pricing + migration_12 |
-
-## C063 SCOPE — Wave 9 Pricing Strategy Engine Phase 2
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C063 | MERGED | 19a69708de734d7d41991bedf8783f048f37fbdf | CLOSED | CLOSED | CLOSED | OPEN (Phase 2 done) | 9C pricing LLM task + 9D dashboard widgets |
-
-## C064 SCOPE — Wave 9 Pricing Strategy Engine Phase 3
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C064 | MERGED | 7af0b1c8c191a4c80f870609e1c4645d35e8927a | CLOSED | CLOSED | CLOSED | OPEN (9E+9F done) | PriceLadder + RevenueGate + migration_13 |
-
-## C065 SCOPE — Wave 9 Pricing Strategy Engine Phase 4
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C065 | MERGED | 5b5868bf1a17ecd36f59c02542558562ca80d035 | CLOSED | CLOSED | CLOSED | OPEN (Wave 9 complete) | Pricing Export S6.8 (CSV/JSON/Excel/Markdown) |
-
-## C066 SCOPE — Wave 10 Discovery S7.2
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C066 | MERGED | 36f6f328a767afaf17316f79beac05c9eafaab42 | CLOSED | CLOSED | CLOSED | OPEN (S7.2 done) | S7.2 adjacent keyword mode + helpers in `src/discovery/hypothesis.py`; pricing-export carry-forward resolved |
-
-## C067 SCOPE — Wave 10 Discovery S7.3
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C067 | MERGED | 5572dfaece522f451e0c09763e669c4a33299069 | CLOSED | CLOSED | CLOSED | OPEN (S7.3 done) | S7.3 adjacent niche mode + relationship map in `src/discovery/hypothesis.py`; `HypothesisMode.ADJACENT_NICHE` added |
-
-## C068 SCOPE — Wave 10 Discovery S7.4
-
-| Cycle | Status | Squash SHA | G-A | G-B | G-C | G-D | Notes |
-|---|---|---|---|---|---|---|---|
-| C068 | MERGED | d0f3f19d6e3b5f1bab0675b5098720d8a2d17004 | CLOSED | CLOSED | CLOSED | OPEN (S7.4 done) | S7.4 gap opportunity mode implemented in `src/discovery/hypothesis.py`; `generate_gap_exploit_hypotheses()` + helper scoring/filtering + 887-line S7.4 test module |
-
-## WAVE PROGRESS STATUS
-
-- Wave 9 (Pricing): COMPLETE (C062-C065)
-- Wave 10 (Discovery): IN PROGRESS (S7.1 scaffold done, S7.2 done in C066, S7.3 done in C067, S7.4 done in C068, S7.5-S7.9 pending)
-- Wave 11 (Playbook): NOT STARTED
-- Wave 12 (Dashboard UX): NOT STARTED
-
-## C069 PREVIEW
-
-- Natural scope: S7.5 Trend Chase Hypothesis Mode (`SCRUM-200`, parent `SCRUM-22`)
-- C069 control task: `SCRUM-1031`
-- Constraint pattern: trend/signal data likely required; TierD-2 ScrapFly decision may materially impact delivery
-- G-D remains open pending completion of S7.3-S7.9 + Waves 11-12
-
-## NEW GOVERNANCE RULES ADDED IN C060 (strategy doc reference)
-§7 v2.4: REG-37/38/39/40 added (C059 Codex fixes + R11 monitors/quality gate)
-§16 remains active: C059 known issues documentation (partially resolved in C060)
-  §16.1 (seeding): RESOLVED — TC-3 seed-niches command added in C060
-  §16.2 (KeywordScore.run_id): Still applicable — RSV.run_id workaround still needed
-  §16.3 (Codex P2 threads): RESOLVED — P2-1/P2-2 fixed in C060 + PR #68 threads resolved
-  §16.4 (TC-2 dry-run): RESOLVED — dry-run sentinel guard added in orchestrator
-  TC-1 (ExternalSignal schema): Still deferred to C061
+C073 placeholder repair: COMPLETE
+EPIC_STATUS_TRACKER update: COMPLETE (this file)
+HYDRATION_HEADER restructure: IN PROGRESS
+C074 prompts: FROZEN pending correction
