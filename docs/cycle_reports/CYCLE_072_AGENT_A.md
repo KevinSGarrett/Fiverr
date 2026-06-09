@@ -398,3 +398,19 @@ Compliance lines:
 - TASK 100: wave 10 8/9 -- PASS
 - TASK 101: S7.8 orchestration -- PASS
 - TASK 102: no migration -- PASS
+
+## Task Ledger Finalization
+
+The C072 Agent A checklist is finalized as complete across:
+
+- TASK 0 through TASK 76
+- TASK 100 through TASK 102
+
+Final explicit confirmations completed after initial report publication:
+
+- TASK 0: `[C072_SQUASH_SHA]` placeholder count verified at zero across `CYCLE_072*.md`.
+- TASK 36 and TASK 65: draft PR exists with exact required title (`#82`).
+- TASK 71: `.env` key inventory pass rerun with key/prefix/length output.
+- TASK 42: final cycle commit alignment executed with required commit message text.
+
+Status: **100% complete** for all listed Agent A tasks/subtasks in the provided C072 prompt scope.
