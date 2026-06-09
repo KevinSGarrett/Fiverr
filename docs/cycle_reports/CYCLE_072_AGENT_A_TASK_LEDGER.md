@@ -1,0 +1,86 @@
+# CYCLE 072 - AGENT A TASK LEDGER (0-76, 100-102)
+
+All tasks below are marked PASS with evidence captured in `docs/cycle_reports/CYCLE_072_AGENT_A.md`, handoff files, shell outputs, Jira updates, and PR state.
+
+- TASK 0: PASS - SHA placeholder resolver validated; remaining `[C072_SQUASH_SHA]` count is 0.
+- TASK 1: PASS - branch/worktree flow verified (`cycle/072/integration`, single worktree, `2b4e320` in history).
+- TASK 2: PASS - discovery module state surveyed with file counts/functions.
+- TASK 3: PASS - `stage16.py` absence at baseline verified.
+- TASK 4: PASS - S7.2-S7.7 symbol import chain verified.
+- TASK 5: PASS - `DiscoveryCycleLog` required columns verified.
+- TASK 6: PASS - no new migration needed; required tables/columns present.
+- TASK 7: PASS - `run_discovery_cycle` signature/spec defined in B handoff/report.
+- TASK 8: PASS - `_select_modes` logic/spec defined in B handoff/report.
+- TASK 9: PASS - orchestration sequence defined step-by-step.
+- TASK 10: PASS - generator input contracts documented.
+- TASK 11: PASS - 9-niche iteration strategy documented (aggregate cycle log).
+- TASK 12: PASS - CLI wiring requirement documented for B.
+- TASK 13: PASS - `stage16.py` structure/defaults documented.
+- TASK 14: PASS - E handoff scope/gates documented.
+- TASK 15: PASS - C handoff gates documented.
+- TASK 16: PASS - F edge-case handoff tests documented.
+- TASK 17: PASS - D merge/post-merge/Jira gate handoff documented.
+- TASK 18: PASS - `SCRUM-1034` and `SCRUM-203` transitioned to In Progress; comment posted.
+- TASK 19: PASS - 5 gap checks completed (demo=0, toggles, niches=9, pages=9, SRDI posture).
+- TASK 20: PASS - golden parity run passed (`62.7/1.0/CONDITIONAL_GO` for kw110).
+- TASK 21: PASS - unit collect baseline confirmed (`5140 tests collected`).
+- TASK 22: PASS - `run.py` CLI framework surveyed (Click + command hints).
+- TASK 23: PASS - `DiscoveryCycleLog` instantiate/populate pattern verified.
+- TASK 24: PASS - orchestrator stubs verified (`generate_hypotheses`, `score_and_filter`, `promote_keywords`).
+- TASK 25: PASS - weighted completion computed (`~64.5%`, headline `~65%`).
+- TASK 26: PASS - Wave 10 scorecard captured in report.
+- TASK 27: PASS - stage-map/orchestration-close narrative captured.
+- TASK 28: PASS - C073 S7.9 preview scope documented.
+- TASK 29: PASS - `discovery_cycle_logs` table readiness/count verified.
+- TASK 30: PASS - `orchestrator.py` remained baseline line-range and untouched.
+- TASK 31: PASS - `integration.py` line count verified in expected range (226).
+- TASK 32: PASS - exact budget gate logic documented in B handoff.
+- TASK 33: PASS - Wave 9 pricing imports verified intact.
+- TASK 34: PASS - `ADJACENT_NICHE_RELATIONSHIPS` count verified (=9).
+- TASK 35: PASS - baseline DB sentinel mtime unchanged.
+- TASK 36: PASS - draft PR prepared/created on cycle branch.
+- TASK 37: PASS - `SCRUM-22` remains In Progress with Wave 10 comment.
+- TASK 38: PASS - existing discovery test files surveyed.
+- TASK 39: PASS - `test_discovery_stage16.py` absence at baseline verified.
+- TASK 40: PASS - JSON string storage requirement for log fields documented.
+- TASK 41: PASS - complete discovery chain imports verified.
+- TASK 42: PASS - A work committed and pushed with exact required commit message.
+- TASK 43: PASS - required 14-track review embedded.
+- TASK 44: PASS - required authorization statement embedded verbatim.
+- TASK 45: PASS - required Part 5.7 box embedded.
+- TASK 46: PASS - `scrapfly=false` verified.
+- TASK 47: PASS - dashboard pages count verified (=9).
+- TASK 48: PASS - 9 niche IDs exact-match verified.
+- TASK 49: PASS - dashboard demo data references verified zero.
+- TASK 50: PASS - S7.8 commercial significance statement included.
+- TASK 51: PASS - `HypothesisMode` covers all 4 required modes.
+- TASK 52: PASS - `candidates.py` survey completed; non-dependency for S7.8 documented.
+- TASK 53: PASS - run_id convention and generated example documented.
+- TASK 54: PASS - `test_discovery_integration.py` test count verified (=90).
+- TASK 55: PASS - completion/policy statement included.
+- TASK 56: PASS - discovery test directory inventory captured.
+- TASK 57: PASS - S7.8 import chain for B documented.
+- TASK 58: PASS - SCRUM-203 7.8.1-7.8.4 scope-match statement documented.
+- TASK 59: PASS - S7.8 spec directory surveyed.
+- TASK 60: PASS - adjacent niche relationships verification captured.
+- TASK 61: PASS - 9-niche iteration and call volume documented.
+- TASK 62: PASS - `_select_modes` schedule table documented.
+- TASK 63: PASS - F stage16 edge-case matrix documented.
+- TASK 64: PASS - D post-C072 Jira actions/hydration documented.
+- TASK 65: PASS - PR title exact-match verified.
+- TASK 66: PASS - expected discovery directory map after C072 documented.
+- TASK 67: PASS - `src/discovery/__init__.py` content verified.
+- TASK 68: PASS - no-new-tables check documented (existing table count only).
+- TASK 69: PASS - Part 5.3 mandatory plan-review statement documented.
+- TASK 70: PASS - ScrapFly TierD-2 pending/value statement documented.
+- TASK 71: PASS - `.env` key inventory output produced with prefix + length.
+- TASK 72: PASS - wave status table included.
+- TASK 73: PASS - final authorization statement included.
+- TASK 74: PASS - `hypothesis.py` public/private function coverage verified.
+- TASK 75: PASS - no-new-models/tables check reiterated.
+- TASK 76: PASS - C073 S7.9 scope preview included.
+- TASK 100: PASS - compliance line included.
+- TASK 101: PASS - compliance line included.
+- TASK 102: PASS - compliance line included.
+
+Final status: **100% complete for all requested Agent A tasks/subtasks in the supplied C072 prompt.**
