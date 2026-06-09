@@ -124,11 +124,16 @@ def render_discovery_page() -> None:
         return
 
     cols = list(st.columns(3))
-    while len(cols) < 3:
-        cols.append(st)
-    cols[0].metric("Total discovery runs", stats["total_runs"])
-    cols[1].metric("Total inserted", stats["total_inserted"])
-    cols[2].metric("Total gated", stats["total_gated"])
+    metrics = [
+        ("Total discovery runs", stats["total_runs"]),
+        ("Total inserted", stats["total_inserted"]),
+        ("Total gated", stats["total_gated"]),
+    ]
+    for index, (label, value) in enumerate(metrics):
+        if index < len(cols):
+            cols[index].metric(label, value)
+        else:
+            st.metric(label, value)
 
     if stats.get("last_run_id"):
         st.caption(f"Most recent discovery run: {stats['last_run_id']}")
