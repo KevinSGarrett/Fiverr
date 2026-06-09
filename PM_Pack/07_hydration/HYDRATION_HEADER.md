@@ -1,4 +1,19 @@
-﻿## C072 PM REVIEW COMPLETED 2026-06-09
+﻿## C073 PM REVIEW COMPLETED 2026-06-09
+C073 SQUASH SHA: 33ebd24 (PR #83 main feat) + 7762132 (PR #84 integration/reports)
+C073 POST-SQUASH FIX: 1460cd2 (Ruff: sort test_discovery_dashboard.py inline import) -- LEGITIMATE
+HEAD after PM review: 1460cd2
+Suite: 5271 passed (5214 base + 57 S7.9 tests) | Coverage: ~94% | Floor 90%
+Golden: kw=110 62.7/1.0/CONDITIONAL_GO PASS (7/7 anchor tests)
+Gap checks 1-5: PASS | S7.9 smoke: PASS (discovery.py 162 lines, 4 functions, empty-safe)
+S7.9 tests: 57 tests in 6 classes (Stats/Gold/ModePerf/Render/Integration/CoverageUplift)
+Jira: SCRUM-1035 Done | SCRUM-204 Done | SCRUM-22 CLOSED | SCRUM-1036 To Do
+PROJECT COMPLETION: ~66% production-ready (C073, 2026-06-09)
+  Delta from C072: +1% (Track 09: 70%->78%; Track 07: 72%->75%)
+  Biggest lever: TierD-2 ScrapFly -> +7-8% immediately
+  Next milestone: ~67% after C074 (Wave 11 Gig Playbook kickoff)
+TierD-1: 12 stale stashes -- OPEN | TierD-2: SEED x17 (C057-C073) -- PENDING APPROVAL
+
+## C072 PM REVIEW COMPLETED 2026-06-09
 POST-SQUASH FIX: 85b119b (lint: remove unused typing import; add D report) -- LEGITIMATE
 C072 SQUASH: 243ce1e (PR #82) | POST-SQUASH FIX: 85b119b | HEAD: bcac7ab (governance)
 Suite: 5214 passed | 94.01% | Floor 90%
