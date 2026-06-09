@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.orm import Session
-
 from src.dashboard.pages.discovery import (
     get_discovery_stats,
     get_gold_discoveries,
