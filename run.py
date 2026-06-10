@@ -634,6 +634,76 @@ def collect_only_command(config_path: str, database_url: str | None) -> None:
     )
 
 
+@cli.command("collect-live")
+@click.option(
+    "--niche",
+    "niche_id",
+    required=True,
+    help="Niche ID for live collection. ONE niche only (TierD-2 condition A).",
+)
+@click.option(
+    "--budget",
+    "budget_credits",
+    default=500,
+    show_default=True,
+    type=int,
+    help="ScrapFly credit ceiling. Pilot stops automatically when reached.",
+)
+@click.option("--database-url", default=None, help="Pilot DB URL. Default: sqlite:///data/live_pilot_{niche}.db")
+@click.option("--config-path", default="config.yaml", show_default=True)
+@click.option(
+    "--log-path",
+    default="data/live_pilot_log.jsonl",
+    show_default=True,
+    help="JSONL file for per-request ScrapFly logging (TierD-2 condition C).",
+)
+@click.option("--evidence-path", default="data/live_validation_evidence.json", show_default=True)
+def collect_live_command(
+    niche_id: str,
+    budget_credits: int,
+    database_url: str | None,
+    config_path: str,
+    log_path: str,
+    evidence_path: str,
+) -> None:
+    """
+    Run CONTROLLED live collection for ONE niche using ScrapFly.
+
+    TierD-2 conditions:
+    - one niche only
+    - hard credit ceiling
+    - per-request JSONL logging
+    - evidence bundle written on success/failure
+    """
+    from src.collection.live_pilot import run_live_collection_pilot
+
+    click.echo(f"Starting live collection pilot: niche={niche_id} budget={budget_credits} credits")
+    click.echo("Prerequisites: SCRAPFLY_API_KEY set + valid session (run relogin if needed)")
+    result = asyncio.run(
+        run_live_collection_pilot(
+            niche_id=niche_id,
+            budget_credits=budget_credits,
+            database_url=database_url,
+            config_path=normalize_cli_config_path(config_path),
+            log_path=log_path,
+            evidence_path=evidence_path,
+        )
+    )
+    if result.get("stop_reason"):
+        click.echo(f"Pilot stopped: {result['stop_reason']}", err=True)
+    click.echo(
+        f"success={result['success']} "
+        f"credits={result['credits_used']}/{budget_credits} "
+        f"gigs={result['gigs_collected']} "
+        f"searches={result['search_results']}"
+    )
+    if result.get("errors"):
+        for err in result["errors"][:3]:
+            click.echo(f"  error: {err}", err=True)
+    click.echo(f"Evidence: {result.get('evidence_path', evidence_path)}")
+    raise SystemExit(0 if result["success"] else 1)
+
+
 @cli.command("cluster-only")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")
@@ -707,15 +777,270 @@ def saturation_analysis_command(config_path: str, database_url: str | None) -> N
 @cli.command("recommendations-only")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")
-def recommendations_only_command(config_path: str, database_url: str | None) -> None:
-    """Run Stage 13 recommendation orchestration only."""
-    raise SystemExit(
-        run_pipeline(
-            mode="recommendations-only",
-            config_path=normalize_cli_config_path(config_path),
-            database_url=database_url,
+@click.option(
+    "--live",
+    "live_mode",
+    is_flag=True,
+    default=False,
+    help=(
+        "Pass dry_run=False for real LLM recommendations. "
+        "Requires OPENAI_API_KEY. Falls back to dry_run=True if key missing."
+    ),
+)
+def recommendations_only_command(config_path: str, database_url: str | None, live_mode: bool) -> None:
+    """Run recommendation pipeline. Use --live for real LLM recommendations."""
+    from src.recommendations.pipeline import run_recommendations_pipeline
+    from src.utils.datetime import timestamp_stamp
+
+    config_payload = _load_recommendation_config(config_path)
+    run_id = timestamp_stamp()
+    llm_client = None
+    actual_live = live_mode
+    if live_mode:
+        try:
+            from src.llm.client import build_llm_client
+
+            llm_client = build_llm_client(config_payload)
+            if llm_client is None:
+                actual_live = False
+                click.echo("Note: OPENAI_API_KEY not set, running dry_run=True", err=True)
+        except (ImportError, Exception) as exc:  # noqa: BLE001
+            actual_live = False
+            click.echo(f"Note: LLM client unavailable ({exc}), running dry_run=True", err=True)
+
+    with _recommendation_db_session(database_url) as db:
+        result = asyncio.run(
+            run_recommendations_pipeline(
+                run_id=run_id,
+                db=db,
+                config=config_payload,
+                llm_client=llm_client,
+                cache=None,
+                dry_run=(not actual_live),
+            )
         )
+    mode_label = "live" if actual_live else "dry-run"
+    click.echo(f"Recommendations ({mode_label}): {result}")
+    raise SystemExit(0)
+
+
+@cli.command("live-validate")
+@click.option("--niche", "niche_id", default="python_automation", show_default=True)
+@click.option("--budget", "budget_credits", default=500, type=int)
+@click.option("--database-url", default=None)
+@click.option("--config-path", default="config.yaml", show_default=True)
+@click.option(
+    "--skip-collection",
+    is_flag=True,
+    default=False,
+    help="Skip collection if already run for this niche and DB exists.",
+)
+@click.option("--evidence-path", default="data/live_validation_evidence.json", show_default=True)
+def live_validate_command(
+    niche_id: str,
+    budget_credits: int,
+    database_url: str | None,
+    config_path: str,
+    skip_collection: bool,
+    evidence_path: str,
+) -> None:
+    """
+    Full end-to-end live validation pipeline (TierD-2 controlled pilot).
+
+    Stages:
+      1) preflight 2) collection 3) db validation 4) scoring
+      5) recommendations 6) export 7) playbook 8) evidence
+    """
+    resolved_db = database_url or f"sqlite:///data/live_pilot_{niche_id}.db"
+    evidence: dict[str, Any] = {
+        "niche_id": niche_id,
+        "db_url": resolved_db,
+        "stages": {},
+        "success": False,
+    }
+
+    # Stage 1: Pre-flight
+    scrapfly_key = os.getenv("SCRAPFLY_API_KEY")
+    evidence["stages"]["preflight"] = {"scrapfly_key_present": bool(scrapfly_key)}
+    if not scrapfly_key and not skip_collection:
+        click.echo("ERROR: SCRAPFLY_API_KEY not set. Cannot collect live data.", err=True)
+        raise SystemExit(1)
+
+    # Stage 2: Collection
+    if not skip_collection:
+        click.echo(f"Stage 2: Live collection (niche={niche_id} budget={budget_credits})")
+        from src.collection.live_pilot import run_live_collection_pilot
+
+        collect_result = asyncio.run(
+            run_live_collection_pilot(
+                niche_id=niche_id,
+                budget_credits=budget_credits,
+                database_url=resolved_db,
+                config_path=normalize_cli_config_path(config_path),
+            )
+        )
+        evidence["stages"]["collection"] = collect_result
+        click.echo(
+            f"  Collected: gigs={collect_result.get('gigs_collected', 0)} "
+            f"credits={collect_result.get('credits_used', 0)}"
+        )
+        if not collect_result.get("success", False):
+            click.echo(f"  Collection failed: {collect_result.get('stop_reason')}", err=True)
+    else:
+        click.echo("Stage 2: Skipped (--skip-collection)")
+
+    # Stage 3: DB validation
+    click.echo("Stage 3: DB persistence validation")
+    db_validation = _validate_pilot_db_state(resolved_db)
+    evidence["stages"]["db_validation"] = db_validation
+    click.echo(
+        f"  gigs={db_validation.get('gigs', 0)} "
+        f"keywords={db_validation.get('keywords', 0)} "
+        f"search_results={db_validation.get('search_results', 0)}"
     )
+
+    # Stage 4: Scoring
+    click.echo("Stage 4: Scoring live keywords")
+    try:
+        run_pipeline(
+            mode="full",
+            config_path=normalize_cli_config_path(config_path),
+            database_url=resolved_db,
+        )
+        evidence["stages"]["scoring"] = {"success": True}
+    except Exception as exc:  # noqa: BLE001
+        evidence["stages"]["scoring"] = {"success": False, "error": str(exc)}
+        click.echo(f"  Scoring error: {exc}", err=True)
+
+    # Stage 5: Recommendations
+    click.echo("Stage 5: Live recommendations")
+    recs = _run_live_recommendations(normalize_cli_config_path(config_path), resolved_db)
+    evidence["stages"]["recommendations"] = recs
+    click.echo(f"  dry_run={recs.get('dry_run', True)}")
+
+    # Stage 6: Export
+    export_dir = Path("data/exports/live_pilot")
+    export_dir.mkdir(parents=True, exist_ok=True)
+    evidence["stages"]["export"] = {"dir": str(export_dir), "files": len(list(export_dir.glob("*")))}
+
+    # Stage 7: Playbook
+    click.echo("Stage 7: Playbook from live recommendation")
+    playbook_result = _generate_playbook_from_live_data(niche_id, resolved_db)
+    evidence["stages"]["playbook"] = playbook_result
+    click.echo(
+        f"  has_full_data={playbook_result.get('has_full_data')} "
+        f"sections={playbook_result.get('sections_count')}"
+    )
+
+    # Stage 8: Evidence
+    evidence["success"] = (
+        evidence["stages"].get("db_validation", {}).get("gigs", 0) > 0
+        and evidence["stages"].get("scoring", {}).get("success", False)
+    )
+    evidence_file = Path(evidence_path)
+    evidence_file.parent.mkdir(parents=True, exist_ok=True)
+    evidence_file.write_text(json.dumps(evidence, indent=2, default=str), encoding="utf-8")
+    click.echo(f"Evidence bundle: {evidence_path}")
+    click.echo(f"Validation {'PASSED' if evidence['success'] else 'PARTIAL'}: {evidence['success']}")
+    raise SystemExit(0)
+
+
+def _validate_pilot_db_state(db_url: str) -> dict[str, Any]:
+    """Count persisted entities from pilot DB without raising."""
+    from src.models.gig import Gig
+    from src.models.market import Keyword
+    from src.models.search_result import SearchResult
+
+    try:
+        engine = initialize_database(database_url=normalize_database_url(db_url))
+        session_factory = create_session_factory(engine)
+        with get_session(session_factory) as db:
+            return {
+                "gigs": int(db.query(Gig).count()),
+                "keywords": int(db.query(Keyword).count()),
+                "search_results": int(db.query(SearchResult).count()),
+            }
+    except Exception as exc:  # noqa: BLE001
+        return {"gigs": 0, "keywords": 0, "search_results": 0, "error": str(exc)}
+
+
+def _run_live_recommendations(config_path: str, database_url: str) -> dict[str, Any]:
+    """Run recommendation pipeline with live fallback logic."""
+    from src.recommendations.pipeline import run_recommendations_pipeline
+    from src.utils.datetime import timestamp_stamp
+
+    config_payload = _load_recommendation_config(config_path)
+    live_mode = bool(os.getenv("OPENAI_API_KEY"))
+    try:
+        llm_client = None
+        if live_mode:
+            try:
+                from src.llm.client import build_llm_client
+
+                llm_client = build_llm_client(config_payload)
+                if llm_client is None:
+                    live_mode = False
+            except Exception:  # noqa: BLE001
+                live_mode = False
+        with _recommendation_db_session(database_url) as db:
+            result = asyncio.run(
+                run_recommendations_pipeline(
+                    run_id=timestamp_stamp(),
+                    db=db,
+                    config=config_payload,
+                    llm_client=llm_client,
+                    cache=None,
+                    dry_run=(not live_mode),
+                )
+            )
+        count = int(result.get("generated", 0)) if isinstance(result, dict) else 0
+        return {"success": True, "count": count, "dry_run": not live_mode, "result": str(result)}
+    except Exception as exc:  # noqa: BLE001
+        return {"success": False, "error": str(exc), "count": 0, "dry_run": True}
+
+
+def _generate_playbook_from_live_data(niche_id: str, database_url: str) -> dict[str, Any]:
+    """Generate playbook summary from best available live recommendation data."""
+    try:
+        from src.playbook.generator import export_playbook_markdown, generate_playbook
+
+        engine = initialize_database(database_url=normalize_database_url(database_url))
+        session_factory = create_session_factory(engine)
+        config_payload = _load_recommendation_config()
+        with get_session(session_factory) as db:
+            playbook = generate_playbook(niche_id, db, config_payload)
+        markdown = export_playbook_markdown(playbook)
+        return {
+            "success": True,
+            "niche_id": niche_id,
+            "has_full_data": playbook.get("has_full_data", False),
+            "sections_count": len(playbook.get("sections", [])),
+            "keyword_used": playbook.get("keyword_used"),
+            "markdown_length": len(markdown),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"success": False, "has_full_data": False, "sections_count": 0, "error": str(exc)}
+
+
+@cli.command("playbook")
+@click.argument("niche_id")
+@click.option("--format", "fmt", type=click.Choice(["markdown", "pdf"]), default="markdown", show_default=True)
+@click.option("--output", default=None, help="Output path (pdf only)")
+@click.option("--database-url", default=None)
+def playbook_command(niche_id: str, fmt: str, output: str | None, database_url: str | None) -> None:
+    """Generate seller setup playbook for a niche."""
+    from src.playbook.generator import export_playbook_markdown, export_playbook_pdf, generate_playbook
+
+    config_payload = _load_recommendation_config()
+    with _recommendation_db_session(database_url) as db:
+        playbook = generate_playbook(niche_id, db, config_payload)
+    if fmt == "pdf":
+        out = output or f"data/exports/pdf/playbook_{niche_id}.pdf"
+        export_playbook_pdf(playbook, out)
+        click.echo(f"PDF: {out}")
+    else:
+        click.echo(export_playbook_markdown(playbook))
+    raise SystemExit(0)
 
 
 @cli.command("price-analysis")

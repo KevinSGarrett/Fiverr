@@ -38,6 +38,10 @@ data/**/*.db
 data/**/*.sqlite
 data/**/*.sqlite3
 data/**/*.log
+data/live_pilot_*.db
+data/live_pilot_log.jsonl
+data/live_validation_evidence.json
+data/exports/live_pilot/
 data/imports/reddit_devvit/*.json
 logs/
 *.log

@@ -184,3 +184,17 @@ class LLMClient:
             return payload if isinstance(payload, dict) else {"embeddings": payload}
 
         raise TypeError("Provider must define an embed() method for embedding requests.")
+
+
+def build_llm_client(config: dict[str, Any]) -> Any | None:
+    """Build AsyncOpenAI client from OPENAI_API_KEY; return None when unavailable."""
+    _ = config
+    api_key = __import__("os").getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    try:
+        from openai import AsyncOpenAI
+
+        return AsyncOpenAI(api_key=api_key)
+    except ImportError:
+        return None

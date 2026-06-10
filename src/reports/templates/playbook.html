@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ playbook.niche_name }} Playbook</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: Arial, sans-serif; color: #222; font-size: 12px; line-height: 1.5; }
+    h1, h2, h3 { margin-bottom: 6px; }
+    h1 { font-size: 22px; border-bottom: 2px solid #ddd; padding-bottom: 8px; }
+    h2 { font-size: 18px; margin-top: 18px; }
+    h3 { font-size: 14px; margin-top: 12px; }
+    .meta { margin-bottom: 12px; color: #555; }
+    .warning { background: #fff3cd; border: 1px solid #f0d98a; padding: 8px; border-radius: 4px; }
+    .page-break { page-break-before: always; }
+    .milestone { border-left: 4px solid #5b8def; padding: 8px 10px; margin: 10px 0; background: #f7f9ff; }
+    .template-box { background: #f2f6fc; border: 1px solid #ccd8eb; padding: 8px; border-radius: 4px; }
+    .critical { color: #a12727; font-weight: 700; }
+    .high { color: #be6a00; font-weight: 700; }
+    .guidance { color: #2f4858; font-style: italic; }
+    .excellence { margin-top: 8px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 4px; }
+    ul { margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>{{ playbook.niche_name|default("Playbook") }}</h1>
+  <div class="meta">
+    <div>Generated: {{ playbook.generated_at|default("") }}</div>
+    <div>Keyword: {{ playbook.keyword_used|default("N/A") }}</div>
+  </div>
+  {% if not playbook.has_full_data %}
+  <div class="warning">
+    Live recommendation data is incomplete. This version contains safe starter guidance.
+  </div>
+  {% endif %}
+
+  {% for section in playbook.sections|default([]) %}
+  <div class="{% if not loop.first %}page-break{% endif %}">
+    <h2>{{ section.section|default("Section") }}</h2>
+    <div><strong>Estimated time:</strong> {{ section.estimated_time|default("N/A") }}</div>
+
+    {% for step in section.steps|default([]) %}
+      <h3>{{ step.title|default("Step") }}</h3>
+      <div><strong>Action:</strong> {{ step.action|default("") }}</div>
+      <div>{{ step.detail|default("") }}</div>
+      {% if step.priority is string %}
+        <div class="{% if step.priority == 'CRITICAL' %}critical{% else %}high{% endif %}">
+          Priority: {{ step.priority }}
+        </div>
+      {% endif %}
+      {% if step.guidance is string %}
+        <div class="guidance">Guidance: {{ step.guidance }}</div>
+      {% endif %}
+      {% if step.checklist is mapping %}
+        <div>Checklist data received as mapping.</div>
+      {% elif step.checklist is string %}
+        <div>Checklist: {{ step.checklist }}</div>
+      {% else %}
+        <ul>
+          {% for item in step.checklist|default([]) %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endfor %}
+
+    {% for strategy in section.strategies|default([]) %}
+      <h3>{{ strategy.strategy|default("Strategy") }}</h3>
+      <div><strong>Type:</strong> {{ strategy.type|default("GENERAL") }}</div>
+      <div>{{ strategy.detail|default("") }}</div>
+      {% if strategy.template is string %}
+        <div class="template-box">{{ strategy.template }}</div>
+      {% endif %}
+      <ul>
+        {% for tip in strategy.tips|default([]) %}
+          <li>{{ tip }}</li>
+        {% endfor %}
+      </ul>
+      <ul>
+        {% for rule in strategy.rules|default([]) %}
+          <li>{{ rule }}</li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+
+    {% for milestone in section.milestones|default([]) %}
+      <div class="milestone">
+        <strong>{{ milestone.milestone|default("Milestone") }}</strong>
+        <ul>
+          {% for action in milestone.actions|default([]) %}
+            <li>{{ action }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+
+    {% if section.delivery_excellence_tips|default([]) %}
+      <div class="excellence">
+        <strong>Delivery Excellence Tips</strong>
+        <ul>
+          {% for tip in section.delivery_excellence_tips|default([]) %}
+            <li>{{ tip }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</body>
+</html>
