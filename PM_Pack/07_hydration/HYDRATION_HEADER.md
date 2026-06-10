@@ -1,16 +1,16 @@
 ## HYDRATION HEADER — ACTIVE CURRENT STATE
-## Updated: 2026-06-09 | PM Governance Correction + C074 Complete
+## Updated: 2026-06-10 | PM Governance Correction + C074 Merged
 ##
 ## SECTION 1: ACTIVE CURRENT STATE
 CYCLE_CURRENT: 075
 LAST_COMPLETED: C074 (TierD-2 live pilot + Wave 11 S8.3)
-C074_SQUASH_SHA: [UPDATE AFTER D MERGES]
+C074_SQUASH_SHA: 13f28e0
 WAVE_CURRENT: 11 (IN PROGRESS)
 WAVE_10: COMPLETE (SCRUM-22 CLOSED, S7.1-S7.9 all done)
 WAVE_9: COMPLETE (S6.1-S6.8 all done)
 G_D: OPEN (Wave 11 + Wave 12 remaining)
 G_A_B_C: CLOSED
-TIER_D1: OPEN (12 stale stashes, user decision required)
+TIER_D1: OPEN (13 stale stashes, user decision required)
 TIER_D2: APPROVED controlled pilot — infrastructure BUILT, pilot PENDING
 SCRUM_1036: Done (C074 control ticket)
 SCRUM_1037: To Do (C075 target — Wave 11 S8.1)
@@ -36,7 +36,7 @@ WITHOUT_THIS_ACTION: E2E stays at ~48-50%, hard cap maintained
 
 ## SECTION 4: ACTIVE BLOCKERS
 BLOCKER_1: TierD-2 pilot execution — user must run live-validate post-merge
-BLOCKER_2: TierD-1 stale stashes (12 stashes, user decision required)
+BLOCKER_2: TierD-1 stale stashes (13 stashes, user decision required)
 BLOCKER_3: Wave 12 Dashboard UX — not started
 BLOCKER_4: Recommendations still dry_run=True in production (requires live pilot first)
 
