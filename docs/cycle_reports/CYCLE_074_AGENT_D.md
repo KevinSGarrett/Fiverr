@@ -274,6 +274,28 @@ C075 scope to carry:
 
 ---
 
+## C075 prerequisites status (Task 58)
+
+Current status before C075 kickoff:
+
+- C074 merged on default branch head (`develop`): YES (`13f28e0`)
+- Live-validate execution evidence exists: YES (`data/live_validation_evidence.json`)
+- Latest pilot result captured: `success=false`, `stop_reason=session_expired`, `credits_used=0`
+- Pilot results reviewed and reported in governance: YES (hydration + this report)
+- E2E score update from pilot: NO uplift yet (failure run, cap still near ~50%)
+- `HYDRATION_HEADER.md` updated with latest pilot outcome and next action: YES
+- `SCRUM-1037` transitioned to In Progress: YES
+- C075 prompts/governance framework readiness: YES
+
+Required first step for C075 due failed pilot attempt:
+
+- `python run.py relogin`
+- `python run.py live-validate --niche python_automation`
+
+Until successful pilot evidence exists, C075 must treat pilot execution and evidence processing as first-priority workstream.
+
+---
+
 ## Build sequence notes (Task 59)
 
 Post-SRDI sequence:
