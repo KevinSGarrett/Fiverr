@@ -2,6 +2,18 @@
 # Fiverr Research System — Required Gates Before Any Cycle Prompt Is Approved
 # Created: 2026-06-09 | PM Governance Correction
 
+
+
+## GATE PQ-0: TASK COUNT GATE (MUST RUN BEFORE PQ-1)
+
+Before any other quality gate, verify task counts meet the floor:
+  Every agent: >= 55 tasks minimum
+  Run the enforcement script from AGENT_TASK_FLOOR_ENFORCEMENT.md
+  This gate runs BEFORE prompt is written -- count as you build
+
+VIOLATION HISTORY: commit 1428a92 violated this gate for A, B, E, F.
+Prevention: count verification is now built into Agent A TASK 1 and TASK 53.
+
 ## GATE PQ-1: PROMPT PRE-FLIGHT SOURCE GATE
 Before writing prompts, PM must verify these are current:
   Current cycle number

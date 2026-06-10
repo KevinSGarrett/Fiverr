@@ -221,3 +221,40 @@ No task may appear in the prompt without an accepted size from this matrix.
 - "Update HYDRATION_HEADER.md with C074 state" → SMALL alone [Production: 2] REJECTED
 - "Check that scrapfly=false" (repeated from 5 prior tasks) → SMALL [Novelty: 0] REJECTED
 - "Write A.md report" → SMALL [Production: 1, Evidence: 1, E2E: 0] REJECTED
+
+
+## MANDATORY PRE-RELEASE TASK COUNT VERIFICATION
+
+Every cycle prompt package MUST pass this check before any agent is authorized:
+
+```python
+import re, os
+BASE = 'PM_Pack/03_cursor_agent_system/'
+floors = {'A':55,'B':55,'E':55,'C':55,'F':55,'D':55}
+all_pass = True
+for ag in ['A','B','E','C','F','D']:
+    content = open(BASE + f'CYCLE_NNN_AGENT_{ag}_PROMPT.md', encoding='utf-8').read()
+    count = len(re.findall(r'## (?:TASK|GATE) \d', content))
+    ok = count >= floors[ag]
+    if not ok: all_pass = False
+    print(f'Agent {ag}: {count} tasks {"PASS" if ok else "FAIL"}')
+if not all_pass:
+    raise SystemExit('HARD STOP: Task floor not met')
+print('ALL 6 AGENTS: PASS')
+```
+
+This script runs as TASK 1 in Agent A. If any agent fails, B is not authorized.
+No exceptions. See AGENT_TASK_FLOOR_ENFORCEMENT.md for the full rule.
+
+## ROOT CAUSE DOCUMENTATION (2026-06-09)
+
+Violation at commit 1428a92:
+  A: 39 tasks (need 55), B: 34 tasks (need 55), E: 53 tasks (need 55)
+  F: 43 tasks (need 55), C/D: count ok but quality marginal
+
+Corrected at commit [next SHA]:
+  A: 59 tasks PASS, B: 61 PASS, E: 55 PASS
+  C: 60 PASS, F: 55 PASS, D: 65 PASS
+
+Prevention: AGENT_TASK_FLOOR_ENFORCEMENT.md documents the never-break rule.
+All future cycles must pass the mandatory enforcement check above.
