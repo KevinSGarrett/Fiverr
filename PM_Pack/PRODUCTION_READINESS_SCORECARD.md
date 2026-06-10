@@ -92,8 +92,8 @@ None of these components have been exercised in the live production path.
 A system where every component is implemented but the live data path has never been validated
 is not 66% production-ready. It is approximately 45% production-ready.
 
-### TierD-2 impact on Score 2
-TierD-2 (ScrapFly live collection) approval and validation:
+### TierD-2 impact on Score 2 (staged credit model)
+TierD-2 (ScrapFly live collection) approval and validation follows staged credit:
 - Approval alone: +0% (no production evidence)
 - Configuration + smoke test: +2–3% (early live validation)
 - First successful live collection run: +4–5%
