@@ -1,3 +1,105 @@
+## HYDRATION HEADER — ACTIVE CURRENT STATE
+## Updated: 2026-06-09 | PM Governance Correction + C074 Complete
+##
+## SECTION 1: ACTIVE CURRENT STATE
+CYCLE_CURRENT: 075
+LAST_COMPLETED: C074 (TierD-2 live pilot + Wave 11 S8.3)
+C074_SQUASH_SHA: [UPDATE AFTER D MERGES]
+WAVE_CURRENT: 11 (IN PROGRESS)
+WAVE_10: COMPLETE (SCRUM-22 CLOSED, S7.1-S7.9 all done)
+WAVE_9: COMPLETE (S6.1-S6.8 all done)
+G_D: OPEN (Wave 11 + Wave 12 remaining)
+G_A_B_C: CLOSED
+TIER_D1: OPEN (12 stale stashes, user decision required)
+TIER_D2: APPROVED controlled pilot — infrastructure BUILT, pilot PENDING
+SCRUM_1036: Done (C074 control ticket)
+SCRUM_1037: To Do (C075 target — Wave 11 S8.1)
+
+## SECTION 2: CORRECTED TWO-SCORE MODEL (DO NOT CONFLATE THESE)
+INTERNAL_BUILD_PROGRESS: ~67%
+  Track 03 Collection: 60% (collect-live built, +5% from 55%)
+  Track 10 Playbook: 15% (S8.3 scaffold, +7% from 8%)
+  All other tracks: unchanged from C073
+END_TO_END_PRODUCTION_READINESS: ~48-50% (range 46-52%)
+  Hard cap: ~50% until user executes TierD-2 live pilot
+  Build credit C074: +3-5% (infrastructure removes live collection blocker)
+  After user runs pilot: ~55-60% expected if all 8 stages pass
+DO_NOT_CLAIM: Internal ~67% as production-ready
+DO_NOT_CLAIM: +10-15% from TierD-2 approval alone
+DO_NOT_CLAIM: E2E > 50% until pilot evidence exists
+
+## SECTION 3: CRITICAL USER ACTION
+PENDING_ACTION: python run.py live-validate --niche python_automation
+PRODUCES: data/live_validation_evidence.json
+CREDIT_ON_SUCCESS: additional +8-12% E2E (staged per LIVE_VALIDATION_MASTER_GATE.md)
+WITHOUT_THIS_ACTION: E2E stays at ~48-50%, hard cap maintained
+
+## SECTION 4: ACTIVE BLOCKERS
+BLOCKER_1: TierD-2 pilot execution — user must run live-validate post-merge
+BLOCKER_2: TierD-1 stale stashes (12 stashes, user decision required)
+BLOCKER_3: Wave 12 Dashboard UX — not started
+BLOCKER_4: Recommendations still dry_run=True in production (requires live pilot first)
+
+## SECTION 5: TierD-2 STAGED CREDIT STATUS
+Stage V-1 TierD-2 approved: EARNED (small unlock)
+Stage V-2 Infrastructure built (C074): EARNED (~+3-5%)
+Stage V-3 First live collection: PENDING
+Stage V-4 DB persistence: PENDING
+Stage V-5 Scoring from live: PENDING
+Stage V-6 Recommendations from live: PENDING
+Stage V-7 Playbook from live: PENDING
+Stage V-8 Dashboard/export: PENDING
+Stage V-9 Repeated unattended runs: FUTURE
+
+## SECTION 6: GOLDEN ANCHORS (INVARIANTS)
+kw=110: 62.7/1.0/CONDITIONAL_GO
+Baseline DB: data/cycle037_live.db (mtime 1780553758, NEVER EDITED)
+Suite: >= 5271 passed (C074 adds tests, total higher)
+Coverage: >= 90%
+G-010: zero new migrations
+G-015: scrapfly.enabled=False in committed config.yaml
+G-020: no src/analysis/visual_analysis.py in C074
+
+## SECTION 7: C074 DELIVERABLES (ON main HEAD)
+NEW: src/collection/pilot_logger.py (PilotLogger, JSONL, evidence bundle)
+NEW: src/collection/live_pilot.py (run_live_collection_pilot, TierD-2 A-J)
+NEW: src/playbook/generator.py (generate_playbook, 9 fns, Wave 11 S8.3)
+NEW: src/reports/templates/playbook.html (Jinja2 PDF template)
+NEW: run.py collect-live (TierD-2 CLI, --niche required, --budget 500)
+NEW: run.py live-validate (Stages 1-8, --skip-collection, evidence bundle)
+NEW: run.py playbook (markdown/pdf export CLI)
+EXT: recommendations-only --live flag (dry_run=False path)
+EXT: requirements.txt (+scrapfly-sdk>=6.0)
+EXT: .gitignore (+live pilot patterns)
+NEW: tests/unit/test_live_pilot.py (18+ tests)
+NEW: tests/unit/test_playbook_generator.py (32+ tests)
+NEW: tests/unit/test_live_pilot_edge.py (29+ tests, Agent F)
+
+## SECTION 8: NEXT CYCLE (C075)
+TARGET: Wave 11 S8.1 Gig Visual Analysis + pilot execution results processing
+START_CONDITION: User runs live-validate, reports evidence bundle results
+FILES_TO_CREATE: src/analysis/visual_analysis.py
+SCRUM_TICKET: SCRUM-1037
+E2E_STARTING_POINT: ~48-50% (build) or ~55-60% if pilot passes before C075
+
+## SECTION 9: WAVE STATUS
+Wave 0-8: COMPLETE
+Wave 9 (Pricing): COMPLETE S6.1-S6.8
+Wave 10 (Discovery): COMPLETE S7.1-S7.9 SCRUM-22 CLOSED
+Wave 11 (Playbook): IN PROGRESS
+  S8.3 Seller Setup Playbook Generator: DONE (C074)
+  S8.1 Gig Visual Analysis: To Do (C075)
+  S8.2 Seller Profile Optimization: To Do (C076)
+Wave 12 (Dashboard UX): NOT STARTED
+
+## SECTION 10: PM GOVERNANCE CORRECTION STATUS (2026-06-09)
+All 17 required governance docs: COMPLETE
+All 6 C074 corrected prompts: COMPLETE (A:1008L B:1210L E:965L C:905L F:1014L D:1200L)
+Two-score model: ACTIVE
++5%% E2E gate: ACTIVE
+LARGE-XXLARGE corrected definitions: ACTIVE
+Anti-filler gate: ACTIVE
+
 ﻿## C073 PM REVIEW COMPLETED 2026-06-09
 C073 SQUASH SHA: 33ebd24 (PR #83 main feat) + 7762132 (PR #84 integration/reports)
 C073 POST-SQUASH FIX: 1460cd2 (Ruff: sort test_discovery_dashboard.py inline import) -- LEGITIMATE

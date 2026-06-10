@@ -11,6 +11,45 @@ Current implementation status is **Cycle 001 + Cycle 002 foundation scaffolding*
 validation, and operator workflow docs are in place, while end-to-end collection, scoring,
 recommendation generation, and final dashboard/report UX remain future-cycle work.
 
+
+## Current Build Status (Updated 2026-06-09)
+
+> **Two-score model (corrected 2026-06-09):**
+> - Internal Engineering Build Progress: ~67%
+> - End-to-End Production-Grade Readiness: ~48-50% (range 46-52%)
+> - These are NOT the same number. Do not conflate them.
+
+### Latest Completed Cycle
+**C074 — TierD-2 Live Collection Pilot + Wave 11 S8.3 Playbook Scaffold**
+- TierD-2 infrastructure: collect-live, live-validate, PilotLogger
+- Wave 11 S8.3: generate_playbook, 5-section playbook, Jinja2 PDF template
+- All TierD-2 conditions A-J enforced in code
+- User action required: python run.py live-validate --niche python_automation
+
+### Completed Waves
+- Wave 0-8: Foundation, data, scoring, analysis, recs, dashboard, pricing — **COMPLETE**
+- Wave 9: Pricing Strategy Engine (S6.1-S6.8) — **COMPLETE** (C062-C065)
+- Wave 10: Niche Discovery Engine (S7.1-S7.9) — **COMPLETE** (C066-C073, SCRUM-22 CLOSED)
+
+### In Progress
+- Wave 11: Gig Creation Playbook — **IN PROGRESS**
+  - S8.3 Seller Setup Playbook Generator: **DONE** (C074)
+  - S8.1 Gig Visual Analysis: **To Do** (C075)
+  - S8.2 Seller Profile Optimization: **To Do** (C076)
+
+### Key New Commands (C074)
+`ash
+# Controlled live collection pilot (TierD-2 approved, 500 credit limit)
+python run.py collect-live --niche python_automation --budget 100
+
+# Full end-to-end live validation pipeline
+python run.py live-validate --niche python_automation
+
+# Generate seller setup playbook
+python run.py playbook python_automation
+`
+
+
 ## Prerequisites
 
 - Python 3.11+
