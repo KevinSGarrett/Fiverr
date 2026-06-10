@@ -7,7 +7,7 @@ TierD-2 hybrid pilot implementation plus Wave 11 S8.3 playbook scaffold complete
 
 ## Commits
 
-- Pending commit SHA: recorded after commit step.
+- `8a8e8cd` - `feat(tierd2): C074 Agent B -- TierD-2 live pilot + Wave 11 S8.3 scaffold`
 
 ## Files Created / Modified
 
