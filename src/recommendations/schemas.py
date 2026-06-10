@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -172,6 +174,8 @@ class RecommendationOutput(RecommendationSchemaBase):
     red_flags: RedFlagsOutput | None = None
     niche_viability: NicheViabilityOutput | None = None
     pricing_strategy: str | None = None
+    profile_optimization: dict[str, Any] | None = None
+    visual_recommendations: dict[str, Any] | None = None
 
     generation_complete: bool = False
     failed_tasks: list[str] = Field(default_factory=list)
@@ -195,7 +199,7 @@ class RecommendationOutput(RecommendationSchemaBase):
 
     def completeness_ratio(self) -> float:
         """Returns 0.0-1.0 indicating what proportion of LLM outputs are present."""
-        fields = [
+        core_fields = [
             self.gig_titles,
             self.tag_sets,
             self.package_structure,
@@ -208,6 +212,16 @@ class RecommendationOutput(RecommendationSchemaBase):
             self.red_flags,
             self.niche_viability,
         ]
+        extended_fields = [
+            self.pricing_strategy,
+            self.profile_optimization,
+            self.visual_recommendations,
+        ]
+        include_extended = any(
+            field_name in self.model_fields_set
+            for field_name in ("pricing_strategy", "profile_optimization", "visual_recommendations")
+        ) or any(field_value is not None for field_value in extended_fields)
+        fields = core_fields + extended_fields if include_extended else core_fields
         present = sum(1 for field_value in fields if field_value is not None)
         return present / len(fields)
 

@@ -293,7 +293,7 @@ class SessionManager:
             except Exception as exc:
                 last_error = exc
                 log.warning(
-                    "Headed login attempt %d/%d failed: %s",
+                    "Headed login attempt %s/%s failed: %s",
                     attempt,
                     MAX_LOGIN_ATTEMPTS,
                     exc,

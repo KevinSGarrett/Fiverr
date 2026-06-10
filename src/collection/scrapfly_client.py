@@ -95,7 +95,7 @@ class ScrapFlyStats:
 
     def log_summary(self) -> None:
         log.info(
-            "ScrapFly session summary: requests=%d credits=%d errors=%d asp_bypasses=%d",
+            "ScrapFly session summary: requests=%s credits=%s errors=%s asp_bypasses=%s",
             self.total_requests,
             self.total_credits_used,
             self.errors,
@@ -269,7 +269,7 @@ class ScrapFlyClient:
                     )
 
                 log.debug(
-                    "ScrapFly OK  url=%s  credits=%d  session_total=%d",
+                    "ScrapFly OK  url=%s  credits=%s  session_total=%s",
                     url,
                     result.credits_used,
                     self._stats.total_credits_used,
@@ -284,7 +284,7 @@ class ScrapFlyClient:
                 last_exc = exc
                 self._stats.errors += 1
                 log.warning(
-                    "ScrapFly attempt %d/%d failed — url=%s  error=%s",
+                    "ScrapFly attempt %s/%s failed — url=%s  error=%s",
                     attempt,
                     self._config.max_retries,
                     url,
