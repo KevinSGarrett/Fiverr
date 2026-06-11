@@ -1,0 +1,38 @@
+branches:
+  integration: develop
+  production: main
+  cycle_pattern: "cycle/{cycle}/integration"
+
+merge:
+  develop_auto_merge: true
+  main_auto_merge: false
+  method: squash
+  delete_branch_after_merge: true
+
+blocked_operations:
+  - force_push
+  - direct_push_main
+  - delete_main
+  - delete_develop
+  - delete_unmerged_branch
+  - disable_branch_protection
+  - merge_main_without_release_gate
+
+required_pr_sections:
+  - jira_scope
+  - ac_dod_table
+  - changed_files
+  - validation_evidence
+  - codecov
+  - codex_disposition
+  - no_main_confirmation
+  - runtime_artifact_hygiene
+  - model_evidence
+
+develop_required_checks:
+  - "CI / lint"
+  - "CI / type-check"
+  - "CI / tests-coverage"
+  - "CI / smoke-gates"
+  - "codecov/project"
+  - "codecov/patch"

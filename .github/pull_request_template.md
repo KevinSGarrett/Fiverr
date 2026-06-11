@@ -1,91 +1,59 @@
-# Pull Request Template
+# Cycle / Scope
+
+Cycle:
+Jira Keys:
+Source Branch:
+Target Branch: `develop`
 
 ## Summary
 
-- Describe the problem and why this change is needed.
-- Describe the implementation approach and expected impact.
+-
 
-## Jira Keys
+## Jira AC/DoD Table
 
-- Primary:
-- Related:
-- Board audit artifacts:
-  - `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_###.md` (replace with current cycle)
-  - `docs/jira/ACTIVE_STORY_DOD_LEDGER.md`
+| Jira Key | AC Advanced | DoD Status | Evidence |
+|---|---|---|---|
 
-## Changed Areas
+## Agent Work
 
-- [ ] `src/config`
-- [ ] `src/scripts`
-- [ ] `src/collection`
-- [ ] `src/analysis`
-- [ ] `src/reports`
-- [ ] `docs`
-- [ ] `.github`
-- [ ] Other:
-
-## Validation Commands
-
-Paste exact command outputs (or links) for all applicable checks:
-
-- `python -m ruff check .`
-- `python -m mypy src`
-- `python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90`
-- `python run.py config-check`
-- `python run.py foundation-gate --database-url sqlite:///data/foundation_gate_ci.db`
-- `python run.py phase2-smoke`
-
-## Board-First Jira Audit Summary
-
-- Issue-type and status summary for all touched keys:
-- Active stories touched this PR:
-- AC/DoD bullets advanced:
-- AC/DoD bullets not advanced (and why):
-- Missing AC/DoD coverage follow-ups created:
-- Canonical/noncanonical reconciliation performed against `docs/jira/BOARD_AC_DOD_AUDIT_CYCLE_###.md`: Yes/No
-
-## Codecov Status
-
-- Project coverage (target >=90%):
-- Patch coverage (target >=90%):
-- Codecov check links:
-
-## Codex Review Disposition
-
-|Thread/Comment|File|Disposition|Fix Commit/Test|Resolution Status|
+| Agent | Role | Files | Tests | Result |
 |---|---|---|---|---|
-|||||Open/Resolved|
 
-## Local-Discrepancy Reconciliation
+## Validation
 
-- Compare local archive vs PR head performed: Yes/No
-- Reconciliation result (committed vs intentionally excluded):
-- Evidence comment link:
+| Gate | Result | Evidence |
+|---|---|---|
+| Ruff | | |
+| Mypy | | |
+| Pytest/Coverage | | |
+| Config Check | | |
+| Foundation Gate | | |
+| Phase2 Smoke | | |
+| Codecov Project | | |
+| Codecov Patch | | |
+| Codex Disposition | | |
 
-## AC/DoD Progress Table
+## No-Main Confirmation
 
-| Jira Key | AC/DoD Progress | Remaining Gap | Status Recommendation |
-| --- | --- | --- | --- |
-| `SCRUM-###` |  |  |  |
+- [ ] This PR targets `develop`
+- [ ] No direct push to `main`
+- [ ] `main` remains release-only
 
-## Branch Policy
+## Runtime Artifact Hygiene
 
-- Cycle PR target branch: `develop`
-- Head branch format: `cycle/###/integration`
-- Direct pushes to `main`: forbidden
-- Explicit no-main confirmation (paste evidence command): `git branch --show-current` + PR base branch screenshot/link
+- [ ] No `.env`
+- [ ] No private keys
+- [ ] No browser sessions
+- [ ] No runtime DBs
+- [ ] No cache artifacts
 
-## Merge Readiness Checklist
+## Runner / Model Evidence
 
-- [ ] All Codex review comments have explicit replies.
-- [ ] All Codex review threads are resolved.
-- [ ] GitHub Actions checks are green.
-- [ ] Codecov project coverage is >=90%.
-- [ ] Codecov patch coverage is >=90%.
-- [ ] PR targets `develop` for cycle integration work.
-- [ ] No direct push to `main` was used.
-- [ ] Board-first Jira audit summary is complete.
-- [ ] AC/DoD progress for all touched keys is included.
-- [ ] No runtime artifacts (db/cache/temp reports) are included.
-- [ ] Final pushed SHA is synchronized across PR body, cycle report, and Jira ledger.
-- [ ] Final evidence freeze was performed after checks settled.
+- [ ] Cursor model verified: Codex 5.3, medium, Auto disabled
+- [ ] Claude billing: subscription-only, no API key
+- [ ] ANTHROPIC_API_KEY absent from runner environment
+
+## Merge Gate
+
+- [ ] Ready for autonomous merge to `develop`
+- [ ] Blocked - reason:

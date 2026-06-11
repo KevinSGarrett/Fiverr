@@ -461,5 +461,83 @@ def cmd_tick():
     click.echo("  Tick loop not yet fully implemented — run commands manually for Wave 03.")
 
 
+@cli.command("merge-gate")
+@click.option("--pr", required=True, type=int, help="PR number.")
+@click.option("--dry-run", "do_dry_run", is_flag=True, default=True,
+              help="Check gates only, do not merge (default: True).")
+@click.option("--execute-merge", is_flag=True, default=False,
+              help="Actually merge if all gates pass.")
+def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool):
+    """Run full merge gate check for a PR. Safe by default (dry-run)."""
+    click.echo("=" * 60)
+    live = not do_dry_run or execute_merge
+    click.echo(f"MERGE GATE - PR #{pr} {'[LIVE]' if live else '[DRY RUN]'}")
+    click.echo("=" * 60)
+    from automation.merge_gate import run as gate_run
+    result = gate_run(pr_number=pr, dry_run=(not execute_merge))
+    click.echo(result.summary())
+    click.echo()
+    if result.passed:
+        if execute_merge and result.merge_sha:
+            click.secho(f"MERGED to develop: {result.merge_sha}", fg="green", bold=True)
+        else:
+            click.secho("MERGE GATE PASS - run with --execute-merge to merge", fg="green", bold=True)
+    else:
+        fails = len(result.failed_checks())
+        click.secho(f"MERGE GATE FAIL - {fails} blocking failures", fg="red", bold=True)
+        sys.exit(1)
+
+
+@cli.command("create-labels")
+def cmd_create_labels():
+    """Create all required GitHub labels for the autonomous runner."""
+    click.echo("=" * 60)
+    click.echo("CREATE GITHUB LABELS")
+    click.echo("=" * 60)
+    import subprocess
+    labels = [
+        ("ai-runner", "0052cc", "Managed by autonomous AI runner"),
+        ("type:feature", "0075ca", "Feature work"),
+        ("type:fix", "e4e669", "Bug fix"),
+        ("type:test", "c2e0c6", "Test additions"),
+        ("type:chore", "ededed", "Chore/housekeeping"),
+        ("risk:low", "c2e0c6", "Low risk change"),
+        ("risk:medium", "fbca04", "Medium risk change"),
+        ("risk:high", "e11d48", "High risk change"),
+        ("risk:critical", "b60205", "Critical risk change"),
+        ("agent:A", "1d76db", "Agent A work"),
+        ("agent:B", "0e8a16", "Agent B work"),
+        ("agent:C", "5319e7", "Agent C work"),
+        ("agent:D", "e4e669", "Agent D work"),
+        ("agent:E", "d93f0b", "Agent E work"),
+        ("agent:F", "0075ca", "Agent F work"),
+        ("status:ai-running", "0052cc", "AI runner actively working"),
+        ("status:ai-repairing", "fbca04", "AI runner in repair loop"),
+        ("status:merge-gate-pass", "0e8a16", "Merge gate passed"),
+        ("status:merge-gate-blocked", "e11d48", "Merge gate blocked"),
+        ("needs:jira-sync", "ededed", "Needs Jira sync"),
+        ("needs:codex-disposition", "ededed", "Needs Codex review disposition"),
+        ("needs:coverage-repair", "fbca04", "Needs coverage repair"),
+    ]
+    created, skipped, failed = 0, 0, 0
+    for name, color, desc in labels:
+        r = subprocess.run(
+            ["gh", "label", "create", name,
+             "--repo", "KevinSGarrett/Fiverr",
+             "--color", color, "--description", desc, "--force"],
+            capture_output=True, text=True
+        )
+        if r.returncode == 0:
+            click.secho(f"  [OK] {name}", fg="green")
+            created += 1
+        else:
+            click.secho(f"  [FAIL] {name}: {r.stderr.strip()[:60]}", fg="red")
+            failed += 1
+    click.echo()
+    click.echo(f"Created/updated: {created}  Failed: {failed}")
+    if failed == 0:
+        click.secho("LABELS COMPLETE", fg="green", bold=True)
+
+
 if __name__ == "__main__":
     cli()

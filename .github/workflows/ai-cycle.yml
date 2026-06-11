@@ -1,0 +1,65 @@
+name: AI Cycle Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      cycle:
+        description: "Cycle number or auto"
+        required: false
+        default: "auto"
+      mode:
+        description: "Mode"
+        required: true
+        default: "plan_only"
+        type: choice
+        options:
+          - plan_only
+          - brain_check
+          - compile_policy
+          - jira_inventory
+          - execute
+          - repair
+          - merge_gate
+          - status
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  statuses: read
+  actions: read
+
+concurrency:
+  group: ai-cycle-runner
+  cancel-in-progress: false
+
+jobs:
+  ai-cycle:
+    name: AI Cycle Controller
+    runs-on: [self-hosted, fiverr-ai-runner]
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_AUTOMATION_TOKEN }}
+
+      - name: Run AI cycle controller
+        shell: pwsh
+        env:
+          GITHUB_AUTOMATION_TOKEN: ${{ secrets.GITHUB_AUTOMATION_TOKEN }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          Set-Location C:\Fiverr\Fiverr
+          $mode = "${{ github.event.inputs.mode || 'plan_only' }}"
+          $cycle = "${{ github.event.inputs.cycle || 'auto' }}"
+          Write-Host "Mode: $mode | Cycle: $cycle"
+          .venv\Scripts\python.exe automation\ai_cycle_controller.py $mode

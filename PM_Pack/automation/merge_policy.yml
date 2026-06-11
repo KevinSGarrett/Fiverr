@@ -1,0 +1,53 @@
+develop:
+  auto_merge: true
+  method: squash
+  required:
+    - pr_target_develop
+    - ci_lint_pass
+    - ci_type_check_pass
+    - ci_tests_coverage_pass
+    - ci_smoke_gates_pass
+    - codecov_project_pass
+    - codecov_patch_pass
+    - codex_threads_resolved
+    - jira_mapping_present
+    - no_secret_artifacts
+    - no_danger_flags
+    - model_evidence_present
+
+main:
+  auto_merge: false
+  required:
+    - release_pr
+    - full_suite_pass
+    - release_notes
+    - rollback_plan
+    - explicit_release_gate
+
+danger_flags:
+  - force_push
+  - direct_push_main
+  - secret_file_staged
+  - runtime_db_staged
+  - browser_session_staged
+  - env_file_staged
+
+codecov:
+  project_threshold: 90
+  patch_threshold: 90
+  fail_if_missing: false
+  fail_if_failed: true
+
+codex:
+  blockers:
+    - VALID_DEFERRED_BLOCKER
+    - OUTDATED_STILL_VALID
+  auto_resolve:
+    - VALID_FIXED
+    - DUPLICATE
+    - OUTDATED_FIXED
+  proceed_with_evidence:
+    - NOT_APPLICABLE
+    - FALSE_POSITIVE
+    - VALID_DEFERRED_NONBLOCKING
+    - OUTDATED_FALSE_POSITIVE

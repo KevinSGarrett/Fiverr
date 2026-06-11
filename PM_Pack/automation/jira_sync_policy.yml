@@ -1,0 +1,30 @@
+project_key: SCRUM
+cloud_id: "eae77257-a572-4e19-b746-8b184ba2d01f"
+done_transition_id: "41"
+
+statuses:
+  selected: "To Do"
+  started: "In Progress"
+  pr_ready: "In Review"
+  done: "Done"
+  blocked: "Blocked"
+
+required_comments:
+  planning: true
+  pr_created: true
+  validation: true
+  merge: true
+  blocker: true
+
+done_requires:
+  - pr_merged
+  - full_dod_confirmed
+  - tests_passed
+  - codecov_passed
+  - codex_resolved
+
+partial_dod_allowed: true
+partial_dod_keeps_status: "In Review"
+
+jira_first: true
+board_inventory_before_each_cycle: true
