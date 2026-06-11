@@ -145,8 +145,11 @@ def run_post_cycle_review(
         return result
 
     try:
+        # Claude Code defaults to Opus 4.8 — force Sonnet 4.6 for PM review
+        # (per claude_model_state.json: observed_default_model = Opus 4.8)
         r = subprocess.run(
-            [claude_binary, "-p", request_content, "--output-format", "text"],
+            [claude_binary, "-p", request_content, "--output-format", "text",
+             "--model", "claude-sonnet-4-6"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
