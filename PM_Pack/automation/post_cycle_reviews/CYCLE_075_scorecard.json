@@ -1,0 +1,16 @@
+{
+  "cycle": 75,
+  "score1_internal_pct": 67.0,
+  "score2_e2e_pct": 0.0,
+  "tierd2_status": "IN_PROGRESS",
+  "tierd2_stages": {},
+  "active_score2_caps": [
+    "~50% hard cap: TierD-2 live pilot not yet completed"
+  ],
+  "score2_lte_score1": true,
+  "deltas": {
+    "score1_delta": 0.0,
+    "score2_delta": 0.0
+  },
+  "calculated_at": "2026-06-11T03:12:51.178955+00:00"
+}

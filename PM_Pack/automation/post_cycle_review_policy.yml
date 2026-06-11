@@ -1,0 +1,63 @@
+version: 1
+# Governs post-cycle PM review automation.
+# The controller MUST NOT dispatch next cycle until post_cycle_result = PASS.
+
+source_prompt: "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
+
+trigger:
+  after_agent_d_complete: true          # POST_AGENT_CYCLE_REVIEW (unmerged preview)
+  after_merge_to_develop: true          # POST_CYCLE_PM_REVIEW (canonical closeout)
+  block_next_dispatch_until_pass: true
+
+modes:
+  POST_AGENT_CYCLE_REVIEW:
+    description: "All 6 agents done, PR open but not yet merged"
+    result_type: DRAFT_UNMERGED_PREVIEW
+    blocks_dispatch: false
+    updates_pm_pack: false
+
+  POST_CYCLE_PM_REVIEW:
+    description: "PR squash-merged to develop — canonical closeout"
+    result_type: PASS_OR_FAIL
+    blocks_dispatch: true
+    updates_pm_pack: true
+
+model:
+  required: "Claude Sonnet 4.6"
+  effort: "medium"
+  adaptive_thinking: true
+  billing: "claude_subscription_only"
+  fail_if_api_key_present: true
+  unverified_mode: "ADVISORY_ONLY"
+
+facts_required_before_review:
+  - git_log_since_last_cycle
+  - pr_merge_state
+  - ci_status
+  - codecov_project
+  - codecov_patch
+  - codex_threads
+  - jira_cycle_control_status
+  - agent_report_presence    # A,B,E,C,F,D
+  - local_validation_results
+  - baseline_db_mtime
+  - scrapfly_config_check
+
+scoring:
+  calculate_score1_internal: true       # Engineering build progress
+  calculate_score2_e2e: true            # Production-grade readiness
+  enforce_score2_lte_score1: true
+  tierd2_stage_tracking: true
+
+prompt_validation:
+  min_tasks_per_agent: 55              # LARGE-XXLARGE floor
+  require_agent_a_floor_script: true
+  require_model_block: true
+  require_no_secrets: true
+  quality_gate_prefix: "PQ-"
+
+dispatch_gate:
+  require_post_cycle_pass: true
+  require_prompt_validation_pass: true
+  require_model_gate_pass: true
+  require_lock_acquired: true

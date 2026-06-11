@@ -464,6 +464,56 @@ def cmd_tick():
     click.echo(f"[TICK] {_now()} status={status}")
 
 
+@cli.command("post-cycle-review")
+@click.option("--cycle", required=True, type=int, help="Cycle number.")
+@click.option("--pr", default=None, type=int, help="PR number (if known).")
+@click.option("--mode", default="POST_CYCLE_PM_REVIEW",
+              type=click.Choice(["POST_CYCLE_PM_REVIEW", "POST_AGENT_CYCLE_REVIEW"]),
+              help="Review mode.")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Collect facts only, do not write artifacts.")
+def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool):
+    """Run post-cycle PM review. Blocks next dispatch until PASS."""
+    click.echo("=" * 60)
+    click.echo(f"POST-CYCLE REVIEW -- Cycle {cycle:03d} [{mode}]")
+    click.echo("=" * 60)
+
+    from automation.post_cycle_review import (
+        run_review, collect_facts, ReviewMode, ReviewResult
+    )
+
+    rev_mode = ReviewMode.POST_MERGE if mode == "POST_CYCLE_PM_REVIEW" else ReviewMode.POST_AGENT
+
+    if dry_run:
+        click.echo("  Collecting facts (dry-run, no artifacts written)...")
+        facts = collect_facts(cycle, rev_mode, pr)
+        click.echo(f"  PR merged        : {facts.pr_merged}")
+        click.echo(f"  CI passed        : {facts.ci_passed}")
+        click.echo(f"  Codecov project  : {facts.codecov_project}")
+        click.echo(f"  Baseline DB ok   : {facts.baseline_db_mtime_unchanged}")
+        click.echo(f"  ScrapFly off     : {facts.scrapfly_enabled_false}")
+        click.echo(f"  Agent reports    : {facts.agent_reports_present}")
+        click.secho("DRY RUN COMPLETE", fg="cyan")
+        return
+
+    result = run_review(cycle=cycle, mode=rev_mode, pr_number=pr)
+    click.echo(result.summary())
+    click.echo()
+    for path in result.artifact_paths:
+        click.echo(f"  Artifact: {path}")
+
+    if result.result == ReviewResult.PASS:
+        click.secho("POST-CYCLE REVIEW PASS -- next dispatch unlocked", fg="green", bold=True)
+        from automation.state_writer import write_controller_state, write_heartbeat
+        write_heartbeat("POST_CYCLE_PASS", cycle=cycle)
+        write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+    else:
+        click.secho(f"POST-CYCLE REVIEW {result.result.value}", fg="yellow", bold=True)
+        if result.blocks_dispatch:
+            click.secho("DISPATCH BLOCKED -- resolve errors before next cycle", fg="red")
+            sys.exit(1)
+
+
 @cli.command("merge-gate")
 @click.option("--pr", required=True, type=int, help="PR number.")
 @click.option("--dry-run", "do_dry_run", is_flag=True, default=True,
