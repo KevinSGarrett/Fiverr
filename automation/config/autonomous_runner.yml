@@ -58,6 +58,7 @@ github:
   allow_direct_push_to_main: false
   allow_force_push: false
   allow_delete_unmerged_branch: false
+  # Secret name is GH_AUTOMATION_TOKEN (GITHUB_ prefix is reserved by GitHub)
 
 jira:
   enabled: true
