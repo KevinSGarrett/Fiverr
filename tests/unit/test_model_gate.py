@@ -6,15 +6,13 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 
 class TestModelGate:
     def test_gate_passes_when_verified(self, tmp_path):
         """MODEL_GATE must pass when cursor_model_state.json is VERIFIED and fresh."""
-        from automation.model_gate import check, _load_cursor_state
+        from automation.model_gate import check
         state = {
             "status": "VERIFIED",
             "verified_at": "2026-06-11T00:00:00Z",
@@ -30,16 +28,16 @@ class TestModelGate:
 
     def test_gate_fails_when_state_empty(self, tmp_path):
         """MODEL_GATE must fail (not crash) when state is empty."""
-        from automation.model_gate import check
         import automation.model_gate as mg
+        from automation.model_gate import check
         with patch.object(mg, "_load_cursor_state", return_value={}):
             result = check(repo_root=tmp_path, cycle=75, agent="A")
         assert isinstance(result.passed, bool)
 
     def test_gate_result_has_passed(self, tmp_path):
         """ModelGateResult must have .passed attribute."""
-        from automation.model_gate import check
         import automation.model_gate as mg
+        from automation.model_gate import check
         with patch.object(mg, "_load_cursor_state", return_value={}):
             result = check(repo_root=tmp_path, cycle=75, agent="A")
         assert hasattr(result, "passed")
@@ -61,8 +59,8 @@ class TestModelGate:
 
     def test_gate_summary_returns_string(self, tmp_path):
         """ModelGateResult must have a summary method returning string."""
-        from automation.model_gate import check
         import automation.model_gate as mg
+        from automation.model_gate import check
         with patch.object(mg, "_load_cursor_state", return_value={}):
             result = check(repo_root=tmp_path, cycle=75, agent="A")
         assert isinstance(result.summary(), str)

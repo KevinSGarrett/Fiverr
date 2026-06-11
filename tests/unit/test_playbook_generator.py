@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
 from src.playbook import generator as generator_module
 from src.playbook.generator import (
     build_account_setup_section,
@@ -31,10 +30,10 @@ class _FakeQuery:
         self._row = row
         self._raise = should_raise
 
-    def filter(self, *_args: Any, **_kwargs: Any) -> "_FakeQuery":
+    def filter(self, *_args: Any, **_kwargs: Any) -> _FakeQuery:
         return self
 
-    def order_by(self, *_args: Any, **_kwargs: Any) -> "_FakeQuery":
+    def order_by(self, *_args: Any, **_kwargs: Any) -> _FakeQuery:
         return self
 
     def first(self) -> Any:

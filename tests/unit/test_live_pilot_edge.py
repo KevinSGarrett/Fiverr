@@ -7,21 +7,24 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+import run as run_module
 import yaml
 from click.testing import CliRunner
-
-import run as run_module
 from run import cli
 from src.collection.live_pilot import _seed_pilot_niche, run_live_collection_pilot
 from src.collection.pilot_logger import PilotLogger
 from src.collection.scrapfly_client import ScrapFlyRateLimitError
-from src.models.database import create_session_factory, get_session, initialize_database, normalize_database_url
+from src.models.database import (
+    create_session_factory,
+    get_session,
+    initialize_database,
+    normalize_database_url,
+)
 from src.models.niche import Niche
 from src.playbook.generator import (
     build_gig_creation_section,
@@ -751,10 +754,10 @@ class TestPlaybookEdgeCases:
         )
 
         class _RecQuery:
-            def filter(self, *_args: Any, **_kwargs: Any) -> "_RecQuery":
+            def filter(self, *_args: Any, **_kwargs: Any) -> _RecQuery:
                 return self
 
-            def order_by(self, *_args: Any, **_kwargs: Any) -> "_RecQuery":
+            def order_by(self, *_args: Any, **_kwargs: Any) -> _RecQuery:
                 return self
 
             def first(self) -> Any:
@@ -777,10 +780,10 @@ class TestPlaybookEdgeCases:
 
     def test_generate_playbook_uses_display_name_not_slug(self) -> None:
         class _EmptyQuery:
-            def filter(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def filter(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
-            def order_by(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def order_by(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
             def first(self) -> None:
@@ -797,10 +800,10 @@ class TestPlaybookEdgeCases:
 
     def test_sections_in_exact_order(self) -> None:
         class _EmptyQuery:
-            def filter(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def filter(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
-            def order_by(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def order_by(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
             def first(self) -> None:
@@ -823,10 +826,10 @@ class TestPlaybookEdgeCases:
 
     def test_all_sections_have_estimated_time(self) -> None:
         class _EmptyQuery:
-            def filter(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def filter(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
-            def order_by(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def order_by(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
             def first(self) -> None:
@@ -896,10 +899,10 @@ class TestConfigEdgeCases:
 
     def test_export_playbook_markdown_starts_with_heading(self) -> None:
         class _EmptyQuery:
-            def filter(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def filter(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
-            def order_by(self, *_args: Any, **_kwargs: Any) -> "_EmptyQuery":
+            def order_by(self, *_args: Any, **_kwargs: Any) -> _EmptyQuery:
                 return self
 
             def first(self) -> None:

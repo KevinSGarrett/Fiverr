@@ -111,8 +111,10 @@ def run_post_agent_lifecycle(
             )
         return result
 
-    # ── Step 3: Secret guard ──────────────────────────────────────────
-    secret_findings = _scan_for_secrets()
+    # ── Step 3: Secret guard — scan changed_files BEFORE any staging (V5-008) ────
+    # Scan must happen on the changed_files list before we stage anything.
+    # We call scan_working_tree (not scan_staged) at this point.
+    secret_findings = _scan_changed_files(result.changed_files)
     if secret_findings:
         result.secret_findings = secret_findings
         result.status = "SECRET_FOUND"
@@ -158,8 +160,21 @@ def run_post_agent_lifecycle(
         return result
 
     # ── Step 6: Commit approved files ────────────────────────────────
-    if not dry_run and result.changed_files:
-        sha = _commit_agent_work(agent_id, cycle, result.changed_files)
+    # Stage and commit only files that passed ownership check
+    approved_files = [
+        fn for fn in result.changed_files
+        if fn not in result.unauthorized_files
+    ]
+    if not dry_run and approved_files:
+        # Second secret scan: after classifying files, before staging
+        post_scan = _scan_changed_files(approved_files)
+        if post_scan:
+            result.secret_findings.extend(post_scan)
+            result.status = "SECRET_FOUND"
+            result.errors.extend(post_scan)
+            _write_record(result, run_dir)
+            return result
+        sha = _commit_agent_work(agent_id, cycle, approved_files)
         result.commit_sha = sha
 
     # ── Step 7: Update Jira with evidence ────────────────────────────
@@ -205,24 +220,70 @@ def _get_changed_files() -> list[str]:
 
 
 def _check_ownership(agent_id: str, changed_files: list[str]) -> list[str]:
-    """Return files that violate agent ownership rules."""
+    """Return files that violate agent ownership rules.
+
+    V5-008 fix: enforces BOTH allowlist and denylist from agent_lanes.yml.
+    A file is a violation if:
+      (a) it matches a forbidden prefix, OR
+      (b) it doesn't match any allowed prefix (and allowed list is non-empty)
+    """
     rules = AGENT_OWNERSHIP.get(agent_id, {})
+    allowed_prefixes = rules.get("allowed", [])
     forbidden_prefixes = rules.get("forbidden", [])
     violations = []
-    for f in changed_files:
-        for prefix in forbidden_prefixes:
-            if f.startswith(prefix):
-                violations.append(f)
-                break
+
+    for changed_file in changed_files:
+        # Check forbidden
+        forbidden = any(changed_file.startswith(fp) for fp in forbidden_prefixes)
+        if forbidden:
+            violations.append(changed_file)
+            continue
+
+        # Check allowlist: if allowed list is non-empty and file doesn't match any
+        if allowed_prefixes:
+            in_allowed = any(
+                changed_file.startswith(ap.rstrip("*").rstrip("/"))
+                for ap in allowed_prefixes
+            )
+            # Automation and docs files are always allowed for any agent
+            always_allowed = any(
+                changed_file.startswith(p)
+                for p in ("docs/cycle_reports/", "PM_Pack/automation/runs/",
+                          ".gitignore", "README")
+            )
+            if not in_allowed and not always_allowed:
+                violations.append(changed_file)
+
     return violations
 
 
 def _scan_for_secrets() -> list[str]:
-    """Scan staged/changed files for secret patterns."""
+    """Scan staged files for secret patterns (used after staging)."""
     try:
         from automation.secret_guard import scan_staged
-        result = scan_staged(REPO_ROOT)
-        return result.findings if not result.passed else []
+        scan_result = scan_staged(REPO_ROOT)
+        return scan_result.findings if not scan_result.passed else []
+    except Exception:
+        return []
+
+
+def _scan_changed_files(changed_files: list[str]) -> list[str]:
+    """Scan a list of changed files for secret values BEFORE staging (V5-008 fix).
+
+    Uses scan_file on each file individually, before any git add.
+    """
+    try:
+        from automation.secret_guard import scan_file
+        findings: list[str] = []
+        for fname in changed_files:
+            fpath = REPO_ROOT / fname
+            if fpath.exists():
+                scan_result = scan_file(fpath)
+                if not scan_result.passed:
+                    findings.extend(
+                        [f"{fname}: {finding}" for finding in scan_result.findings]
+                    )
+        return findings
     except Exception:
         return []
 
@@ -265,10 +326,20 @@ def _run_validation(agent_id: str) -> tuple[bool, str]:
 
 
 def _commit_agent_work(agent_id: str, cycle: int, files: list[str]) -> str:
-    """Stage approved files and commit. Returns commit SHA."""
-    # Stage only files that are in the changed list
-    subprocess.run(["git", "add", "-A"],
-                   cwd=str(REPO_ROOT), check=False, capture_output=True)
+    """Stage only approved files and commit. Never uses git add -A.
+
+    V5-008 fix: stages files explicitly using git add -- <file1> <file2>
+    """
+    if not files:
+        return ""
+    # Stage only the explicitly approved files
+    stage_cmd = ["git", "add", "--"] + files
+    stage_result = subprocess.run(
+        stage_cmd, cwd=str(REPO_ROOT), capture_output=True, text=True
+    )
+    if stage_result.returncode != 0:
+        return ""
+
     msg = f"feat(cycle-{cycle:03d}): Agent {agent_id} work [autonomous]"
     r = subprocess.run(
         ["git", "commit", "-m", msg],

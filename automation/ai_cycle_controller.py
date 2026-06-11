@@ -788,6 +788,87 @@ def cmd_create_labels() -> None:
     if failed == 0:
         click.secho("LABELS COMPLETE", fg="green", bold=True)
 
+@cli.command("status-tick")
+def cmd_status_tick() -> None:
+    """Status-only tick — reads state and writes next_action_decision.json.
+
+    Unlike tick, status-tick NEVER advances state machine or dispatches anything.
+    V6-TICK-001/003: every tick writes next_action_decision.json explaining why
+    it did/did not dispatch. status-tick is safe to call at any time.
+    """
+    from automation.state_writer import write_heartbeat
+
+    state = _read_runner_state()
+    status = state.get("status", "IDLE")
+    cycle  = state.get("active_cycle")
+    now = _now()
+
+    write_heartbeat(status, cycle=cycle)
+
+    # Check freeze
+    from automation.freeze_gate import is_frozen
+    frozen = is_frozen(REPO_ROOT)
+
+    # Check dirty repo
+    import subprocess as _sp
+    git_status = _sp.run(
+        ["git", "status", "--short"], cwd=str(REPO_ROOT),
+        capture_output=True, text=True
+    ).stdout.strip()
+    repo_dirty = bool(git_status)
+
+    # Determine next action
+    if frozen:
+        next_action = "BLOCKED_AUTONOMY_FROZEN"
+        reason = "autonomy_freeze.yml has frozen: true"
+    elif repo_dirty:
+        next_action = "BLOCKED_DIRTY_REPO"
+        reason = f"Repo has uncommitted changes: {git_status[:100]}"
+    elif status in ("IDLE", "POST_CYCLE_PASS"):
+        next_action = "PLAN_READY"
+        reason = "Ready for next cycle — run compile-policy then plan-cycle"
+    elif status == "PLANNED":
+        next_action = "VALIDATE_PROMPTS"
+        reason = "Prompts exist — run validate-prompts to check"
+    elif status == "READY_TO_DISPATCH":
+        next_action = "AWAITING_MODEL_GATE"
+        reason = "Model gate check required before dispatch"
+    elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
+        next_action = "MONITOR_AGENT"
+        reason = "Agent currently running — monitor heartbeat"
+    elif status == "POST_CYCLE_PENDING":
+        next_action = "POST_CYCLE_REVIEW"
+        reason = "Awaiting post-cycle review"
+    else:
+        next_action = f"UNKNOWN_STATUS_{status}"
+        reason = "Unknown status — check controller_state.json"
+
+    # Write decision artifact (V6-TICK-003)
+    decision = {
+        "evaluated_at": now,
+        "current_status": status,
+        "active_cycle": cycle,
+        "frozen": frozen,
+        "repo_dirty": repo_dirty,
+        "next_action": next_action,
+        "reason": reason,
+        "source": "status-tick (read-only)",
+    }
+    decision_path = Path("C:/AI_Runner/state/next_action_decision.json")
+    decision_path.parent.mkdir(parents=True, exist_ok=True)
+    import json as _json
+    decision_path.write_text(_json.dumps(decision, indent=2))
+
+    click.echo(f"[STATUS-TICK] {now}")
+    click.echo(f"  Status     : {status}")
+    click.echo(f"  Cycle      : {cycle}")
+    click.echo(f"  Frozen     : {frozen}")
+    click.echo(f"  Repo dirty : {repo_dirty}")
+    click.echo(f"  Next action: {next_action}")
+    click.echo(f"  Reason     : {reason}")
+    click.echo(f"  Decision   : {decision_path}")
+
+
 @cli.command("pm-pack-audit")
 def cmd_pm_pack_audit() -> None:
     """PM_Pack consistency audit — validates semantic agreement across all state files.

@@ -241,10 +241,16 @@ def run_review(cycle: int, mode: ReviewMode,
         return result
 
     # ── GATE 5: Agent reports audit ───────────────────────────────────
+    # V5-010: missing reports are HARD ERRORS for official POST_MERGE review
     missing_reports = [a for a, present in result.facts.agent_reports_present.items()
                        if not present]
     if missing_reports:
-        result.warnings.append(f"Missing agent reports: {missing_reports}")
+        if mode == ReviewMode.POST_MERGE:
+            result.errors.append(
+                f"Missing agent reports (official review requires all 6): {missing_reports}"
+            )
+        else:
+            result.warnings.append(f"Missing agent reports: {missing_reports}")
 
     # ── GATE 6: Baseline DB integrity ────────────────────────────────
     if not result.facts.baseline_db_mtime_unchanged:
@@ -254,8 +260,53 @@ def run_review(cycle: int, mode: ReviewMode,
     if not result.facts.scrapfly_enabled_false:
         result.errors.append("config.yaml has scrapfly.enabled:true — not allowed in commits")
 
+    # ── GATE 8: Claude subscription PM review (V5-010 fix) ───────────
+    # Official POST_MERGE review MUST invoke Claude adapter.
+    # If Claude is not available → ADVISORY_ONLY, dispatch blocked.
+    # If model/effort/adaptive thinking unverified → ADVISORY_ONLY.
+    if mode == ReviewMode.POST_MERGE and not result.errors:
+        from automation.claude_post_cycle_adapter import run_post_cycle_review as _claude_review
+        run_dir = REVIEWS_DIR / f"cycle_{result.cycle:03d}_runs" / "current"
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load source prompt fresh from disk every time
+        review_prompt = SOURCE_PROMPT.read_text(encoding="utf-8", errors="replace")
+        facts_json = json.dumps(result.facts.to_dict(), indent=2, default=str)
+
+        claude_result = _claude_review(
+            cycle=result.cycle,
+            run_dir=run_dir,
+            review_prompt_text=review_prompt,
+            facts_json=facts_json,
+        )
+
+        # Record Claude artifacts in result
+        if claude_result.request_path:
+            result.artifact_paths.append(claude_result.request_path)
+        if claude_result.response_path:
+            result.artifact_paths.append(claude_result.response_path)
+
+        if claude_result.status == "BLOCKED":
+            result.result = ReviewResult.BLOCKED_MODEL_UNVERIFIED
+            result.errors.append(f"Claude blocked: {claude_result.error}")
+        elif claude_result.status == "ADVISORY_ONLY":
+            result.result = ReviewResult.ADVISORY_ONLY
+            result.warnings.append(
+                "Claude PM review is advisory-only: "
+                + str(claude_result.error)
+                + "  Next dispatch BLOCKED until official review completes."
+            )
+        elif claude_result.status == "PASS":
+            result.result = ReviewResult.PASS
+        else:
+            # FAIL or ERROR from Claude
+            result.result = ReviewResult.ADVISORY_ONLY
+            result.warnings.append(
+                f"Claude review status: {claude_result.status}. Treating as advisory."
+            )
+
     # ── RESULT: POST_AGENT is always preview ──────────────────────────
-    if mode == ReviewMode.POST_AGENT:
+    elif mode == ReviewMode.POST_AGENT:
         result.result = ReviewResult.DRAFT_UNMERGED_PREVIEW
     elif not result.errors:
         result.result = ReviewResult.PASS

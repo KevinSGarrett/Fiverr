@@ -8,9 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from click.testing import CliRunner
-
 import run as run_module
+from click.testing import CliRunner
 from run import cli
 from src.collection.live_pilot import run_live_collection_pilot
 from src.collection.pilot_logger import PilotLogger

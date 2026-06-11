@@ -62,7 +62,10 @@ SAFETY_ERRORS = [
     (r"ANTHROPIC_API_KEY\s*=\s*[\'\"]{0,1}sk-", "Anthropic API key with value"),  # value only
     (r"ghp_[a-zA-Z0-9]{36,}",                        "GitHub token literal"),
     (r"ATATT3x[a-zA-Z0-9]+",                          "Jira API token literal"),
-    (r"storage_state\.json",                          "browser session file"),
+    # storage_state.json: only fail on actual git staging/commit commands.
+    # Policy prohibitions like "do not commit storage_state.json" are safe and correct.
+    (r"^\s*git add[^\n]{0,80}storage_state\.json|^\s*git commit[^\n]{0,80}storage_state",
+     "storage_state.json in git add/commit command"),
 ]
 
 
