@@ -1,0 +1,38 @@
+{
+  "run_id": "20260611T014828",
+  "cycle": 38,
+  "branch": "cycle/038/integration",
+  "base_branch": "develop",
+  "agents": [
+    "A",
+    "B",
+    "E",
+    "C",
+    "F",
+    "D"
+  ],
+  "dry_run": true,
+  "planned_at": "2026-06-11T01:48:28.693810+00:00",
+  "quality_gates": {
+    "ruff": true,
+    "mypy": true,
+    "pytest": true,
+    "coverage_floor": 90,
+    "config_check": true,
+    "foundation_gate": true,
+    "phase2_smoke": true,
+    "codecov_project_required": true,
+    "codecov_patch_required": true,
+    "codex_disposition_required": true
+  },
+  "jira_policy": {
+    "board_first": true,
+    "exact_issue_keys_required": true,
+    "ac_dod_required_per_task": true,
+    "done_requires_merge_and_full_dod": true,
+    "cloud_id": "eae77257-a572-4e19-b746-8b184ba2d01f",
+    "project_key": "SCRUM",
+    "done_transition_id": "41"
+  },
+  "status": "PLANNED_DRY_RUN"
+}

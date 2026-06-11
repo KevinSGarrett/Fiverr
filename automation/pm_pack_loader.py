@@ -1,0 +1,121 @@
+"""
+pm_pack_loader.py — Read and validate PM_Pack brain files.
+Implements the brain-check command logic: load each file in registry order
+and report PASS/FAIL per file.
+"""
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+
+REGISTRY_PATH = Path("PM_Pack/automation/BRAIN_REGISTRY.yml")
+POST_CYCLE_PROMPT_REL = "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
+
+
+@dataclass
+class BrainCheckResult:
+    passed: list[str] = field(default_factory=list)
+    failed: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    cycle_detected: str | None = None
+    wave_detected: str | None = None
+    blockers_detected: list[str] = field(default_factory=list)
+    cursor_model_status: str = "UNVERIFIED"
+    claude_model_status: str = "UNVERIFIED"
+    post_cycle_prompt_present: bool = False
+
+    @property
+    def ok(self) -> bool:
+        return len(self.failed) == 0
+
+
+def brain_check(repo_root: Path) -> BrainCheckResult:
+    """Load all brain files and return a structured result."""
+    result = BrainCheckResult()
+
+    registry_path = repo_root / REGISTRY_PATH
+    if not registry_path.exists():
+        result.failed.append(f"BRAIN_REGISTRY.yml missing: {registry_path}")
+        return result
+
+    registry = yaml.safe_load(registry_path.read_text()) or {}
+    result.passed.append(f"BRAIN_REGISTRY.yml loaded: {registry_path}")
+
+    # Check all load_order files
+    load_order: dict[str, list[str]] = registry.get("load_order", {})
+    for section, files in load_order.items():
+        for rel_path in files:
+            full = _resolve(rel_path, repo_root)
+            if full.exists():
+                result.passed.append(f"PASS [{section}]: {rel_path}")
+            else:
+                result.failed.append(f"MISSING [{section}]: {rel_path}")
+
+    # Parse hydration header for cycle/wave/blockers
+    hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
+    if hydration_path.exists():
+        text = hydration_path.read_text(encoding="utf-8", errors="replace")
+        result.cycle_detected = _extract(text, r"[Cc]ycle[:\s#]*([A-Z]?\d{3})")
+        result.wave_detected = _extract(text, r"[Ww]ave[:\s#]*(\d+)")
+        blocker_section = re.search(r"(?i)blocker[s]?.*?\n((?:[-*].+\n?)*)", text)
+        if blocker_section:
+            result.blockers_detected = [
+                ln.strip("- *\t ") for ln in blocker_section.group(1).splitlines() if ln.strip("- *\t ")
+            ]
+
+    # Verify post-cycle prompt
+    pcp = repo_root / POST_CYCLE_PROMPT_REL
+    result.post_cycle_prompt_present = pcp.exists()
+    if result.post_cycle_prompt_present:
+        result.passed.append(f"PASS [required]: POST_CYCLE_PM_REVIEW_v4.md ({pcp.stat().st_size} bytes)")
+    else:
+        result.failed.append(f"MISSING [required]: {POST_CYCLE_PROMPT_REL}")
+
+    # Check model state files
+    cursor_state = _load_json(Path("C:/AI_Runner/state/cursor_model_state.json"))
+    result.cursor_model_status = cursor_state.get("status", "MISSING")
+    if result.cursor_model_status == "VERIFIED":
+        result.passed.append(f"PASS [model]: Cursor model VERIFIED ({cursor_state.get('observed_model')})")
+    else:
+        result.warnings.append(f"WARNING [model]: Cursor model status = {result.cursor_model_status}")
+
+    claude_state = _load_json(Path("C:/AI_Runner/state/claude_model_state.json"))
+    result.claude_model_status = claude_state.get("status", "MISSING")
+    if "VERIFIED" in result.claude_model_status or "SUBSCRIPTION" in result.claude_model_status:
+        result.passed.append(f"PASS [model]: Claude billing = {claude_state.get('billing_mode')}")
+    else:
+        result.warnings.append(f"WARNING [model]: Claude status = {result.claude_model_status}")
+
+    return result
+
+
+def load_file(rel_path: str, repo_root: Path) -> str:
+    """Load a single PM_Pack file as text."""
+    full = _resolve(rel_path, repo_root)
+    return full.read_text(encoding="utf-8", errors="replace") if full.exists() else ""
+
+
+def _resolve(rel_path: str, repo_root: Path) -> Path:
+    """Resolve a path that might be repo-relative or absolute."""
+    p = Path(rel_path.replace("\\", "/"))
+    if p.is_absolute():
+        return p
+    return repo_root / p
+
+
+def _extract(text: str, pattern: str) -> str | None:
+    m = re.search(pattern, text)
+    return m.group(1) if m else None
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text()) if path.exists() else {}
+    except Exception:
+        return {}

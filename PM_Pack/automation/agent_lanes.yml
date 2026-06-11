@@ -1,0 +1,78 @@
+version: 1
+active_model: six_lane
+# Execution order: A first, then B, then E (waits for B's first commit), then C, F, D.
+# B+E can run in parallel in future worktree mode. Sequential for v1.
+default_order:
+  - A
+  - B
+  - E
+  - C
+  - F
+  - D
+
+lanes:
+  A:
+    role: planner_foundation_integration
+    label: "agent:A"
+    description: "PM planning, architecture, docs, GitHub governance, config"
+    owns:
+      - "PM_Pack/**"
+      - "docs/**"
+      - ".github/**"
+      - "pyproject.toml"
+      - "config.yaml"
+      - ".cursorrules"
+    prohibited_without_explicit_task:
+      - "src/**"
+      - "tests/**"
+      - "data/**"
+
+  B:
+    role: primary_implementation
+    label: "agent:B"
+    description: "Primary src/ and tests/ author — new features, core logic"
+    owns:
+      - "src/**"
+      - "tests/**"
+    requires_extra_gate: true
+
+  E:
+    role: live_validation_external_signals
+    label: "agent:E"
+    description: "Live data validation, external signal collection, evidence files"
+    owns:
+      - "docs/cycle_reports/**"
+      - "data/evidence/**"
+      - "scripts/validation/**"
+    cost_guard: controlled_budget_only
+    wait_for_b_first_commit: true
+    prohibited:
+      - "src/**"
+      - "tests/**"
+      - "config.yaml"
+
+  C:
+    role: integration_validation
+    label: "agent:C"
+    description: "Integration checks, validation run, cycle report"
+    owns:
+      - "docs/cycle_reports/**"
+      - "PM_Pack/10_cycle_log/**"
+    prohibited:
+      - "src/**"
+
+  F:
+    role: test_coverage_regression
+    label: "agent:F"
+    description: "Test coverage gaps, regression tests, coverage enforcement"
+    owns:
+      - "tests/**"
+
+  D:
+    role: pr_steward_merge_gate
+    label: "agent:D"
+    description: "PR body, Jira evidence, GitHub status, merge gate preparation"
+    owns:
+      - "docs/cycle_reports/**"
+    jira_authority: true
+    github_pr_authority: true

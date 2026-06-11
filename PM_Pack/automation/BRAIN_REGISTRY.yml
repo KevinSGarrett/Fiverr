@@ -1,0 +1,69 @@
+version: 1
+
+# Brain registry — defines what PM_Pack files the controller loads and when.
+# The controller must fail closed if any always_first file is missing.
+
+load_order:
+
+  always_first:
+    - PM_Pack/00_index/MASTER_INDEX.md
+    - PM_Pack/07_hydration/HYDRATION_HEADER.md
+    - PM_Pack/07_hydration/STATE_SNAPSHOT.md
+
+  pm_identity:
+    - PM_Pack/01_pm_instructions/PM_ROLE.md
+    - PM_Pack/01_pm_instructions/PM_RULES.md
+    - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
+
+  cycle_protocol:
+    - PM_Pack/02_cycle_protocol/CYCLE_WORKFLOW.md
+    - PM_Pack/02_cycle_protocol/CYCLE_NAMING.md
+    - PM_Pack/02_cycle_protocol/PACK_UPDATE_PROTOCOL.md
+
+  cursor_prompting:
+    - PM_Pack/03_cursor_agent_system/PROMPT_TEMPLATE.md
+    - PM_Pack/03_cursor_agent_system/PROMPT_RULES.md
+    - PM_Pack/03_cursor_agent_system/TASK_SIZING.md
+    - PM_Pack/03_cursor_agent_system/AGENT_ROSTER.md
+
+  jira:
+    - PM_Pack/04_jira_protocol/FULL_BOARD_AC_DOD_FIRST_PROTOCOL.md
+    - PM_Pack/04_jira_protocol/JIRA_UPDATE_CHECKLIST.md
+    - PM_Pack/04_jira_protocol/CURSOR_AGENT_JIRA_OPERATIONS_PROTOCOL.md
+
+  github:
+    - PM_Pack/05_github_protocol/GITHUB_RULES.md
+    - PM_Pack/05_github_protocol/BRANCH_WORKFLOW.md
+    - PM_Pack/05_github_protocol/PR_CHECKS_CODECOV_PROTOCOL.md
+
+  qa:
+    - PM_Pack/06_review_and_qa/QA_GATES.md
+    - PM_Pack/06_review_and_qa/REVIEW_CHECKLIST.md
+
+  planning:
+    - PM_Pack/08_task_queue/CYCLE_PLANNER.md
+    - PM_Pack/08_task_queue/DEPENDENCY_MAP.md
+    - PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+  model_policy:
+    - C:/AI_Runner/config/model_selection_policy.yaml
+    - C:/AI_Runner/config/cursor_adapter.yaml
+    - C:/AI_Runner/config/claude_adapter.yaml
+    - C:/AI_Runner/state/cursor_model_state.json
+    - C:/AI_Runner/state/claude_model_state.json
+
+authority:
+  highest:
+    - PM_Pack/07_hydration/HYDRATION_HEADER.md
+    - PM_Pack/05_github_protocol/PR_CHECKS_CODECOV_PROTOCOL.md
+    - C:/AI_Runner/config/model_selection_policy.yaml
+  normal:
+    - PM_Pack/03_cursor_agent_system/PROMPT_RULES.md
+    - PM_Pack/04_jira_protocol/FULL_BOARD_AC_DOD_FIRST_PROTOCOL.md
+  fallback:
+    - PM_Pack/03_cursor_agent_system/AGENT_ROSTER.md
+
+required_always:
+  - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
+
+agent_lane_config: PM_Pack/automation/agent_lanes.yml

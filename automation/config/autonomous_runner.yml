@@ -1,0 +1,93 @@
+runner:
+  runner_id: "fiverr-runner-local-01"
+  machine_name: "FIVERR-AI-RUNNER"
+  repo_path: "C:/Fiverr/Fiverr"
+  runner_root: "C:/AI_Runner"
+  timezone: "America/Chicago"
+  mode: "dev_auto"
+  max_cycles_per_day: 6
+  sleep_between_cycles_minutes: 15
+  max_total_cycle_hours: 12
+  allow_overnight_execution: true
+
+repo:
+  required_full_name: "KevinSGarrett/Fiverr"
+  required_local_path: "C:/Fiverr/Fiverr"
+  integration_branch: "develop"
+  production_branch: "main"
+  cycle_branch_pattern: "cycle/{cycle}/integration"
+
+pm_pack:
+  root: "C:/Fiverr/Fiverr/PM_Pack"
+  brain_registry: "C:/Fiverr/Fiverr/PM_Pack/automation/BRAIN_REGISTRY.yml"
+  agent_lanes: "C:/Fiverr/Fiverr/PM_Pack/automation/agent_lanes.yml"
+  require_hydration_first: true
+  require_post_cycle_prompt: true
+  post_cycle_prompt_path: "C:/Fiverr/Fiverr/PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
+  warn_on_agent_model_conflict: true
+
+cursor:
+  enabled: true
+  binary: "cursor"
+  model: "codex-5.3"
+  effort: "medium"
+  allow_auto_model: false
+  allow_fallback_model: false
+  require_model_verified: true
+  model_state_file: "C:/AI_Runner/state/cursor_model_state.json"
+  prompt_output_dir: "C:/Fiverr/Fiverr/PM_Pack/automation/prompts"
+  run_output_dir: "C:/Fiverr/Fiverr/PM_Pack/automation/runs"
+  timeout_minutes_default: 180
+  timeout_minutes_large_agent: 300
+  no_output_kill_minutes: 45
+
+claude:
+  billing_mode: "claude_subscription_only"
+  model_state_file: "C:/AI_Runner/state/claude_model_state.json"
+  fail_if_api_key_present: true
+
+github:
+  repository: "KevinSGarrett/Fiverr"
+  integration_branch: "develop"
+  production_branch: "main"
+  cycle_branch_pattern: "cycle/{cycle}/integration"
+  allow_push_cycle_branches: true
+  allow_pr_create: true
+  allow_pr_update: true
+  allow_squash_merge_to_develop_if_all_gates_green: true
+  allow_direct_push_to_main: false
+  allow_force_push: false
+  allow_delete_unmerged_branch: false
+
+jira:
+  enabled: true
+  cloud_id: "eae77257-a572-4e19-b746-8b184ba2d01f"
+  project_key: "SCRUM"
+  board_first_required: true
+  done_transition_id: "41"
+  allow_read: true
+  allow_comment: true
+  allow_transition: true
+  allow_issue_create: true
+  allow_done_transition_only_after_merge: true
+
+validation:
+  coverage_floor: 90
+  commands:
+    - "python -m ruff check ."
+    - "python -m mypy src"
+    - "python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90"
+    - "python run.py config-check"
+    - "python run.py foundation-gate --database-url sqlite:///data/foundation_gate_runner.db"
+    - "python run.py phase2-smoke"
+
+repair:
+  max_attempts_per_agent: 5
+  max_attempts_per_failure_type: 3
+  max_total_repair_attempts_per_cycle: 8
+  do_not_interrupt_user_for_repairable_failures: true
+
+notifications:
+  write_local_status_files: true
+  slack_enabled: false
+  email_enabled: false

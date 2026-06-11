@@ -1,0 +1,56 @@
+{
+  "compiled_at": "2026-06-11T01:48:28.227565+00:00",
+  "runner": "fiverr-runner-local-01",
+  "repo": "KevinSGarrett/Fiverr",
+  "local_path": "C:/Fiverr/Fiverr",
+  "cycle_current": 37,
+  "active_wave": 11,
+  "e2e_score_pct": 50.0,
+  "internal_score_pct": 67.0,
+  "last_completed_cycle": null,
+  "active_agent_lanes": [
+    "A",
+    "B",
+    "E",
+    "C",
+    "F",
+    "D"
+  ],
+  "agent_model": "six_lane",
+  "branch_policy": {
+    "cycle_branch_pattern": "cycle/{NNN}/integration",
+    "target_branch": "develop",
+    "main_direct_push_allowed": false,
+    "release_to_main_requires_release_gate": true,
+    "force_push_allowed": false
+  },
+  "quality_gates": {
+    "ruff": true,
+    "mypy": true,
+    "pytest": true,
+    "coverage_floor": 90,
+    "config_check": true,
+    "foundation_gate": true,
+    "phase2_smoke": true,
+    "codecov_project_required": true,
+    "codecov_patch_required": true,
+    "codex_disposition_required": true
+  },
+  "jira_policy": {
+    "board_first": true,
+    "exact_issue_keys_required": true,
+    "ac_dod_required_per_task": true,
+    "done_requires_merge_and_full_dod": true,
+    "cloud_id": "eae77257-a572-4e19-b746-8b184ba2d01f",
+    "project_key": "SCRUM",
+    "done_transition_id": "41"
+  },
+  "cursor_model": {
+    "requested": "Codex 5.3",
+    "observed": "Codex 5.3",
+    "status": "VERIFIED",
+    "auto_disabled": true
+  },
+  "claude_billing_mode": "claude_subscription_only",
+  "access_profile": "lenient_autonomous_development"
+}
