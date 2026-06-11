@@ -14,11 +14,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-CURSOR_BINARY = "cursor"
-# Full paths — cursor.cmd is the correct Windows executable wrapper
-CURSOR_BINARY_FULLPATH = r"C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin\cursor.cmd"
-CURSOR_BIN_DIR = r"C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin"
-DISCOVERY_LOG = Path("C:/AI_Runner/logs/cursor_cli_discovery.txt")
+CURSOR_BINARY = "agent"
+# Cursor CLI (standalone, separate from Cursor Desktop)
+# Installed via: irm 'https://cursor.com/install?win32=true' | iex
+# Binary: C:\Users\Windows 11\AppData\Local\cursor-agent\agent.cmd
+CURSOR_CLI_DIR  = r"C:\Users\Windows 11\AppData\Local\cursor-agent"
+CURSOR_CLI_PATH = r"C:\Users\Windows 11\AppData\Local\cursor-agent\agent.cmd"
+DISCOVERY_LOG   = Path("C:/AI_Runner/logs/cursor_cli_discovery.txt")
 DEFAULT_TIMEOUT_MIN = 180
 NO_OUTPUT_KILL_MIN = 45
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
@@ -41,56 +43,39 @@ class AgentRunResult:
 
 
 def _resolve_binary() -> str:
-    """Return the full cursor binary path that subprocess can actually execute."""
+    """Return the Cursor CLI agent.cmd path."""
+    # Cursor CLI installed by: irm 'https://cursor.com/install?win32=true' | iex
+    # This is the standalone CLI, NOT the Cursor Desktop IDE.
+    if Path(CURSOR_CLI_PATH).exists():
+        return CURSOR_CLI_PATH
+    # Fallback: check if 'agent' is on PATH (in case CLI dir is in PATH)
     import shutil
-    # shutil.which returns the full path with correct extension (e.g. cursor.CMD)
-    found = shutil.which("cursor")
-    if found:
-        return found
-    # PATH may not include the bin dir in automation context — patch it and retry
-    os.environ["PATH"] = CURSOR_BIN_DIR + ";" + os.environ.get("PATH", "")
-    found = shutil.which("cursor")
-    if found:
-        return found
-    # Hard fallback to known .cmd wrapper
-    if Path(CURSOR_BINARY_FULLPATH).exists():
-        return CURSOR_BINARY_FULLPATH
-    return CURSOR_BINARY  # Will fail with clear error
+    os.environ["PATH"] = CURSOR_CLI_DIR + ";" + os.environ.get("PATH", "")
+    found = shutil.which("agent")
+    return found if found else CURSOR_CLI_PATH
 
 
 def discover() -> dict[str, Any]:
-    """Discover Cursor CLI binary and capabilities. Write to discovery log."""
+    """Discover Cursor CLI binary and record version."""
     DISCOVERY_LOG.parent.mkdir(parents=True, exist_ok=True)
     binary = _resolve_binary()
-    info: dict[str, Any] = {"binary_used": binary}
-    for flag in ["--version", "--help"]:
-        try:
-            r = subprocess.run(
-                [binary, flag], capture_output=True, text=True, timeout=10
-            )
-            info[f"cursor_{flag.strip('-')}"] = (r.stdout + r.stderr).strip()[:500]
-        except FileNotFoundError:
-            info["error"] = f"{binary} not found"
-            break
-        except subprocess.TimeoutExpired:
-            info["timeout"] = flag
-
+    info: dict[str, Any] = {"binary": binary}
+    try:
+        r = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=10)
+        info["version"] = (r.stdout + r.stderr).strip()
+    except Exception as e:
+        info["error"] = str(e)
     ts = datetime.now(UTC).isoformat()
-    log_lines = [f"=== Cursor CLI Discovery {ts} ===\n"]
-    for k, v in info.items():
-        log_lines.append(f"\n--- {k} ---\n{v}\n")
-    DISCOVERY_LOG.write_text("".join(log_lines))
+    DISCOVERY_LOG.write_text(f"=== Cursor CLI Discovery {ts} ===\n" +
+                             "\n".join(f"{k}: {v}" for k, v in info.items()))
     return info
 
 
 def check_version() -> str:
     binary = _resolve_binary()
     try:
-        r = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True, timeout=10
-        )
-        v = (r.stdout + r.stderr).strip().splitlines()
-        return v[0] if v else "unknown"
+        r = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=10)
+        return (r.stdout + r.stderr).strip().splitlines()[0]
     except FileNotFoundError:
         return f"NOT_FOUND: {binary}"
     except Exception as e:
@@ -107,8 +92,14 @@ def run_agent(
     no_output_kill_minutes: int = NO_OUTPUT_KILL_MIN,
 ) -> AgentRunResult:
     """
-    Dispatch Cursor CLI with the given prompt file using Popen for live capture.
-    Kills process on hard timeout or no-output timeout.
+    Dispatch cursor agent with the prompt piped via stdin.
+
+    Invocation: cursor agent  (prompt content written to stdin)
+
+    The cursor CLI agent reads the prompt from stdin, operates on the
+    working_dir repo, makes code changes, and exits when done.
+    Stdout/stderr are captured live. Hard timeout and no-output timeout
+    both kill the process safely.
     """
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +108,8 @@ def run_agent(
     started = datetime.now(UTC).isoformat()
     started_ts = time.time()
 
-    # Build command — will be refined once exact CLI syntax is known
+    # Build the CLI command: agent -p "prompt" --output-format text --trust [--model ...]
+    # _build_command reads the prompt file content and passes it as the -p value
     cmd = _build_command(prompt_path, working_dir, model)
 
     try:
@@ -125,15 +117,19 @@ def run_agent(
              open(stderr_path, "w", encoding="utf-8", errors="replace") as ferr:
 
             proc = subprocess.Popen(
-                cmd, cwd=working_dir,
-                stdout=fout, stderr=ferr,
-                text=True, encoding="utf-8", errors="replace"
+                cmd,
+                cwd=working_dir,
+                stdout=fout,
+                stderr=ferr,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
 
             last_output_ts = [time.time()]
 
             def _monitor():
-                """Watch stdout size; update last_output_ts when file grows."""
+                """Watch stdout/stderr size; update last_output_ts when files grow."""
                 last_size = 0
                 while proc.poll() is None:
                     try:
@@ -154,7 +150,7 @@ def run_agent(
             while True:
                 retcode = proc.poll()
                 if retcode is not None:
-                    break  # process finished
+                    break
 
                 now = time.time()
                 if now > hard_deadline:
@@ -209,7 +205,7 @@ def run_agent(
             agent=agent_id, status="error",
             started_at=started, ended_at=ended,
             exit_code=None,
-            error_message=f"Cursor binary not found: {cmd[0]}",
+            error_message=f"Cursor CLI not found: {cmd[0]}",
         )
     except Exception as e:
         ended = datetime.now(UTC).isoformat()
@@ -221,10 +217,22 @@ def run_agent(
 
 
 def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
-    """Build the Cursor CLI command using resolved binary path."""
+    """
+    Build the Cursor CLI non-interactive command.
+
+    Correct invocation (from cursor.com/docs/cli/overview):
+        agent -p "prompt text" --output-format text --trust
+
+    --trust  : grants workspace access without interactive prompt
+    -p       : non-interactive print mode (for automation/CI)
+    --output-format text : plain text output, no ANSI codes
+    """
     binary = _resolve_binary()
-    # cursor --prompt-file <path> is the standard headless invocation
-    return [binary, "--prompt-file", prompt_path, "--cwd", working_dir]
+    prompt_content = Path(prompt_path).read_text(encoding="utf-8", errors="replace")
+    cmd = [binary, "-p", prompt_content, "--output-format", "text", "--trust"]
+    if model:
+        cmd += ["--model", model]
+    return cmd
 
 
 def _tail(path: Path, n: int = 50) -> str:
