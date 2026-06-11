@@ -27,10 +27,20 @@ def compile_policy(repo_root: Path) -> dict[str, Any]:
 
     # --- Hydration: detect cycle, wave, scores ---
     hydration = _read(repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md")
-    snapshot["cycle_current"] = _extract_int(hydration, r"[Cc]ycle[:\s#]*0*(\d+)")
-    snapshot["active_wave"] = _extract_int(hydration, r"[Ww]ave[:\s#]*(\d+)")
-    snapshot["e2e_score_pct"] = _extract_float(hydration, r"[Ee]2[Ee].*?(\d+(?:\.\d+)?)\s*%")
-    snapshot["internal_score_pct"] = _extract_float(hydration, r"(?i)internal.*?(\d+(?:\.\d+)?)\s*%")
+
+    # Use exact key=value matches first (CYCLE_CURRENT: 075),
+    # NOT loose pattern which would match filenames like data/cycle037_live.db
+    snapshot["cycle_current"] = (
+        _extract_int(hydration, r"^CYCLE_CURRENT:\s*0*(\d+)", from_line_start=True)
+        or _extract_int(hydration, r"^CYCLE_NEXT:\s*0*(\d+)", from_line_start=True)
+        or _extract_int(hydration, r"NEXT CYCLE \(C0*(\d+)\)")
+    )
+    snapshot["active_wave"] = (
+        _extract_int(hydration, r"^WAVE_CURRENT:\s*(\d+)", from_line_start=True)
+        or _extract_int(hydration, r"[Ww]ave[:\s#]*(\d+)")
+    )
+    snapshot["e2e_score_pct"] = _extract_float(hydration, r"END_TO_END[^:]*:\s*~?(\d+(?:\.\d+)?)\s*%")
+    snapshot["internal_score_pct"] = _extract_float(hydration, r"INTERNAL_BUILD_PROGRESS:\s*~?(\d+(?:\.\d+)?)\s*%")
 
     # --- State snapshot ---
     state = _read(repo_root / "PM_Pack/07_hydration/STATE_SNAPSHOT.md")
@@ -101,8 +111,10 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
 
 
-def _extract_int(text: str, pattern: str, default: int = 0) -> int:
-    m = re.search(pattern, text)
+def _extract_int(text: str, pattern: str, default: int = 0,
+                 from_line_start: bool = False) -> int:
+    flags = re.MULTILINE if from_line_start else 0
+    m = re.search(pattern, text, flags)
     return int(m.group(1)) if m else default
 
 

@@ -211,8 +211,10 @@ def cmd_plan_cycle(dry_run: bool, cycle: int | None):
         sys.exit(1)
 
     snap = json.loads(snap_path.read_text())
-    current = snap.get("cycle_current", 74)
-    next_cycle = cycle if cycle is not None else current + 1
+    # CYCLE_CURRENT in HYDRATION_HEADER means the cycle we are about to work on.
+    # Do NOT add +1 — it is already the target cycle.
+    current_cycle = snap.get("cycle_current", 75)
+    next_cycle = cycle if cycle is not None else current_cycle
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     branch = f"cycle/{next_cycle:03d}/integration"
 

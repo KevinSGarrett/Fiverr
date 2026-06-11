@@ -57,16 +57,26 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
             else:
                 result.failed.append(f"MISSING [{section}]: {rel_path}")
 
-    # Parse hydration header for cycle/wave/blockers
+    # Parse hydration header for cycle/wave/blockers — use exact key lines
     hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
     if hydration_path.exists():
         text = hydration_path.read_text(encoding="utf-8", errors="replace")
-        result.cycle_detected = _extract(text, r"[Cc]ycle[:\s#]*([A-Z]?\d{3})")
-        result.wave_detected = _extract(text, r"[Ww]ave[:\s#]*(\d+)")
+        # Match key-value lines like "CYCLE_CURRENT: 075" — NOT filenames like cycle037_live.db
+        m_cycle = re.search(r"^CYCLE_CURRENT:\s*0*(\d+)", text, re.MULTILINE)
+        if not m_cycle:
+            m_cycle = re.search(r"^CYCLE_NEXT:\s*0*(\d+)", text, re.MULTILINE)
+        if not m_cycle:
+            m_cycle = re.search(r"NEXT CYCLE \(C0*(\d+)\)", text)
+        result.cycle_detected = m_cycle.group(1) if m_cycle else None
+
+        m_wave = re.search(r"^WAVE_CURRENT:\s*(\d+)", text, re.MULTILINE)
+        result.wave_detected = m_wave.group(1) if m_wave else None
+
         blocker_section = re.search(r"(?i)blocker[s]?.*?\n((?:[-*].+\n?)*)", text)
         if blocker_section:
             result.blockers_detected = [
-                ln.strip("- *\t ") for ln in blocker_section.group(1).splitlines() if ln.strip("- *\t ")
+                ln.strip("- *\t ") for ln in blocker_section.group(1).splitlines()
+                if ln.strip("- *\t ")
             ]
 
     # Verify post-cycle prompt
