@@ -82,6 +82,15 @@ def cmd_brain_check():
     click.echo(f"  Cursor model    : {result.cursor_model_status}")
     click.echo(f"  Claude billing  : {result.claude_model_status}")
     click.echo(f"  Post-cycle prompt: {'OK' if result.post_cycle_prompt_present else 'MISSING'}")
+
+    # CLAUDE-SUB-002/004: API key absence check
+    from automation.claude_sub_gate import check_api_key_absent
+    api_check = check_api_key_absent()
+    if not api_check["passed"]:
+        click.secho(f"  [WARN] ANTHROPIC_API_KEY detected -- run: {api_check.get('report', 'see report')}", fg="yellow")
+    else:
+        click.echo("  CLAUDE-SUB      : API key absent (subscription-only confirmed)")
+
     click.echo()
 
     if result.ok:
@@ -462,6 +471,23 @@ def cmd_tick():
     write_heartbeat(status)
     write_controller_state(status)
     click.echo(f"[TICK] {_now()} status={status}")
+
+
+@cli.command("daily-report")
+@click.option("--cycle", default=None, type=int)
+def cmd_daily_report(cycle: int | None):
+    """Generate daily status report (OPS-022)."""
+    from automation.report_generator import generate_daily_report
+    path = generate_daily_report(cycle=cycle)
+    click.secho(f"Daily report written: {path}", fg="green")
+
+
+@cli.command("weekly-report")
+def cmd_weekly_report():
+    """Generate weekly autonomy review (OPS-023)."""
+    from automation.report_generator import generate_weekly_report
+    path = generate_weekly_report()
+    click.secho(f"Weekly report written: {path}", fg="green")
 
 
 @cli.command("post-cycle-review")

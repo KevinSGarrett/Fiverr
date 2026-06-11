@@ -1,0 +1,57 @@
+name: Runner Smoke Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'   # Daily at 06:00 UTC
+
+jobs:
+  smoke:
+    name: Runner smoke
+    runs-on: [self-hosted, fiverr-runner, windows, cursor, dedicated, ai-dev]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Tool versions
+        shell: powershell
+        run: |
+          git --version
+          gh --version
+          python --version
+          pwsh --version
+
+      - name: Cursor CLI check
+        shell: powershell
+        run: |
+          $bin = "C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin\cursor.CMD"
+          $ver = (& $bin --version 2>&1)
+          Write-Host "Cursor version: $ver"
+          if ($ver -notmatch "3\.") { exit 1 }
+
+      - name: Python venv
+        shell: powershell
+        run: |
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe -c "import click, yaml, requests, pydantic; print('venv OK')"
+
+      - name: PM_Pack brain check
+        shell: powershell
+        run: |
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe automation\ai_cycle_controller.py brain-check
+
+      - name: Health check
+        shell: powershell
+        run: |
+          powershell -File C:\AI_Runner\scripts\health_check.ps1
+
+      - name: Config check
+        shell: powershell
+        run: |
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe run.py config-check
