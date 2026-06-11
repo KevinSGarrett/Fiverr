@@ -31,7 +31,7 @@ def _base_url() -> str:
 
 def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
     """Return all non-Done issues for the project, ordered by priority."""
-    url = f"{_base_url()}/rest/api/3/search"
+    url = f"{_base_url()}/rest/api/3/search/jql"
     jql = (
         f"project = {project_key} "
         "AND status != Done "
@@ -41,7 +41,7 @@ def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
     params = {
         "jql": jql,
         "maxResults": 100,
-        "fields": "summary,status,priority,assignee,labels,description,parent,issuetype",
+        "fields": "summary,status,priority,assignee,labels,issuetype",
     }
     resp = requests.get(url, headers=_headers(), params=params, timeout=30)
     resp.raise_for_status()
