@@ -1,0 +1,141 @@
+# state_machine_policy.yml — Controller state machine (V6-TICK-002)
+# Defines all allowed states, transitions, conditions, and blocking rules.
+# V5-012 fix: tick is now status-only (status-tick) or a documented state machine.
+
+version: 1
+created: "2026-06-11"
+purpose: "Explicit state machine for the autonomous runner controller"
+
+# ── States ────────────────────────────────────────────────────────────
+states:
+
+  IDLE:
+    description: "No active cycle. Ready to start planning."
+    allowed_transitions: [COMPILED]
+    trigger: "compile-policy command succeeds"
+    dispatch_allowed: false
+
+  COMPILED:
+    description: "Policy compiled. Ready to plan cycle."
+    allowed_transitions: [PLANNING, IDLE]
+    trigger: "plan-cycle command invoked"
+    dispatch_allowed: false
+
+  PLANNING:
+    description: "Generating prompts from PM_Pack + Jira."
+    allowed_transitions: [PLANNED, PLANNING_INCOMPLETE, COMPILED]
+    trigger: "plan-cycle writes prompts"
+    dispatch_allowed: false
+
+  PLANNING_INCOMPLETE:
+    description: "Insufficient Jira data — prompts not generated."
+    allowed_transitions: [COMPILED]
+    trigger: "pm-pack-audit PASS + more Jira issues + re-run plan-cycle"
+    dispatch_allowed: false
+
+  PLANNED:
+    description: "Prompts generated. Awaiting validation."
+    allowed_transitions: [READY_TO_DISPATCH, PROMPT_VALIDATION_FAILED]
+    trigger: "validate-prompts command"
+    dispatch_allowed: false
+
+  PROMPT_VALIDATION_FAILED:
+    description: "One or more prompts failed validator."
+    allowed_transitions: [PLANNING, COMPILED]
+    trigger: "Fix prompts or re-run plan-cycle --live"
+    dispatch_allowed: false
+
+  READY_TO_DISPATCH:
+    description: "All prompts valid. Awaiting model gate + post-cycle gate."
+    allowed_transitions: [AWAITING_DISPATCH, MODEL_BLOCKED, CLAUDE_API_KEY_BLOCKED]
+    trigger: "status-tick checks model gate"
+    dispatch_allowed: false
+
+  AWAITING_DISPATCH:
+    description: "All gates pass. Ready for agent dispatch."
+    allowed_transitions: [AGENT_DISPATCH, IDLE]
+    trigger: "freeze=false + run-agent command"
+    preconditions:
+      - freeze_policy_frozen_is_false
+      - pm_pack_audit_pass
+      - prompt_validation_pass
+      - model_gate_verified
+      - claude_api_key_absent
+      - repo_clean
+    dispatch_allowed: true
+
+  AGENT_DISPATCH:
+    description: "Cursor agent currently dispatched and running."
+    allowed_transitions: [AGENT_COMPLETE, CURSOR_RUNNING, MODEL_BLOCKED]
+    trigger: "Cursor process exits or completes"
+    dispatch_allowed: true  # already dispatched
+
+  CURSOR_RUNNING:
+    description: "Cursor process is executing (heartbeat updating)."
+    allowed_transitions: [AGENT_COMPLETE, MODEL_BLOCKED]
+    trigger: "Cursor process exits"
+    dispatch_allowed: true  # already dispatched
+
+  AGENT_COMPLETE:
+    description: "Agent finished. Lifecycle validation running."
+    allowed_transitions: [POST_CYCLE_PENDING, REPAIR_NEEDED, IDLE]
+    trigger: "Lifecycle passes (ownership + secret + report + validation + commit)"
+    dispatch_allowed: false
+
+  REPAIR_NEEDED:
+    description: "Validation failed. Repair loop dispatched."
+    allowed_transitions: [AGENT_COMPLETE, IDLE]
+    trigger: "Repair prompt dispatched + re-validation"
+    dispatch_allowed: false
+
+  POST_CYCLE_PENDING:
+    description: "All agents done. Awaiting post-cycle PM review."
+    allowed_transitions: [POST_CYCLE_REVIEW, IDLE]
+    trigger: "post-cycle-review command"
+    dispatch_allowed: false
+
+  POST_CYCLE_REVIEW:
+    description: "Post-cycle PM review running."
+    allowed_transitions: [POST_CYCLE_PASS, IDLE]
+    trigger: "Claude review completes or advisory-only"
+    dispatch_allowed: false
+
+  POST_CYCLE_PASS:
+    description: "Post-cycle review PASSED. Next cycle dispatch unlocked."
+    allowed_transitions: [COMPILED, IDLE]
+    trigger: "Next cycle plan-cycle command"
+    dispatch_allowed: false
+
+  MODEL_BLOCKED:
+    description: "Cursor model gate failed or stale."
+    allowed_transitions: [READY_TO_DISPATCH, IDLE]
+    trigger: "Re-verify model + run recover"
+    dispatch_allowed: false
+
+  CLAUDE_API_KEY_BLOCKED:
+    description: "ANTHROPIC_API_KEY detected — billing risk."
+    allowed_transitions: [READY_TO_DISPATCH]
+    trigger: "Remove API key + re-run verify_subscription_preflight"
+    dispatch_allowed: false
+
+# ── Global blocking conditions (always override transitions) ──────────
+global_blockers:
+  - name: FREEZE_ACTIVE
+    condition: "PM_Pack/automation/policies/autonomy_freeze.yml frozen: true"
+    blocks: [AWAITING_DISPATCH, AGENT_DISPATCH, merge-gate execute]
+
+  - name: DIRTY_REPO
+    condition: "git status --short shows unexpected uncommitted files"
+    blocks: [AWAITING_DISPATCH]
+
+  - name: MODEL_UNVERIFIED
+    condition: "cursor_model_state.json status != VERIFIED or expired"
+    blocks: [AWAITING_DISPATCH, AGENT_DISPATCH]
+
+  - name: PM_PACK_INCONSISTENT
+    condition: "pm-pack-audit returns BLOCKED"
+    blocks: [AWAITING_DISPATCH, plan-cycle --live]
+
+  - name: POST_CYCLE_PENDING
+    condition: "controller_state.status == POST_CYCLE_PENDING"
+    blocks: [AWAITING_DISPATCH]

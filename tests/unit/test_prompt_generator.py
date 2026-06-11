@@ -3,18 +3,16 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from automation.prompt_generator import (
-    generate_prompt,
-    write_prompts,
     TASK_FLOOR,
     _load_agent_lanes,
-    _select_issues,
+    generate_prompt,
+    write_prompts,
 )
 
 

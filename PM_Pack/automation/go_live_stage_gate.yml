@@ -1,0 +1,180 @@
+# go_live_stage_gate.yml — Go-live stage gates with exact PASS criteria (V6-GOLIVE-001)
+# No stage may be marked complete without its evidence items. dev_auto cannot
+# be enabled until Stage 7 is PASS with zero BLOCKED P0 items.
+
+version: 1
+created: "2026-06-11"
+
+# ── Stage 0: Correction cycle ────────────────────────────────────────
+stage_0:
+  name: "V5 Audit Correction Cycle"
+  status: "IN_PROGRESS"
+  description: "All AUDIT-P0 and AUDIT-P1 items resolved with evidence"
+  exit_criteria:
+    - "ruff: 0 errors on automation/ tests/"
+    - "mypy: 0 errors on automation/"
+    - "pytest: all automation unit tests PASS"
+    - "brain-check: PASS (44+ files)"
+    - "pm-pack-audit: PASS (no state contradictions)"
+    - "sanitizer self-test: 5/5 PASS"
+    - "validate-prompts: FAIL (correct — no real prompts yet)"
+    - "cursor-smoke: PASS (CLI version detected)"
+    - "Zero BLOCKED P0 items in checklist"
+    - "Kevin: token rotation + runner re-registration complete"
+  evidence_required:
+    - "C:\\AI_Runner\\reports\\validation\\01_ruff_*.txt"
+    - "C:\\AI_Runner\\reports\\validation\\04_brain_check_*.txt"
+    - "C:\\AI_Runner\\reports\\validation\\05_pm_pack_audit_*.txt"
+
+# ── Stage 1: Manual dry-run ───────────────────────────────────────────
+stage_1:
+  name: "Manual Dry-Run"
+  status: "BLOCKED_ON_STAGE_0"
+  description: "Full dry-run cycle: PM_Pack audit, Jira inventory, prompt generation, validation — no Cursor dispatch, no git writes"
+  preconditions:
+    - "Stage 0 PASS"
+    - "frozen: false (Kevin unfreezes)"
+    - "Token rotation complete (P0-02)"
+  steps:
+    - "python automation/ai_cycle_controller.py pm-pack-audit → PASS"
+    - "python automation/ai_cycle_controller.py jira-inventory --dry-run → shows real Jira issues"
+    - "python automation/ai_cycle_controller.py plan-cycle --cycle 075 --live → real prompts generated"
+    - "python automation/ai_cycle_controller.py validate-prompts --cycle 075 → PASS (55+ tasks each)"
+    - "No git commits, no Cursor dispatch"
+  exit_criteria:
+    - "pm-pack-audit PASS"
+    - "jira-inventory shows >=50 non-Done issues"
+    - "6 real prompts generated (55+ LARGE tasks each)"
+    - "validate-prompts PASS for all 6 agents"
+  evidence_required:
+    - "C:\\AI_Runner\\reports\\validation\\dry_run_result.json"
+    - "PM_Pack/automation/prompts/CYCLE_075_AGENT_*.md (validated)"
+
+# ── Stage 2: Assisted docs-only Agent D test ─────────────────────────
+stage_2:
+  name: "Assisted Docs-Only Agent D Test"
+  status: "BLOCKED_ON_STAGE_1"
+  description: "Agent D (docs/PR steward) runs end-to-end: generates PR body, Jira evidence, cycle report only — no src/ changes"
+  preconditions:
+    - "Stage 1 PASS"
+    - "Model gate VERIFIED (not stale)"
+  steps:
+    - "Create branch cycle/075/docs-only-test"
+    - "python automation/ai_cycle_controller.py run-agent --agent D --cycle 075 --safe-docs-only"
+    - "Verify: only docs/ and PM_Pack/ files changed"
+    - "Verify: agent_run_record.json written"
+    - "Verify: docs/cycle_reports/CYCLE_075_AGENT_D.md exists with AGENT_COMPLETE"
+    - "No merge — Kevin reviews manually"
+  exit_criteria:
+    - "Agent D completes without src/ changes"
+    - "Report written with AGENT_COMPLETE"
+    - "agent_run_record.json exists and schema-validates"
+    - "No secrets committed"
+  evidence_required:
+    - "C:\\AI_Runner\\runs\\*\\agent_D_run_record.json"
+    - "docs/cycle_reports/CYCLE_075_AGENT_D.md"
+
+# ── Stage 3: Full cycle, no merge ────────────────────────────────────
+stage_3:
+  name: "Full Cycle — All 6 Agents, No Merge"
+  status: "BLOCKED_ON_STAGE_2"
+  description: "Run complete A→B→E→C→F→D sequence. PR opens on develop. All gates checked. Kevin reviews and approves before merge."
+  preconditions:
+    - "Stage 2 PASS"
+    - "Jira board has real Wave 11 stories"
+  exit_criteria:
+    - "All 6 agent reports written with AGENT_COMPLETE"
+    - "All ruff/mypy/pytest green on cycle branch"
+    - "PR opened on develop"
+    - "CI green on PR"
+    - "Codecov statuses present"
+    - "No secrets committed"
+    - "merge-gate --dry-run PASS"
+  evidence_required:
+    - "PR link"
+    - "C:\\AI_Runner\\runs\\*\\agent_*_run_record.json (all 6)"
+    - "merge_gate_result.json PASS"
+
+# ── Stage 4: Forced repair test ──────────────────────────────────────
+stage_4:
+  name: "Forced Repair Test"
+  status: "BLOCKED_ON_STAGE_2"
+  description: "Introduce a deliberate lint/test failure and verify repair loop fires without unsafe commits"
+  exit_criteria:
+    - "Repair loop triggered"
+    - "repair_result.json written"
+    - "No unsafe files committed during repair"
+    - "Repaired code passes validator"
+  evidence_required:
+    - "C:\\AI_Runner\\runs\\*\\repair_result.json"
+
+# ── Stage 5: develop auto-merge trial ────────────────────────────────
+stage_5:
+  name: "Develop Auto-Merge Trial"
+  status: "BLOCKED_ON_STAGE_3_AND_4"
+  description: "After Stage 3 PR: all gates pass → merge-gate --execute-merge merges to develop"
+  preconditions:
+    - "Stage 3 PASS + Stage 4 PASS"
+    - "CI green, Codecov green, Codex resolved"
+  exit_criteria:
+    - "PR merged to develop"
+    - "Branch deleted"
+    - "Develop SHA updated"
+    - "No main contamination"
+  evidence_required:
+    - "Merged PR URL"
+    - "git log develop shows squash commit"
+
+# ── Stage 6: Post-cycle review trial ─────────────────────────────────
+stage_6:
+  name: "Post-Cycle Review Trial"
+  status: "BLOCKED_ON_STAGE_5"
+  description: "After merge, post-cycle PM review runs via Claude subscription and prepares next cycle"
+  exit_criteria:
+    - "post_cycle_review_result.json with status PASS or ADVISORY_ONLY"
+    - "claude_request.md and claude_response.md written"
+    - "Next cycle prompts validated"
+    - "PM_Pack state updated (hydration, scorecard, cycle log)"
+  evidence_required:
+    - "PM_Pack/automation/post_cycle_reviews/CYCLE_075_*.json"
+    - "claude_request.md + claude_response.md"
+
+# ── Stage 7: 24-hour observation ─────────────────────────────────────
+stage_7:
+  name: "24-Hour Observation"
+  status: "BLOCKED_ON_STAGE_6"
+  description: "Runner operates overnight without manual prompt copy/paste and without unsafe actions"
+  exit_criteria:
+    - "No sleep/crash/restart"
+    - "No direct main push"
+    - "No invalid Done transitions"
+    - "No stuck PR > 2 hours without human"
+    - "At least 1 complete cycle"
+    - "Heartbeat never stale > 45 min"
+  evidence_required:
+    - "C:\\AI_Runner\\reports\\observation_24h_report.md"
+
+# ── Stage 8: 7-day autonomy trial ───────────────────────────────────
+stage_8:
+  name: "7-Day Autonomy Trial"
+  status: "BLOCKED_ON_STAGE_7"
+  description: "System completes multiple cycles autonomously with manageable human interruptions"
+  exit_criteria:
+    - ">=3 complete cycles"
+    - "Human interruptions <= 5 total (excluding planned model re-verification)"
+    - "No critical incidents (secret leak, main push, data corruption)"
+    - "Post-cycle review functioning for every cycle"
+  evidence_required:
+    - "C:\\AI_Runner\\reports\\trial_7day_report.md"
+
+# ── dev_auto unlock gate ──────────────────────────────────────────────
+dev_auto_unlock:
+  requires: "Stage 7 PASS minimum (Stage 8 preferred)"
+  command: "Set frozen: false in PM_Pack/automation/policies/autonomy_freeze.yml"
+  must_be_done_by: "Kevin (manual approval required)"
+  additional_checks:
+    - "Zero BLOCKED P0 items in checklist status"
+    - "All M0..M7 milestones PASS"
+    - "No ANTHROPIC_API_KEY anywhere"
+    - "Token rotation confirmed"
+    - "Runner re-registration confirmed"
