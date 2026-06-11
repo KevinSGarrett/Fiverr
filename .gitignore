@@ -107,3 +107,6 @@ fix_secrets.ps1
 go_live_phase1.ps1
 go_live_phase2.ps1
 go_live_phase3.ps1
+
+Fiverr*.zip
+other_directories*.zip

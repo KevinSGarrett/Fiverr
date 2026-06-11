@@ -1,19 +1,37 @@
-version: 1
-
-# Brain registry — defines what PM_Pack files the controller loads and when.
-# The controller must fail closed if any always_first file is missing.
+version: 2
+# Brain registry v2 — V5 audit expansion.
+# Adds all 12 missing PM governance files identified in pm_pack_registry_coverage_v5.
+# brain-check now validates semantic consistency, not just existence.
 
 load_order:
 
   always_first:
-    - PM_Pack/00_index/MASTER_INDEX.md
+    # Authority hierarchy: HYDRATION_HEADER > CURRENT_STATE_CANONICAL > snapshot
     - PM_Pack/07_hydration/HYDRATION_HEADER.md
+    - PM_Pack/CURRENT_STATE_CANONICAL.md           # V5-003: was missing from authority.highest
     - PM_Pack/07_hydration/STATE_SNAPSHOT.md
+    - PM_Pack/00_index/MASTER_INDEX.md
+    - PM_Pack/automation/current_policy_snapshot.json
+
+  governance_gates:
+    # V5-003: all 12 missing files now added
+    - PM_Pack/PRODUCTION_READINESS_SCORECARD.md
+    - PM_Pack/CYCLE_PRODUCTION_ADVANCEMENT_GATE.md
+    - PM_Pack/LIVE_VALIDATION_MASTER_GATE.md
+    - PM_Pack/TASK_SUBSTANCE_GATE.md
+    - PM_Pack/PROMPT_QUALITY_REVIEW_GATE.md
+    - PM_Pack/PROMPT_RED_TEAM_REVIEW_GATE.md
+    - PM_Pack/AGENT_TASK_FLOOR_ENFORCEMENT.md
+    - PM_Pack/TASK_PRODUCTION_IMPACT_LEDGER.md
+
+  post_cycle_addenda:
+    - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
+    - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_1.md
+    - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_2.md
 
   pm_identity:
     - PM_Pack/01_pm_instructions/PM_ROLE.md
     - PM_Pack/01_pm_instructions/PM_RULES.md
-    - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
 
   cycle_protocol:
     - PM_Pack/02_cycle_protocol/CYCLE_WORKFLOW.md
@@ -25,6 +43,7 @@ load_order:
     - PM_Pack/03_cursor_agent_system/PROMPT_RULES.md
     - PM_Pack/03_cursor_agent_system/TASK_SIZING.md
     - PM_Pack/03_cursor_agent_system/AGENT_ROSTER.md
+    - PM_Pack/ref/AGENT_EXECUTION_STRATEGY.md      # V5-003: was missing
 
   jira:
     - PM_Pack/04_jira_protocol/FULL_BOARD_AC_DOD_FIRST_PROTOCOL.md
@@ -52,18 +71,44 @@ load_order:
     - C:/AI_Runner/state/cursor_model_state.json
     - C:/AI_Runner/state/claude_model_state.json
 
+  freeze_policy:
+    - PM_Pack/automation/policies/autonomy_freeze.yml
+
 authority:
   highest:
+    # Precedence: HYDRATION_HEADER > CURRENT_STATE_CANONICAL > policy snapshot > controller state
     - PM_Pack/07_hydration/HYDRATION_HEADER.md
+    - PM_Pack/CURRENT_STATE_CANONICAL.md
+    - PM_Pack/automation/current_policy_snapshot.json
     - PM_Pack/05_github_protocol/PR_CHECKS_CODECOV_PROTOCOL.md
     - C:/AI_Runner/config/model_selection_policy.yaml
   normal:
     - PM_Pack/03_cursor_agent_system/PROMPT_RULES.md
     - PM_Pack/04_jira_protocol/FULL_BOARD_AC_DOD_FIRST_PROTOCOL.md
+    - PM_Pack/AGENT_TASK_FLOOR_ENFORCEMENT.md
+    - PM_Pack/PROMPT_QUALITY_REVIEW_GATE.md
   fallback:
     - PM_Pack/03_cursor_agent_system/AGENT_ROSTER.md
 
 required_always:
+  # brain-check FAILS if any of these are missing
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
+  - PM_Pack/CURRENT_STATE_CANONICAL.md
+  - PM_Pack/AGENT_TASK_FLOOR_ENFORCEMENT.md
+  - PM_Pack/automation/policies/autonomy_freeze.yml
+
+optional_warn_if_missing:
+  # brain-check warns but does not block if these are absent
+  - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_1.md
+  - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_2.md
+  - PM_Pack/TASK_PRODUCTION_IMPACT_LEDGER.md
 
 agent_lane_config: PM_Pack/automation/agent_lanes.yml
+
+consistency_check_fields:
+  # pm-pack-audit compares these across sources
+  - cycle_current
+  - last_completed_cycle
+  - active_branch
+  - autonomy_status
+  - post_cycle_review_status

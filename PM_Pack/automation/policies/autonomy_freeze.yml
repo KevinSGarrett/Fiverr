@@ -1,0 +1,38 @@
+# AUTONOMY FREEZE — PENDING V5 AUDIT CORRECTIONS
+# This file is read by the controller, GitHub workflow, watchdog, and scheduled tasks.
+# While frozen: true, no real Cursor dispatch, auto-merge, or official post-cycle review may run.
+# Only status/dry-run/health commands are permitted.
+
+frozen: true
+reason: "V5_AUDIT_CORRECTIONS_PENDING"
+frozen_at: "2026-06-11"
+frozen_by: "V5_AUDIT_REPORT"
+incident_ref: "DEV_AUTO_FROZEN_PENDING_V5_CORRECTIONS"
+
+permitted_while_frozen:
+  - brain-check
+  - pm-pack-audit
+  - compile-policy
+  - jira-inventory --dry-run
+  - plan-cycle --dry-run
+  - validate-prompts
+  - cursor-smoke
+  - status
+  - status-tick
+  - health-check
+  - post-cycle-review --dry-run
+
+blocked_while_frozen:
+  - run-agent
+  - merge-gate --execute-merge
+  - dev-auto
+  - post-cycle-review (official non-dry-run)
+  - any real Cursor agent dispatch
+
+unfreeze_requires:
+  - "All AUDIT-P0-001 through AUDIT-P0-013 items resolved with evidence"
+  - "python automation/ai_cycle_controller.py pm-pack-audit PASS"
+  - "All 6 agent prompts pass validator with >=55 tasks"
+  - "Docs-only Agent D dry-run succeeds end-to-end"
+  - "No BLOCKED P0 items in checklist status summary"
+  - "Kevin explicitly sets frozen: false and commits"

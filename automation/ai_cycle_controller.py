@@ -205,10 +205,22 @@ def cmd_status() -> None:
 
 
 @cli.command("plan-cycle")
-@click.option("--dry-run", is_flag=True, default=True, help="Generate manifest, do not dispatch.")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Generate manifest only, do not generate real prompts.")
+@click.option("--live", is_flag=True, default=False,
+              help="Generate real prompts from PM_Pack + Jira (requires pm-pack-audit PASS).")
 @click.option("--cycle", default=None, type=int, help="Cycle number override.")
-def cmd_plan_cycle(dry_run: bool, cycle: int | None) -> None:
-    """Plan next cycle: generate manifest and prompt stubs (dry-run by default)."""
+def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
+    """Plan next cycle.
+
+    --dry-run: Generates only a manifest and stub placeholders (safe).
+    --live: Generates real prompts from PM_Pack + Jira (requires pm-pack-audit PASS + unfrozen).
+
+    Default behavior (no flags): dry-run mode for safety.
+    """
+    # Default to dry-run if neither flag is set
+    if not dry_run and not live:
+        dry_run = True
     click.echo("=" * 60)
     click.echo(f"PLAN CYCLE {'[DRY RUN]' if dry_run else '[LIVE]'}")
     click.echo("=" * 60)
@@ -775,6 +787,28 @@ def cmd_create_labels() -> None:
     click.echo(f"Created/updated: {created}  Failed: {failed}")
     if failed == 0:
         click.secho("LABELS COMPLETE", fg="green", bold=True)
+
+@cli.command("pm-pack-audit")
+def cmd_pm_pack_audit() -> None:
+    """PM_Pack consistency audit — validates semantic agreement across all state files.
+
+    Checks: HYDRATION_HEADER vs controller_state vs current_status vs policy_snapshot.
+    Required by V6-PM-013. Must PASS before plan-cycle --live is allowed.
+    """
+    from automation.pm_pack_consistency_audit import run_audit
+    result = run_audit()
+    click.echo(result.summary())
+    if result.sources:
+        click.echo("")
+        click.echo("  State sources:")
+        for k, v in result.sources.items():
+            click.echo(f"    {k}: {v!r}")
+    if not result.passed:
+        click.secho("PM_PACK_AUDIT BLOCKED — resolve conflicts before running plan-cycle",
+                    fg="red", bold=True)
+        sys.exit(1)
+    click.secho("PM_PACK_AUDIT PASS", fg="green", bold=True)
+
 
 
 if __name__ == "__main__":

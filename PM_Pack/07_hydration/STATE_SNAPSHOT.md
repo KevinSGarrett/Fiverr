@@ -1,56 +1,47 @@
-# State Snapshot - Cycle 049
+# State Snapshot — Cycle 075 (Reconciled 2026-06-11)
 
-Updated: 2026-05-28 | Agent A setup complete on `cycle/049/integration`
+**Reconciliation note:** Prior STATE_SNAPSHOT was stale at Cycle 049.
+Updated to reflect current state per HYDRATION_HEADER, CURRENT_STATE_CANONICAL,
+and controller_state agreement.
 
-## Branch and Setup Baseline
+Updated: 2026-06-11 | V5 audit corrections in progress
 
-- Canonical working directory: `C:\Fiverr\Fiverr`
-- Active branch: `cycle/049/integration`
-- Develop SHA at branch creation: `b38e0e06419b9553f9d418c19ac62bffff003e5c`
-- PR #55 merge SHA: `ec541b5cba88c27c25fe9433d6b38e0847699a68`
-- PR #56 merged on develop (kw96 weakness fix) before C049 branch
-- `git worktree list`: single entry
-- `scrapfly.enabled` default check: `ScrapFly: DISABLED - SAFE`
+## Current State
 
-## Primary Target: kw=110 (AI chatbot handoff)
+- **Active cycle:** 075
+- **Last completed cycle:** 074 (Wave 10, 9/9 stories complete per HYDRATION_HEADER)
+- **Current branch:** develops (cycle/075/integration is the target cycle branch)
+- **Canonical working directory:** `C:\Fiverr\Fiverr`
+- **Autonomy status:** FROZEN — V5 audit corrections pending
+- **Controller state:** AGENT_DISPATCH (frozen — no real dispatch)
+- **PM_Pack brain status:** BRAIN_REGISTRY v2 loaded, all 44 files verified
 
-- `keyword_id=110: text=AI chatbot handoff niche_id=1`
-- `final=58.66 composite~61.76 CM=0.9500 tag=MONITOR`
-- Gap to CONDITIONAL_GO: **1.34 points**
-- Path 1: Reddit signal removes -0.05 CM → final=61.76 (BLOCKED: REDDIT_CLIENT_ID=False)
-- Path 2: Demand uplift (autocomplete unset, value=0.0)
-- Path 3: Profitability 17.14→30 (+0.64 composite)
-- Recommendation gate blocker: GQS=0, visual=False for top gigs
+## Cycle 074 Summary (Last Completed)
 
-## Score Snapshot
+- Wave 10: S7.1-S7.9 DONE (9/9 complete)
+- SCRUM-22 closed
+- TierD-2 decision: SEED x17, CRITICAL BLOCKER remains
+- Score1 (internal): ~67% | Score2 (E2E): ~45-50%
+- Two-score model established (Score2 <= Score1 with TierD-2 caps)
 
-```text
-kw=110 final=58.66 weakness=100.0 demand=41.69 prof=17.14
-kw=3 final=55.70 weakness=46.25 demand=50.22 prof=7.14
-kw=96 weakness isolation=53.52 (post-PR #56)
-```
+## Cycle 075 Status (Current)
 
-Tag distribution (latest 129): PASS=60, CAUTION=39, MONITOR=30, CONDITIONAL_GO=0
+- Status: FROZEN — 6 agent prompts not yet generated (stubs removed per V5 audit)
+- Branch: cycle/075/integration (not yet created)
+- Awaiting: V5 audit correction cycle completion
+- Prompts: Will be regenerated after pm-pack-audit PASS
 
-## DB Snapshot
+## Key Technical Anchors
 
-```text
-keywords: 129 | gigs: 447 | sellers: 250
-search_results: 108 ranked=76 with_trc=90
-gig_quality_analysis: 152 (5 runs)
-external_signals: 58 (google_trends=40, youtube_count=18, reddit=0)
-```
+- Baseline DB: `data/cycle037_live.db` (immutable, do not overwrite)
+- `scrapfly.enabled` must stay `false` in committed `config.yaml`
+- Jira cloud ID: `eae77257-a572-4e19-b746-8b184ba2d01f`
+- Done transition ID: 41
+- Golden anchor: Wave 10 kw=110 at 62.7/1.0/CONDITIONAL_GO
+- Execution order: A → B+E parallel → C → F → D
 
-## Test Baseline
+## Previous C049 Snapshot
 
-- Full suite: 3340 passed
-- 12 accumulated regression tests: PASS
-- Recommendations: eligible=0, generated=0
-
-## Jira Cycle 049
-
-- SCRUM-554: Cycle control (In Progress)
-- SCRUM-555: E04 impl (In Progress)
-- SCRUM-556: E02 data (In Progress)
-- SCRUM-550: Done (C048 DoD met)
-- SCRUM-546: Done (C048 DoD met)
+The prior state snapshot was from Cycle 049 and is now superseded.
+For historical reference, it documented the C049 AI chatbot handoff keyword work
+(kw=110, final=58.66, MONITOR status, gap to CONDITIONAL_GO = 1.34 points).
