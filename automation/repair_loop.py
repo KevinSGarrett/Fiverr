@@ -1,155 +1,217 @@
 """
-repair_loop.py — Generate repair prompts and retry failed agents.
-Reads classification from failure_classifier.py and builds targeted repair prompts.
+repair_loop.py — Repair loop dispatcher for failed agent runs.
+
+When run-agent lifecycle returns VALIDATION_FAILED, this module:
+  1. Classifies the failure (lint / type / test / report missing / ownership)
+  2. Generates a targeted repair prompt scoped only to broken files
+  3. Dispatches Cursor CLI with the repair prompt
+  4. Caps at MAX_REPAIR_ATTEMPTS before escalating to BLOCKED
+
+Wave 04 design: repair loop is NOT a full re-run.
+It passes only the failing files and error context back to Cursor.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
-from automation.failure_classifier import ClassifiedFailure, FailureType
-
-MAX_ATTEMPTS_PER_AGENT = 5
-MAX_ATTEMPTS_PER_FAILURE_TYPE = 3
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
+MAX_REPAIR_ATTEMPTS = 3
+REPAIR_RECORD_FILE = "repair_record.json"
 
 
 @dataclass
-class RepairAttempt:
+class RepairResult:
     agent: str
     cycle: int
     attempt: int
-    failure_type: FailureType
-    prompt_path: str
-    repair_agent: str
+    status: str = "IN_PROGRESS"  # REPAIRED | FAILED | BLOCKED | SKIPPED | IN_PROGRESS
+    errors_in: list[str] = field(default_factory=list)
+    errors_out: list[str] = field(default_factory=list)
+    repair_prompt_path: str = ""
+    commit_sha: str = ""
 
 
-@dataclass
-class RepairLoopState:
-    cycle: int
-    attempts_by_agent: dict[str, int] = field(default_factory=dict)
-    attempts_by_type: dict[str, int] = field(default_factory=dict)
-    exhausted_agents: list[str] = field(default_factory=list)
-
-    def record(self, agent: str, failure_type: FailureType) -> bool:
-        """Record a repair attempt. Returns True if within limits, False if exhausted."""
-        self.attempts_by_agent[agent] = self.attempts_by_agent.get(agent, 0) + 1
-        ft_key = failure_type.value
-        self.attempts_by_type[ft_key] = self.attempts_by_type.get(ft_key, 0) + 1
-
-        if (self.attempts_by_agent[agent] > MAX_ATTEMPTS_PER_AGENT or
-                self.attempts_by_type[ft_key] > MAX_ATTEMPTS_PER_FAILURE_TYPE):
-            if agent not in self.exhausted_agents:
-                self.exhausted_agents.append(agent)
-            return False
-        return True
-
-    def is_exhausted(self, agent: str) -> bool:
-        return agent in self.exhausted_agents
-
-
-def generate_repair_prompt(
-    failure: ClassifiedFailure,
-    original_mission: str,
+def dispatch_repair(
+    agent_id: str,
+    cycle: int,
     run_dir: Path,
+    errors: list[str],
+) -> RepairResult:
+    """
+    Attempt to repair a failed agent run.
+    Called by run-agent lifecycle after VALIDATION_FAILED.
+    """
+    # Check attempt count
+    record_path = run_dir / REPAIR_RECORD_FILE
+    record = _load_record(record_path)
+    attempt = record.get("attempt", 0) + 1
+
+    result = RepairResult(
+        agent=agent_id,
+        cycle=cycle,
+        attempt=attempt,
+        errors_in=errors,
+    )
+
+    if attempt > MAX_REPAIR_ATTEMPTS:
+        result.status = "BLOCKED"
+        _notify_repair_blocked(agent_id, cycle, attempt, errors)
+        _save_record(record_path, result, record)
+        return result
+
+    # Classify failure
+    failure_type = _classify_failure(errors)
+
+    # Generate repair prompt
+    repair_prompt = _generate_repair_prompt(
+        agent_id, cycle, errors, failure_type, attempt
+    )
+    prompt_path = run_dir / f"REPAIR_{agent_id}_attempt_{attempt:02d}.md"
+    prompt_path.write_text(repair_prompt, encoding="utf-8")
+    result.repair_prompt_path = str(prompt_path)
+
+    # Dispatch Cursor with repair prompt
+    from automation.cursor_adapter import run_agent as cursor_run
+    agent_dir = run_dir / "repair_runs" / f"attempt_{attempt:02d}"
+    cursor_result = cursor_run(
+        agent_id=f"{agent_id}_repair_{attempt}",
+        prompt_path=str(prompt_path),
+        working_dir=str(REPO_ROOT),
+        output_dir=str(agent_dir),
+    )
+
+    if cursor_result.status == "complete":
+        # Re-run validation
+        from automation.run_agent_lifecycle import _run_validation
+        passed, details = _run_validation(agent_id)
+        if passed:
+            result.status = "REPAIRED"
+            # Commit
+            from automation.run_agent_lifecycle import _commit_agent_work, _get_changed_files
+            files = _get_changed_files()
+            sha = _commit_agent_work(agent_id, cycle, files)
+            result.commit_sha = sha
+        else:
+            result.status = "FAILED"
+            result.errors_out = [details]
+    else:
+        result.status = "FAILED"
+        result.errors_out = [f"Cursor returned: {cursor_result.status}"]
+
+    _save_record(record_path, result, record)
+
+    # Notify
+    from automation.notification_router import notify_blocked, notify_info
+    if result.status == "REPAIRED":
+        notify_info(f"Repair PASS: Agent {agent_id} cycle {cycle} attempt {attempt}")
+    else:
+        notify_blocked(
+            f"Repair FAIL: Agent {agent_id} attempt {attempt}/{MAX_REPAIR_ATTEMPTS}",
+            incident_code="REPAIR_FAILED", cycle=cycle
+        )
+
+    return result
+
+
+def _classify_failure(errors: list[str]) -> str:
+    """Classify failure type from error messages."""
+    err_text = " ".join(errors).lower()
+    if "ruff" in err_text or "lint" in err_text:
+        return "lint"
+    if "mypy" in err_text or "type" in err_text:
+        return "typecheck"
+    if "pytest" in err_text or "test" in err_text:
+        return "test"
+    if "no_report" in err_text or "report" in err_text:
+        return "report"
+    if "ownership" in err_text:
+        return "ownership"
+    return "general"
+
+
+def _generate_repair_prompt(
+    agent_id: str,
+    cycle: int,
+    errors: list[str],
+    failure_type: str,
     attempt: int,
-) -> Path:
-    """Generate a targeted repair prompt file. Returns path to written file."""
-    repair_dir = run_dir / "repair"
-    repair_dir.mkdir(parents=True, exist_ok=True)
-    prompt_path = repair_dir / f"repair_{attempt:02d}_agent_{failure.repair_agent}_prompt.md"
+) -> str:
+    """Generate a targeted repair prompt — scope limited to failing files only."""
+    now = datetime.now(UTC).isoformat()
+    error_text = "\n".join(f"  - {e}" for e in errors[:10])
 
-    branch = _current_branch()
-    diff_stat = _git_diff_stat()
+    return f"""# REPAIR PROMPT — Agent {agent_id} Cycle {cycle:03d} Attempt {attempt}
 
-    lines = [
-        f"# REPAIR PROMPT - CYCLE {failure.cycle:03d} AGENT {failure.repair_agent} - ATTEMPT {attempt:02d}",
-        "",
-        f"You are repairing Agent {failure.agent}'s previous work in the Fiverr Research System.",
-        "",
-        "## Required model policy",
-        "Use the runner's verified Cursor model configuration: Codex 5.3, medium effort, Auto disabled.",
-        "",
-        "## Repo",
-        "C:\\Fiverr\\Fiverr",
-        "",
-        "## Branch",
-        branch,
-        "",
-        "## Failure type",
-        failure.failure_type.value,
-        "",
-        "## Original mission",
-        original_mission[:500],
-        "",
-        "## What changed (git diff --stat)",
-        diff_stat[:800],
-        "",
-        "## Validation failure evidence",
-        "```",
-        failure.evidence[-1200:],
-        "```",
-        "",
-        "## Required repair",
-        "Fix the smallest safe scope needed to pass the failing validation while preserving the original task intent.",
-        "Add or update tests only where necessary.",
-        "Do not change unrelated files.",
-        "Do not push to main.",
-        "Do not ask for clarification unless this requires a blocked Tier-D operation.",
-        "",
-        "## Validation commands to run before declaring repair complete",
-        "```powershell",
-        *_repair_commands_for_type(failure.failure_type),
-        "```",
-        "",
-        "## Autonomy rule",
-        "Do not stop for clarification if a reasonable, PM_Pack-consistent decision can be made.",
-        "Only stop if the action would require a blocked operation.",
-        "",
-        "## Final repair report",
-        f"Append a repair section to: docs/cycle_reports/CYCLE_{failure.cycle:03d}_AGENT_{failure.repair_agent}.md",
-    ]
+## Context
+A previous agent run failed validation. This is a targeted repair run.
+Do NOT re-implement features. Fix ONLY the specific errors listed below.
 
-    prompt_path.write_text("\n".join(lines))
-    return prompt_path
+## Model Policy
+- Model: Codex 5.3
+- Effort: medium
+- Auto model selection: DISABLED
+
+## Failure Type: {failure_type.upper()}
+
+## Errors to Fix
+{error_text}
+
+## Instructions
+1. Confirm you are on branch: `cycle/{cycle:03d}/integration`
+2. Fix ONLY the files causing the errors above
+3. Do NOT modify files outside your scope
+4. Run validation after fixing:
+   - `python -m ruff check src/ automation/ --output-format=text`
+   - `python -m mypy src/ --ignore-missing-imports`
+   - `python -m pytest tests/ -q --tb=short -x`
+5. Commit the fix: `git commit -m "fix(repair): Agent {agent_id} repair attempt {attempt} [autonomous]"`
+
+## Autonomy Rule
+Proceed without confirmation. Fix the errors and commit.
+
+====================================================================
+END OF PROMPT — AGENT {agent_id} REPAIR ATTEMPT {attempt}
+====================================================================
+
+<!-- Generated: {now} -->
+"""
 
 
-def _repair_commands_for_type(ft: FailureType) -> list[str]:
-    """Return the minimal set of validation commands needed to confirm repair."""
-    venv = "C:\\Fiverr\\Fiverr\\.venv\\Scripts\\python.exe"
-    base = [f"{venv} -m ruff check src tests"]
-    if ft in (FailureType.RUFF_FAILURE,):
-        return base
-    if ft in (FailureType.MYPY_FAILURE,):
-        return base + [f"{venv} -m mypy src"]
-    if ft in (FailureType.PYTEST_FAILURE, FailureType.COVERAGE_FAILURE):
-        return base + [
-            f"{venv} -m mypy src",
-            f"{venv} -m pytest -q --cov=src --cov-report=term-missing --cov-fail-under=90",
-        ]
-    if ft == FailureType.CONFIG_CHECK_FAILURE:
-        return base + [f"{venv} run.py config-check"]
-    # Full suite for unknown types
-    return base + [
-        f"{venv} -m mypy src",
-        f"{venv} -m pytest -q --cov=src --cov-report=term-missing --cov-fail-under=90",
-        f"{venv} run.py config-check",
-    ]
+def _load_record(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text()) if path.exists() else {}
+    except Exception:
+        return {}
 
 
-def _current_branch() -> str:
-    import subprocess
-    r = subprocess.run(
-        ["git", "branch", "--show-current"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True
-    )
-    return r.stdout.strip() or "unknown"
+def _save_record(path: Path, result: RepairResult, existing: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        **existing,
+        "attempt": result.attempt,
+        "last_status": result.status,
+        "last_errors": result.errors_in,
+        "updated_at": datetime.now(UTC).isoformat(),
+        "history": existing.get("history", []) + [{
+            "attempt": result.attempt,
+            "status": result.status,
+            "prompt": result.repair_prompt_path,
+        }],
+    }
+    path.write_text(json.dumps(data, indent=2))
 
 
-def _git_diff_stat() -> str:
-    import subprocess
-    r = subprocess.run(
-        ["git", "diff", "--stat"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True
-    )
-    return r.stdout.strip() or "(no diff)"
+def _notify_repair_blocked(agent_id: str, cycle: int, attempt: int, errors: list[str]) -> None:
+    try:
+        from automation.notification_router import notify_blocked
+        notify_blocked(
+            f"REPAIR BLOCKED: Agent {agent_id} cycle {cycle} exceeded {MAX_REPAIR_ATTEMPTS} attempts.\n"
+            f"Last errors: {errors[:2]}",
+            incident_code="REPAIR_MAX_ATTEMPTS_EXCEEDED",
+            cycle=cycle,
+        )
+    except Exception:
+        pass

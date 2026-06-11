@@ -40,7 +40,7 @@ def load_secrets() -> dict[str, str]:
     env_file = RUNNER_ENV_PATH
     if not env_file.exists():
         return {}
-    return dict(dotenv_values(str(env_file)))
+    return {k: v or '' for k, v in dotenv_values(str(env_file)).items()}
 
 
 def get_secret(key: str, default: str = "") -> str:

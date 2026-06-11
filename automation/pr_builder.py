@@ -134,7 +134,7 @@ def build_pr_body(
     return "\n".join(lines)
 
 
-def write_pr_body(cycle: int, run_dir: Path, **kwargs) -> Path:
+def write_pr_body(cycle: int, run_dir: Path, **kwargs: Any) -> Path:
     """Write PR body to file. Returns path."""
     body = build_pr_body(cycle=cycle, **kwargs)
     path = run_dir / "github" / "pr_body.md"

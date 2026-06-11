@@ -128,7 +128,7 @@ def run_agent(
 
             last_output_ts = [time.time()]
 
-            def _monitor():
+            def _monitor() -> None:
                 """Watch stdout/stderr size; update last_output_ts when files grow."""
                 last_size = 0
                 while proc.poll() is None:

@@ -26,7 +26,7 @@ class ScoreCard:
     deltas: dict[str, float] = field(default_factory=dict)
     calculated_at: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.calculated_at:
             self.calculated_at = datetime.now(UTC).isoformat()
         # Invariant: Score 2 must never exceed Score 1

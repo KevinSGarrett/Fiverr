@@ -1,4 +1,4 @@
-"""
+﻿"""
 ai_cycle_controller.py — Main CLI entrypoint for the Autonomous Development Runner.
 
 Usage:
@@ -51,13 +51,13 @@ def _read_runner_state() -> dict:
 
 
 @click.group()
-def cli():
+def cli() -> None:
     """Fiverr Research System — Autonomous Development Runner."""
     pass
 
 
 @cli.command("brain-check")
-def cmd_brain_check():
+def cmd_brain_check() -> None:
     """Load all PM_Pack brain files and verify they exist and are readable."""
     click.echo("=" * 60)
     click.echo("BRAIN CHECK - Fiverr Autonomous Runner")
@@ -102,7 +102,7 @@ def cmd_brain_check():
 
 
 @cli.command("compile-policy")
-def cmd_compile_policy():
+def cmd_compile_policy() -> None:
     """Compile PM_Pack rules into current_policy_snapshot.json."""
     click.echo("=" * 60)
     click.echo("COMPILE POLICY")
@@ -122,7 +122,7 @@ def cmd_compile_policy():
 @cli.command("jira-inventory")
 @click.option("--dry-run", is_flag=True, default=False, help="No Jira writes.")
 @click.option("--project", default="SCRUM", help="Jira project key.")
-def cmd_jira_inventory(dry_run: bool, project: str):
+def cmd_jira_inventory(dry_run: bool, project: str) -> None:
     """Fetch Jira board inventory — all non-Done issues."""
     click.echo("=" * 60)
     click.echo(f"JIRA BOARD INVENTORY {'[DRY RUN]' if dry_run else ''}")
@@ -161,7 +161,7 @@ def cmd_jira_inventory(dry_run: bool, project: str):
 
 
 @cli.command("status")
-def cmd_status():
+def cmd_status() -> None:
     """Show current controller and runner state."""
     click.echo("=" * 60)
     click.echo("CONTROLLER STATUS")
@@ -207,7 +207,7 @@ def cmd_status():
 @cli.command("plan-cycle")
 @click.option("--dry-run", is_flag=True, default=True, help="Generate manifest, do not dispatch.")
 @click.option("--cycle", default=None, type=int, help="Cycle number override.")
-def cmd_plan_cycle(dry_run: bool, cycle: int | None):
+def cmd_plan_cycle(dry_run: bool, cycle: int | None) -> None:
     """Plan next cycle: generate manifest and prompt stubs (dry-run by default)."""
     click.echo("=" * 60)
     click.echo(f"PLAN CYCLE {'[DRY RUN]' if dry_run else '[LIVE]'}")
@@ -328,7 +328,7 @@ def cmd_plan_cycle(dry_run: bool, cycle: int | None):
 @cli.command("validate-prompts")
 @click.option("--cycle", required=True, type=int, help="Cycle number.")
 @click.option("--agents", default="A,B,E,C,F,D", help="Comma-separated agent list.")
-def cmd_validate_prompts(cycle: int, agents: str):
+def cmd_validate_prompts(cycle: int, agents: str) -> None:
     """Validate generated prompt files for a cycle before dispatch."""
     click.echo("=" * 60)
     click.echo(f"VALIDATE PROMPTS — Cycle {cycle:03d}")
@@ -365,7 +365,7 @@ def cmd_validate_prompts(cycle: int, agents: str):
               help="Docs-only test — skips MODEL_GATE hard-fail, warns only.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Print what would run without executing Cursor.")
-def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
+def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -> None:
     """Run a single Cursor agent with MODEL_GATE + validation + commit."""
     click.echo("=" * 60)
     click.echo(f"RUN AGENT {agent} — Cycle {cycle:03d} {'[DRY RUN]' if dry_run else ''}")
@@ -440,24 +440,40 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
     if result.error_message:
         click.secho(f"  Error: {result.error_message}", fg="red")
 
-    # --- Post-agent validation ---
-    click.echo("  [5/5] Post-agent validation (ruff + mypy)...")
-    from automation.validation_runner import run_targeted_validation
-    val = run_targeted_validation(["ruff", "mypy"], REPO_ROOT)
-    click.echo(val.summary())
+    # --- Post-agent lifecycle (FINDING-009 fix) ---
+    # Ownership check, secret guard, report required, full validation, commit, Jira, record
+    click.echo("  [5/5] Running post-agent lifecycle...")
+    from automation.run_agent_lifecycle import run_post_agent_lifecycle
+    lifecycle = run_post_agent_lifecycle(
+        agent_id=agent,
+        cycle=cycle,
+        run_id=run_id,
+        run_dir=run_dir,
+        jira_keys=[],
+    )
 
     write_heartbeat("AGENT_COMPLETE", cycle=cycle, agent=agent)
     write_controller_state("AGENT_COMPLETE", cycle=cycle)
 
-    if result.status == "complete" and val.all_passed:
-        click.secho(f"Agent {agent} COMPLETE", fg="green", bold=True)
+    click.echo(f"  Lifecycle: {lifecycle.status}")
+    for err in lifecycle.errors:
+        click.secho(f"  ERROR: {err}", fg="red")
+
+    if lifecycle.status == "COMPLETE":
+        sha_info = f" commit={lifecycle.commit_sha}" if lifecycle.commit_sha else ""
+        click.secho(f"Agent {agent} COMPLETE{sha_info}", fg="green", bold=True)
+    elif lifecycle.status == "VALIDATION_FAILED":
+        click.secho(f"Agent {agent} validation failed â€” routing to repair loop", fg="yellow")
+        from automation.repair_loop import dispatch_repair
+        dispatch_repair(agent, cycle, run_dir, lifecycle.errors)
+        sys.exit(1)
     else:
-        click.secho(f"Agent {agent} needs repair: status={result.status}", fg="yellow")
+        click.secho(f"Agent {agent} lifecycle: {lifecycle.status}", fg="red", bold=True)
         sys.exit(1)
 
 
 @cli.command("cursor-smoke")
-def cmd_cursor_smoke():
+def cmd_cursor_smoke() -> None:
     """Run a no-write Cursor smoke test (reads context only)."""
     click.echo("=" * 60)
     click.echo("CURSOR CLI SMOKE TEST")
@@ -483,7 +499,7 @@ def cmd_cursor_smoke():
 
 
 @cli.command("recover")
-def cmd_recover():
+def cmd_recover() -> None:
     """Attempt safe recovery from stale lock or interrupted run."""
     click.echo("=" * 60)
     click.echo("RECOVER")
@@ -506,7 +522,7 @@ def cmd_recover():
 
 
 @cli.command("tick")
-def cmd_tick():
+def cmd_tick() -> None:
     """
     Tick — real state machine that decides what to do next.
 
@@ -620,7 +636,7 @@ def cmd_tick():
 
 @cli.command("daily-report")
 @click.option("--cycle", default=None, type=int)
-def cmd_daily_report(cycle: int | None):
+def cmd_daily_report(cycle: int | None) -> None:
     """Generate daily status report (OPS-022)."""
     from automation.report_generator import generate_daily_report
     path = generate_daily_report(cycle=cycle)
@@ -628,7 +644,7 @@ def cmd_daily_report(cycle: int | None):
 
 
 @cli.command("weekly-report")
-def cmd_weekly_report():
+def cmd_weekly_report() -> None:
     """Generate weekly autonomy review (OPS-023)."""
     from automation.report_generator import generate_weekly_report
     path = generate_weekly_report()
@@ -643,7 +659,7 @@ def cmd_weekly_report():
               help="Review mode.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Collect facts only, do not write artifacts.")
-def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool):
+def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) -> None:
     """Run post-cycle PM review. Blocks next dispatch until PASS."""
     click.echo("=" * 60)
     click.echo(f"POST-CYCLE REVIEW -- Cycle {cycle:03d} [{mode}]")
@@ -689,7 +705,7 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool):
               help="Check gates only, do not merge (default: True).")
 @click.option("--execute-merge", is_flag=True, default=False,
               help="Actually merge if all gates pass.")
-def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool):
+def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool) -> None:
     """Run full merge gate check for a PR. Safe by default (dry-run)."""
     click.echo("=" * 60)
     live = not do_dry_run or execute_merge
@@ -711,7 +727,7 @@ def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool):
 
 
 @cli.command("create-labels")
-def cmd_create_labels():
+def cmd_create_labels() -> None:
     """Create all required GitHub labels for the autonomous runner."""
     click.echo("=" * 60)
     click.echo("CREATE GITHUB LABELS")

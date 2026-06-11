@@ -24,13 +24,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 PM_PACK   = REPO_ROOT / "PM_Pack"
 
 
 # ── Agent role definitions ─────────────────────────────────────────────────
-AGENT_ROLES = {
+AGENT_ROLES: dict[str, dict[str, Any]] = {
     "A": {
         "name": "Agent A — Core Infrastructure & Data Pipeline",
         "scope": "src/pipeline, src/models, src/collection, src/scoring",

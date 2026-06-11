@@ -35,7 +35,7 @@ class MergeGateResult:
     merge_sha: str | None = None
     evaluated_at: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.evaluated_at:
             self.evaluated_at = datetime.now(UTC).isoformat()
 

@@ -39,10 +39,10 @@ def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
     )
     params = {
         "jql": jql,
-        "maxResults": 100,
+        "maxResults": "100",
         "fields": "summary,status,priority,assignee,labels,issuetype",
     }
-    resp = requests.get(url, headers=_headers(), params=params, timeout=30)
+    resp = requests.get(url, headers=_headers(), params=dict(params), timeout=30)
     resp.raise_for_status()
     data = resp.json()
     return {
@@ -70,7 +70,7 @@ def get_issue(issue_key: str) -> dict[str, Any]:
 
 def add_comment(issue_key: str, body: str) -> dict[str, Any]:
     url = f"{_base_url()}/rest/api/3/issue/{issue_key}/comment"
-    payload = {"body": {"type": "doc", "version": 1, "content": [
+    payload: Any = {"body": {"type": "doc", "version": 1, "content": [
         {"type": "paragraph", "content": [{"type": "text", "text": body}]}
     ]}}
     resp = requests.post(url, headers=_headers(), json=payload, timeout=30)

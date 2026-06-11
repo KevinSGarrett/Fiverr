@@ -10,6 +10,7 @@ import os
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 RUNNER_ROOT = Path("C:/AI_Runner")
 BLOCKED_REPORT_DIR = RUNNER_ROOT / "reports/model_verification"
@@ -20,7 +21,7 @@ def check_api_key_absent() -> dict:
     CLAUDE-SUB-002/004: Verify ANTHROPIC_API_KEY is absent in all scopes.
     Returns dict with passed, detail, and any blocked report path.
     """
-    findings = []
+    findings: list[str] = []
     for scope in ("process", "user", "machine"):
         key = os.environ.get("ANTHROPIC_API_KEY", "") if scope == "process" else ""
         if scope == "user":
@@ -64,7 +65,7 @@ def verify_subscription_preflight() -> dict:
     CLAUDE-SUB-001/003: Full preflight check before any Claude PM/review step.
     Checks: API key absent, Claude Code login (if available), billing mode.
     """
-    result = {"checks": [], "passed": True, "incident_code": ""}
+    result: dict[str, Any] = {"checks": [], "passed": True, "incident_code": ""}
 
     # Check 1: API key must be absent
     api_check = check_api_key_absent()

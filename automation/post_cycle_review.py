@@ -198,7 +198,7 @@ def collect_facts(cycle: int, mode: ReviewMode,
             jql = f"project=SCRUM AND labels='cycle:{cycle:03d}' AND issuetype=Story ORDER BY created ASC"
             r = requests.get(f"{jira_url}/rest/api/3/search/jql",
                              headers=headers,
-                             params={"jql": jql, "maxResults": 5, "fields": "summary,status"},
+                             params={"jql": jql, "maxResults": "5", "fields": "summary,status"},
                              timeout=10)
             if r.status_code == 200:
                 issues = r.json().get("issues", [])
