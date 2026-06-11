@@ -267,14 +267,14 @@ def _write_result(result: MergeGateResult) -> None:
 def _load_break_glass() -> dict:
     """Load active break-glass policy if one exists and has not expired."""
     import json as _json
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
     path = Path("C:/AI_Runner/state/break_glass_active.json")
     if not path.exists():
         return {}
     try:
         bg = _json.loads(path.read_text())
         expires = bg.get("expires_at", "")
-        if expires and _dt.fromisoformat(expires.replace("Z", "+00:00")) < _dt.now(_tz.utc):
+        if expires and _dt.fromisoformat(expires.replace("Z", "+00:00")) < _dt.now(UTC):
             return {}  # Expired
         return bg
     except Exception:

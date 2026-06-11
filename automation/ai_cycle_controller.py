@@ -260,24 +260,67 @@ def cmd_plan_cycle(dry_run: bool, cycle: int | None):
                 f"Generated: {_now()}\n"
             )
 
+    if dry_run:
+        click.echo(f"  Cycle           : {next_cycle:03d}")
+        click.echo(f"  Branch          : {branch}")
+        click.echo(f"  Agents          : {manifest['agents']}")
+        click.echo(f"  Run ID          : {run_id}")
+        click.echo()
+        click.echo(f"  Manifest        : {manifest_path}")
+        click.echo(f"  Prompt stubs    : PM_Pack/automation/prompts/CYCLE_{next_cycle:03d}_AGENT_*.md")
+        click.echo()
+        click.secho("PLAN CYCLE DRY RUN COMPLETE", fg="green", bold=True)
+        _write_runner_state({
+            "runner": "fiverr-runner-local-01",
+            "last_run_id": run_id,
+            "status": "PLANNED",
+            "active_cycle": next_cycle,
+            "active_branch": branch,
+            "last_heartbeat": _now(),
+        })
+        return
+
+    # ── LIVE: Generate real prompts from PM_Pack + Jira ──────────────
+    click.echo("  Fetching Jira board inventory...")
+    from automation.jira_client import board_inventory
+    from automation.prompt_generator import write_prompts
+
+    try:
+        inv = board_inventory()
+        jira_issues = inv.get("issues", [])
+        click.echo(f"  Jira issues loaded: {len(jira_issues)}")
+    except Exception as e:
+        click.secho(f"  [WARN] Jira inventory failed: {e}", fg="yellow")
+        jira_issues = []
+
+    click.echo("  Generating real agent prompts from PM_Pack + Jira...")
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    written = write_prompts(
+        cycle=next_cycle,
+        branch=branch,
+        run_id=run_id,
+        agents=manifest["agents"],
+        jira_issues=jira_issues,
+        prompts_dir=prompts_dir,
+    )
+
     click.echo(f"  Cycle           : {next_cycle:03d}")
     click.echo(f"  Branch          : {branch}")
     click.echo(f"  Agents          : {manifest['agents']}")
     click.echo(f"  Run ID          : {run_id}")
     click.echo()
-    click.echo(f"  Manifest        : {manifest_path}")
-    click.echo(f"  Prompt stubs    : PM_Pack/automation/prompts/CYCLE_{next_cycle:03d}_AGENT_*.md")
+    for agent_id, path in written.items():
+        size = path.stat().st_size
+        click.echo(f"  Prompt Agent {agent_id}: {path} ({size} bytes)")
     click.echo()
-    click.secho(f"PLAN CYCLE {'DRY RUN ' if dry_run else ''}COMPLETE", fg="green", bold=True)
+    click.secho("PLAN CYCLE COMPLETE — prompts generated from PM_Pack + Jira", fg="green", bold=True)
 
     _write_runner_state({
         "runner": "fiverr-runner-local-01",
         "last_run_id": run_id,
-        "last_successful_state": "CYCLE_PLAN",
+        "status": "PLANNED",
         "active_cycle": next_cycle,
         "active_branch": branch,
-        "active_pr": None,
-        "status": "PLANNED",
         "last_heartbeat": _now(),
     })
 
@@ -464,13 +507,115 @@ def cmd_recover():
 
 @cli.command("tick")
 def cmd_tick():
-    """Scheduled tick — check state and decide next action."""
+    """
+    Tick — real state machine that decides what to do next.
+
+    States and transitions:
+      IDLE              → compile-policy, then → PLANNED
+      PLANNED           → validate-prompts, then → READY_TO_DISPATCH
+      READY_TO_DISPATCH → check post-cycle gate; if clear → DISPATCHING
+      DISPATCHING       → agents running (managed externally)
+      AGENT_COMPLETE    → run post-cycle-review → POST_CYCLE_REVIEW
+      POST_CYCLE_REVIEW → if PASS → IDLE (next cycle)
+      POST_CYCLE_PENDING → block dispatch; surface to operator
+      MODEL_BLOCKED     → block dispatch; alert model gate failure
+    """
+    from automation.notification_router import notify_blocked, notify_info
     from automation.state_writer import write_controller_state, write_heartbeat
+
     state = _read_runner_state()
     status = state.get("status", "IDLE")
-    write_heartbeat(status)
-    write_controller_state(status)
-    click.echo(f"[TICK] {_now()} status={status}")
+    cycle  = state.get("active_cycle")
+
+    click.echo(f"[TICK] {_now()}  status={status}  cycle={cycle}")
+
+    # Always write fresh heartbeat
+    write_heartbeat(status, cycle=cycle)
+
+    # ── State machine transitions ─────────────────────────────────────
+    if status in ("IDLE", "POST_CYCLE_PASS", "INITIAL"):
+        # Ready for next cycle — compile policy to get current cycle
+        click.echo("  → Running compile-policy...")
+        snap = compile_policy(REPO_ROOT)
+        next_cycle = snap.get("cycle_current", 75)
+        write_controller_state("COMPILED", cycle=next_cycle)
+        notify_info(f"Tick: policy compiled, cycle={next_cycle}")
+        click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
+
+    elif status == "COMPILED":
+        # Plan the cycle — generate prompts
+        click.echo("  → Planning cycle (generating prompts)...")
+        write_controller_state("PLANNING", cycle=cycle)
+        click.secho("  State: PLANNING — run plan-cycle --cycle {cycle} to generate prompts", fg="cyan")
+
+    elif status == "PLANNED":
+        # Validate prompts
+        if cycle:
+            from automation.prompt_validator import validate_all
+            prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+            agents = ["A", "B", "E", "C", "F", "D"]
+            results = validate_all(prompts_dir, cycle, agents)
+            all_valid = all(r.passed for r in results.values())
+            if all_valid:
+                write_controller_state("READY_TO_DISPATCH", cycle=cycle)
+                click.secho("  State: READY_TO_DISPATCH (all prompts valid)", fg="green")
+            else:
+                failed_agents = [a for a, r in results.items() if not r.passed]
+                write_controller_state("PROMPT_VALIDATION_FAILED", cycle=cycle)
+                notify_blocked(f"Prompts invalid for agents: {failed_agents}",
+                               incident_code="PROMPT_VALIDATION_FAILED", cycle=cycle)
+                click.secho(f"  State: PROMPT_VALIDATION_FAILED agents={failed_agents}", fg="red")
+        else:
+            click.secho("  No active cycle — run plan-cycle first", fg="yellow")
+
+    elif status == "READY_TO_DISPATCH":
+        # Check model gate
+        from automation.model_gate import check as model_gate_check
+        gate = model_gate_check(repo_root=REPO_ROOT, cycle=cycle, agent="PRE_DISPATCH")
+        if not gate.passed:
+            write_controller_state("MODEL_BLOCKED", cycle=cycle)
+            notify_blocked("Model gate failed before dispatch", incident_code="MODEL_BLOCKED", cycle=cycle)
+            click.secho(f"  State: MODEL_BLOCKED — {gate.summary()}", fg="red")
+        else:
+            # Check ANTHROPIC_API_KEY absent
+            from automation.claude_sub_gate import check_api_key_absent
+            api = check_api_key_absent()
+            if not api["passed"]:
+                write_controller_state("CLAUDE_API_KEY_BLOCKED", cycle=cycle)
+                notify_blocked("ANTHROPIC_API_KEY detected", incident_code="BLOCKED_CLAUDE_API_KEY_PRESENT")
+                click.secho("  State: CLAUDE_API_KEY_BLOCKED", fg="red")
+            else:
+                write_controller_state("AWAITING_DISPATCH", cycle=cycle)
+                click.secho("  State: AWAITING_DISPATCH — all gates pass, ready to dispatch", fg="green")
+                notify_info(f"Tick: awaiting dispatch signal for cycle {cycle}")
+
+    elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING", "AGENT_COMPLETE"):
+        # Agent is running — monitor heartbeat freshness
+        hb_path = Path("C:/AI_Runner/state/heartbeat.json")
+        if hb_path.exists():
+            import json as _json
+            hb = _json.loads(hb_path.read_text())
+            from datetime import datetime as _dt
+            last = _dt.fromisoformat(hb.get("last_seen", _now()).replace("Z", "+00:00"))
+            age_min = (_dt.now(last.tzinfo) - last).total_seconds() / 60
+            if age_min > 45:
+                notify_blocked(f"Heartbeat stale {age_min:.0f}m — agent may be stuck",
+                               incident_code="AGENT_STUCK", cycle=cycle)
+                click.secho(f"  [WARN] Heartbeat stale {age_min:.0f}m", fg="yellow")
+            else:
+                click.secho(f"  Agent running, heartbeat {age_min:.1f}m old — OK", fg="cyan")
+
+    elif status in ("POST_CYCLE_PENDING", "POST_CYCLE_REVIEW"):
+        click.secho(f"  Waiting for post-cycle review — run post-cycle-review --cycle {cycle}", fg="yellow")
+
+    elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
+        click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+
+    else:
+        click.echo(f"  Unknown status: {status} — treating as IDLE")
+        write_controller_state("IDLE")
+
+    click.echo("[TICK COMPLETE]")
 
 
 @cli.command("daily-report")

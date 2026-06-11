@@ -1,6 +1,7 @@
 """
-prompt_validator.py — Validate generated Cursor agent prompts before dispatch.
-A prompt that fails validation is never handed to Cursor.
+prompt_validator.py — Hard validation of Cursor agent prompts before dispatch.
+Per audit FINDING-010: missing model block, END OF PROMPT, Jira keys are ERRORS not warnings.
+Per final pack: 55 LARGE-XXLARGE task minimum, PQ-0..PQ-7, no secrets, exact compliance.
 """
 from __future__ import annotations
 
@@ -8,42 +9,61 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Sections every prompt must contain
-REQUIRED_SECTIONS = [
-    "## 1. Identity",
-    "## 2.",             # model requirement
-    "## 3.",             # repo root
-    "## 4.",             # branch
-    "## 5.",             # PM_Pack files
-    "## 6.",             # mission
-    "## 7.",             # jira scope
-    "## 9.",             # tasks
-    "## 10.",            # validation commands
-    "## 11.",            # stop conditions
-    "## 13.",            # git instructions
-    "## 14.",            # final report path
-    "Autonomy rule",
+# ── Hard error gates (FAIL if missing) ─────────────────────────────────────
+REQUIRED_ERRORS = [
+    # Model block
+    (r"Codex 5\.3|codex-5\.3|gpt-5\.3-codex",   "Codex 5.3 model block"),
+    (r"medium.*effort|effort.*medium",             "medium effort specification"),
+    # Structural
+    (r"END OF PROMPT",                             "END OF PROMPT marker (exactly once)"),
+    (r"SCRUM-\d+",                                 "at least one Jira key (SCRUM-NNN)"),
+    (r"cycle/\d{3}/integration",                   "branch reference cycle/NNN/integration"),
+    (r"C:\\Fiverr\\Fiverr|C:/Fiverr/Fiverr",      "repo root C:\\Fiverr\\Fiverr"),
+    (r"docs/cycle_reports/CYCLE_\d{3}",            "report path docs/cycle_reports/"),
+    (r"python.*-m.*ruff|ruff.*check",              "ruff validation command"),
+    (r"python.*-m.*mypy|mypy.*src",                "mypy validation command"),
+    (r"python.*-m.*pytest|pytest",                 "pytest validation command"),
+    # Safety gates
+    (r"Auto.*DISABLED|auto.*disabled|auto_model_disabled",  "Auto model disabled statement"),
+    (r"Autonomy rule|autonomy rule",               "Autonomy rule section"),
 ]
 
-# Patterns that indicate a stub / incomplete prompt
+# ── Task floor checks ───────────────────────────────────────────────────────
+MIN_TASKS        = 55    # LARGE-XXLARGE task floor from Wave 04
+MIN_LINE_COUNT   = 200   # real prompts are 400-1000+ lines
+MIN_WORD_COUNT   = 6000  # template requires >=6000 words
+
+# ── Stub patterns — always FAIL ─────────────────────────────────────────────
 STUB_PATTERNS = [
     r"\[STUB",
     r"populate from PM_Pack",
     r"\[TODO\]",
     r"<exact agent mission>",
-    r"<copy concise",
+    r"fill in",
+    r"\[FILL\]",
 ]
 
-# Required content checks
-REQUIRED_CONTENT = [
-    (r"cycle/\d+/integration", "branch reference"),
-    (r"C:\\\\Fiverr\\\\Fiverr|C:/Fiverr/Fiverr", "repo root"),
-    (r"SCRUM-\d+|Jira|jira", "Jira reference"),
-    (r"docs/cycle_reports/CYCLE_\d+", "report path"),
-    (r"ruff|mypy|pytest", "validation commands"),
+# ── PQ quality gates — all must be present in a real prompt ────────────────
+PQ_GATES = [
+    ("PQ-0", r"PQ-0|identity"),
+    ("PQ-1", r"PQ-1|project context"),
+    ("PQ-2", r"PQ-2|your role|file ownership"),
+    ("PQ-3", r"PQ-3|git instructions"),
+    ("PQ-4", r"PQ-4|autonomy"),
+    ("PQ-5", r"PQ-5|jira scope"),
+    ("PQ-6", r"PQ-6|tasks"),
+    ("PQ-7", r"PQ-7|validation"),
 ]
 
-MIN_LINE_COUNT = 80   # prompts under this are likely stubs
+# ── Hard-fail safety patterns ───────────────────────────────────────────────
+SAFETY_ERRORS = [
+    (r"\bpush\b.*\bmain\b|\bdeploy\b.*\bmain\b",     "push/deploy to main"),
+    (r"force.?push|--force",                          "force push"),
+    (r"api_key\s*=\s*\S+|ANTHROPIC_API_KEY\s*=",     "API key value in prompt"),
+    (r"ghp_[a-zA-Z0-9]{36,}",                        "GitHub token literal"),
+    (r"ATATT3x[a-zA-Z0-9]+",                          "Jira API token literal"),
+    (r"storage_state\.json",                          "browser session file"),
+]
 
 
 @dataclass
@@ -54,10 +74,15 @@ class PromptValidationResult:
     passed: bool = True
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    task_count: int = 0
+    word_count: int = 0
+    line_count: int = 0
+    end_of_prompt_count: int = 0
 
     def summary(self) -> str:
         status = "PASS" if self.passed else "FAIL"
         lines = [f"Prompt validation {status}: {self.prompt_path}"]
+        lines.append(f"  Lines={self.line_count} Words={self.word_count} Tasks={self.task_count}")
         for e in self.errors:
             lines.append(f"  ERROR: {e}")
         for w in self.warnings:
@@ -66,7 +91,10 @@ class PromptValidationResult:
 
 
 def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidationResult:
-    """Validate a single prompt file. Returns PromptValidationResult."""
+    """
+    Hard validation of a single prompt file.
+    Missing model block, END OF PROMPT, Jira keys = ERRORS (not warnings).
+    """
     result = PromptValidationResult(
         prompt_path=str(prompt_path), agent=agent, cycle=cycle, passed=True
     )
@@ -78,63 +106,88 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
         return result
 
     text = path.read_text(encoding="utf-8", errors="replace")
-    lines = text.splitlines()
+    lines_list = text.splitlines()
 
-    # Line count gate
-    if len(lines) < MIN_LINE_COUNT:
-        result.passed = False
-        result.errors.append(
-            f"Prompt too short: {len(lines)} lines (minimum {MIN_LINE_COUNT})"
-        )
+    result.line_count  = len(lines_list)
+    result.word_count  = len(text.split())
+    result.task_count  = len(re.findall(r"^### Task \d+", text, re.MULTILINE))
+    result.end_of_prompt_count = len(re.findall(r"END OF PROMPT", text))
 
-    # Check for stub patterns
+    # ── Stub check (immediate fail) ─────────────────────────────────────
     for pat in STUB_PATTERNS:
         if re.search(pat, text, re.IGNORECASE):
             result.passed = False
-            result.errors.append(f"Stub pattern found: {pat}")
+            result.errors.append(f"Stub pattern detected: {pat}")
 
-    # Required sections
-    for section in REQUIRED_SECTIONS:
-        if section not in text:
-            result.warnings.append(f"Missing section: {section!r}")
-
-    # Required content patterns
-    for pattern, description in REQUIRED_CONTENT:
-        if not re.search(pattern, text, re.IGNORECASE):
-            result.warnings.append(f"Missing content: {description}")
-
-    # Cycle number must match
-    cycle_in_prompt = re.search(r"CYCLE[_ ]?(\d+)", text, re.IGNORECASE)
-    if cycle_in_prompt:
-        found_cycle = int(cycle_in_prompt.group(1))
-        if found_cycle != cycle:
-            result.passed = False
-            result.errors.append(
-                f"Cycle mismatch: prompt says {found_cycle}, expected {cycle}"
-            )
-    else:
-        result.warnings.append("Could not detect cycle number in prompt")
-
-    # Agent ID must match
-    if f"Agent {agent}" not in text and f"AGENT_{agent}" not in text.upper():
-        result.warnings.append(f"Agent {agent} not clearly identified in prompt")
-
-    # Safety: no main branch
-    if re.search(r"\bpush.*main\b|\bdeploy.*main\b", text, re.IGNORECASE):
-        result.passed = False
-        result.errors.append("Prompt contains push/deploy to main — blocked")
-
-    # Safety: no secrets
-    if re.search(r"api_key\s*=|secret\s*=|password\s*=|ANTHROPIC_API_KEY", text):
-        result.passed = False
-        result.errors.append("Potential secret value in prompt — blocked")
-
-    # Degrade warnings to errors if too many
-    if len(result.warnings) > 6:
+    # ── Line count ──────────────────────────────────────────────────────
+    if result.line_count < MIN_LINE_COUNT:
         result.passed = False
         result.errors.append(
-            f"{len(result.warnings)} warnings exceeded threshold — prompt likely incomplete"
+            f"Prompt too short: {result.line_count} lines (minimum {MIN_LINE_COUNT})"
         )
+
+    # ── Word count ──────────────────────────────────────────────────────
+    if result.word_count < MIN_WORD_COUNT:
+        result.warnings.append(
+            f"Prompt below 6,000 word target: {result.word_count} words"
+        )
+
+    # ── Task floor ──────────────────────────────────────────────────────
+    if result.task_count < MIN_TASKS:
+        result.passed = False
+        result.errors.append(
+            f"Task floor violation: {result.task_count} tasks < {MIN_TASKS} minimum"
+        )
+
+    # ── END OF PROMPT exactly once ──────────────────────────────────────
+    if result.end_of_prompt_count == 0:
+        result.passed = False
+        result.errors.append("END OF PROMPT marker missing")
+    elif result.end_of_prompt_count > 1:
+        result.passed = False
+        result.errors.append(
+            f"END OF PROMPT appears {result.end_of_prompt_count} times (must be exactly 1)"
+        )
+
+    # ── Required content gates (ERRORS) ─────────────────────────────────
+    for pattern, description in REQUIRED_ERRORS:
+        if not re.search(pattern, text, re.IGNORECASE):
+            result.passed = False
+            result.errors.append(f"Missing required content: {description}")
+
+    # ── PQ quality gates ────────────────────────────────────────────────
+    # Only enforce PQ gates if at least some sections are present (real prompt)
+    if result.task_count > 0:
+        for pq_id, pq_pattern in PQ_GATES:
+            if not re.search(pq_pattern, text, re.IGNORECASE):
+                result.warnings.append(f"PQ gate not confirmed: {pq_id}")
+
+    # ── Safety gates (always FAIL) ──────────────────────────────────────
+    for pattern, description in SAFETY_ERRORS:
+        if re.search(pattern, text, re.IGNORECASE):
+            result.passed = False
+            result.errors.append(f"Safety gate triggered: {description}")
+
+    # ── Cycle number must match ─────────────────────────────────────────
+    cycle_match = re.search(r"CYCLE[_ ]?0*(\d+)", text, re.IGNORECASE)
+    if cycle_match:
+        found = int(cycle_match.group(1))
+        if found != cycle:
+            result.passed = False
+            result.errors.append(f"Cycle mismatch: prompt says {found:03d}, expected {cycle:03d}")
+    else:
+        result.warnings.append(f"Cycle number {cycle:03d} not found in prompt")
+
+    # ── Agent ID must match ─────────────────────────────────────────────
+    if (f"Agent {agent}" not in text and
+            f"AGENT_{agent}" not in text.upper() and
+            f"AGENT {agent}" not in text.upper()):
+        result.warnings.append(f"Agent {agent} not clearly identified in prompt")
+
+    # ── Agent A: floor script required ─────────────────────────────────
+    if agent == "A":
+        if "floor_check" not in text and "MIN_TASKS" not in text:
+            result.warnings.append("Agent A Task 1 floor check script missing")
 
     return result
 
