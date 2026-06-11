@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Any
 
 CURSOR_BINARY = "cursor"
+# Full paths — cursor.cmd is the correct Windows executable wrapper
+CURSOR_BINARY_FULLPATH = r"C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin\cursor.cmd"
+CURSOR_BIN_DIR = r"C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin"
 DISCOVERY_LOG = Path("C:/AI_Runner/logs/cursor_cli_discovery.txt")
 DEFAULT_TIMEOUT_MIN = 180
 NO_OUTPUT_KILL_MIN = 45
@@ -37,23 +40,40 @@ class AgentRunResult:
     stderr_tail: str = ""
 
 
+def _resolve_binary() -> str:
+    """Return the full cursor binary path that subprocess can actually execute."""
+    import shutil, os
+    # shutil.which returns the full path with correct extension (e.g. cursor.CMD)
+    found = shutil.which("cursor")
+    if found:
+        return found
+    # PATH may not include the bin dir in automation context — patch it and retry
+    os.environ["PATH"] = CURSOR_BIN_DIR + ";" + os.environ.get("PATH", "")
+    found = shutil.which("cursor")
+    if found:
+        return found
+    # Hard fallback to known .cmd wrapper
+    if Path(CURSOR_BINARY_FULLPATH).exists():
+        return CURSOR_BINARY_FULLPATH
+    return CURSOR_BINARY  # Will fail with clear error
+
+
 def discover() -> dict[str, Any]:
     """Discover Cursor CLI binary and capabilities. Write to discovery log."""
     DISCOVERY_LOG.parent.mkdir(parents=True, exist_ok=True)
-    info: dict[str, Any] = {}
-    for cmd_name in ["cursor", "cursor-agent"]:
-        for flag in ["--version", "--help"]:
-            try:
-                r = subprocess.run(
-                    [cmd_name, flag], capture_output=True, text=True, timeout=10
-                )
-                info[f"{cmd_name}_{flag.strip('-')}"] = (r.stdout + r.stderr).strip()[:500]
-                break  # found this binary
-            except FileNotFoundError:
-                info[f"{cmd_name}_found"] = False
-                break
-            except subprocess.TimeoutExpired:
-                info[f"{cmd_name}_timeout"] = True
+    binary = _resolve_binary()
+    info: dict[str, Any] = {"binary_used": binary}
+    for flag in ["--version", "--help"]:
+        try:
+            r = subprocess.run(
+                [binary, flag], capture_output=True, text=True, timeout=10
+            )
+            info[f"cursor_{flag.strip('-')}"] = (r.stdout + r.stderr).strip()[:500]
+        except FileNotFoundError:
+            info["error"] = f"{binary} not found"
+            break
+        except subprocess.TimeoutExpired:
+            info["timeout"] = flag
 
     ts = datetime.now(timezone.utc).isoformat()
     log_lines = [f"=== Cursor CLI Discovery {ts} ===\n"]
@@ -64,18 +84,17 @@ def discover() -> dict[str, Any]:
 
 
 def check_version() -> str:
-    for binary in ["cursor", "cursor-agent"]:
-        try:
-            r = subprocess.run(
-                [binary, "--version"], capture_output=True, text=True, timeout=10
-            )
-            v = (r.stdout + r.stderr).strip().splitlines()
-            return v[0] if v else "unknown"
-        except FileNotFoundError:
-            continue
-        except Exception as e:
-            return f"ERROR: {e}"
-    return "NOT_FOUND"
+    binary = _resolve_binary()
+    try:
+        r = subprocess.run(
+            [binary, "--version"], capture_output=True, text=True, timeout=10
+        )
+        v = (r.stdout + r.stderr).strip().splitlines()
+        return v[0] if v else "unknown"
+    except FileNotFoundError:
+        return f"NOT_FOUND: {binary}"
+    except Exception as e:
+        return f"ERROR: {e}"
 
 
 def run_agent(
@@ -202,9 +221,10 @@ def run_agent(
 
 
 def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
-    """Build the Cursor CLI command. Update this after running discover()."""
-    # Primary attempt: cursor --prompt-file
-    return [CURSOR_BINARY, "--prompt-file", prompt_path, "--cwd", working_dir]
+    """Build the Cursor CLI command using resolved binary path."""
+    binary = _resolve_binary()
+    # cursor --prompt-file <path> is the standard headless invocation
+    return [binary, "--prompt-file", prompt_path, "--cwd", working_dir]
 
 
 def _tail(path: Path, n: int = 50) -> str:
