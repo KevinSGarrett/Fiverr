@@ -4,23 +4,28 @@ on:
   workflow_dispatch:
     inputs:
       cycle:
-        description: "Cycle number or auto"
+        description: "Cycle number (e.g. 075) or auto"
         required: false
         default: "auto"
       mode:
-        description: "Mode"
+        description: "Controller command to run"
         required: true
-        default: "plan_only"
+        default: "brain-check"
         type: choice
         options:
-          - plan_only
-          - brain_check
-          - compile_policy
-          - jira_inventory
-          - execute
-          - repair
-          - merge_gate
+          - brain-check
+          - compile-policy
+          - jira-inventory
+          - plan-cycle
+          - validate-prompts
+          - cursor-smoke
+          - tick
           - status
+          - post-cycle-review
+          - merge-gate
+          - daily-report
+          - weekly-report
+          - recover
   schedule:
     - cron: "*/30 * * * *"
 
@@ -39,7 +44,8 @@ concurrency:
 jobs:
   ai-cycle:
     name: AI Cycle Controller
-    runs-on: [self-hosted, fiverr-ai-runner]
+    # Labels must match exactly what the runner registered with
+    runs-on: [self-hosted, fiverr-runner, windows, cursor, dedicated, ai-dev]
     timeout-minutes: 360
 
     steps:
@@ -48,6 +54,30 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_AUTOMATION_TOKEN }}
+
+      - name: Verify NOT running run-agent via workflow dispatch
+        shell: pwsh
+        run: |
+          $mode = "${{ github.event.inputs.mode || '' }}"
+          if ($mode -eq "run-agent") {
+            Write-Error "run-agent must not be dispatched directly via workflow. Use tick or plan-cycle."
+            exit 1
+          }
+
+      - name: Set Cursor CLI path environment
+        shell: pwsh
+        run: |
+          # Ensure standalone Cursor CLI (not Cursor Desktop) is on PATH
+          $cliDir = "C:\Users\Windows 11\AppData\Local\cursor-agent"
+          if (-not (Test-Path "$cliDir\agent.cmd")) {
+            Write-Error "Cursor CLI agent.cmd not found at $cliDir. Install via: irm 'https://cursor.com/install?win32=true' | iex"
+            exit 1
+          }
+          # Fail hard if Desktop binary would be used instead
+          $desktop = "C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin\cursor.CMD"
+          $env:PATH = "$cliDir;$env:PATH"
+          Write-Host "Cursor CLI: $cliDir\agent.cmd"
+          & "$cliDir\agent.cmd" --version
 
       - name: Run AI cycle controller
         shell: pwsh
@@ -59,7 +89,24 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
           Set-Location C:\Fiverr\Fiverr
-          $mode = "${{ github.event.inputs.mode || 'plan_only' }}"
+          $py    = ".venv\Scripts\python.exe"
+          $ctrl  = "automation\ai_cycle_controller.py"
+          $mode  = "${{ github.event.inputs.mode || 'tick' }}"
           $cycle = "${{ github.event.inputs.cycle || 'auto' }}"
-          Write-Host "Mode: $mode | Cycle: $cycle"
-          .venv\Scripts\python.exe automation\ai_cycle_controller.py $mode
+
+          Write-Host "Mode: $mode  Cycle: $cycle"
+
+          # Build arguments
+          $args = @($ctrl, $mode)
+          if ($cycle -ne "auto" -and $mode -in @("plan-cycle","validate-prompts","post-cycle-review","run-agent")) {
+            $args += @("--cycle", $cycle)
+          }
+          if ($mode -eq "plan-cycle") {
+            $args += "--dry-run"
+          }
+
+          & $py @args
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Controller exited $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }

@@ -117,20 +117,28 @@ def run(pr_number: int, repo: str = REPO,
             detail=f"check={check_name}",
         ))
 
-    # 6. Codecov (non-blocking if token not set — warn only)
+    # 6. Codecov — BLOCKING. MISSING is not acceptable; it means CI didn't upload.
+    # Use explicit break-glass policy to temporarily allow missing coverage.
+    break_glass = _load_break_glass()
+    codecov_allowed_missing = break_glass.get("allow_missing_codecov", False)
+
     codecov_project = _find_check_state(ci_checks, "codecov/project")
-    codecov_patch = _find_check_state(ci_checks, "codecov/patch")
+    codecov_patch   = _find_check_state(ci_checks, "codecov/patch")
+
+    codecov_project_pass = codecov_project in ("success", "SUCCESS")
+    codecov_patch_pass   = codecov_patch in ("success", "SUCCESS")
+
     result.checks.append(GateCheck(
         "codecov_project",
-        passed=(codecov_project in ("success", "SUCCESS") or codecov_project == "MISSING"),
-        detail=f"status={codecov_project}",
-        blocking=(codecov_project != "MISSING"),
+        passed=codecov_project_pass or (codecov_allowed_missing and codecov_project == "MISSING"),
+        detail=f"status={codecov_project}" + (" [break-glass]" if codecov_allowed_missing else ""),
+        blocking=True,
     ))
     result.checks.append(GateCheck(
         "codecov_patch",
-        passed=(codecov_patch in ("success", "SUCCESS") or codecov_patch == "MISSING"),
-        detail=f"status={codecov_patch}",
-        blocking=(codecov_patch != "MISSING"),
+        passed=codecov_patch_pass or (codecov_allowed_missing and codecov_patch == "MISSING"),
+        detail=f"status={codecov_patch}" + (" [break-glass]" if codecov_allowed_missing else ""),
+        blocking=True,
     ))
 
     # 7. Secret guard on branch
@@ -141,13 +149,38 @@ def run(pr_number: int, repo: str = REPO,
         detail="staged file scan",
     ))
 
-    # 8. Model evidence (check cursor state is verified)
+    # 8. Model evidence — BLOCKING. Cannot merge without verified model state.
     cursor_state = _load_json(Path("C:/AI_Runner/state/cursor_model_state.json"))
+    cursor_verified = cursor_state.get("status") == "VERIFIED"
     result.checks.append(GateCheck(
-        "model_evidence",
-        passed=(cursor_state.get("status") == "VERIFIED"),
-        detail=f"cursor_status={cursor_state.get('status')}",
-        blocking=False,
+        "model_evidence_cursor",
+        passed=cursor_verified,
+        detail=f"cursor_status={cursor_state.get('status', 'MISSING')}",
+        blocking=True,
+    ))
+
+    # 9. Codex review disposition — BLOCKING.
+    # All review threads must be resolved or classified as non-blocking.
+    from automation.codex_thread_reader import read_threads
+    codex_result = read_threads(pr_number, repo)
+    result.checks.append(GateCheck(
+        "codex_review_disposition",
+        passed=not codex_result.merge_blocked,
+        detail=f"threads={len(codex_result.threads)} blockers={len(codex_result.blockers)}",
+        blocking=True,
+    ))
+
+    # 10. Post-cycle review must have run and passed for prior cycle
+    # (checked via controller state, not enforced on first PR)
+    ctrl_state = _load_json(Path("C:/AI_Runner/state/controller_state.json"))
+    last_status = ctrl_state.get("status", "UNKNOWN")
+    # Only block if controller explicitly says a post-cycle is pending
+    postcycle_blocked = last_status == "POST_CYCLE_PENDING"
+    result.checks.append(GateCheck(
+        "post_cycle_gate",
+        passed=not postcycle_blocked,
+        detail=f"controller_status={last_status}",
+        blocking=True,
     ))
 
     # Evaluate overall
@@ -229,6 +262,23 @@ def _write_result(result: MergeGateResult) -> None:
             for c in result.checks
         ],
     }, indent=2))
+
+
+def _load_break_glass() -> dict:
+    """Load active break-glass policy if one exists and has not expired."""
+    import json as _json
+    from datetime import datetime as _dt, timezone as _tz
+    path = Path("C:/AI_Runner/state/break_glass_active.json")
+    if not path.exists():
+        return {}
+    try:
+        bg = _json.loads(path.read_text())
+        expires = bg.get("expires_at", "")
+        if expires and _dt.fromisoformat(expires.replace("Z", "+00:00")) < _dt.now(_tz.utc):
+            return {}  # Expired
+        return bg
+    except Exception:
+        return {}
 
 
 def _load_json(path: Path) -> dict:
