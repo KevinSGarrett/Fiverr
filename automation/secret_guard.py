@@ -30,14 +30,15 @@ DANGEROUS_FILE_PATTERNS = [
 
 # Content patterns that indicate secrets inside files
 SECRET_CONTENT_PATTERNS = [
-    (r"ANTHROPIC_API_KEY\s*=\s*sk-", "Anthropic API key value"),
+    (r"ANTHROPIC_API_KEY\s*=\s*[\'\"]{0,1}sk-", "Anthropic API key value"),
     (r"api_key\s*=\s*['\"][a-zA-Z0-9_\-]{20,}", "API key value"),
     (r"password\s*=\s*['\"][^'\"]{8,}", "password value"),
     (r"secret\s*=\s*['\"][^'\"]{8,}", "secret value"),
     (r"-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----", "private key"),
-    (r"gh[pousr]_[A-Za-z0-9]{36}", "GitHub token"),
+    (r"gh[pousr]_[A-Za-z0-9]{20,}", "GitHub token"),
     (r"xoxb-|xoxp-|xoxa-", "Slack token"),
     (r"JIRA_API_TOKEN\s*=\s*[A-Za-z0-9]{20,}", "Jira API token value"),
+    (r"ATATT3x[A-Za-z0-9]{5,}", "Atlassian token literal"),
 ]
 
 
@@ -109,4 +110,44 @@ def scan_working_tree(cwd: Path = REPO_ROOT) -> SecretGuardResult:
                 if re.search(pattern, fname, re.IGNORECASE):
                     result.dangerous_files.append(fname)
                     result.passed = False
+    return result
+
+
+def scan_file(path: Path | str) -> SecretGuardResult:
+    """Scan a single file for dangerous patterns. Used for pre-commit and unit tests."""
+    path = Path(path)
+    result = SecretGuardResult()
+
+    # Check filename
+    for pattern in DANGEROUS_FILE_PATTERNS:
+        if re.search(pattern, path.name, re.IGNORECASE):
+            result.dangerous_files.append(str(path))
+            result.passed = False
+
+    if not path.exists():
+        return result
+
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return result
+
+    # Check content for secret patterns
+    for pattern, desc in SECRET_CONTENT_PATTERNS:
+        if re.search(pattern, content):
+            # Exclude lines that are clearly comments or empty assignments
+            lines = content.splitlines()
+            for line in lines:
+                stripped = line.strip()
+                if re.search(pattern, line):
+                    # Skip pure comment lines
+                    if stripped.startswith("#"):
+                        continue
+                    # Skip empty value assignments: KEY=
+                    if re.match(r"^[A-Z_]+=\s*$", stripped):
+                        continue
+                    result.findings.append(f"{path.name}: {desc}")
+                    result.passed = False
+                    break
+
     return result

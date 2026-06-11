@@ -144,3 +144,12 @@ def _write_blocked_report(result: ModelGateResult, cycle: int | None, agent: str
         "4. Re-run: python automation/ai_cycle_controller.py brain-check",
     ]
     path.write_text("\n".join(lines))
+
+def _load_cursor_state(state_path: Path | None = None) -> dict:
+    """Load cursor model state JSON. Extracted for testability."""
+    import json as _json
+    p = state_path or Path("C:/AI_Runner/state/cursor_model_state.json")
+    try:
+        return _json.loads(p.read_text()) if p.exists() else {}
+    except Exception:
+        return {}

@@ -1,0 +1,26 @@
+{
+  "_doc": "Jira status ID map for KevinSGarrett/Fiverr project (SCRUM board). Transition IDs discovered via GET /rest/api/3/issue/{key}/transitions",
+  "_cloud_id": "eae77257-a572-4e19-b746-8b184ba2d01f",
+  "_last_verified": "2026-06-11",
+  "statuses": {
+    "Backlog":      { "id": "10014", "category": "To Do" },
+    "To Do":        { "id": "10000", "category": "To Do" },
+    "In Progress":  { "id": "3",     "category": "In Progress" },
+    "In Review":    { "id": "10001", "category": "In Progress" },
+    "Done":         { "id": "10002", "category": "Done" },
+    "Cancelled":    { "id": "10010", "category": "Done" },
+    "Blocked":      { "id": "10015", "category": "In Progress" }
+  },
+  "transitions": {
+    "to_in_progress": { "id": "21",  "name": "In Progress", "from": ["To Do", "Backlog"] },
+    "to_in_review":   { "id": "31",  "name": "In Review",   "from": ["In Progress"] },
+    "to_done":        { "id": "41",  "name": "Done",         "from": ["In Review", "In Progress", "To Do"] },
+    "to_backlog":     { "id": "11",  "name": "To Do",        "from": ["In Progress"] },
+    "to_cancelled":   { "id": "51",  "name": "Cancelled",    "from": ["To Do", "Backlog", "In Progress"] }
+  },
+  "_usage": {
+    "transition_to_done":       "POST /rest/api/3/issue/{key}/transitions body={\"transition\":{\"id\":\"41\"}}",
+    "transition_to_in_review":  "POST /rest/api/3/issue/{key}/transitions body={\"transition\":{\"id\":\"31\"}}",
+    "transition_to_in_progress":"POST /rest/api/3/issue/{key}/transitions body={\"transition\":{\"id\":\"21\"}}"
+  }
+}

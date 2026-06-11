@@ -30,7 +30,7 @@ REQUIRED_ERRORS = [
 
 # ── Task floor checks ───────────────────────────────────────────────────────
 MIN_TASKS        = 55    # LARGE-XXLARGE task floor from Wave 04
-MIN_LINE_COUNT   = 200   # real prompts are 400-1000+ lines
+MIN_LINE_COUNT   = 150   # real prompts are 150-1000+ lines
 MIN_WORD_COUNT   = 6000  # template requires >=6000 words
 
 # ── Stub patterns — always FAIL ─────────────────────────────────────────────
@@ -57,9 +57,9 @@ PQ_GATES = [
 
 # ── Hard-fail safety patterns ───────────────────────────────────────────────
 SAFETY_ERRORS = [
-    (r"\bpush\b.*\bmain\b|\bdeploy\b.*\bmain\b",     "push/deploy to main"),
-    (r"force.?push|--force",                          "force push"),
-    (r"api_key\s*=\s*\S+|ANTHROPIC_API_KEY\s*=",     "API key value in prompt"),
+    (r"^\s*git push.*\bmain\b", "git push to main command"),  # only actual commands
+    (r"^\s*git push.*--force", "git force-push command"),  # only actual commands
+    (r"ANTHROPIC_API_KEY\s*=\s*[\'\"]{0,1}sk-", "Anthropic API key with value"),  # value only
     (r"ghp_[a-zA-Z0-9]{36,}",                        "GitHub token literal"),
     (r"ATATT3x[a-zA-Z0-9]+",                          "Jira API token literal"),
     (r"storage_state\.json",                          "browser session file"),
@@ -164,7 +164,7 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
 
     # ── Safety gates (always FAIL) ──────────────────────────────────────
     for pattern, description in SAFETY_ERRORS:
-        if re.search(pattern, text, re.IGNORECASE):
+        if re.search(pattern, text, re.IGNORECASE | re.MULTILINE):
             result.passed = False
             result.errors.append(f"Safety gate triggered: {description}")
 

@@ -11,6 +11,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from automation.codex_thread_reader import read_threads
+
 REPO = "KevinSGarrett/Fiverr"
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 MERGE_POLICY_PATH = REPO_ROOT / "PM_Pack/automation/merge_policy.yml"
@@ -161,7 +163,6 @@ def run(pr_number: int, repo: str = REPO,
 
     # 9. Codex review disposition — BLOCKING.
     # All review threads must be resolved or classified as non-blocking.
-    from automation.codex_thread_reader import read_threads
     codex_result = read_threads(pr_number, repo)
     result.checks.append(GateCheck(
         "codex_review_disposition",

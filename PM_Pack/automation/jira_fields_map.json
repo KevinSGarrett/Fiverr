@@ -1,0 +1,53 @@
+{
+  "_doc": "Jira custom field ID map for KevinSGarrett/Fiverr (SCRUM board). Discovered via GET /rest/api/3/field",
+  "_cloud_id": "eae77257-a572-4e19-b746-8b184ba2d01f",
+  "_last_verified": "2026-06-11",
+  "standard_fields": {
+    "summary":      "summary",
+    "description":  "description",
+    "status":       "status",
+    "issuetype":    "issuetype",
+    "priority":     "priority",
+    "assignee":     "assignee",
+    "reporter":     "reporter",
+    "labels":       "labels",
+    "components":   "components",
+    "fixVersions":  "fixVersions",
+    "parent":       "parent",
+    "subtasks":     "subtasks",
+    "comment":      "comment",
+    "created":      "created",
+    "updated":      "updated"
+  },
+  "custom_fields": {
+    "story_points":   { "id": "customfield_10016", "name": "Story Points", "type": "number" },
+    "epic_link":      { "id": "customfield_10014", "name": "Epic Link",    "type": "any" },
+    "epic_name":      { "id": "customfield_10011", "name": "Epic Name",    "type": "string" },
+    "sprint":         { "id": "customfield_10020", "name": "Sprint",       "type": "array" },
+    "cycle_label":    { "id": "labels",            "name": "Labels",       "type": "array",
+                        "_note": "Use labels for cycle:NNN tagging" }
+  },
+  "issue_types": {
+    "Epic":    "10000",
+    "Story":   "10001",
+    "Task":    "10002",
+    "Subtask": "10003",
+    "Bug":     "10004"
+  },
+  "priorities": {
+    "Highest": "1",
+    "High":    "2",
+    "Medium":  "3",
+    "Low":     "4",
+    "Lowest":  "5"
+  },
+  "_automation_notes": {
+    "add_comment":          "POST /rest/api/3/issue/{key}/comment",
+    "get_transitions":      "GET  /rest/api/3/issue/{key}/transitions",
+    "transition_issue":     "POST /rest/api/3/issue/{key}/transitions",
+    "search_jql":           "GET  /rest/api/3/search/jql?jql=...",
+    "create_issue":         "POST /rest/api/3/issue",
+    "cycle_label_format":   "cycle:075",
+    "agent_label_format":   "agent:A"
+  }
+}

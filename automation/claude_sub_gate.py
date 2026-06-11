@@ -136,3 +136,11 @@ def _write_blocked_report(findings: list[str]) -> Path:
     ]
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
+
+def run_subscription_check() -> dict:
+    """
+    Full subscription check: API key absence + billing mode verification.
+    Returns dict with passed, incident_code, checks.
+    Alias for verify_subscription_preflight, used by controller and tests.
+    """
+    return verify_subscription_preflight()
