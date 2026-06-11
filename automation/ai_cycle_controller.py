@@ -271,6 +271,137 @@ def cmd_plan_cycle(dry_run: bool, cycle: int | None):
     })
 
 
+@cli.command("validate-prompts")
+@click.option("--cycle", required=True, type=int, help="Cycle number.")
+@click.option("--agents", default="A,B,E,C,F,D", help="Comma-separated agent list.")
+def cmd_validate_prompts(cycle: int, agents: str):
+    """Validate generated prompt files for a cycle before dispatch."""
+    click.echo("=" * 60)
+    click.echo(f"VALIDATE PROMPTS — Cycle {cycle:03d}")
+    click.echo("=" * 60)
+
+    from automation.prompt_validator import validate_all
+    agent_list = [a.strip() for a in agents.split(",")]
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    results = validate_all(prompts_dir, cycle, agent_list)
+
+    all_pass = True
+    for agent, r in results.items():
+        icon = "PASS" if r.passed else "FAIL"
+        click.echo(f"  [{icon}] Agent {agent}: {r.prompt_path}")
+        for e in r.errors:
+            click.secho(f"         ERROR: {e}", fg="red")
+        for w in r.warnings:
+            click.secho(f"         WARN : {w}", fg="yellow")
+        if not r.passed:
+            all_pass = False
+
+    click.echo()
+    if all_pass:
+        click.secho("PROMPT VALIDATION PASS", fg="green", bold=True)
+    else:
+        click.secho("PROMPT VALIDATION FAIL", fg="red", bold=True)
+        sys.exit(1)
+
+
+@cli.command("run-agent")
+@click.option("--agent", required=True, help="Agent ID (A/B/E/C/F/D).")
+@click.option("--cycle", required=True, type=int, help="Cycle number.")
+@click.option("--safe-docs-only", is_flag=True, default=False,
+              help="Docs-only test — skips MODEL_GATE hard-fail, warns only.")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Print what would run without executing Cursor.")
+def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
+    """Run a single Cursor agent with MODEL_GATE + validation + commit."""
+    click.echo("=" * 60)
+    click.echo(f"RUN AGENT {agent} — Cycle {cycle:03d} {'[DRY RUN]' if dry_run else ''}")
+    click.echo("=" * 60)
+
+    from automation.model_gate import check as model_gate_check
+    from automation.state_writer import write_heartbeat, write_controller_state, make_run_dir
+
+    # --- MODEL_GATE ---
+    click.echo("  [1/5] MODEL_GATE check...")
+    gate = model_gate_check(repo_root=REPO_ROOT, cycle=cycle, agent=agent)
+    click.echo(gate.summary())
+    if not gate.passed:
+        if safe_docs_only:
+            click.secho("  MODEL_GATE failed but --safe-docs-only set, continuing with warning.", fg="yellow")
+        else:
+            click.secho("  MODEL_GATE FAILED — aborting dispatch.", fg="red", bold=True)
+            write_controller_state("MODEL_BLOCKED", cycle=cycle)
+            sys.exit(1)
+
+    write_heartbeat("MODEL_GATE_PASSED", cycle=cycle, agent=agent)
+    write_controller_state("AGENT_DISPATCH", cycle=cycle)
+
+    # --- Locate prompt ---
+    click.echo(f"  [2/5] Locating prompt...")
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
+    if not prompt_path.exists():
+        click.secho(f"  Prompt not found: {prompt_path}", fg="red")
+        sys.exit(1)
+    click.echo(f"  Prompt: {prompt_path}")
+
+    # --- Validate prompt ---
+    click.echo("  [3/5] Validating prompt...")
+    from automation.prompt_validator import validate as validate_prompt
+    pv = validate_prompt(prompt_path, agent, cycle)
+    if not pv.passed and not safe_docs_only:
+        click.secho(pv.summary(), fg="red")
+        sys.exit(1)
+    elif not pv.passed:
+        click.secho(f"  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
+        click.echo(pv.summary())
+    else:
+        click.secho("  Prompt validation PASS", fg="green")
+
+    if dry_run:
+        click.echo()
+        click.secho(f"  DRY RUN: Would dispatch Cursor with: {prompt_path}", fg="cyan")
+        click.secho(f"  DRY RUN: Working dir: {REPO_ROOT}", fg="cyan")
+        click.secho("RUN AGENT DRY RUN COMPLETE", fg="green", bold=True)
+        return
+
+    # --- Dispatch Cursor ---
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    run_dir = make_run_dir(cycle, run_id)
+    agent_dir = run_dir / "agent_runs" / agent
+
+    click.echo(f"  [4/5] Dispatching Cursor agent {agent}...")
+    write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
+
+    from automation.cursor_adapter import run_agent as cursor_run
+    result = cursor_run(
+        agent_id=agent,
+        prompt_path=str(prompt_path),
+        working_dir=str(REPO_ROOT),
+        output_dir=str(agent_dir),
+    )
+
+    click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code}")
+    if result.stdout_tail:
+        click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
+    if result.error_message:
+        click.secho(f"  Error: {result.error_message}", fg="red")
+
+    # --- Post-agent validation ---
+    click.echo("  [5/5] Post-agent validation (ruff + mypy)...")
+    from automation.validation_runner import run_targeted_validation
+    val = run_targeted_validation(["ruff", "mypy"], REPO_ROOT)
+    click.echo(val.summary())
+
+    write_heartbeat("AGENT_COMPLETE", cycle=cycle, agent=agent)
+    write_controller_state("AGENT_COMPLETE", cycle=cycle)
+
+    if result.status == "complete" and val.all_passed:
+        click.secho(f"Agent {agent} COMPLETE", fg="green", bold=True)
+    else:
+        click.secho(f"Agent {agent} needs repair: status={result.status}", fg="yellow")
+        sys.exit(1)
+
+
 @cli.command("cursor-smoke")
 def cmd_cursor_smoke():
     """Run a no-write Cursor smoke test (reads context only)."""
