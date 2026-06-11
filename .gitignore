@@ -93,3 +93,17 @@ PM_Pack/scratch_*.ps1
 PM_Pack/scratch_*.txt
 PM_Pack/counts_out.txt
 external_signal_cache.json
+
+# ── Automation runner generated artifacts ────────────────────────────
+# These are runtime-generated; source of truth is GitHub + Jira
+PM_Pack/automation/runs/
+PM_Pack/automation/locks/
+PM_Pack/automation/current_policy_snapshot.json
+PM_Pack/automation/prompts/cursor_smoke_test.md
+
+# ── Go-live / setup helper scripts (local machine only) ─────────────
+setup_runner.ps1
+fix_secrets.ps1
+go_live_phase1.ps1
+go_live_phase2.ps1
+go_live_phase3.ps1

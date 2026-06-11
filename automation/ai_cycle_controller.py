@@ -454,11 +454,12 @@ def cmd_recover():
 @cli.command("tick")
 def cmd_tick():
     """Scheduled tick — check state and decide next action."""
-    click.echo(f"[TICK] {_now()}")
+    from automation.state_writer import write_heartbeat, write_controller_state
     state = _read_runner_state()
     status = state.get("status", "IDLE")
-    click.echo(f"  Status: {status}")
-    click.echo("  Tick loop not yet fully implemented — run commands manually for Wave 03.")
+    write_heartbeat(status)
+    write_controller_state(status)
+    click.echo(f"[TICK] {_now()} status={status}")
 
 
 @cli.command("merge-gate")
