@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PostCycleReviewResult",
+  "type": "object",
+  "required": ["cycle", "mode", "result", "blocks_dispatch", "evaluated_at"],
+  "properties": {
+    "cycle":           { "type": "integer" },
+    "mode":            { "type": "string", "enum": ["POST_AGENT_CYCLE_REVIEW", "POST_CYCLE_PM_REVIEW"] },
+    "result": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "ADVISORY_ONLY", "DRAFT_UNMERGED_PREVIEW",
+               "BLOCKED_SOURCE_PROMPT_MISSING", "BLOCKED_MODEL_UNVERIFIED"]
+    },
+    "blocks_dispatch": { "type": "boolean" },
+    "errors":          { "type": "array", "items": { "type": "string" } },
+    "warnings":        { "type": "array", "items": { "type": "string" } },
+    "facts":           { "type": "object" },
+    "evaluated_at":    { "type": "string", "format": "date-time" }
+  }
+}

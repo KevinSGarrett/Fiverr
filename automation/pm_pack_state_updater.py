@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +27,7 @@ def update_hydration_header(cycle: int, branch: str, pr: int | None,
         return False
 
     text = path.read_text(encoding="utf-8", errors="replace")
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now = datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Update CYCLE_CURRENT to next cycle
     text = re.sub(r"^CYCLE_CURRENT:\s*\d+",
@@ -66,7 +66,7 @@ def write_cycle_log(cycle: int, branch: str, pr: int | None,
     log_dir.mkdir(parents=True, exist_ok=True)
     path = log_dir / f"CYCLE_{cycle:03d}_AUTONOMOUS_RUN.md"
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     lines = [
         f"# Cycle {cycle:03d} — Autonomous Runner Log",
         f"Generated: {now}",
@@ -99,7 +99,7 @@ def write_run_summary_full(run_dir: Path, cycle: int, agents: list[str],
                             pr: int | None, jira_keys: list[str]) -> Path:
     """Write detailed RUN_SUMMARY.md for the cycle run directory."""
     path = run_dir / "RUN_SUMMARY.md"
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     lines = [
         f"# Run Summary — Cycle {cycle:03d}",
         f"Generated: {now}",

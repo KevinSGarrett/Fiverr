@@ -8,7 +8,6 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 VENV_PYTHON = Path("C:/Fiverr/Fiverr/.venv/Scripts/python.exe")
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 

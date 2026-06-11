@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ModelVerificationState",
+  "description": "Schema for cursor_model_state.json and claude_model_state.json",
+  "type": "object",
+  "required": ["verified_at", "machine", "requested_model", "observed_model", "status"],
+  "properties": {
+    "verified_at":        { "type": "string", "format": "date-time" },
+    "machine":            { "type": "string" },
+    "cursor_version":     { "type": "string" },
+    "binary":             { "type": "string" },
+    "binary_dir":         { "type": "string" },
+    "requested_model":    { "type": "string" },
+    "observed_model":     { "type": "string" },
+    "requested_effort":   { "type": "string", "enum": ["low", "medium", "high"] },
+    "observed_effort":    { "type": "string" },
+    "auto_model_disabled":{ "type": "boolean" },
+    "fallback_disabled":  { "type": "boolean" },
+    "verification_method":{ "type": "string" },
+    "verified_by":        { "type": "string" },
+    "valid_until":        { "type": "string", "format": "date-time" },
+    "status": {
+      "type": "string",
+      "enum": ["VERIFIED", "UNVERIFIED", "STALE", "MISSING", "MODEL_MISMATCH",
+               "SUBSCRIPTION_VERIFIED_MODEL_PENDING", "BLOCKED"]
+    },
+    "billing_mode":       { "type": "string" },
+    "anthropic_api_key_present": { "type": "boolean" },
+    "api_credit_fallback_allowed": { "type": "boolean" },
+    "adaptive_thinking_enabled": { "type": "boolean" }
+  }
+}

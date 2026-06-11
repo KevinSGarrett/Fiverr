@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +37,7 @@ class MergeGateResult:
 
     def __post_init__(self):
         if not self.evaluated_at:
-            self.evaluated_at = datetime.now(timezone.utc).isoformat()
+            self.evaluated_at = datetime.now(UTC).isoformat()
 
     def failed_checks(self) -> list[GateCheck]:
         return [c for c in self.checks if not c.passed and c.blocking]
@@ -213,7 +213,7 @@ def _execute_merge(pr_number: int, repo: str) -> str | None:
 def _write_result(result: MergeGateResult) -> None:
     out_dir = Path("C:/AI_Runner/reports")
     out_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     path = out_dir / f"merge_gate_pr{result.pr_number}_{ts}.json"
     path.write_text(json.dumps({
         "pr_number": result.pr_number,

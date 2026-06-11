@@ -3,8 +3,7 @@ pr_builder.py — Build structured PR body markdown from cycle manifest and run 
 """
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,14 +19,14 @@ def build_pr_body(
     run_id: str | None = None,
 ) -> str:
     """Build a complete PR body markdown string."""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
         f"# Cycle {cycle:03d} — Autonomous Runner",
-        f"",
+        "",
         f"Cycle: {cycle:03d}  ",
         f"Jira Keys: {', '.join(jira_keys) if jira_keys else 'TBD'}  ",
         f"Source Branch: `{branch}`  ",
-        f"Target Branch: `develop`  ",
+        "Target Branch: `develop`  ",
         f"Run ID: {run_id or 'N/A'}  ",
         f"Generated: {now}  ",
         "",

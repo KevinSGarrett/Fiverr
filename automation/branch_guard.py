@@ -7,7 +7,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-
 PROTECTED_BRANCHES = {"main", "master", "develop"}
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 

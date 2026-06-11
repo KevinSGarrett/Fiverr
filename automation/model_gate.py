@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 CURSOR_STATE_PATH = Path("C:/AI_Runner/state/cursor_model_state.json")
 MODEL_POLICY_PATH = Path("C:/AI_Runner/config/model_selection_policy.yaml")
@@ -90,7 +89,7 @@ def check(repo_root: Path | None = None,
     if result.verified_at:
         try:
             vt = datetime.fromisoformat(result.verified_at.replace("Z", "+00:00"))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             result.age_days = (now - vt).total_seconds() / 86400
             if result.age_days > MAX_VERIFICATION_AGE_DAYS:
                 result.passed = False
@@ -120,11 +119,11 @@ def check(repo_root: Path | None = None,
 
 def _write_blocked_report(result: ModelGateResult, cycle: int | None, agent: str | None) -> None:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     path = REPORT_DIR / f"BLOCKED_MODEL_VERIFICATION_{ts}.md"
     lines = [
         "# BLOCKED_MODEL_VERIFICATION",
-        f"Timestamp : {datetime.now(timezone.utc).isoformat()}",
+        f"Timestamp : {datetime.now(UTC).isoformat()}",
         f"Cycle     : {cycle}",
         f"Agent     : {agent}",
         f"Model     : {result.observed_model}",

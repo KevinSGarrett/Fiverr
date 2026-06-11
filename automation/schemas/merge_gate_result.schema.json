@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MergeGateResult",
+  "type": "object",
+  "required": ["pr_number", "branch", "target", "passed", "evaluated_at"],
+  "properties": {
+    "pr_number":    { "type": "integer" },
+    "branch":       { "type": "string" },
+    "target":       { "type": "string" },
+    "passed":       { "type": "boolean" },
+    "dry_run":      { "type": "boolean" },
+    "merge_sha":    { "type": ["string", "null"] },
+    "evaluated_at": { "type": "string", "format": "date-time" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name":     { "type": "string" },
+          "passed":   { "type": "boolean" },
+          "detail":   { "type": "string" },
+          "blocking": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

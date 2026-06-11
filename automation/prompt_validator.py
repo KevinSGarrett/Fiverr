@@ -8,7 +8,6 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # Sections every prompt must contain
 REQUIRED_SECTIONS = [
     "## 1. Identity",

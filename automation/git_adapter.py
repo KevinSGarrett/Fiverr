@@ -8,7 +8,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 FORBIDDEN_BRANCHES = {"main", "master"}
 
@@ -71,13 +70,13 @@ def add_files(files: list[str], cwd: Path = REPO_ROOT) -> int:
     for f in files:
         _git("add", f, cwd=cwd, check=False)
     staged = _git("diff", "--cached", "--name-only", cwd=cwd, check=False)
-    return len([l for l in staged.splitlines() if l.strip()])
+    return len([line for line in staged.splitlines() if line.strip()])
 
 
 def add_all(cwd: Path = REPO_ROOT) -> int:
     _git("add", "-A", cwd=cwd)
     staged = _git("diff", "--cached", "--name-only", cwd=cwd, check=False)
-    return len([l for l in staged.splitlines() if l.strip()])
+    return len([line for line in staged.splitlines() if line.strip()])
 
 
 def commit(message: str, cwd: Path = REPO_ROOT) -> CommitResult:
@@ -87,7 +86,7 @@ def commit(message: str, cwd: Path = REPO_ROOT) -> CommitResult:
         raise ValueError(f"Refusing to commit directly to {branch}")
 
     staged = _git("diff", "--cached", "--name-only", cwd=cwd, check=False)
-    count = len([l for l in staged.splitlines() if l.strip()])
+    count = len([line for line in staged.splitlines() if line.strip()])
     if count == 0:
         raise RuntimeError("Nothing staged to commit")
 

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -26,16 +26,16 @@ _repo_root = _here.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-from automation.pm_pack_loader import brain_check
-from automation.policy_compiler import compile_policy
-from automation.config_loader import get_secret
+from automation.config_loader import get_secret  # noqa: E402
+from automation.pm_pack_loader import brain_check  # noqa: E402
+from automation.policy_compiler import compile_policy  # noqa: E402
 
 REPO_ROOT = _repo_root
 RUNNER_STATE = Path("C:/AI_Runner/state/controller_state.json")
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _write_runner_state(state: dict) -> None:
@@ -130,7 +130,7 @@ def cmd_jira_inventory(dry_run: bool, project: str):
     from automation.jira_client import board_inventory
     try:
         inv = board_inventory(project)
-        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         out_dir = REPO_ROOT / f"PM_Pack/automation/runs/{run_id}"
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / "board_inventory.json"
@@ -215,7 +215,7 @@ def cmd_plan_cycle(dry_run: bool, cycle: int | None):
     # Do NOT add +1 — it is already the target cycle.
     current_cycle = snap.get("cycle_current", 75)
     next_cycle = cycle if cycle is not None else current_cycle
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     branch = f"cycle/{next_cycle:03d}/integration"
 
     out_dir = REPO_ROOT / f"PM_Pack/automation/runs/{run_id}"
@@ -320,7 +320,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
     click.echo("=" * 60)
 
     from automation.model_gate import check as model_gate_check
-    from automation.state_writer import write_heartbeat, write_controller_state, make_run_dir
+    from automation.state_writer import make_run_dir, write_controller_state, write_heartbeat
 
     # --- MODEL_GATE ---
     click.echo("  [1/5] MODEL_GATE check...")
@@ -338,7 +338,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
     write_controller_state("AGENT_DISPATCH", cycle=cycle)
 
     # --- Locate prompt ---
-    click.echo(f"  [2/5] Locating prompt...")
+    click.echo("  [2/5] Locating prompt...")
     prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
     prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
     if not prompt_path.exists():
@@ -354,7 +354,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
         click.secho(pv.summary(), fg="red")
         sys.exit(1)
     elif not pv.passed:
-        click.secho(f"  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
+        click.secho("  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
         click.echo(pv.summary())
     else:
         click.secho("  Prompt validation PASS", fg="green")
@@ -367,7 +367,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool):
         return
 
     # --- Dispatch Cursor ---
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     run_dir = make_run_dir(cycle, run_id)
     agent_dir = run_dir / "agent_runs" / agent
 
@@ -411,11 +411,11 @@ def cmd_cursor_smoke():
     click.echo("CURSOR CLI SMOKE TEST")
     click.echo("=" * 60)
 
-    from automation.cursor_adapter import discover, check_version
-    info = discover()
+    from automation.cursor_adapter import check_version, discover
+    discover()
     version = check_version()
     click.echo(f"  Cursor version  : {version}")
-    click.echo(f"  Discovery log   : C:/AI_Runner/logs/cursor_cli_discovery.txt")
+    click.echo("  Discovery log   : C:/AI_Runner/logs/cursor_cli_discovery.txt")
 
     # Write a no-write smoke prompt
     smoke_prompt = (
@@ -445,7 +445,7 @@ def cmd_recover():
                 stale_dir = lock_dir / "stale_locks"
                 stale_dir.mkdir(exist_ok=True)
                 from datetime import datetime as dt
-                ts = dt.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                ts = dt.now(UTC).strftime("%Y%m%d_%H%M%S")
                 lf.rename(stale_dir / f"{lf.stem}_{ts}.lock")
         else:
             click.echo("  No active locks found.")
@@ -456,7 +456,7 @@ def cmd_recover():
 @cli.command("tick")
 def cmd_tick():
     """Scheduled tick — check state and decide next action."""
-    from automation.state_writer import write_heartbeat, write_controller_state
+    from automation.state_writer import write_controller_state, write_heartbeat
     state = _read_runner_state()
     status = state.get("status", "IDLE")
     write_heartbeat(status)
@@ -478,9 +478,7 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool):
     click.echo(f"POST-CYCLE REVIEW -- Cycle {cycle:03d} [{mode}]")
     click.echo("=" * 60)
 
-    from automation.post_cycle_review import (
-        run_review, collect_facts, ReviewMode, ReviewResult
-    )
+    from automation.post_cycle_review import ReviewMode, ReviewResult, collect_facts, run_review
 
     rev_mode = ReviewMode.POST_MERGE if mode == "POST_CYCLE_PM_REVIEW" else ReviewMode.POST_AGENT
 
@@ -572,7 +570,7 @@ def cmd_create_labels():
         ("needs:codex-disposition", "ededed", "Needs Codex review disposition"),
         ("needs:coverage-repair", "fbca04", "Needs coverage repair"),
     ]
-    created, skipped, failed = 0, 0, 0
+    created, failed = 0, 0
     for name, color, desc in labels:
         r = subprocess.run(
             ["gh", "label", "create", name,

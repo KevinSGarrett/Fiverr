@@ -6,12 +6,11 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 SNAPSHOT_PATH = Path("PM_Pack/automation/current_policy_snapshot.json")
 
@@ -19,7 +18,7 @@ SNAPSHOT_PATH = Path("PM_Pack/automation/current_policy_snapshot.json")
 def compile_policy(repo_root: Path) -> dict[str, Any]:
     """Read PM_Pack files and produce a policy snapshot dict."""
     snapshot: dict[str, Any] = {
-        "compiled_at": datetime.now(timezone.utc).isoformat(),
+        "compiled_at": datetime.now(UTC).isoformat(),
         "runner": "fiverr-runner-local-01",
         "repo": "KevinSGarrett/Fiverr",
         "local_path": "C:/Fiverr/Fiverr",

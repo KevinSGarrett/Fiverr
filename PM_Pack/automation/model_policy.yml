@@ -1,0 +1,34 @@
+version: 1
+# Repo-side model policy — committed to source control
+# Runtime state is in C:\AI_Runner\state\cursor_model_state.json
+
+cursor_worker:
+  model: "Codex 5.3"
+  accepted_labels:
+    - "Codex 5.3"
+    - "GPT-5.3 Codex"
+    - "gpt-5.3-codex"
+    - "codex-5.3"
+    - "OpenAI Codex 5.3"
+  effort: "medium"
+  auto_model_disabled: true
+  fallback_disabled: true
+  verification_required: true
+  max_age_days: 7
+  state_file: "C:/AI_Runner/state/cursor_model_state.json"
+
+claude_pm_review:
+  model: "Claude Sonnet 4.6"
+  effort: "medium"
+  adaptive_thinking: true
+  billing: "claude_subscription_only"
+  anthropic_api_key_blocked: true
+  api_credit_fallback_blocked: true
+  state_file: "C:/AI_Runner/state/claude_model_state.json"
+
+dispatch_rules:
+  require_cursor_verified_before_dispatch: true
+  fail_closed_on_model_mismatch: true
+  fail_closed_on_stale_verification: true
+  write_blocked_report_on_fail: true
+  blocked_report_dir: "C:/AI_Runner/reports/model_verification"

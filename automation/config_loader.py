@@ -11,7 +11,6 @@ from typing import Any
 import yaml
 from dotenv import dotenv_values
 
-
 REPO_CONFIG_PATH = Path("automation/config/autonomous_runner.yml")
 RUNNER_CONFIG_PATH = Path("C:/AI_Runner/config/runner_config.yaml")
 RUNNER_ENV_PATH = Path("C:/AI_Runner/secrets/runner.env")

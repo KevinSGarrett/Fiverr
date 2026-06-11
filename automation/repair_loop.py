@@ -4,11 +4,8 @@ Reads classification from failure_classifier.py and builds targeted repair promp
 """
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from automation.failure_classifier import ClassifiedFailure, FailureType
 
@@ -76,7 +73,7 @@ def generate_repair_prompt(
         "## Repo",
         "C:\\Fiverr\\Fiverr",
         "",
-        f"## Branch",
+        "## Branch",
         branch,
         "",
         "## Failure type",
@@ -109,7 +106,7 @@ def generate_repair_prompt(
         "Do not stop for clarification if a reasonable, PM_Pack-consistent decision can be made.",
         "Only stop if the action would require a blocked operation.",
         "",
-        f"## Final repair report",
+        "## Final repair report",
         f"Append a repair section to: docs/cycle_reports/CYCLE_{failure.cycle:03d}_AGENT_{failure.repair_agent}.md",
     ]
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ CONTROLLER_STATE_PATH = RUNNER_STATE_DIR / "controller_state.json"
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def write_heartbeat(state: str, cycle: int | None = None,
@@ -47,11 +47,16 @@ def write_controller_state(state: str, cycle: int | None = None,
         "last_heartbeat": _now(),
         "status": state,
     }
-    if run_id:     payload["last_run_id"] = run_id
-    if cycle:      payload["active_cycle"] = cycle
-    if branch:     payload["active_branch"] = branch
-    if pr:         payload["active_pr"] = pr
-    if last_successful: payload["last_successful_state"] = last_successful
+    if run_id:
+        payload["last_run_id"] = run_id
+    if cycle:
+        payload["active_cycle"] = cycle
+    if branch:
+        payload["active_branch"] = branch
+    if pr:
+        payload["active_pr"] = pr
+    if last_successful:
+        payload["last_successful_state"] = last_successful
     CONTROLLER_STATE_PATH.write_text(json.dumps(payload, indent=2))
 
 

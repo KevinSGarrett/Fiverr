@@ -9,8 +9,8 @@ import os
 import subprocess
 import threading
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +42,7 @@ class AgentRunResult:
 
 def _resolve_binary() -> str:
     """Return the full cursor binary path that subprocess can actually execute."""
-    import shutil, os
+    import shutil
     # shutil.which returns the full path with correct extension (e.g. cursor.CMD)
     found = shutil.which("cursor")
     if found:
@@ -75,7 +75,7 @@ def discover() -> dict[str, Any]:
         except subprocess.TimeoutExpired:
             info["timeout"] = flag
 
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     log_lines = [f"=== Cursor CLI Discovery {ts} ===\n"]
     for k, v in info.items():
         log_lines.append(f"\n--- {k} ---\n{v}\n")
@@ -114,7 +114,7 @@ def run_agent(
     out_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = out_dir / f"stdout_{agent_id}.log"
     stderr_path = out_dir / f"stderr_{agent_id}.log"
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     started_ts = time.time()
 
     # Build command — will be refined once exact CLI syntax is known
@@ -159,7 +159,7 @@ def run_agent(
                 now = time.time()
                 if now > hard_deadline:
                     proc.kill()
-                    ended = datetime.now(timezone.utc).isoformat()
+                    ended = datetime.now(UTC).isoformat()
                     return AgentRunResult(
                         agent=agent_id, status="timeout",
                         started_at=started, ended_at=ended,
@@ -175,7 +175,7 @@ def run_agent(
                 no_output_age = now - last_output_ts[0]
                 if no_output_age > no_output_deadline_sec:
                     proc.kill()
-                    ended = datetime.now(timezone.utc).isoformat()
+                    ended = datetime.now(UTC).isoformat()
                     return AgentRunResult(
                         agent=agent_id, status="no_output",
                         started_at=started, ended_at=ended,
@@ -189,7 +189,7 @@ def run_agent(
                     )
                 time.sleep(15)
 
-        ended = datetime.now(timezone.utc).isoformat()
+        ended = datetime.now(UTC).isoformat()
         status = "complete" if retcode == 0 else "error"
         return AgentRunResult(
             agent=agent_id, status=status,
@@ -204,7 +204,7 @@ def run_agent(
         )
 
     except FileNotFoundError:
-        ended = datetime.now(timezone.utc).isoformat()
+        ended = datetime.now(UTC).isoformat()
         return AgentRunResult(
             agent=agent_id, status="error",
             started_at=started, ended_at=ended,
@@ -212,7 +212,7 @@ def run_agent(
             error_message=f"Cursor binary not found: {cmd[0]}",
         )
     except Exception as e:
-        ended = datetime.now(timezone.utc).isoformat()
+        ended = datetime.now(UTC).isoformat()
         return AgentRunResult(
             agent=agent_id, status="error",
             started_at=started, ended_at=ended,

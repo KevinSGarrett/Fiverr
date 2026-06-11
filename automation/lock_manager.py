@@ -7,9 +7,8 @@ from __future__ import annotations
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 LOCK_DIR = Path("PM_Pack/automation/locks")
 RUNNER_LOCK_DIR = Path("C:/AI_Runner/state")
@@ -76,7 +75,7 @@ def is_locked(lock_id: str) -> bool:
 def _move_stale(lock_path: Path) -> None:
     stale_dir = LOCK_DIR / "stale_locks"
     stale_dir.mkdir(exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     stale_path = stale_dir / f"{lock_path.stem}_{ts}.lock"
     lock_path.rename(stale_path)
 
@@ -92,4 +91,4 @@ def _process_alive(pid: int) -> bool:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

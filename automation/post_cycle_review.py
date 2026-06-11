@@ -13,12 +13,10 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
@@ -118,7 +116,7 @@ def collect_facts(cycle: int, mode: ReviewMode,
                   pr_number: int | None = None) -> PostCycleFacts:
     """Collect all deterministic facts before any PM review runs."""
     facts = PostCycleFacts(cycle=cycle, mode=mode,
-                           collected_at=datetime.now(timezone.utc).isoformat())
+                           collected_at=datetime.now(UTC).isoformat())
 
     # ── Git facts ─────────────────────────────────────────────────────
     facts.head_sha = _git("rev-parse", "HEAD")
@@ -186,8 +184,11 @@ def collect_facts(cycle: int, mode: ReviewMode,
 
     # ── Jira cycle control ────────────────────────────────────────────
     try:
+        import base64
+
+        import requests
+
         from automation.config_loader import get_secret
-        import requests, base64
         jira_url = get_secret("JIRA_BASE_URL")
         email = get_secret("JIRA_EMAIL")
         token = get_secret("JIRA_API_TOKEN")
@@ -279,7 +280,7 @@ def _write_queue_request(cycle: int, mode: ReviewMode,
         "cycle": cycle,
         "mode": mode.value,
         "pr_number": pr_number,
-        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "requested_at": datetime.now(UTC).isoformat(),
         "status": "PENDING",
     }, indent=2))
     return path
@@ -287,7 +288,7 @@ def _write_queue_request(cycle: int, mode: ReviewMode,
 
 def _write_result(result: PostCycleReviewResult) -> None:
     REVIEWS_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     name = f"CYCLE_{result.cycle:03d}_{result.mode.value}_{ts}"
     json_path = REVIEWS_DIR / f"{name}.json"
     md_path   = REVIEWS_DIR / f"{name}.md"
@@ -300,7 +301,7 @@ def _write_result(result: PostCycleReviewResult) -> None:
         "errors": result.errors,
         "warnings": result.warnings,
         "facts": result.facts.to_dict(),
-        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluated_at": datetime.now(UTC).isoformat(),
     }
     json_path.write_text(json.dumps(payload, indent=2))
 

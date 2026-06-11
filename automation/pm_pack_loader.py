@@ -13,7 +13,6 @@ from typing import Any
 
 import yaml
 
-
 REGISTRY_PATH = Path("PM_Pack/automation/BRAIN_REGISTRY.yml")
 POST_CYCLE_PROMPT_REL = "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
 
@@ -75,8 +74,9 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
         blocker_section = re.search(r"(?i)blocker[s]?.*?\n((?:[-*].+\n?)*)", text)
         if blocker_section:
             result.blockers_detected = [
-                ln.strip("- *\t ") for ln in blocker_section.group(1).splitlines()
-                if ln.strip("- *\t ")
+                re.sub(r"^[-*\s]+", "", ln).strip()
+                for ln in blocker_section.group(1).splitlines()
+                if ln.strip() and ln.strip() not in ("-", "*")
             ]
 
     # Verify post-cycle prompt

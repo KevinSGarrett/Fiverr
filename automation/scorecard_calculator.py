@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
@@ -28,7 +28,7 @@ class ScoreCard:
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc).isoformat()
+            self.calculated_at = datetime.now(UTC).isoformat()
         # Invariant: Score 2 must never exceed Score 1
         if self.score2_e2e > self.score1_internal:
             self.score2_e2e = self.score1_internal
@@ -83,7 +83,6 @@ def calculate_scorecard(cycle: int,
     # Check TierD-2 status from hydration
     header = PM_PACK / "07_hydration/HYDRATION_HEADER.md"
     tierd2_status = "PENDING"
-    tierd2_stages = {}
     if header.exists():
         text = header.read_text(encoding="utf-8", errors="replace")
         if "TIER_D2: APPROVED" in text:
@@ -97,7 +96,7 @@ def calculate_scorecard(cycle: int,
         caps.append("~50% hard cap: TierD-2 live pilot not yet completed")
     if s2_new > 50.0 and tierd2_status != "COMPLETE":
         s2_new = 50.0
-        caps.append(f"Score 2 capped at 50.0% (TierD-2 pending)")
+        caps.append("Score 2 capped at 50.0% (TierD-2 pending)")
 
     card = ScoreCard(
         cycle=cycle,

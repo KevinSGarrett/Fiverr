@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CycleManifest",
+  "type": "object",
+  "required": ["run_id", "cycle", "branch", "agents", "planned_at"],
+  "properties": {
+    "run_id":       { "type": "string" },
+    "cycle":        { "type": "integer", "minimum": 1 },
+    "branch":       { "type": "string", "pattern": "^cycle/\\d+/integration$" },
+    "base_branch":  { "type": "string" },
+    "agents":       { "type": "array", "items": { "type": "string", "enum": ["A","B","C","D","E","F"] } },
+    "dry_run":      { "type": "boolean" },
+    "planned_at":   { "type": "string", "format": "date-time" },
+    "jira_keys":    { "type": "array", "items": { "type": "string" } },
+    "quality_gates": { "type": "object" },
+    "jira_policy":  { "type": "object" },
+    "status": {
+      "type": "string",
+      "enum": ["PLANNED", "PLANNED_DRY_RUN", "DISPATCHING", "IN_PROGRESS",
+               "COMPLETE", "PARTIAL", "FAILED", "BLOCKED"]
+    }
+  }
+}

@@ -9,7 +9,6 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 
 # File patterns that should never be committed
