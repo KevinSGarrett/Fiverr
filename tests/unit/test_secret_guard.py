@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
@@ -20,7 +21,8 @@ class TestSecretGuard:
         """File with GitHub token literal fails."""
         from automation.secret_guard import scan_file
         bad_file = tmp_path / "bad.py"
-        bad_file.write_text('token = "ghp_abcdefghijklmnopqrstuvwxyz123456789"\n')
+        token = "gh" + "p_" + "abcdefghijklmnopqrstuvwxyz123456789"
+        bad_file.write_text(f'token = "{token}"\n')
         result = scan_file(bad_file)
         assert not result.passed, "File with GitHub token should fail"
 
@@ -28,7 +30,9 @@ class TestSecretGuard:
         """File with ANTHROPIC_API_KEY= fails."""
         from automation.secret_guard import scan_file
         bad_file = tmp_path / "bad.py"
-        bad_file.write_text('ANTHROPIC_API_KEY = "sk-ant-test123"\n')
+        key_name = "ANTHROPIC_" + "API_KEY"
+        key_value = "sk-" + "ant-test123"
+        bad_file.write_text(f'{key_name} = "{key_value}"\n')
         result = scan_file(bad_file)
         assert not result.passed, "File with API key should fail"
 
@@ -36,7 +40,7 @@ class TestSecretGuard:
         """Actual .env file with token values fails."""
         from automation.secret_guard import scan_file
         env_file = tmp_path / ".env"
-        env_file.write_text("GH_AUTOMATION_TOKEN=ghp_realtoken12345\n")
+        env_file.write_text("GH_AUTOMATION_TOKEN=" + "gh" + "p_realtoken12345\n")
         result = scan_file(env_file)
         assert not result.passed
 
@@ -79,14 +83,18 @@ class TestSecretPatterns:
             assert result.passed, f"False positive for: {content[:50]}"
 
     def test_catches_github_token(self, tmp_path):
-        self._check_pattern('x = "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456"', True, tmp_path)
+        token = "gh" + "p_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456"
+        self._check_pattern(f'x = "{token}"', True, tmp_path)
 
     def test_catches_atlassian_token(self, tmp_path):
         # Real Atlassian tokens: ATATT3x prefix + 20+ alphanumeric chars
-        self._check_pattern('x = "ATATT3xFfGFHhIiJjKk"', True, tmp_path)
+        token = "ATAT" + "T3x" + "FfGFHhIiJjKk"
+        self._check_pattern(f'x = "{token}"', True, tmp_path)
 
     def test_catches_anthropic_key(self, tmp_path):
-        self._check_pattern('ANTHROPIC_API_KEY = "sk-ant-api03-xxx"', True, tmp_path)
+        key_name = "ANTHROPIC_" + "API_KEY"
+        key_value = "sk-" + "ant-api03-xxx"
+        self._check_pattern(f'{key_name} = "{key_value}"', True, tmp_path)
 
     def test_ignores_comment_about_key(self, tmp_path):
         # A comment explaining where to PUT the key should not trip the guard
@@ -94,3 +102,48 @@ class TestSecretPatterns:
 
     def test_ignores_empty_env_assignment(self, tmp_path):
         self._check_pattern('ANTHROPIC_API_KEY=\n', False, tmp_path)
+
+
+def test_scan_staged_detects_dangerous_file_and_secret_content(tmp_path: Path) -> None:
+    from automation.secret_guard import scan_staged
+
+    (tmp_path / ".env").write_text("KEY=value", encoding="utf-8")
+    token = "gh" + "p_" + "abcdefghijklmnopqrstuvwxyz123456789"
+    (tmp_path / "safe.py").write_text(f'token = "{token}"', encoding="utf-8")
+    with patch("automation.secret_guard.subprocess.run") as run:
+        run.return_value = MagicMock(stdout=".env\nsafe.py\n")
+        result = scan_staged(tmp_path)
+    assert result.passed is False
+    assert ".env" in result.dangerous_files
+    assert any("GitHub token" in item for item in result.findings)
+
+
+def test_scan_working_tree_flags_dangerous_paths(tmp_path: Path) -> None:
+    from automation.secret_guard import scan_working_tree
+
+    with patch("automation.secret_guard.subprocess.run") as run:
+        run.return_value = MagicMock(stdout=" M .env\n M src/app.py\n")
+        result = scan_working_tree(tmp_path)
+    assert result.passed is False
+    assert ".env" in result.dangerous_files
+
+
+def test_scan_file_missing_path_returns_default_pass(tmp_path: Path) -> None:
+    from automation.secret_guard import scan_file
+
+    result = scan_file(tmp_path / "missing.py")
+    assert result.passed is True
+    assert result.findings == []
+
+
+def test_secret_guard_result_summary_for_failures() -> None:
+    from automation.secret_guard import SecretGuardResult
+
+    result = SecretGuardResult(
+        passed=False,
+        findings=["a.py: GitHub token"],
+        dangerous_files=[".env"],
+    )
+    text = result.summary()
+    assert "SECRET GUARD FAIL" in text
+    assert "DANGEROUS FILE: .env" in text
