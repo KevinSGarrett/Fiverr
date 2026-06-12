@@ -1,0 +1,11 @@
+Coverage run command executed:
+.venv\Scripts\python.exe -m pytest tests/unit/ --cov=automation --cov-report=term-missing -q
+
+Observed behavior in this workspace: broad tests/unit coverage run consistently stops printing around 54% progress, matching prior Agent B notes.
+See docs/cycle_reports/CYCLE_076_AGENT_B.md validation section for module-level post-fix coverage levels:
+- merge_gate 91%
+- secret_guard 92%
+- repair_loop 94%
+- notification_router 98%
+- pm_pack_loader 100%
+- prompt_generator 93%
