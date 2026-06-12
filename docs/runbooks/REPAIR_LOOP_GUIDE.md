@@ -1,6 +1,7 @@
 # Repair Loop Guide
 
 The repair loop is the controlled mechanism for correcting failed validations, missing artifacts, or governance mismatches without losing auditability. It is not a free-form retry system; each loop iteration must be evidence-backed.
+Repair quarantine behavior follows `docs/architecture/ADR_011_repair_loop_stash_not_reset.md` and uses git stash rather than reset-based discard.
 
 ## When to Trigger Repair Loop
 

@@ -12,6 +12,8 @@ Run in repo root:
 
 ```powershell
 Set-Location C:\Fiverr\Fiverr
+git status
+# Step 0 requirement: proceed only when output shows nothing to commit (working tree clean)
 python automation/ai_cycle_controller.py plan-cycle --live --cycle 075
 python automation/ai_cycle_controller.py validate-prompts --cycle 075
 ```

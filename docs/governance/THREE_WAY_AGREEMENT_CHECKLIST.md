@@ -23,3 +23,7 @@ Cycle completion requires agreement between PMPack state, Jira state, and GitHub
 
 Do not mark cycle complete until all checkpoints pass. If one leg fails, document blocker in cycle report and keep cycle status IN_PROGRESS.
 
+## Additional Checklist
+
+- [ ] cycle/NNN/integration branch is pushed and remote is ahead of or equal to develop.
+

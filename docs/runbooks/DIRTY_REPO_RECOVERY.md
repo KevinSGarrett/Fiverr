@@ -89,3 +89,15 @@ Include:
 
 Recovery is complete only when classification, preservation, cleanup, and validation are all recorded.
 
+## Emergency: Committing Deferred Agent Work
+
+If agent work was completed but not committed (e.g., the controller did not run the commit
+lifecycle), follow these steps to safely commit without using git add -A:
+
+1. Run: git status --short  (review all modified/untracked files)
+2. Run secret guard on all modified files
+3. Stage only approved files: git add -- <file1> git add -- <file2> ...
+4. Verify staged diff: git diff --cached --stat
+5. Commit with descriptive message including cycle number
+6. Push: git push origin <branch>
+
