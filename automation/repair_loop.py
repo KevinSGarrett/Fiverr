@@ -199,7 +199,7 @@ Do NOT re-implement features. Fix ONLY the specific errors listed below.
 2. Fix ONLY the files causing the errors above
 3. Do NOT modify files outside your scope
 4. Run validation after fixing:
-   - `python -m ruff check src/ automation/ --output-format=text`
+   - `python -m ruff check src/ automation/ --output-format=full`
    - `python -m mypy src/ --ignore-missing-imports`
    - `python -m pytest tests/ -q --tb=short -x`
 5. Stop conditions:

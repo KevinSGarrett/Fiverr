@@ -11,7 +11,7 @@
 | `docs/cycle_reports/CYCLE_075_GAP_LIST.md` | Gap analysis | V-1/V-2/V-9 are highest-credit blockers |
 
 ## Validation Results Summary
-- ruff: FAIL (deprecated `--output-format=text` argument)
+- ruff: FAIL (legacy Ruff output format usage corrected to `--output-format=full`)
 - pytest: FAIL (coverage 86.75% < required 90%)
 
 ## Score Calculations

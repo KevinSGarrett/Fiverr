@@ -56,7 +56,7 @@ AGENT {A|B|C|D} — CYCLE {NNN} PROMPT
 
 ## VALIDATION STEPS (Run before declaring done)
 1. Path preflight command proving each required file/directory exists (or is intentionally created by this cycle)
-2. ruff check {exact existing directories/files} --output-format=text
+2. ruff check {exact existing directories/files} --output-format=full
 3. mypy {exact existing directories/files} --ignore-missing-imports
 4. pytest {exact existing test files/node IDs} -v
 5. If any path is missing and not created by this cycle, use nearest existing suite with explicit rationale instead of blind-failing commands

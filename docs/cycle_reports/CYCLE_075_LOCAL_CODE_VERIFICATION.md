@@ -5,7 +5,7 @@
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Ruff | `python -m ruff check automation/ src/ --output-format=text` | FAIL | Ruff CLI flag changed; command failed with unsupported output format. |
+| Ruff | `python -m ruff check automation/ src/ --output-format=full` | FAIL | Ruff CLI flag changed; command failed with unsupported output format. |
 | Mypy | `python -m mypy automation/ src/ --ignore-missing-imports` | FAIL | 11 unused-ignore findings in src. |
 | Pytest+coverage | `python -m pytest tests/ --cov=automation --cov=src --cov-report=term-missing -q` | FAIL | 5714 passed; overall coverage 86.75% below 90% gate. |
 | brain-check | `python automation/ai_cycle_controller.py brain-check` | PASS | BRAIN CHECK PASS. |

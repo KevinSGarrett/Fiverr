@@ -358,7 +358,7 @@ def _run_validation(agent_id: str) -> tuple[bool, str]:
 
     # Ruff
     r = subprocess.run(
-        [py, "-m", "ruff", "check", "automation/", "src/", "--output-format=text"],
+        [py, "-m", "ruff", "check", "automation/", "src/", "--output-format=full"],
         cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120
     )
     if r.returncode != 0:
@@ -404,7 +404,7 @@ def _run_targeted_validation(
 
     try:
         if py_files:
-            ruff_cmd = ["python", "-m", "ruff", "check", *py_files, "--output-format=text"]
+            ruff_cmd = ["python", "-m", "ruff", "check", *py_files, "--output-format=full"]
             ruff_run = subprocess.run(ruff_cmd, cwd=str(repo_root), capture_output=True, text=True, check=False)
             ruff_passed = ruff_run.returncode == 0
             ruff_errors = (ruff_run.stdout + ruff_run.stderr).strip()

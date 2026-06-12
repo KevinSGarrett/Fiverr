@@ -71,7 +71,7 @@ Completed Cycle 075 state authority rewrites and reconciliations:
 
 ## Validation Results
 
-- Ruff command as written in prompt (`--output-format=text`) fails because this Ruff version removed `text` format.
+- Ruff command as written in prompt (`--output-format=full`) fails because this Ruff version removed `text` format.
 - Ruff rerun with supported format (`--output-format=full`) PASS.
 - `pm-pack-audit`: PASS (with non-blocking warnings).
 - `brain-check`: PASS.

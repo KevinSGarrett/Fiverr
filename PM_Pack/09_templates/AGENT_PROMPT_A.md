@@ -35,7 +35,7 @@ Jira access: You are allowed to use the connected Jira board when this prompt ex
 ## VALIDATION STEPS
 0. Path preflight (required): confirm all referenced source/test paths exist before validation, and explain whether any missing path is created by this cycle.
 1. Default validation:
-   - ruff check src/config src/models src/utils src/scripts src/orchestrator.py run.py --output-format=text
+   - ruff check src/config src/models src/utils src/scripts src/orchestrator.py run.py --output-format=full
    - mypy src/config src/models src/utils src/scripts src/orchestrator.py --ignore-missing-imports
    - pytest tests/unit/test_config.py tests/unit/test_models.py tests/unit/test_orchestrator.py tests/unit/test_cli.py -v
 2. If a referenced path is missing and not created by this cycle, use the nearest existing infrastructure suite and document the fallback rationale instead of running guaranteed-fail commands.

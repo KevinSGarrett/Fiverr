@@ -16,6 +16,6 @@
 ## Summary
 
 - No intermittent pass/fail mixing was observed in this repeated run set.
-- Ruff failed consistently due unsupported `--output-format=text` flag usage.
+- Ruff failed consistently due unsupported `--output-format=full` flag usage.
 - Mypy failed consistently due existing `unused-ignore` findings.
 - Pytest executed consistently but failed coverage threshold gate (<90%).

@@ -235,7 +235,7 @@ def generate_prompt(
         "",
         "```bash",
         "# 1. Ruff lint",
-        "python -m ruff check src/ tests/ automation/ --output-format=text",
+        "python -m ruff check src/ tests/ automation/ --output-format=full",
         "",
         "# 2. Mypy type check",
         "python -m mypy src/ --ignore-missing-imports",

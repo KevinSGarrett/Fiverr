@@ -8,7 +8,7 @@
 ## What could be faster
 - GH/Jira evidence collection should fail fast with clearer auth diagnostics.
 - Runner smoke workflow evidence currently depends on external auth state; add local fallback logging.
-- Ruff command compatibility drift (`--output-format=text`) should be corrected in scripts.
+- Ruff command compatibility drift (`--output-format=full`) should be corrected in scripts.
 
 ## Risks for next cycle
 - Live validation remains blocked by session/auth instability and no successful V-1 artifact.
