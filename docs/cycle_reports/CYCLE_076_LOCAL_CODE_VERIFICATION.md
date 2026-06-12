@@ -74,7 +74,7 @@ BRAIN CHECK PASS
 
 ## PM-pack-audit
 ```
-PM_PACK_AUDIT PASS ù 2026-06-12T16:08:10.543322+00:00
+PM_PACK_AUDIT PASS â€” 2026-06-12T16:33:22.064690+00:00
   WARN: current_policy_snapshot.last_completed_cycle is null but controller_cycle=75. Run compile-policy to regenerate snapshot.
   All state files agree on cycle, branch, and status.
 
@@ -86,7 +86,7 @@ PM_PACK_AUDIT PASS ù 2026-06-12T16:08:10.543322+00:00
     hydration_cycle: 76
     snapshot_cycle: 76
     canonical_status: None
-    current_status_says: '# AI Runner Current Status\n\n**Status:** ACTIVE ù V5 AUDIT CORRECTIONS COMPLETE\n**Reason:** All P0 co'
+    current_status_says: '# AI Runner Current Status\n\n**Status:** ACTIVE â€” V5 AUDIT CORRECTIONS COMPLETE\n**Reason:** All P0 co'
 PM_PACK_AUDIT PASS
 ```
 
