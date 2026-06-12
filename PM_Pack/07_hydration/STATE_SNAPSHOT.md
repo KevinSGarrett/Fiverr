@@ -1,4 +1,17 @@
-# State Snapshot — Cycle 075
+# State Snapshot — Cycle 076
+
+## Snapshot: 2026-06-12
+
+- Snapshot date: 2026-06-12
+- Cycle: 076 (continuing on cycle/075/integration)
+- HEAD SHA: 09afbc27819c841a9b0416cb7da0368fad05676b
+- Branch: cycle/075/integration
+- Score 1: 67.0%, Score 2: 46.9%
+- Tests: 5847 collected
+- PR: not yet created
+- Stage gate: Stage 1 ACTIVE
+
+---
 
 Updated: 2026-06-11
 

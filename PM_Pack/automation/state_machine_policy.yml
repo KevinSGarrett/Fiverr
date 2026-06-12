@@ -39,6 +39,18 @@ states:
     trigger: "validate-prompts command"
     dispatch_allowed: false
 
+  VALIDATE_PROMPTS:
+    description: "Prompt validation step is running."
+    allowed_transitions: [READY_TO_DISPATCH, PROMPT_VALIDATION_FAILED]
+    trigger: "validate-prompts execution"
+    dispatch_allowed: false
+
+  RESOLVE_DRIFT:
+    description: "Resolve dirty repo/model or state drift before validation/dispatch."
+    allowed_transitions: [VALIDATE_PROMPTS, READY_TO_DISPATCH]
+    trigger: "drift fixed and preconditions restored"
+    dispatch_allowed: false
+
   PROMPT_VALIDATION_FAILED:
     description: "One or more prompts failed validator."
     allowed_transitions: [PLANNING, COMPILED]
@@ -116,6 +128,12 @@ states:
     description: "ANTHROPIC_API_KEY detected — billing risk."
     allowed_transitions: [READY_TO_DISPATCH]
     trigger: "Remove API key + re-run verify_subscription_preflight"
+    dispatch_allowed: false
+
+  BLOCKED_DIRTY_REPO:
+    description: "Dirty working tree blocks dispatch lifecycle."
+    allowed_transitions: [RESOLVE_DRIFT]
+    trigger: "working tree cleaned and drift resolution started"
     dispatch_allowed: false
 
 # ── Global blocking conditions (always override transitions) ──────────

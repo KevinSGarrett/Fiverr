@@ -43,3 +43,13 @@ Cycle governance and automation policy controls were corrected to close all 15 A
 
 The correction session converts the cycle from a partially contradictory governance state to a controlled, auditable execution state. This prevents stale documentation from driving wrong planning decisions and ensures model/runner policy controls are active before additional go-live advancement.
 
+## Cycle 076 — 2026-06-12
+
+### Added
+- ADR-011: Repair loop uses git stash for quarantine
+- ADR-012: Six-agent execution order canonical definition
+- ADR-013: develop is integration target; main is release-only
+
+### Fixed
+- All deprecated Ruff text-format references replaced with --output-format=full (see below)
+

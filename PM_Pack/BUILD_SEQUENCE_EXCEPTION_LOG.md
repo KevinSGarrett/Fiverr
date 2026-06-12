@@ -46,3 +46,10 @@ Period covered: 2026-06-09 through 2026-06-11
 None.  
 All V5 exceptions above are closed and marked RESOLVED.
 
+## Exception 5 — Cycle 075 Commit Deferred
+
+- Exception type: COMMIT_DEFERRED — all cycle 075 work committed in cycle 076 Agent A
+- Reason: Cursor agents completed work but controller did not auto-commit (no real dispatch; manual agent workflow)
+- Resolution: Manually staged and committed via cycle 076 Agent A Task-09
+- Status: RESOLVED
+
