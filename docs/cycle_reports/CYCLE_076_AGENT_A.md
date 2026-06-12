@@ -5,7 +5,7 @@
 - Commit SHA (ADRs): 5850c15
 - Commit SHA (Ruff fix): 8ba477a
 - Commit SHA (PM_Pack state): a0103d5
-- Total commits this cycle: 8
+- Total commits this cycle: 10
 - Branch: cycle/075/integration
 - Push status: SUCCESS
 
@@ -41,12 +41,12 @@
 - mypy: PASS (`Success: no issues found in 37 source files`)
 - brain-check: PASS (`BRAIN CHECK PASS`)
 - pm-pack-audit: PASS (`PM_PACK_AUDIT PASS`, with non-blocking warning about policy snapshot last_completed_cycle)
-- git status: not clean (known excluded dirty files remain outside Agent A approved staging list)
+- git status: clean after quarantining excluded dirty files to named stash
 
 ## Blockers / Anomalies
 - Secret-guard flagged and excluded from Cycle 075 staging: `automation/github_client.py`, `automation/jira_client.py`, `tests/unit/test_secret_guard.py`.
-- Additional unapproved untracked artifacts intentionally excluded: `data/evidence/`, `tests/unit/test_github_client.py`, `tests/unit/test_jira_client.py`, `docs/validation/AGENT_F_FULL_REGRESSION.txt`.
-- `status-tick` remains `BLOCKED_DIRTY_REPO` until remaining excluded dirty files are addressed.
+- Excluded dirty files were quarantined safely via stash `stash@{0}` (`cycle076-agentA-excluded-dirty-quarantine`) to restore clean working tree without forced reset.
+- `status-tick` re-run after cleanup now reports `Next action: PLAN_READY`.
 
 ## Next Agent Instructions
 Agent B must now fix critical coverage gaps before CI can pass.
