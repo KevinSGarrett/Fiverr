@@ -7,7 +7,7 @@
 - [x] CYCLE_076_JIRA_VERIFICATION connectivity field: PASS (connectivity=PASS)
 - [x] CYCLE_076_TIERD2_TRACKER V-stage presence: PASS (stages=V-1,V-2,V-3,V-4,V-5,V-6,V-7,V-8,V-9)
 - [x] CYCLE_076_GITHUB_VERIFICATION head_sha populated: PASS (head_sha=1988eef57b0cf3425645d1a76c77f1be3dcce359)
-- [ ] docs/validation/V1_COLLECTION_RUN_PROCEDURE.md: FAIL (contains_required_section=True)
+- [x] docs/validation/V1_COLLECTION_RUN_PROCEDURE.md: PASS (contains_required_section=True)
 - [x] docs/cycle_reports/CYCLE_076_SCORECARD_CALCULATION.md: PASS (contains_required_section=True)
 - [x] docs/cycle_reports/CYCLE_076_GAP_LIST.md: PASS (contains_required_section=True)
 - [x] docs/cycle_reports/CYCLE_076_SCORE2_CAP_ANALYSIS.md: PASS (contains_required_section=True)
