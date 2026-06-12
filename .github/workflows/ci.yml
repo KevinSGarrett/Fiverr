@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   pull_request:
@@ -84,7 +84,7 @@ jobs:
           path: coverage.xml
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -108,3 +108,4 @@ jobs:
         run: python automation/ai_cycle_controller.py brain-check
       - name: PM Pack audit
         run: python automation/ai_cycle_controller.py pm-pack-audit
+
