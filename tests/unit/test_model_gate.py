@@ -66,6 +66,146 @@ class TestModelGate:
         assert isinstance(result.summary(), str)
         assert len(result.summary()) > 0
 
+    def test_check_passes_when_all_fields_are_valid(self, tmp_path):
+        import automation.model_gate as mg
+
+        state_path = tmp_path / "cursor_model_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "status": "VERIFIED",
+                    "observed_model": "Codex 5.3",
+                    "observed_effort": "medium",
+                    "auto_model_disabled": True,
+                    "fallback_disabled": True,
+                    "verified_at": "2099-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with patch.object(mg, "CURSOR_STATE_PATH", state_path), patch.object(mg, "REPORT_DIR", tmp_path / "reports"):
+            result = mg.check(cycle=76, agent="F")
+        assert result.passed is True
+
+    def test_check_fails_when_cursor_state_file_missing(self, tmp_path):
+        import automation.model_gate as mg
+
+        with patch.object(mg, "CURSOR_STATE_PATH", tmp_path / "missing.json"), patch.object(
+            mg, "REPORT_DIR", tmp_path / "reports"
+        ):
+            result = mg.check(cycle=76, agent="F")
+        assert result.passed is False
+        assert any("missing" in failure for failure in result.failures)
+
+    def test_check_fails_when_status_unverified(self, tmp_path):
+        import automation.model_gate as mg
+
+        state_path = tmp_path / "cursor_model_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "status": "UNVERIFIED",
+                    "observed_model": "Codex 5.3",
+                    "observed_effort": "medium",
+                    "auto_model_disabled": True,
+                    "verified_at": "2099-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(mg, "CURSOR_STATE_PATH", state_path), patch.object(mg, "REPORT_DIR", tmp_path / "reports"):
+            result = mg.check(cycle=76, agent="F")
+        assert result.passed is False
+        assert any("status" in failure for failure in result.failures)
+
+    def test_check_fails_when_stale_verification(self, tmp_path):
+        import automation.model_gate as mg
+
+        state_path = tmp_path / "cursor_model_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "status": "VERIFIED",
+                    "observed_model": "Codex 5.3",
+                    "observed_effort": "medium",
+                    "auto_model_disabled": True,
+                    "verified_at": "2000-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(mg, "CURSOR_STATE_PATH", state_path), patch.object(mg, "REPORT_DIR", tmp_path / "reports"):
+            result = mg.check(cycle=76, agent="F")
+        assert result.passed is False
+        assert any("Verification age" in failure for failure in result.failures)
+
+    def test_check_fails_when_auto_mode_not_disabled(self, tmp_path):
+        import automation.model_gate as mg
+
+        state_path = tmp_path / "cursor_model_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "status": "VERIFIED",
+                    "observed_model": "Codex 5.3",
+                    "observed_effort": "medium",
+                    "auto_model_disabled": False,
+                    "verified_at": "2099-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(mg, "CURSOR_STATE_PATH", state_path), patch.object(mg, "REPORT_DIR", tmp_path / "reports"):
+            result = mg.check(cycle=76, agent="F")
+        assert result.passed is False
+        assert any("auto_model_disabled=False" in failure for failure in result.failures)
+
+    def test_check_repo_remote_mismatch_fails(self, tmp_path):
+        import automation.model_gate as mg
+
+        state_path = tmp_path / "cursor_model_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "status": "VERIFIED",
+                    "observed_model": "Codex 5.3",
+                    "observed_effort": "medium",
+                    "auto_model_disabled": True,
+                    "verified_at": "2099-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(mg, "CURSOR_STATE_PATH", state_path), patch.object(
+            mg, "REPORT_DIR", tmp_path / "reports"
+        ), patch("subprocess.run") as run:
+            run.return_value.stdout = "origin  git@github.com:someone/other.git"
+            result = mg.check(repo_root=tmp_path, cycle=76, agent="F")
+        assert result.passed is False
+        assert any("Repo remote" in failure for failure in result.failures)
+
+    def test_check_warns_on_invalid_verified_at(self, tmp_path):
+        import automation.model_gate as mg
+
+        state_path = tmp_path / "cursor_model_state.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "status": "VERIFIED",
+                    "observed_model": "Codex 5.3",
+                    "observed_effort": "medium",
+                    "auto_model_disabled": True,
+                    "verified_at": "not-a-date",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(mg, "CURSOR_STATE_PATH", state_path), patch.object(mg, "REPORT_DIR", tmp_path / "reports"):
+            result = mg.check(cycle=76, agent="F")
+        assert result.passed is True
+        assert any("Could not parse verified_at" in warning for warning in result.warnings)
+
 
 class TestModelGateResult:
     def test_result_has_passed_attribute(self):

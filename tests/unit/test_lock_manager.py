@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from automation.lock_manager import LockManager
+from automation.lock_manager import LockAcquireError
 
 
 def test_acquire_creates_file(tmp_path: Path) -> None:
@@ -159,5 +160,60 @@ def test_release_deletes_file_on_correct_owner(tmp_path: Path) -> None:
     test_release_deletes_file(tmp_path)
 
 
-def test_cleanup_stale_by_age_removes_old_file(tmp_path: Path) -> None:
+def cleanup_stale_by_age_removes_old_file_alias(tmp_path: Path) -> None:
+    """Alias helper retained for traceability without duplicate execution."""
     test_cleanup_stale_by_age(tmp_path)
+
+
+def test_lock_context_raises_when_acquire_fails(tmp_path: Path) -> None:
+    manager = LockManager(lock_dir=tmp_path)
+    manager.acquire("cycle_run", "owner-a")
+    with pytest.raises(LockAcquireError):
+        with manager.lock_context("cycle_run", "owner-b", raise_on_fail=True):
+            pass
+
+
+def test_acquire_timeout_raises_lock_acquire_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import automation.lock_manager as lm
+
+    manager = LockManager(lock_dir=tmp_path)
+    manager.acquire("cycle_run", "owner-a")
+
+    class _FakeDateTime(datetime):
+        call_count = 0
+
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            base = datetime(2026, 1, 1, tzinfo=UTC)
+            cls.call_count += 1
+            return base + timedelta(seconds=70 if cls.call_count > 2 else 0)
+
+    monkeypatch.setattr(lm, "datetime", _FakeDateTime)
+    monkeypatch.setattr(lm.time, "sleep", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(LockAcquireError):
+        manager.acquire("cycle_run", "owner-b", timeout_minutes=1)
+
+
+def test_cleanup_stale_returns_false_when_lock_is_recent_and_pid_alive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manager = LockManager(lock_dir=tmp_path)
+    lock = {
+        "owner": "owner-a",
+        "acquired_at": datetime.now(UTC).isoformat(),
+        "expires_at": None,
+        "pid": 1234,
+    }
+    (tmp_path / "cycle_run.lock").write_text(json.dumps(lock), encoding="utf-8")
+
+    monkeypatch.setattr(manager, "_pid_exists", lambda _pid: True)
+    assert manager.cleanup_stale("cycle_run", max_age_minutes=120) is False
+
+
+def test_parse_iso_invalid_and_naive_paths(tmp_path: Path) -> None:
+    manager = LockManager(lock_dir=tmp_path)
+    assert manager._parse_iso("not-a-date") is None
+    naive = manager._parse_iso("2026-01-01T00:00:00")
+    assert naive is not None
+    assert naive.tzinfo is not None

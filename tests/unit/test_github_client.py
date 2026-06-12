@@ -173,6 +173,61 @@ def test_get_pr_comments_raises_on_error() -> None:
             client.get_pr_comments(123)
 
 
+def test_get_pr_reviews_success_states() -> None:
+    client = GitHubClient()
+    expected = [
+        {"state": "APPROVED"},
+        {"state": "CHANGES_REQUESTED"},
+        {"state": "DISMISSED"},
+    ]
+    with patch("automation.github_client.requests.get") as req:
+        req.return_value = MagicMock(status_code=200, json=lambda: expected)
+        reviews = client.get_pr_reviews(123)
+    assert [item["state"] for item in reviews] == ["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]
+
+
+def test_get_pr_comments_success() -> None:
+    client = GitHubClient()
+    with patch("automation.github_client.requests.get") as req:
+        req.return_value = MagicMock(status_code=200, json=lambda: [{"id": 1}])
+        comments = client.get_pr_comments(123)
+    assert comments == [{"id": 1}]
+
+
+def test_add_pr_comment_raises_on_http_error() -> None:
+    client = GitHubClient()
+    with patch("automation.github_client.requests.post") as req:
+        req.return_value = MagicMock(status_code=403, text="forbidden")
+        with pytest.raises(GitHubClientError):
+            client.add_pr_comment(123, "safe comment text")
+
+
+def test_create_pr_applies_labels_when_provided() -> None:
+    client = GitHubClient()
+    with patch("automation.github_client.requests.post") as post:
+        create_resp = MagicMock(status_code=201, json=lambda: {"number": 42})
+        label_resp = MagicMock(status_code=200, json=lambda: {})
+        post.side_effect = [create_resp, label_resp]
+        payload = client.create_pr(
+            base="develop",
+            head="cycle/075/integration",
+            title="t",
+            body=_valid_body(),
+            labels=["cycle:076"],
+        )
+    assert payload["number"] == 42
+    assert post.call_count == 2
+    assert "/issues/42/labels" in post.call_args_list[1].args[0]
+
+
+def test_get_check_runs_raises_on_http_error() -> None:
+    client = GitHubClient()
+    with patch("automation.github_client.requests.get") as req:
+        req.return_value = MagicMock(status_code=401, text="unauthorized")
+        with pytest.raises(GitHubClientError):
+            client.get_check_runs("sha")
+
+
 def test_gh_helper_raises_on_failure() -> None:
     from automation.github_client import _gh
 
@@ -215,3 +270,33 @@ def test_push_branch_runs_git_push() -> None:
         run.return_value = MagicMock(returncode=0)
         push_branch("cycle/075/integration", repo_root="C:/repo")
     assert run.call_args.args[0][:3] == ["git", "push", "-u"]
+
+
+def test_create_pr_helper_and_status_helpers() -> None:
+    from automation.github_client import create_pr, get_ci_status, get_pr_status
+
+    with patch("automation.github_client._gh") as gh:
+        gh.side_effect = [
+            '{"number": 99, "url": "https://example/pr/99", "state": "OPEN"}',
+            '{"number":99,"state":"OPEN","mergeable":"MERGEABLE","statusCheckRollup":[{"name":"CI / lint"}],"url":"u"}',
+            '{"number":99,"state":"OPEN","mergeable":"MERGEABLE","statusCheckRollup":[{"name":"CI / lint"}],"url":"u"}',
+        ]
+        created = create_pr("title", "body", "head", "base")
+        status = get_pr_status(99)
+        ci = get_ci_status(99)
+
+    assert created["number"] == 99
+    assert status["state"] == "OPEN"
+    assert ci[0]["name"] == "CI / lint"
+
+
+def test_list_labels_and_ensure_labels_create_missing_only() -> None:
+    from automation.github_client import ensure_labels, list_labels
+
+    with patch("automation.github_client._gh") as gh:
+        gh.side_effect = ['[{"name":"existing"}]', '[{"name":"existing"}]', ""]
+        labels = list_labels()
+        ensure_labels(["existing", "new-label"])
+
+    assert labels == ["existing"]
+    assert gh.call_args_list[-1].args[0] == "label"
