@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+import yaml
+
 from automation import pm_pack_loader
 
 
@@ -155,3 +158,63 @@ def test_load_json_invalid_returns_empty(tmp_path: Path) -> None:
     invalid = tmp_path / "bad.json"
     invalid.write_text("{bad", encoding="utf-8")
     assert pm_pack_loader._load_json(invalid) == {}
+
+
+def test_load_policy_valid_yaml_returns_data(tmp_path: Path) -> None:
+    policy = tmp_path / "policy.yml"
+    policy.write_text("name: test\nenabled: true\n", encoding="utf-8")
+    loaded = pm_pack_loader.load_policy(policy, required_fields=["name"])
+    assert loaded["name"] == "test"
+
+
+def test_load_policy_missing_file_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        pm_pack_loader.load_policy(tmp_path / "missing.yml")
+
+
+def test_load_policy_invalid_yaml_raises(tmp_path: Path) -> None:
+    policy = tmp_path / "policy.yml"
+    policy.write_text("name: [", encoding="utf-8")
+    with pytest.raises(yaml.YAMLError):
+        pm_pack_loader.load_policy(policy)
+
+
+def test_load_policy_missing_required_fields_raises(tmp_path: Path) -> None:
+    policy = tmp_path / "policy.yml"
+    policy.write_text("name: test\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="missing required fields"):
+        pm_pack_loader.load_policy(policy, required_fields=["name", "owner"])
+
+
+def test_check_cycle_consistency_detects_mismatch() -> None:
+    findings = pm_pack_loader.check_cycle_consistency(
+        "CYCLE_CURRENT: 075",
+        "CYCLE_CURRENT: 076",
+        "CYCLE_CURRENT: 075",
+    )
+    assert findings
+
+
+def test_check_cycle_consistency_passes_when_matching() -> None:
+    findings = pm_pack_loader.check_cycle_consistency(
+        "CYCLE_CURRENT: 075",
+        "CYCLE_CURRENT: 075",
+        "CYCLE_CURRENT: 075",
+    )
+    assert findings == []
+
+
+def test_brain_check_uses_registry_load_order(tmp_path: Path) -> None:
+    reg = tmp_path / "PM_Pack/automation/BRAIN_REGISTRY.yml"
+    reg.parent.mkdir(parents=True, exist_ok=True)
+    reg.write_text(
+        "load_order:\n  core:\n    - a.md\n    - b.md\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "a.md").write_text("a", encoding="utf-8")
+    (tmp_path / "b.md").write_text("b", encoding="utf-8")
+    (tmp_path / "PM_Pack/01_pm_instructions").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md").write_text("x", encoding="utf-8")
+    result = pm_pack_loader.brain_check(tmp_path)
+    core_entries = [line for line in result.passed if line.startswith("PASS [core]")]
+    assert core_entries == ["PASS [core]: a.md", "PASS [core]: b.md"]

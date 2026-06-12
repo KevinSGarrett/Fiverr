@@ -111,6 +111,37 @@ def load_file(rel_path: str, repo_root: Path) -> str:
     return full.read_text(encoding="utf-8", errors="replace") if full.exists() else ""
 
 
+def load_policy(policy_path: Path, required_fields: list[str] | None = None) -> dict[str, Any]:
+    """Load and validate a YAML policy file."""
+    if not policy_path.exists():
+        raise FileNotFoundError(f"Policy file not found: {policy_path}")
+    data = yaml.safe_load(policy_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Policy YAML must map to an object: {policy_path}")
+    required = required_fields or []
+    missing = [field for field in required if field not in data]
+    if missing:
+        raise ValueError(f"Policy missing required fields: {', '.join(missing)}")
+    return data
+
+
+def check_cycle_consistency(
+    hydration_header: str,
+    state_snapshot: str,
+    current_state_canonical: str,
+) -> list[str]:
+    """Return consistency findings between cycle markers across PM pack files."""
+    findings: list[str] = []
+    hyd_cycle = _extract(hydration_header, r"CYCLE_CURRENT:\s*0*(\d+)")
+    snapshot_cycle = _extract(state_snapshot, r"CYCLE_CURRENT:\s*0*(\d+)")
+    canonical_cycle = _extract(current_state_canonical, r"CYCLE_CURRENT:\s*0*(\d+)")
+    if hyd_cycle and snapshot_cycle and hyd_cycle != snapshot_cycle:
+        findings.append(f"Hydration cycle {hyd_cycle} != state snapshot cycle {snapshot_cycle}")
+    if hyd_cycle and canonical_cycle and hyd_cycle != canonical_cycle:
+        findings.append(f"Hydration cycle {hyd_cycle} != canonical cycle {canonical_cycle}")
+    return findings
+
+
 def _resolve(rel_path: str, repo_root: Path) -> Path:
     """Resolve a path that might be repo-relative or absolute."""
     p = Path(rel_path.replace("\\", "/"))

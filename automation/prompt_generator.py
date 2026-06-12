@@ -369,6 +369,8 @@ def _generate_tasks_from_issue(
     summary = issue.get("summary", "")
     status  = issue.get("status", "To Do")
     priority = issue.get("priority", "Medium")
+    acceptance_criteria = issue.get("acceptance_criteria", "AC placeholder: define acceptance criteria in Jira.")
+    dod_text = issue.get("definition_of_done", "Definition of done should be confirmed in Jira.")
     owned_paths = lane.get("owns", [])
     primary_path = owned_paths[0].replace("/**", "").replace("/*", "") if owned_paths else "src/"
 
@@ -392,7 +394,8 @@ def _generate_tasks_from_issue(
             f"- **Status:** {status} | **Priority:** {priority}",
             f"- **Epic:** See {key} parent epic in Jira board",
             f"- **Spec:** `ref/project_plan/` (see {key} description for referenced spec files)",
-            f"- **DOD:** See {key} acceptance criteria in Jira",
+            f"- **AC:** {acceptance_criteria}",
+            f"- **DoD:** {dod_text}",
             "",
             "**Files to Create/Modify:**",
         ]

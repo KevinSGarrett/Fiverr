@@ -103,6 +103,52 @@ class TestSecretPatterns:
     def test_ignores_empty_env_assignment(self, tmp_path):
         self._check_pattern('ANTHROPIC_API_KEY=\n', False, tmp_path)
 
+    def test_catches_aws_access_key(self, tmp_path):
+        self._check_pattern('aws_key = "AKIA1234567890ABCDEF"\n', True, tmp_path)
+
+    def test_ignores_invalid_aws_access_key_shape(self, tmp_path):
+        self._check_pattern('aws_key = "AKIA123"\n', False, tmp_path)
+
+    def test_catches_bearer_token_header(self, tmp_path):
+        self._check_pattern("Authorization: Bearer abcdef1234567890TOKEN", True, tmp_path)
+
+    def test_ignores_bearer_word_without_token(self, tmp_path):
+        self._check_pattern("Authorization: Bearer", False, tmp_path)
+
+    def test_catches_private_key_block(self, tmp_path):
+        self._check_pattern("-----BEGIN RSA PRIVATE KEY-----\nabc\n", True, tmp_path)
+
+    def test_ignores_regular_begin_text(self, tmp_path):
+        self._check_pattern("BEGIN KEYWORD DISCUSSION", False, tmp_path)
+
+    def test_catches_password_assignment(self, tmp_path):
+        self._check_pattern('password = "SuperSecret99"', True, tmp_path)
+
+    def test_ignores_short_password_assignment(self, tmp_path):
+        self._check_pattern('password = "short"', False, tmp_path)
+
+    def test_catches_generic_api_key_assignment(self, tmp_path):
+        self._check_pattern('api_key = "ABCDEFGHIJKLMNOPQRSTUV1234"', True, tmp_path)
+
+    def test_ignores_policy_text_token_word(self, tmp_path):
+        self._check_pattern("Policy: do not commit secrets or token values.", False, tmp_path)
+
+    def test_scan_file_with_non_utf8_content_does_not_crash(self, tmp_path):
+        from automation.secret_guard import scan_file
+
+        binary = tmp_path / "binary.bin"
+        binary.write_bytes(b"\xff\xfe\x00\x00abc")
+        result = scan_file(binary)
+        assert hasattr(result, "passed")
+
+    def test_scan_file_with_output_format_text_is_not_flagged(self, tmp_path):
+        from automation.secret_guard import scan_file
+
+        f = tmp_path / "prompt.txt"
+        f.write_text("run ruff with --output-format=full", encoding="utf-8")
+        result = scan_file(f)
+        assert result.passed is True
+
 
 def test_scan_staged_detects_dangerous_file_and_secret_content(tmp_path: Path) -> None:
     from automation.secret_guard import scan_staged

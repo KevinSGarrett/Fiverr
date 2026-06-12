@@ -161,6 +161,22 @@ def test_ci_check_one_fail_returns_all_passed_false() -> None:
     assert result.all_passed is False
 
 
+def test_ci_check_pending_returns_pending_state() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_ci_status
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "CI / lint", "status": "in_progress", "conclusion": None},
+        {"name": "CI / type-check", "conclusion": "success"},
+        {"name": "CI / tests-coverage", "conclusion": "success"},
+        {"name": "CI / smoke-gates", "conclusion": "success"},
+    ]
+    result = _check_ci_status("sha", client)
+    assert result.checks["CI / lint"] == "PENDING"
+    assert result.all_passed is False
+
+
 def test_codecov_both_pass() -> None:
     from automation.github_client import GitHubClient
     from automation.merge_gate import _check_codecov
@@ -200,6 +216,31 @@ def test_codecov_project_fail_returns_passed_false() -> None:
     assert result.passed is False
 
 
+def test_codecov_project_pending_returns_pending() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codecov
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "codecov/project", "status": "in_progress", "conclusion": None},
+        {"name": "codecov/patch", "conclusion": "success"},
+    ]
+    result = _check_codecov("sha", client)
+    assert result.project == "PENDING"
+    assert result.passed is False
+
+
+def test_codecov_patch_missing_is_blocking() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codecov
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [{"name": "codecov/project", "conclusion": "success"}]
+    result = _check_codecov("sha", client)
+    assert result.patch == "MISSING"
+    assert result.passed is False
+
+
 def test_classify_security_thread_is_blocker() -> None:
     from automation.merge_gate import classify_codex_thread
 
@@ -209,17 +250,18 @@ def test_classify_security_thread_is_blocker() -> None:
 def test_classify_resolved_thread_is_valid_fixed() -> None:
     from automation.merge_gate import classify_codex_thread
 
-    assert classify_codex_thread("Issue resolved and fixed in latest commit") == "VALID_FIXED"
+    assert classify_codex_thread("Issue resolved and fixed in latest commit") == "RESOLVED_FIXED"
 
 
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
         ("Potential XSS security issue", "VALID_DEFERRED_BLOCKER"),
-        ("fixed in commit abc", "VALID_FIXED"),
-        ("false positive in scanner", "FALSE_POSITIVE"),
-        ("not applicable for this endpoint", "NOT_APPLICABLE"),
-        ("tracking in backlog deferred", "VALID_DEFERRED_NONBLOCKING"),
+        ("fixed in commit abc", "RESOLVED_FIXED"),
+        ("false positive in scanner", "INFORMATIONAL"),
+        ("won't fix with rationale", "RESOLVED_WONTFIX"),
+        ("outdated after refactor", "OUTDATED"),
+        ("tracking in backlog deferred", "INFORMATIONAL"),
         ("needs follow-up", "UNRESOLVED"),
     ],
 )
@@ -227,6 +269,31 @@ def test_classify_codex_thread_categories(body: str, expected: str) -> None:
     from automation.merge_gate import classify_codex_thread
 
     assert classify_codex_thread(body) == expected
+
+
+def test_codex_threads_zero_threads_pass() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codex_threads
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_pr_reviews.return_value = []
+    client.get_pr_comments.return_value = []
+    result = _check_codex_threads(1, client)
+    assert result.any_blocking is False
+    assert result.threads == []
+
+
+def test_codex_threads_informational_only_pass() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codex_threads
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_pr_reviews.return_value = [
+        {"body": "[AI Review] informational context-only note", "user": {"login": "github-advanced-security"}}
+    ]
+    client.get_pr_comments.return_value = []
+    result = _check_codex_threads(1, client)
+    assert result.any_blocking is False
 
 
 def test_unresolved_thread_blocks_merge() -> None:

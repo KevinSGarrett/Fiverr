@@ -43,7 +43,7 @@ def test_slack_unavailable_does_not_raise(tmp_path: Path) -> None:
         notification_router.notify("WARNING", "warn")
 
 
-def test_info_does_not_send_slack(tmp_path: Path) -> None:
+def test_info_sends_slack(tmp_path: Path) -> None:
     with patch(
         "automation.notification_router._load_notification_config",
         return_value={
@@ -52,9 +52,11 @@ def test_info_does_not_send_slack(tmp_path: Path) -> None:
             "log_path": str(tmp_path / "notifications.log"),
             "rate_limit_per_hour": 10,
         },
-    ), patch("requests.post") as post:
+    ), patch("automation.notification_router._rate_limit_allowed", return_value=True), patch(
+        "requests.post"
+    ) as post:
         notification_router.notify("INFO", "message")
-        post.assert_not_called()
+        post.assert_called_once()
 
 
 def test_rate_limit_suppresses_11th_message(tmp_path: Path) -> None:
@@ -208,7 +210,7 @@ def test_notify_info_writes_to_log_file(tmp_path: Path) -> None:
 
 
 def test_notify_info_does_not_call_slack(tmp_path: Path) -> None:
-    test_info_does_not_send_slack(tmp_path)
+    test_info_sends_slack(tmp_path)
 
 
 def test_notify_critical_writes_incident_file(tmp_path: Path) -> None:

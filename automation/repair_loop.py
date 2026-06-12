@@ -66,7 +66,7 @@ def dispatch_repair(
         errors_in=errors,
     )
 
-    if attempt > MAX_REPAIR_ATTEMPTS:
+    if attempt >= MAX_REPAIR_ATTEMPTS:
         result.status = "BLOCKED"
         quarantine_agent_work(agent_id, cycle, repo_root, runner_root)
         _notify_repair_blocked(agent_id, cycle, attempt, errors)
@@ -167,6 +167,17 @@ def _generate_repair_prompt(
     """Generate a targeted repair prompt — scope limited to failing files only."""
     now = datetime.now(UTC).isoformat()
     error_text = "\n".join(f"  - {e}" for e in errors[:10])
+    failure_label = {
+        "ruff_failure": "Ruff lint failure",
+        "lint": "Ruff lint failure",
+        "mypy_failure": "Mypy type error",
+        "typecheck": "Mypy type error",
+        "pytest_failure": "Pytest failure",
+        "test": "Pytest failure",
+        "coverage_failure": "Coverage below threshold",
+        "missing_report": "Agent report not found",
+        "report": "Agent report not found",
+    }.get(failure_type.lower(), failure_type.upper())
     original_prompt = ""
     if original_prompt_path and Path(original_prompt_path).exists():
         original_prompt = Path(original_prompt_path).read_text(encoding="utf-8", errors="replace")[:500]
@@ -183,7 +194,7 @@ Do NOT re-implement features. Fix ONLY the specific errors listed below.
 - Effort: medium
 - Auto model selection: DISABLED
 
-## Failure Type: {failure_type.upper()}
+## Failure Type: {failure_label}
 
 ## Original Mission (first 500 chars)
 {original_prompt or "N/A"}
@@ -271,6 +282,7 @@ def quarantine_agent_work(agent: str, cycle: int, repo_root: Path, runner_root: 
             "git",
             "stash",
             "push",
+            "--include-untracked",
             "-m",
             f"quarantine-cycle-{cycle:03d}-agent-{agent}-{timestamp}",
         ],
@@ -316,9 +328,9 @@ def quarantine_agent_work(agent: str, cycle: int, repo_root: Path, runner_root: 
 
 
 def revert_accepted_agent(commit_sha: str, reason: str, repo_root: Path) -> str:
-    _ = reason
+    _ = (commit_sha, reason)
     subprocess.run(
-        ["git", "revert", "--no-edit", commit_sha],
+        ["git", "revert", "HEAD", "--no-edit"],
         cwd=str(repo_root),
         capture_output=True,
         text=True,

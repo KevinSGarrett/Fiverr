@@ -353,6 +353,12 @@ def _check_ci_status(sha: str, client: GitHubClient) -> CIGateResult:
             status_map[name] = "MISSING"
         elif check.get("conclusion") == "success":
             status_map[name] = "PASS"
+        elif check.get("status") in {"queued", "in_progress"} or check.get("conclusion") in {
+            None,
+            "",
+            "pending",
+        }:
+            status_map[name] = "PENDING"
         else:
             status_map[name] = "FAIL"
     return CIGateResult(status_map, all(value == "PASS" for value in status_map.values()))
@@ -367,7 +373,15 @@ def _check_codecov(sha: str, client: GitHubClient) -> CodecovGateResult:
     def _state(run: dict[str, Any] | None) -> str:
         if run is None:
             return "MISSING"
-        return "PASS" if run.get("conclusion") == "success" else "FAIL"
+        if run.get("conclusion") == "success":
+            return "PASS"
+        if run.get("status") in {"queued", "in_progress"} or run.get("conclusion") in {
+            None,
+            "",
+            "pending",
+        }:
+            return "PENDING"
+        return "FAIL"
 
     project_state = _state(project_run)
     patch_state = _state(patch_run)
@@ -376,16 +390,20 @@ def _check_codecov(sha: str, client: GitHubClient) -> CodecovGateResult:
 
 def classify_codex_thread(thread_body: str) -> str:
     body = thread_body.lower()
+    if any(token in body for token in ("fyi", "informational", "context-only")):
+        return "INFORMATIONAL"
+    if any(token in body for token in ("resolved", "fixed in", "addressed")):
+        return "RESOLVED_FIXED"
+    if any(token in body for token in ("won't fix", "wontfix", "declined with rationale")):
+        return "RESOLVED_WONTFIX"
+    if any(token in body for token in ("outdated", "superseded", "no longer applies")):
+        return "OUTDATED"
     if any(token in body for token in ("security", "injection", "authentication bypass", "xss", "csrf")):
         return "VALID_DEFERRED_BLOCKER"
-    if any(token in body for token in ("resolved", "fixed in", "addressed")):
-        return "VALID_FIXED"
     if "false positive" in body:
-        return "FALSE_POSITIVE"
-    if any(token in body for token in ("won't fix", "not applicable")):
-        return "NOT_APPLICABLE"
+        return "INFORMATIONAL"
     if any(token in body for token in ("tracking", "deferred")):
-        return "VALID_DEFERRED_NONBLOCKING"
+        return "INFORMATIONAL"
     return "UNRESOLVED"
 
 

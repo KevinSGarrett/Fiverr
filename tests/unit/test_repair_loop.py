@@ -106,6 +106,22 @@ class TestGenerateRepairPrompt:
         assert "Stop conditions" in prompt
         assert "write report to" in prompt.lower()
 
+    @pytest.mark.parametrize(
+        ("failure_type", "expected"),
+        [
+            ("ruff_failure", "Ruff lint failure"),
+            ("mypy_failure", "Mypy type error"),
+            ("pytest_failure", "Pytest failure"),
+            ("coverage_failure", "Coverage below threshold"),
+            ("missing_report", "Agent report not found"),
+        ],
+    )
+    def test_repair_prompt_failure_labels(self, failure_type: str, expected: str) -> None:
+        from automation.repair_loop import _generate_repair_prompt
+
+        prompt = _generate_repair_prompt("A", 76, ["error"], failure_type, 1)
+        assert expected in prompt
+
 
 class TestRepairResult:
     def test_result_dataclass(self):
@@ -160,6 +176,7 @@ def test_quarantine_uses_git_stash_not_reset(tmp_path):
         run.return_value = MagicMock(stdout="stash@{0}: test")
         quarantine_agent_work("A", 75, tmp_path / "repo", tmp_path / "runner")
         assert any("stash" in " ".join(call.args[0]) for call in run.call_args_list)
+        assert any("--include-untracked" in " ".join(call.args[0]) for call in run.call_args_list)
         assert not any("reset" in " ".join(call.args[0]) for call in run.call_args_list)
 
 
@@ -214,7 +231,6 @@ def test_second_attempt_increments_count_to_2(tmp_path):
     assert payload["attempt_count"] == 2
 
 
-@pytest.mark.xfail(reason="production code quarantines on attempt > 3, not == 3")
 def test_third_attempt_triggers_quarantine(tmp_path):
     from automation.repair_loop import dispatch_repair
 
@@ -222,7 +238,7 @@ def test_third_attempt_triggers_quarantine(tmp_path):
     state.parent.mkdir(parents=True, exist_ok=True)
     state.write_text('{"attempt_count": 2, "failures": []}', encoding="utf-8")
     with patch("automation.repair_loop.quarantine_agent_work") as quarantine:
-        dispatch_repair(
+        result = dispatch_repair(
             agent_id="A",
             cycle=75,
             run_dir=tmp_path / "run",
@@ -230,6 +246,7 @@ def test_third_attempt_triggers_quarantine(tmp_path):
             repo_root=tmp_path / "repo",
             runner_root=tmp_path / "runner",
         )
+        assert result.status == "BLOCKED"
         quarantine.assert_called_once()
 
 

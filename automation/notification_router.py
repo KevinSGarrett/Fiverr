@@ -219,7 +219,7 @@ def notify(severity: str, message: str, incident_code: str = "", cycle: int | No
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(f"{timestamp} [{severity}] [{incident_code}] {message}\n")
 
-    should_attempt_slack = severity in {"WARNING", "BLOCKED", "CRITICAL"} and bool(config.get("slack_enabled"))
+    should_attempt_slack = bool(config.get("slack_enabled"))
     webhook = config.get("slack_webhook_url", "")
     if should_attempt_slack and webhook:
         limit = int(config.get("rate_limit_per_hour", 10))
