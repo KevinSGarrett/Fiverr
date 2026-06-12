@@ -1,0 +1,21 @@
+# CYCLE_075_RUNBOOKS_VERIFICATION
+
+| Runbook | Words | >=200 | No Placeholders | Commands in Code Blocks |
+| --- | ---: | :---: | :---: | :---: |
+| AUTH_EXPIRY_CLAUDE.md | 228 | YES | YES | YES |
+| AUTH_EXPIRY_CURSOR.md | 217 | YES | YES | YES |
+| AUTH_EXPIRY_GITHUB.md | 250 | YES | YES | YES |
+| AUTH_EXPIRY_JIRA.md | 259 | YES | YES | YES |
+| BACKUP_RESTORE_PROCESS.md | 242 | YES | YES | NO |
+| CURSOR_STUCK_RECOVERY.md | 470 | YES | YES | YES |
+| DAILY_REPORT_FORMAT.md | 346 | YES | YES | NO |
+| DIRTY_REPO_RECOVERY.md | 267 | YES | YES | YES |
+| FIVERR_AUTHENTICATION.md | 337 | YES | YES | NO |
+| GITHUB_RUNNER_OFFLINE.md | 213 | YES | YES | YES |
+| MACHINE_UNREACHABLE.md | 283 | YES | YES | NO |
+| MODEL_DRIFT_INCIDENT.md | 444 | YES | YES | YES |
+| PM_PACK_GOVERNANCE_TRANSACTION.md | 231 | YES | YES | YES |
+| POST_CYCLE_FAILURE_PLAYBOOK.md | 552 | YES | YES | YES |
+| REPAIR_LOOP_GUIDE.md | 215 | YES | YES | YES |
+
+- Total runbooks verified: 15

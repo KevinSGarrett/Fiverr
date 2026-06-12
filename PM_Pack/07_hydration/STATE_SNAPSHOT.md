@@ -1,47 +1,34 @@
-# State Snapshot — Cycle 075 (Reconciled 2026-06-11)
+# State Snapshot — Cycle 075
 
-**Reconciliation note:** Prior STATE_SNAPSHOT was stale at Cycle 049.
-Updated to reflect current state per HYDRATION_HEADER, CURRENT_STATE_CANONICAL,
-and controller_state agreement.
-
-Updated: 2026-06-11 | V5 audit corrections in progress
+Updated: 2026-06-11
 
 ## Current State
 
-- **Active cycle:** 075
-- **Last completed cycle:** 074 (Wave 10, 9/9 stories complete per HYDRATION_HEADER)
-- **Current branch:** develops (cycle/075/integration is the target cycle branch)
-- **Canonical working directory:** `C:\Fiverr\Fiverr`
-- **Autonomy status:** FROZEN — V5 audit corrections pending
-- **Controller state:** AGENT_DISPATCH (frozen — no real dispatch)
-- **PM_Pack brain status:** BRAIN_REGISTRY v2 loaded, all 44 files verified
+- Active cycle: 075
+- Last completed cycle: 074
+- Active wave: 11
+- Active branch target: `cycle/075/integration`
+- Integration target branch: `develop`
+- Freeze state: `false` (LIFTED)
+- Runner: id=22, online, interactive
+- PM state authority: `HYDRATION_HEADER.md`
 
-## Cycle 074 Summary (Last Completed)
+## Score State
 
-- Wave 10: S7.1-S7.9 DONE (9/9 complete)
-- SCRUM-22 closed
-- TierD-2 decision: SEED x17, CRITICAL BLOCKER remains
-- Score1 (internal): ~67% | Score2 (E2E): ~45-50%
-- Two-score model established (Score2 <= Score1 with TierD-2 caps)
+- Score 1 (internal): ~67%
+- Score 2 (E2E): ~45-50%
+- TierD-2: SEED x17 (critical cap on Score 2)
 
-## Cycle 075 Status (Current)
+## Blockers
 
-- Status: FROZEN — 6 agent prompts not yet generated (stubs removed per V5 audit)
-- Branch: cycle/075/integration (not yet created)
-- Awaiting: V5 audit correction cycle completion
-- Prompts: Will be regenerated after pm-pack-audit PASS
+- TierD-2 decision/evidence chain not complete
+- OPS-031 through OPS-037 pending
 
-## Key Technical Anchors
+## Execution Order
 
-- Baseline DB: `data/cycle037_live.db` (immutable, do not overwrite)
-- `scrapfly.enabled` must stay `false` in committed `config.yaml`
-- Jira cloud ID: `eae77257-a572-4e19-b746-8b184ba2d01f`
-- Done transition ID: 41
-- Golden anchor: Wave 10 kw=110 at 62.7/1.0/CONDITIONAL_GO
-- Execution order: A → B+E parallel → C → F → D
+A -> B+E -> C -> F -> D
 
-## Previous C049 Snapshot
+## Notes
 
-The prior state snapshot was from Cycle 049 and is now superseded.
-For historical reference, it documented the C049 AI chatbot handoff keyword work
-(kw=110, final=58.66, MONITOR status, gap to CONDITIONAL_GO = 1.34 points).
+Snapshot is subordinate to `HYDRATION_HEADER.md`. Any mismatch must be corrected immediately in favor of hydration authority.
+

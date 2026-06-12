@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 
@@ -117,3 +119,265 @@ class TestMergeGateRun:
         # Should not have merge_sha
         assert result.merge_sha is None
         assert result.dry_run is True
+
+
+def test_ci_missing_check_returns_missing() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_ci_status
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [{"name": "CI / lint", "conclusion": "success"}]
+    result = _check_ci_status("sha", client)
+    assert result.checks["CI / type-check"] == "MISSING"
+
+
+def test_ci_check_all_pass_returns_all_passed_true() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_ci_status
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "CI / lint", "conclusion": "success"},
+        {"name": "CI / type-check", "conclusion": "success"},
+        {"name": "CI / tests-coverage", "conclusion": "success"},
+        {"name": "CI / smoke-gates", "conclusion": "success"},
+    ]
+    result = _check_ci_status("sha", client)
+    assert result.all_passed is True
+
+
+def test_ci_check_one_fail_returns_all_passed_false() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_ci_status
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "CI / lint", "conclusion": "failure"},
+        {"name": "CI / type-check", "conclusion": "success"},
+        {"name": "CI / tests-coverage", "conclusion": "success"},
+        {"name": "CI / smoke-gates", "conclusion": "success"},
+    ]
+    result = _check_ci_status("sha", client)
+    assert result.all_passed is False
+
+
+def test_codecov_both_pass() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codecov
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "codecov/project", "conclusion": "success"},
+        {"name": "codecov/patch", "conclusion": "success"},
+    ]
+    result = _check_codecov("sha", client)
+    assert result.passed is True
+
+
+def test_codecov_patch_fail_blocks() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codecov
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "codecov/project", "conclusion": "success"},
+        {"name": "codecov/patch", "conclusion": "failure"},
+    ]
+    result = _check_codecov("sha", client)
+    assert result.passed is False
+
+
+def test_codecov_project_fail_returns_passed_false() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codecov
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_check_runs.return_value = [
+        {"name": "codecov/project", "conclusion": "failure"},
+        {"name": "codecov/patch", "conclusion": "success"},
+    ]
+    result = _check_codecov("sha", client)
+    assert result.passed is False
+
+
+def test_classify_security_thread_is_blocker() -> None:
+    from automation.merge_gate import classify_codex_thread
+
+    assert classify_codex_thread("Potential SQL injection here") == "VALID_DEFERRED_BLOCKER"
+
+
+def test_classify_resolved_thread_is_valid_fixed() -> None:
+    from automation.merge_gate import classify_codex_thread
+
+    assert classify_codex_thread("Issue resolved and fixed in latest commit") == "VALID_FIXED"
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("Potential XSS security issue", "VALID_DEFERRED_BLOCKER"),
+        ("fixed in commit abc", "VALID_FIXED"),
+        ("false positive in scanner", "FALSE_POSITIVE"),
+        ("not applicable for this endpoint", "NOT_APPLICABLE"),
+        ("tracking in backlog deferred", "VALID_DEFERRED_NONBLOCKING"),
+        ("needs follow-up", "UNRESOLVED"),
+    ],
+)
+def test_classify_codex_thread_categories(body: str, expected: str) -> None:
+    from automation.merge_gate import classify_codex_thread
+
+    assert classify_codex_thread(body) == expected
+
+
+def test_unresolved_thread_blocks_merge() -> None:
+    from automation.github_client import GitHubClient
+    from automation.merge_gate import _check_codex_threads
+
+    client = MagicMock(spec=GitHubClient)
+    client.get_pr_reviews.return_value = [{"body": "[AI Review] investigate", "user": {"login": "github-advanced-security"}}]
+    client.get_pr_comments.return_value = []
+    result = _check_codex_threads(1, client)
+    assert result.any_blocking is True
+
+
+def test_check_all_gates_blocks_on_wrong_target_branch() -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch.object(merge_gate, "GitHubClient") as mock_client_cls:
+        client = MagicMock()
+        client.get_check_runs.return_value = []
+        client.get_pr_reviews.return_value = []
+        client.get_pr_comments.return_value = []
+        mock_client_cls.return_value = client
+        result = merge_gate.check_all_gates(pr_number=1, sha="abc", target_branch="main")
+        assert result.passed is False
+
+
+def test_execute_merge_blocked_when_frozen() -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch("automation.merge_gate.check_freeze", side_effect=merge_gate.FreezeBlockedError("frozen")):
+        with pytest.raises(merge_gate.MergeBlockedError):
+            merge_gate.execute_merge(123)
+
+
+def test_execute_merge_requires_config_flag() -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": False}}):
+        with pytest.raises(merge_gate.MergeBlockedError):
+            merge_gate.execute_merge(123)
+
+
+# Prompt-required name aliases.
+def test_ci_check_missing_returns_missing_status() -> None:
+    test_ci_missing_check_returns_missing()
+
+
+def test_codecov_both_pass_returns_passed_true() -> None:
+    test_codecov_both_pass()
+
+
+def test_codecov_patch_fail_returns_passed_false() -> None:
+    test_codecov_patch_fail_blocks()
+
+
+def test_classify_security_thread_is_valid_deferred_blocker() -> None:
+    test_classify_security_thread_is_blocker()
+
+
+def test_wrong_target_branch_blocks_all_gates() -> None:
+    test_check_all_gates_blocks_on_wrong_target_branch()
+
+
+def test_merge_gate_result_summary_includes_merge_sha() -> None:
+    from automation.merge_gate import GateCheck, MergeGateResult
+
+    result = MergeGateResult(
+        pr_number=1,
+        branch="cycle/075/integration",
+        target="develop",
+        dry_run=False,
+        passed=True,
+        checks=[GateCheck("ci", True, "ok")],
+        merge_sha="abc123",
+    )
+    text = result.summary()
+    assert "MERGE GATE PASS" in text
+    assert "Merged: abc123" in text
+
+
+def test_get_pr_returns_empty_on_invalid_json() -> None:
+    from automation.merge_gate import _get_pr
+
+    with patch("automation.merge_gate.subprocess.run") as run:
+        run.return_value = MagicMock(returncode=0, stdout="{invalid")
+        assert _get_pr(1, "KevinSGarrett/Fiverr") == {}
+
+
+def test_run_secret_scan_returns_true_on_exception() -> None:
+    from automation.merge_gate import _run_secret_scan
+
+    with patch("automation.secret_guard.scan_staged", side_effect=RuntimeError("boom")):
+        assert _run_secret_scan() is True
+
+
+def test_load_break_glass_returns_empty_when_expired(tmp_path: Path) -> None:
+    from automation.merge_gate import _load_break_glass
+
+    bg = tmp_path / "break_glass_active.json"
+    bg.write_text('{"allow_missing_codecov": true, "expires_at": "2000-01-01T00:00:00+00:00"}', encoding="utf-8")
+    with patch("automation.merge_gate.Path", return_value=bg):
+        assert _load_break_glass() == {}
+
+
+def test_load_json_returns_empty_on_invalid_json(tmp_path: Path) -> None:
+    from automation.merge_gate import _load_json
+
+    p = tmp_path / "state.json"
+    p.write_text("{invalid", encoding="utf-8")
+    assert _load_json(p) == {}
+
+
+def test_execute_merge_success_path_returns_sha() -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": True}}), patch(
+        "automation.merge_gate.subprocess.run"
+    ) as run, patch("automation.merge_gate.check_all_gates") as gates, patch(
+        "automation.merge_gate.check_freeze"
+    ):
+        run.side_effect = [
+            MagicMock(stdout='{"headRefOid":"abc","baseRefName":"develop"}'),
+            MagicMock(),
+            MagicMock(stdout="mergedsha"),
+        ]
+        gates.return_value = merge_gate.MergeGateResult(
+            pr_number=123,
+            branch="cycle/075/integration",
+            target="develop",
+            dry_run=True,
+            passed=True,
+            checks=[],
+        )
+        sha = merge_gate.execute_merge(123)
+    assert sha == "mergedsha"
+
+
+def test_execute_merge_blocks_when_gate_fails() -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": True}}), patch(
+        "automation.merge_gate.subprocess.run"
+    ) as run, patch("automation.merge_gate.check_all_gates") as gates:
+        run.return_value = MagicMock(stdout='{"headRefOid":"abc","baseRefName":"develop"}')
+        gates.return_value = merge_gate.MergeGateResult(
+            pr_number=1,
+            branch="cycle/075/integration",
+            target="develop",
+            dry_run=True,
+            passed=False,
+            checks=[],
+        )
+        with pytest.raises(merge_gate.MergeBlockedError):
+            merge_gate.execute_merge(1)

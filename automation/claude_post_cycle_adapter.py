@@ -189,6 +189,18 @@ def run_post_cycle_review(
     return result
 
 
+def submit_for_review(prompt: str, facts: dict) -> ClaudeReviewResult:
+    """Compatibility wrapper for post_cycle_review orchestrator."""
+    cycle = int(facts.get("cycle", 0) or 0)
+    run_dir = Path("C:/AI_Runner/runs") / f"CYCLE_{cycle:03d}"
+    return run_post_cycle_review(
+        cycle=cycle,
+        run_dir=run_dir,
+        review_prompt_text=prompt,
+        facts_json=json.dumps(facts, indent=2, default=str),
+    )
+
+
 def _find_claude_binary() -> str | None:
     """Find `claude` binary on PATH."""
     import os

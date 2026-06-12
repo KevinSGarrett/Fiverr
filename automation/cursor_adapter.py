@@ -55,6 +55,26 @@ class AgentRunResult:
     stderr_tail: str = ""
 
 
+class CursorAdapter:
+    """Utilities for managing Cursor agent processes."""
+
+    @staticmethod
+    def kill_process_tree(pid: int) -> None:
+        """Kill process and children via taskkill."""
+        if pid <= 0:
+            raise ValueError(f"Invalid PID {pid} — must be positive")
+        if pid < 10:
+            raise ValueError(f"PID {pid} looks like a system process — refusing to kill")
+        result = subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode not in (0, 128):
+            raise RuntimeError(f"taskkill failed: {result.stderr}")
+
+
 # ── Binary resolution (config-driven) ───────────────────────────────────────
 
 def _load_config() -> dict[str, Any]:
@@ -326,7 +346,7 @@ def run_agent(
                     break
                 now = time.time()
                 if now > hard_deadline:
-                    proc.kill()
+                    _terminate_agent_process(proc)
                     return AgentRunResult(
                         agent=agent_id, status="timeout",
                         started_at=started, ended_at=datetime.now(UTC).isoformat(),
@@ -337,7 +357,7 @@ def run_agent(
                         stdout_tail=_tail(stdout_path), stderr_tail=_tail(stderr_path),
                     )
                 if now - last_output_ts[0] > no_output_limit_sec:
-                    proc.kill()
+                    _terminate_agent_process(proc)
                     return AgentRunResult(
                         agent=agent_id, status="no_output",
                         started_at=started, ended_at=datetime.now(UTC).isoformat(),
@@ -380,3 +400,21 @@ def _tail(path: Path, n: int = 50) -> str:
         return "\n".join(lines[-n:])
     except Exception:
         return ""
+
+
+def _terminate_agent_process(proc: subprocess.Popen) -> None:
+    """Safely terminate Cursor process tree with fallback kill."""
+    if proc.poll() is not None:
+        return
+    print(f"Terminating Cursor process PID {proc.pid}")
+    try:
+        CursorAdapter.kill_process_tree(proc.pid)
+    except Exception:
+        pass
+    try:
+        proc.wait(timeout=5)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass

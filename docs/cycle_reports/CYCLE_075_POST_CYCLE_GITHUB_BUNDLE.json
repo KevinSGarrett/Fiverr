@@ -1,0 +1,21 @@
+{
+  "cycle": 75,
+  "branch": "cycle/075/integration",
+  "collected_at": "2026-06-12T06:51:09.315424+00:00",
+  "commits_ahead_of_develop": 0,
+  "commit_list": [],
+  "files_changed_count": 0,
+  "pr_exists": false,
+  "pr_number": null,
+  "pr_merged": false,
+  "ci_checks": "NOT_YET_RUN",
+  "codecov_project": "NOT_YET_RUN",
+  "codecov_patch": "NOT_YET_RUN",
+  "codex_threads": [],
+  "model_evidence_present": true,
+  "subscription_billing_mode": "claude_subscription_only",
+  "subscription_billing_confirmed": true,
+  "api_key_note": "API key absent",
+  "ready_for_real_pr": false,
+  "notes": "GitHub authentication is available; no PR currently exists for head branch cycle/075/integration."
+}

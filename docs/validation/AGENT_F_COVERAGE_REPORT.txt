@@ -1,0 +1,332 @@
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+..............................................................
+
+---------- coverage: platform win32, python 3.11.9-final-0 -----------
+Name                                                                      Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------------------------------
+automation\__init__.py                                                        2      0   100%
+automation\claude_sub_gate.py                                                64      8    88%   35-36, 45-46, 86-93
+automation\codex_thread_reader.py                                            80      0   100%
+automation\config_loader.py                                                  42      6    86%   54-59
+automation\drift_detector.py                                                134      7    95%   116, 134-135, 158, 195-196, 222
+automation\failure_classifier.py                                             90      1    99%   184
+automation\freeze_gate.py                                                    31      0   100%
+automation\github_client.py                                                 103     21    80%   52, 73-81, 106, 128, 138, 156, 202-208, 212-214, 218-219, 223-224, 228-231
+automation\jira_client.py                                                    99      8    92%   71, 78-83, 222
+automation\lock_manager.py                                                  119     16    87%   48, 92-97, 115, 123, 127-128, 135, 164-165, 174, 182-183, 188
+automation\merge_gate.py                                                    252    252     0%   5-480
+automation\model_gate.py                                                     94     69    27%   33-43, 50-117, 121-146, 150-155
+automation\notification_router.py                                           138    105    24%   52-73, 77, 81, 86, 91, 96, 100-102, 106-119, 125-149, 155-171, 175-186, 190-209, 214-240, 261-262, 271-272, 276-277
+automation\pm_pack_loader.py                                                 84     57    32%   34, 39-105, 110-111, 116-119, 123-124, 128-131
+automation\policy_compiler.py                                                49     36    27%   20-106, 110, 115-117, 121-122, 126-127
+automation\prompt_generator.py                                              181    161    11%   42-46, 51-60, 78-296, 302-356, 368-427, 438-884, 956-1008, 1013-1045, 1059-1103
+automation\prompt_validator.py                                               95     69    27%   86-93, 101-195, 201-206
+automation\repair_loop.py                                                   127    127     0%   13-359
+automation\report_generator.py                                               77     64    17%   20-90, 98-131, 135-138, 142-145, 149-152, 159-170
+automation\secret_guard.py                                                   85     85     0%   5-153
+src\__init__.py                                                               1      0   100%
+src\analysis\__init__.py                                                     20      0   100%
+src\analysis\clustering.py                                                   94      5    95%   25, 29, 69, 81, 234
+src\analysis\competitor_profiler.py                                         301     21    93%   54, 67, 72, 74, 83, 125, 130, 144, 160, 253, 258, 280, 282, 304, 325, 328, 383, 387, 413, 437, 443
+src\analysis\competitors.py                                                  75      1    99%   182
+src\analysis\contracts.py                                                   374      7    98%   195, 292, 328, 331, 362, 565-566
+src\analysis\emerging_bonus.py                                               34      0   100%
+src\analysis\external_signals.py                                             74      0   100%
+src\analysis\gig_quality.py                                                  72      1    99%   53
+src\analysis\gig_quality_rubric.py                                          151      1    99%   31
+src\analysis\intent.py                                                      139     10    93%   81, 87, 92, 100, 284-285, 287-288, 366, 386
+src\analysis\keyword_clusterer.py                                           276     10    96%   74, 115, 122, 169, 182, 286-287, 337, 378-379
+src\analysis\keyword_features.py                                             50      1    98%   108
+src\analysis\llm_relevance_classifier.py                                    102      2    98%   49, 90
+src\analysis\negation_exclusion.py                                           17      2    88%   20, 25
+src\analysis\orchestrator.py                                                615     30    95%   301, 470-471, 518, 535-536, 593, 597, 602, 613, 618, 707-708, 899, 906, 908-910, 1133, 1206, 1405-1406, 1420, 1514-1515, 1633-1634, 1695-1696, 1722
+src\analysis\persistence.py                                                  44      2    95%   28, 30
+src\analysis\pre_validator.py                                                34      0   100%
+src\analysis\quality.py                                                       2      0   100%
+src\analysis\quality_gate.py                                                 22      4    82%   19, 28, 30, 34
+src\analysis\registry.py                                                     19      0   100%
+src\analysis\result_set_validator.py                                        125     15    88%   61, 65, 76, 164, 186, 190, 345-350, 359-361
+src\analysis\review_analyzer.py                                             215    180    16%   58-63, 67-81, 85-97, 101-110, 114-127, 135-201, 206-211, 219-221, 225-227, 231-238, 242-263, 274-317, 339-368, 377-389, 399-412
+src\analysis\reviews.py                                                      67      7    90%   115-120, 161-162
+src\analysis\saturation.py                                                   81      2    98%   27, 48
+src\analysis\saturation_model.py                                            242    210    13%   57-58, 63-67, 84-97, 110-141, 154-188, 193-195, 210-228, 243-249, 270-329, 346-359, 373-396, 407-455, 473, 477-482, 486-491, 495-507, 511-528, 532-551
+src\analysis\seller_strength.py                                             163     19    88%   52, 59-61, 68-69, 83, 85, 87, 91, 94-95, 103, 111-112, 114, 139, 143, 215
+src\analysis\sellers.py                                                       2      0   100%
+src\analysis\zombie_gig_detector.py                                          84     42    50%   16-24, 31-41, 49-59, 73-75, 93-94, 98-99, 103-104, 117-123
+src\cli.py                                                                   39     39     0%   3-85
+src\collection\__init__.py                                                   20      0   100%
+src\collection\autocomplete.py                                               56      5    91%   42-45, 51, 72
+src\collection\checkpoint.py                                                 98      0   100%
+src\collection\community_signals.py                                          62     12    81%   35, 41, 59, 61, 63, 65-66, 68, 70, 72, 74-75
+src\collection\contracts.py                                                 179     36    80%   112, 128, 138, 147, 173, 183, 185, 192, 195, 202, 209, 211-214, 221, 228, 230, 234, 239, 241, 243, 252, 256, 265, 269, 276, 281, 284, 291, 294, 302, 316, 318, 328, 333
+src\collection\external_signals.py                                           60      7    88%   62, 69, 76, 78, 80, 82, 84
+src\collection\fiverr_selectors.py                                           55      0   100%
+src\collection\gig_detail.py                                                328      8    98%   145, 168-169, 183, 213, 215, 319, 323
+src\collection\html_text.py                                                  36      0   100%
+src\collection\http_fetcher.py                                               44     24    45%   68-69, 72-88, 108, 111-114, 153-159
+src\collection\human_events.py                                               13      7    46%   14-16, 21-26, 35-36
+src\collection\keyword_expansion.py                                          60      5    92%   49-51, 64, 91
+src\collection\live_pilot.py                                                 92      8    91%   74, 79, 82, 128-130, 139-140
+src\collection\orchestrator.py                                              514     49    90%   272, 276-282, 403, 418-419, 437, 444, 467-468, 486-487, 502-503, 534-535, 561-563, 578-580, 594-596, 610-612, 627, 954-957, 997-1004, 1020, 1084-1085
+src\collection\pacing.py                                                    131     11    92%   79-80, 89, 112-114, 118-121, 205
+src\collection\pilot_logger.py                                               53      0   100%
+src\collection\playwright_check.py                                            6      3    50%   14-28
+src\collection\proxy.py                                                      35     17    51%   24, 34, 41, 44-66
+src\collection\queue.py                                                      30      0   100%
+src\collection\safety.py                                                     10      6    40%   23-31
+src\collection\scrapfly_client.py                                           142     84    41%   71, 97, 164, 174-185, 192-201, 204-205, 208-209, 240-297, 309-358, 374
+src\collection\search_plan.py                                                35      0   100%
+src\collection\search_result_parser.py                                      189    143    24%   58, 62-70, 74-77, 81-87, 91-93, 97-101, 106-141, 145, 177-197, 202-243, 247-272, 275-279, 283-292, 313-361
+src\collection\search_url_builder.py                                        153     90    41%   48, 60-69, 152, 157, 177-180, 186-192, 202-230, 237, 245-252, 261-303, 307-314, 318-327
+src\collection\selectors.py                                                  54      0   100%
+src\collection\seller_profile.py                                            308    166    46%   68, 77, 89, 92, 104-117, 129-136, 147-154, 158-166, 183-193, 201-325, 341, 409
+src\collection\session.py                                                    64      0   100%
+src\collection\session_manager.py                                           237    166    30%   64-65, 84-85, 88, 92-97, 101-102, 107-108, 112-113, 117-118, 129-130, 134-138, 142-144, 148-152, 156-167, 171-181, 191-221, 230-317, 321-345, 353, 366, 384-387, 391-397
+src\collection\workflows\__init__.py                                         11      0   100%
+src\collection\workflows\auto_promotion.py                                    5      0   100%
+src\collection\workflows\autocomplete.py                                    100      0   100%
+src\collection\workflows\fiverr_search.py                                   166     42    75%   86-139, 180-189, 240-244, 251-268
+src\collection\workflows\gig_detail.py                                      351      2    99%   494, 539
+src\collection\workflows\google_trends.py                                   194      0   100%
+src\collection\workflows\keyword_expansion.py                               478     25    95%   114-116, 135, 143-144, 156, 159-160, 170, 174-191, 457, 460, 465, 468, 471, 474
+src\collection\workflows\niche_init.py                                       70      0   100%
+src\collection\workflows\reddit_devvit_bridge.py                            123    101    18%   45-51, 56-65, 70-94, 98-101, 106-125, 130-152, 161-174, 185-201
+src\collection\workflows\reddit_signals.py                                  214    154    28%   54-56, 85-114, 120-124, 159-173, 183-189, 199-204, 219-322, 341-344, 348-353, 362-383, 393-456, 461-464, 469-472, 481, 495-504
+src\collection\workflows\result_set_validation_workflow.py                  119     93    22%   23-26, 30-40, 47, 51-60, 64-74, 78-86, 90-128, 132-134, 138-141, 145-153, 164-198
+src\collection\workflows\seller_profile.py                                  162    124    23%   61-91, 124-238, 248-268, 273-285, 290-293, 297-300, 305-309, 314-327, 331-334, 343-353, 382-391
+src\collection\workflows\youtube_count.py                                    98     70    29%   30, 35-43, 47-52, 57-85, 89-94, 99-120, 142-184
+src\config\__init__.py                                                        3      0   100%
+src\config\loader.py                                                         72     16    78%   45-46, 55, 58-68, 71, 74, 77, 81, 103
+src\config\models.py                                                        297     14    95%   16, 19, 21, 112, 115, 120, 176, 178, 271, 273, 339, 393, 410, 450
+src\dashboard\__init__.py                                                     9      0   100%
+src\dashboard\_pages_legacy.py                                               15      0   100%
+src\dashboard\alert_generator.py                                             47      7    85%   48-49, 51, 54-55, 82, 140
+src\dashboard\alerts.py                                                      93      5    95%   220, 256, 278, 281-282
+src\dashboard\app.py                                                        342     15    96%   293, 341, 369, 473, 475, 511, 550, 705, 831, 856, 913, 971-972, 1023, 1039
+src\dashboard\badge_renderer.py                                              15      0   100%
+src\dashboard\components.py                                                 152      5    97%   395, 408, 456, 459-460
+src\dashboard\contracts.py                                                  100      4    96%   45, 47, 99, 121
+src\dashboard\db_helpers.py                                                  23      3    87%   33-35
+src\dashboard\design.py                                                      30      3    90%   73, 86, 88
+src\dashboard\keywords.py                                                   109      5    95%   282, 353-354, 357-358
+src\dashboard\navigation.py                                                  10      0   100%
+src\dashboard\opportunities.py                                               91      8    91%   200, 203-204, 258, 327-328, 331-332
+src\dashboard\pages\__init__.py                                              12      0   100%
+src\dashboard\pages\competitors.py                                           21      8    62%   21-23, 28-40, 44
+src\dashboard\pages\discovery.py                                             76      2    97%   89, 162
+src\dashboard\pages\keywords.py                                              77      4    95%   70, 132, 143, 151
+src\dashboard\pages\llm_costs.py                                             26      1    96%   36
+src\dashboard\pages\opportunities.py                                         66      3    95%   57, 135, 143
+src\dashboard\pages\playbook.py                                               6      1    83%   11
+src\dashboard\pages\pricing.py                                                6      1    83%   11
+src\dashboard\pages\recommendations.py                                       60     12    80%   33, 75-84, 99
+src\dashboard\pages\run_history.py                                           67     11    84%   29-30, 32-33, 39, 93, 100-104, 108
+src\dashboard\queries.py                                                    324     20    94%   350, 357, 411, 418, 492-493, 495-496, 570, 592, 671, 1018, 1033, 1039, 1044-1047, 1061, 1071
+src\dashboard\query_layer.py                                                 32      0   100%
+src\dashboard\relevance_dashboard.py                                         33     25    24%   14-31, 36-40, 49-52, 71-87
+src\dashboard\run_history.py                                                110      8    93%   216, 287-289, 358-359, 362-363
+src\dashboard\sample_data.py                                                  4      4     0%   3-10
+src\dashboard\schemas\__init__.py                                             3      0   100%
+src\dashboard\schemas\opportunity_card.py                                    29      0   100%
+src\dashboard\schemas\pricing_display.py                                     32      0   100%
+src\dashboard\state.py                                                       61      0   100%
+src\db.py                                                                     9      9     0%   3-17
+src\discovery\__init__.py                                                     7      0   100%
+src\discovery\candidates.py                                                  70      0   100%
+src\discovery\contracts.py                                                   55      2    96%   79, 83
+src\discovery\feedback.py                                                   134     25    81%   113-116, 123, 129-162
+src\discovery\hypothesis.py                                                 325      6    98%   320, 517, 560, 582, 727, 739
+src\discovery\integration.py                                                 87      2    98%   28, 35
+src\discovery\orchestrator.py                                               100      6    94%   184-185, 197, 208-210
+src\discovery\stage16.py                                                    119      9    92%   179, 191-192, 202-203, 257, 274-276
+src\exports\__init__.py                                                       7      0   100%
+src\exports\csv_export.py                                                    65     50    23%   28-48, 67-80, 84-86, 90-95, 99-107
+src\exports\formats.py                                                       49     27    45%   35-42, 46-64, 69-72
+src\exports\json_export.py                                                   62     46    26%   26-44, 53-57, 61-70, 74-81, 85-88, 92-94, 98-103
+src\exports\manifest.py                                                      77     41    47%   46-103, 107
+src\exports\markdown_export.py                                               42     31    26%   26-62, 76-78, 82-87
+src\exports\placeholders.py                                                  56     38    32%   24-26, 38, 48-49, 69-102, 120-121
+src\llm\__init__.py                                                           9      0   100%
+src\llm\cache.py                                                            119      6    95%   114-115, 130, 152, 174-175
+src\llm\client.py                                                            86     10    88%   40, 191-200
+src\llm\costs.py                                                             13      0   100%
+src\llm\provider.py                                                          32      0   100%
+src\llm\retry.py                                                             40      2    95%   53, 67
+src\llm\schemas.py                                                           33      0   100%
+src\llm\template_renderer.py                                                 36      2    94%   46-47
+src\llm\validation.py                                                        31      1    97%   34
+src\migrations\migration_13_ladder_revenue_llm_observability.py              27     20    26%   9, 14-71, 76-78, 83, 88
+src\migrations\migration_14_s76_discovery_feedback.py                        76     76     0%   3-152
+src\migrations\srdi_r8\__init__.py                                            2      0   100%
+src\migrations\srdi_r8\migration_01_result_set_validations.py                 7      4    43%   10-35
+src\migrations\srdi_r8\migration_02_gigs_srdi_columns.py                     14     10    29%   9-12, 17-22
+src\migrations\srdi_r8\migration_03_search_results_srdi_columns.py           14     10    29%   9-12, 17-22
+src\migrations\srdi_r8\migration_04_keyword_scores_srdi_columns.py           12      8    33%   9-12, 17-20
+src\migrations\srdi_r8\migration_05_keywords_srdi_columns.py                 12      8    33%   9-12, 17-20
+src\migrations\srdi_r8\migration_06_discovery_outcomes_srdi_columns.py       14     10    29%   9-12, 17-28
+src\migrations\srdi_r8\migration_07_r3_columns.py                            26     20    23%   9-12, 16-19, 24-28, 38-44
+src\migrations\srdi_r8\migration_08_r2_columns.py                            52     42    19%   17-18, 23-26, 30-57, 62-72
+src\migrations\srdi_r8\migration_09_keyword_score_integrity_cols.py          52     42    19%   20-21, 26-29, 33-60, 65-75
+src\migrations\srdi_r8\migration_10_discovery_outcome_context_cols.py        13      9    31%   16-21, 26-30
+src\migrations\srdi_r8\migration_11_external_signal_tc1_cols.py              12      8    33%   8-13, 17-20
+src\migrations\srdi_r8\migration_12_price_analysis_tables.py                 44     38    14%   10-11, 15-18, 23-182
+src\migrations\srdi_r8\migration_13_ladder_revenue_llm_observability.py       4      0   100%
+src\migrations\srdi_r8\run_srdi_r8_migrations.py                             19     14    26%   28-41
+src\models\__init__.py                                                       26      0   100%
+src\models\analysis.py                                                       48      0   100%
+src\models\associations.py                                                   13      0   100%
+src\models\auto_promotion.py                                                 14      0   100%
+src\models\base.py                                                           39     10    74%   30-38, 87
+src\models\collection_runtime.py                                             49      0   100%
+src\models\database.py                                                      245     29    88%   65-66, 77, 81, 86-91, 102, 122, 161, 197, 238, 260, 300, 382, 386, 415-420, 426, 448-450, 537-540
+src\models\discovery.py                                                      25      0   100%
+src\models\discovery_cycle.py                                                24      0   100%
+src\models\discovery_outcome.py                                              25      0   100%
+src\models\external_signal.py                                                74      0   100%
+src\models\gig.py                                                           101      0   100%
+src\models\gig_quality_analysis.py                                            2      0   100%
+src\models\gig_quality_score.py                                              53      0   100%
+src\models\init.py                                                            4      0   100%
+src\models\job.py                                                            42      9    79%   65-66, 69-71, 76-78, 81
+src\models\keyword_score.py                                                  43      0   100%
+src\models\market.py                                                        274     55    80%   350, 369-371, 375-376, 393, 414-416, 420-421, 446, 499, 523-524, 542-567, 590-622
+src\models\niche.py                                                          22      0   100%
+src\models\order.py                                                          19      0   100%
+src\models\price_analysis.py                                                103      0   100%
+src\models\price_ladder_snapshot.py                                          22      0   100%
+src\models\pricing.py                                                         2      2     0%   3-5
+src\models\registry.py                                                       40      9    78%   193-198, 203-205
+src\models\result_set_validation.py                                          25      0   100%
+src\models\revenue_gate_record.py                                            18      0   100%
+src\models\runtime.py                                                        68      0   100%
+src\models\scoring.py                                                        58      0   100%
+src\models\search_result.py                                                 113     69    39%   94-103, 107-133, 148-205, 210-212
+src\models\seller.py                                                         78     17    78%   77, 85, 89, 93, 97, 101, 115-134, 139-141
+src\models\visual.py                                                         20      0   100%
+src\monitoring\__init__.py                                                    2      0   100%
+src\monitoring\monitors.py                                                   29     19    34%   30-44, 53-55, 63-92
+src\orchestrator.py                                                         325    165    49%   70-95, 112, 185-196, 217-219, 221, 232-234, 236-237, 252-253, 282-285, 298-334, 356-359, 383, 392-412, 415-429, 432-451, 454-475, 478-498, 501-521, 524-544, 547-567, 582, 586, 589, 594, 616-619
+src\playbook\__init__.py                                                      3      0   100%
+src\playbook\generator.py                                                   165     39    76%   64-65, 149-163, 168-188, 260-261, 395-403
+src\playbook\seed_guidance.py                                                37     27    27%   20, 31-68
+src\pricing\__init__.py                                                      10      0   100%
+src\pricing\analysis.py                                                     397    317    20%   67-70, 72, 79-82, 91-120, 125-138, 143-166, 171-210, 227-236, 246-268, 278-306, 311-344, 349-372, 377-390, 403-430, 435-442, 447-454, 458-464, 485-499, 503-525, 529-534, 538-549, 553-559, 563-571, 577-578, 584-589, 602, 607-609, 614-635
+src\pricing\contracts.py                                                     46      0   100%
+src\pricing\ladder_tracker.py                                                69      8    88%   41-42, 44, 48, 142, 149, 151-152
+src\pricing\llm_task.py                                                      99     81    18%   34-96, 101-105, 123-130, 135-147, 159-181, 185-194, 198, 202-205
+src\pricing\new_seller_pricing.py                                           180    135    25%   46-87, 112-130, 135-154, 159-164, 169-184, 189-190, 195-198, 210-227, 232-237, 242-244, 254-256, 260-262, 266-274, 278-282, 287, 292, 297-298, 307
+src\pricing\orchestrator.py                                                  71     48    32%   26-61, 66-81, 94-103, 109-110, 115-122, 129, 136, 145
+src\pricing\pricing_export.py                                               162    131    19%   26, 31-37, 41-47, 51-63, 67-79, 83-86, 91-108, 122-137, 142-147, 152-178, 182-183, 188-222, 232-258
+src\pricing\revenue_gate.py                                                  30      5    83%   56-60
+src\recommendations\__init__.py                                              16      0   100%
+src\recommendations\context.py                                              209     64    69%   79, 155-177, 180-185, 189, 225, 235-270, 275-304, 306-324, 374, 386, 431, 446-447, 458-459, 470
+src\recommendations\context_builder.py                                      188    165    12%   29-67, 99-111, 115-118, 122-125, 129-147, 156-177, 189-228, 232-240, 244-252, 256-261, 265-268, 272-275, 279-282, 286-291, 295-303, 307-310, 314-317, 321-324, 328-331
+src\recommendations\contracts.py                                            137      0   100%
+src\recommendations\eligibility.py                                          303    174    43%   37-56, 87, 95, 109, 113, 117, 120, 136-138, 159, 185-212, 218-225, 229, 234, 241-244, 246, 254, 256, 261-264, 271, 278, 289-292, 296-299, 303-306, 310-311, 319-337, 354-362, 366-372, 376-388, 392-403, 407-423, 427-430, 434-437, 441-446, 452, 459, 466-467, 473-474, 480-481, 485-492
+src\recommendations\executor.py                                              51      0   100%
+src\recommendations\export.py                                               334     14    96%   102, 215, 385, 398, 405, 409, 466, 469, 490, 523-524, 530, 544, 546
+src\recommendations\llm_tasks.py                                            209      8    96%   69, 202, 280-281, 293-294, 299, 304
+src\recommendations\orchestrator.py                                          11      2    82%   39-40
+src\recommendations\pipeline.py                                              89     62    30%   47-104, 111-117, 121-124, 131, 140-149, 153-162
+src\recommendations\run.py                                                   39     28    28%   46-93
+src\recommendations\schemas.py                                              148      7    95%   26, 42, 45, 65, 67, 89, 188
+src\recommendations\storage.py                                              240    209    13%   41-106, 111-126, 131-152, 163-256, 260-267, 271-274, 284-289, 293-296, 300-303, 307-310, 314-321, 325-331, 335-342, 346-359, 363-369, 373-378, 382-387, 391-395
+src\recommendations\tasks.py                                                201    158    21%   23, 39, 55, 71, 87, 103, 119, 135, 151, 167, 183, 199-213, 234, 258-303, 315-323, 327, 361-369, 373-381, 385-388, 392-396, 400-401, 405-406, 410-414, 418-419, 423-429, 433-440, 444-445, 449-458, 462-481, 485-491, 495-498, 502-505, 509-512
+src\recommendations\template_validation.py                                    4      1    75%   8
+src\reports\__init__.py                                                       4      0   100%
+src\reports\placeholders.py                                                 283    197    30%   57-63, 67-70, 77-122, 127-164, 202-274, 283, 286, 289, 373-391, 402-408, 448, 451-452, 502-534, 543-545, 549-552, 556-559, 566-626
+src\reports\run_summary.py                                                   42     25    40%   33-39, 44-48, 53-66, 76, 81-85, 95-99, 104-105
+src\reports\templates.py                                                    207     76    63%   44-52, 65, 77-78, 82, 103-110, 117-119, 133, 150-165, 179, 196-210, 224, 241-256, 269, 285-294, 309, 312, 323-336, 351, 354, 365-376, 391, 394, 405-416, 431, 434, 445-460, 475-476, 479, 498-520
+src\scheduler\__init__.py                                                     4      0   100%
+src\scheduler\exceptions.py                                                  11      5    55%   8-10, 21-22
+src\scheduler\init.py                                                         2      0   100%
+src\scheduler\queue_processor.py                                             56      9    84%   75, 88-92, 110, 113, 116
+src\scheduler\retry_config.py                                                27      0   100%
+src\scheduler\retry_handler.py                                               84     61    27%   46, 55, 58-130
+src\schemas\pricing_output.py                                                54      9    83%   19-23, 73-76
+src\scoring\__init__.py                                                       5      0   100%
+src\scoring\competition.py                                                  545     16    97%   84, 93, 102-103, 124, 250, 692, 715, 735-736, 740-743, 746, 803
+src\scoring\confidence.py                                                   203     21    90%   81, 118-124, 295-296, 312-313, 319-326, 339-340, 348, 357, 367
+src\scoring\contracts.py                                                    125      2    98%   149, 192
+src\scoring\demand.py                                                       453     46    90%   75, 99-105, 122, 195-196, 362-365, 386, 398-399, 405-416, 437, 550-557, 584-596, 616-631, 669-676, 757, 846-849
+src\scoring\feasibility.py                                                  423     34    92%   123, 127, 198, 212, 225, 276, 361, 368-370, 385, 395, 402, 411, 425, 508-512, 531, 533, 559-571, 601, 627, 700, 720, 723, 749
+src\scoring\final.py                                                         91     17    81%   89, 96, 128, 137, 143, 145, 147, 149, 172, 174-175, 180, 188-189, 195, 197-198
+src\scoring\intent.py                                                       204     36    82%   40, 107, 123, 137, 141-143, 164-175, 191-192, 213, 268-269, 282-283, 309, 318, 320, 323, 339, 341, 343-344, 352-372
+src\scoring\opportunity.py                                                   81     40    51%   21, 25, 31-37, 41-46, 107-148
+src\scoring\orchestrator.py                                                 128     97    24%   49-61, 65-183, 197-219, 233, 237-243, 247-272, 295-306
+src\scoring\pipeline.py                                                     373    144    61%   37, 44-47, 139, 157, 180-182, 214, 220, 239, 251, 253, 273-294, 309, 366, 409, 532-561, 573, 587-595, 630-646, 736-738, 745-747, 754-760, 792-854, 859, 893-895, 906-911, 930-980
+src\scoring\profitability.py                                                267    132    51%   26, 44, 59-169, 192-199, 202-205, 209, 228-230, 233-244, 295-329, 332-344, 358, 424-434, 440-443, 450, 459, 461, 463
+src\scoring\ranking.py                                                       57     38    33%   13, 17-42, 46, 50, 54, 58, 66-69, 73-78, 82-87
+src\scoring\result_set_relevance.py                                          12      0   100%
+src\scoring\saturation_score.py                                             275    232    16%   18-26, 30-38, 47-98, 120-269, 297-318, 321-349, 352-359, 362-370, 373-376, 380, 384-386, 390-394, 397-408, 411-427, 436-441, 445-453, 462-465, 469-472, 476-481
+src\scoring\trend.py                                                        205    166    19%   41-141, 156-162, 165-189, 192-203, 210-216, 225-241, 245-253, 257-261, 265-269, 273-281, 284-295, 298-319, 337-342, 351-354, 358-361, 365-370
+src\scoring\weakness.py                                                     596    473    21%   42, 47, 71-74, 91-280, 306-535, 561, 588-592, 600-604, 612-616, 624-628, 636-640, 648-652, 661-675, 686-691, 695-696, 700-702, 710-721, 724-740, 744, 748, 752, 756, 760, 764, 767-778, 781-1048, 1060-1110, 1115-1149, 1160, 1163, 1185, 1190-1200, 1204-1209, 1213-1217, 1221-1223, 1227-1230, 1239-1242, 1246-1249, 1253-1258
+src\scripts\__init__.py                                                       3      0   100%
+src\scripts\foundation_gate.py                                               62     10    84%   51, 95-97, 102-104, 107-109
+src\scripts\import_seeds.py                                                  89     89     0%   8-192
+src\scripts\init_db.py                                                       10      1    90%   17
+src\scripts\repo_hygiene.py                                                  41      6    85%   57, 65, 79, 87, 97, 105
+src\utils\__init__.py                                                        10      0   100%
+src\utils\datetime.py                                                        50      0   100%
+src\utils\export.py                                                          17      1    94%   34
+src\utils\governance.py                                                      32     21    34%   15-21, 25-30, 35-60, 65
+src\utils\hashing.py                                                         15      0   100%
+src\utils\json.py                                                            13      8    38%   11-14, 19-22
+src\utils\logging.py                                                         29      2    93%   30-31
+src\utils\paths.py                                                           10      4    60%   10-12, 22
+src\utils\retry.py                                                           26     18    31%   24-45
+src\utils\validation.py                                                      26      2    92%   54-55
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                                     25894   8083    69%
+
+1 empty file skipped.
+Coverage HTML written to dir docs\validation\coverage_report_cycle075
+
+FAIL Required test coverage of 90.0% not reached. Total coverage: 68.78%
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+C:\Users\Windows 11\AppData\Local\Programs\Python\Python311\Lib\pathlib.py:1147: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)
+3230 passed in 166.12s (0:02:46)

@@ -10,7 +10,7 @@ from src.dashboard.opportunities import build_opportunities_payload
 
 def render_price_distribution_chart(keyword_id: int, db: Session) -> None:
     """Render a compact Basic-tier competitor price histogram for one keyword."""
-    import plotly.graph_objects as go  # type: ignore[import-untyped]
+    import plotly.graph_objects as go
     import streamlit as st
 
     from src.models.gig import Gig
