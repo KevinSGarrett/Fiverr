@@ -24,7 +24,7 @@
 
 ## Total Occurrences Fixed
 
-- 24 occurrences of deprecated Ruff text-format flag references replaced.
+- 24 occurrences of deprecated Ruff text-format flag references replaced with full-format usage.
 
 ## Verification
 
@@ -33,4 +33,4 @@
   - PM_Pack/**/*.md
   - PM_Pack/automation/prompts/**/*
   - automation/**/*.py
-- Result: zero remaining matches for `output-format=text`.
+- Result: zero remaining matches for the deprecated Ruff text-format flag in scoped searches.
