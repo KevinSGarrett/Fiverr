@@ -73,5 +73,12 @@
 - docs/cycle_reports/CYCLE_076_DEV_AUTO_CHECK.txt
 - docs/cycle_reports/CYCLE_076_KEVIN_HANDOFF.md
 - docs/cycle_reports/CYCLE_076_AGENT_D.md
+- docs/cycle_reports/CYCLE_076_AGENT_D_PROMPT_COMPLIANCE_AUDIT.md
+- docs/cycle_reports/CYCLE_076_SEC007_SCAN_RAW.txt
+- docs/cycle_reports/CYCLE_076_JIRA_ACTIONS_RAW.json
+- docs/cycle_reports/CYCLE_076_JIRA_INVENTORY_DRY_RUN.txt
+- docs/cycle_reports/CYCLE_076_FREEZE_STATUS.txt
+- docs/cycle_reports/CYCLE_076_PM_PACK_AUDIT_D.txt
+- docs/cycle_reports/CYCLE_076_BRAIN_CHECK_D.txt
 
 ## Total Artifacts This Cycle: 66

@@ -1,24 +1,27 @@
 {
   "cycle": 76,
-  "generated_at": "2026-06-12T18:18:50.326457+00:00",
+  "generated_at": "2026-06-12T18:24:54.435243+00:00",
   "billing_mode": "claude_subscription_only",
   "branch": "cycle/075/integration",
-  "head_sha": "1c3f7611123de98186ed977d7c6348b059cb4768",
+  "head_sha": "cebc3cfac1cb57126353bcabdb03b2f0d1af2190",
   "pr_number": 88,
   "pr_url": "https://github.com/KevinSGarrett/Fiverr/pull/88",
   "pr_state": "open",
   "target_branch": "develop",
   "ci_status": {
     "lint": "failing",
-    "type_check": "pending",
-    "tests_coverage": "pending",
-    "smoke_gates": "pending"
+    "type_check": "failing",
+    "tests_coverage": "failing",
+    "smoke_gates": "failing"
   },
   "codecov_project": "pending",
   "codecov_patch": "pending",
   "codex_threads": 0,
-  "merge_gate_dry_run": "FAIL_PARTIAL - CI and PR metadata checks unresolved pre-CI",
+  "merge_gate_dry_run": "PARTIAL_FAIL - CI not yet green and PR metadata checks unresolved",
   "commits_since_develop": [
+    "cebc3cf docs(cycle-076): agent D final report - PR open, Jira sync complete, cycle 077 recommendations ready",
+    "31c48fe docs(pm-pack): update cycle 076 log with PR number and final status",
+    "47719b6 docs(cycle-076): agent D closeout - PR body, Jira sync, merge gate dry-run, cycle 077 story recommendations",
     "1c3f761 test(cycle-076): finalize critical automation module coverage fixes",
     "582b429 \ufeffdocs(cycle-076): agent F report \u2014 coverage complete, final table ready for PR body",
     "ae6dcdf \ufefftest(cycle-076): raise automation coverage \u2014 model_gate, policy_compiler, prompt_validator, config_loader, claude_sub_gate, lock_manager, github_client, report_generator all \u226590%; src/ improvements",
