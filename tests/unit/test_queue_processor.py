@@ -64,6 +64,15 @@ def _make_job(**overrides: object) -> Job:
     return Job(**data)
 
 
+
+@pytest.fixture(autouse=True)
+def _mock_asyncio_sleep(monkeypatch):
+    """Mock asyncio.sleep to prevent real retry backoff waits."""
+    async def fast_sleep(_seconds):
+        pass
+    monkeypatch.setattr("asyncio.sleep", fast_sleep)
+
+
 def test_job_table_name() -> None:
     assert Job.__tablename__ == "jobs"
 

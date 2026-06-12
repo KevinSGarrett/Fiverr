@@ -100,7 +100,7 @@ def generate_prompt(
         "",
         "- Project: Fiverr Research System",
         "- GitHub: https://github.com/KevinSGarrett/Fiverr",
-        "- Local: C:\\Fiverr\\Fiverr",
+        f"- Local: {str(REPO_ROOT)}",
         f"- Branch: `{branch}`",
         "- Python: 3.11+ | SQLAlchemy 2.0 | Pydantic v2 | Playwright | OpenAI | Streamlit",
         f"- Cycle: {cycle:03d} | Run ID: {run_id}",

@@ -4,7 +4,20 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from automation.post_cycle_review import ReviewMode, get_review_result, run_review
+
+
+@pytest.fixture(autouse=True)
+def _mock_expensive_collectors(monkeypatch):
+    """Prevent real subprocess/network calls in unit tests."""
+    with (
+        patch("automation.post_cycle_review._collect_local_code_verification", return_value={}),
+        patch("automation.post_cycle_review._collect_github_facts", return_value={}),
+        patch("automation.post_cycle_review._collect_jira_facts", return_value={}),
+        patch("automation.post_cycle_review._git", return_value=""),
+    ):
+        yield
 
 
 def test_run_review_missing_source_prompt_returns_blocked(tmp_path: Path) -> None:
