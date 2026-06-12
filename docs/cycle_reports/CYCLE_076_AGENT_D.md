@@ -47,8 +47,8 @@ docs/cycle_reports/CYCLE_076_KEVIN_HANDOFF.md
 47719b6
 
 ## Blockers / Anomalies
-- merge-gate --dry-run currently reports unknown PR metadata fields in this environment.
+- merge-gate --dry-run still reports unknown PR metadata fields after explicit token-injected retry.
 - status-tick next_action is PLAN_READY (not AWAIT_CI/VALIDATE_PROMPTS) due controller state behavior.
-- full-suite automation-only coverage capture remains truncated in workspace output.
+- full-suite automation-only coverage capture remains truncated near ~54% across repeated reruns.
 
 AGENT_COMPLETE

@@ -74,6 +74,10 @@
 - docs/cycle_reports/CYCLE_076_KEVIN_HANDOFF.md
 - docs/cycle_reports/CYCLE_076_AGENT_D.md
 - docs/cycle_reports/CYCLE_076_AGENT_D_PROMPT_COMPLIANCE_AUDIT.md
+- docs/cycle_reports/CYCLE_076_FULL_COVERAGE_RECHECK_2.txt
+- docs/cycle_reports/CYCLE_076_FULL_COVERAGE_RECHECK.txt
+- docs/cycle_reports/CYCLE_076_FINAL_STATUS_TICK_RECHECK.txt
+- docs/cycle_reports/CYCLE_076_MERGE_GATE_DRY_RUN_AUTH.txt
 - docs/cycle_reports/CYCLE_076_SEC007_SCAN_RAW.txt
 - docs/cycle_reports/CYCLE_076_JIRA_ACTIONS_RAW.json
 - docs/cycle_reports/CYCLE_076_JIRA_INVENTORY_DRY_RUN.txt

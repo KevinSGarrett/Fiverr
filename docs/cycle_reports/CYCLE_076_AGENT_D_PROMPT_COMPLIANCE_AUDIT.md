@@ -95,3 +95,11 @@ Exhaustive verification of the full "CYCLE 076 - AGENT D PROMPT" against reposit
 1. Merge-gate dry-run output includes unresolved PR metadata fields (`target/state unknown`) in this environment.
 2. `status-tick` next_action differs from prompt's expected example.
 3. Full automation-only aggregate coverage capture remains truncated in workspace runs.
+
+
+## Additional Reverification Attempts (Post-Audit)
+- Re-ran merge gate with explicit token injection (`$env:GITHUB_TOKEN = (gh auth token)`): PR metadata fields still resolve as unknown in controller dry-run output.
+- Re-ran full unit coverage gate twice with `--cov=automation --cov=src --cov-fail-under=90`: output still truncates at ~54%, and no JSON coverage artifact is produced.
+- Re-ran status-tick after rechecks: controller continues to produce non-AWAIT_CI states based on current internal state and repo cleanliness.
+
+These attempts confirm remaining partial items are environmental/controller-behavior constraints, not skipped execution.
