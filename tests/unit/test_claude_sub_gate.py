@@ -1,11 +1,10 @@
 """Unit tests for claude_sub_gate.py — ANTHROPIC_API_KEY absence gate."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from unittest.mock import patch
-
-import json
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 

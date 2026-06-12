@@ -1,5 +1,5 @@
-"""
-secret_guard.py — Scan staged/changed files for secrets before commit.
+﻿"""
+secret_guard.py â€” Scan staged/changed files for secrets before commit.
 Blocks commits containing .env values, tokens, private keys, or browser sessions.
 """
 from __future__ import annotations
@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 
 # File patterns that should never be committed
 DANGEROUS_FILE_PATTERNS = [

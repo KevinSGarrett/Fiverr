@@ -1,5 +1,5 @@
-"""
-report_generator.py — Daily and weekly autonomy reports (OPS-022, OPS-023).
+﻿"""
+report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 RUNNER_ROOT = Path("C:/AI_Runner")
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 REPORTS_DIR = RUNNER_ROOT / "reports"
 
 
@@ -69,7 +69,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         f"- Verified at   : {ms.get('verified_at', 'N/A')}",
         f"- Days to expiry: {days_until_expiry if days_until_expiry is not None else 'N/A'}",
         f"- Claude billing: {cls.get('billing_mode', 'N/A')} [{cls.get('status', 'N/A')}]",
-        f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT — REVIEW REQUIRED'}",
+        f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT â€” REVIEW REQUIRED'}",
         "",
         "## Incidents (last 24h)",
         f"- Total incidents      : {incident_count}",
@@ -92,7 +92,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
 
 def generate_weekly_report() -> Path:
     """
-    OPS-023: Weekly autonomy review — cycles, PRs, repairs, interruptions,
+    OPS-023: Weekly autonomy review â€” cycles, PRs, repairs, interruptions,
     false stops, unsafe attempts, model drift, post-cycle failures.
     """
     now = datetime.now(UTC)

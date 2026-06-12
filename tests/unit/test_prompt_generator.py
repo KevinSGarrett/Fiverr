@@ -1,4 +1,4 @@
-"""Unit tests for prompt_generator.py — V5 corrected version."""
+﻿"""Unit tests for prompt_generator.py â€” V5 corrected version."""
 from __future__ import annotations
 
 import sys
@@ -75,7 +75,8 @@ class TestGeneratePrompt:
 
     def test_prompt_contains_repo_root(self):
         prompt = generate_prompt("A", 75, "cycle/075/integration", [], "run-test-001")
-        assert "C:\\Fiverr\\Fiverr" in prompt or "C:/Fiverr/Fiverr" in prompt
+        from automation.cursor_adapter import REPO_ROOT
+        assert str(REPO_ROOT).replace("\\\\", "/") in prompt.replace("\\\\", "/")
 
     def test_prompt_contains_validation_commands(self):
         prompt = generate_prompt("A", 75, "cycle/075/integration", [], "run-test-001")
@@ -121,7 +122,7 @@ class TestGeneratePrompt:
         assert "075" in prompt
 
     def test_prompt_contains_do_not_commit_instruction(self):
-        """Prompt must tell agents NOT to commit — controller owns git."""
+        """Prompt must tell agents NOT to commit â€” controller owns git."""
         prompt = generate_prompt("A", 75, "cycle/075/integration", [], "test")
         assert "DO NOT" in prompt or "do not" in prompt.lower()
         assert "git" in prompt.lower()

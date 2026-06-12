@@ -1,5 +1,5 @@
-"""
-merge_gate.py — Full merge gate checker for autonomous PR merging.
+﻿"""
+merge_gate.py â€” Full merge gate checker for autonomous PR merging.
 All conditions must pass before the runner may merge a PR into develop.
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from automation.freeze_gate import FreezeBlockedError, check_freeze
 from automation.github_client import GitHubClient
 
 REPO = "KevinSGarrett/Fiverr"
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 MERGE_POLICY_PATH = REPO_ROOT / "PM_Pack/automation/merge_policy.yml"
 
 
@@ -49,7 +49,7 @@ class MergeGateResult:
 
     def summary(self) -> str:
         status = "PASS" if self.passed else "FAIL"
-        lines = [f"MERGE GATE {status} — PR #{self.pr_number} -> {self.target}"]
+        lines = [f"MERGE GATE {status} â€” PR #{self.pr_number} -> {self.target}"]
         for c in self.checks:
             icon = "PASS" if c.passed else "FAIL"
             block = "" if c.blocking else " (non-blocking)"
@@ -143,7 +143,7 @@ def run(pr_number: int, repo: str = REPO,
             detail=f"check={check_name}",
         ))
 
-    # 6. Codecov — BLOCKING. MISSING is not acceptable; it means CI didn't upload.
+    # 6. Codecov â€” BLOCKING. MISSING is not acceptable; it means CI didn't upload.
     # Use explicit break-glass policy to temporarily allow missing coverage.
     break_glass = _load_break_glass()
     codecov_allowed_missing = break_glass.get("allow_missing_codecov", False)
@@ -175,7 +175,7 @@ def run(pr_number: int, repo: str = REPO,
         detail="staged file scan",
     ))
 
-    # 8. Model evidence — BLOCKING. Cannot merge without verified model state.
+    # 8. Model evidence â€” BLOCKING. Cannot merge without verified model state.
     cursor_state = _load_json(Path("C:/AI_Runner/state/cursor_model_state.json"))
     cursor_verified = cursor_state.get("status") == "VERIFIED"
     result.checks.append(GateCheck(
@@ -185,7 +185,7 @@ def run(pr_number: int, repo: str = REPO,
         blocking=True,
     ))
 
-    # 9. Codex review disposition — BLOCKING.
+    # 9. Codex review disposition â€” BLOCKING.
     # All review threads must be resolved or classified as non-blocking.
     codex_result = read_threads(pr_number, repo)
     result.checks.append(GateCheck(

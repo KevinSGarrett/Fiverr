@@ -1,8 +1,8 @@
-"""
-cursor_adapter.py — Config-driven Cursor CLI agent dispatch.
+﻿"""
+cursor_adapter.py â€” Config-driven Cursor CLI agent dispatch.
 
 V5-009 fixes (AUDIT-P0-012):
-  1. Binary path resolved from config/env/PATH — never hardcoded single user path
+  1. Binary path resolved from config/env/PATH â€” never hardcoded single user path
   2. Full-size prompt delivered via stdin/temp-file, not -p arg (avoids Windows 32KB CLI limit)
   3. Fail closed if resolved binary points to Cursor Desktop
   4. Model state expiry blocks dispatch if stale
@@ -19,14 +19,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-# ── Config paths (not hardcoded user paths) ─────────────────────────────────
+# â”€â”€ Config paths (not hardcoded user paths) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 RUNNER_CONFIG   = Path("C:/AI_Runner/config/cursor_adapter.yaml")
 DISCOVERY_LOG   = Path("C:/AI_Runner/logs/cursor_cli_discovery.txt")
 MODEL_STATE     = Path("C:/AI_Runner/state/cursor_model_state.json")
 REAUTH_STEPS    = Path("C:/AI_Runner/state/cursor_reauth_steps.md")
-REPO_ROOT       = Path("C:/Fiverr/Fiverr")
+REPO_ROOT       = Path(__file__).parent.parent
 
-# Cursor Desktop binary pattern — we must REJECT if CLI resolves to this
+# Cursor Desktop binary pattern â€” we must REJECT if CLI resolves to this
 CURSOR_DESKTOP_PATTERNS = [
     r"\Programs\cursor\resources\app\bin\cursor",
     r"\Programs\Cursor\resources",
@@ -35,7 +35,7 @@ CURSOR_DESKTOP_PATTERNS = [
 
 DEFAULT_TIMEOUT_MIN     = 180
 NO_OUTPUT_KILL_MIN      = 45
-# Windows CLI arg limit in chars — prompts longer than this go via stdin
+# Windows CLI arg limit in chars â€” prompts longer than this go via stdin
 CLI_ARG_CHAR_LIMIT      = 4000
 
 
@@ -62,9 +62,9 @@ class CursorAdapter:
     def kill_process_tree(pid: int) -> None:
         """Kill process and children via taskkill."""
         if pid <= 0:
-            raise ValueError(f"Invalid PID {pid} — must be positive")
+            raise ValueError(f"Invalid PID {pid} â€” must be positive")
         if pid < 10:
-            raise ValueError(f"PID {pid} looks like a system process — refusing to kill")
+            raise ValueError(f"PID {pid} looks like a system process â€” refusing to kill")
         result = subprocess.run(
             ["taskkill", "/F", "/T", "/PID", str(pid)],
             capture_output=True,
@@ -75,7 +75,7 @@ class CursorAdapter:
             raise RuntimeError(f"taskkill failed: {result.stderr}")
 
 
-# ── Binary resolution (config-driven) ───────────────────────────────────────
+# â”€â”€ Binary resolution (config-driven) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _load_config() -> dict[str, Any]:
     """Load cursor_adapter.yaml config. Returns empty dict if missing."""
@@ -159,7 +159,7 @@ CURSOR_CLI_PATH = _load_config().get(
 )
 
 
-# ── Model gate freshness check ────────────────────────────────────────────────
+# â”€â”€ Model gate freshness check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def check_model_gate_freshness() -> dict[str, Any]:
     """Check if cursor_model_state.json is within freshness policy (V6-CURSOR-005)."""
@@ -180,7 +180,7 @@ def check_model_gate_freshness() -> dict[str, Any]:
         return {"passed": False, "reason": str(e)}
 
 
-# ── Command builder ───────────────────────────────────────────────────────────
+# â”€â”€ Command builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
     """
@@ -207,7 +207,7 @@ def _build_command_with_file(binary: str, prompt_file: str, model: str) -> list[
     return cmd
 
 
-# ── Discovery ─────────────────────────────────────────────────────────────────
+# â”€â”€ Discovery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def discover() -> dict[str, Any]:
     """Discover Cursor CLI binary and record version/path."""
@@ -250,7 +250,7 @@ def check_version() -> str:
         return f"ERROR: {e}"
 
 
-# ── Agent run ──────────────────────────────────────────────────────────────────
+# â”€â”€ Agent run â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def run_agent(
     agent_id: str,

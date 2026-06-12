@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import pytest
 import yaml
-
 from automation import pm_pack_loader
 
 

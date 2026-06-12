@@ -1,5 +1,5 @@
-"""
-repair_loop.py — Repair loop dispatcher for failed agent runs.
+﻿"""
+repair_loop.py â€” Repair loop dispatcher for failed agent runs.
 
 When run-agent lifecycle returns VALIDATION_FAILED, this module:
   1. Classifies the failure (lint / type / test / report missing / ownership)
@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 MAX_REPAIR_ATTEMPTS: int = 3
 REPAIR_RECORD_FILE = "repair_record.json"
 
@@ -164,7 +164,7 @@ def _generate_repair_prompt(
     validation_output: str | None = None,
     report_path: str | None = None,
 ) -> str:
-    """Generate a targeted repair prompt — scope limited to failing files only."""
+    """Generate a targeted repair prompt â€” scope limited to failing files only."""
     now = datetime.now(UTC).isoformat()
     error_text = "\n".join(f"  - {e}" for e in errors[:10])
     failure_label = {
@@ -183,7 +183,7 @@ def _generate_repair_prompt(
         original_prompt = Path(original_prompt_path).read_text(encoding="utf-8", errors="replace")[:500]
     validation_tail = (validation_output or "")[-2000:]
 
-    return f"""# REPAIR PROMPT — Agent {agent_id} Cycle {cycle:03d} Attempt {attempt}
+    return f"""# REPAIR PROMPT â€” Agent {agent_id} Cycle {cycle:03d} Attempt {attempt}
 
 ## Context
 A previous agent run failed validation. This is a targeted repair run.
@@ -222,7 +222,7 @@ Do NOT re-implement features. Fix ONLY the specific errors listed below.
 Proceed without confirmation. Fix the errors and commit.
 
 ====================================================================
-END OF PROMPT — AGENT {agent_id} REPAIR ATTEMPT {attempt}
+END OF PROMPT â€” AGENT {agent_id} REPAIR ATTEMPT {attempt}
 ====================================================================
 
 <!-- Generated: {now} -->

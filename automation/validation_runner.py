@@ -1,5 +1,5 @@
-"""
-validation_runner.py — Run local validation commands (ruff, mypy, pytest, config-check).
+﻿"""
+validation_runner.py â€” Run local validation commands (ruff, mypy, pytest, config-check).
 Returns structured results with PASS/FAIL per gate.
 """
 from __future__ import annotations
@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 VENV_PYTHON = Path("C:/Fiverr/Fiverr/.venv/Scripts/python.exe")
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 
 
 @dataclass

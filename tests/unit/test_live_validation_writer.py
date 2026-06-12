@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
-from jsonschema.exceptions import ValidationError
-
 from automation import live_validation_writer
+from jsonschema.exceptions import ValidationError
 
 
 def _load_json(path: Path) -> dict:

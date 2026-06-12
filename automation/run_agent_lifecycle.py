@@ -1,5 +1,5 @@
-"""
-run_agent_lifecycle.py — Complete run-agent lifecycle after Cursor CLI returns.
+﻿"""
+run_agent_lifecycle.py â€” Complete run-agent lifecycle after Cursor CLI returns.
 
 After cursor agent -p "prompt" completes, this module:
   1. Collects git diff/changed files
@@ -24,12 +24,12 @@ from typing import Any
 
 import yaml
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 RUNNER_ROOT = Path("C:/AI_Runner")
 RUNNER_MODEL_STATE = RUNNER_ROOT / "state/cursor_model_state.json"
 AGENT_LANES_PATH = REPO_ROOT / "PM_Pack/automation/policies/agent_lanes.yml"
 
-# Agent file ownership map — agents must not modify outside their scope
+# Agent file ownership map â€” agents must not modify outside their scope
 AGENT_OWNERSHIP = {
     "A": {
         "allowed":   ["src/pipeline", "src/models", "src/collection", "src/scoring",
@@ -123,10 +123,10 @@ def run_post_agent_lifecycle(
     )
     jira_keys = jira_keys or []
 
-    # ── Step 1: Collect changed files ─────────────────────────────────
+    # â”€â”€ Step 1: Collect changed files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     result.changed_files = _get_changed_files()
 
-    # ── Step 2: Enforce file ownership ───────────────────────────────
+    # â”€â”€ Step 2: Enforce file ownership â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ownership = _check_ownership(agent_id, result.changed_files, REPO_ROOT)
     if not ownership.passed:
         result.unauthorized_files = ownership.unauthorized
@@ -134,7 +134,7 @@ def run_post_agent_lifecycle(
         result.errors.append(
             f"Agent {agent_id} modified files outside its scope: {ownership.unauthorized}"
         )
-        # Don't commit — quarantine changed files
+        # Don't commit â€” quarantine changed files
         if not dry_run:
             _write_record(result, run_dir)
             from automation.notification_router import notify_blocked
@@ -144,7 +144,7 @@ def run_post_agent_lifecycle(
             )
         return result
 
-    # ── Step 3: Secret guard — scan changed_files BEFORE any staging (V5-008) ────
+    # â”€â”€ Step 3: Secret guard â€” scan changed_files BEFORE any staging (V5-008) â”€â”€â”€â”€
     # Scan must happen on the changed_files list before we stage anything.
     # We call scan_working_tree (not scan_staged) at this point.
     secret_findings = _scan_changed_files(result.changed_files)
@@ -156,7 +156,7 @@ def run_post_agent_lifecycle(
             _write_record(result, run_dir)
         return result
 
-    # ── Step 4: Require report file ───────────────────────────────────
+    # â”€â”€ Step 4: Require report file â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     report_path = REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md"
     result.report_path = str(report_path)
     result.report_found = report_path.exists()
@@ -180,7 +180,7 @@ def run_post_agent_lifecycle(
             _write_record(result, run_dir)
         return result
 
-    # ── Step 5: Targeted validation ───────────────────────────────────
+    # â”€â”€ Step 5: Targeted validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     validation_result = _run_targeted_validation(agent_id, result.changed_files, run_dir, REPO_ROOT)
     result.validation_passed = validation_result.overall_passed
     if not validation_result.overall_passed:
@@ -204,7 +204,7 @@ def run_post_agent_lifecycle(
             result.repair_result = repair_result
         return result
 
-    # ── Step 6: Commit approved files ────────────────────────────────
+    # â”€â”€ Step 6: Commit approved files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Stage and commit only files that passed ownership check
     approved_files = [
         fn for fn in result.changed_files
@@ -222,7 +222,7 @@ def run_post_agent_lifecycle(
         sha = _commit_agent_work(agent_id, cycle, approved_files)
         result.commit_sha = sha
 
-    # ── Step 7: Update Jira with evidence ────────────────────────────
+    # â”€â”€ Step 7: Update Jira with evidence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not dry_run and jira_keys:
         from automation.jira_sync import on_agent_complete
         updates = on_agent_complete(
@@ -236,7 +236,7 @@ def run_post_agent_lifecycle(
         )
         result.jira_updates = updates
 
-    # ── Step 8: Write run record ──────────────────────────────────────
+    # â”€â”€ Step 8: Write run record â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     result.status = "COMPLETE"
     if not dry_run:
         record_path = _write_record(result, run_dir)
@@ -374,7 +374,7 @@ def _run_validation(agent_id: str) -> tuple[bool, str]:
         passed = False
         details_parts.append(f"mypy FAIL: {r.stdout[-200:]}")
 
-    # Pytest — only for code agents (not D)
+    # Pytest â€” only for code agents (not D)
     if agent_id != "D":
         r = subprocess.run(
             [py, "-m", "pytest", "tests/unit/", "-q", "--no-header", "--tb=no", "-x"],

@@ -1,12 +1,12 @@
-"""
-post_cycle_review.py — Post-cycle PM review automation.
+﻿"""
+post_cycle_review.py â€” Post-cycle PM review automation.
 
 Implements the gate between a merged cycle and next-cycle dispatch.
 Source prompt: PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
 
 Two modes:
-  POST_AGENT_CYCLE_REVIEW  — agents done, PR open, not yet merged (draft preview)
-  POST_CYCLE_PM_REVIEW     — PR merged to develop (canonical closeout, blocks next dispatch)
+  POST_AGENT_CYCLE_REVIEW  â€” agents done, PR open, not yet merged (draft preview)
+  POST_CYCLE_PM_REVIEW     â€” PR merged to develop (canonical closeout, blocks next dispatch)
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from typing import Any
 
 from automation import claude_post_cycle_adapter, claude_sub_gate, state_writer
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 RUNNER_ROOT = Path("C:/AI_Runner")
 POLICY_PATH = REPO_ROOT / "PM_Pack/automation/post_cycle_review_policy.yml"
 SOURCE_PROMPT = REPO_ROOT / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
@@ -107,7 +107,7 @@ class PostCycleReviewResult:
         return (self.review_result or self.result.value) != ReviewResult.PASS.value
 
     def summary(self) -> str:
-        lines = [f"POST-CYCLE REVIEW {self.result.value} — Cycle {self.cycle:03d} [{self.mode.value}]"]
+        lines = [f"POST-CYCLE REVIEW {self.result.value} â€” Cycle {self.cycle:03d} [{self.mode.value}]"]
         for e in self.errors:
             lines.append(f"  ERROR: {e}")
         for w in self.warnings:
@@ -321,26 +321,26 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
         facts=PostCycleFacts(cycle=cycle, mode=mode),
     )
 
-    # ── GATE 1: Source prompt must exist ──────────────────────────────
+    # â”€â”€ GATE 1: Source prompt must exist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not SOURCE_PROMPT.exists():
         result.result = ReviewResult.BLOCKED_SOURCE_PROMPT_MISSING
         result.errors.append(f"Source prompt missing: {SOURCE_PROMPT}")
         _write_result(result)
         return result
 
-    # ── GATE 2: Write queue request ───────────────────────────────────
+    # â”€â”€ GATE 2: Write queue request â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _write_queue_request(cycle, mode, pr_number)
 
-    # ── GATE 3: Collect deterministic facts ───────────────────────────
+    # â”€â”€ GATE 3: Collect deterministic facts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     result.facts = collect_facts(cycle, mode, pr_number)
 
-    # ── GATE 4: Validate facts (POST_MERGE requires merge) ────────────
+    # â”€â”€ GATE 4: Validate facts (POST_MERGE requires merge) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if mode == ReviewMode.POST_MERGE and not result.facts.pr_merged:
-        result.errors.append("PR not merged — cannot run POST_CYCLE_PM_REVIEW")
+        result.errors.append("PR not merged â€” cannot run POST_CYCLE_PM_REVIEW")
         _write_result(result)
         return result
 
-    # ── GATE 5: Agent reports audit ───────────────────────────────────
+    # â”€â”€ GATE 5: Agent reports audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # V5-010: missing reports are HARD ERRORS for official POST_MERGE review
     missing_reports = [a for a, present in result.facts.agent_reports_present.items()
                        if not present]
@@ -352,18 +352,18 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
         else:
             result.warnings.append(f"Missing agent reports: {missing_reports}")
 
-    # ── GATE 6: Baseline DB integrity ────────────────────────────────
+    # â”€â”€ GATE 6: Baseline DB integrity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not result.facts.baseline_db_mtime_unchanged:
-        result.errors.append("cycle037_live.db mtime changed — baseline tampered")
+        result.errors.append("cycle037_live.db mtime changed â€” baseline tampered")
 
-    # ── GATE 7: ScrapFly config ───────────────────────────────────────
+    # â”€â”€ GATE 7: ScrapFly config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not result.facts.scrapfly_enabled_false:
-        result.errors.append("config.yaml has scrapfly.enabled:true — not allowed in commits")
+        result.errors.append("config.yaml has scrapfly.enabled:true â€” not allowed in commits")
 
-    # ── GATE 8: Claude subscription PM review (V5-010 fix) ───────────
+    # â”€â”€ GATE 8: Claude subscription PM review (V5-010 fix) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Official POST_MERGE review MUST invoke Claude adapter.
-    # If Claude is not available → ADVISORY_ONLY, dispatch blocked.
-    # If model/effort/adaptive thinking unverified → ADVISORY_ONLY.
+    # If Claude is not available â†’ ADVISORY_ONLY, dispatch blocked.
+    # If model/effort/adaptive thinking unverified â†’ ADVISORY_ONLY.
     if mode == ReviewMode.POST_MERGE and not result.errors:
         from automation.claude_post_cycle_adapter import run_post_cycle_review as _claude_review
         run_dir = REVIEWS_DIR / f"cycle_{result.cycle:03d}_runs" / "current"
@@ -405,7 +405,7 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
                 f"Claude review status: {claude_result.status}. Treating as advisory."
             )
 
-    # ── RESULT: POST_AGENT is always preview ──────────────────────────
+    # â”€â”€ RESULT: POST_AGENT is always preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     elif mode == ReviewMode.POST_AGENT:
         result.result = ReviewResult.DRAFT_UNMERGED_PREVIEW
     elif not result.errors:
@@ -419,7 +419,7 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
 
 
 def write_queue_request_for_agent_d(cycle: int) -> Path:
-    """Called when Agent D completes — writes review queue request."""
+    """Called when Agent D completes â€” writes review queue request."""
     return _write_queue_request(cycle, ReviewMode.POST_AGENT, None)
 
 
@@ -457,7 +457,7 @@ def _write_result(result: PostCycleReviewResult) -> None:
     json_path.write_text(json.dumps(payload, indent=2))
 
     lines = [
-        f"# Post-Cycle Review — Cycle {result.cycle:03d}",
+        f"# Post-Cycle Review â€” Cycle {result.cycle:03d}",
         f"Mode: {result.mode.value}  Result: **{result.result.value}**",
         f"Blocks dispatch: {result.blocks_dispatch}",
         "", "## Errors",

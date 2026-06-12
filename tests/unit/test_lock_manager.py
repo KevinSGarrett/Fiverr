@@ -5,8 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from automation.lock_manager import LockManager
-from automation.lock_manager import LockAcquireError
+from automation.lock_manager import LockAcquireError, LockManager
 
 
 def test_acquire_creates_file(tmp_path: Path) -> None:
