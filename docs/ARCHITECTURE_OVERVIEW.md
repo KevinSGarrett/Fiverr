@@ -63,3 +63,20 @@ This architecture is optimized for repeatable autonomous cycles with explicit go
 
 Source implementation in `src/` is separate from governance and orchestration in PM_Pack/docs/automation controls. This separation keeps planning authority independent from feature code while still enforcing end-to-end quality gates through CI and post-cycle review.
 
+## Architecture Decision Records
+
+| ADR | Title | Status |
+| --- | --- | --- |
+| ADR-001 | Local Windows Runner First, EC2 Later | Accepted |
+| ADR-002 | Claude Subscription Only, No API Key | Accepted |
+| ADR-003 | Cursor Codex 5.3 Medium Auto Disabled | Accepted |
+| ADR-004 | Six Agent Pipeline | Accepted |
+| ADR-005 | Controller Owns Git | Accepted |
+| ADR-006 | PM Pack Single Brain | Accepted |
+| ADR-007 | Jira First Cycle Planning | Accepted |
+| ADR-008 | Two Score Model | Accepted |
+| ADR-009 | Merge Gate Multi Signal | Accepted |
+| ADR-010 | Post Cycle PM Review Mandatory | Accepted |
+| ADR-011 | Repair Loop Uses git stash for Quarantine, Not git reset | Accepted |
+| ADR-012 | Six-Agent Execution Order A → B+E → C → F → D | Accepted |
+| ADR-013 | develop Branch Is the Integration Target; main Is Release-Only | Accepted |
