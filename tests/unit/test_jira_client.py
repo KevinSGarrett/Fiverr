@@ -6,6 +6,21 @@ import pytest
 from automation.jira_client import JiraClient
 
 
+@pytest.fixture(autouse=True)
+def _mock_jira_secrets() -> None:
+    values = {
+        "JIRA_BASE_URL": "https://example.atlassian.net",
+        "JIRA_EMAIL": "user@example.com",
+        "JIRA_API_TOKEN": "token12345678901234567890",
+    }
+
+    def _lookup(key: str, default: str = "") -> str:
+        return values.get(key, default)
+
+    with patch("automation.jira_client.get_secret", side_effect=_lookup):
+        yield
+
+
 def test_post_planning_comment_includes_branch() -> None:
     client = JiraClient()
     with patch("automation.jira_client.add_comment", return_value={"id": "1"}) as add_comment:
@@ -225,3 +240,31 @@ def test_issue_helper_functions_make_expected_requests() -> None:
         assert add_comment("SCRUM-1", "body")["id"] == "1"
         transition_issue("SCRUM-1", "31")
         assert create_issue("SCRUM", "sum", "desc")["key"] == "SCRUM-2"
+
+
+def test_jira_client_raises_clear_error_when_token_missing() -> None:
+    def _missing_token(key: str, default: str = "") -> str:
+        values = {
+            "JIRA_BASE_URL": "https://example.atlassian.net",
+            "JIRA_EMAIL": "user@example.com",
+            "JIRA_API_TOKEN": "",
+        }
+        return values.get(key, default)
+
+    with patch("automation.jira_client.get_secret", side_effect=_missing_token):
+        with pytest.raises(ValueError, match="JIRA_API_TOKEN is missing"):
+            JiraClient()
+
+
+def test_jira_client_initializes_when_token_present() -> None:
+    def _token_present(key: str, default: str = "") -> str:
+        values = {
+            "JIRA_BASE_URL": "https://example.atlassian.net",
+            "JIRA_EMAIL": "user@example.com",
+            "JIRA_API_TOKEN": "token12345678901234567890",
+        }
+        return values.get(key, default)
+
+    with patch("automation.jira_client.get_secret", side_effect=_token_present):
+        client = JiraClient()
+    assert client.base_url == "https://example.atlassian.net"

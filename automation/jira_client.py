@@ -5,13 +5,16 @@ All credentials from C:\\AI_Runner\\secrets\\runner.env.
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import UTC, datetime
 from typing import Any
 
 import requests
 
-from automation.config_loader import get_secret
+from automation.config_loader import RUNNER_ENV_PATH, get_secret
+
+LOGGER = logging.getLogger(__name__)
 
 
 class JiraClient:
@@ -19,6 +22,7 @@ class JiraClient:
 
     def __init__(self) -> None:
         self.base_url = _base_url()
+        _validate_jira_credentials()
 
     def post_planning_comment(
         self,
@@ -133,8 +137,7 @@ class JiraClient:
 
 def _headers() -> dict[str, str]:
     import base64
-    email = get_secret("JIRA_EMAIL")
-    token = get_secret("JIRA_API_TOKEN")
+    email, token = _validate_jira_credentials()
     creds = base64.b64encode(f"{email}:{token}".encode()).decode()
     return {
         "Authorization": f"Basic {creds}",
@@ -145,6 +148,26 @@ def _headers() -> dict[str, str]:
 
 def _base_url() -> str:
     return get_secret("JIRA_BASE_URL", "https://YOURDOMAIN.atlassian.net")
+
+
+def _validate_jira_credentials() -> tuple[str, str]:
+    email = get_secret("JIRA_EMAIL").strip()
+    token = get_secret("JIRA_API_TOKEN").strip()
+    if not token:
+        message = (
+            f"JIRA_API_TOKEN is missing. Expected in runner env: {RUNNER_ENV_PATH}. "
+            "Set JIRA_API_TOKEN and retry."
+        )
+        LOGGER.error(message)
+        raise ValueError(message)
+    if not email:
+        message = (
+            f"JIRA_EMAIL is missing. Expected in runner env: {RUNNER_ENV_PATH}. "
+            "Set JIRA_EMAIL and retry."
+        )
+        LOGGER.error(message)
+        raise ValueError(message)
+    return email, token
 
 
 def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:

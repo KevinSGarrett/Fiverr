@@ -285,3 +285,76 @@ def test_try_github_issue_swallow_exception() -> None:
             "CODE",
             75,
         )
+
+
+def test_try_slack_posts_payload_when_webhook_present() -> None:
+    with patch("automation.config_loader.get_secret", return_value="https://example.test/webhook"), patch(
+        "urllib.request.urlopen"
+    ) as urlopen:
+        notification_router._try_slack(
+            notification_router.Severity.WARNING,
+            "title",
+            "body",
+            "INC-1",
+        )
+    urlopen.assert_called_once()
+
+
+def test_load_notification_config_reads_yaml_file(tmp_path: Path) -> None:
+    config_path = tmp_path / "config/notification_config.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "slack_enabled: true\n"
+        "slack_webhook_url: https://example.test/hook\n"
+        "log_enabled: true\n"
+        "log_path: C:/tmp/notifications.log\n"
+        "rate_limit_per_hour: 7\n",
+        encoding="utf-8",
+    )
+
+    def _mapped_path(value: str) -> Path:
+        if value == "C:/AI_Runner/config/notification_config.yaml":
+            return config_path
+        return Path(value)
+
+    with patch("automation.notification_router.Path", side_effect=_mapped_path):
+        loaded = notification_router._load_notification_config()
+    assert loaded["slack_enabled"] is True
+    assert loaded["rate_limit_per_hour"] == 7
+
+
+def test_rate_limit_allowed_invalid_json_file_recovers(tmp_path: Path) -> None:
+    rate_file = tmp_path / "state/notification_rate.json"
+    rate_file.parent.mkdir(parents=True, exist_ok=True)
+    rate_file.write_text("{invalid-json", encoding="utf-8")
+    allowed = notification_router._rate_limit_allowed(rate_file, limit=3)
+    assert allowed is True
+    payload = json.loads(rate_file.read_text(encoding="utf-8"))
+    assert len(payload["events"]) == 1
+
+
+def test_notify_slack_post_exception_is_swallowed(tmp_path: Path) -> None:
+    with patch(
+        "automation.notification_router._load_notification_config",
+        return_value={
+            "slack_enabled": True,
+            "slack_webhook_url": "https://example.test",
+            "log_path": str(tmp_path / "notifications.log"),
+            "rate_limit_per_hour": 10,
+        },
+    ), patch("automation.notification_router._rate_limit_allowed", return_value=True), patch(
+        "requests.post", side_effect=RuntimeError("network down")
+    ):
+        notification_router.notify("WARNING", "message")
+
+
+def test_notify_critical_wrapper_delegates_to_notify() -> None:
+    with patch("automation.notification_router.notify") as notify:
+        notification_router.notify_critical("critical message", body="details", incident_code="C-1", cycle=75)
+    notify.assert_called_once_with("CRITICAL", "critical message\ndetails", incident_code="C-1", cycle=75)
+
+
+def test_notify_info_wrapper_delegates_to_notify() -> None:
+    with patch("automation.notification_router.notify") as notify:
+        notification_router.notify_info("info message", body="details", cycle=75)
+    notify.assert_called_once_with("INFO", "info message\ndetails", cycle=75)
