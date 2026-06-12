@@ -1,4 +1,4 @@
-﻿"""
+"""
 repair_loop.py â€” Repair loop dispatcher for failed agent runs.
 
 When run-agent lifecycle returns VALIDATION_FAILED, this module:

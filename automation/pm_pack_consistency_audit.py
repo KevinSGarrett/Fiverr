@@ -1,4 +1,4 @@
-﻿"""
+"""
 pm_pack_consistency_audit.py â€” PM_Pack semantic consistency audit.
 
 Compares CURRENT_STATE_CANONICAL, HYDRATION_HEADER, STATE_SNAPSHOT,

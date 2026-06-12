@@ -1,4 +1,4 @@
-﻿"""
+"""
 cursor_adapter.py â€” Config-driven Cursor CLI agent dispatch.
 
 V5-009 fixes (AUDIT-P0-012):

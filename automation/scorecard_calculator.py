@@ -1,4 +1,4 @@
-﻿"""
+"""
 scorecard_calculator.py â€” Calculate two-score model after each cycle.
 Score 1: Internal Engineering Build Progress
 Score 2: E2E Production-Grade Readiness (always <= Score 1)

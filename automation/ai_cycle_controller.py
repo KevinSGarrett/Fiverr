@@ -1,4 +1,4 @@
-﻿"""
+"""
 ai_cycle_controller.py — Main CLI entrypoint for the Autonomous Development Runner.
 
 Usage:

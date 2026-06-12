@@ -1,4 +1,4 @@
-﻿"""
+"""
 pm_pack_state_updater.py â€” Update PM_Pack brain files after each cycle.
 Writes to HYDRATION_HEADER, STATE_SNAPSHOT, EPIC_STATUS_TRACKER, cycle logs.
 This is the STATE section of the checklist (STATE-001 through STATE-016).

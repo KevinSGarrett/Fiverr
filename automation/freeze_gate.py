@@ -1,4 +1,4 @@
-﻿"""
+"""
 freeze_gate.py â€” Autonomy freeze enforcement.
 Every dangerous command (run-agent, merge-gate execute, post-cycle official) must call
 _check_freeze() before proceeding.

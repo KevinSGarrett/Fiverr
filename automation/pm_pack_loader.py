@@ -1,4 +1,4 @@
-﻿"""
+"""
 pm_pack_loader.py â€” Read and validate PM_Pack brain files.
 Implements the brain-check command logic: load each file in registry order
 and report PASS/FAIL per file.

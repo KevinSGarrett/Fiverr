@@ -1,4 +1,4 @@
-﻿"""
+"""
 jira_sync.py â€” Automated Jira sync during runner cycle execution.
 Implements GJCI-023..030: comment, transition, evidence posting, Done closeout.
 

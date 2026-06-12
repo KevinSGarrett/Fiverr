@@ -1,4 +1,4 @@
-﻿"""
+"""
 validation_runner.py â€” Run local validation commands (ruff, mypy, pytest, config-check).
 Returns structured results with PASS/FAIL per gate.
 """

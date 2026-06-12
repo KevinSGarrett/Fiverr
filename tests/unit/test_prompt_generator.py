@@ -1,4 +1,4 @@
-﻿"""Unit tests for prompt_generator.py â€” V5 corrected version."""
+"""Unit tests for prompt_generator.py â€” V5 corrected version."""
 from __future__ import annotations
 
 import sys

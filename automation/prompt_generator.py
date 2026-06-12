@@ -1,4 +1,4 @@
-﻿"""
+"""
 prompt_generator.py â€” Real PM_Pack/Jira-derived Cursor agent prompt generator.
 V5 corrections (AUDIT-P0-008 / V5-004 / V5-007):
   - Loads agent roles from agent_lanes.yml (single authority)

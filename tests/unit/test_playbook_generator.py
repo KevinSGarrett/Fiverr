@@ -1,4 +1,4 @@
-﻿"""Tests for Wave 11 S8.3 playbook generator scaffold."""
+"""Tests for Wave 11 S8.3 playbook generator scaffold."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 run_agent_lifecycle.py â€” Complete run-agent lifecycle after Cursor CLI returns.
 
 After cursor agent -p "prompt" completes, this module:

@@ -1,4 +1,4 @@
-﻿"""
+"""
 git_adapter.py â€” Clean git operations for the autonomous runner.
 All operations constrained to cycle branches; main is never touched directly.
 """

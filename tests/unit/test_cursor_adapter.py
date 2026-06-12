@@ -1,4 +1,4 @@
-﻿"""Unit tests for cursor_adapter.py"""
+"""Unit tests for cursor_adapter.py"""
 from __future__ import annotations
 
 # Ensure repo root on sys.path

@@ -1,4 +1,4 @@
-﻿"""
+"""
 branch_guard.py â€” Enforce branch operation safety rules before git operations.
 Hard blocks force-push, direct main commits, and other destructive operations.
 """

@@ -1,4 +1,4 @@
-﻿"""
+"""
 secret_guard.py â€” Scan staged/changed files for secrets before commit.
 Blocks commits containing .env values, tokens, private keys, or browser sessions.
 """

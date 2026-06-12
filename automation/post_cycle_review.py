@@ -1,4 +1,4 @@
-﻿"""
+"""
 post_cycle_review.py â€” Post-cycle PM review automation.
 
 Implements the gate between a merged cycle and next-cycle dispatch.

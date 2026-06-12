@@ -1,4 +1,4 @@
-﻿"""
+"""
 report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
 """
 from __future__ import annotations

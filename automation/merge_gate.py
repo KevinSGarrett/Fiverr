@@ -1,4 +1,4 @@
-﻿"""
+"""
 merge_gate.py â€” Full merge gate checker for autonomous PR merging.
 All conditions must pass before the runner may merge a PR into develop.
 """

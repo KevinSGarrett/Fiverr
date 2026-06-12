@@ -1,4 +1,4 @@
-﻿"""
+"""
 claude_post_cycle_adapter.py â€” Run official PM post-cycle review via Claude subscription.
 
 Per Wave 04 / FINDING-008:

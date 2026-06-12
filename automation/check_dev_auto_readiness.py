@@ -1,4 +1,4 @@
-﻿"""
+"""
 check_dev_auto_readiness.py â€” V6-GOLIVE-002 gate script.
 Checks whether all P0 items have been resolved before dev_auto can be enabled.
 Usage: python automation/check_dev_auto_readiness.py
