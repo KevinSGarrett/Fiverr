@@ -163,6 +163,42 @@ def test_transition_to_in_review_true_path() -> None:
         transition.assert_called_once_with("SCRUM-1", "11")
 
 
+def test_transition_to_in_review_returns_false_when_transition_missing() -> None:
+    client = JiraClient()
+    with patch.object(client, "get_transitions", return_value=[{"id": "21", "name": "To Do"}]), patch(
+        "automation.jira_client.transition_issue"
+    ) as transition:
+        assert client.transition_to_in_review("SCRUM-1") is False
+        transition.assert_not_called()
+
+
+def test_transition_to_done_true_path_and_missing_done_path() -> None:
+    client = JiraClient()
+    with patch.object(client, "get_transitions", return_value=[{"id": "31", "name": "Done"}]), patch(
+        "automation.jira_client.transition_issue"
+    ) as transition:
+        assert (
+            client.transition_to_done(
+                "SCRUM-1",
+                {"merge_sha": "abc123", "ci_passed": True, "codex_resolved": True},
+            )
+            is True
+        )
+        transition.assert_called_once_with("SCRUM-1", "31")
+
+    with patch.object(client, "get_transitions", return_value=[{"id": "21", "name": "In Review"}]), patch(
+        "automation.jira_client.transition_issue"
+    ) as transition:
+        assert (
+            client.transition_to_done(
+                "SCRUM-1",
+                {"merge_sha": "abc123", "ci_passed": True, "codex_resolved": True},
+            )
+            is False
+        )
+        transition.assert_not_called()
+
+
 def test_search_issues_returns_issues_list() -> None:
     client = JiraClient()
     with patch("automation.jira_client.requests.get") as req:
@@ -242,6 +278,21 @@ def test_issue_helper_functions_make_expected_requests() -> None:
         assert create_issue("SCRUM", "sum", "desc")["key"] == "SCRUM-2"
 
 
+def test_create_issue_includes_labels_when_provided() -> None:
+    from automation.jira_client import create_issue
+
+    with patch("automation.jira_client.requests.post") as post_req:
+        post_resp = MagicMock()
+        post_resp.raise_for_status.return_value = None
+        post_resp.json.return_value = {"key": "SCRUM-3"}
+        post_req.return_value = post_resp
+
+        create_issue("SCRUM", "sum", "desc", labels=["cycle:075", "agent:C"])
+
+        payload = post_req.call_args.kwargs["json"]
+        assert payload["fields"]["labels"] == ["cycle:075", "agent:C"]
+
+
 def test_jira_client_raises_clear_error_when_token_missing() -> None:
     def _missing_token(key: str, default: str = "") -> str:
         values = {
@@ -268,3 +319,17 @@ def test_jira_client_initializes_when_token_present() -> None:
     with patch("automation.jira_client.get_secret", side_effect=_token_present):
         client = JiraClient()
     assert client.base_url == "https://example.atlassian.net"
+
+
+def test_jira_client_raises_clear_error_when_email_missing() -> None:
+    def _missing_email(key: str, default: str = "") -> str:
+        values = {
+            "JIRA_BASE_URL": "https://example.atlassian.net",
+            "JIRA_EMAIL": "",
+            "JIRA_API_TOKEN": "token12345678901234567890",
+        }
+        return values.get(key, default)
+
+    with patch("automation.jira_client.get_secret", side_effect=_missing_email):
+        with pytest.raises(ValueError, match="JIRA_EMAIL is missing"):
+            JiraClient()

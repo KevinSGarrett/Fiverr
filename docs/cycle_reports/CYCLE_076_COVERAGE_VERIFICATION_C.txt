@@ -19,7 +19,7 @@ Task-06 through Task-11 supporting module checks
 automation/live_validation_writer.py: 92%
 automation/drift_detector.py: 95%
 automation/github_client.py: 80%
-automation/jira_client.py: 90%
+automation/jira_client.py: 100%
 automation/lock_manager.py: 87%
 automation/failure_classifier.py: 99%
 

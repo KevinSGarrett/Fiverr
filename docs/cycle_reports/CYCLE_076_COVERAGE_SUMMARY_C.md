@@ -14,7 +14,7 @@
 | Module | Expected % | Actual % | Regression |
 |---|---|---|---|
 | automation/drift_detector.py | >=95% | 95% | NO |
-| automation/jira_client.py | >=92% | 90% | YES |
+| automation/jira_client.py | >=92% | 100% | NO |
 | automation/failure_classifier.py | >=99% | 99% | NO |
 | automation/live_validation_writer.py | >=90% | 92% | NO |
 
