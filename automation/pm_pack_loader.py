@@ -55,9 +55,9 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
             if full.exists():
                 result.passed.append(f"PASS [{section}]: {rel_path}")
             else:
-                _ci = os.environ.get("CI","").lower() in ("true","1")
-                _is_runner = str(full).replace("\\","/").startswith("C:/AI_Runner")
-                if _ci and _is_runner:
+                # In CI, runner-side paths (C:/AI_Runner) do not exist — skip as warning
+                _norm_path = rel_path.replace("\\", "/").replace("\\", "/")
+                if os.environ.get("CI", "").strip() and _norm_path.startswith("C:/AI_Runner"):
                     result.warnings.append(f"SKIPPED [ci] [{section}]: {rel_path}")
                 else:
                     result.failed.append(f"MISSING [{section}]: {rel_path}")
@@ -149,10 +149,16 @@ def check_cycle_consistency(
 
 
 def _resolve(rel_path: str, repo_root: Path) -> Path:
-    """Resolve a path that might be repo-relative or absolute."""
-    p = Path(rel_path.replace("\\", "/"))
-    if p.is_absolute():
-        return p
+    """Resolve a path that might be repo-relative or absolute (cross-platform).
+
+    On Linux, Windows-style absolute paths like C:/AI_Runner/... are not absolute
+    per pathlib, so we detect the drive-letter pattern explicitly.
+    """
+    norm = rel_path.replace("\\", "/")
+    p = Path(norm)
+    # Windows-style absolute path on any platform (drive letter like C:/)
+    if p.is_absolute() or (len(norm) >= 2 and norm[1] == ":"):
+        return Path(norm)
     return repo_root / p
 
 
