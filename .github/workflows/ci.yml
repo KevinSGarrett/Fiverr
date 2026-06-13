@@ -1,4 +1,5 @@
 name: CI
+# Cycle 077 governance note: required check names and gate commands are intentionally stable.
 
 on:
   pull_request:

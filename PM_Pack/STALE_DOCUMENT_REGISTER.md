@@ -71,3 +71,12 @@ Priority 2 (correct before next PM review):
 Priority 3 (archival cleanup):
 7. Historical hydration sections — label as historical
 8. Old C064/C065 JIRA correction notes — label as resolved
+
+---
+
+## CYCLE 077 GOVERNANCE PASS NOTE (2026-06-12)
+
+Cycle 077 stale-document review outcome:
+- No new critical stale-document finding was discovered that blocks governance/doc execution.
+- One advisory documentation consistency note was observed: repository uses `.github/pull_request_template.md` while some references use uppercase `PULL_REQUEST_TEMPLATE.md`. This is functionally equivalent on case-insensitive environments but should be normalized in future cleanup for cross-platform clarity.
+- Existing stale hydration layering remains known and already tracked; no additional stale row was required beyond prior register entries.

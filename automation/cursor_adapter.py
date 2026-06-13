@@ -172,7 +172,7 @@ def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
     prompt_content = Path(prompt_path).read_text(encoding="utf-8", errors="replace")
 
     # Always use -p for now; for stdin delivery see run_agent which handles the file case
-    cmd = [binary, "-p", prompt_content, "--output-format", "text", "--trust"]
+    cmd = [binary, "--print", "--output-format", "text", "--trust", "-f", prompt_content]
     if model:
         cmd += ["--model", model]
     return cmd
@@ -181,7 +181,7 @@ def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
 def _build_command_with_file(binary: str, prompt_file: str, model: str) -> list[str]:
     """Build command that reads prompt from a file (for full-size prompts)."""
     # For full-size prompts: pass content via stdin, no -p argument
-    cmd = [binary, "--output-format", "text", "--trust"]
+    cmd = [binary, "--print", "--output-format", "text", "--trust", "-f"]
     if model:
         cmd += ["--model", model]
     return cmd
@@ -274,7 +274,7 @@ def run_agent(
         cmd = _build_command_with_file(binary, prompt_path, model)
         stdin_source = prompt_content
     else:
-        cmd = [binary, "-p", prompt_content, "--output-format", "text", "--trust"]
+        cmd = [binary, "--print", "--output-format", "text", "--trust", "-f", prompt_content]
         if model:
             cmd += ["--model", model]
         stdin_source = None

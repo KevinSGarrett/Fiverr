@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNNER_ROOT = Path("C:/AI_Runner")
 
 # Agent file ownership map — agents must not modify outside their scope

@@ -2,6 +2,8 @@
 
 Cycle:
 Jira Keys:
+Required Jira Keys (Cycle 077 governance scope - include all applicable):
+SCRUM-246, SCRUM-250, SCRUM-252, SCRUM-253, SCRUM-254, SCRUM-256, SCRUM-258, SCRUM-280, SCRUM-281, SCRUM-282, SCRUM-283, SCRUM-284, SCRUM-286, SCRUM-439, SCRUM-440, SCRUM-441, SCRUM-446, SCRUM-450, SCRUM-451, SCRUM-452
 Source Branch:
 Target Branch: `develop`
 

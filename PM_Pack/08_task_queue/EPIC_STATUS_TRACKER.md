@@ -89,6 +89,36 @@
 
 ---
 
+## CYCLE 077 GOVERNANCE SCOPE SNAPSHOT (2026-06-12)
+
+Status authority: provisional repository snapshot for governance alignment.
+This section tracks the Cycle 077 governance/doc stream and must be reconciled with Jira board state before merge.
+
+| Jira Key | Scope | Snapshot Status | Notes |
+|---|---|---|---|
+| SCRUM-246 | Governance bootstrap | In Progress | Cycle-level executable governance baseline |
+| SCRUM-250 | Hydration cycle scope section | In Progress | Added scope + blockers discovered section |
+| SCRUM-252 | CYCLE_075 planning log | In Progress | Planning and assignment matrix alignment |
+| SCRUM-253 | Epic tracker synchronization | In Progress | This section is part of fulfillment |
+| SCRUM-254 | Stale doc register update | In Progress | New stale findings note for Cycle 077 |
+| SCRUM-256 | PR template Jira requirement | In Progress | Explicit key list required in template |
+| SCRUM-258 | CI governance integrity | In Progress | Required check names and gate commands preserved |
+| SCRUM-280 | Config governance metadata | In Progress | Non-breaking metadata only; no runtime behavior changes |
+| SCRUM-281 | Pyproject governance note | In Progress | Comment-level annotation only |
+| SCRUM-282 | Cross-doc key integrity | In Progress | Key set parity across governance artifacts |
+| SCRUM-283 | Blocker declaration discipline | In Progress | Hard/soft/advisory wording alignment |
+| SCRUM-284 | Agent assignment governance | In Progress | Assignment captured in cycle planning log |
+| SCRUM-286 | AC/DoD normalization | In Progress | All specs require measurable AC/DoD mapping |
+| SCRUM-439 | Snapshot timestamp governance | In Progress | Snapshot freshness and authority labeling |
+| SCRUM-440 | CI branch-protection mapping | In Progress | Docs align to exact CI check names |
+| SCRUM-441 | Traceability index | In Progress | Jira-to-spec linkage standard |
+| SCRUM-446 | Governance quality gate | In Progress | Spec structure and validation expectations |
+| SCRUM-450 | Scope safety envelope | In Progress | Allowed path boundaries enforced |
+| SCRUM-451 | Completion report schema | In Progress | Files + summary + blockers output format |
+| SCRUM-452 | Closure checklist | In Progress | Final cycle governance closeout criteria |
+
+---
+
 ## PRODUCTION READINESS GATES
 
 | Gate | Status | Notes |

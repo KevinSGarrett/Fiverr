@@ -1,6 +1,20 @@
 ## HYDRATION HEADER — ACTIVE CURRENT STATE
 ## Updated: 2026-06-10 | PM Governance Correction + C074 Merged
 ##
+## CYCLE 077 GOVERNANCE SCOPE (ADDED 2026-06-12)
+SCOPE_OWNER: Agent A (governance/doc stream)
+SCOPE_INTENT: Cycle 077 Jira governance alignment and executable spec hardening
+SCOPE_JIRA_KEYS: SCRUM-246, SCRUM-250, SCRUM-252, SCRUM-253, SCRUM-254, SCRUM-256, SCRUM-258, SCRUM-280, SCRUM-281, SCRUM-282, SCRUM-283, SCRUM-284, SCRUM-286, SCRUM-439, SCRUM-440, SCRUM-441, SCRUM-446, SCRUM-450, SCRUM-451, SCRUM-452
+SCOPE_ARTIFACTS: PM_Pack cycle specs, hydration alignment, epic status snapshot, stale register note, CI/PR governance checks, config+pyproject governance metadata
+BLOCKERS_DISCOVERED:
+- No hard blocker discovered during documentation governance pass.
+- Advisory risk: historical hydration sections contain layered legacy notes; avoid treating archival blocks as active truth.
+- Advisory risk: Jira status labels are snapshot-based in repo docs and can drift from remote board if not refreshed next cycle.
+NEXT_ACTIONS:
+- Keep Cycle 077 status snapshot synchronized across hydration, cycle log, and epic tracker.
+- Preserve CI check names exactly to avoid branch protection drift.
+- Maintain `collection.scrapfly.enabled=false` invariant in committed config.
+
 ## SECTION 1: ACTIVE CURRENT STATE
 CYCLE_CURRENT: 075
 LAST_COMPLETED: C074 (TierD-2 live pilot + Wave 11 S8.3)

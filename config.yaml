@@ -4,6 +4,9 @@ system:
   log_level: INFO
   data_dir: data
 
+# Cycle 077 governance note:
+# Documentation/governance cycle only; no runtime behavior changes in this file.
+
 fiverr:
   session_mode: authenticated
   session_file: data/sessions/fiverr_session.json
