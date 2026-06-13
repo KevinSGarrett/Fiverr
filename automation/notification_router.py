@@ -20,7 +20,7 @@ from pathlib import Path
 
 RUNNER_ROOT = Path("C:/AI_Runner")
 NOTIFY_LOG = RUNNER_ROOT / "logs/notifications.log"
-INCIDENTS_DIR = RUNNER_ROOT / "logs/incidents"
+INCIDENTS_DIR = RUNNER_ROOT / "reports/incidents"  # canonical incidents path
 
 # Severity levels â€” only interrupt human for BLOCKED and above
 class Severity(IntEnum):
@@ -174,7 +174,7 @@ def _try_github_issue(severity: Severity, title: str, body: str,
 def _load_notification_config() -> dict:
     import yaml
 
-    path = Path("C:/AI_Runner/config/notification_config.yaml")
+    path = RUNNER_ROOT / "config/notification_config.yaml"  # use RUNNER_ROOT so tests can patch
     if not path.exists():
         return {
             "slack_enabled": False,
@@ -214,8 +214,11 @@ def notify(severity: str, message: str, incident_code: str = "", cycle: int | No
     config = _load_notification_config()
     timestamp = datetime.now(UTC).isoformat()
 
-    # Always use module-level NOTIFY_LOG (patchable by tests via monkeypatch.setattr)
-    log_path = NOTIFY_LOG
+    # Use config log_path when provided; fall back to module-level NOTIFY_LOG.
+    # This allows both: tests that mock _load_notification_config (use config path),
+    # and tests that patch NOTIFY_LOG directly (use module-level path).
+    config_log = config.get("log_path", "")
+    log_path = Path(config_log) if config_log else NOTIFY_LOG
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(f"{timestamp} [{severity}] [{incident_code}] {message}\n")
@@ -234,7 +237,9 @@ def notify(severity: str, message: str, incident_code: str = "", cycle: int | No
                 pass
 
     if severity in ("CRITICAL", "BLOCKED"):
-        incident_dir = INCIDENTS_DIR
+        # Re-evaluate through Path() so test mocks of Path() can intercept.
+        # Also re-reads INCIDENTS_DIR so tests patching it directly work too.
+        incident_dir = Path(str(INCIDENTS_DIR))
         incident_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         incident = incident_dir / f"NOTIFICATION_{incident_code or 'CRITICAL'}_{stamp}.md"
