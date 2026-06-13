@@ -169,8 +169,8 @@ def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
     binary = _resolve_binary()
     prompt_content = Path(prompt_path).read_text(encoding="utf-8", errors="replace")
 
-    # Always use -p for now; for stdin delivery see run_agent which handles the file case
-    cmd = [binary, "-p", prompt_content, "--print", "--output-format", "text", "--trust", "-f"]
+    # Cursor CLI expects prompt as trailing positional arg in headless mode.
+    cmd = [binary, "--print", "--output-format", "text", "--trust", "-f", prompt_content]
     if model:
         cmd += ["--model", model]
     return cmd
@@ -272,7 +272,7 @@ def run_agent(
         cmd = _build_command_with_file(binary, prompt_path, model)
         stdin_source = prompt_content
     else:
-        cmd = [binary, "-p", prompt_content, "--print", "--output-format", "text", "--trust", "-f"]
+        cmd = [binary, "--print", "--output-format", "text", "--trust", "-f", prompt_content]
         if model:
             cmd += ["--model", model]
         stdin_source = None
