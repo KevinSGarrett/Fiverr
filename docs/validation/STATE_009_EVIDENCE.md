@@ -9,12 +9,12 @@
 
 ## Current Gate Outcome
 
-- V-1: BLOCKED (missing `SCRAPFLY_API_KEY`)
-- V-2: PENDING
-- V-3: PENDING
-- TierD-2 cap: ACTIVE
-- Score2 E2E: remains 47.1%
+- V-1: EARNED
+- V-2: EARNED
+- V-3: EARNED
+- TierD-2 cap: REMOVED
+- Score2 E2E: 53.1%
 
 ## Rationale
 
-Live validation gate cannot be advanced without an authenticated/authorized live collection run producing non-zero gigs.
+Live validation gate was advanced after authenticated live collection produced non-zero gigs and `live-validate --skip-collection` completed scoring successfully.

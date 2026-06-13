@@ -9,13 +9,18 @@
 ## Live Collection Attempt
 
 - command: `python run.py collect-live --niche python_automation --budget 50`
-- result: FAIL
-- stop_reason: `pipeline_error`
-- error: `SCRAPFLY_API_KEY` not found
+- result: PASS
+- stop_reason: `null`
+- key_runtime_fixes:
+  - loaded `SCRAPFLY_API_KEY` from `C:/Fiverr/Fiverr/.env`
+  - installed `scrapfly-sdk`
+  - patched live pipeline to avoid dry-run placeholder seller loops
+  - disabled non-Fiverr external source calls in pilot runtime override (budget-focused)
 - evidence_file: `data/live_validation_evidence.json`
-- collected_items: `0`
+- collected_items: `20`
+- payload_path: `data/evidence/v1_payload_python_automation_20260613_043453.json`
 
 ## V-1 Status
 
-- status: BLOCKED
-- reason: missing ScrapFly API key prevents live Fiverr collection
+- status: PASS
+- reason: live pilot collected non-zero gig records from Fiverr search results

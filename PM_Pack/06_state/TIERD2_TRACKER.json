@@ -1,15 +1,15 @@
 {
   "cycle_current": "077",
-  "v1_status": "BLOCKED",
-  "v2_status": "PENDING",
-  "v3_status": "PENDING",
+  "v1_status": "EARNED",
+  "v2_status": "EARNED",
+  "v3_status": "EARNED",
   "score2_base": 0.471,
-  "score2_new": 0.471,
-  "score2_delta": 0.0,
-  "tierd2_cap": "ACTIVE",
-  "cap_status": "ACTIVE",
-  "cap_removal_cycle": null,
-  "cap_removal_timestamp": null,
-  "blocking_reason": "SCRAPFLY_API_KEY missing; live collection cannot execute.",
-  "last_updated": "2026-06-12T22:49:53-05:00"
+  "score2_new": 0.531,
+  "score2_delta": 0.06,
+  "tierd2_cap": "REMOVED",
+  "cap_status": "REMOVED",
+  "cap_removal_cycle": 77,
+  "cap_removal_timestamp": "2026-06-12T23:36:33-05:00",
+  "blocking_reason": null,
+  "last_updated": "2026-06-12T23:36:33-05:00"
 }

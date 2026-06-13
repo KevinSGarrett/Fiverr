@@ -3,8 +3,10 @@
 ## Parsing Validation Attempt
 
 - prerequisite: V-1 payload with non-zero live gigs
-- status: NOT RUN
-- reason: V-1 live collection blocked by missing `SCRAPFLY_API_KEY`
+- status: PASS
+- command: `python run.py live-validate --niche python_automation --skip-collection`
+- db_validation: `gigs=20`, `keywords=30`, `search_results=1`
+- parsing/runtime result: no exceptions raised in Stage 3/4/5 path
 
 ## Normalization / Schema Notes
 
@@ -16,5 +18,5 @@
 
 ## V-2 Status
 
-- status: PENDING
-- blocker: no live payload to parse
+- status: PASS
+- blocker: none

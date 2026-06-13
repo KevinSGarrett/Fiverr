@@ -54,6 +54,15 @@ async def run_seller_profile_collection(
             "note": "Dry run: no Playwright navigation performed",
         }
 
+    if seller_username == "dry_run_seller_profile":
+        return {
+            "seller_username": seller_username,
+            "collected": False,
+            "skipped": True,
+            "reason": "dry_run_placeholder_username",
+            "dry_run": False,
+        }
+
     # ------------------------------------------------------------------
     # ScrapFly / fetcher path — uses existing HTML parser, no Playwright
     # ------------------------------------------------------------------

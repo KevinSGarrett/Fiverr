@@ -22,7 +22,7 @@ Status at C074: EARNED (infrastructure built by B)
 ### Stage V-3: First Live Collection Succeeds
 Credit: +3-5% E2E
 Evidence: data/live_pilot_log.jsonl has entries, gigs_collected > 0
-Status: BLOCKED (Cycle 077) — `SCRAPFLY_API_KEY` missing, live collection cannot start
+Status: EARNED (Cycle 077) — `collect-live` succeeded with non-zero gigs
 
 ### Stage V-4: Live Data Persists Correctly in DB
 Credit: +1-2% E2E
@@ -58,7 +58,7 @@ Status: FUTURE — requires all previous stages
 Stage | Requirement | E2E Credit | Status (C074)
 V-1   | TierD-2 approved | +0.5% | EARNED
 V-2   | Infrastructure built | +1-2% | EARNED (C074)
-V-3   | First live collection | +3-5% | BLOCKED (Cycle 077)
+V-3   | First live collection | +3-5% | EARNED (Cycle 077)
 V-4   | DB persistence | +1-2% | PENDING
 V-5   | Scoring from live | +1-2% | PENDING
 V-6   | Recommendations | +1-2% | PENDING

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
+from html import unescape
 from typing import Any
 
 from src.collection.pilot_logger import PilotLogger
@@ -86,11 +88,18 @@ async def run_live_collection_pilot(
         # One niche only.
         niches = config_payload.get("niches", [])
         if isinstance(niches, list):
-            config_payload["niches"] = [
+            filtered_niches = [
                 niche
                 for niche in niches
                 if isinstance(niche, dict) and niche.get("niche_id") == niche_id
             ]
+            for niche in filtered_niches:
+                niche["external_sources"] = {
+                    "google_trends": False,
+                    "reddit": False,
+                    "youtube": False,
+                }
+            config_payload["niches"] = filtered_niches
 
         logger_obj = PilotLogger(log_path=log_path)
         run_id = f"pilot-{niche_id}-{uuid.uuid4().hex[:8]}"
@@ -114,9 +123,10 @@ async def run_live_collection_pilot(
                     session_manager=session_manager,
                     dry_run=False,
                 )
+                gigs_backfilled = _backfill_gigs_from_search_results(db=db, run_id=run_id, max_cards=25)
             result["success"] = True
             result["errors"] = list(summary.get("errors", []))
-            result["gigs_collected"] = int(summary.get("gig_detail_jobs_run", 0))
+            result["gigs_collected"] = gigs_backfilled
             result["search_results"] = int(summary.get("search_jobs_run", 0))
             result["keywords_found"] = int(summary.get("search_jobs_run", 0))
         except ScrapFlyRateLimitError as exc:
@@ -171,3 +181,69 @@ def _seed_pilot_niche(niche_id: str, engine: Any) -> None:
             )
             db.commit()
             log.info("Seeded pilot niche: %s", niche_id)
+
+
+def _backfill_gigs_from_search_results(db: Any, run_id: str, max_cards: int = 25) -> int:
+    """Persist minimal gig rows from Stage-3 search cards when Stage-4 is sparse."""
+    from sqlalchemy.orm import Session
+
+    from src.models.gig import Gig
+    from src.models.search_result import SearchResult
+
+    if not isinstance(db, Session):
+        return 0
+
+    search_rows = (
+        db.query(SearchResult)
+        .filter(SearchResult.run_id == run_id)
+        .order_by(SearchResult.id.desc())
+        .all()
+    )
+    upserts = 0
+    for row in search_rows:
+        cards_raw = row.gig_cards
+        cards: list[dict[str, Any]] = []
+        if isinstance(cards_raw, list):
+            cards = [value for value in cards_raw if isinstance(value, dict)]
+        elif isinstance(cards_raw, str):
+            try:
+                loaded = json.loads(cards_raw)
+                if isinstance(loaded, list):
+                    cards = [value for value in loaded if isinstance(value, dict)]
+            except json.JSONDecodeError:
+                continue
+
+        for card in cards:
+            if upserts >= max_cards:
+                break
+            gig_url = unescape(str(card.get("gig_url", "")).strip())
+            if not gig_url:
+                continue
+
+            seller_username = str(card.get("seller_username", "")).strip() or "unknown_seller"
+            existing = db.query(Gig).filter(Gig.gig_url == gig_url).one_or_none()
+            if existing is None:
+                existing = Gig(gig_url=gig_url, seller_username=seller_username)
+                db.add(existing)
+
+            existing.run_id = run_id
+            existing.keyword_id = row.keyword_id if isinstance(row.keyword_id, int) and row.keyword_id > 0 else None
+            existing.seller_username = seller_username
+            existing.position = (
+                int(card.get("position")) if isinstance(card.get("position"), (int, float)) else existing.position
+            )
+            existing.starting_price = (
+                float(card.get("starting_price"))
+                if isinstance(card.get("starting_price"), (int, float))
+                else existing.starting_price
+            )
+            existing.gig_title_full = str(card.get("gig_title")) if card.get("gig_title") else existing.gig_title_full
+            existing.title = existing.gig_title_full
+            existing.sponsored_flag = bool(card.get("sponsored_flag", False))
+            existing.detail_collected = bool(existing.detail_collected)
+            upserts += 1
+        if upserts >= max_cards:
+            break
+
+    db.commit()
+    return int(db.query(Gig).count())

@@ -356,6 +356,47 @@ async def run_collection_pipeline(
     async def _handle_stage4(job: _DryRunJob, **_kwargs: Any) -> None:
         gig_url = str(job.payload["gig_url"])
         niche_id = str(job.payload["niche_id"])
+        if not dry_run and "search/gigs?query=" in gig_url and hasattr(db, "execute"):
+            try:
+                from html import unescape
+
+                from sqlalchemy import text
+
+                row = (
+                    db.execute(
+                        text(
+                            """
+                            SELECT gig_cards, result_url
+                            FROM search_results
+                            WHERE run_id = :run_id
+                            ORDER BY id DESC
+                            LIMIT 1
+                            """
+                        ),
+                        {"run_id": run_id},
+                    )
+                    .mappings()
+                    .first()
+                )
+                if isinstance(row, Mapping):
+                    cards_raw = row.get("gig_cards")
+                    cards: list[dict[str, Any]] = []
+                    if isinstance(cards_raw, str):
+                        loaded = json.loads(cards_raw)
+                        if isinstance(loaded, list):
+                            cards = [value for value in loaded if isinstance(value, dict)]
+                    elif isinstance(cards_raw, list):
+                        cards = [value for value in cards_raw if isinstance(value, dict)]
+
+                    candidate_url = ""
+                    if cards:
+                        candidate_url = str(cards[0].get("gig_url", "")).strip()
+                    if not candidate_url:
+                        candidate_url = str(row.get("result_url", "")).strip()
+                    if candidate_url:
+                        gig_url = unescape(candidate_url)
+            except Exception as exc:  # noqa: BLE001
+                summary["errors"].append(f"Stage 4 live gig URL resolution failed ({niche_id}): {exc}")
         if not dry_run:
             _validate_collection_url_payload(niche_id=niche_id, gig_url=gig_url)
         await run_gig_detail_collection(
@@ -375,8 +416,9 @@ async def run_collection_pipeline(
         summary["gig_detail_jobs_run"] += 1
 
     async def _handle_stage5(job: _DryRunJob, **_kwargs: Any) -> None:
+        seller_username = str(job.payload["seller_username"])
         await run_seller_profile_collection(
-            seller_username=str(job.payload["seller_username"]),
+            seller_username=seller_username,
             niche_id=str(job.payload["niche_id"]),
             run_id=run_id,
             db=db,
@@ -641,7 +683,7 @@ async def run_collection_pipeline(
         await sf_client.close()
         stats = sf_client.stats
         log.info(
-            "ScrapFly session: requests=%d credits=%d",
+            "ScrapFly session: requests=%s credits=%s",
             stats.total_requests,
             stats.total_credits_used,
         )

@@ -1,0 +1,32 @@
+{
+  "niche_id": "python_automation",
+  "db_url": "sqlite:///C:/Users/Windows 11/AppData/Local/Temp/pytest-of-Windows 11/pytest-813/test_live_validate_skip_collec0/pilot.db",
+  "stages": {
+    "preflight": {
+      "scrapfly_key_present": true
+    },
+    "db_validation": {
+      "gigs": 0,
+      "keywords": 5,
+      "search_results": 3
+    },
+    "scoring": {
+      "success": true
+    },
+    "recommendations": {
+      "success": true,
+      "count": 0,
+      "dry_run": true
+    },
+    "export": {
+      "dir": "data\\exports\\live_pilot",
+      "files": 0
+    },
+    "playbook": {
+      "success": true,
+      "has_full_data": false,
+      "sections_count": 5
+    }
+  },
+  "success": false
+}
