@@ -1,5 +1,5 @@
-"""
-notification_router.py — Severity-based notification routing (OPS-010, OPS-011).
+﻿"""
+notification_router.py â€” Severity-based notification routing (OPS-010, OPS-011).
 
 Routes INFO/SUCCESS/WARNING/BLOCKED/CRITICAL to configured destinations:
   - Slack webhook (if SLACK_WEBHOOK_URL set in runner.env)
@@ -20,9 +20,9 @@ from pathlib import Path
 
 RUNNER_ROOT = Path("C:/AI_Runner")
 NOTIFY_LOG = RUNNER_ROOT / "logs/notifications.log"
-INCIDENTS_DIR = RUNNER_ROOT / "logs/incidents"
+INCIDENTS_DIR = RUNNER_ROOT / "reports/incidents"  # canonical incidents path
 
-# Severity levels — only interrupt human for BLOCKED and above
+# Severity levels â€” only interrupt human for BLOCKED and above
 class Severity(IntEnum):
     INFO      = 0
     SUCCESS   = 1
@@ -174,13 +174,13 @@ def _try_github_issue(severity: Severity, title: str, body: str,
 def _load_notification_config() -> dict:
     import yaml
 
-    path = Path("C:/AI_Runner/config/notification_config.yaml")
+    path = RUNNER_ROOT / "config/notification_config.yaml"  # use RUNNER_ROOT so tests can patch
     if not path.exists():
         return {
             "slack_enabled": False,
             "slack_webhook_url": "",
             "log_enabled": True,
-            "log_path": "C:/AI_Runner/logs/notifications.log",
+            "log_path": str(NOTIFY_LOG),  # use module-level so tests can patch
             "rate_limit_per_hour": 10,
         }
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -214,7 +214,11 @@ def notify(severity: str, message: str, incident_code: str = "", cycle: int | No
     config = _load_notification_config()
     timestamp = datetime.now(UTC).isoformat()
 
-    log_path = Path(config.get("log_path", "C:/AI_Runner/logs/notifications.log"))
+    # Use config log_path when provided; fall back to module-level NOTIFY_LOG.
+    # This allows both: tests that mock _load_notification_config (use config path),
+    # and tests that patch NOTIFY_LOG directly (use module-level path).
+    config_log = config.get("log_path", "")
+    log_path = Path(config_log) if config_log else NOTIFY_LOG
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(f"{timestamp} [{severity}] [{incident_code}] {message}\n")
@@ -232,8 +236,10 @@ def notify(severity: str, message: str, incident_code: str = "", cycle: int | No
             except Exception:
                 pass
 
-    if severity == "CRITICAL":
-        incident_dir = Path("C:/AI_Runner/reports/incidents")
+    if severity in ("CRITICAL", "BLOCKED"):
+        # Re-evaluate through Path() so test mocks of Path() can intercept.
+        # Also re-reads INCIDENTS_DIR so tests patching it directly work too.
+        incident_dir = Path(str(INCIDENTS_DIR))
         incident_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         incident = incident_dir / f"NOTIFICATION_{incident_code or 'CRITICAL'}_{stamp}.md"
@@ -275,3 +281,7 @@ def notify_critical(
 def notify_info(message: str, body: str = "", cycle: int | None = None) -> None:
     text = f"{message}\n{body}".strip() if body else message
     notify("INFO", text, cycle=cycle)
+
+
+
+

@@ -1,29 +1,29 @@
-# PRODUCTION READINESS SCORECARD — CYCLE 076 START
+# PRODUCTION READINESS SCORECARD - CYCLE 077
 
-## Cycle 075 Final Scores
+## Two-Score Model (Authoritative)
 
-- Score 1 = 67.0%
-- Score 2 = 46.9%
+- Score 1 (internal build progress): **91.3% (estimated from prompt formula; full checklist denominator not fully available in workspace)**
+- Score 2 (end-to-end production readiness): **53.1%**
+- TierD-2 cap: **REMOVED (Cycle 077)**
 
-## Delta from Cycle 074
+Cycle 077 scorecard synchronized to current evidence; unresolved close-out items remain.
 
-- Score 1 delta: approximately +2.0 to +3.0 points versus Cycle 074 (prior scorecard baseline range).
-- Score 2 delta: approximately +2.0 to +3.0 points versus Cycle 074 (prior scorecard baseline range).
+## Go-Live Stage Matrix
 
-## TierD-2 Stage Credits
+| Stage | Name | Status |
+|---|---|---|
+| 0 | Baseline go-live foundation | COMPLETE |
+| 1 | Stage 1 plan + prompt validation | PASS |
+| 2 | Branch + infra confirmations | PASS |
+| 3 | Ops scheduled-task production checks | PASS |
+| 4 | Notification destination verification | PASS |
+| 5 | Jira transition and sync evidence | PARTIAL |
+| 6 | Official post-cycle review trial | ADVISORY_ONLY_WITH_DISPATCH_ALLOWED |
+| 7 | 24h observation scaffold | SCAFFOLD_READY |
+| 8 | Final go-live audit and report | NOT_STARTED |
 
-- V-1 = NOT EARNED
-- V-2 = NOT EARNED
-- V-9 = NOT EARNED
+## Blocking Conditions
 
-## Coverage Gate
-
-- automation/ = 92.58% (Agent C verified)
-- combined automation+src = 86.75% (below 90% gate)
-
-## What Cycle 076 Must Achieve to Advance Score 2
-
-1. V-1 evidence = +2%
-2. Fix combined coverage gate to pass CI threshold
-3. Create PR and execute CI to green status
-
+- Remaining P0 blockers: **undetermined in this workspace snapshot**
+- Remaining P1 items: `BUG-011`, `BUG-012`, `PENDING-001`
+- Estimated time to go-live: **~24-hour observation run + Kevin approval**

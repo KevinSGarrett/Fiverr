@@ -1,4 +1,4 @@
-"""File-lock coordination utilities for cycle automation."""
+﻿"""File-lock coordination utilities for cycle automation."""
 
 from __future__ import annotations
 
@@ -9,6 +9,23 @@ from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
+
+LOCK_DIR = Path("C:/AI_Runner/state/locks")  # module-level constant for tests
+
+def _process_alive(pid: int) -> bool:
+    """Module-level process alive check. Patchable in tests."""
+    if pid <= 0:
+        return False
+    try:
+        import psutil
+        return bool(psutil.pid_exists(pid))
+    except Exception:
+        try:
+            import os
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
 
 try:
     import psutil
@@ -193,3 +210,88 @@ class LockManager:
             return True
         except (ProcessLookupError, PermissionError, OSError):
             return False
+
+
+
+
+# ------------------------------------------------------------------ #
+# Module-level convenience API (patchable by tests via LOCK_DIR)
+# ------------------------------------------------------------------ #
+
+LockError = LockAcquireError  # alias at module level for tests
+
+
+def _lock_file(lock_id: str) -> Path:
+    """Return the lock file path for lock_id using module-level LOCK_DIR."""
+    return LOCK_DIR / f"{lock_id}.lock"
+
+
+def acquire(lock_id: str, run_id: str, branch: str, cycle: str | int) -> Path:
+    """Acquire a lock. Returns the lock file Path. Raises LockError if held."""
+    import time as _time
+    LOCK_DIR.mkdir(parents=True, exist_ok=True)
+    lp = _lock_file(lock_id)
+    if lp.exists():
+        try:
+            import json as _json
+            data = _json.loads(lp.read_text(encoding="utf-8"))
+            pid = int(data.get("pid", 0))
+            if _process_alive(pid):
+                raise LockError(f"Lock '{lock_id}' held by pid {pid}")
+        except LockError:
+            raise
+        except Exception:
+            pass
+    import json as _json
+    import os as _os
+    payload = {
+        "lock_id": lock_id,
+        "pid": _os.getpid(),
+        "run_id": str(run_id),
+        "branch": str(branch),
+        "cycle": str(cycle),
+        "heartbeat_ts": _time.time(),
+    }
+    lp.write_text(_json.dumps(payload, indent=2), encoding="utf-8")
+    return lp
+
+
+def is_locked(lock_id: str) -> bool:
+    """Return True if lock exists and is held by an alive process."""
+    import json as _json
+    import time as _time
+    lp = _lock_file(lock_id)
+    if not lp.exists():
+        return False
+    try:
+        data = _json.loads(lp.read_text(encoding="utf-8"))
+        pid = int(data.get("pid", 0))
+        heartbeat_ts = float(data.get("heartbeat_ts", 0))
+        # If process is dead or heartbeat is very old (>12h), not locked
+        if not _process_alive(pid):
+            return False
+        if (_time.time() - heartbeat_ts) > 12 * 3600:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def heartbeat(lock_id: str) -> None:
+    """Update heartbeat timestamp in the lock file."""
+    import json as _json
+    import time as _time
+    lp = _lock_file(lock_id)
+    if lp.exists():
+        try:
+            data = _json.loads(lp.read_text(encoding="utf-8"))
+            data["heartbeat_ts"] = _time.time()
+            lp.write_text(_json.dumps(data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+
+def release(lock_id: str) -> None:
+    """Remove the lock file."""
+    lp = _lock_file(lock_id)
+    lp.unlink(missing_ok=True)

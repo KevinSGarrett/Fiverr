@@ -1,195 +1,1796 @@
 ====================================================================
-FIVERR 24/7 AUTONOMOUS RUNNER — CYCLE 077 AGENT F
-Policy v4.5 / POST_CYCLE_PM_REVIEW_v4
-Prerequisite: AGENT_COMPLETE in docs/cycle_reports/CYCLE_077_AGENT_C.md
-Runs FOURTH after C completes.
+AGENT F -- CYCLE 077 PROMPT
 ====================================================================
 
-AGENT F ROLE
-F is the final hardening agent before close-out. F executes Go-Live Stage 6
-(official post-cycle PM review trial), raises src/ coverage to >=80% combined
-passing threshold, builds the Stage 7 24-hour observation scaffold, and
-completes ALL remaining IN_PROGRESS checklist items (OPS-004/008/009/010/022/023
-if not done by A, MODEL-008/013/014 if remaining, DOD-004/007/011/012/013).
+## PROJECT CONTEXT
 
-NEVER-BREAK RULES
-1. data/cycle037_live.db NEVER modify
-2. Stage 6 requires at least 5 of 6 agent reports to be present
-3. Stage 7 scaffold must be tested for 2 minutes minimum before marking done
+- Project: Fiverr Research System
+- GitHub: https://github.com/KevinSGarrett/Fiverr
+- Local: C:\Fiverr\Fiverr
+- Branch: `cycle/077/integration`
+- Python: 3.11+ | SQLAlchemy 2.0 | Pydantic v2 | Playwright | OpenAI | Streamlit
+- Cycle: 077 | Run ID: 20260613T010222
+
+## MODEL POLICY (MANDATORY — do not override)
+
+- **Model:** Codex 5.3
+- **Effort:** medium
+- **Auto model selection:** DISABLED — use only Codex 5.3
+- **Fallback model:** DISABLED
+- **Billing:** Claude subscription only for PM review; no API key
+
+## YOUR ROLE
+
+**Agent F** — Test coverage gaps, regression tests, coverage enforcement
+**Role type:** `test_coverage_regression`
+
+**You own these file paths (you may create/modify only these):**
+- `tests/**`
+
+## GIT INSTRUCTIONS
+
+1. Confirm you are on branch: `cycle/077/integration`
+   ```
+   git branch --show-current
+   # Expected: cycle/077/integration
+   ```
+2. Pull latest: `git pull origin cycle/077/integration`
+3. ALL work on `cycle/077/integration` only — do NOT create other branches
+4. **DO NOT run git add, git commit, git push.** The controller owns all git operations.
+5. **DO NOT run gh pr commands.** The controller manages PRs.
+6. Complete your tasks, write your report, and exit.
+
+## AUTONOMY RULE
+
+- Proceed autonomously through all tasks without pausing for confirmation.
+- If a task cannot be completed due to a missing dependency, document the blocker
+  in your report and continue to the next task.
+- If a test fails, fix the bug causing the failure. Do NOT use `pytest.mark.skip`
+  as a workaround. If you cannot fix it in 3 attempts, document it as a blocker.
+- Do NOT commit files. The controller validates and commits after you finish.
+
+## JIRA SCOPE FOR THIS CYCLE
+
+| Jira Key | Summary | Status | Priority |
+|---|---|---|---|
+| SCRUM-287 | [LOW L1] Sweep 23 stale In-Review issues — verify DoD e | To Do | Low |
+| SCRUM-288 | [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate fil | To Do | Low |
+| SCRUM-211 | [PLAYBOOK] S8.7 Playbook Dashboard Data Layer | To Do | Medium |
+| SCRUM-229 | [DASHBOARD] S9.15 Mobile Optimization | To Do | Medium |
+| SCRUM-230 | [DASHBOARD] S9.16 Pricing Dashboard Widgets | To Do | Medium |
+| SCRUM-246 | [PM PROCESS] Cycle 001 prompts lacked required depth an | In Review | Medium |
+| SCRUM-250 | [PM/JIRA] Correct cycle-to-story Jira mapping and preve | In Review | Medium |
+| SCRUM-252 | [PM/CURSOR] Grant Cursor-agent Jira operations authorit | In Review | Medium |
+| SCRUM-253 | [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard bl | In Review | Medium |
+| SCRUM-254 | [PM/JIRA] Enforce full-board AC/DoD-first planning and  | In Review | Medium |
+| SCRUM-255 | [CYCLE 012] Close AC/DoD audit gaps from Agent D integr | To Do | Medium |
+| SCRUM-256 | [CYCLE 013] Resolve PR #10 Codex blockers and continue  | In Progress | Medium |
+| SCRUM-257 | [CYCLE 013] Audit recent Done dashboard stories for pre | To Do | Medium |
+| SCRUM-258 | [CYCLE 014] Resume product development and enforce same | In Progress | Medium |
+
+## TASKS FOR THIS CYCLE
+
+> **Floor:** 55 LARGE/XLARGE/XXLARGE tasks (AGENT_TASK_FLOOR_ENFORCEMENT.md hard rule).
+> Each task must have: Story/Jira key, Epic, Spec, Files, Implementation details
+> (>=100 words), >=3 tests, Definition of Done.
+
+### Task 1: Test coverage gap analysis for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_low_l1__sweep_23_stale_i.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 2: Regression test expansion for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_low_l1__sweep_23_stale_i_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-287 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 3: Edge case and error path tests for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_low_l1__sweep_23_stale_i.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 4: Test fixture and conftest improvements for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_low_l1__sweep_23_stale_i.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 5: Test coverage gap analysis for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_low_l7_l9_l10__minor_cle.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 6: Regression test expansion for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_low_l7_l9_l10__minor_cle_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-288 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 7: Edge case and error path tests for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_low_l7_l9_l10__minor_cle.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 8: Test fixture and conftest improvements for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_low_l7_l9_l10__minor_cle.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 9: Test coverage gap analysis for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_playbook__s8_7_playbook.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 10: Regression test expansion for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_playbook__s8_7_playbook_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-211 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 11: Edge case and error path tests for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_playbook__s8_7_playbook.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 12: Test fixture and conftest improvements for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_playbook__s8_7_playbook.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 13: Test coverage gap analysis for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_dashboard__s9_15_mobile.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 14: Regression test expansion for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_dashboard__s9_15_mobile_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-229 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 15: Edge case and error path tests for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_dashboard__s9_15_mobile.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 16: Test fixture and conftest improvements for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_dashboard__s9_15_mobile.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 17: Test coverage gap analysis for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_dashboard__s9_16_pricing.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 18: Regression test expansion for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_dashboard__s9_16_pricing_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-230 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 19: Edge case and error path tests for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_dashboard__s9_16_pricing.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 20: Test fixture and conftest improvements for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_dashboard__s9_16_pricing.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 21: Test coverage gap analysis for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_process__cycle_001_pr.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 22: Regression test expansion for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_pm_process__cycle_001_pr_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-246 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 23: Edge case and error path tests for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_process__cycle_001_pr.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 24: Test fixture and conftest improvements for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_pm_process__cycle_001_pr.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 25: Test coverage gap analysis for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_jira__correct_cycle_t.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 26: Regression test expansion for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_pm_jira__correct_cycle_t_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-250 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 27: Edge case and error path tests for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_jira__correct_cycle_t.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 28: Test fixture and conftest improvements for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_pm_jira__correct_cycle_t.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 29: Test coverage gap analysis for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_cursor__grant_cursor.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 30: Regression test expansion for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_pm_cursor__grant_cursor_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-252 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 31: Edge case and error path tests for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_cursor__grant_cursor.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 32: Test fixture and conftest improvements for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_pm_cursor__grant_cursor.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 33: Test coverage gap analysis for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_011__resolve_pr__8.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 34: Regression test expansion for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_cycle_011__resolve_pr__8_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-253 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 35: Edge case and error path tests for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_011__resolve_pr__8.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 36: Test fixture and conftest improvements for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_cycle_011__resolve_pr__8.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 37: Test coverage gap analysis for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_jira__enforce_full_bo.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 38: Regression test expansion for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_pm_jira__enforce_full_bo_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-254 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 39: Edge case and error path tests for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_pm_jira__enforce_full_bo.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 40: Test fixture and conftest improvements for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_pm_jira__enforce_full_bo.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 41: Test coverage gap analysis for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_012__close_ac_dod.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 42: Regression test expansion for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_cycle_012__close_ac_dod_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-255 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 43: Edge case and error path tests for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_012__close_ac_dod.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 44: Test fixture and conftest improvements for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_cycle_012__close_ac_dod.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 45: Test coverage gap analysis for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_013__resolve_pr__1.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 46: Regression test expansion for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_cycle_013__resolve_pr__1_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-256 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 47: Edge case and error path tests for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_013__resolve_pr__1.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 48: Test fixture and conftest improvements for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_cycle_013__resolve_pr__1.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 49: Test coverage gap analysis for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_013__audit_recent.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 50: Regression test expansion for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_cycle_013__audit_recent_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-257 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 51: Edge case and error path tests for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_013__audit_recent.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 52: Test fixture and conftest improvements for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_cycle_013__audit_recent.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 53: Test coverage gap analysis for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_014__resume_produc.py (add coverage tests)
+- - MODIFY: tests/conftest.py (add fixtures if needed)
+
+**Implementation Details:**
+
+Analyze test coverage gaps for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. Run pytest --cov on the files changed in this story. Identify all uncovered lines and branches. For each gap, determine if the gap represents a real risk (untested error path, untested edge case) or is acceptable (boilerplate, logging). Write tests for all high-risk coverage gaps. Target 90%+ coverage on changed files. Document the coverage analysis in the cycle report.
+
+**Required Tests:**
+- Coverage report shows >= 90% on changed files
+- All high-risk uncovered paths have tests
+- Coverage gap analysis documented
+
+**Definition of Done:**
+- [ ] Coverage floor (90%) met for all changed files
+- [ ] High-risk gaps have test coverage
+- [ ] Coverage report committed
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 54: Regression test expansion for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - CREATE: tests/unit/test_cycle_014__resume_produc_regression.py
+- - MODIFY: docs/AGENT_EXECUTION_STRATEGY.md (add to permanent pack)
+
+**Implementation Details:**
+
+Add regression tests for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. Review the permanent regression pack in AGENT_EXECUTION_STRATEGY.md. Verify that all 20+ existing regression tests still pass after changes in this cycle. Add new regression tests for any production failure modes discovered during this cycle. Each new regression test must be substantive: it must run actual code, produce a measurable result, have acceptance criteria, and be added to the permanent pack documentation.
+
+**Required Tests:**
+- All existing regression tests still pass
+- New regression test added for SCRUM-258 failure mode
+- New test added to permanent pack documentation
+
+**Definition of Done:**
+- [ ] Regression pack integrity maintained
+- [ ] New regression tests documented in AGENT_EXECUTION_STRATEGY.md
+- [ ] No existing regression tests broken
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 55: Edge case and error path tests for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/unit/test_cycle_014__resume_produc.py (add edge case tests)
+
+**Implementation Details:**
+
+Write edge case and error path tests for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. Identify the most likely real-world failure modes: empty database, malformed API response, rate limit hit, concurrent access, very large or very small numeric values. For each edge case, write a test that: sets up the specific failure condition, calls the code under test, and verifies the correct error behavior. Tests must be deterministic and not require live API access.
+
+**Required Tests:**
+- Edge case test covers empty/null input correctly
+- Error path test verifies exception type and message
+- Concurrent access test (if applicable) passes under load
+
+**Definition of Done:**
+- [ ] All edge cases identified in spec have tests
+- [ ] Error paths produce specific, testable exceptions
+- [ ] Tests are deterministic (no flakiness)
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 56: Test fixture and conftest improvements for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: tests/conftest.py (extract fixtures)
+- - MODIFY: tests/unit/test_cycle_014__resume_produc.py (use fixtures)
+
+**Implementation Details:**
+
+Improve test fixtures and conftest.py for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. If tests for this story require complex setup, extract it into reusable pytest fixtures in the appropriate conftest.py. Ensure fixtures are properly scoped (function/class/module/session). Add parameterized test cases where the same logic needs to be tested with multiple inputs. Verify that fixture teardown is clean and does not leave test artifacts that could affect other tests.
+
+**Required Tests:**
+- Fixtures extracted and reusable across multiple tests
+- Parametrized tests cover all required input variants
+- Fixture teardown is clean (verified by running tests in isolation)
+
+**Definition of Done:**
+- [ ] No fixture pollution between tests
+- [ ] Complex setup is in fixtures, not inline
+- [ ] Parametrized cases cover the full AC matrix
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+## VALIDATION STEPS
+
+Run these commands in order. Fix any failures before writing your report.
+
+```bash
+# 1. Ruff lint
+python -m ruff check src/ tests/ automation/ --output-format=text
+
+# 2. Mypy type check
+python -m mypy src/ --ignore-missing-imports
+
+# 3. Pytest — run tests relevant to your changed files
+python -m pytest tests/ -q --no-header --tb=short -x
+
+# 4. Config check
+python run.py config-check
+```
+
+**Do not mark your report complete if any check fails.**
+
+## FINAL REPORT REQUIREMENTS
+
+Write your report to: `docs/cycle_reports/CYCLE_077_AGENT_F.md`
+
+Your report MUST contain:
+- Header: `# CYCLE_077_AGENT_F REPORT`
+- Summary of all work completed
+- List of all files created or modified (with full paths)
+- Validation results (ruff/mypy/pytest command output)
+- Jira evidence (which AC/DoD items were addressed and how)
+- Blockers encountered (if any, with details)
+- `AGENT_COMPLETE` as the final line
+
+**IMPORTANT:** Do NOT run git add, git commit, or git push.
+Write your report and exit. The controller handles all commits.
+
+## FILES CREATED/MODIFIED THIS CYCLE (Summary)
+
+Complete this section after all tasks finish:
+
+| Action | File Path |
+|---|---|
+| Completed during execution | See final agent cycle report |
+
+## MANDATORY 55-TASK EXECUTION FLOOR
+
+Execute all items as substantial production tasks (not <15 min micro-tasks):
+
+  1. Complete substantial scope item 1 aligned to this agent's role, with evidence artifacts and validation output captured.
+  2. Complete substantial scope item 2 aligned to this agent's role, with evidence artifacts and validation output captured.
+  3. Complete substantial scope item 3 aligned to this agent's role, with evidence artifacts and validation output captured.
+  4. Complete substantial scope item 4 aligned to this agent's role, with evidence artifacts and validation output captured.
+  5. Complete substantial scope item 5 aligned to this agent's role, with evidence artifacts and validation output captured.
+  6. Complete substantial scope item 6 aligned to this agent's role, with evidence artifacts and validation output captured.
+  7. Complete substantial scope item 7 aligned to this agent's role, with evidence artifacts and validation output captured.
+  8. Complete substantial scope item 8 aligned to this agent's role, with evidence artifacts and validation output captured.
+  9. Complete substantial scope item 9 aligned to this agent's role, with evidence artifacts and validation output captured.
+  10. Complete substantial scope item 10 aligned to this agent's role, with evidence artifacts and validation output captured.
+  11. Complete substantial scope item 11 aligned to this agent's role, with evidence artifacts and validation output captured.
+  12. Complete substantial scope item 12 aligned to this agent's role, with evidence artifacts and validation output captured.
+  13. Complete substantial scope item 13 aligned to this agent's role, with evidence artifacts and validation output captured.
+  14. Complete substantial scope item 14 aligned to this agent's role, with evidence artifacts and validation output captured.
+  15. Complete substantial scope item 15 aligned to this agent's role, with evidence artifacts and validation output captured.
+  16. Complete substantial scope item 16 aligned to this agent's role, with evidence artifacts and validation output captured.
+  17. Complete substantial scope item 17 aligned to this agent's role, with evidence artifacts and validation output captured.
+  18. Complete substantial scope item 18 aligned to this agent's role, with evidence artifacts and validation output captured.
+  19. Complete substantial scope item 19 aligned to this agent's role, with evidence artifacts and validation output captured.
+  20. Complete substantial scope item 20 aligned to this agent's role, with evidence artifacts and validation output captured.
+  21. Complete substantial scope item 21 aligned to this agent's role, with evidence artifacts and validation output captured.
+  22. Complete substantial scope item 22 aligned to this agent's role, with evidence artifacts and validation output captured.
+  23. Complete substantial scope item 23 aligned to this agent's role, with evidence artifacts and validation output captured.
+  24. Complete substantial scope item 24 aligned to this agent's role, with evidence artifacts and validation output captured.
+  25. Complete substantial scope item 25 aligned to this agent's role, with evidence artifacts and validation output captured.
+  26. Complete substantial scope item 26 aligned to this agent's role, with evidence artifacts and validation output captured.
+  27. Complete substantial scope item 27 aligned to this agent's role, with evidence artifacts and validation output captured.
+  28. Complete substantial scope item 28 aligned to this agent's role, with evidence artifacts and validation output captured.
+  29. Complete substantial scope item 29 aligned to this agent's role, with evidence artifacts and validation output captured.
+  30. Complete substantial scope item 30 aligned to this agent's role, with evidence artifacts and validation output captured.
+  31. Complete substantial scope item 31 aligned to this agent's role, with evidence artifacts and validation output captured.
+  32. Complete substantial scope item 32 aligned to this agent's role, with evidence artifacts and validation output captured.
+  33. Complete substantial scope item 33 aligned to this agent's role, with evidence artifacts and validation output captured.
+  34. Complete substantial scope item 34 aligned to this agent's role, with evidence artifacts and validation output captured.
+  35. Complete substantial scope item 35 aligned to this agent's role, with evidence artifacts and validation output captured.
+  36. Complete substantial scope item 36 aligned to this agent's role, with evidence artifacts and validation output captured.
+  37. Complete substantial scope item 37 aligned to this agent's role, with evidence artifacts and validation output captured.
+  38. Complete substantial scope item 38 aligned to this agent's role, with evidence artifacts and validation output captured.
+  39. Complete substantial scope item 39 aligned to this agent's role, with evidence artifacts and validation output captured.
+  40. Complete substantial scope item 40 aligned to this agent's role, with evidence artifacts and validation output captured.
+  41. Complete substantial scope item 41 aligned to this agent's role, with evidence artifacts and validation output captured.
+  42. Complete substantial scope item 42 aligned to this agent's role, with evidence artifacts and validation output captured.
+  43. Complete substantial scope item 43 aligned to this agent's role, with evidence artifacts and validation output captured.
+  44. Complete substantial scope item 44 aligned to this agent's role, with evidence artifacts and validation output captured.
+  45. Complete substantial scope item 45 aligned to this agent's role, with evidence artifacts and validation output captured.
+  46. Complete substantial scope item 46 aligned to this agent's role, with evidence artifacts and validation output captured.
+  47. Complete substantial scope item 47 aligned to this agent's role, with evidence artifacts and validation output captured.
+  48. Complete substantial scope item 48 aligned to this agent's role, with evidence artifacts and validation output captured.
+  49. Complete substantial scope item 49 aligned to this agent's role, with evidence artifacts and validation output captured.
+  50. Complete substantial scope item 50 aligned to this agent's role, with evidence artifacts and validation output captured.
+  51. Complete substantial scope item 51 aligned to this agent's role, with evidence artifacts and validation output captured.
+  52. Complete substantial scope item 52 aligned to this agent's role, with evidence artifacts and validation output captured.
+  53. Complete substantial scope item 53 aligned to this agent's role, with evidence artifacts and validation output captured.
+  54. Complete substantial scope item 54 aligned to this agent's role, with evidence artifacts and validation output captured.
+  55. Complete substantial scope item 55 aligned to this agent's role, with evidence artifacts and validation output captured.
 
 ====================================================================
-
-TASK 1 — PREFLIGHT + COVERAGE GAP FINAL PASS (LARGE, ~75 min)
-Deliverable: Combined src/+automation/ coverage >=90% confirmed; all gap modules >=80%.
-
-  1.  `git checkout cycle/077/integration && git pull origin cycle/077/integration`
-  2.  Confirm AGENT_COMPLETE in CYCLE_077_AGENT_C.md.
-  3.  Run combined coverage check: `python -m pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=60 -q | tail -15`
-      If PASS: document the current per-module breakdown and proceed. If FAIL: fix.
-  4.  Run src/-only coverage scan: `python -m pytest tests/unit/ --cov=src --cov-report=term-missing --timeout=60 -q 2>&1 | grep "src/" | sort -t'%' -k1 -n`
-  5.  For every src/ module below 75%: write targeted tests to bring it above 75%.
-      Focus first on: src/scoring/ modules, src/collection/ modules, src/analysis/ modules.
-  6.  After each batch: run `python -m pytest tests/unit/test_{module}.py --cov=src.{module} --cov-report=term-missing --timeout=30 -q`
-  7.  Re-run full combined: `python -m pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=60 -q | tail -5` — MUST PASS.
-  8.  Run `python -m ruff check tests/ -q --fix` on any new test files.
-  9.  Write `docs/cycle_reports/CYCLE_077_COVERAGE_FINAL_F.md` — per-module breakdown.
-  10. Commit: `git add tests/ docs/ && git commit -m "test(coverage): src/ coverage final pass, Agent F"`
-
+END OF PROMPT -- AGENT F CYCLE 077
 ====================================================================
 
-TASK 2 — GO-LIVE STAGE 6: OFFICIAL POST-CYCLE PM REVIEW TRIAL (LARGE, ~80 min)
-Deliverable: OPS-035 DONE; DOD-012 DONE; BRAIN-021 fully evidenced; MODEL-008 DONE.
-
-  1.  Verify all 5 prior agent reports are present (A, B, E, C, and F-in-progress):
-      `ls docs/cycle_reports/CYCLE_077_AGENT_*.md`
-  2.  Read POST_CYCLE_PM_REVIEW_v4.md in full to understand the official review format.
-  3.  Run official post-cycle review in advisory mode:
-      `python automation/ai_cycle_controller.py post-cycle-review --cycle 077 --mode advisory 2>&1 | tee docs/validation/GO_LIVE_STAGE_6_ADVISORY_LOG.txt`
-      Capture full output. Note: status should be PASS or ADVISORY_ONLY.
-  4.  Read the output carefully — if BLOCKED_MISSING_AGENT_REPORT: note which report is missing
-      and create a minimal placeholder report to unblock, then re-run.
-  5.  Verify dispatch decision JSON was written:
-      `python -c "import json; d=json.load(open(r'C:/AI_Runner/state/next_cycle_dispatch_decision.json')); print('blocks_dispatch:', d.get('blocks_dispatch'), 'status:', d.get('review_result'))"`
-      blocks_dispatch must be False (or ADVISORY_ONLY which still allows dispatch).
-  6.  Run in POST_MERGE mode: `python automation/ai_cycle_controller.py post-cycle-review --cycle 077 --mode post-merge 2>&1 | tee docs/validation/GO_LIVE_STAGE_6_POST_MERGE_LOG.txt`
-  7.  Read the Claude model verification section from the post-merge output — this evidences MODEL-008.
-      Write `docs/validation/MODEL_008_CLAUDE_MODEL_VERIFICATION.md` with the output section.
-  8.  Verify BRAIN-021 (review orchestrator): the post-cycle-review ran and collected all facts.
-      `python -c "import json; d=json.load(open('C:/AI_Runner/runs/CYCLE_077/post_cycle_result.json') if pathlib.Path('C:/AI_Runner/runs/CYCLE_077/post_cycle_result.json').exists() else open('C:/AI_Runner/state/next_cycle_dispatch_decision.json')); print(list(d.keys()))"`
-      Write `docs/validation/GO_LIVE_STAGE_6_EVIDENCE.md`:
-      - Advisory mode status
-      - Post-merge mode status
-      - blocks_dispatch: False
-      - Model verification artifact present
-      - Verdict: PASS
-  9.  Mark OPS-035, DOD-012, BRAIN-021, MODEL-008 DONE.
-  10. Commit.
-
-====================================================================
-
-TASK 3 — GO-LIVE STAGE 7 SCAFFOLD: 24-HOUR OBSERVATION (LARGE, ~70 min)
-Deliverable: OPS-036 scaffold DONE; start/stop scripts tested; 2-minute live test PASS.
-
-  1.  Write `C:/AI_Runner/scripts/start_24h_observation.ps1`:
-      - Parameters: -TestMode (bool), -Duration (int, default 86400 seconds)
-      - Logs to C:/AI_Runner/logs/observation_{timestamp}.log
-      - Every 300 seconds: runs `python automation/ai_cycle_controller.py status-tick`
-      - On HEALTH != GREEN: runs `python automation/ai_cycle_controller.py repair --trigger health_degraded --live`
-      - Sends Slack notification via notification_router
-      - On -TestMode: runs for -Duration seconds only, then exits cleanly
-      - Writes final summary to C:/AI_Runner/reports/observation_summary_{timestamp}.json
-  2.  Write `C:/AI_Runner/scripts/stop_observation.ps1`:
-      - Reads observation PID from C:/AI_Runner/state/observation_pid.txt
-      - Sends SIGTERM gracefully, waits 30s, then SIGKILL if needed
-      - Writes final health summary
-  3.  Write `C:/AI_Runner/scripts/check_observation_health.ps1`:
-      - Reads latest observation log, checks for any ERROR or CRITICAL entries
-      - Prints summary: uptime, tick count, errors, status
-  4.  Test the scaffold for 120 seconds:
-      `powershell -File C:/AI_Runner/scripts/start_24h_observation.ps1 -TestMode -Duration 120 2>&1 | tee docs/validation/STAGE7_2MIN_TEST.txt`
-      Verify: started, logged 2+ status-tick outputs, exited cleanly.
-  5.  Verify observation_summary_{ts}.json was written:
-      `cat C:/AI_Runner/reports/observation_summary_*.json | head -20`
-  6.  Write `docs/validation/GO_LIVE_STAGE_7_SCAFFOLD_EVIDENCE.md`:
-      - Scripts written: start/stop/check (3 files)
-      - 2-minute test: PASS/FAIL
-      - Summary JSON: written
-      - Instructions for starting real 24-hour observation
-      - Verdict: SCAFFOLD_READY
-  7.  Mark OPS-036 as SCAFFOLD_READY (not DONE — full DONE requires the actual 24h run).
-  8.  Commit: `git add C:/AI_Runner/scripts/ docs/validation/ && git commit -m "feat(stage7): 24h observation scaffold PASS, start/stop/check scripts tested"`
-
-====================================================================
-
-TASK 4 — COMPLETE ALL REMAINING IN_PROGRESS CHECKLIST ITEMS (LARGE, ~65 min)
-Deliverable: Every IN_PROGRESS item that can be completed without live multi-cycle
-operation is moved to DONE.
-
-  1.  DOD-004 model gate — confirm from Agent C evidence. If model expiry < 24h: write
-      CRITICAL_BLOCK doc. Otherwise write PASS evidence.
-  2.  DOD-007 prompt validation — confirm from Agent A (Stage 1 evidence). Mark DONE.
-  3.  DOD-011 Jira sync — confirm from Agent B (Jira transitions evidence). Mark DONE.
-  4.  DOD-012 post-cycle review — just completed in Task 2. Mark DONE.
-  5.  DOD-013 watchdog recovery — already DONE from Cycle 075. Verify evidence still valid.
-  6.  MODEL-013 drift detection — confirm from Agent A evidence. Mark DONE.
-  7.  MODEL-014 daily report model section — confirm from Agent A evidence. Mark DONE.
-  8.  OPS-004 watchdog live — confirm from Agent A evidence. Mark DONE.
-  9.  OPS-008 daily snapshot — confirm from Agent A evidence. Mark DONE.
-  10. OPS-009 weekly maintenance — confirm from Agent A evidence. Mark DONE.
-  11. OPS-010 Slack notifications — confirm from Agent A evidence. Mark DONE or NEEDS_WEBHOOK_URL.
-  12. OPS-022 daily report production — confirm from Agent A evidence. Mark DONE.
-  13. OPS-023 weekly report production — confirm from Agent A evidence. Mark DONE.
-  14. OPS-030 Stage 1 manual dry-run — confirm from Agent A evidence. Mark DONE.
-  15. OPS-031 Stage 2 — confirm from Agent B evidence. Mark DONE.
-  16. OPS-032 Stage 3 — confirm from Agent B evidence. Mark DONE.
-  17. OPS-033 Stage 4 — confirm from Agent C evidence. Mark DONE.
-  18. OPS-034 Stage 5 — confirm from Agent C evidence. Mark DONE.
-  19. OPS-035 Stage 6 — just completed. Mark DONE.
-  20. BRAIN-021 review orchestrator — confirm from this task's Stage 6 run. Mark DONE.
-  21. GJCI-029/030/032/034/035 — confirm from Agents B/C evidence. Mark DONE.
-  22. Write `docs/validation/FINAL_CHECKLIST_C077_STATUS.md` — every item that changed
-      status this cycle, with evidence file paths.
-  23. Commit: `git add docs/ && git commit -m "docs(checklist): all completable IN_PROGRESS items resolved, evidence documented"`
-
-====================================================================
-
-TASK 5 — PM_PACK FINAL STATE SYNC + GO-LIVE SUMMARY (MEDIUM, ~40 min)
-
-  1.  Update PRODUCTION_READINESS_SCORECARD.md:
-      Score 1 recalculate: with Stages 2-6 PASS + all remaining items DONE,
-      count (DONE items / total non-deferred items). Estimate ~80-82%.
-      Score 2: from Agent E (47.1% + V-credits, ~53.1%). TierD-2 cap: REMOVED.
-  2.  Update Go-Live stage table in CURRENT_STATE_CANONICAL.md:
-      Stage 0=COMPLETE, 1=PASS, 2=PASS, 3=PASS, 4=PASS, 5=PASS, 6=PASS,
-      7=SCAFFOLD_READY, 8=NOT_STARTED.
-  3.  Update HYDRATION_HEADER.md: clear all resolved blockers; only BUG-011, BUG-012
-      (cursor model expiry), and PENDING-001 (CODECOV_TOKEN) remain.
-  4.  Run `python automation/ai_cycle_controller.py pm-pack-audit` — PASS required.
-  5.  Write `docs/validation/GO_LIVE_STAGES_2_6_SUMMARY.md` — table of all 5 stages with
-      evidence file paths, PASS/FAIL, and timestamp.
-  6.  Commit: `git add PM_Pack/ docs/ && git commit -m "state(pm-pack): final Agent F state sync, Stages 2-6 summary"`
-
-====================================================================
-
-TASK 6 — JIRA TRANSITIONS + EVIDENCE COMMENTS (MEDIUM, ~35 min)
-
-  1.  Transition all stories completed by F: Stage 6, Stage 7 scaffold, coverage, OPS items.
-  2.  Post Stage 6 evidence (dispatch decision JSON path) on the Stage 6 Jira story.
-  3.  Post Stage 7 scaffold evidence on the Stage 7 Jira story. Explain that the full
-      24-hour observation run happens when Kevin runs start_24h_observation.ps1.
-  4.  Write `docs/cycle_reports/CYCLE_077_AGENT_F_JIRA.md`.
-  5.  Commit.
-
-====================================================================
-
-TASK 7 — FINAL COMMIT, PUSH, CYCLE REPORT (MEDIUM, ~25 min)
-
-  1.  Final validation:
-      `python -m ruff check automation/ src/ tests/ -q`
-      `python -m pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=60 -q | tail -5`
-      `python automation/ai_cycle_controller.py brain-check`
-      `python automation/ai_cycle_controller.py pm-pack-audit`
-  2.  `git status` — clean. `git push origin cycle/077/integration`
-  3.  Write `docs/cycle_reports/CYCLE_077_AGENT_F.md`:
-      - Coverage: combined %, all modules final breakdown
-      - Stage 6 (OPS-035, DOD-012): PASS/FAIL
-      - Stage 7 scaffold: SCAFFOLD_READY
-      - Stage 7 2-minute test: PASS/FAIL
-      - IN_PROGRESS items resolved: full list
-      - Score 1: ~{new}% | Score 2: ~53.1% | TierD-2: REMOVED
-      - Go-Live stages 2-7: summary table
-      - Remaining open: BUG-011, BUG-012, PENDING-001, OPS-036 (needs live run), OPS-037
-      - AGENT_COMPLETE
-  4.  Commit and push.
-
-VALIDATION (R-092 Tier 2)
-python -m ruff check automation/ src/ tests/ -q
-python -m mypy automation/ --ignore-missing-imports -q
-python -m pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=60 -q | tail -10
-python automation/ai_cycle_controller.py brain-check
-python automation/ai_cycle_controller.py pm-pack-audit
-python automation/ai_cycle_controller.py merge-gate --dry-run --cycle 077
-
-END OF PROMPT
-
-Agent D may proceed after Agent F reports AGENT_COMPLETE.
+<!-- Generated by prompt_generator.py -->
+<!-- Run ID: 20260613T010222 | Generated: 2026-06-13T01:02:24.180899+00:00 -->

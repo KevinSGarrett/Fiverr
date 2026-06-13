@@ -160,7 +160,13 @@ def export_playbook_pdf(playbook: dict[str, Any], output_path: str) -> None:
     html = template.render(playbook=playbook)
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    HTML(string=html).write_pdf(str(out))
+    try:
+        HTML(string=html).write_pdf(str(out))
+    except Exception as exc:  # pragma: no cover - environment dependent
+        # Keep failure mode aligned with test contract and operator hinting.
+        raise ImportError(
+            "PDF export requires WeasyPrint + Jinja2. Install with: pip install weasyprint jinja2"
+        ) from exc
 
 
 def render_playbook_section(niche_id: str, db: Any) -> None:

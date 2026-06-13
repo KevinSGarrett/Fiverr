@@ -63,6 +63,7 @@ load_order:
     - PM_Pack/08_task_queue/CYCLE_PLANNER.md
     - PM_Pack/08_task_queue/DEPENDENCY_MAP.md
     - PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+    - PM_Pack/10_cycle_log/CYCLE_077_LOG.md
 
   model_policy:
     - C:/AI_Runner/config/model_selection_policy.yaml

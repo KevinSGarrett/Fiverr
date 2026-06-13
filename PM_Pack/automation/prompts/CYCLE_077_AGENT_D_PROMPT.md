@@ -1,291 +1,1806 @@
 ====================================================================
-FIVERR 24/7 AUTONOMOUS RUNNER — CYCLE 077 AGENT D
-Policy v4.5 / POST_CYCLE_PM_REVIEW_v4
-Prerequisite: AGENT_COMPLETE in docs/cycle_reports/CYCLE_077_AGENT_F.md
-Runs LAST — cycle steward and close-out agent.
+AGENT D -- CYCLE 077 PROMPT
 ====================================================================
 
-AGENT D ROLE
-D is the cycle steward and close-out agent. D executes the full merge gate,
-merges the PR to develop, runs the complete Jira Done sync, generates official
-post-cycle GitHub and Jira bundles, updates the production readiness scorecard
-with final calculated values, writes the Kevin handoff document, and plans
-Cycle 078 with 12 story recommendations.
+## PROJECT CONTEXT
 
-NEVER-BREAK RULES
-1. Do NOT merge until merge gate returns PASS or CONDITIONAL_GO
-2. Do NOT transition stories to Done unless their evidence is confirmed
-3. AGENT_COMPLETE is the final act — written LAST after all work is done
+- Project: Fiverr Research System
+- GitHub: https://github.com/KevinSGarrett/Fiverr
+- Local: C:\Fiverr\Fiverr
+- Branch: `cycle/077/integration`
+- Python: 3.11+ | SQLAlchemy 2.0 | Pydantic v2 | Playwright | OpenAI | Streamlit
+- Cycle: 077 | Run ID: 20260613T010222
+
+## MODEL POLICY (MANDATORY — do not override)
+
+- **Model:** Codex 5.3
+- **Effort:** medium
+- **Auto model selection:** DISABLED — use only Codex 5.3
+- **Fallback model:** DISABLED
+- **Billing:** Claude subscription only for PM review; no API key
+
+## YOUR ROLE
+
+**Agent D** — PR body, Jira evidence, GitHub status, merge gate preparation
+**Role type:** `pr_steward_merge_gate`
+
+**You own these file paths (you may create/modify only these):**
+- `docs/cycle_reports/**`
+
+## GIT INSTRUCTIONS
+
+1. Confirm you are on branch: `cycle/077/integration`
+   ```
+   git branch --show-current
+   # Expected: cycle/077/integration
+   ```
+2. Pull latest: `git pull origin cycle/077/integration`
+3. ALL work on `cycle/077/integration` only — do NOT create other branches
+4. **DO NOT run git add, git commit, git push.** The controller owns all git operations.
+5. **DO NOT run gh pr commands.** The controller manages PRs.
+6. Complete your tasks, write your report, and exit.
+
+## AUTONOMY RULE
+
+- Proceed autonomously through all tasks without pausing for confirmation.
+- If a task cannot be completed due to a missing dependency, document the blocker
+  in your report and continue to the next task.
+- If a test fails, fix the bug causing the failure. Do NOT use `pytest.mark.skip`
+  as a workaround. If you cannot fix it in 3 attempts, document it as a blocker.
+- Do NOT commit files. The controller validates and commits after you finish.
+
+## JIRA SCOPE FOR THIS CYCLE
+
+| Jira Key | Summary | Status | Priority |
+|---|---|---|---|
+| SCRUM-287 | [LOW L1] Sweep 23 stale In-Review issues — verify DoD e | To Do | Low |
+| SCRUM-288 | [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate fil | To Do | Low |
+| SCRUM-211 | [PLAYBOOK] S8.7 Playbook Dashboard Data Layer | To Do | Medium |
+| SCRUM-229 | [DASHBOARD] S9.15 Mobile Optimization | To Do | Medium |
+| SCRUM-230 | [DASHBOARD] S9.16 Pricing Dashboard Widgets | To Do | Medium |
+| SCRUM-246 | [PM PROCESS] Cycle 001 prompts lacked required depth an | In Review | Medium |
+| SCRUM-250 | [PM/JIRA] Correct cycle-to-story Jira mapping and preve | In Review | Medium |
+| SCRUM-252 | [PM/CURSOR] Grant Cursor-agent Jira operations authorit | In Review | Medium |
+| SCRUM-253 | [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard bl | In Review | Medium |
+| SCRUM-254 | [PM/JIRA] Enforce full-board AC/DoD-first planning and  | In Review | Medium |
+| SCRUM-255 | [CYCLE 012] Close AC/DoD audit gaps from Agent D integr | To Do | Medium |
+| SCRUM-256 | [CYCLE 013] Resolve PR #10 Codex blockers and continue  | In Progress | Medium |
+| SCRUM-257 | [CYCLE 013] Audit recent Done dashboard stories for pre | To Do | Medium |
+| SCRUM-258 | [CYCLE 014] Resume product development and enforce same | In Progress | Medium |
+| SCRUM-259 | [CYCLE 015] Merge PR #11 and advance dashboard query/pa | In Progress | Medium |
+| SCRUM-260 | [CYCLE 016] Merge PR #12 and advance runtime dashboard/ | In Progress | Medium |
+| SCRUM-261 | [CYCLE 017] Enforce repo-root branch/worktree controls  | In Progress | Medium |
+| SCRUM-269 | [MEDIUM M20] Add 4 business report templates to src/rep | To Do | Medium |
+| SCRUM-270 | [MEDIUM M21] Resolve empty stub files: src/analysis/qua | To Do | Medium |
+
+## TASKS FOR THIS CYCLE
+
+> **Floor:** 55 LARGE/XLARGE/XXLARGE tasks (AGENT_TASK_FLOOR_ENFORCEMENT.md hard rule).
+> Each task must have: Story/Jira key, Epic, Spec, Files, Implementation details
+> (>=100 words), >=3 tests, Definition of Done.
+
+### Task 1: PR body and Jira evidence for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-287, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-287 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-287 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 2: Merge gate preparation for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 3: Cycle closeout governance for [LOW L1] Sweep 23 stale In-Review i
+
+- **Jira:** SCRUM-287 — [LOW L1] Sweep 23 stale In-Review issues — verify 
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-287 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-287 description for referenced spec files)
+- **DOD:** See SCRUM-287 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-287 '[LOW L1] Sweep 23 stale In-Review issues — verify DoD evidence and transition to correct status'. After the PR is merged to develop, transition Jira SCRUM-287 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-287 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-287 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 4: PR body and Jira evidence for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-288, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-288 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-288 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 5: Merge gate preparation for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 6: Cycle closeout governance for [LOW L7/L9/L10] Minor cleanup — Cyc
+
+- **Jira:** SCRUM-288 — [LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicat
+- **Status:** To Do | **Priority:** Low
+- **Epic:** See SCRUM-288 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-288 description for referenced spec files)
+- **DOD:** See SCRUM-288 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-288 '[LOW L7/L9/L10] Minor cleanup — Cycle 016 duplicate files, USER_STORIES.md ID mapping, CHANGE_LOG missing cycles 013-017'. After the PR is merged to develop, transition Jira SCRUM-288 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-288 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-288 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 7: PR body and Jira evidence for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-211, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-211 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-211 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 8: Merge gate preparation for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 9: Cycle closeout governance for [PLAYBOOK] S8.7 Playbook Dashboard 
+
+- **Jira:** SCRUM-211 — [PLAYBOOK] S8.7 Playbook Dashboard Data Layer
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-211 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-211 description for referenced spec files)
+- **DOD:** See SCRUM-211 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-211 '[PLAYBOOK] S8.7 Playbook Dashboard Data Layer'. After the PR is merged to develop, transition Jira SCRUM-211 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-211 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-211 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 10: PR body and Jira evidence for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-229, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-229 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-229 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 11: Merge gate preparation for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 12: Cycle closeout governance for [DASHBOARD] S9.15 Mobile Optimizati
+
+- **Jira:** SCRUM-229 — [DASHBOARD] S9.15 Mobile Optimization
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-229 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-229 description for referenced spec files)
+- **DOD:** See SCRUM-229 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-229 '[DASHBOARD] S9.15 Mobile Optimization'. After the PR is merged to develop, transition Jira SCRUM-229 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-229 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-229 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 13: PR body and Jira evidence for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-230, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-230 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-230 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 14: Merge gate preparation for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 15: Cycle closeout governance for [DASHBOARD] S9.16 Pricing Dashboard
+
+- **Jira:** SCRUM-230 — [DASHBOARD] S9.16 Pricing Dashboard Widgets
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-230 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-230 description for referenced spec files)
+- **DOD:** See SCRUM-230 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-230 '[DASHBOARD] S9.16 Pricing Dashboard Widgets'. After the PR is merged to develop, transition Jira SCRUM-230 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-230 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-230 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 16: PR body and Jira evidence for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-246, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-246 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-246 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 17: Merge gate preparation for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 18: Cycle closeout governance for [PM PROCESS] Cycle 001 prompts lack
+
+- **Jira:** SCRUM-246 — [PM PROCESS] Cycle 001 prompts lacked required dep
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-246 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-246 description for referenced spec files)
+- **DOD:** See SCRUM-246 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-246 '[PM PROCESS] Cycle 001 prompts lacked required depth and PR workflow detail'. After the PR is merged to develop, transition Jira SCRUM-246 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-246 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-246 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 19: PR body and Jira evidence for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-250, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-250 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-250 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 20: Merge gate preparation for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 21: Cycle closeout governance for [PM/JIRA] Correct cycle-to-story Ji
+
+- **Jira:** SCRUM-250 — [PM/JIRA] Correct cycle-to-story Jira mapping and 
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-250 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-250 description for referenced spec files)
+- **DOD:** See SCRUM-250 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-250 '[PM/JIRA] Correct cycle-to-story Jira mapping and prevent governance-only updates'. After the PR is merged to develop, transition Jira SCRUM-250 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-250 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-250 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 22: PR body and Jira evidence for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-252, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-252 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-252 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 23: Merge gate preparation for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 24: Cycle closeout governance for [PM/CURSOR] Grant Cursor-agent Jira
+
+- **Jira:** SCRUM-252 — [PM/CURSOR] Grant Cursor-agent Jira operations aut
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-252 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-252 description for referenced spec files)
+- **DOD:** See SCRUM-252 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-252 '[PM/CURSOR] Grant Cursor-agent Jira operations authority and double agent task limits'. After the PR is merged to develop, transition Jira SCRUM-252 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-252 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-252 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 25: PR body and Jira evidence for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-253, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-253 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-253 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 26: Merge gate preparation for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 27: Cycle closeout governance for [CYCLE 011] Resolve PR #8 Codex che
+
+- **Jira:** SCRUM-253 — [CYCLE 011] Resolve PR #8 Codex checkpoint/dashboa
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-253 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-253 description for referenced spec files)
+- **DOD:** See SCRUM-253 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-253 '[CYCLE 011] Resolve PR #8 Codex checkpoint/dashboard blockers and continue Jira-operated Phase 2 work'. After the PR is merged to develop, transition Jira SCRUM-253 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-253 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-253 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 28: PR body and Jira evidence for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-254, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-254 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-254 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 29: Merge gate preparation for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 30: Cycle closeout governance for [PM/JIRA] Enforce full-board AC/DoD
+
+- **Jira:** SCRUM-254 — [PM/JIRA] Enforce full-board AC/DoD-first planning
+- **Status:** In Review | **Priority:** Medium
+- **Epic:** See SCRUM-254 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-254 description for referenced spec files)
+- **DOD:** See SCRUM-254 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-254 '[PM/JIRA] Enforce full-board AC/DoD-first planning and double Cursor prompt depth again'. After the PR is merged to develop, transition Jira SCRUM-254 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-254 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-254 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 31: PR body and Jira evidence for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-255, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-255 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-255 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 32: Merge gate preparation for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 33: Cycle closeout governance for [CYCLE 012] Close AC/DoD audit gaps
+
+- **Jira:** SCRUM-255 — [CYCLE 012] Close AC/DoD audit gaps from Agent D i
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-255 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-255 description for referenced spec files)
+- **DOD:** See SCRUM-255 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-255 '[CYCLE 012] Close AC/DoD audit gaps from Agent D integration handoff'. After the PR is merged to develop, transition Jira SCRUM-255 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-255 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-255 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 34: PR body and Jira evidence for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-256, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-256 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-256 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 35: Merge gate preparation for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 36: Cycle closeout governance for [CYCLE 013] Resolve PR #10 Codex bl
+
+- **Jira:** SCRUM-256 — [CYCLE 013] Resolve PR #10 Codex blockers and cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-256 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-256 description for referenced spec files)
+- **DOD:** See SCRUM-256 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-256 '[CYCLE 013] Resolve PR #10 Codex blockers and continue board-first development'. After the PR is merged to develop, transition Jira SCRUM-256 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-256 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-256 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 37: PR body and Jira evidence for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-257, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-257 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-257 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 38: Merge gate preparation for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 39: Cycle closeout governance for [CYCLE 013] Audit recent Done dashb
+
+- **Jira:** SCRUM-257 — [CYCLE 013] Audit recent Done dashboard stories fo
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-257 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-257 description for referenced spec files)
+- **DOD:** See SCRUM-257 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-257 '[CYCLE 013] Audit recent Done dashboard stories for premature closure signals'. After the PR is merged to develop, transition Jira SCRUM-257 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-257 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-257 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 40: PR body and Jira evidence for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-258, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-258 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-258 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 41: Merge gate preparation for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 42: Cycle closeout governance for [CYCLE 014] Resume product developm
+
+- **Jira:** SCRUM-258 — [CYCLE 014] Resume product development and enforce
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-258 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-258 description for referenced spec files)
+- **DOD:** See SCRUM-258 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-258 '[CYCLE 014] Resume product development and enforce same-cycle Codex resolution'. After the PR is merged to develop, transition Jira SCRUM-258 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-258 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-258 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 43: PR body and Jira evidence for [CYCLE 015] Merge PR #11 and advanc
+
+- **Jira:** SCRUM-259 — [CYCLE 015] Merge PR #11 and advance dashboard que
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-259 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-259 description for referenced spec files)
+- **DOD:** See SCRUM-259 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-259 '[CYCLE 015] Merge PR #11 and advance dashboard query/pages plus analysis integration'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-259, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-259 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-259 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-259 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 44: Merge gate preparation for [CYCLE 015] Merge PR #11 and advanc
+
+- **Jira:** SCRUM-259 — [CYCLE 015] Merge PR #11 and advance dashboard que
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-259 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-259 description for referenced spec files)
+- **DOD:** See SCRUM-259 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-259 '[CYCLE 015] Merge PR #11 and advance dashboard query/pages plus analysis integration'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-259 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 45: Cycle closeout governance for [CYCLE 015] Merge PR #11 and advanc
+
+- **Jira:** SCRUM-259 — [CYCLE 015] Merge PR #11 and advance dashboard que
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-259 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-259 description for referenced spec files)
+- **DOD:** See SCRUM-259 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-259 '[CYCLE 015] Merge PR #11 and advance dashboard query/pages plus analysis integration'. After the PR is merged to develop, transition Jira SCRUM-259 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-259 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-259 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 46: PR body and Jira evidence for [CYCLE 016] Merge PR #12 and advanc
+
+- **Jira:** SCRUM-260 — [CYCLE 016] Merge PR #12 and advance runtime dashb
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-260 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-260 description for referenced spec files)
+- **DOD:** See SCRUM-260 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-260 '[CYCLE 016] Merge PR #12 and advance runtime dashboard/integration validation'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-260, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-260 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-260 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-260 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 47: Merge gate preparation for [CYCLE 016] Merge PR #12 and advanc
+
+- **Jira:** SCRUM-260 — [CYCLE 016] Merge PR #12 and advance runtime dashb
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-260 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-260 description for referenced spec files)
+- **DOD:** See SCRUM-260 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-260 '[CYCLE 016] Merge PR #12 and advance runtime dashboard/integration validation'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-260 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 48: Cycle closeout governance for [CYCLE 016] Merge PR #12 and advanc
+
+- **Jira:** SCRUM-260 — [CYCLE 016] Merge PR #12 and advance runtime dashb
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-260 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-260 description for referenced spec files)
+- **DOD:** See SCRUM-260 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-260 '[CYCLE 016] Merge PR #12 and advance runtime dashboard/integration validation'. After the PR is merged to develop, transition Jira SCRUM-260 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-260 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-260 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 49: PR body and Jira evidence for [CYCLE 017] Enforce repo-root branc
+
+- **Jira:** SCRUM-261 — [CYCLE 017] Enforce repo-root branch/worktree cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-261 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-261 description for referenced spec files)
+- **DOD:** See SCRUM-261 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-261 '[CYCLE 017] Enforce repo-root branch/worktree controls and continue product integration work'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-261, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-261 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-261 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-261 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 50: Merge gate preparation for [CYCLE 017] Enforce repo-root branc
+
+- **Jira:** SCRUM-261 — [CYCLE 017] Enforce repo-root branch/worktree cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-261 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-261 description for referenced spec files)
+- **DOD:** See SCRUM-261 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-261 '[CYCLE 017] Enforce repo-root branch/worktree controls and continue product integration work'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-261 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 51: Cycle closeout governance for [CYCLE 017] Enforce repo-root branc
+
+- **Jira:** SCRUM-261 — [CYCLE 017] Enforce repo-root branch/worktree cont
+- **Status:** In Progress | **Priority:** Medium
+- **Epic:** See SCRUM-261 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-261 description for referenced spec files)
+- **DOD:** See SCRUM-261 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-261 '[CYCLE 017] Enforce repo-root branch/worktree controls and continue product integration work'. After the PR is merged to develop, transition Jira SCRUM-261 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-261 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-261 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 52: PR body and Jira evidence for [MEDIUM M20] Add 4 business report 
+
+- **Jira:** SCRUM-269 — [MEDIUM M20] Add 4 business report templates to sr
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-269 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-269 description for referenced spec files)
+- **DOD:** See SCRUM-269 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-269 '[MEDIUM M20] Add 4 business report templates to src/reports/ — currently only CI reports exist'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-269, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-269 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-269 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-269 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 53: Merge gate preparation for [MEDIUM M20] Add 4 business report 
+
+- **Jira:** SCRUM-269 — [MEDIUM M20] Add 4 business report templates to sr
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-269 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-269 description for referenced spec files)
+- **DOD:** See SCRUM-269 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-269 '[MEDIUM M20] Add 4 business report templates to src/reports/ — currently only CI reports exist'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-269 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 54: Cycle closeout governance for [MEDIUM M20] Add 4 business report 
+
+- **Jira:** SCRUM-269 — [MEDIUM M20] Add 4 business report templates to sr
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-269 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-269 description for referenced spec files)
+- **DOD:** See SCRUM-269 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-269 '[MEDIUM M20] Add 4 business report templates to src/reports/ — currently only CI reports exist'. After the PR is merged to develop, transition Jira SCRUM-269 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-269 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-269 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 55: PR body and Jira evidence for [MEDIUM M21] Resolve empty stub fil
+
+- **Jira:** SCRUM-270 — [MEDIUM M21] Resolve empty stub files: src/analysi
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-270 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-270 description for referenced spec files)
+- **DOD:** See SCRUM-270 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare the PR body and Jira evidence for SCRUM-270 '[MEDIUM M21] Resolve empty stub files: src/analysis/quality.py and sellers.py — delete or implement'. Write a complete PR description following the PR template that includes: the Jira key SCRUM-270, the AC items addressed with evidence, the test names that verify each AC item, the validation results (ruff/mypy/pytest outputs), and the Codex review disposition. Verify Jira issue SCRUM-270 is transitioned to In Review status. Add a Jira comment with the PR link and brief evidence summary. Check that all required PR labels are present.
+
+**Required Tests:**
+- PR body includes Jira key SCRUM-270 and AC evidence
+- Jira comment with PR link posted
+- PR template fully populated
+
+**Definition of Done:**
+- [ ] PR body passes validation (all required sections present)
+- [ ] Jira transitioned to In Review
+- [ ] All required labels on PR
+- [ ] All AC items for SCRUM-270 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 56: Merge gate preparation for [MEDIUM M21] Resolve empty stub fil
+
+- **Jira:** SCRUM-270 — [MEDIUM M21] Resolve empty stub files: src/analysi
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-270 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-270 description for referenced spec files)
+- **DOD:** See SCRUM-270 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: docs/cycle_reports/CYCLE_075_AGENT_D.md
+
+**Implementation Details:**
+
+Prepare for merge gate execution for SCRUM-270 '[MEDIUM M21] Resolve empty stub files: src/analysis/quality.py and sellers.py — delete or implement'. Verify all CI checks are passing (ruff, mypy, pytest, coverage). Confirm Codecov statuses are present (codecov/project and codecov/patch). Review Codex AI review threads and classify each as VALID_FIXED, VALID_DEFERRED, NOT_APPLICABLE, or FALSE_POSITIVE with evidence. Ensure all VALID_FIXED items have commit evidence. Document the Codex disposition in the cycle report. Verify the merge gate will pass by running merge-gate --dry-run.
+
+**Required Tests:**
+- All CI checks green before merge gate
+- Codecov statuses present
+- Codex threads all classified with evidence
+
+**Definition of Done:**
+- [ ] merge-gate --dry-run PASS
+- [ ] All Codex threads resolved or deferred with documentation
+- [ ] Codecov shows no patch coverage regression
+- [ ] All AC items for SCRUM-270 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+### Task 57: Cycle closeout governance for [MEDIUM M21] Resolve empty stub fil
+
+- **Jira:** SCRUM-270 — [MEDIUM M21] Resolve empty stub files: src/analysi
+- **Status:** To Do | **Priority:** Medium
+- **Epic:** See SCRUM-270 parent epic in Jira board
+- **Spec:** `ref/project_plan/` (see SCRUM-270 description for referenced spec files)
+- **DOD:** See SCRUM-270 acceptance criteria in Jira
+
+**Files to Create/Modify:**
+- - MODIFY: PM_Pack/10_cycle_log/CYCLE_075.md
+- - MODIFY: PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md
+
+**Implementation Details:**
+
+Complete cycle governance closeout for SCRUM-270 '[MEDIUM M21] Resolve empty stub files: src/analysis/quality.py and sellers.py — delete or implement'. After the PR is merged to develop, transition Jira SCRUM-270 to Done only if ALL DoD criteria are met (merge confirmation, full test suite pass, coverage floor met, Codex disposition complete). Update the epic status tracker in PM_Pack. Write the cycle log entry in PM_Pack/10_cycle_log/ with: merged PR SHA, test suite results, coverage percentage, Score1 and Score2 values, and any post-cycle review items. Verify CURRENT_STATE_CANONICAL.md reflects the completed cycle.
+
+**Required Tests:**
+- Jira SCRUM-270 is Done only after full DoD evidence
+- Epic status tracker updated
+- Cycle log entry written with all required fields
+
+**Definition of Done:**
+- [ ] Jira Done transition has full evidence
+- [ ] PM_Pack state updated atomically
+- [ ] Cycle log entry committed
+- [ ] All AC items for SCRUM-270 addressed by this task
+- [ ] Ruff: 0 errors on changed files
+- [ ] Mypy: 0 errors on changed files
+
+## VALIDATION STEPS
+
+Run these commands in order. Fix any failures before writing your report.
+
+```bash
+# 1. Ruff lint
+python -m ruff check src/ tests/ automation/ --output-format=text
+
+# 2. Mypy type check
+python -m mypy src/ --ignore-missing-imports
+
+# 3. Pytest — run tests relevant to your changed files
+python -m pytest tests/ -q --no-header --tb=short -x
+
+# 4. Config check
+python run.py config-check
+```
+
+**Do not mark your report complete if any check fails.**
+
+## FINAL REPORT REQUIREMENTS
+
+Write your report to: `docs/cycle_reports/CYCLE_077_AGENT_D.md`
+
+Your report MUST contain:
+- Header: `# CYCLE_077_AGENT_D REPORT`
+- Summary of all work completed
+- List of all files created or modified (with full paths)
+- Validation results (ruff/mypy/pytest command output)
+- Jira evidence (which AC/DoD items were addressed and how)
+- Blockers encountered (if any, with details)
+- `AGENT_COMPLETE` as the final line
+
+**IMPORTANT:** Do NOT run git add, git commit, or git push.
+Write your report and exit. The controller handles all commits.
+
+## FILES CREATED/MODIFIED THIS CYCLE (Summary)
+
+Complete this section after all tasks finish:
+
+| Action | File Path |
+|---|---|
+| Completed during execution | See final agent cycle report |
+
+## MANDATORY 55-TASK EXECUTION FLOOR
+
+Execute all items as substantial production tasks (not <15 min micro-tasks):
+
+  1. Complete substantial scope item 1 aligned to this agent's role, with evidence artifacts and validation output captured.
+  2. Complete substantial scope item 2 aligned to this agent's role, with evidence artifacts and validation output captured.
+  3. Complete substantial scope item 3 aligned to this agent's role, with evidence artifacts and validation output captured.
+  4. Complete substantial scope item 4 aligned to this agent's role, with evidence artifacts and validation output captured.
+  5. Complete substantial scope item 5 aligned to this agent's role, with evidence artifacts and validation output captured.
+  6. Complete substantial scope item 6 aligned to this agent's role, with evidence artifacts and validation output captured.
+  7. Complete substantial scope item 7 aligned to this agent's role, with evidence artifacts and validation output captured.
+  8. Complete substantial scope item 8 aligned to this agent's role, with evidence artifacts and validation output captured.
+  9. Complete substantial scope item 9 aligned to this agent's role, with evidence artifacts and validation output captured.
+  10. Complete substantial scope item 10 aligned to this agent's role, with evidence artifacts and validation output captured.
+  11. Complete substantial scope item 11 aligned to this agent's role, with evidence artifacts and validation output captured.
+  12. Complete substantial scope item 12 aligned to this agent's role, with evidence artifacts and validation output captured.
+  13. Complete substantial scope item 13 aligned to this agent's role, with evidence artifacts and validation output captured.
+  14. Complete substantial scope item 14 aligned to this agent's role, with evidence artifacts and validation output captured.
+  15. Complete substantial scope item 15 aligned to this agent's role, with evidence artifacts and validation output captured.
+  16. Complete substantial scope item 16 aligned to this agent's role, with evidence artifacts and validation output captured.
+  17. Complete substantial scope item 17 aligned to this agent's role, with evidence artifacts and validation output captured.
+  18. Complete substantial scope item 18 aligned to this agent's role, with evidence artifacts and validation output captured.
+  19. Complete substantial scope item 19 aligned to this agent's role, with evidence artifacts and validation output captured.
+  20. Complete substantial scope item 20 aligned to this agent's role, with evidence artifacts and validation output captured.
+  21. Complete substantial scope item 21 aligned to this agent's role, with evidence artifacts and validation output captured.
+  22. Complete substantial scope item 22 aligned to this agent's role, with evidence artifacts and validation output captured.
+  23. Complete substantial scope item 23 aligned to this agent's role, with evidence artifacts and validation output captured.
+  24. Complete substantial scope item 24 aligned to this agent's role, with evidence artifacts and validation output captured.
+  25. Complete substantial scope item 25 aligned to this agent's role, with evidence artifacts and validation output captured.
+  26. Complete substantial scope item 26 aligned to this agent's role, with evidence artifacts and validation output captured.
+  27. Complete substantial scope item 27 aligned to this agent's role, with evidence artifacts and validation output captured.
+  28. Complete substantial scope item 28 aligned to this agent's role, with evidence artifacts and validation output captured.
+  29. Complete substantial scope item 29 aligned to this agent's role, with evidence artifacts and validation output captured.
+  30. Complete substantial scope item 30 aligned to this agent's role, with evidence artifacts and validation output captured.
+  31. Complete substantial scope item 31 aligned to this agent's role, with evidence artifacts and validation output captured.
+  32. Complete substantial scope item 32 aligned to this agent's role, with evidence artifacts and validation output captured.
+  33. Complete substantial scope item 33 aligned to this agent's role, with evidence artifacts and validation output captured.
+  34. Complete substantial scope item 34 aligned to this agent's role, with evidence artifacts and validation output captured.
+  35. Complete substantial scope item 35 aligned to this agent's role, with evidence artifacts and validation output captured.
+  36. Complete substantial scope item 36 aligned to this agent's role, with evidence artifacts and validation output captured.
+  37. Complete substantial scope item 37 aligned to this agent's role, with evidence artifacts and validation output captured.
+  38. Complete substantial scope item 38 aligned to this agent's role, with evidence artifacts and validation output captured.
+  39. Complete substantial scope item 39 aligned to this agent's role, with evidence artifacts and validation output captured.
+  40. Complete substantial scope item 40 aligned to this agent's role, with evidence artifacts and validation output captured.
+  41. Complete substantial scope item 41 aligned to this agent's role, with evidence artifacts and validation output captured.
+  42. Complete substantial scope item 42 aligned to this agent's role, with evidence artifacts and validation output captured.
+  43. Complete substantial scope item 43 aligned to this agent's role, with evidence artifacts and validation output captured.
+  44. Complete substantial scope item 44 aligned to this agent's role, with evidence artifacts and validation output captured.
+  45. Complete substantial scope item 45 aligned to this agent's role, with evidence artifacts and validation output captured.
+  46. Complete substantial scope item 46 aligned to this agent's role, with evidence artifacts and validation output captured.
+  47. Complete substantial scope item 47 aligned to this agent's role, with evidence artifacts and validation output captured.
+  48. Complete substantial scope item 48 aligned to this agent's role, with evidence artifacts and validation output captured.
+  49. Complete substantial scope item 49 aligned to this agent's role, with evidence artifacts and validation output captured.
+  50. Complete substantial scope item 50 aligned to this agent's role, with evidence artifacts and validation output captured.
+  51. Complete substantial scope item 51 aligned to this agent's role, with evidence artifacts and validation output captured.
+  52. Complete substantial scope item 52 aligned to this agent's role, with evidence artifacts and validation output captured.
+  53. Complete substantial scope item 53 aligned to this agent's role, with evidence artifacts and validation output captured.
+  54. Complete substantial scope item 54 aligned to this agent's role, with evidence artifacts and validation output captured.
+  55. Complete substantial scope item 55 aligned to this agent's role, with evidence artifacts and validation output captured.
 
 ====================================================================
-
-TASK 1 — PREFLIGHT + FULL MERGE GATE EXECUTION (LARGE, ~75 min)
-Deliverable: Merge gate result documented; PR #88 (or cycle/077 PR) merged to develop;
-develop CI green; DOD-010 DONE.
-
-  1.  `git checkout cycle/077/integration && git pull origin cycle/077/integration`
-  2.  Confirm AGENT_COMPLETE in ALL of: _A.md, _B.md, _E.md, _C.md, _F.md.
-  3.  Run brain-check: `python automation/ai_cycle_controller.py brain-check` — PASS required.
-  4.  Run FULL merge gate (not dry-run):
-      `python automation/ai_cycle_controller.py merge-gate --cycle 077 2>&1 | tee docs/cycle_reports/CYCLE_077_MERGE_GATE_RESULT.txt`
-  5.  Read the merge gate output carefully. For each FAIL item: determine if it blocks merge.
-      - CI FAIL: stops everything — fix CI first
-      - Coverage < 90%: stops everything — fix coverage first
-      - CODECOV_TOKEN missing (PENDING-001): CONDITIONAL_GO — proceed
-      - Cursor model expiry warning (BUG-012): CONDITIONAL_GO — proceed
-      - Branch protection 401 (BUG-011): log as known issue — proceed
-  6.  Check if PR #88 is already merged: `gh pr view 88 --json state,mergedAt`
-  7.  If NOT merged: attempt merge with admin:
-      `gh pr merge 88 --squash --admin 2>&1 | tee docs/validation/PR88_MERGE_RESULT.txt`
-  8.  If --admin fails: create cycle/077 PR to develop:
-      `gh pr create --base develop --head cycle/077/integration --title "feat(cycle-077): V-1/V-2/V-3 PASS, Stages 2-6, TierD-2 cap removed, Score2=53.1%" --body "$(cat docs/cycle_reports/CYCLE_077_MERGE_GATE_RESULT.txt | head -30)"`
-      Then: `gh pr merge {NUMBER} --squash --admin`
-  9.  Wait for CI on develop: poll `gh run list --workflow=ci.yml --branch develop --limit 1 --json status,conclusion` every 60 seconds until success.
-  10. If develop CI fails: diagnose, create hotfix commit on develop, push, re-poll.
-  11. Write `docs/cycle_reports/CYCLE_077_PR_MERGE_EVIDENCE.md`: PR number, merge SHA, CI run ID on develop.
-  12. Confirm develop is at new HEAD: `git checkout develop && git pull && git log --oneline -3`
-  13. Mark DOD-010 DONE. Commit evidence.
-
+END OF PROMPT -- AGENT D CYCLE 077
 ====================================================================
 
-TASK 2 — FULL JIRA DONE SYNC: EVERY COMPLETED STORY (LARGE, ~75 min)
-Deliverable: ALL completed stories in SCRUM project transitioned to Done;
-GJCI-029/034/035 final evidence posted.
-
-  1.  Query ALL non-Done stories:
-      `python -c "
-      from automation.jira_client import JiraClient
-      j = JiraClient()
-      issues = j.search_issues('project=SCRUM AND status!=Done ORDER BY updated DESC', maxResults=100)
-      for i in issues['issues']:
-          print(i['key'], i['fields']['status']['name'][:15], i['fields']['summary'][:60])
-      "`
-  2.  For EACH story: determine if it is completed by Cycle 077 or prior cycles.
-      Completed = has evidence file in docs/validation/ or docs/cycle_reports/.
-  3.  Transition all completed stories to Done (transition ID: 41). Execute one at a time:
-      `python -c "from automation.jira_client import JiraClient; j=JiraClient(); j.transition_issue('SCRUM-{KEY}', '41')"`
-  4.  After each transition: post a concise evidence comment:
-      "Cycle 077 close-out. Evidence: {evidence_file_path}. Transitioned by Agent D."
-  5.  For stories that are genuinely still in progress or blocked:
-      - BUG-011 (gh 401): leave In_Progress, post comment with exact remediation steps
-      - BUG-012 (cursor model expiry): leave Open, post "Kevin must re-verify before Cycle 078"
-      - PENDING-001 (CODECOV_TOKEN): leave Open, post "Kevin must obtain from codecov.io"
-      - OPS-036 (Stage 7 24h observation): leave In_Progress, post "Scaffold ready, waiting for live 24h run"
-      - OPS-037 (Stage 8 7-day trial): leave Blocked, post "Requires Stage 7 PASS first"
-  6.  Query remaining open stories after transitions:
-      `python -c "from automation.jira_client import JiraClient; j=JiraClient(); issues=j.search_issues('project=SCRUM AND status!=Done'); print(len(issues['issues']), 'remaining open')`
-  7.  Write `docs/cycle_reports/CYCLE_077_JIRA_FULL_SYNC.md`: N transitioned to Done, remaining open with reasons.
-  8.  Commit.
-
-====================================================================
-
-TASK 3 — POST-CYCLE GITHUB AND JIRA BUNDLES (LARGE, ~65 min)
-Deliverable: GJCI-034 DONE; GJCI-035 DONE; post-cycle review artifacts written; DOD-012 confirmed.
-
-  1.  Generate post-cycle GitHub bundle:
-      `python -c "
-      from automation.post_cycle_review import generate_post_cycle_github_bundle
-      from automation.github_client import GitHubClient
-      import json, pathlib
-      c = GitHubClient()
-      merge_sha = 'develop'
-      bundle = generate_post_cycle_github_bundle(77, merge_sha, c)
-      pathlib.Path('docs/cycle_reports/CYCLE_077_GITHUB_BUNDLE.json').write_text(json.dumps(bundle, indent=2))
-      print('keys:', list(bundle.keys()))
-      "`
-  2.  Generate post-cycle Jira bundle:
-      `python -c "
-      from automation.post_cycle_review import generate_post_cycle_jira_bundle
-      from automation.jira_client import JiraClient
-      import json, pathlib
-      j = JiraClient()
-      bundle = generate_post_cycle_jira_bundle(77, j)
-      pathlib.Path('docs/cycle_reports/CYCLE_077_JIRA_BUNDLE.json').write_text(json.dumps(bundle, indent=2))
-      print('keys:', list(bundle.keys()))
-      "`
-  3.  Run official post-cycle review in POST_MERGE mode:
-      `python automation/ai_cycle_controller.py post-cycle-review --cycle 077 --mode post-merge 2>&1 | tee docs/cycle_reports/CYCLE_077_POST_CYCLE_REVIEW.txt`
-  4.  Verify dispatch decision: `python -c "import json; d=json.load(open(r'C:/AI_Runner/state/next_cycle_dispatch_decision.json')); print('blocks_dispatch:', d.get('blocks_dispatch'), 'next_action:', d.get('next_action'))"`
-      blocks_dispatch must be False. next_action should point to Cycle 078 startup.
-  5.  Post GitHub bundle summary as comment on the main Cycle 077 Jira epic story.
-  6.  Post Jira bundle summary as comment on the main Cycle 077 Jira epic story.
-  7.  Write `docs/validation/GJCI_034_GITHUB_BUNDLE_FINAL.md` and `docs/validation/GJCI_035_JIRA_BUNDLE_FINAL.md`.
-  8.  Mark GJCI-034, GJCI-035 DONE. Commit.
-
-====================================================================
-
-TASK 4 — PRODUCTION READINESS SCORECARD: FINAL CALCULATED VALUES (MEDIUM, ~50 min)
-Deliverable: Final Score 1 and Score 2 calculated from actual evidence; scorecard updated.
-
-  1.  Calculate Score 1 (internal build readiness):
-      Count all DONE items: `grep -c "DONE" docs/MASTER_CHECKLIST_UPDATED*.md || echo "count manually"`
-      From the checklist: total non-deferred items = ~260, DONE items ≈ 228 + Cycle 077 additions ≈ 242.
-      Score 1 = 242 / 265 ≈ 91.3%. (Use actual count from checklist.)
-  2.  Calculate Score 2 (E2E validation):
-      Base = 47.1%. V-1 PASS = +2%, V-2 PASS = +2%, V-3 PASS = +2% = +6%.
-      New Score 2 = 53.1%. Cap: REMOVED.
-  3.  Update `PM_Pack/06_state/PRODUCTION_READINESS_SCORECARD.md`:
-      - Score 1: {calculated}%
-      - Score 2: 53.1%
-      - TierD-2 cap: REMOVED (Cycle 077, {date})
-      - Go-Live stages: 0=COMPLETE, 1=PASS, 2=PASS, 3=PASS, 4=PASS, 5=PASS, 6=PASS, 7=SCAFFOLD_READY, 8=NOT_STARTED
-      - Remaining P0 blockers: 0
-      - Remaining P1 items: BUG-011 (gh 401), BUG-012 (cursor model), PENDING-001 (CODECOV_TOKEN)
-      - Estimated time to Go-Live: ~24 hours observation + Kevin approval
-  4.  Update PM_Pack/07_hydration/HYDRATION_HEADER.md:
-      - CYCLE_CURRENT: 078
-      - CYCLE_PREVIOUS: 077
-      - Resolved blockers: all BUGs except 011/012 and PENDING-001
-  5.  Update PM_Pack/06_state/STATE_SNAPSHOT.md: Cycle 077 COMPLETE, Cycle 078 READY.
-  6.  Run `python automation/ai_cycle_controller.py pm-pack-audit` — PASS required.
-  7.  Commit: `git add PM_Pack/ && git commit -m "state(pm-pack): final Score1={N}% Score2=53.1% TierD-2 REMOVED Cycle 077 COMPLETE"`
-
-====================================================================
-
-TASK 5 — CYCLE 078 STORY RECOMMENDATIONS + KEVIN HANDOFF (MEDIUM, ~45 min)
-Deliverable: 12 Cycle 078 stories documented; Kevin handoff with exact next steps.
-
-  1.  Write `docs/cycle_reports/CYCLE_077_RECOMMENDED_CYCLE_078_JIRA_STORIES.md`:
-      Story 1 (XL): Execute Go-Live Stage 7 — 24-hour unattended observation run
-        AC: 1) start_24h_observation.ps1 runs without crash for 24h
-            2) No unsafe actions taken (no main push, no force push)
-            3) Health stays GREEN or ORANGE (not RED)
-            4) observation_summary.json written with all ticks recorded
-      Story 2 (XXL): Execute Go-Live Stage 8 — 7-day autonomy trial
-        AC: Requires Stage 7 PASS; 3+ complete cycles; ≤5 human interruptions
-      Story 3 (XXL): Execute V-4 through V-9 validation gates
-        AC: Each V-stage earns +2% Score 2; V-4 requires 3-keyword multi-run
-      Story 4 (L): Obtain CODECOV_TOKEN and wire Codecov coverage reports
-        AC: Token in GitHub Secrets; CI uploads coverage XML; coverage badge in README
-      Story 5 (M): Fix BUG-011 — gh api 401 branch protection (token scope)
-        AC: gh api returns 200; BRANCH_PROTECTION_EVIDENCE.md updated
-      Story 6 (L): Implement Cursor model auto-verification before expiry
-        AC: 48h before expiry: controller emits WARNING and pauses dispatch
-      Story 7 (XXL): Implement daily/weekly Slack report delivery
-        AC: Daily digest posts to Slack at 8am; weekly summary every Monday
-      Story 8 (L): Wire EC2 warm standby (ARCH-007)
-        AC: EC2 can run health-check; failover runbook tested
-      Story 9 (XXL): Execute 14-day rolling backtesting engine
-        AC: Engine runs on 30 historical keywords; accuracy metrics reported
-      Story 10 (XXL): Add Upwork signal integration (roadmap item)
-        AC: Upwork gig data enriches scoring; 3+ new score dimensions
-      Story 11 (L): Complete Go-Live Stage 7 debrief and any post-observation fixes
-        AC: All issues from 24h run documented and resolved
-      Story 12 (L): Final 24/7 production sign-off documentation
-        AC: All Stage 7 evidence compiled; production declaration written
-
-  2.  Write `docs/cycle_reports/CYCLE_077_KEVIN_HANDOFF.md`:
-      # Cycle 077 Complete — Kevin Handoff
-
-      ## What Cycle 077 Accomplished
-      - CI: 4/4 GREEN (lint, type-check, smoke-gates, tests-coverage)
-      - Go-Live Stages 2 through 6: ALL PASS
-      - V-1/V-2/V-3 live Fiverr validation: ALL PASS
-      - Score 1: {final}% | Score 2: 53.1% | TierD-2 cap: REMOVED
-      - Combined test coverage: >=90%
-      - All ADRs (001-015): complete
-      - All runbooks (15): complete
-      - All IN_PROGRESS items: DONE (except temporal stages 7/8)
-      - 6 Jira stories: DONE transitions via Agent D
-
-      ## What Still Needs to Happen
-      1. **START GO-LIVE STAGE 7 (24-hour observation):**
-         - Run: `powershell -File C:/AI_Runner/scripts/start_24h_observation.ps1`
-         - Let it run overnight — do not interrupt unless HEALTH=RED
-         - Check in the morning: `powershell -File C:/AI_Runner/scripts/check_observation_health.ps1`
-         - If it ran cleanly for 24h: Stage 7 PASSES and the system is 24/7 LIVE
-
-      2. **RE-VERIFY CURSOR MODEL (URGENT — expires 2026-06-18):**
-         - Open Cursor Desktop → Settings → verify Codex 5.3 is still active
-         - Update `C:/AI_Runner/state/cursor_model_state.json` status=VERIFIED
-         - Run: `python automation/ai_cycle_controller.py brain-check` to confirm
-
-      3. **OBTAIN CODECOV_TOKEN from codecov.io:**
-         - Sign in at codecov.io with GitHub account
-         - Find the Fiverr repo → copy the upload token
-         - Add to GitHub Secrets: gh secret set CODECOV_TOKEN
-         - Resolves PENDING-001; enables coverage badge
-
-      4. **CREATE CYCLE 078 JIRA STORIES:**
-         - Open Jira SCRUM project
-         - Create the 12 stories from CYCLE_077_RECOMMENDED_CYCLE_078_JIRA_STORIES.md
-         - Then run: `python automation/ai_cycle_controller.py plan-cycle --cycle 078 --live`
-
-      ## System Status
-      ```
-      PR merge:      cycle/075/integration + cycle/077/integration → develop ✓
-      CI on develop: GREEN ✓
-      Score 1:       {final}%
-      Score 2:       53.1% (TierD-2 cap REMOVED)
-      Stages 0-6:    ALL PASS
-      Stage 7:       SCAFFOLD_READY — run start_24h_observation.ps1 to complete
-      Stage 8:       Blocked until Stage 7 PASS
-      ```
-
-  3.  Verify the handoff doc is readable and complete:
-      - It must have exactly 4 numbered action items for Kevin
-      - It must include the start_24h_observation.ps1 command
-      - It must include the cursor model re-verify steps
-      - It must include the plan-cycle --cycle 078 --live command
-  4.  Run `python automation/ai_cycle_controller.py status-tick` one final time and append
-      its output to `docs/cycle_reports/CYCLE_077_KEVIN_HANDOFF.md` under a "## Final Status Tick" section.
-  5.  Commit both files.
-
-====================================================================
-
-TASK 6 — BRANCH HYGIENE + FINAL CI VERIFICATION (MEDIUM, ~30 min)
-
-  1.  Delete cycle/075/integration remote branch (after confirmed merged):
-      `gh pr view 88 --json state | python -c "import json,sys; d=json.load(sys.stdin); print(d['state'])"`
-      If merged: `git push origin --delete cycle/075/integration`
-  2.  Delete cycle/077/integration remote branch (after merged to develop):
-      `git push origin --delete cycle/077/integration` (only after confirmed merged)
-  3.  Local cleanup: `git branch -D cycle/075/integration cycle/077/integration 2>/dev/null || true`
-      `git fetch --all --prune`
-  4.  Verify develop is clean and CI is green:
-      `git checkout develop && git pull && git log --oneline -5`
-      `gh run list --workflow=ci.yml --branch develop --limit 1 --json status,conclusion`
-  5.  Run full validation on develop:
-      `python -m ruff check automation/ src/ tests/ -q`
-      `python -m mypy automation/ --ignore-missing-imports -q`
-      `python automation/ai_cycle_controller.py brain-check`
-  6.  If any validation fails on develop: create a hotfix, commit to develop directly (minor fix only), push.
-  7.  Commit cleanup record: `git add docs/ && git commit -m "chore(cleanup): Cycle 077 branch hygiene complete"`
-
-====================================================================
-
-TASK 7 — FINAL CYCLE REPORT AND AGENT_COMPLETE (MEDIUM, ~30 min)
-
-  1.  Write `docs/cycle_reports/CYCLE_077_AGENT_D.md`:
-      - Merge gate: PASS/CONDITIONAL_GO (specify which items were CONDITIONAL)
-      - PR merge: PR number, merge SHA, develop CI result
-      - Jira: N stories transitioned to Done, M remaining open with reasons
-      - GitHub bundle: written to CYCLE_077_GITHUB_BUNDLE.json
-      - Jira bundle: written to CYCLE_077_JIRA_BUNDLE.json
-      - Post-cycle review: status, blocks_dispatch=False
-      - Score 1 final: {value}%
-      - Score 2 final: 53.1% (TierD-2 cap REMOVED)
-      - Go-Live stages: 0-6 PASS, 7 SCAFFOLD_READY, 8 NOT_STARTED
-      - Cycle 078 stories: 12 recommendations written
-      - Kevin handoff: written
-      - Branch hygiene: cycle/075 + cycle/077 deleted after merge
-      - AGENT_COMPLETE — Cycle 077 is COMPLETE
-  2.  `git add docs/cycle_reports/CYCLE_077_AGENT_D.md && git commit -m "report(cycle-077): Agent D AGENT_COMPLETE — Cycle 077 COMPLETE"`
-  3.  If on cycle/077/integration branch: `git push origin cycle/077/integration` one final time.
-      Then on develop: `git checkout develop && git pull`
-
-VALIDATION (R-092 Tier 2 — Comprehensive)
-python -m ruff check automation/ src/ tests/ -q
-python -m mypy automation/ --ignore-missing-imports -q
-python -m pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=60 -q | tail -10
-python automation/ai_cycle_controller.py brain-check
-python automation/ai_cycle_controller.py pm-pack-audit
-python automation/ai_cycle_controller.py merge-gate --dry-run --cycle 077
-python automation/ai_cycle_controller.py post-cycle-review --cycle 077 --mode post-merge | tail -5
-gh run list --workflow=ci.yml --branch develop --limit 1 --json status,conclusion
-
-END OF PROMPT
-
-Cycle 077 is complete upon Agent D AGENT_COMPLETE.
-Cycle 078 begins after: Cursor model re-verified + 12 stories created + plan-cycle --cycle 078 --live.
-The system is ready for Stage 7 (24-hour observation) immediately after PR merge.
+<!-- Generated by prompt_generator.py -->
+<!-- Run ID: 20260613T010222 | Generated: 2026-06-13T01:02:24.185081+00:00 -->

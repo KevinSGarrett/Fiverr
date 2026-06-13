@@ -1,5 +1,5 @@
-"""
-report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
+﻿"""
+report_generator.py Ã¢â‚¬â€ Daily and weekly autonomy reports (OPS-022, OPS-023).
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 RUNNER_ROOT = Path("C:/AI_Runner")
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORTS_DIR = RUNNER_ROOT / "reports"
 
 
@@ -26,6 +26,9 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     ms  = _load_json(RUNNER_ROOT / "state/cursor_model_state.json")
     cls = _load_json(RUNNER_ROOT / "state/claude_model_state.json")
     last_health = _latest_json(RUNNER_ROOT / "logs/watchdog", "health_*.json")
+    state_snapshot = _parse_state_snapshot(REPO_ROOT / "PM_Pack/06_state/STATE_SNAPSHOT.md")
+    blockers_md = (REPO_ROOT / "PM_Pack/06_state/BLOCKERS.md")
+    blockers_text = blockers_md.read_text(encoding="utf-8", errors="replace") if blockers_md.exists() else ""
 
     # Count incidents in last 24h
     incident_count = _count_recent_files(RUNNER_ROOT / "logs/incidents", hours=24)
@@ -34,6 +37,15 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     notif_log = RUNNER_ROOT / "logs/notifications.log"
     notif_lines = _tail_log(notif_log, hours=24)
     blocked_count = sum(1 for line in notif_lines if '"BLOCKED"' in line or '"CRITICAL"' in line)
+    cursor_age = _age_from_iso(ms.get("verified_at"))
+    claude_age = _age_from_iso(cls.get("verified_at") or cls.get("last_verified_at"))
+    health_level = (
+        last_health.get("health_level")
+        or last_health.get("Level")
+        or last_health.get("level")
+        or "N/A"
+    )
+    open_blockers = _extract_open_blockers(blockers_text)
 
     valid_until_raw = ms.get("valid_until", "")
     days_until_expiry = None
@@ -55,7 +67,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         "## Runner Status",
         f"- Controller state : {cs.get('status', 'UNKNOWN')}",
         f"- Last heartbeat   : {hb.get('last_seen', 'N/A')}",
-        f"- Health level     : {last_health.get('Level', 'N/A') if last_health else 'N/A'}",
+        f"- Health level     : {health_level}",
         f"- GitHub runner    : {cs.get('github_runner_status', 'N/A')}",
         "",
         "## Development Activity",
@@ -63,13 +75,23 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         f"- Active branch : {cs.get('active_branch', 'N/A')}",
         f"- Active PR     : {cs.get('active_pr', 'N/A')}",
         "",
-        model_header,
+        "## Score Summary",
+        f"- Score 1 (internal) : {state_snapshot.get('score1', 'N/A')}",
+        f"- Score 2 (e2e)      : {state_snapshot.get('score2', 'N/A')}",
+        f"- TierD-2 cap        : {state_snapshot.get('tierd2_cap', 'N/A')}",
+        "",
+        f"{model_header} â€” Model Selection",
         f"- Cursor model  : {ms.get('observed_model', 'N/A')} [{ms.get('status', 'N/A')}]",
         f"- Effort        : {ms.get('effort', 'N/A')}",
         f"- Verified at   : {ms.get('verified_at', 'N/A')}",
         f"- Days to expiry: {days_until_expiry if days_until_expiry is not None else 'N/A'}",
         f"- Claude billing: {cls.get('billing_mode', 'N/A')} [{cls.get('status', 'N/A')}]",
         f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT â€” REVIEW REQUIRED'}",
+        f"- Cursor verification age : {cursor_age}",
+        f"- Claude verification age : {claude_age}",
+        "",
+        "## Open Blockers",
+        *([f"- {blocker}" for blocker in open_blockers] if open_blockers else ["- None listed"]),
         "",
         "## Incidents (last 24h)",
         f"- Total incidents      : {incident_count}",
@@ -92,14 +114,19 @@ def generate_daily_report(cycle: int | None = None) -> Path:
 
 def generate_weekly_report() -> Path:
     """
-    OPS-023: Weekly autonomy review â€” cycles, PRs, repairs, interruptions,
+    OPS-023: Weekly autonomy review Ã¢â‚¬â€ cycles, PRs, repairs, interruptions,
     false stops, unsafe attempts, model drift, post-cycle failures.
     """
     now = datetime.now(UTC)
     ts  = now.strftime("%Y%m%d")
 
-    incident_count  = _count_recent_files(RUNNER_ROOT / "logs/incidents", hours=168)
-    snapshot_count  = _count_recent_files(RUNNER_ROOT / "logs/snapshots", hours=168)
+    incident_count = _count_recent_files(RUNNER_ROOT / "logs/incidents", hours=168)
+    snapshot_count = _count_recent_files(RUNNER_ROOT / "backups/state_snapshots", hours=168)
+    notif_lines = _tail_log(RUNNER_ROOT / "logs/notifications.log", hours=168)
+    interruption_count = sum(1 for line in notif_lines if '"BLOCKED"' in line or '"CRITICAL"' in line)
+    maintenance_count = _count_recent_files(RUNNER_ROOT / "logs/maintenance", hours=168)
+    cycles_completed = _count_recent_files(REPO_ROOT / "docs/cycle_reports", hours=168)
+    drift_incidents = _count_recent_files(RUNNER_ROOT / "logs/model_verification", hours=168)
 
     lines = [
         "# Weekly Autonomy Review",
@@ -109,6 +136,10 @@ def generate_weekly_report() -> Path:
         "## This Week",
         f"- Incidents (7d)       : {incident_count}",
         f"- Daily snapshots (7d) : {snapshot_count}",
+        f"- Interruption count   : {interruption_count}",
+        f"- Repair count         : {maintenance_count}",
+        f"- Cycles completed     : {cycles_completed}",
+        f"- Drift incidents      : {drift_incidents}",
         "",
         "## Autonomy Quality",
         "- Human interruptions  : (review incidents log)",
@@ -168,3 +199,49 @@ def _tail_log(path: Path, hours: int = 24) -> list[str]:
         except Exception:
             pass
     return lines
+
+
+def _age_from_iso(ts: str | None) -> str:
+    if not ts:
+        return "N/A"
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        delta = datetime.now(UTC) - dt
+        hours = int(delta.total_seconds() // 3600)
+        return f"{hours}h"
+    except Exception:
+        return "N/A"
+
+
+def _parse_state_snapshot(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    out: dict[str, str] = {}
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if line.startswith("- score1:"):
+            out["score1"] = line.split(":", 1)[1].strip()
+        elif line.startswith("- score2:"):
+            out["score2"] = line.split(":", 1)[1].strip()
+        elif line.startswith("- tierd2_cap:"):
+            out["tierd2_cap"] = line.split(":", 1)[1].strip()
+    return out
+
+
+def _extract_open_blockers(text: str) -> list[str]:
+    if not text:
+        return []
+    lines = text.splitlines()
+    open_started = False
+    out: list[str] = []
+    for raw in lines:
+        line = raw.strip()
+        if line.lower() == "## open":
+            open_started = True
+            continue
+        if open_started and line.startswith("## "):
+            break
+        if open_started and line.startswith("- "):
+            out.append(line[2:].strip())
+    return out
+
