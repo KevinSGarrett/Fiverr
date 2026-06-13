@@ -113,30 +113,24 @@ def test_run_review_post_merge_claude_paths(tmp_path: Path, monkeypatch: pytest.
         agent_reports_present={k: True for k in ["A", "B", "C", "D", "E", "F"]},
     )
     monkeypatch.setattr(post_cycle_review, "collect_facts", lambda *a, **k: base_facts)
-    monkeypatch.setitem(
-        __import__("sys").modules,
-        "automation.claude_post_cycle_adapter",
-        SimpleNamespace(
-            run_post_cycle_review=lambda **kwargs: SimpleNamespace(
-                status="PASS",
-                error="",
-                request_path=str(tmp_path / "req.md"),
-                response_path=str(tmp_path / "resp.md"),
-            )
-        ),
+    _pass_adapter = SimpleNamespace(
+        run_post_cycle_review=lambda **kwargs: SimpleNamespace(
+            status="PASS",
+            error="",
+            request_path=str(tmp_path / "req.md"),
+            response_path=str(tmp_path / "resp.md"),
+        )
     )
+    monkeypatch.setattr(post_cycle_review, "claude_post_cycle_adapter", _pass_adapter)
     result = post_cycle_review.run_review(77, post_cycle_review.ReviewMode.POST_MERGE, 88)
     assert result.result == post_cycle_review.ReviewResult.PASS
     assert result.blocks_dispatch is False
 
-    monkeypatch.setitem(
-        __import__("sys").modules,
-        "automation.claude_post_cycle_adapter",
-        SimpleNamespace(
-            run_post_cycle_review=lambda **kwargs: SimpleNamespace(
-                status="BLOCKED", error="x", request_path="", response_path=""
-            )
-        ),
+    _blocked_adapter = SimpleNamespace(
+        run_post_cycle_review=lambda **kwargs: SimpleNamespace(
+            status="BLOCKED", error="x", request_path="", response_path=""
+        )
     )
+    monkeypatch.setattr(post_cycle_review, "claude_post_cycle_adapter", _blocked_adapter)
     blocked = post_cycle_review.run_review(77, post_cycle_review.ReviewMode.POST_MERGE, 88)
     assert blocked.result == post_cycle_review.ReviewResult.BLOCKED_MODEL_UNVERIFIED

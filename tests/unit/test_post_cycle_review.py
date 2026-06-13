@@ -39,7 +39,9 @@ def _mock_expensive_collectors(monkeypatch):
 def test_run_review_missing_source_prompt_returns_blocked(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     runner = tmp_path / "runner"
-    result = run_review(75, ReviewMode.POST_MERGE, repo_root=repo, runner_root=runner)
+    # SOURCE_PROMPT is used (module-level, patchable) — point to non-existent file
+    with patch("automation.post_cycle_review.SOURCE_PROMPT", tmp_path / "missing.md"):
+        result = run_review(75, ReviewMode.POST_MERGE, repo_root=repo, runner_root=runner)
     assert result.status == "BLOCKED_MISSING_SOURCE_PROMPT"
 
 
@@ -129,40 +131,24 @@ def test_generate_post_cycle_jira_bundle() -> None:
 
 
 def test_dispatch_decision_contains_required_fields(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
     runner = tmp_path / "runner"
-    source = repo / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
-    source.parent.mkdir(parents=True, exist_ok=True)
+    source = tmp_path / "prompt.md"
     source.write_text("review prompt", encoding="utf-8")
-    reports = repo / "docs/cycle_reports"
-    reports.mkdir(parents=True, exist_ok=True)
-    for agent in "ABECFD":
-        (reports / f"CYCLE_075_AGENT_{agent}.md").write_text("ok", encoding="utf-8")
-    with patch("automation.post_cycle_review.claude_sub_gate.verify_subscription_preflight", return_value={"passed": True}), patch(
-        "automation.post_cycle_review.claude_post_cycle_adapter.submit_for_review",
-        return_value=MagicMock(status="PASS", error=""),
-    ):
-        run_review(75, ReviewMode.POST_MERGE, repo_root=repo, runner_root=runner)
+    with patch("automation.post_cycle_review.SOURCE_PROMPT", source),          patch("automation.post_cycle_review.claude_sub_gate.verify_subscription_preflight", return_value={"passed": True}),          patch("automation.post_cycle_review.claude_post_cycle_adapter.run_post_cycle_review",
+               return_value=MagicMock(status="PASS", error="", request_path="", response_path="")):
+        run_review(75, ReviewMode.POST_MERGE, runner_root=runner)
     payload = json.loads((runner / "state/next_cycle_dispatch_decision.json").read_text(encoding="utf-8"))
     for key in ("cycle", "review_result", "blocks_dispatch", "next_action", "timestamp"):
         assert key in payload
 
 
 def test_run_review_pass_sets_blocks_dispatch_false(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
     runner = tmp_path / "runner"
-    source = repo / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
-    source.parent.mkdir(parents=True, exist_ok=True)
+    source = tmp_path / "prompt.md"
     source.write_text("review prompt", encoding="utf-8")
-    reports = repo / "docs/cycle_reports"
-    reports.mkdir(parents=True, exist_ok=True)
-    for agent in "ABECFD":
-        (reports / f"CYCLE_075_AGENT_{agent}.md").write_text("ok", encoding="utf-8")
-    with patch("automation.post_cycle_review.claude_sub_gate.verify_subscription_preflight", return_value={"passed": True}), patch(
-        "automation.post_cycle_review.claude_post_cycle_adapter.submit_for_review",
-        return_value=MagicMock(status="PASS", error=""),
-    ):
-        result = run_review(75, ReviewMode.POST_MERGE, repo_root=repo, runner_root=runner)
+    with patch("automation.post_cycle_review.SOURCE_PROMPT", source),          patch("automation.post_cycle_review.claude_sub_gate.verify_subscription_preflight", return_value={"passed": True}),          patch("automation.post_cycle_review.claude_post_cycle_adapter.run_post_cycle_review",
+               return_value=MagicMock(status="PASS", error="", request_path="", response_path="")):
+        result = run_review(75, ReviewMode.POST_MERGE, runner_root=runner)
     assert result.blocks_dispatch is False
 
 
@@ -179,20 +165,12 @@ def test_run_review_missing_agent_report_returns_blocked_in_post_merge(tmp_path:
 
 
 def test_run_review_advisory_sets_blocks_dispatch_true(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
     runner = tmp_path / "runner"
-    source = repo / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
-    source.parent.mkdir(parents=True, exist_ok=True)
+    source = tmp_path / "prompt.md"
     source.write_text("review prompt", encoding="utf-8")
-    reports = repo / "docs/cycle_reports"
-    reports.mkdir(parents=True, exist_ok=True)
-    for agent in "ABECFD":
-        (reports / f"CYCLE_075_AGENT_{agent}.md").write_text("ok", encoding="utf-8")
-    with patch("automation.post_cycle_review.claude_sub_gate.verify_subscription_preflight", return_value={"passed": True}), patch(
-        "automation.post_cycle_review.claude_post_cycle_adapter.submit_for_review",
-        return_value=MagicMock(status="ADVISORY_ONLY", error="adapter fail"),
-    ):
-        result = run_review(75, ReviewMode.POST_MERGE, repo_root=repo, runner_root=runner)
+    with patch("automation.post_cycle_review.SOURCE_PROMPT", source),          patch("automation.post_cycle_review.claude_sub_gate.verify_subscription_preflight", return_value={"passed": True}),          patch("automation.post_cycle_review.claude_post_cycle_adapter.run_post_cycle_review",
+               return_value=MagicMock(status="ADVISORY_ONLY", error="adapter fail", request_path="", response_path="")):
+        result = run_review(75, ReviewMode.POST_MERGE, runner_root=runner)
     assert result.blocks_dispatch is True
 
 
