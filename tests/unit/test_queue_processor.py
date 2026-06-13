@@ -20,6 +20,20 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+@pytest.fixture(autouse=True)
+def fast_retry_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep queue processor tests deterministic and below suite timeout."""
+    monkeypatch.setattr(
+        "src.scheduler.retry_handler.get_retry_config",
+        lambda _job_type: {
+            "max_retries": 1,
+            "backoff_base_seconds": 0,
+            "backoff_multiplier": 1,
+            "max_backoff_seconds": 0,
+        },
+    )
+
+
 @pytest.fixture()
 def db_session() -> Session:
     engine = create_engine("sqlite:///:memory:", future=True)
