@@ -23,7 +23,7 @@ class TestCommandSurface:
             "brain-check", "compile-policy", "jira-inventory",
             "plan-cycle", "validate-prompts", "run-agent",
             "cursor-smoke", "tick", "post-cycle-review",
-            "merge-gate", "status", "recover",
+            "merge-gate", "status", "recover", "repair",
             "daily-report", "weekly-report", "create-labels",
         ]
         for cmd in required_commands:
@@ -68,7 +68,7 @@ class TestCommandSurface:
         runner = CliRunner()
         result = runner.invoke(cli, ["--help"])
         banned_modes = ["plan_only", "brain_check", "compile_policy",
-                        "jira_inventory", "execute", "repair"]
+                        "jira_inventory", "execute"]
         for mode in banned_modes:
             # These should NOT be commands (they were the old broken mode names)
             assert mode not in result.output or mode + " " not in result.output

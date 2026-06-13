@@ -11,8 +11,8 @@ This file is authoritative for cycle state reconciliation.
 | next_cycle | 078 |
 | branch | cycle/077/integration |
 | status | IN_PROGRESS |
-| score1_internal | 67.3% |
-| score2_e2e | 47.1% |
+| score1_internal | 67.3% (unchanged) |
+| score2_e2e | 47.1% (unchanged) |
 | tierd2_cap | ACTIVE |
 
 ## Agent Readiness
@@ -39,4 +39,10 @@ This file is authoritative for cycle state reconciliation.
 ## Stage State
 
 - Stage 1 (OPS-030): PASS
-- Stage 2-8: PENDING
+- Stage 2 (OPS-031): PASS
+- Stage 3 (OPS-032): PASS
+- Stage 4 (OPS-033): PASS
+- Stage 5 (OPS-034): PASS
+- Stage 6 (OPS-035): ADVISORY_ONLY_WITH_DISPATCH_ALLOWED
+- Stage 7 (OPS-036): SCAFFOLD_READY
+- Stage 8: NOT_STARTED

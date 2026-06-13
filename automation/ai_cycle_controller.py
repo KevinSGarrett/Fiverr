@@ -1,5 +1,5 @@
-"""
-ai_cycle_controller.py — Main CLI entrypoint for the Autonomous Development Runner.
+﻿"""
+ai_cycle_controller.py â€” Main CLI entrypoint for the Autonomous Development Runner.
 
 Usage:
   python automation/ai_cycle_controller.py brain-check
@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,9 +52,21 @@ def _read_runner_state() -> dict:
         return {}
 
 
+def verify_repo_path() -> None:
+    """Validate the controller is executing from the expected repository root."""
+    cwd = Path.cwd().resolve()
+    expected = REPO_ROOT.resolve()
+    if cwd != expected:
+        raise RuntimeError(f"Unexpected working directory: {cwd}. Expected: {expected}")
+    required_paths = ("automation", "src", "PM_Pack")
+    missing = [name for name in required_paths if not (expected / name).exists()]
+    if missing:
+        raise RuntimeError(f"Repository root missing expected paths: {missing}")
+
+
 @click.group()
 def cli() -> None:
-    """Fiverr Research System — Autonomous Development Runner."""
+    """Fiverr Research System â€” Autonomous Development Runner."""
     pass
 
 
@@ -98,7 +111,7 @@ def cmd_brain_check() -> None:
         click.secho("BRAIN CHECK PASS", fg="green", bold=True)
         sys.exit(0)
     else:
-        click.secho(f"BRAIN CHECK FAIL — {len(result.failed)} missing file(s)", fg="red", bold=True)
+        click.secho(f"BRAIN CHECK FAIL â€” {len(result.failed)} missing file(s)", fg="red", bold=True)
         sys.exit(1)
 
 
@@ -124,7 +137,7 @@ def cmd_compile_policy() -> None:
 @click.option("--dry-run", is_flag=True, default=False, help="No Jira writes.")
 @click.option("--project", default="SCRUM", help="Jira project key.")
 def cmd_jira_inventory(dry_run: bool, project: str) -> None:
-    """Fetch Jira board inventory — all non-Done issues."""
+    """Fetch Jira board inventory â€” all non-Done issues."""
     click.echo("=" * 60)
     click.echo(f"JIRA BOARD INVENTORY {'[DRY RUN]' if dry_run else ''}")
     click.echo("=" * 60)
@@ -134,7 +147,7 @@ def cmd_jira_inventory(dry_run: bool, project: str) -> None:
         click.secho("  Jira credentials not set. Add JIRA_EMAIL and JIRA_API_TOKEN", fg="yellow")
         click.secho("  to C:\\AI_Runner\\secrets\\runner.env before running.", fg="yellow")
         click.echo()
-        click.secho("  SKIPPED — no credentials", fg="yellow")
+        click.secho("  SKIPPED â€” no credentials", fg="yellow")
         sys.exit(0)
 
     from automation.jira_client import board_inventory
@@ -148,12 +161,12 @@ def cmd_jira_inventory(dry_run: bool, project: str) -> None:
 
         click.echo(f"  Total non-Done issues : {inv['total']}")
         for issue in inv["issues"][:10]:
-            click.echo(f"    [{issue['status']}] {issue['key']} — {issue['summary'][:60]}")
+            click.echo(f"    [{issue['status']}] {issue['key']} â€” {issue['summary'][:60]}")
         if inv["total"] > 10:
             click.echo(f"    ... and {inv['total'] - 10} more")
         click.echo()
         if dry_run:
-            click.secho(f"DRY RUN — board_inventory.json written to {out_path}", fg="green")
+            click.secho(f"DRY RUN â€” board_inventory.json written to {out_path}", fg="green")
         else:
             click.secho(f"Board inventory written to {out_path}", fg="green")
     except Exception as e:
@@ -178,7 +191,7 @@ def cmd_status() -> None:
         click.echo(f"  Last heartbeat  : {state.get('last_heartbeat')}")
         click.echo(f"  Last run ID     : {state.get('last_run_id')}")
     else:
-        click.echo("  No controller state found — controller has not run yet.")
+        click.echo("  No controller state found â€” controller has not run yet.")
 
     # Show model states
     cursor_state_path = Path("C:/AI_Runner/state/cursor_model_state.json")
@@ -234,7 +247,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
 
     snap = json.loads(snap_path.read_text())
     # CYCLE_CURRENT in HYDRATION_HEADER means the cycle we are about to work on.
-    # Do NOT add +1 — it is already the target cycle.
+    # Do NOT add +1 â€” it is already the target cycle.
     current_cycle = snap.get("cycle_current", 75)
     next_cycle = cycle if cycle is not None else current_cycle
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
@@ -268,7 +281,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         if not stub_path.exists():
             stub_path.write_text(
                 f"# Cycle {next_cycle:03d} Agent {agent} Prompt\n\n"
-                f"[STUB — populate from PM_Pack PROMPT_TEMPLATE.md + Jira board inventory]\n\n"
+                f"[STUB â€” populate from PM_Pack PROMPT_TEMPLATE.md + Jira board inventory]\n\n"
                 f"Branch: {branch}\n"
                 f"Generated: {_now()}\n"
             )
@@ -293,16 +306,16 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         })
         return
 
-    # ── LIVE: preflight drift check ───────────────────────────────────
+    # â”€â”€ LIVE: preflight drift check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if live:
         from automation.drift_detector import DriftDetector
 
         drift_report = DriftDetector().detect(REPO_ROOT, RUNNER_ROOT)
         blocking_drifts = [d for d in drift_report.drifts if d.severity == "BLOCKING"]
         if blocking_drifts:
-            click.secho("BLOCKING drift detected — resolve before plan-cycle --live", fg="red")
+            click.secho("BLOCKING drift detected â€” resolve before plan-cycle --live", fg="red")
             for drift in blocking_drifts:
-                click.secho(f"  - {drift.drift_type}: {drift.description}", fg="red")
+                click.secho(f"  - {drift.drift_type}: {drift.detail}", fg="red")
             from automation.notification_router import notify_blocked
 
             notify_blocked(
@@ -312,7 +325,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             )
             sys.exit(1)
 
-    # ── LIVE: Generate real prompts from PM_Pack + Jira ──────────────
+    # â”€â”€ LIVE: Generate real prompts from PM_Pack + Jira â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     click.echo("  Fetching Jira board inventory...")
     from automation.jira_client import board_inventory
     from automation.prompt_generator import write_prompts
@@ -345,7 +358,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         size = path.stat().st_size
         click.echo(f"  Prompt Agent {agent_id}: {path} ({size} bytes)")
     click.echo()
-    click.secho("PLAN CYCLE COMPLETE — prompts generated from PM_Pack + Jira", fg="green", bold=True)
+    click.secho("PLAN CYCLE COMPLETE â€” prompts generated from PM_Pack + Jira", fg="green", bold=True)
 
     _write_runner_state({
         "runner": "fiverr-runner-local-01",
@@ -363,7 +376,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
 def cmd_validate_prompts(cycle: int, agents: str) -> None:
     """Validate generated prompt files for a cycle before dispatch."""
     click.echo("=" * 60)
-    click.echo(f"VALIDATE PROMPTS — Cycle {cycle:03d}")
+    click.echo(f"VALIDATE PROMPTS â€” Cycle {cycle:03d}")
     click.echo("=" * 60)
 
     from automation.prompt_validator import validate_all
@@ -394,13 +407,13 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
 @click.option("--agent", required=True, help="Agent ID (A/B/E/C/F/D).")
 @click.option("--cycle", required=True, type=int, help="Cycle number.")
 @click.option("--safe-docs-only", is_flag=True, default=False,
-              help="Docs-only test — skips MODEL_GATE hard-fail, warns only.")
+              help="Docs-only test â€” skips MODEL_GATE hard-fail, warns only.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Print what would run without executing Cursor.")
 def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -> None:
     """Run a single Cursor agent with MODEL_GATE + validation + commit."""
     click.echo("=" * 60)
-    click.echo(f"RUN AGENT {agent} — Cycle {cycle:03d} {'[DRY RUN]' if dry_run else ''}")
+    click.echo(f"RUN AGENT {agent} â€” Cycle {cycle:03d} {'[DRY RUN]' if dry_run else ''}")
     click.echo("=" * 60)
 
     from automation.lock_manager import LockManager
@@ -422,7 +435,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
             if safe_docs_only:
                 click.secho("  MODEL_GATE failed but --safe-docs-only set, continuing with warning.", fg="yellow")
             else:
-                click.secho("  MODEL_GATE FAILED — aborting dispatch.", fg="red", bold=True)
+                click.secho("  MODEL_GATE FAILED â€” aborting dispatch.", fg="red", bold=True)
                 write_controller_state("MODEL_BLOCKED", cycle=cycle)
                 from automation.notification_router import notify_blocked
 
@@ -508,7 +521,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
             sha_info = f" commit={lifecycle.commit_sha}" if lifecycle.commit_sha else ""
             click.secho(f"Agent {agent} COMPLETE{sha_info}", fg="green", bold=True)
         elif lifecycle.status == "VALIDATION_FAILED":
-            click.secho("Agent validation failed — repair attempted in lifecycle", fg="yellow")
+            click.secho("Agent validation failed â€” repair attempted in lifecycle", fg="yellow")
             sys.exit(1)
         else:
             click.secho(f"Agent {agent} lifecycle: {lifecycle.status}", fg="red", bold=True)
@@ -546,6 +559,11 @@ def cmd_cursor_smoke() -> None:
 @cli.command("recover")
 def cmd_recover() -> None:
     """Attempt safe recovery from stale lock or interrupted run."""
+    _perform_recover_lock_cleanup()
+
+
+def _perform_recover_lock_cleanup() -> None:
+    """Move active lock files into stale_locks and print status."""
     click.echo("=" * 60)
     click.echo("RECOVER")
     click.echo("=" * 60)
@@ -554,7 +572,7 @@ def cmd_recover() -> None:
         locks = list(lock_dir.glob("*.lock"))
         if locks:
             for lf in locks:
-                click.secho(f"  Found lock: {lf.name} — moving to stale_locks/", fg="yellow")
+                click.secho(f"  Found lock: {lf.name} â€” moving to stale_locks/", fg="yellow")
                 stale_dir = lock_dir / "stale_locks"
                 stale_dir.mkdir(exist_ok=True)
                 from datetime import datetime as dt
@@ -566,20 +584,184 @@ def cmd_recover() -> None:
     click.secho("RECOVER COMPLETE", fg="green")
 
 
+def _write_stage4_incident(trigger: str, status: str, details: str, cycle: int | None) -> Path:
+    """Write a Stage 4 compatibility incident JSON artifact."""
+    incident_dir = Path("C:/AI_Runner/reports/incidents")
+    incident_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = incident_dir / f"stage4_{trigger}_{ts}.json"
+    payload = {
+        "trigger": trigger,
+        "status": status,
+        "details": details[:2000],
+        "cycle": cycle,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+@cli.command("repair")
+@click.option(
+    "--trigger",
+    required=True,
+    type=click.Choice(["lint_fail", "stale_lock", "coverage_fail"]),
+    help="Repair trigger scenario to execute.",
+)
+@click.option("--target", default=None, type=str, help="Target file path for lint_fail.")
+@click.option("--cycle", default=None, type=int, help="Cycle number for incident metadata.")
+@click.option("--live", is_flag=True, default=False, help="Compatibility flag for scripted runs.")
+def cmd_repair(trigger: str, target: str | None, cycle: int | None, live: bool) -> None:
+    """Run a targeted repair scenario for go-live validation evidence."""
+    _ = live  # compatibility flag
+    from automation.notification_router import notify_blocked, notify_critical, notify_info
+
+    click.echo("=" * 60)
+    click.echo(f"REPAIR - trigger={trigger}")
+    click.echo("=" * 60)
+
+    if trigger == "lint_fail":
+        if not target:
+            click.secho("--target is required for lint_fail", fg="red")
+            sys.exit(1)
+        target_path = Path(target)
+        if not target_path.exists():
+            click.secho(f"Target does not exist: {target_path}", fg="red")
+            sys.exit(1)
+
+        lint_before = subprocess.run(
+            ["python", "-m", "ruff", "check", str(target_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+        if lint_before.returncode == 0:
+            click.echo("No lint failure detected; nothing to repair.")
+            notify_info("Repair lint trigger had no violations", cycle=cycle)
+            return
+
+        click.echo("Lint failure detected; attempting auto-fix...")
+        subprocess.run(
+            ["python", "-m", "ruff", "check", "--fix", str(target_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+        lint_after = subprocess.run(
+            ["python", "-m", "ruff", "check", str(target_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+        if lint_after.returncode == 0:
+            incident_path = _write_stage4_incident(
+                trigger="lint_fail",
+                status="PASS",
+                details=f"Target repaired: {target_path}",
+                cycle=cycle,
+            )
+            notify_critical(
+                "Stage4 lint_fail repaired",
+                body=f"Target repaired: {target_path}; incident={incident_path}",
+                incident_code="REPAIR_LINT_FAIL",
+                cycle=cycle,
+            )
+            click.secho("REPAIR PASS - lint issue fixed", fg="green")
+            return
+        _write_stage4_incident(
+            trigger="lint_fail",
+            status="FAIL",
+            details=lint_after.stdout[-800:] + lint_after.stderr[-800:],
+            cycle=cycle,
+        )
+        notify_blocked(
+            "Stage4 lint_fail repair failed",
+            body=lint_after.stdout[-400:] + lint_after.stderr[-400:],
+            incident_code="REPAIR_LINT_FAIL_FAILED",
+            cycle=cycle,
+        )
+        click.secho("REPAIR FAIL - lint issue remains", fg="red")
+        sys.exit(1)
+
+    if trigger == "stale_lock":
+        lock_dir = REPO_ROOT / "PM_Pack/automation/locks"
+        stale_dir = lock_dir / "stale_locks"
+        before = len(list(stale_dir.glob("*.lock"))) if stale_dir.exists() else 0
+        _perform_recover_lock_cleanup()
+        after = len(list(stale_dir.glob("*.lock"))) if stale_dir.exists() else 0
+        if after > before:
+            incident_path = _write_stage4_incident(
+                trigger="stale_lock",
+                status="PASS",
+                details=f"Archived {after - before} stale lock(s)",
+                cycle=cycle,
+            )
+            notify_critical(
+                "Stage4 stale_lock archived",
+                body=f"Archived {after - before} stale lock(s); incident={incident_path}",
+                incident_code="REPAIR_STALE_LOCK",
+                cycle=cycle,
+            )
+            click.secho("REPAIR PASS - stale lock archived", fg="green")
+            return
+        click.echo("No stale lock moved during recover.")
+        notify_info("Stage4 stale_lock had no active lock to archive", cycle=cycle)
+        _write_stage4_incident(
+            trigger="stale_lock",
+            status="NO_OP",
+            details="No stale lock moved during recover.",
+            cycle=cycle,
+        )
+        return
+
+    if trigger == "coverage_fail":
+        coverage_cmd = [
+            "python",
+            "-m",
+            "pytest",
+            "tests/unit/",
+            "--cov=automation",
+            "--cov=src",
+            "--cov-fail-under=90",
+            "--timeout=60",
+            "-q",
+        ]
+        run = subprocess.run(coverage_cmd, capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if run.returncode == 0:
+            click.secho("Coverage already passing at 90%", fg="green")
+            notify_info("Stage4 coverage_fail trigger did not reproduce", cycle=cycle)
+            return
+
+        _write_stage4_incident(
+            trigger="coverage_fail",
+            status="FAIL",
+            details=(run.stdout + "\n" + run.stderr)[-2000:],
+            cycle=cycle,
+        )
+        notify_blocked(
+            "Stage4 coverage_fail detected",
+            body=(run.stdout + "\n" + run.stderr)[-900:],
+            incident_code="REPAIR_COVERAGE_FAIL",
+            cycle=cycle,
+        )
+        click.secho("Coverage failure detected; manual coverage repair required.", fg="yellow")
+        sys.exit(1)
+
+
 @cli.command("tick")
 def cmd_tick() -> None:
     """
-    Tick — real state machine that decides what to do next.
+    Tick â€” real state machine that decides what to do next.
 
     States and transitions:
-      IDLE              → compile-policy, then → PLANNED
-      PLANNED           → validate-prompts, then → READY_TO_DISPATCH
-      READY_TO_DISPATCH → check post-cycle gate; if clear → DISPATCHING
-      DISPATCHING       → agents running (managed externally)
-      AGENT_COMPLETE    → run post-cycle-review → POST_CYCLE_REVIEW
-      POST_CYCLE_REVIEW → if PASS → IDLE (next cycle)
-      POST_CYCLE_PENDING → block dispatch; surface to operator
-      MODEL_BLOCKED     → block dispatch; alert model gate failure
+      IDLE              â†’ compile-policy, then â†’ PLANNED
+      PLANNED           â†’ validate-prompts, then â†’ READY_TO_DISPATCH
+      READY_TO_DISPATCH â†’ check post-cycle gate; if clear â†’ DISPATCHING
+      DISPATCHING       â†’ agents running (managed externally)
+      AGENT_COMPLETE    â†’ run post-cycle-review â†’ POST_CYCLE_REVIEW
+      POST_CYCLE_REVIEW â†’ if PASS â†’ IDLE (next cycle)
+      POST_CYCLE_PENDING â†’ block dispatch; surface to operator
+      MODEL_BLOCKED     â†’ block dispatch; alert model gate failure
     """
     from automation.notification_router import notify_blocked, notify_info
     from automation.state_writer import write_controller_state, write_heartbeat
@@ -593,10 +775,10 @@ def cmd_tick() -> None:
     # Always write fresh heartbeat
     write_heartbeat(status, cycle=cycle)
 
-    # ── State machine transitions ─────────────────────────────────────
+    # â”€â”€ State machine transitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if status in ("IDLE", "POST_CYCLE_PASS", "INITIAL"):
-        # Ready for next cycle — compile policy to get current cycle
-        click.echo("  → Running compile-policy...")
+        # Ready for next cycle â€” compile policy to get current cycle
+        click.echo("  â†’ Running compile-policy...")
         snap = compile_policy(REPO_ROOT)
         next_cycle = snap.get("cycle_current", 75)
         write_controller_state("COMPILED", cycle=next_cycle)
@@ -604,10 +786,10 @@ def cmd_tick() -> None:
         click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
 
     elif status == "COMPILED":
-        # Plan the cycle — generate prompts
-        click.echo("  → Planning cycle (generating prompts)...")
+        # Plan the cycle â€” generate prompts
+        click.echo("  â†’ Planning cycle (generating prompts)...")
         write_controller_state("PLANNING", cycle=cycle)
-        click.secho("  State: PLANNING — run plan-cycle --cycle {cycle} to generate prompts", fg="cyan")
+        click.secho("  State: PLANNING â€” run plan-cycle --cycle {cycle} to generate prompts", fg="cyan")
 
     elif status == "PLANNED":
         # Validate prompts
@@ -627,7 +809,7 @@ def cmd_tick() -> None:
                                incident_code="PROMPT_VALIDATION_FAILED", cycle=cycle)
                 click.secho(f"  State: PROMPT_VALIDATION_FAILED agents={failed_agents}", fg="red")
         else:
-            click.secho("  No active cycle — run plan-cycle first", fg="yellow")
+            click.secho("  No active cycle â€” run plan-cycle first", fg="yellow")
 
     elif status == "READY_TO_DISPATCH":
         # Check model gate
@@ -636,7 +818,7 @@ def cmd_tick() -> None:
         if not gate.passed:
             write_controller_state("MODEL_BLOCKED", cycle=cycle)
             notify_blocked("Model gate failed before dispatch", incident_code="MODEL_BLOCKED", cycle=cycle)
-            click.secho(f"  State: MODEL_BLOCKED — {gate.summary()}", fg="red")
+            click.secho(f"  State: MODEL_BLOCKED â€” {gate.summary()}", fg="red")
         else:
             # Check ANTHROPIC_API_KEY absent
             from automation.claude_sub_gate import check_api_key_absent
@@ -647,11 +829,11 @@ def cmd_tick() -> None:
                 click.secho("  State: CLAUDE_API_KEY_BLOCKED", fg="red")
             else:
                 write_controller_state("AWAITING_DISPATCH", cycle=cycle)
-                click.secho("  State: AWAITING_DISPATCH — all gates pass, ready to dispatch", fg="green")
+                click.secho("  State: AWAITING_DISPATCH â€” all gates pass, ready to dispatch", fg="green")
                 notify_info(f"Tick: awaiting dispatch signal for cycle {cycle}")
 
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING", "AGENT_COMPLETE"):
-        # Agent is running — monitor heartbeat freshness
+        # Agent is running â€” monitor heartbeat freshness
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
         if hb_path.exists():
             import json as _json
@@ -660,20 +842,20 @@ def cmd_tick() -> None:
             last = _dt.fromisoformat(hb.get("last_seen", _now()).replace("Z", "+00:00"))
             age_min = (_dt.now(last.tzinfo) - last).total_seconds() / 60
             if age_min > 45:
-                notify_blocked(f"Heartbeat stale {age_min:.0f}m — agent may be stuck",
+                notify_blocked(f"Heartbeat stale {age_min:.0f}m â€” agent may be stuck",
                                incident_code="AGENT_STUCK", cycle=cycle)
                 click.secho(f"  [WARN] Heartbeat stale {age_min:.0f}m", fg="yellow")
             else:
-                click.secho(f"  Agent running, heartbeat {age_min:.1f}m old — OK", fg="cyan")
+                click.secho(f"  Agent running, heartbeat {age_min:.1f}m old â€” OK", fg="cyan")
 
     elif status in ("POST_CYCLE_PENDING", "POST_CYCLE_REVIEW"):
-        click.secho(f"  Waiting for post-cycle review — run post-cycle-review --cycle {cycle}", fg="yellow")
+        click.secho(f"  Waiting for post-cycle review â€” run post-cycle-review --cycle {cycle}", fg="yellow")
 
     elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
-        click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+        click.secho(f"  BLOCKED ({status}) â€” resolve and run recover to reset", fg="red")
 
     else:
-        click.echo(f"  Unknown status: {status} — treating as IDLE")
+        click.echo(f"  Unknown status: {status} â€” treating as IDLE")
         write_controller_state("IDLE")
 
     click.echo("[TICK COMPLETE]")
@@ -762,8 +944,17 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) 
               help="Check gates only, do not merge (default: True).")
 @click.option("--execute-merge", is_flag=True, default=False,
               help="Actually merge if all gates pass.")
-def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool) -> None:
+@click.option("--cycle", default=None, type=int, help="Compatibility no-op option.")
+@click.option("--admin", is_flag=True, default=False, help="Compatibility no-op option.")
+def cmd_merge_gate(
+    pr: int,
+    do_dry_run: bool,
+    execute_merge: bool,
+    cycle: int | None,
+    admin: bool,
+) -> None:
     """Run full merge gate check for a PR. Safe by default (dry-run)."""
+    _ = (cycle, admin)
     click.echo("=" * 60)
     live = not do_dry_run or execute_merge
     click.echo(f"MERGE GATE - PR #{pr} {'[LIVE]' if live else '[DRY RUN]'}")
@@ -835,7 +1026,7 @@ def cmd_create_labels() -> None:
 
 @cli.command("status-tick")
 def cmd_status_tick() -> None:
-    """Status-only tick — reads state and writes next_action_decision.json.
+    """Status-only tick â€” reads state and writes next_action_decision.json.
 
     Unlike tick, status-tick NEVER advances state machine or dispatches anything.
     V6-TICK-001/003: every tick writes next_action_decision.json explaining why
@@ -885,22 +1076,22 @@ def cmd_status_tick() -> None:
         reason = f"Repo has uncommitted changes: {git_status[:100]}"
     elif status in ("IDLE", "POST_CYCLE_PASS"):
         next_action = "PLAN_READY"
-        reason = "Ready for next cycle — run compile-policy then plan-cycle"
+        reason = "Ready for next cycle â€” run compile-policy then plan-cycle"
     elif status == "PLANNED":
         next_action = "VALIDATE_PROMPTS"
-        reason = "Prompts exist — run validate-prompts to check"
+        reason = "Prompts exist â€” run validate-prompts to check"
     elif status == "READY_TO_DISPATCH":
         next_action = "AWAITING_MODEL_GATE"
         reason = "Model gate check required before dispatch"
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
         next_action = "MONITOR_AGENT"
-        reason = "Agent currently running — monitor heartbeat"
+        reason = "Agent currently running â€” monitor heartbeat"
     elif status == "POST_CYCLE_PENDING":
         next_action = "POST_CYCLE_REVIEW"
         reason = "Awaiting post-cycle review"
     else:
         next_action = f"UNKNOWN_STATUS_{status}"
-        reason = "Unknown status — check controller_state.json"
+        reason = "Unknown status â€” check controller_state.json"
 
     # Write decision artifact (V6-TICK-003)
     decision = {
@@ -931,7 +1122,7 @@ def cmd_status_tick() -> None:
 
 @cli.command("pm-pack-audit")
 def cmd_pm_pack_audit() -> None:
-    """PM_Pack consistency audit — validates semantic agreement across all state files.
+    """PM_Pack consistency audit â€” validates semantic agreement across all state files.
 
     Checks: HYDRATION_HEADER vs controller_state vs current_status vs policy_snapshot.
     Required by V6-PM-013. Must PASS before plan-cycle --live is allowed.
@@ -945,7 +1136,7 @@ def cmd_pm_pack_audit() -> None:
         for k, v in result.sources.items():
             click.echo(f"    {k}: {v!r}")
     if not result.passed:
-        click.secho("PM_PACK_AUDIT BLOCKED — resolve conflicts before running plan-cycle",
+        click.secho("PM_PACK_AUDIT BLOCKED â€” resolve conflicts before running plan-cycle",
                     fg="red", bold=True)
         sys.exit(1)
     click.secho("PM_PACK_AUDIT PASS", fg="green", bold=True)
@@ -1020,3 +1211,4 @@ def cmd_prompt_gen_test() -> None:
 
 if __name__ == "__main__":
     cli()
+

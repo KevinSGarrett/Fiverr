@@ -293,7 +293,7 @@ def test_state_writer_and_pr_builder(tmp_path: Path, monkeypatch: pytest.MonkeyP
     run_dir = state_writer.make_run_dir(77, "run-x")
     rec = state_writer.write_agent_run_record(run_dir, "F", 77, "p.md", SimpleNamespace(status="ok"))
     assert rec.exists()
-    summary = state_writer.write_run_summary(run_dir, 77, ["A", "F"], {"F": {"status": "done"}})
+    summary = state_writer.write_run_summary(77, "run-x", {"F": {"status": "done"}}, run_dir)
     assert summary.exists()
 
     body = pr_builder.build_pr_body(

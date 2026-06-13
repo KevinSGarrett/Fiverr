@@ -57,7 +57,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
             days_until_expiry = None
     model_header = "## Model Status"
     if days_until_expiry is not None and days_until_expiry <= 2:
-        model_header = "## Model Status WARNING"
+        model_header = "## ⚠️ Model Status WARNING"
 
     lines = [
         "# Daily Autonomous Runner Report",
@@ -80,7 +80,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         f"- Score 2 (e2e)      : {state_snapshot.get('score2', 'N/A')}",
         f"- TierD-2 cap        : {state_snapshot.get('tierd2_cap', 'N/A')}",
         "",
-        "## Model Selection",
+        f"{model_header} — Model Selection",
         f"- Cursor model  : {ms.get('observed_model', 'N/A')} [{ms.get('status', 'N/A')}]",
         f"- Effort        : {ms.get('effort', 'N/A')}",
         f"- Verified at   : {ms.get('verified_at', 'N/A')}",

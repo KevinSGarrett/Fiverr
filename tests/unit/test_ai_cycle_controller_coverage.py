@@ -1,4 +1,4 @@
-﻿"""Expanded coverage tests for ai_cycle_controller command flows."""
+"""Expanded coverage tests for ai_cycle_controller command flows."""
 
 from __future__ import annotations
 
@@ -199,6 +199,10 @@ def test_cursor_smoke_recover_status_tick_and_pm_audit(monkeypatch, tmp_path: Pa
         "automation.state_writer",
         SimpleNamespace(write_heartbeat=lambda *a, **k: None),
     )
+    # Mock drift detector so status-tick doesn't hit real runner paths
+    from automation.drift_detector import DriftReport
+    _fake_detector = type("FakeDriftDetector", (), {"detect": lambda self, *a, **k: DriftReport()})
+    monkeypatch.setattr("automation.drift_detector.DriftDetector", _fake_detector)
     ctrl._write_runner_state({"status": "PLANNED", "active_cycle": 77})
     st = runner.invoke(ctrl.cli, ["status-tick"])
     assert st.exit_code == 0
