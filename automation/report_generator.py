@@ -1,5 +1,5 @@
-"""
-report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
+﻿"""
+report_generator.py Ã¢â‚¬â€ Daily and weekly autonomy reports (OPS-022, OPS-023).
 """
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
             days_until_expiry = None
     model_header = "## Model Status"
     if days_until_expiry is not None and days_until_expiry <= 2:
-        model_header = "## ⚠️ Model Status WARNING"
+        model_header = "## Model Status WARNING"
 
     lines = [
         "# Daily Autonomous Runner Report",
@@ -80,13 +80,13 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         f"- Score 2 (e2e)      : {state_snapshot.get('score2', 'N/A')}",
         f"- TierD-2 cap        : {state_snapshot.get('tierd2_cap', 'N/A')}",
         "",
-        f"{model_header} — Model Selection",
+        f"{model_header} â€” Model Selection",
         f"- Cursor model  : {ms.get('observed_model', 'N/A')} [{ms.get('status', 'N/A')}]",
         f"- Effort        : {ms.get('effort', 'N/A')}",
         f"- Verified at   : {ms.get('verified_at', 'N/A')}",
         f"- Days to expiry: {days_until_expiry if days_until_expiry is not None else 'N/A'}",
         f"- Claude billing: {cls.get('billing_mode', 'N/A')} [{cls.get('status', 'N/A')}]",
-        f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT — REVIEW REQUIRED'}",
+        f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT â€” REVIEW REQUIRED'}",
         f"- Cursor verification age : {cursor_age}",
         f"- Claude verification age : {claude_age}",
         "",
@@ -114,7 +114,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
 
 def generate_weekly_report() -> Path:
     """
-    OPS-023: Weekly autonomy review â€” cycles, PRs, repairs, interruptions,
+    OPS-023: Weekly autonomy review Ã¢â‚¬â€ cycles, PRs, repairs, interruptions,
     false stops, unsafe attempts, model drift, post-cycle failures.
     """
     now = datetime.now(UTC)
@@ -244,3 +244,4 @@ def _extract_open_blockers(text: str) -> list[str]:
         if open_started and line.startswith("- "):
             out.append(line[2:].strip())
     return out
+
