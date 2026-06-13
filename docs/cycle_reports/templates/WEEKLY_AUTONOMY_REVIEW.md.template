@@ -1,0 +1,59 @@
+# WEEKLY AUTONOMY REVIEW — WEEK OF {WEEK_START_DATE}
+
+Status: {STATUS}
+
+## Throughput
+
+- Cycles completed: {CYCLES_COMPLETED}
+- PRs merged: {PRS_MERGED}
+- Repair loops triggered: {REPAIR_LOOPS_TRIGGERED}
+
+## Human Interventions
+
+| time | reason | impact | resolved |
+|---|---|---|---|
+| {INTERRUPTION_TIME_1} | {INTERRUPTION_REASON_1} | {INTERRUPTION_IMPACT_1} | {INTERRUPTION_RESOLVED_1} |
+
+## Control Quality
+
+- False blocks: {FALSE_BLOCKS}
+- Unsafe attempts blocked: {UNSAFE_ATTEMPTS_BLOCKED}
+- Model drift incidents: {MODEL_DRIFT_INCIDENTS}
+
+## Post-Cycle Review Health
+
+- Last post-cycle result: {POST_CYCLE_RESULT}
+- Average age since review: {POST_CYCLE_REVIEW_AGE}
+
+## Score Progress
+
+- Score 1 trend: {SCORE1_TREND}
+- Score 2 trend: {SCORE2_TREND}
+
+## Next Week Plan
+
+{NEXT_WEEK_PLANNED_CYCLES}
+
+<!-- EXAMPLE:
+Week of 2026-06-09
+Cycles completed: 2
+PRs merged: 2
+Repair loops: 1
+Score 1 trend: 65 -> 67
+Score 2 trend: 44 -> 47
+-->
+
+## Interpretation Guidance
+
+Use this template to produce a governance-grade weekly narrative, not just a metric dump. For each section, include brief interpretation:
+
+- why throughput changed,
+- which interruptions were avoidable,
+- whether false blocks indicate policy tuning needs,
+- whether unsafe attempts indicate prompt quality drift,
+- and whether score movement is evidence-backed or estimate-only.
+
+## Required Weekly Closeout Note
+
+Finish every report with a short statement of confidence and top three priorities for next week. This keeps the weekly review actionable for PM planning and allows trend comparison across weeks.
+

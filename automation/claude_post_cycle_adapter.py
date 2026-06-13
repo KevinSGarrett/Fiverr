@@ -1,11 +1,11 @@
 """
-claude_post_cycle_adapter.py — Run official PM post-cycle review via Claude subscription.
+claude_post_cycle_adapter.py â€” Run official PM post-cycle review via Claude subscription.
 
 Per Wave 04 / FINDING-008:
   - Must use local `claude` via subscription login, NOT ANTHROPIC_API_KEY
   - verify_subscription_preflight() blocks if API key present
   - Writes claude_request.md and claude_response.md artifacts
-  - If Claude cannot run via subscription, marks review ADVISORY_ONLY — blocks next dispatch
+  - If Claude cannot run via subscription, marks review ADVISORY_ONLY â€” blocks next dispatch
 
 Claude Code subscription docs:
   Pro/Max subscribers connect Claude Code via `claude` terminal login.
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT   = Path("C:/Fiverr/Fiverr")
+REPO_ROOT   = Path(__file__).parent.parent
 RUNNER_ROOT = Path("C:/AI_Runner")
 CLAUDE_STATE_PATH = RUNNER_ROOT / "state/claude_model_state.json"
 
@@ -101,7 +101,7 @@ def run_post_cycle_review(
     """
     Run Claude Code with the POST_CYCLE_PM_REVIEW_v4 prompt.
 
-    1. Runs subscription preflight — blocks if API key present
+    1. Runs subscription preflight â€” blocks if API key present
     2. Writes claude_request.md with review prompt + facts
     3. Invokes `claude -p claude_request.md --output-format text`
     4. Writes claude_response.md with full response
@@ -110,7 +110,7 @@ def run_post_cycle_review(
     artifacts = _artifacts_dir(cycle, run_dir)
     result = ClaudeReviewResult(status="IN_PROGRESS")
 
-    # Step 1: Subscription preflight — HARD BLOCK
+    # Step 1: Subscription preflight â€” HARD BLOCK
     preflight = verify_subscription_preflight()
     if not preflight["passed"]:
         result.status = "BLOCKED"
@@ -121,7 +121,7 @@ def run_post_cycle_review(
 
     # Step 2: Write request artifact
     request_path = artifacts / "claude_request.md"
-    request_content = f"""# POST-CYCLE PM REVIEW REQUEST — Cycle {cycle:03d}
+    request_content = f"""# POST-CYCLE PM REVIEW REQUEST â€” Cycle {cycle:03d}
 
 ## Facts
 ```json
@@ -140,12 +140,12 @@ def run_post_cycle_review(
         result.status = "ADVISORY_ONLY"
         result.advisory_only = True
         result.error = "Claude Code binary not found on PATH. Review is advisory-only."
-        result.blocks_dispatch = True  # Still blocks — must be resolved
+        result.blocks_dispatch = True  # Still blocks â€” must be resolved
         _write_advisory_report(cycle, run_dir, result.error)
         return result
 
     try:
-        # Claude Code defaults to Opus 4.8 — force Sonnet 4.6 for PM review
+        # Claude Code defaults to Opus 4.8 â€” force Sonnet 4.6 for PM review
         # (per claude_model_state.json: observed_default_model = Opus 4.8)
         r = subprocess.run(
             [claude_binary, "-p", request_content, "--output-format", "text",
@@ -171,7 +171,7 @@ def run_post_cycle_review(
     # Step 4: Write response artifact
     response_path = artifacts / "claude_response.md"
     response_path.write_text(
-        f"# POST-CYCLE PM REVIEW RESPONSE — Cycle {cycle:03d}\n\n"
+        f"# POST-CYCLE PM REVIEW RESPONSE â€” Cycle {cycle:03d}\n\n"
         f"Generated: {datetime.now(UTC).isoformat()}\n\n"
         f"{response_text}",
         encoding="utf-8"
@@ -187,6 +187,18 @@ def run_post_cycle_review(
     _update_claude_state(r.stdout)
 
     return result
+
+
+def submit_for_review(prompt: str, facts: dict) -> ClaudeReviewResult:
+    """Compatibility wrapper for post_cycle_review orchestrator."""
+    cycle = int(facts.get("cycle", 0) or 0)
+    run_dir = Path("C:/AI_Runner/runs") / f"CYCLE_{cycle:03d}"
+    return run_post_cycle_review(
+        cycle=cycle,
+        run_dir=run_dir,
+        review_prompt_text=prompt,
+        facts_json=json.dumps(facts, indent=2, default=str),
+    )
 
 
 def _find_claude_binary() -> str | None:
@@ -213,7 +225,7 @@ def _parse_review_outcome(response_text: str) -> str:
         return "FAIL"
     if "DISPATCH BLOCKED" in upper:
         return "BLOCKED"
-    # Default — treat as advisory if no clear verdict
+    # Default â€” treat as advisory if no clear verdict
     return "ADVISORY_ONLY"
 
 

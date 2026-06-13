@@ -1,5 +1,5 @@
 """
-jira_sync.py — Automated Jira sync during runner cycle execution.
+jira_sync.py â€” Automated Jira sync during runner cycle execution.
 Implements GJCI-023..030: comment, transition, evidence posting, Done closeout.
 
 Called at key points in the run loop:
@@ -15,7 +15,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 
 # Jira transition IDs (GJCI-025)
 DONE_TRANSITION_ID = "41"       # Done
@@ -65,7 +65,7 @@ def on_agent_complete(cycle: int, agent: str, branch: str, pr_number: int | None
             files_str = "\n".join(f"  - {f}" for f in files_changed[:10]) or "  (none)"
             pr_str = f"PR #{pr_number}" if pr_number else "PR not yet created"
             body = (
-                f"[Autonomous Runner] Agent {agent} complete — Cycle {cycle:03d}\n"
+                f"[Autonomous Runner] Agent {agent} complete â€” Cycle {cycle:03d}\n"
                 f"Branch: {branch}\n"
                 f"{pr_str}\n"
                 f"Validation: {'PASS' if validation_passed else 'FAIL'}\n"
@@ -104,7 +104,7 @@ def on_cycle_merged(cycle: int, merge_sha: str,
         try:
             transition_issue(key, DONE_TRANSITION_ID)
             add_comment(key,
-                f"[Autonomous Runner] DONE — Cycle {cycle:03d} merged to develop\n"
+                f"[Autonomous Runner] DONE â€” Cycle {cycle:03d} merged to develop\n"
                 f"Merge SHA: {merge_sha}\n"
                 f"Closed at: {now}"
             )

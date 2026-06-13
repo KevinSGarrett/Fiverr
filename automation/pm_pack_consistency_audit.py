@@ -1,5 +1,5 @@
 """
-pm_pack_consistency_audit.py — PM_Pack semantic consistency audit.
+pm_pack_consistency_audit.py â€” PM_Pack semantic consistency audit.
 
 Compares CURRENT_STATE_CANONICAL, HYDRATION_HEADER, STATE_SNAPSHOT,
 current_policy_snapshot, controller_state, and current_status for contradictions.
@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT   = Path("C:/Fiverr/Fiverr")
+REPO_ROOT   = Path(__file__).parent.parent
 RUNNER_ROOT = Path("C:/AI_Runner")
 
 
@@ -45,7 +45,7 @@ class AuditResult:
 
     def summary(self) -> str:
         status = "PASS" if self.passed else "BLOCKED"
-        lines = [f"PM_PACK_AUDIT {status} — {self.checked_at}"]
+        lines = [f"PM_PACK_AUDIT {status} â€” {self.checked_at}"]
         if self.missing_files:
             lines.append(f"  Missing files: {self.missing_files}")
         for c in self.conflicts:
@@ -64,7 +64,7 @@ def run_audit(repo_root: Path | None = None,
     runner = runner_root or RUNNER_ROOT
     result = AuditResult(checked_at=datetime.now(UTC).isoformat())
 
-    # ── Load all sources ──────────────────────────────────────────────
+    # â”€â”€ Load all sources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def load_json(path: Path, key: str) -> dict:
         if not path.exists():
             result.missing_files.append(str(path))
@@ -130,7 +130,7 @@ def run_audit(repo_root: Path | None = None,
         "current_status_says":    current_status_txt[:100].strip() if current_status_txt else "MISSING",
     }
 
-    # ── Check 1: STATE_SNAPSHOT is not severely stale ─────────────────
+    # â”€â”€ Check 1: STATE_SNAPSHOT is not severely stale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     snap_cycle = snapshot_signals.get("cycle_detected", 0)
     ctrl_cycle = ctrl_state.get("active_cycle", 0)
     if snap_cycle and ctrl_cycle and abs(snap_cycle - ctrl_cycle) > 10:
@@ -141,7 +141,7 @@ def run_audit(repo_root: Path | None = None,
             severity="BLOCKING"
         ))
 
-    # ── Check 2: policy_snapshot.last_completed_cycle should not be null
+    # â”€â”€ Check 2: policy_snapshot.last_completed_cycle should not be null
     # if hydration says last completed is C074 or higher
     if policy_snap.get("last_completed_cycle") is None and ctrl_cycle and ctrl_cycle >= 74:
         result.warnings.append(
@@ -149,7 +149,7 @@ def run_audit(repo_root: Path | None = None,
             f"Run compile-policy to regenerate snapshot."
         )
 
-    # ── Check 3: controller_state must not say AGENT_DISPATCH if
+    # â”€â”€ Check 3: controller_state must not say AGENT_DISPATCH if
     # current_status says "not started"
     if (ctrl_state.get("status") == "AGENT_DISPATCH" and
             current_status_txt and "not started" in current_status_txt.lower()):
@@ -160,7 +160,7 @@ def run_audit(repo_root: Path | None = None,
             severity="BLOCKING"
         ))
 
-    # ── Check 4: hydration cycle and controller cycle should agree within 2
+    # â”€â”€ Check 4: hydration cycle and controller cycle should agree within 2
     hydr_cycle = hydration_signals.get("cycle_detected", 0)
     if hydr_cycle and ctrl_cycle and abs(hydr_cycle - ctrl_cycle) > 2:
         result.warnings.append(
@@ -168,29 +168,29 @@ def run_audit(repo_root: Path | None = None,
             f"Reconcile before dispatch."
         )
 
-    # ── Check 5: CANONICAL says FROZEN — dispatch must be blocked ────
+    # â”€â”€ Check 5: CANONICAL says FROZEN â€” dispatch must be blocked â”€â”€â”€â”€
     if canonical_signals.get("status_keyword", "").upper() == "FROZEN":
         result.warnings.append(
-            "CURRENT_STATE_CANONICAL mentions FROZEN state — verify prompts/dispatch are blocked."
+            "CURRENT_STATE_CANONICAL mentions FROZEN state â€” verify prompts/dispatch are blocked."
         )
 
-    # ── Check 6: autonomy freeze flag ────────────────────────────────
+    # â”€â”€ Check 6: autonomy freeze flag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     freeze_path = repo / "PM_Pack/automation/policies/autonomy_freeze.yml"
     if not freeze_path.exists():
-        result.warnings.append("autonomy_freeze.yml not found — create to enforce freeze policy")
+        result.warnings.append("autonomy_freeze.yml not found â€” create to enforce freeze policy")
     else:
         try:
             import yaml as _yaml
             fp = _yaml.safe_load(freeze_path.read_text()) or {}
             if fp.get("frozen", False):
                 result.warnings.append(
-                    f"Autonomy freeze is ACTIVE: {fp.get('reason', 'unknown')} — "
+                    f"Autonomy freeze is ACTIVE: {fp.get('reason', 'unknown')} â€” "
                     f"all dispatch blocked until freeze is lifted."
                 )
         except Exception:
             pass
 
-    # ── Write result artifact ─────────────────────────────────────────
+    # â”€â”€ Write result artifact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     out_dir = runner / "reports/validation"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "pm_pack_audit_result.json"

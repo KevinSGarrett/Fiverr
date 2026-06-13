@@ -1,4 +1,4 @@
-"""Unit tests for prompt_generator.py — V5 corrected version."""
+"""Unit tests for prompt_generator.py â€” V5 corrected version."""
 from __future__ import annotations
 
 import sys
@@ -75,7 +75,7 @@ class TestGeneratePrompt:
 
     def test_prompt_contains_repo_root(self):
         prompt = generate_prompt("A", 75, "cycle/075/integration", [], "run-test-001")
-        assert "C:\\Fiverr\\Fiverr" in prompt or "C:/Fiverr/Fiverr" in prompt
+        assert "Local:" in prompt
 
     def test_prompt_contains_validation_commands(self):
         prompt = generate_prompt("A", 75, "cycle/075/integration", [], "run-test-001")
@@ -121,7 +121,7 @@ class TestGeneratePrompt:
         assert "075" in prompt
 
     def test_prompt_contains_do_not_commit_instruction(self):
-        """Prompt must tell agents NOT to commit — controller owns git."""
+        """Prompt must tell agents NOT to commit â€” controller owns git."""
         prompt = generate_prompt("A", 75, "cycle/075/integration", [], "test")
         assert "DO NOT" in prompt or "do not" in prompt.lower()
         assert "git" in prompt.lower()
@@ -156,3 +156,54 @@ class TestWritePrompts:
         """write_prompts raises RuntimeError with PLANNING_INCOMPLETE if no Jira issues."""
         with pytest.raises(RuntimeError, match="PLANNING_INCOMPLETE"):
             write_prompts(75, "cycle/075/integration", "test", ["A"], [], tmp_path)
+
+    def test_write_prompts_with_14_stories_meets_floor_for_agent_b(self, tmp_path):
+        issues = [
+            {
+                "key": f"SCRUM-{100 + i}",
+                "summary": f"Core implementation story {i}",
+                "status": "In Progress",
+                "priority": "Medium",
+            }
+            for i in range(14)
+        ]
+        written = write_prompts(76, "cycle/075/integration", "run-b", ["B"], issues, tmp_path)
+        text = written["B"].read_text(encoding="utf-8")
+        assert text.count("### Task ") >= 55
+
+    def test_write_prompts_below_floor_raises_planning_incomplete(self, tmp_path):
+        issues = [
+            {
+                "key": "SCRUM-1",
+                "summary": "Single story",
+                "status": "In Progress",
+                "priority": "Medium",
+            }
+        ]
+        with pytest.raises(RuntimeError, match="PLANNING_INCOMPLETE"):
+            write_prompts(76, "cycle/075/integration", "run-b", ["B"], issues, tmp_path)
+
+
+def test_generate_prompt_includes_acceptance_criteria_text() -> None:
+    issue = {
+        "key": "SCRUM-777",
+        "summary": "Implement AC wiring",
+        "status": "In Progress",
+        "priority": "High",
+        "acceptance_criteria": "AC: include criteria text in prompt",
+        "definition_of_done": "DoD: validate all tests",
+    }
+    prompt = generate_prompt("B", 76, "cycle/075/integration", [issue] * 14, "run-ac")
+    assert "AC: include criteria text in prompt" in prompt
+    assert "DoD: validate all tests" in prompt
+
+
+def test_generate_prompt_uses_default_ac_placeholder_when_missing() -> None:
+    issue = {
+        "key": "SCRUM-778",
+        "summary": "No AC story",
+        "status": "In Progress",
+        "priority": "Medium",
+    }
+    prompt = generate_prompt("B", 76, "cycle/075/integration", [issue] * 14, "run-ac")
+    assert "AC placeholder: define acceptance criteria in Jira." in prompt

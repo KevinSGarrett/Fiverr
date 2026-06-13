@@ -5,17 +5,139 @@ All credentials from C:\\AI_Runner\\secrets\\runner.env.
 """
 from __future__ import annotations
 
+import logging
+import re
+from datetime import UTC, datetime
 from typing import Any
 
 import requests
 
-from automation.config_loader import get_secret
+from automation.config_loader import RUNNER_ENV_PATH, get_secret
+
+LOGGER = logging.getLogger(__name__)
+
+
+class JiraClient:
+    """Jira API client with cycle automation helpers."""
+
+    def __init__(self) -> None:
+        self.base_url = _base_url()
+        _validate_jira_credentials()
+
+    def post_planning_comment(
+        self,
+        issue_key: str,
+        cycle: int,
+        branch: str,
+        agent: str,
+        planned_files: list[str],
+    ) -> str:
+        planned_at = datetime.now(UTC).isoformat()
+        body = (
+            f"*Cycle {cycle} Planning Note*\n"
+            f"- Branch: {branch}\n"
+            f"- Agent: {agent}\n"
+            f"- Planned scope: {', '.join(planned_files[:10])}\n"
+            f"- Planned at: {planned_at}\n"
+            "- Status: PLANNED"
+        )
+        self._check_for_secrets(body)
+        response = add_comment(issue_key, body)
+        return str(response.get("id", ""))
+
+    def post_evidence_comment(
+        self,
+        issue_key: str,
+        cycle: int,
+        pr_number: int,
+        files_changed: list[str],
+        validation_summary: str,
+        dod_items: list[str],
+    ) -> str:
+        items = "\n".join(f"  - {item}" for item in dod_items)
+        body = (
+            f"*Cycle {cycle} Implementation Evidence*\n"
+            f"- PR: #{pr_number}\n"
+            f"- Files changed: {len(files_changed)} files\n"
+            f"- Validation: {validation_summary}\n"
+            "- AC/DoD addressed:\n"
+            f"{items}\n"
+            "- Subscription billing: claude_subscription_only (no API key)"
+        )
+        self._check_for_secrets(body)
+        response = add_comment(issue_key, body)
+        return str(response.get("id", ""))
+
+    def transition_to_in_review(self, issue_key: str) -> bool:
+        transitions = self.get_transitions(issue_key)
+        match = next((t for t in transitions if t.get("name") == "In Review"), None)
+        if not match:
+            return False
+        transition_issue(issue_key, str(match["id"]))
+        return True
+
+    def transition_to_done(self, issue_key: str, dod_evidence: dict[str, Any]) -> bool:
+        if not dod_evidence.get("merge_sha") or not dod_evidence.get("ci_passed") or not dod_evidence.get("codex_resolved"):
+            return False
+        transitions = self.get_transitions(issue_key)
+        match = next((t for t in transitions if t.get("name") == "Done"), None)
+        if not match:
+            return False
+        transition_issue(issue_key, str(match["id"]))
+        return True
+
+    def create_rework_ticket(self, summary: str, description: str, cycle: int, agent: str) -> str:
+        description_lines = description.splitlines()
+        top_errors = "\n".join(description_lines[:3])
+        desc = (
+            f"{description}\n\n"
+            f"Cycle: {cycle}\n"
+            f"Agent: {agent}\n"
+            f"Top Errors:\n{top_errors}\n"
+        )
+        issue = create_issue(
+            project_key="SCRUM",
+            summary=summary,
+            description=desc,
+            issue_type="Bug",
+            labels=[f"cycle:{cycle:03d}", f"agent:{agent}"],
+        )
+        return str(issue.get("key", ""))
+
+    def search_issues(self, jql: str, max_results: int = 50) -> list[dict[str, Any]]:
+        url = f"{self.base_url}/rest/api/3/search/jql"
+        response = requests.get(
+            url,
+            headers=_headers(),
+            params={"jql": jql, "maxResults": str(max_results), "fields": "summary,status"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json().get("issues", [])
+
+    def get_transitions(self, issue_key: str) -> list[dict[str, Any]]:
+        url = f"{self.base_url}/rest/api/3/issue/{issue_key}/transitions"
+        response = requests.get(url, headers=_headers(), timeout=30)
+        response.raise_for_status()
+        return response.json().get("transitions", [])
+
+    def _check_for_secrets(self, text: str) -> None:
+        patterns = [
+            r"gh" + r"p_[A-Za-z0-9]{36}",
+            r"ATAT" + r"T3x",
+            r"sk-" + r"ant-",
+            r"xox" + r"b-",
+            r"[A-Z]{8,}[A-Za-z0-9]{24,}",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                raise ValueError(f"Comment contains potential secret at position {match.start()}")
 
 
 def _headers() -> dict[str, str]:
     import base64
-    email = get_secret("JIRA_EMAIL")
-    token = get_secret("JIRA_API_TOKEN")
+    email, token = _validate_jira_credentials()
     creds = base64.b64encode(f"{email}:{token}".encode()).decode()
     return {
         "Authorization": f"Basic {creds}",
@@ -26,6 +148,26 @@ def _headers() -> dict[str, str]:
 
 def _base_url() -> str:
     return get_secret("JIRA_BASE_URL", "https://YOURDOMAIN.atlassian.net")
+
+
+def _validate_jira_credentials() -> tuple[str, str]:
+    email = get_secret("JIRA_EMAIL").strip()
+    token = get_secret("JIRA_API_TOKEN").strip()
+    if not token:
+        message = (
+            f"JIRA_API_TOKEN is missing. Expected in runner env: {RUNNER_ENV_PATH}. "
+            "Set JIRA_API_TOKEN and retry."
+        )
+        LOGGER.error(message)
+        raise ValueError(message)
+    if not email:
+        message = (
+            f"JIRA_EMAIL is missing. Expected in runner env: {RUNNER_ENV_PATH}. "
+            "Set JIRA_EMAIL and retry."
+        )
+        LOGGER.error(message)
+        raise ValueError(message)
+    return email, token
 
 
 def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:

@@ -1,0 +1,16 @@
+{
+  "cycle": 75,
+  "verified_at": "2026-06-12T01:09:40.461179+00:00",
+  "jira_accessible": true,
+  "non_done_story_count": 100,
+  "in_review_stories": [],
+  "in_progress_stories": [
+    "SCRUM-1037",
+    "SCRUM-18",
+    "SCRUM-20",
+    "SCRUM-17",
+    "SCRUM-19"
+  ],
+  "cycle_075_control_story": null,
+  "notes": "Live Jira facts collected using Jira_Url/Jira_Email/Jira_API_Key from local .env via basic auth."
+}

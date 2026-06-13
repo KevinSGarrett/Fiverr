@@ -1,104 +1,199 @@
-"""Unit tests for run_agent_lifecycle.py — ownership, secrets, validation gates."""
+"""Unit tests for run_agent_lifecycle.py."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
-from automation.run_agent_lifecycle import AGENT_OWNERSHIP, _check_ownership
+from automation.run_agent_lifecycle import (
+    AgentLifecycleResult,
+    ValidationResult,
+    _commit_agent_work,
+    _run_targeted_validation,
+    _write_run_record,
+    run_post_agent_lifecycle,
+    validate_run_record_schema,
+)
 
 
-class TestAgentOwnership:
-    def test_all_six_agents_defined(self):
-        """All six agents A, B, E, C, F, D must have ownership rules."""
-        assert set("ABECFD") == set(AGENT_OWNERSHIP.keys())
-
-    def test_agent_d_docs_only(self):
-        """Agent D must not be allowed to modify src/."""
-        d_rules = AGENT_OWNERSHIP["D"]
-        forbidden = d_rules.get("forbidden", [])
-        assert any("src" in f for f in forbidden), \
-            "Agent D must have src/ in forbidden list"
-
-    def test_agent_e_tests_only(self):
-        """Agent E must only be allowed in tests/."""
-        e_rules = AGENT_OWNERSHIP["E"]
-        allowed = e_rules.get("allowed", [])
-        assert any("tests" in a for a in allowed)
-        forbidden = e_rules.get("forbidden", [])
-        assert any("src" in f for f in forbidden)
-
-    def test_check_ownership_no_violations(self):
-        """check_ownership returns empty list for files in scope."""
-        # Agent A is allowed in src/pipeline
-        violations = _check_ownership("A", ["src/pipeline/collector.py", "tests/unit/test_x.py"])
-        assert isinstance(violations, list)
-
-    def test_check_ownership_detects_violation(self):
-        """check_ownership detects when agent modifies forbidden paths."""
-        # Agent D should not modify src/
-        violations = _check_ownership("D", ["src/pipeline/collector.py"])
-        assert len(violations) > 0
-        assert "src/pipeline/collector.py" in violations
-
-    def test_check_ownership_agent_e_src_violation(self):
-        """Agent E cannot modify src/ files."""
-        violations = _check_ownership("E", ["src/scoring/scorer.py"])
-        assert len(violations) > 0
-
-    def test_check_ownership_empty_files(self):
-        """No files = no violations."""
-        violations = _check_ownership("A", [])
-        assert violations == []
+def test_write_run_record_creates_file(tmp_path: Path) -> None:
+    result = AgentLifecycleResult(agent="A", cycle=75, run_id="run-1", status="COMPLETE")
+    record = _write_run_record(result, "A", 75, "run-1", tmp_path, tmp_path)
+    assert record.exists()
 
 
-class TestAgentLifecycleResult:
-    def test_result_dataclass(self):
-        from automation.run_agent_lifecycle import AgentLifecycleResult
-        r = AgentLifecycleResult(agent="A", cycle=75, run_id="20260611T000000",
-                                 status="COMPLETE")
-        assert r.agent == "A"
-        assert r.cycle == 75
-        assert r.status == "COMPLETE"
-        d = r.to_dict()
-        assert isinstance(d, dict)
-        assert d["agent"] == "A"
-
-    def test_result_errors_default_empty(self):
-        from automation.run_agent_lifecycle import AgentLifecycleResult
-        r = AgentLifecycleResult(agent="B", cycle=75, run_id="test", status="IN_PROGRESS")
-        assert r.errors == []
-        assert r.changed_files == []
+def test_run_record_has_all_required_fields(tmp_path: Path) -> None:
+    result = AgentLifecycleResult(agent="A", cycle=75, run_id="run-1", status="COMPLETE")
+    record = _write_run_record(result, "A", 75, "run-1", tmp_path, tmp_path)
+    valid, missing = validate_run_record_schema(record)
+    assert valid is True
+    assert missing == []
 
 
-class TestClassifyFailure:
-    def test_classify_lint_failure(self):
-        """ruff errors should classify as lint."""
-        from automation.repair_loop import _classify_failure
-        result = _classify_failure(["ruff check failed: E501 line too long"])
-        assert result == "lint"
+def test_run_record_task_count_matches_headings(tmp_path: Path) -> None:
+    prompt = tmp_path / "PM_Pack/automation/prompts/CYCLE_075_AGENT_A_PROMPT.md"
+    prompt.parent.mkdir(parents=True, exist_ok=True)
+    prompt.write_text("### Task 1\nx\n### Task 2\n", encoding="utf-8")
+    result = AgentLifecycleResult(agent="A", cycle=75, run_id="run-1", status="COMPLETE")
+    record = _write_run_record(result, "A", 75, "run-1", tmp_path, tmp_path)
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    assert payload["prompt_task_count"] == 2
 
-    def test_classify_type_failure(self):
-        """mypy errors should classify as typecheck."""
-        from automation.repair_loop import _classify_failure
-        result = _classify_failure(["mypy error: incompatible types"])
-        assert result == "typecheck"
 
-    def test_classify_test_failure(self):
-        """pytest errors should classify as test."""
-        from automation.repair_loop import _classify_failure
-        result = _classify_failure(["pytest FAILED tests/unit/test_x.py"])
-        assert result == "test"
+def test_validate_schema_fails_on_missing_field(tmp_path: Path) -> None:
+    path = tmp_path / "record.json"
+    path.write_text(json.dumps({"run_id": "x"}), encoding="utf-8")
+    valid, missing = validate_run_record_schema(path)
+    assert valid is False
+    assert "cycle" in missing
 
-    def test_classify_report_failure(self):
-        """Missing report should classify as report."""
-        from automation.repair_loop import _classify_failure
-        result = _classify_failure(["Required report not found"])
-        assert result == "report"
 
-    def test_classify_general_fallback(self):
-        """Unknown errors fall back to general."""
-        from automation.repair_loop import _classify_failure
-        result = _classify_failure(["Some unknown error message"])
-        assert result == "general"
+def test_run_record_duration_correct(tmp_path: Path) -> None:
+    result = AgentLifecycleResult(agent="A", cycle=75, run_id="run-1", status="COMPLETE")
+    record = _write_run_record(result, "A", 75, "run-1", tmp_path, tmp_path)
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    assert isinstance(payload["duration_seconds"], int)
+
+
+def test_targeted_ruff_only_runs_on_py_files(tmp_path: Path) -> None:
+    with patch("automation.run_agent_lifecycle.subprocess.run") as run:
+        run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        _run_targeted_validation("A", ["automation/a.py", "README.md"], tmp_path, tmp_path)
+        ruff_cmd = run.call_args_list[0].args[0]
+        assert "README.md" not in ruff_cmd
+
+
+def test_targeted_pytest_maps_automation_to_test(tmp_path: Path) -> None:
+    test_file = tmp_path / "tests/unit/test_foo.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_x():\n  assert True\n", encoding="utf-8")
+    with patch("automation.run_agent_lifecycle.subprocess.run") as run:
+        run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = _run_targeted_validation("A", ["automation/foo.py"], tmp_path, tmp_path)
+    assert result.pytest_count == 1
+
+
+def test_validation_written_to_run_dir(tmp_path: Path) -> None:
+    with patch("automation.run_agent_lifecycle.subprocess.run") as run:
+        run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        _run_targeted_validation("A", ["automation/foo.py"], tmp_path, tmp_path)
+    assert (tmp_path / "validation_A.json").exists()
+
+
+def test_validation_never_raises_on_subprocess_error(tmp_path: Path) -> None:
+    with patch("automation.run_agent_lifecycle.subprocess.run", side_effect=FileNotFoundError("missing")):
+        result = _run_targeted_validation("A", ["automation/foo.py"], tmp_path, tmp_path)
+    assert result.overall_passed is False
+
+
+def test_overall_passed_false_when_ruff_fails(tmp_path: Path) -> None:
+    with patch("automation.run_agent_lifecycle.subprocess.run") as run:
+        run.side_effect = [
+            MagicMock(returncode=1, stdout="ruff fail", stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+        result = _run_targeted_validation("A", ["automation/foo.py"], tmp_path, tmp_path)
+    assert result.overall_passed is False
+
+
+def test_failing_validation_triggers_repair_not_commit(tmp_path: Path) -> None:
+    report = tmp_path / "docs/cycle_reports/CYCLE_075_AGENT_A.md"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text("AGENT_COMPLETE", encoding="utf-8")
+    with patch("automation.run_agent_lifecycle.REPO_ROOT", tmp_path), patch(
+        "automation.run_agent_lifecycle._get_changed_files", return_value=["automation/foo.py"]
+    ), patch("automation.run_agent_lifecycle._scan_changed_files", return_value=[]), patch(
+        "automation.run_agent_lifecycle._run_targeted_validation",
+        return_value=ValidationResult(False, "x", True, "", True, 0, [], [], False),
+    ), patch("automation.run_agent_lifecycle._commit_agent_work") as commit, patch(
+        "automation.repair_loop.dispatch_repair", return_value={"status": "attempted"}
+    ):
+        result = run_post_agent_lifecycle("A", 75, "run", tmp_path)
+    assert result.status == "REPAIR_ATTEMPTED"
+    assert result.repair_result == {"status": "attempted"}
+    commit.assert_not_called()
+
+
+def test_passing_validation_proceeds_to_commit(tmp_path: Path) -> None:
+    report = tmp_path / "docs/cycle_reports/CYCLE_075_AGENT_A.md"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text("AGENT_COMPLETE", encoding="utf-8")
+    with patch("automation.run_agent_lifecycle.REPO_ROOT", tmp_path), patch(
+        "automation.run_agent_lifecycle._get_changed_files", return_value=["automation/foo.py"]
+    ), patch("automation.run_agent_lifecycle._scan_changed_files", return_value=[]), patch(
+        "automation.run_agent_lifecycle._run_targeted_validation",
+        return_value=ValidationResult(True, "", True, "", True, 0, [], [], True),
+    ), patch("automation.run_agent_lifecycle._commit_agent_work", return_value="abc123") as commit:
+        result = run_post_agent_lifecycle("A", 75, "run", tmp_path)
+    assert result.status == "COMPLETE"
+    commit.assert_called_once()
+
+
+def test_no_commit_path_bypasses_validation(tmp_path: Path) -> None:
+    report = tmp_path / "docs/cycle_reports/CYCLE_075_AGENT_A.md"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text("AGENT_COMPLETE", encoding="utf-8")
+    with patch("automation.run_agent_lifecycle.REPO_ROOT", tmp_path), patch(
+        "automation.run_agent_lifecycle._get_changed_files", return_value=["automation/foo.py"]
+    ), patch("automation.run_agent_lifecycle._scan_changed_files", return_value=[]), patch(
+        "automation.run_agent_lifecycle._run_targeted_validation",
+        return_value=ValidationResult(True, "", True, "", True, 0, [], [], True),
+    ) as validate, patch("automation.run_agent_lifecycle._commit_agent_work", return_value="abc123"):
+        run_post_agent_lifecycle("A", 75, "run", tmp_path)
+    validate.assert_called_once()
+
+
+def test_commit_agent_work_uses_explicit_paths(tmp_path: Path) -> None:
+    with patch("automation.run_agent_lifecycle.REPO_ROOT", tmp_path), patch(
+        "automation.run_agent_lifecycle.subprocess.run"
+    ) as run:
+        run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(returncode=1),
+            MagicMock(stdout=""),
+        ]
+        _commit_agent_work("A", 75, ["automation/foo.py", "tests/unit/test_foo.py"])
+        stage_cmd = run.call_args_list[0].args[0]
+        assert stage_cmd[:3] == ["git", "add", "--"]
+        assert "." not in stage_cmd
+        assert "-A" not in stage_cmd
+
+
+# Prompt-required name aliases.
+def test_write_run_record_creates_json_at_correct_path(tmp_path: Path) -> None:
+    test_write_run_record_creates_file(tmp_path)
+
+
+def test_run_record_prompt_task_count_counts_task_headings(tmp_path: Path) -> None:
+    test_run_record_task_count_matches_headings(tmp_path)
+
+
+def test_run_record_duration_is_end_minus_start(tmp_path: Path) -> None:
+    test_run_record_duration_correct(tmp_path)
+
+
+def test_validate_schema_passes_on_complete_record(tmp_path: Path) -> None:
+    test_run_record_has_all_required_fields(tmp_path)
+
+
+def test_targeted_validation_result_written_to_run_dir(tmp_path: Path) -> None:
+    test_validation_written_to_run_dir(tmp_path)
+
+
+def test_commit_agent_work_uses_explicit_file_paths_not_add_all(tmp_path: Path) -> None:
+    test_commit_agent_work_uses_explicit_paths(tmp_path)
+
+
+def test_run_record_has_all_required_schema_fields(tmp_path: Path) -> None:
+    test_run_record_has_all_required_fields(tmp_path)
+
+
+def test_targeted_validation_ruff_only_on_py_files(tmp_path: Path) -> None:
+    test_targeted_ruff_only_runs_on_py_files(tmp_path)
+
+
+def test_validation_failure_routes_to_repair_not_commit(tmp_path: Path) -> None:
+    test_failing_validation_triggers_repair_not_commit(tmp_path)

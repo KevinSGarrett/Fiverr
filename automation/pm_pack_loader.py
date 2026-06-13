@@ -1,11 +1,12 @@
 """
-pm_pack_loader.py — Read and validate PM_Pack brain files.
+pm_pack_loader.py â€” Read and validate PM_Pack brain files.
 Implements the brain-check command logic: load each file in registry order
 and report PASS/FAIL per file.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,13 +55,18 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
             if full.exists():
                 result.passed.append(f"PASS [{section}]: {rel_path}")
             else:
-                result.failed.append(f"MISSING [{section}]: {rel_path}")
+                # In CI, runner-side paths (C:/AI_Runner) do not exist — skip as warning
+                _norm_path = rel_path.replace("\\", "/").replace("\\", "/")
+                if os.environ.get("CI", "").strip() and _norm_path.startswith("C:/AI_Runner"):
+                    result.warnings.append(f"SKIPPED [ci] [{section}]: {rel_path}")
+                else:
+                    result.failed.append(f"MISSING [{section}]: {rel_path}")
 
-    # Parse hydration header for cycle/wave/blockers — use exact key lines
+    # Parse hydration header for cycle/wave/blockers â€” use exact key lines
     hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
     if hydration_path.exists():
         text = hydration_path.read_text(encoding="utf-8", errors="replace")
-        # Match key-value lines like "CYCLE_CURRENT: 075" — NOT filenames like cycle037_live.db
+        # Match key-value lines like "CYCLE_CURRENT: 075" â€” NOT filenames like cycle037_live.db
         m_cycle = re.search(r"^CYCLE_CURRENT:\s*0*(\d+)", text, re.MULTILINE)
         if not m_cycle:
             m_cycle = re.search(r"^CYCLE_NEXT:\s*0*(\d+)", text, re.MULTILINE)
@@ -111,11 +117,48 @@ def load_file(rel_path: str, repo_root: Path) -> str:
     return full.read_text(encoding="utf-8", errors="replace") if full.exists() else ""
 
 
+def load_policy(policy_path: Path, required_fields: list[str] | None = None) -> dict[str, Any]:
+    """Load and validate a YAML policy file."""
+    if not policy_path.exists():
+        raise FileNotFoundError(f"Policy file not found: {policy_path}")
+    data = yaml.safe_load(policy_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Policy YAML must map to an object: {policy_path}")
+    required = required_fields or []
+    missing = [field for field in required if field not in data]
+    if missing:
+        raise ValueError(f"Policy missing required fields: {', '.join(missing)}")
+    return data
+
+
+def check_cycle_consistency(
+    hydration_header: str,
+    state_snapshot: str,
+    current_state_canonical: str,
+) -> list[str]:
+    """Return consistency findings between cycle markers across PM pack files."""
+    findings: list[str] = []
+    hyd_cycle = _extract(hydration_header, r"CYCLE_CURRENT:\s*0*(\d+)")
+    snapshot_cycle = _extract(state_snapshot, r"CYCLE_CURRENT:\s*0*(\d+)")
+    canonical_cycle = _extract(current_state_canonical, r"CYCLE_CURRENT:\s*0*(\d+)")
+    if hyd_cycle and snapshot_cycle and hyd_cycle != snapshot_cycle:
+        findings.append(f"Hydration cycle {hyd_cycle} != state snapshot cycle {snapshot_cycle}")
+    if hyd_cycle and canonical_cycle and hyd_cycle != canonical_cycle:
+        findings.append(f"Hydration cycle {hyd_cycle} != canonical cycle {canonical_cycle}")
+    return findings
+
+
 def _resolve(rel_path: str, repo_root: Path) -> Path:
-    """Resolve a path that might be repo-relative or absolute."""
-    p = Path(rel_path.replace("\\", "/"))
-    if p.is_absolute():
-        return p
+    """Resolve a path that might be repo-relative or absolute (cross-platform).
+
+    On Linux, Windows-style absolute paths like C:/AI_Runner/... are not absolute
+    per pathlib, so we detect the drive-letter pattern explicitly.
+    """
+    norm = rel_path.replace("\\", "/")
+    p = Path(norm)
+    # Windows-style absolute path on any platform (drive letter like C:/)
+    if p.is_absolute() or (len(norm) >= 2 and norm[1] == ":"):
+        return Path(norm)
     return repo_root / p
 
 

@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from scipy import stats as scipy_stats  # type: ignore[import-untyped]
-from scipy.signal import find_peaks  # type: ignore[import-untyped]
-from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
+from scipy import stats as scipy_stats
+from scipy.signal import find_peaks
+from scipy.stats import gaussian_kde
 from sqlalchemy.orm import Session
 
 from src.models import (

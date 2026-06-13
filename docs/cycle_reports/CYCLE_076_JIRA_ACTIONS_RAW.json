@@ -1,0 +1,67 @@
+{
+  "stories": [
+    {
+      "key": "SCRUM-254",
+      "planning_comment_id": "12818",
+      "evidence_comment_id": "12819",
+      "available_transitions": [
+        "To Do",
+        "In Progress",
+        "In Review",
+        "Done"
+      ],
+      "transitioned_to_in_review": true
+    },
+    {
+      "key": "SCRUM-252",
+      "planning_comment_id": "12820",
+      "evidence_comment_id": "12821",
+      "available_transitions": [
+        "To Do",
+        "In Progress",
+        "In Review",
+        "Done"
+      ],
+      "transitioned_to_in_review": true
+    },
+    {
+      "key": "SCRUM-250",
+      "planning_comment_id": "12822",
+      "evidence_comment_id": "12823",
+      "available_transitions": [
+        "To Do",
+        "In Progress",
+        "In Review",
+        "Done"
+      ],
+      "transitioned_to_in_review": true
+    },
+    {
+      "key": "SCRUM-246",
+      "planning_comment_id": "12824",
+      "evidence_comment_id": "12825",
+      "available_transitions": [
+        "To Do",
+        "In Progress",
+        "In Review",
+        "Done"
+      ],
+      "transitioned_to_in_review": true
+    }
+  ],
+  "errors": [],
+  "recent_commits": [
+    "1c3f761 test(cycle-076): finalize critical automation module coverage fixes",
+    "582b429 \ufeffdocs(cycle-076): agent F report \u2014 coverage complete, final table ready for PR body",
+    "ae6dcdf \ufefftest(cycle-076): raise automation coverage \u2014 model_gate, policy_compiler, prompt_validator, config_loader, claude_sub_gate, lock_manager, github_client, report_generator all \u226590%; src/ improvements",
+    "053b677 \ufefffix(cycle-076): restore jira_client coverage baseline and refresh agent C verdict",
+    "793b1d0 \ufeffdocs(cycle-076): agent C report \u2014 integration validation PASS, coverage verified, Agent F baseline recorded",
+    "2bdd4fb \ufeffci(cycle-076): integration verification \u2014 coverage confirmed, CI config verified, cross-agent consistency PASS",
+    "5938df5 docs(cycle-076): reconcile agent E artifacts and full prompt compliance audit",
+    "58dd780 docs(cycle-076): fix evidence checklist validation pass criteria",
+    "2d1c89a docs(cycle-076): agent E report - V-1 infrastructure complete, Jira verified, evidence artifacts written",
+    "5e35c9c feat(cycle-076): V-1 evidence schema, live_validation_writer, evidence dir, V-1 readiness assessment, score tracking artifacts",
+    "1988eef docs(cycle-076): agent B report \u2014 coverage fixes complete, Jira token fixed",
+    "9e8d890 test(cycle-076): fix critical 0% coverage and Jira token loading"
+  ]
+}
