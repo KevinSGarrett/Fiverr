@@ -1,6 +1,15 @@
 {
   "cycle_current": "077",
-  "v1_status": "PENDING",
+  "v1_status": "BLOCKED",
+  "v2_status": "PENDING",
+  "v3_status": "PENDING",
+  "score2_base": 0.471,
+  "score2_new": 0.471,
+  "score2_delta": 0.0,
   "tierd2_cap": "ACTIVE",
-  "last_updated": "2026-06-12"
+  "cap_status": "ACTIVE",
+  "cap_removal_cycle": null,
+  "cap_removal_timestamp": null,
+  "blocking_reason": "SCRAPFLY_API_KEY missing; live collection cannot execute.",
+  "last_updated": "2026-06-12T22:49:53-05:00"
 }

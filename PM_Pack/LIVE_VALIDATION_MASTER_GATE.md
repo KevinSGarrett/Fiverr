@@ -22,7 +22,7 @@ Status at C074: EARNED (infrastructure built by B)
 ### Stage V-3: First Live Collection Succeeds
 Credit: +3-5% E2E
 Evidence: data/live_pilot_log.jsonl has entries, gigs_collected > 0
-Status: PENDING — user must run: python run.py collect-live --niche python_automation
+Status: BLOCKED (Cycle 077) — `SCRAPFLY_API_KEY` missing, live collection cannot start
 
 ### Stage V-4: Live Data Persists Correctly in DB
 Credit: +1-2% E2E
@@ -58,7 +58,7 @@ Status: FUTURE — requires all previous stages
 Stage | Requirement | E2E Credit | Status (C074)
 V-1   | TierD-2 approved | +0.5% | EARNED
 V-2   | Infrastructure built | +1-2% | EARNED (C074)
-V-3   | First live collection | +3-5% | PENDING
+V-3   | First live collection | +3-5% | BLOCKED (Cycle 077)
 V-4   | DB persistence | +1-2% | PENDING
 V-5   | Scoring from live | +1-2% | PENDING
 V-6   | Recommendations | +1-2% | PENDING
@@ -79,3 +79,12 @@ After C074 merges:
   Report results to PM for score update
 
 Each passing stage unlocks the next credit tier.
+
+## Next Steps (V-4 through V-9)
+
+- V-4: run a successful live collection and confirm `gigs > 0` persisted in the live pilot DB.
+- V-5: run scoring stage from live DB and capture `stages.scoring.success == true` evidence.
+- V-6: generate recommendations from live DB and confirm recommendation count > 0.
+- V-7: generate playbook from live recommendations and confirm full sections are present.
+- V-8: export/report live artifacts and verify files under `data/exports/live_pilot/`.
+- V-9: execute repeated unattended `live-validate` runs with stable PASS outcomes.
