@@ -35,3 +35,7 @@ SLACK_WEBHOOK_URL=PENDING_CONFIGURATION
 - Missing webhook URL -> router silently skips Slack delivery.
 - Invalid webhook URL -> HTTP failure in webhook call, router continues best-effort.
 - Missing network egress -> no Slack delivery; local log still records notification.
+
+## Operational Notes
+
+Keep this webhook in the runner secret store only, never in tracked repository files. The expected operational pattern is: set the value in `runner.env`, restart or reload processes that use the secret loader, trigger one INFO test notification, then confirm delivery in the target Slack channel and in local logs. If the message does not appear in Slack, check three layers in sequence: first secret load, then outbound network reachability, then webhook endpoint correctness. For troubleshooting, always keep a timestamped command transcript and compare it with `notifications.log` so you can prove whether the router attempted delivery. When rotating webhook credentials, update the secret in one place and re-run the same test command immediately so stale sessions are caught early. If this system is moved to another host, include webhook setup in the host bootstrap checklist and verify after every migration, because host-level proxy or firewall policies can block outbound webhook posts even when the secret is present and syntactically valid.

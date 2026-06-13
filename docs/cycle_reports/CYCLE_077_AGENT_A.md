@@ -36,14 +36,17 @@
 
 ## OPS-022/023
 
-- Daily report run: DONE
-- Weekly report run: DONE
+- Daily report run: EXECUTED (content coverage partial)
+- Weekly report run: EXECUTED (content coverage partial)
 - Evidence: `docs/validation/OPS_022_023_REPORT_RUN_EVIDENCE.md`
 
 ## OPS-004/008/009
 
-- Scheduled task names `FiverrWatchdog`, `FiverrDailySnapshot`, and `FiverrWeeklyMaintenance` were not found on this host.
-- Evidence captured as blocked production checks:
+- Equivalent scheduled task names were identified and validated as:
+  - `\AI Runner Watchdog`
+  - `\AI Runner Daily Snapshot`
+  - `\AI Runner Weekly Maintenance`
+- Manual runs were triggered and evidence/log artifacts captured:
   - `docs/validation/OPS_004_WATCHDOG_EVIDENCE.md`
   - `docs/validation/OPS_008_DAILY_SNAPSHOT_EVIDENCE.md`
   - `docs/validation/OPS_009_WEEKLY_MAINTENANCE_EVIDENCE.md`
@@ -71,5 +74,10 @@
 - brain-check: PASS
 - pm-pack-audit: PASS (with existing state-source warnings)
 - validate-prompts: PASS
+
+## Hard-Fact Integrity Checks
+
+- `data/cycle037_live.db` mtime observed in repository root is `1780553758` (not `1780553759` as stated in prompt baseline).
+- GitHub CLI auth remains unavailable (`HTTP 401`) for `gh pr view` and `gh run list`, so PR/CI API confirmations are blocked to CLI credentials.
 
 AGENT_COMPLETE
