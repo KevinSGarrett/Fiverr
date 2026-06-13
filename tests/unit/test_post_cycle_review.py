@@ -9,6 +9,22 @@ from automation.post_cycle_review import ReviewMode, get_review_result, run_revi
 
 
 @pytest.fixture(autouse=True)
+def _mock_network_collectors():
+    """Suppress all network-calling helpers so tests do not block on Jira/GitHub/subprocess."""
+    _local = {"ruff": "PASS", "mypy": "PASS"}
+    _github = {"pr_merged": False, "ci_passed": False, "merge_sha": "", "codecov_project": "N/A", "codecov_patch": "N/A"}
+    _jira = {"done_stories": [], "in_review_stories": [], "cycle_control_status": "In Progress"}
+    with patch("automation.post_cycle_review._collect_local_code_verification", new=lambda *a, **kw: _local), \
+         patch("automation.post_cycle_review._collect_github_facts", new=lambda *a, **kw: _github), \
+         patch("automation.post_cycle_review._collect_jira_facts", new=lambda *a, **kw: _jira):
+        yield
+
+
+def _apply_collect_patches(fn):
+    return fn  # no-op: replaced by autouse fixture
+
+
+@pytest.fixture(autouse=True)
 def _mock_expensive_collectors(monkeypatch):
     """Prevent real subprocess/network calls in unit tests."""
     with (
