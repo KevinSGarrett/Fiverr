@@ -6,30 +6,37 @@
   - `C:/AI_Runner/state/repair_trigger_test.json` created
 - Prompt-specified repair invocation:
   - `from automation.repairloop import RepairLoop ...`
-  - Result: **FAIL** (`ModuleNotFoundError: No module named 'automation.repairloop'`)
+  - Result: **PASS**
+  - Output includes planned actions and incident path:
+    - `C:/AI_Runner/reports/incidents/repair_incident_20260613T033000.json`
 
-## Actual Codebase Interface
+## Compatibility Interface Added
 
-- Available module: `automation/repair_loop.py`
-- Available entrypoint: `dispatch_repair(...)`
-- No `RepairLoop` class and no `automation.repairloop` module exist in this branch.
+- Added module: `automation/repairloop.py`
+- Added class: `RepairLoop`
+- Added method: `RepairLoop.handle(trigger_path)`
+- Existing module `automation/repair_loop.py` remains intact.
 
 ## Stale Heartbeat Scenario
 
 - Heartbeat timestamp forced stale (`2026-06-01T00:00:00+00:00`): PASS
 - `python automation/ai_cycle_controller.py status-tick`: PASS (executed)
 - Detection result:
-  - Controller returned `BLOCKED_DIRTY_REPO` before stale-heartbeat handling
-  - reason: uncommitted changes in working tree
+  - status-tick returned `MONITOR_AGENT` path.
+- Additional tick-path stale simulation (`last_seen` forced stale): executed.
+- Observed behavior:
+  - `tick` writes a fresh heartbeat before stale check, then reports heartbeat fresh.
+  - This prevents stale-heartbeat alerting in the tested flow.
 - Heartbeat restored from backup: PASS
 
 ## Incident / Notification Evidence
 
 - Notification log read: `C:/AI_Runner/logs/notifications.log`
-- Incident directory expected by current router:
-  - `C:/AI_Runner/logs/incidents`
-- Current run produced no new incident file in this path during this test.
+- New notification entry confirmed:
+  - `incident_code=REPAIR_LINT_FAIL`
+- Incident file written:
+  - `C:/AI_Runner/reports/incidents/repair_incident_20260613T033000.json`
 
 ## Verdict
 
-- **FAIL / PARTIAL** — DOD-009 production repair-loop scenario not fully validated end-to-end in this run.
+- **PARTIAL** — trigger handling, incident write, and notification evidence PASS; stale-heartbeat detection remains blocked by current tick ordering behavior.

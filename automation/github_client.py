@@ -94,3 +94,25 @@ def ensure_labels(labels: list[str]) -> None:
     for label in labels:
         if label not in existing:
             _gh("label", "create", label, "--color", "0075ca", capture=False)
+
+
+class GitHubClient:
+    """Compatibility wrapper expected by legacy prompt scripts."""
+
+    def repo_info(self) -> dict[str, Any]:
+        return repo_info()
+
+    def current_branch(self, repo_root: str = "C:/Fiverr/Fiverr") -> str:
+        return current_branch(repo_root=repo_root)
+
+    def create_branch(self, branch_name: str, base: str = "develop", repo_root: str = "C:/Fiverr/Fiverr") -> None:
+        create_branch(branch_name=branch_name, base=base, repo_root=repo_root)
+
+    def push_branch(self, branch_name: str, repo_root: str = "C:/Fiverr/Fiverr") -> None:
+        push_branch(branch_name=branch_name, repo_root=repo_root)
+
+    def create_pr(self, title: str, body: str, head: str, base: str = "develop") -> dict[str, Any]:
+        return create_pr(title=title, body=body, head=head, base=base)
+
+    def get_pr_status(self, pr_number: int) -> dict[str, Any]:
+        return get_pr_status(pr_number)

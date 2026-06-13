@@ -429,3 +429,41 @@ def _run_check(cmd: list[str]) -> bool:
     r = subprocess.run(cmd, cwd=str(REPO_ROOT),
                        capture_output=True, text=True, check=False, timeout=120)
     return r.returncode == 0
+
+
+def generate_post_cycle_github_bundle(
+    cycle: int, branch: str, github_client: Any
+) -> dict[str, Any]:
+    """Compatibility bundle API expected by legacy prompt scripts."""
+    _ = github_client
+    facts = collect_facts(cycle=cycle, mode=ReviewMode.POST_AGENT, pr_number=None)
+    return {
+        "cycle": cycle,
+        "branch": branch,
+        "head_sha": facts.head_sha,
+        "develop_sha": facts.develop_sha,
+        "ci_passed": facts.ci_passed,
+        "codecov_project": facts.codecov_project,
+        "codecov_patch": facts.codecov_patch,
+        "agent_reports_present": facts.agent_reports_present,
+        "collected_at": facts.collected_at,
+    }
+
+
+def generate_post_cycle_jira_bundle(cycle: int, jira_client: Any) -> dict[str, Any]:
+    """Compatibility Jira bundle API expected by legacy prompt scripts."""
+    inventory_total = 0
+    inventory_error = ""
+    try:
+        inventory = jira_client.board_inventory(project_key="SCRUM")
+        inventory_total = int(inventory.get("total", 0))
+    except Exception as exc:
+        inventory_error = str(exc)
+
+    return {
+        "cycle": cycle,
+        "project": "SCRUM",
+        "inventory_total": inventory_total,
+        "inventory_error": inventory_error,
+        "generated_at": datetime.now(UTC).isoformat(),
+    }

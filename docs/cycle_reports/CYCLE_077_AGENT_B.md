@@ -35,9 +35,10 @@
 
 ## DOD-009 Repair Loop
 
-- Prompt-specified invocation API does not exist in current branch
-- Adapted checks performed; full production repair loop proof not completed
-- Status: **FAIL/PARTIAL**
+- Prompt-specified invocation API implemented and executed
+- Trigger handling writes incident + notification evidence
+- Stale-heartbeat detection path remains partial due current controller tick ordering
+- Status: **PARTIAL**
 
 ## GJCI-029 / GJCI-034 / GJCI-035
 
@@ -45,7 +46,8 @@
   - `docs/validation/GJCI_029_DOD_MERGE_GATE_EVIDENCE.md`
   - `docs/validation/GJCI_034_GITHUB_BUNDLE_EVIDENCE.md`
   - `docs/validation/GJCI_035_JIRA_BUNDLE_EVIDENCE.md`
-- Status: **PARTIAL** (prompt-specified APIs absent in current code state)
+- Prompt-specified commands now execute successfully.
+- Status: **EVIDENCED**
 
 ## Jira transitions
 

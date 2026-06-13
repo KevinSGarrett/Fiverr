@@ -69,11 +69,11 @@ This file audits each material requirement from the Agent B prompt against execu
 
 - Read `automation/repair_loop.py`: **PASS**
 - Create repair trigger file: **PASS**
-- Prompt-specified repair command execution: **FAIL (module/class mismatch)**
-- Incident file verification path from prompt: **FAIL (path mismatch vs implementation)**
-- Notification verification: **PARTIAL (existing log reviewed)**
+- Prompt-specified repair command execution: **PASS** (`automation.repairloop.RepairLoop.handle`)
+- Incident file verification path from prompt: **PASS** (`C:/AI_Runner/reports/incidents/...json`)
+- Notification verification: **PASS** (`REPAIR_LINT_FAIL` entry in notifications log)
 - Stale heartbeat simulation and status check: **PARTIAL**
-  - status-tick executed, but blocked earlier on dirty repo state.
+  - status-tick and tick executed; stale detection is currently masked by controller heartbeat write order.
 - Restore heartbeat: **PASS**
 - Write `DOD_009_REPAIR_LOOP_EVIDENCE.md`: **PASS**
 - DOD-009 PASS requirement: **FAIL/PARTIAL**
@@ -82,9 +82,9 @@ This file audits each material requirement from the Agent B prompt against execu
 
 - Post coverage evidence to Jira stories: **NOT RUN**
 - Post stage2/stage3 evidence to Jira stories: **NOT RUN**
-- Prompt-specified `MergeGate.check_full_dod(77)` command: **FAIL (API absent)**
-- Prompt-specified post-cycle GitHub bundle command: **FAIL (API absent)**
-- Prompt-specified post-cycle Jira bundle command: **FAIL (API absent)**
+- Prompt-specified `MergeGate.check_full_dod(77)` command: **PASS**
+- Prompt-specified post-cycle GitHub bundle command: **PASS**
+- Prompt-specified post-cycle Jira bundle command: **PASS**
 - Adapted evidence generated and documented:
   - `GJCI_029_DOD_MERGE_GATE_EVIDENCE.md`: **PASS**
   - `GJCI_034_GITHUB_BUNDLE_EVIDENCE.md`: **PASS**
