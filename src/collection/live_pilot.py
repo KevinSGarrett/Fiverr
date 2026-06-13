@@ -230,11 +230,13 @@ def _backfill_gigs_from_search_results(db: Any, run_id: str, max_cards: int = 25
             existing.keyword_id = row.keyword_id if isinstance(row.keyword_id, int) and row.keyword_id > 0 else None
             existing.seller_username = seller_username
             existing.position = (
-                int(card.get("position")) if isinstance(card.get("position"), (int, float)) else existing.position
+                int(card.get("position"))  # type: ignore[arg-type]
+                if isinstance(card.get("position"), int | float)
+                else existing.position
             )
             existing.starting_price = (
-                float(card.get("starting_price"))
-                if isinstance(card.get("starting_price"), (int, float))
+                float(card.get("starting_price"))  # type: ignore[arg-type]
+                if isinstance(card.get("starting_price"), int | float)
                 else existing.starting_price
             )
             existing.gig_title_full = str(card.get("gig_title")) if card.get("gig_title") else existing.gig_title_full
