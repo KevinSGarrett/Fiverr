@@ -1,4 +1,4 @@
-"""Retry execution engine for queue jobs."""
+﻿"""Retry execution engine for queue jobs."""
 
 from __future__ import annotations
 
@@ -28,8 +28,9 @@ def _is_in_memory_sqlite_session(db: Any) -> bool:
     if not isinstance(db, Session):
         return False
     try:
+        from sqlalchemy.engine import Engine  # noqa: PLC0415
         bind = db.get_bind()
-        if bind is None or bind.url is None:
+        if not isinstance(bind, Engine) or bind.url is None:
             return False
         return bind.url.get_backend_name() == "sqlite" and bind.url.database in (None, ":memory:")
     except Exception:
@@ -78,7 +79,7 @@ async def execute_with_retry(
         except RateLimitError as e:
             wait = e.retry_after_seconds or config["backoff_base_seconds"]
             job.error_log = (job.error_log or []) + [
-                f"Attempt {attempt+1}: RateLimit — {e.source} — wait {wait}s"
+                f"Attempt {attempt+1}: RateLimit â€” {e.source} â€” wait {wait}s"
             ]
             job.retry_count += 1
             if isinstance(db, Session):
@@ -95,7 +96,7 @@ async def execute_with_retry(
         except SessionExpiredError:
             await session_manager.force_relogin()
             job.error_log = (job.error_log or []) + [
-                f"Attempt {attempt+1}: Session expired — re-logged in"
+                f"Attempt {attempt+1}: Session expired â€” re-logged in"
             ]
             job.retry_count += 1
             if isinstance(db, Session):
@@ -152,3 +153,4 @@ async def execute_with_retry(
     if isinstance(db, Session):
         db.commit()
     return False
+
