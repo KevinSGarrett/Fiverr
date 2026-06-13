@@ -34,13 +34,13 @@ class TestResolveBinary:
 
 
 class TestBuildCommand:
-    def test_includes_p_flag(self, tmp_path):
-        """_build_command must include -p flag (non-interactive mode)."""
+    def test_includes_prompt_payload(self, tmp_path):
+        """_build_command must include prompt text as positional payload."""
         from automation.cursor_adapter import _build_command
         prompt_file = tmp_path / "test_prompt.md"
         prompt_file.write_text("test prompt content")
         cmd = _build_command(str(prompt_file), str(tmp_path), "Codex 5.3")
-        assert "-p" in cmd, "_build_command must include -p flag"
+        assert "test prompt content" in cmd, "_build_command must include prompt content"
 
     def test_includes_output_format_text(self, tmp_path):
         """_build_command must include --output-format text."""
