@@ -66,6 +66,7 @@ PM_Pack governance, policy alignment, dispatch safety, and state reconciliation 
   - `POST_CYCLE_REVIEW_BLOCKS_DISPATCH` due `C:\AI_Runner\runs\CYCLE_077_post_cycle_result.json` with `blocks_dispatch=true`
 - `python automation/ai_cycle_controller.py compile-policy` -> PASS
 - `current_policy_snapshot.json["cycle_current"]` -> `78` (non-zero)
+- `python automation/ai_cycle_controller.py validate-prompts --cycle 078` -> FAIL (Cycle 078 prompt files not generated yet)
 
 ## Task Checklist (55)
 1. DONE
