@@ -160,6 +160,7 @@ authority:
 required_always:
   # brain-check FAILS if any of these are missing
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
+  - PM_Pack/01_pm_instructions/SECRETS_AND_ENV_REFERENCE.md
   - PM_Pack/CURRENT_STATE_CANONICAL.md
   - PM_Pack/AGENT_TASK_FLOOR_ENFORCEMENT.md
   - PM_Pack/automation/policies/autonomy_freeze.yml

@@ -393,8 +393,12 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
 @cli.command("run-agent")
 @click.option("--agent", required=True, help="Agent ID (A/B/E/C/F/D).")
 @click.option("--cycle", required=True, type=int, help="Cycle number.")
-@click.option("--safe-docs-only", is_flag=True, default=False,
-              help="Docs-only test — skips MODEL_GATE hard-fail, warns only.")
+@click.option(
+    "--safe-docs-only",
+    is_flag=True,
+    default=False,
+    help="Docs-only test — relaxes MODEL_GATE hard-fail only.",
+)
 @click.option("--dry-run", is_flag=True, default=False,
               help="Print what would run without executing Cursor.")
 def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -> None:
@@ -446,12 +450,10 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         from automation.prompt_validator import validate as validate_prompt
 
         pv = validate_prompt(prompt_path, agent, cycle)
-        if not pv.passed and not safe_docs_only:
+        if not pv.passed:
             click.secho(pv.summary(), fg="red")
+            write_controller_state("PROMPT_VALIDATION_FAILED", cycle=cycle)
             sys.exit(1)
-        elif not pv.passed:
-            click.secho("  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
-            click.echo(pv.summary())
         else:
             click.secho("  Prompt validation PASS", fg="green")
 
@@ -541,6 +543,62 @@ def cmd_cursor_smoke() -> None:
     click.echo(f"  Smoke prompt    : {prompt_path}")
     click.echo()
     click.secho("Cursor CLI is reachable. Model and headless dispatch verified in Wave 04.", fg="green")
+
+
+@cli.command("cursor-docs-smoke")
+@click.option("--cycle", default=None, type=int, help="Cycle number override.")
+def cmd_cursor_docs_smoke(cycle: int | None) -> None:
+    """Run docs-only smoke prompt outside production dispatch flow."""
+    from automation.cursor_adapter import run_agent as cursor_run
+
+    click.echo("=" * 60)
+    click.echo("CURSOR DOCS SMOKE")
+    click.echo("=" * 60)
+
+    prompt_path = REPO_ROOT / "PM_Pack/automation/prompts/smoke/cursor_docs_smoke.md"
+    if not prompt_path.exists():
+        click.secho(f"Missing smoke prompt: {prompt_path}", fg="red")
+        sys.exit(1)
+
+    active_cycle = cycle
+    if active_cycle is None:
+        state = _read_runner_state()
+        active_cycle = int(state.get("active_cycle") or 0) or 0
+
+    report_cycle = active_cycle if active_cycle > 0 else 0
+    output_dir = RUNNER_ROOT / "runs" / f"CYCLE_{report_cycle:03d}" / "cursor_docs_smoke"
+    result = cursor_run(
+        agent_id="SMOKE",
+        prompt_path=str(prompt_path),
+        working_dir=str(REPO_ROOT),
+        output_dir=str(output_dir),
+    )
+
+    report_path = REPO_ROOT / "docs/cycle_reports" / f"CYCLE_{report_cycle:03d}_SMOKE_REPORT.md"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    output_text = (result.stdout_tail or "") + "\n" + (result.stderr_tail or "")
+    report_body = [
+        f"# Cycle {report_cycle:03d} Cursor Docs Smoke Report",
+        "",
+        f"- Status: {result.status}",
+        f"- Exit code: {result.exit_code}",
+        f"- Prompt: `{prompt_path}`",
+        f"- Output dir: `{output_dir}`",
+        "",
+        "## Output Tail",
+        "```",
+        output_text.strip() or "(no output captured)",
+        "```",
+    ]
+    report_path.write_text("\n".join(report_body) + "\n", encoding="utf-8")
+    click.secho(f"Smoke report written: {report_path}", fg="green")
+
+    if "AGENT_COMPLETE" in output_text:
+        click.secho("CURSOR DOCS SMOKE PASS", fg="green", bold=True)
+        return
+
+    click.secho("CURSOR DOCS SMOKE FAIL — AGENT_COMPLETE not found in output", fg="red", bold=True)
+    sys.exit(1)
 
 
 @cli.command("recover")
@@ -919,13 +977,15 @@ def cmd_status_tick() -> None:
 
 
 @cli.command("pm-pack-audit")
-def cmd_pm_pack_audit() -> None:
+@click.option("--check-only", is_flag=True, default=False, help="Run audit without side effects.")
+def cmd_pm_pack_audit(check_only: bool) -> None:
     """PM_Pack consistency audit — validates semantic agreement across all state files.
 
     Checks: HYDRATION_HEADER vs controller_state vs current_status vs policy_snapshot.
     Required by V6-PM-013. Must PASS before plan-cycle --live is allowed.
     """
     from automation.pm_pack_consistency_audit import run_audit
+    _ = check_only
     result = run_audit()
     click.echo(result.summary())
     if result.sources:

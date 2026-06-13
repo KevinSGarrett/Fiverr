@@ -26,13 +26,16 @@ def compile_policy(repo_root: Path) -> dict[str, Any]:
 
     # --- Hydration: detect cycle, wave, scores ---
     hydration = _read(repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md")
+    controller_state = _load_json(Path("C:/AI_Runner/state/controller_state.json"))
 
     # Use exact key=value matches first (CYCLE_CURRENT: 075),
     # NOT loose pattern which would match filenames like data/cycle037_live.db
     snapshot["cycle_current"] = (
         _extract_int(hydration, r"^CYCLE_CURRENT:\s*0*(\d+)", from_line_start=True)
         or _extract_int(hydration, r"^CYCLE_NEXT:\s*0*(\d+)", from_line_start=True)
+        or _extract_int(hydration, r"^(?:-\s*)?Active cycle:\s*0*(\d+)", from_line_start=True)
         or _extract_int(hydration, r"NEXT CYCLE \(C0*(\d+)\)")
+        or int(controller_state.get("active_cycle", 0) or 0)
     )
     snapshot["active_wave"] = (
         _extract_int(hydration, r"^WAVE_CURRENT:\s*(\d+)", from_line_start=True)
@@ -125,3 +128,12 @@ def _extract_float(text: str, pattern: str) -> float | None:
 def _extract_str(text: str, pattern: str) -> str | None:
     m = re.search(pattern, text)
     return m.group(1) if m else None
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        return {}
