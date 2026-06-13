@@ -17,7 +17,7 @@ from typing import Any
 
 import yaml
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).resolve().parents[1]
 PM_PACK   = REPO_ROOT / "PM_Pack"
 
 # Minimum tasks per AGENT_TASK_FLOOR_ENFORCEMENT.md (2026-06-09 hard rule)
