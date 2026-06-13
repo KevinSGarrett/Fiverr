@@ -18,9 +18,9 @@
 
 - Automation package coverage remains significantly below required threshold.
 - Combined suite currently reports:
-  - `1 failed, 5488 passed, 12 skipped`
-  - failure in `tests/unit/test_cursor_adapter.py::TestBuildCommand::test_includes_p_flag` at capture time.
-- The failing cursor adapter test has since been corrected locally, but final 90% combined gate has not been re-achieved.
+  - `5489 passed, 12 skipped, 2 warnings`
+  - no test failures in latest combined run.
+- Blocking condition remains pure coverage deficit (84.80% < 90%).
 
 ## Critical Module Focus (requested modules)
 
