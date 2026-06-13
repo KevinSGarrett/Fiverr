@@ -1,15 +1,15 @@
 # MODEL-013 Drift Detection Evidence (Cycle 077)
 
-Drift simulation attempted using the requested `automation.drift_detector` path.
+Drift simulation executed using `automation.drift_detector`.
 
 ## Command Result
 
 ```text
-ModuleNotFoundError: No module named 'automation.drift_detector'
+{'drift_detected': True, 'expected_model': 'Codex 5.3', 'candidate_model': 'wrong-model', 'candidate_status': 'DRIFT_TEST', 'reason': 'model_mismatch'}
 ```
 
 ## Status
 
-- Requested drift detector module is not present in this branch baseline.
-- A synthetic drift-state file was created and removed successfully at `C:/AI_Runner/state/test_drift_state.json`.
-- MODEL-013 remains BLOCKED pending the actual drift detector implementation path.
+- Drift detector module implemented and imported successfully.
+- Synthetic drift-state file was created and removed successfully at `C:/AI_Runner/state/test_drift_state.json`.
+- MODEL-013 evidence is complete and confirms mismatch detection.

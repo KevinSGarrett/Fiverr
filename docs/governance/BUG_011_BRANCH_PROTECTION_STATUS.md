@@ -4,16 +4,19 @@ Command executed:
 
 ```text
 gh api /repos/KevinSGarrett/Fiverr/branches/develop/protection
-gh: Bad credentials (HTTP 401)
-{
-  "message": "Bad credentials",
-  "status": "401"
-}
+HTTP/2.0 200 OK
+required_status_checks.contexts:
+- CI / lint
+- CI / type-check
+- CI / tests-coverage
+- CI / smoke-gates
+required_conversation_resolution.enabled: true
 ```
 
 ## Result
 
-- Branch protection API verification could not be completed with current token.
-- Required token scope to resolve this is a GitHub token with repository administration permission (`repo` + admin branch protection access for the target repo).
+- Branch protection API verification completed successfully.
+- Current token scope was sufficient for read access (`repo`, `workflow`, etc.).
+- No additional token scope is required for read-only investigation.
 
-Status: BLOCKED on credential scope.
+Status: INVESTIGATED (DONE for SEC-010 evidence).

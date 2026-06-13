@@ -9,6 +9,13 @@
 
 - Board inventory call succeeded and returned active issue listings.
 - No non-Done issues matched explicit "Cycle 076" summary filter.
+- Direct key lookups:
+  - `SCRUM-1036` => 200 (`Done`)
+  - `SCRUM-1037` => 200 (`In Progress`)
+  - `GJCI-029` => 404
+  - `GJCI-030` => 404
+  - `BUG-001` => 404
+  - `BUG-010` => 404
 
 ## Requested Comment Operations
 

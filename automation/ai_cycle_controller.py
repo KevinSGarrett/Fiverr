@@ -667,7 +667,7 @@ def cmd_weekly_report() -> None:
 @click.option("--cycle", required=True, type=int, help="Cycle number.")
 @click.option("--pr", default=None, type=int, help="PR number (if known).")
 @click.option("--mode", default="POST_CYCLE_PM_REVIEW",
-              type=click.Choice(["POST_CYCLE_PM_REVIEW", "POST_AGENT_CYCLE_REVIEW"]),
+              type=click.Choice(["POST_CYCLE_PM_REVIEW", "POST_AGENT_CYCLE_REVIEW", "advisory"]),
               help="Review mode.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Collect facts only, do not write artifacts.")
@@ -679,17 +679,28 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) 
 
     from automation.post_cycle_review import ReviewMode, ReviewResult, collect_facts, run_review
 
-    rev_mode = ReviewMode.POST_MERGE if mode == "POST_CYCLE_PM_REVIEW" else ReviewMode.POST_AGENT
+    normalized_mode = "POST_CYCLE_PM_REVIEW" if mode == "advisory" else mode
+    rev_mode = ReviewMode.POST_MERGE if normalized_mode == "POST_CYCLE_PM_REVIEW" else ReviewMode.POST_AGENT
 
     if dry_run:
         click.echo("  Collecting facts (dry-run, no artifacts written)...")
         facts = collect_facts(cycle, rev_mode, pr)
+        claude_state = {}
+        claude_state_path = Path("C:/AI_Runner/state/claude_model_state.json")
+        if claude_state_path.exists():
+            try:
+                claude_state = json.loads(claude_state_path.read_text(encoding="utf-8"))
+            except Exception:
+                claude_state = {}
         click.echo(f"  PR merged        : {facts.pr_merged}")
         click.echo(f"  CI passed        : {facts.ci_passed}")
         click.echo(f"  Codecov project  : {facts.codecov_project}")
         click.echo(f"  Baseline DB ok   : {facts.baseline_db_mtime_unchanged}")
         click.echo(f"  ScrapFly off     : {facts.scrapfly_enabled_false}")
         click.echo(f"  Agent reports    : {facts.agent_reports_present}")
+        click.echo(
+            f"  Claude model status : {claude_state.get('status', 'UNKNOWN')}"
+        )
         click.secho("DRY RUN COMPLETE", fg="cyan")
         return
 

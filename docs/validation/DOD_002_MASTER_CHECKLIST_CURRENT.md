@@ -5,8 +5,8 @@
 - Checklist status: current for this cycle stage
 
 Additional checks:
-- BRAIN_REGISTRY entries: 43 (target >= 44 not yet met)
-- Runbooks present: 2 markdown files in `docs/runbooks` (target 15 not yet met)
-- Runbook >=200-word check: `FIVERR_AUTHENTICATION.md` and `SLACK_WEBHOOK_SETUP.md` both pass.
+- BRAIN_REGISTRY entries: 44 (target >= 44 met)
+- Runbooks present: 15 markdown files in `docs/runbooks` (target 15 met)
+- Runbook >=200-word check: all 15 runbooks pass.
 
-Result: checklist updated; upstream content requirements remain partially unmet in this branch baseline.
+Result: checklist updated and target content thresholds verified.

@@ -3,7 +3,8 @@
 ## Branch
 
 - `cycle/077/integration` created from `origin/develop`.
-- PR #88 merge state could not be fetched due GitHub auth failure (`gh` returned HTTP 401 Bad credentials), so this branch is confirmed from current `develop` head instead of a verified merged PR #88 state.
+- `gh pr view 88 --json state,mergedAt` => `state=OPEN`, `mergedAt=null`.
+- PR #88 admin merge remains pending.
 
 ## Stage 1 (OPS-030)
 
@@ -36,8 +37,8 @@
 
 ## OPS-022/023
 
-- Daily report run: EXECUTED (content coverage partial)
-- Weekly report run: EXECUTED (content coverage partial)
+- Daily report run: DONE (includes cycle status, model verification age, score summary, open blockers)
+- Weekly report run: DONE (includes interruption count, repair count, cycles completed, drift incidents)
 - Evidence: `docs/validation/OPS_022_023_REPORT_RUN_EVIDENCE.md`
 
 ## OPS-004/008/009
@@ -53,19 +54,19 @@
 
 ## Model/DoD Items
 
-- MODEL-013 drift simulation: BLOCKED (module `automation.drift_detector` not found)
+- MODEL-013 drift simulation: DONE (drift mismatch detected via `automation.drift_detector`)
 - MODEL-008 Claude verification dry run: evidence captured
 - DOD-004 model gate: PASS evidence captured
 - DOD-011 Jira sync: partial (auth works, requested issue keys unresolved/404)
 
 ## SEC-010 / BUG-011
 
-- Branch protection API check attempted; blocked by GitHub credential scope (HTTP 401).
+- Branch protection API check completed with HTTP 200 and required checks retrieved.
 - Evidence: `docs/governance/BUG_011_BRANCH_PROTECTION_STATUS.md`
 
 ## Jira
 
-- Transition count to Done: 0 (no deterministically mappable Cycle 076 non-Done set found; requested GJCI keys returned 404).
+- Transition count to Done: 0 (required target keys for requested transition/comment steps are not present in current Jira project space; `GJCI-*` and `BUG-*` keys return 404).
 
 ## Validation Summary
 
@@ -78,6 +79,6 @@
 ## Hard-Fact Integrity Checks
 
 - `data/cycle037_live.db` mtime observed in repository root is `1780553758` (not `1780553759` as stated in prompt baseline).
-- GitHub CLI auth remains unavailable (`HTTP 401`) for `gh pr view` and `gh run list`, so PR/CI API confirmations are blocked to CLI credentials.
+- Latest CI workflow check (`gh run list --workflow=ci.yml --limit 5`) returns most recent runs as `failure` on `cycle/077/integration`.
 
 AGENT_COMPLETE

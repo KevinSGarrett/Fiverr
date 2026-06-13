@@ -2,7 +2,7 @@
 
 Command:
 
-`python automation/ai_cycle_controller.py post-cycle-review --cycle 076 --mode POST_CYCLE_PM_REVIEW --dry-run`
+`python automation/ai_cycle_controller.py post-cycle-review --cycle 076 --mode advisory --dry-run`
 
 Output captured in:
 
@@ -11,9 +11,10 @@ Output captured in:
 ## Key Output
 
 ```text
-POST-CYCLE REVIEW -- Cycle 076 [POST_CYCLE_PM_REVIEW]
+POST-CYCLE REVIEW -- Cycle 076 [advisory]
   Collecting facts (dry-run, no artifacts written)...
   Agent reports    : {'A': True, 'B': True, 'E': True, 'C': True, 'F': True, 'D': True}
+  Claude model status : SUBSCRIPTION_VERIFIED
 DRY RUN COMPLETE
 ```
 
