@@ -1,6 +1,8 @@
-"""Expanded coverage tests for ai_cycle_controller command flows."""
+﻿"""Expanded coverage tests for ai_cycle_controller command flows."""
 
 from __future__ import annotations
+
+import subprocess
 
 import json
 from pathlib import Path
@@ -70,7 +72,7 @@ def test_compile_policy_and_status(monkeypatch, tmp_path: Path) -> None:
         json.dumps({"cycle_current": 77, "active_wave": "W11"}), encoding="utf-8"
     )
     monkeypatch.setattr(
-        ctrl.subprocess,
+        subprocess,
         "run",
         lambda *a, **k: SimpleNamespace(stdout="Running\n"),
     )
@@ -189,7 +191,7 @@ def test_cursor_smoke_recover_status_tick_and_pm_audit(monkeypatch, tmp_path: Pa
 
     monkeypatch.setitem(__import__("sys").modules, "automation.freeze_gate", SimpleNamespace(is_frozen=lambda *_: False))
     monkeypatch.setattr(
-        ctrl.subprocess,
+        subprocess,
         "run",
         lambda *a, **k: SimpleNamespace(stdout="", returncode=0),
     )
@@ -211,3 +213,4 @@ def test_cursor_smoke_recover_status_tick_and_pm_audit(monkeypatch, tmp_path: Pa
     audit = runner.invoke(ctrl.cli, ["pm-pack-audit"])
     assert audit.exit_code == 0
     assert "PM_PACK_AUDIT PASS" in audit.output
+
