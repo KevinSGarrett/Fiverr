@@ -1,5 +1,5 @@
 """
-report_generator.py — Daily and weekly autonomy reports (OPS-022, OPS-023).
+report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
 """
 from __future__ import annotations
 
@@ -47,6 +47,18 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     )
     open_blockers = _extract_open_blockers(blockers_text)
 
+    valid_until_raw = ms.get("valid_until", "")
+    days_until_expiry = None
+    if valid_until_raw:
+        try:
+            valid_until = datetime.fromisoformat(str(valid_until_raw).replace("Z", "+00:00"))
+            days_until_expiry = (valid_until - now).days
+        except Exception:
+            days_until_expiry = None
+    model_header = "## Model Status"
+    if days_until_expiry is not None and days_until_expiry <= 2:
+        model_header = "## Model Status WARNING"
+
     lines = [
         "# Daily Autonomous Runner Report",
         f"Generated: {now.isoformat()}",
@@ -70,6 +82,9 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         "",
         "## Model Selection",
         f"- Cursor model  : {ms.get('observed_model', 'N/A')} [{ms.get('status', 'N/A')}]",
+        f"- Effort        : {ms.get('effort', 'N/A')}",
+        f"- Verified at   : {ms.get('verified_at', 'N/A')}",
+        f"- Days to expiry: {days_until_expiry if days_until_expiry is not None else 'N/A'}",
         f"- Claude billing: {cls.get('billing_mode', 'N/A')} [{cls.get('status', 'N/A')}]",
         f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT — REVIEW REQUIRED'}",
         f"- Cursor verification age : {cursor_age}",
@@ -99,7 +114,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
 
 def generate_weekly_report() -> Path:
     """
-    OPS-023: Weekly autonomy review — cycles, PRs, repairs, interruptions,
+    OPS-023: Weekly autonomy review â€” cycles, PRs, repairs, interruptions,
     false stops, unsafe attempts, model drift, post-cycle failures.
     """
     now = datetime.now(UTC)

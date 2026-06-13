@@ -1,5 +1,5 @@
 """
-scorecard_calculator.py — Calculate two-score model after each cycle.
+scorecard_calculator.py â€” Calculate two-score model after each cycle.
 Score 1: Internal Engineering Build Progress
 Score 2: E2E Production-Grade Readiness (always <= Score 1)
 """
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 PM_PACK = REPO_ROOT / "PM_Pack"
 
 
@@ -56,7 +56,7 @@ def load_current_scores() -> tuple[float, float]:
 
     m1 = re.search(r"^INTERNAL_BUILD_PROGRESS:\s*~?(\d+(?:\.\d+)?)%",
                    text, re.MULTILINE)
-    # Handle range format: ~48-50% — take midpoint
+    # Handle range format: ~48-50% â€” take midpoint
     m2 = re.search(r"^END_TO_END_PRODUCTION_READINESS:\s*~?(\d+(?:\.\d+)?)(?:-(\d+(?:\.\d+)?))?%",
                    text, re.MULTILINE)
     s1 = float(m1.group(1)) if m1 else 0.0

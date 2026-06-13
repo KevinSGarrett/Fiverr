@@ -32,11 +32,11 @@ Jira access: You are allowed to use the connected Jira board when this prompt ex
    - If a target is missing, state whether this cycle's Jira-scoped tasks must create it.
    - If creation is out of scope, use the nearest existing suite (for example `tests/unit/test_analysis.py` and `tests/unit/test_orchestrator.py`) instead of running guaranteed-fail commands.
 1. Default validation for current analysis/orchestration work:
-   - ruff check src/analysis src/llm src/reports src/utils src/orchestrator.py --output-format=text
+   - ruff check src/analysis src/llm src/reports src/utils src/orchestrator.py --output-format=full
    - mypy src/analysis src/llm src/reports src/utils src/orchestrator.py --ignore-missing-imports
    - pytest tests/unit/test_analysis.py tests/unit/test_llm.py tests/unit/test_reports.py tests/unit/test_orchestrator.py -v
 2. Conditional scoring validation (run only if scoring/pricing/discovery modules exist already or are created by this cycle):
-   - ruff check src/scoring src/pricing src/discovery --output-format=text
+   - ruff check src/scoring src/pricing src/discovery --output-format=full
    - mypy src/scoring src/pricing src/discovery --ignore-missing-imports
    - pytest tests/unit/test_scoring.py tests/unit/test_pricing.py tests/unit/test_discovery.py -v
 

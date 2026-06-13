@@ -1,0 +1,45 @@
+{
+  "cycle": 75,
+  "verified_at": "2026-06-12T01:03:23.862550+00:00",
+  "branch": "cycle/075/integration",
+  "pr_exists": false,
+  "pr_number": null,
+  "pr_merged": false,
+  "ci_checks": [
+    {
+      "conclusion": "success",
+      "name": "Runner smoke",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "AI Cycle Controller",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "Runner smoke",
+      "status": "completed"
+    },
+    {
+      "conclusion": "cancelled",
+      "name": "Runner smoke",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Secret Scan",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "Dependency Audit",
+      "status": "completed"
+    }
+  ],
+  "codecov_project": "MISSING",
+  "codecov_patch": "MISSING",
+  "codex_threads": [],
+  "merge_ready": false,
+  "notes": "Cycle 075 in progress. No PR exists yet. Latest commit check-runs now include one successful Runner smoke run, plus earlier failed/cancelled runner-smoke attempts, failed AI Cycle Controller, and passing Secret Scan/Dependency Audit."
+}

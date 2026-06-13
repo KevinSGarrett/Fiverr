@@ -148,7 +148,7 @@ def export_playbook_pdf(playbook: dict[str, Any], output_path: str) -> None:
     """Render playbook HTML template and write PDF via WeasyPrint."""
     try:
         from jinja2 import Environment, FileSystemLoader
-        from weasyprint import HTML  # type: ignore[import-untyped]
+        from weasyprint import HTML
     except (ImportError, OSError) as exc:  # pragma: no cover - environment dependent
         raise ImportError(
             "PDF export requires WeasyPrint + Jinja2. Install with: pip install weasyprint jinja2"

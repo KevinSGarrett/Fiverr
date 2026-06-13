@@ -113,3 +113,6 @@ consistency_check_fields:
   - active_branch
   - autonomy_status
   - post_cycle_review_status
+
+registered_doc_paths:
+  - docs/architecture/   # Contains 13 ADR files (ADR-001..ADR-013)

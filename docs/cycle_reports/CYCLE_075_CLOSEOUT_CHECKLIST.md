@@ -1,0 +1,22 @@
+# CYCLE_075_CLOSEOUT_CHECKLIST
+
+- [x] 01. All prerequisite agent reports A/B/E/C/F include AGENT_COMPLETE
+- [x] 02. Branch confirmed as cycle/075/integration
+- [x] 03. Cycle summary generated with required seven sections
+- [x] 04. Jira planning comment bodies prepared
+- [x] 05. Jira evidence comment bodies prepared
+- [x] 06. In Review transition plan documented
+- [x] 07. Done transitions explicitly deferred with rationale
+- [x] 08. PR body prepared and stored
+- [x] 09. PR body validation rule checklist completed
+- [x] 10. Merge gate dry-run output captured
+- [x] 11. Post-cycle GitHub bundle JSON generated
+- [x] 12. Post-cycle Jira bundle JSON generated
+- [x] 13. SEC-007 secret check executed on Jira/PR bodies
+- [x] 14. CLAUDE-SUB-007 verification written
+- [x] 15. JIRA sync summary finalized
+- [x] 16. GitHub PR summary finalized
+- [x] 17. Runbooks verification table completed
+- [x] 18. ADR verification table completed
+- [x] 19. Final pm-pack-audit output captured
+- [x] 20. Final brain-check output captured

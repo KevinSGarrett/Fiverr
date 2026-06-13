@@ -40,6 +40,7 @@ data/**/*.sqlite3
 data/**/*.log
 data/live_pilot_*.db
 data/live_pilot_log.jsonl
+# Live validation evidence (updated at runtime, not committed)
 data/live_validation_evidence.json
 data/evidence/*
 !data/evidence/.gitkeep

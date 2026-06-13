@@ -1,4 +1,4 @@
-﻿"""
+"""
 ai_cycle_controller.py — Main CLI entrypoint for the Autonomous Development Runner.
 
 Usage:
@@ -32,6 +32,7 @@ from automation.policy_compiler import compile_policy  # noqa: E402
 
 REPO_ROOT = _repo_root
 RUNNER_STATE = Path("C:/AI_Runner/state/controller_state.json")
+RUNNER_ROOT = Path("C:/AI_Runner")
 
 
 def _now() -> str:
@@ -292,6 +293,25 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         })
         return
 
+    # ── LIVE: preflight drift check ───────────────────────────────────
+    if live:
+        from automation.drift_detector import DriftDetector
+
+        drift_report = DriftDetector().detect(REPO_ROOT, RUNNER_ROOT)
+        blocking_drifts = [d for d in drift_report.drifts if d.severity == "BLOCKING"]
+        if blocking_drifts:
+            click.secho("BLOCKING drift detected — resolve before plan-cycle --live", fg="red")
+            for drift in blocking_drifts:
+                click.secho(f"  - {drift.drift_type}: {drift.description}", fg="red")
+            from automation.notification_router import notify_blocked
+
+            notify_blocked(
+                "Plan-cycle live blocked by drift",
+                incident_code="BLOCKING_DRIFT_DETECTED",
+                cycle=next_cycle,
+            )
+            sys.exit(1)
+
     # ── LIVE: Generate real prompts from PM_Pack + Jira ──────────────
     click.echo("  Fetching Jira board inventory...")
     from automation.jira_client import board_inventory
@@ -383,105 +403,118 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     click.echo(f"RUN AGENT {agent} — Cycle {cycle:03d} {'[DRY RUN]' if dry_run else ''}")
     click.echo("=" * 60)
 
+    from automation.lock_manager import LockManager
     from automation.model_gate import check as model_gate_check
     from automation.state_writer import make_run_dir, write_controller_state, write_heartbeat
 
-    # --- MODEL_GATE ---
-    click.echo("  [1/5] MODEL_GATE check...")
-    gate = model_gate_check(repo_root=REPO_ROOT, cycle=cycle, agent=agent)
-    click.echo(gate.summary())
-    if not gate.passed:
-        if safe_docs_only:
-            click.secho("  MODEL_GATE failed but --safe-docs-only set, continuing with warning.", fg="yellow")
-        else:
-            click.secho("  MODEL_GATE FAILED — aborting dispatch.", fg="red", bold=True)
-            write_controller_state("MODEL_BLOCKED", cycle=cycle)
+    lock_owner = f"agent-{agent}-cycle-{cycle}"
+    lock = LockManager()
+    acquired = lock.acquire("cycle_run", lock_owner)
+    if not acquired:
+        click.secho("Another cycle run has the lock", fg="red")
+        sys.exit(1)
+    try:
+        # --- MODEL_GATE ---
+        click.echo("  [1/5] MODEL_GATE check...")
+        gate = model_gate_check(repo_root=REPO_ROOT, cycle=cycle, agent=agent)
+        click.echo(gate.summary())
+        if not gate.passed:
+            if safe_docs_only:
+                click.secho("  MODEL_GATE failed but --safe-docs-only set, continuing with warning.", fg="yellow")
+            else:
+                click.secho("  MODEL_GATE FAILED — aborting dispatch.", fg="red", bold=True)
+                write_controller_state("MODEL_BLOCKED", cycle=cycle)
+                from automation.notification_router import notify_blocked
+
+                notify_blocked("MODEL_GATE failure during run-agent", incident_code="MODEL_BLOCKED", cycle=cycle)
+                sys.exit(1)
+
+        write_heartbeat("MODEL_GATE_PASSED", cycle=cycle, agent=agent)
+        write_controller_state("AGENT_DISPATCH", cycle=cycle)
+
+        # --- Locate prompt ---
+        click.echo("  [2/5] Locating prompt...")
+        prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+        prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
+        if not prompt_path.exists():
+            click.secho(f"  Prompt not found: {prompt_path}", fg="red")
             sys.exit(1)
+        click.echo(f"  Prompt: {prompt_path}")
 
-    write_heartbeat("MODEL_GATE_PASSED", cycle=cycle, agent=agent)
-    write_controller_state("AGENT_DISPATCH", cycle=cycle)
+        # --- Validate prompt ---
+        click.echo("  [3/5] Validating prompt...")
+        from automation.prompt_validator import validate as validate_prompt
 
-    # --- Locate prompt ---
-    click.echo("  [2/5] Locating prompt...")
-    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
-    prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
-    if not prompt_path.exists():
-        click.secho(f"  Prompt not found: {prompt_path}", fg="red")
-        sys.exit(1)
-    click.echo(f"  Prompt: {prompt_path}")
+        pv = validate_prompt(prompt_path, agent, cycle)
+        if not pv.passed and not safe_docs_only:
+            click.secho(pv.summary(), fg="red")
+            sys.exit(1)
+        elif not pv.passed:
+            click.secho("  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
+            click.echo(pv.summary())
+        else:
+            click.secho("  Prompt validation PASS", fg="green")
 
-    # --- Validate prompt ---
-    click.echo("  [3/5] Validating prompt...")
-    from automation.prompt_validator import validate as validate_prompt
-    pv = validate_prompt(prompt_path, agent, cycle)
-    if not pv.passed and not safe_docs_only:
-        click.secho(pv.summary(), fg="red")
-        sys.exit(1)
-    elif not pv.passed:
-        click.secho("  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
-        click.echo(pv.summary())
-    else:
-        click.secho("  Prompt validation PASS", fg="green")
+        if dry_run:
+            click.echo()
+            click.secho(f"  DRY RUN: Would dispatch Cursor with: {prompt_path}", fg="cyan")
+            click.secho(f"  DRY RUN: Working dir: {REPO_ROOT}", fg="cyan")
+            click.secho("RUN AGENT DRY RUN COMPLETE", fg="green", bold=True)
+            return
 
-    if dry_run:
-        click.echo()
-        click.secho(f"  DRY RUN: Would dispatch Cursor with: {prompt_path}", fg="cyan")
-        click.secho(f"  DRY RUN: Working dir: {REPO_ROOT}", fg="cyan")
-        click.secho("RUN AGENT DRY RUN COMPLETE", fg="green", bold=True)
-        return
+        # --- Dispatch Cursor ---
+        run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+        run_dir = make_run_dir(cycle, run_id)
+        agent_dir = run_dir / "agent_runs" / agent
 
-    # --- Dispatch Cursor ---
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
-    run_dir = make_run_dir(cycle, run_id)
-    agent_dir = run_dir / "agent_runs" / agent
+        click.echo(f"  [4/5] Dispatching Cursor agent {agent}...")
+        write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
 
-    click.echo(f"  [4/5] Dispatching Cursor agent {agent}...")
-    write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
+        from automation.cursor_adapter import run_agent as cursor_run
 
-    from automation.cursor_adapter import run_agent as cursor_run
-    result = cursor_run(
-        agent_id=agent,
-        prompt_path=str(prompt_path),
-        working_dir=str(REPO_ROOT),
-        output_dir=str(agent_dir),
-    )
+        result = cursor_run(
+            agent_id=agent,
+            prompt_path=str(prompt_path),
+            working_dir=str(REPO_ROOT),
+            output_dir=str(agent_dir),
+        )
 
-    click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code}")
-    if result.stdout_tail:
-        click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
-    if result.error_message:
-        click.secho(f"  Error: {result.error_message}", fg="red")
+        click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code}")
+        if result.stdout_tail:
+            click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
+        if result.error_message:
+            click.secho(f"  Error: {result.error_message}", fg="red")
 
-    # --- Post-agent lifecycle (FINDING-009 fix) ---
-    # Ownership check, secret guard, report required, full validation, commit, Jira, record
-    click.echo("  [5/5] Running post-agent lifecycle...")
-    from automation.run_agent_lifecycle import run_post_agent_lifecycle
-    lifecycle = run_post_agent_lifecycle(
-        agent_id=agent,
-        cycle=cycle,
-        run_id=run_id,
-        run_dir=run_dir,
-        jira_keys=[],
-    )
+        # --- Post-agent lifecycle (FINDING-009 fix) ---
+        click.echo("  [5/5] Running post-agent lifecycle...")
+        from automation.run_agent_lifecycle import run_post_agent_lifecycle
 
-    write_heartbeat("AGENT_COMPLETE", cycle=cycle, agent=agent)
-    write_controller_state("AGENT_COMPLETE", cycle=cycle)
+        lifecycle = run_post_agent_lifecycle(
+            agent_id=agent,
+            cycle=cycle,
+            run_id=run_id,
+            run_dir=run_dir,
+            jira_keys=[],
+        )
 
-    click.echo(f"  Lifecycle: {lifecycle.status}")
-    for err in lifecycle.errors:
-        click.secho(f"  ERROR: {err}", fg="red")
+        write_heartbeat("AGENT_COMPLETE", cycle=cycle, agent=agent)
+        write_controller_state("AGENT_COMPLETE", cycle=cycle)
 
-    if lifecycle.status == "COMPLETE":
-        sha_info = f" commit={lifecycle.commit_sha}" if lifecycle.commit_sha else ""
-        click.secho(f"Agent {agent} COMPLETE{sha_info}", fg="green", bold=True)
-    elif lifecycle.status == "VALIDATION_FAILED":
-        click.secho(f"Agent {agent} validation failed â€” routing to repair loop", fg="yellow")
-        from automation.repair_loop import dispatch_repair
-        dispatch_repair(agent, cycle, run_dir, lifecycle.errors)
-        sys.exit(1)
-    else:
-        click.secho(f"Agent {agent} lifecycle: {lifecycle.status}", fg="red", bold=True)
-        sys.exit(1)
+        click.echo(f"  Lifecycle: {lifecycle.status}")
+        for err in lifecycle.errors:
+            click.secho(f"  ERROR: {err}", fg="red")
+
+        if lifecycle.status == "COMPLETE":
+            sha_info = f" commit={lifecycle.commit_sha}" if lifecycle.commit_sha else ""
+            click.secho(f"Agent {agent} COMPLETE{sha_info}", fg="green", bold=True)
+        elif lifecycle.status == "VALIDATION_FAILED":
+            click.secho("Agent validation failed — repair attempted in lifecycle", fg="yellow")
+            sys.exit(1)
+        else:
+            click.secho(f"Agent {agent} lifecycle: {lifecycle.status}", fg="red", bold=True)
+            sys.exit(1)
+    finally:
+        lock.release("cycle_run", lock_owner)
 
 
 @cli.command("cursor-smoke")
@@ -707,16 +740,17 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) 
     result = run_review(cycle=cycle, mode=rev_mode, pr_number=pr)
     click.echo(result.summary())
     click.echo()
-    for path in result.artifact_paths:
+    for path in getattr(result, "artifact_paths", []):
         click.echo(f"  Artifact: {path}")
 
-    if result.result == ReviewResult.PASS:
+    review_value = result.result.value if hasattr(result.result, "value") else str(result.result)
+    if review_value == ReviewResult.PASS.value:
         click.secho("POST-CYCLE REVIEW PASS -- next dispatch unlocked", fg="green", bold=True)
         from automation.state_writer import write_controller_state, write_heartbeat
         write_heartbeat("POST_CYCLE_PASS", cycle=cycle)
         write_controller_state("POST_CYCLE_PASS", cycle=cycle)
     else:
-        click.secho(f"POST-CYCLE REVIEW {result.result.value}", fg="yellow", bold=True)
+        click.secho(f"POST-CYCLE REVIEW {review_value}", fg="yellow", bold=True)
         if result.blocks_dispatch:
             click.secho("DISPATCH BLOCKED -- resolve errors before next cycle", fg="red")
             sys.exit(1)
@@ -819,6 +853,14 @@ def cmd_status_tick() -> None:
     # Check freeze
     from automation.freeze_gate import is_frozen
     frozen = is_frozen(REPO_ROOT)
+    from automation.drift_detector import DriftDetector
+
+    drift_report = DriftDetector().detect(REPO_ROOT, RUNNER_ROOT)
+    drift_summary = {
+        "passed": drift_report.passed,
+        "blocking_count": len([d for d in drift_report.drifts if d.severity == "BLOCKING"]),
+        "warning_count": len([d for d in drift_report.drifts if d.severity == "WARNING"]),
+    }
 
     # Check dirty repo
     import subprocess as _sp
@@ -829,7 +871,13 @@ def cmd_status_tick() -> None:
     repo_dirty = bool(git_status)
 
     # Determine next action
-    if frozen:
+    if drift_summary["blocking_count"] > 0:
+        next_action = "RESOLVE_DRIFT"
+        reason = "Blocking drift(s) detected"
+        from automation.notification_router import notify_critical
+
+        notify_critical("Blocking drift detected during status-tick", incident_code="MODEL_DRIFT_BLOCKING")
+    elif frozen:
         next_action = "BLOCKED_AUTONOMY_FROZEN"
         reason = "autonomy_freeze.yml has frozen: true"
     elif repo_dirty:
@@ -864,6 +912,7 @@ def cmd_status_tick() -> None:
         "next_action": next_action,
         "reason": reason,
         "source": "status-tick (read-only)",
+        "drift_report_summary": drift_summary,
     }
     decision_path = Path("C:/AI_Runner/state/next_action_decision.json")
     decision_path.parent.mkdir(parents=True, exist_ok=True)
@@ -900,6 +949,72 @@ def cmd_pm_pack_audit() -> None:
                     fg="red", bold=True)
         sys.exit(1)
     click.secho("PM_PACK_AUDIT PASS", fg="green", bold=True)
+
+
+@cli.command("cleanup")
+def cmd_cleanup() -> None:
+    """Cleanup stale lock and old logs; write cleanup report."""
+    from automation.lock_manager import LockManager
+
+    removed_lock = LockManager().cleanup_stale("cycle_run")
+    logs_pruned = 0
+    logs_dir = Path("C:/AI_Runner/logs")
+    cutoff = datetime.now(UTC).timestamp() - (30 * 24 * 3600)
+    for item in logs_dir.rglob("*"):
+        if not item.is_file():
+            continue
+        if "\\incidents\\" in str(item).replace("/", "\\"):
+            continue
+        if "QUARANTINE" in item.name:
+            continue
+        if item.stat().st_mtime < cutoff:
+            try:
+                item.unlink()
+                logs_pruned += 1
+            except Exception:
+                pass
+    payload = {
+        "timestamp": _now(),
+        "removed_stale_lock": removed_lock,
+        "logs_pruned": logs_pruned,
+    }
+    out = Path("C:/AI_Runner/logs/cleanup_latest.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    click.secho(f"Cleanup complete: {out}", fg="green")
+
+
+@cli.command("prompt-gen-test")
+def cmd_prompt_gen_test() -> None:
+    """Generate test prompts for cycle 999 and validate task counts."""
+    from automation.prompt_generator import write_prompts
+    from automation.prompt_validator import validate_all
+
+    fake_issues = [
+        {"key": f"SCRUM-{100+i}", "summary": f"Synthetic issue {i}", "status": "To Do", "labels": [], "issuetype": "Story"}
+        for i in range(20)
+    ]
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    written = write_prompts(
+        cycle=999,
+        branch="cycle/999/integration",
+        run_id=datetime.now(UTC).strftime("%Y%m%dT%H%M%S"),
+        agents=["A", "B", "E", "C", "F", "D"],
+        jira_issues=fake_issues,
+        prompts_dir=prompts_dir,
+    )
+    validations = validate_all(prompts_dir, 999, ["A", "B", "E", "C", "F", "D"])
+    failed = False
+    for agent, path in written.items():
+        text = path.read_text(encoding="utf-8", errors="replace")
+        count = text.count("### Task ")
+        click.echo(f"Agent {agent} task count: {count}")
+        if count < 55:
+            failed = True
+    if not all(v.passed for v in validations.values()):
+        failed = True
+    if failed:
+        sys.exit(1)
 
 
 

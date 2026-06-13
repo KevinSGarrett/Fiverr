@@ -1,11 +1,11 @@
 """
-prompt_generator.py — Real PM_Pack/Jira-derived Cursor agent prompt generator.
+prompt_generator.py â€” Real PM_Pack/Jira-derived Cursor agent prompt generator.
 V5 corrections (AUDIT-P0-008 / V5-004 / V5-007):
   - Loads agent roles from agent_lanes.yml (single authority)
   - Loads PROMPT_TEMPLATE.md structure from PM_Pack
   - Generates 55+ LARGE/XLARGE/XXLARGE tasks per agent (AGENT_TASK_FLOOR_ENFORCEMENT)
   - NEVER tells agents to git commit, git push, git add, or skip tests
-  - Controller owns all git operations — agents edit files and write reports only
+  - Controller owns all git operations â€” agents edit files and write reports only
   - plan-cycle --live fails with PLANNING_INCOMPLETE if insufficient Jira data
 """
 from __future__ import annotations
@@ -38,7 +38,7 @@ MIN_ISSUES_NEEDED = {a: max(1, TASK_FLOOR // t + 1) for a, t in TASKS_PER_ISSUE.
 
 
 def _load_agent_lanes() -> dict[str, Any]:
-    """Load agent_lanes.yml — single source of truth for agent roles."""
+    """Load agent_lanes.yml â€” single source of truth for agent roles."""
     path = PM_PACK / "automation/agent_lanes.yml"
     if not path.exists():
         raise FileNotFoundError(f"agent_lanes.yml not found at {path}")
@@ -86,7 +86,7 @@ def generate_prompt(
 
     lines: list[str] = []
 
-    # ── Header ────────────────────────────────────────────────────────
+    # â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         f"{'=' * 68}",
         f"AGENT {agent_id} -- CYCLE {cycle:03d} PROMPT",
@@ -94,36 +94,36 @@ def generate_prompt(
         "",
     ]
 
-    # ── PROJECT CONTEXT (from PROMPT_TEMPLATE) ────────────────────────
+    # â”€â”€ PROJECT CONTEXT (from PROMPT_TEMPLATE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## PROJECT CONTEXT",
         "",
         "- Project: Fiverr Research System",
         "- GitHub: https://github.com/KevinSGarrett/Fiverr",
-        "- Local: C:\\Fiverr\\Fiverr",
+        f"- Local: {str(REPO_ROOT)}",
         f"- Branch: `{branch}`",
         "- Python: 3.11+ | SQLAlchemy 2.0 | Pydantic v2 | Playwright | OpenAI | Streamlit",
         f"- Cycle: {cycle:03d} | Run ID: {run_id}",
         "",
     ]
 
-    # ── MODEL POLICY (mandatory block) ───────────────────────────────
+    # â”€â”€ MODEL POLICY (mandatory block) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
-        "## MODEL POLICY (MANDATORY — do not override)",
+        "## MODEL POLICY (MANDATORY â€” do not override)",
         "",
         f"- **Model:** {model}",
         f"- **Effort:** {effort}",
-        f"- **Auto model selection:** DISABLED — use only {model}",
+        f"- **Auto model selection:** DISABLED â€” use only {model}",
         "- **Fallback model:** DISABLED",
         "- **Billing:** Claude subscription only for PM review; no API key",
         "",
     ]
 
-    # ── YOUR ROLE (from agent_lanes.yml) ─────────────────────────────
+    # â”€â”€ YOUR ROLE (from agent_lanes.yml) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## YOUR ROLE",
         "",
-        f"**Agent {agent_id}** — {lane.get('description', 'See agent_lanes.yml')}",
+        f"**Agent {agent_id}** â€” {lane.get('description', 'See agent_lanes.yml')}",
         f"**Role type:** `{lane.get('role', 'unknown')}`",
         "",
         "**You own these file paths (you may create/modify only these):**",
@@ -145,7 +145,7 @@ def generate_prompt(
             "",
         ]
 
-    # ── GIT INSTRUCTIONS ──────────────────────────────────────────────
+    # â”€â”€ GIT INSTRUCTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## GIT INSTRUCTIONS",
         "",
@@ -155,14 +155,14 @@ def generate_prompt(
         f"   # Expected: {branch}",
         "   ```",
         f"2. Pull latest: `git pull origin {branch}`",
-        f"3. ALL work on `{branch}` only — do NOT create other branches",
+        f"3. ALL work on `{branch}` only â€” do NOT create other branches",
         "4. **DO NOT run git add, git commit, git push.** The controller owns all git operations.",
         "5. **DO NOT run gh pr commands.** The controller manages PRs.",
         "6. Complete your tasks, write your report, and exit.",
         "",
     ]
 
-    # ── AUTONOMY RULE ─────────────────────────────────────────────────
+    # â”€â”€ AUTONOMY RULE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## AUTONOMY RULE",
         "",
@@ -175,7 +175,7 @@ def generate_prompt(
         "",
     ]
 
-    # ── JIRA SCOPE ────────────────────────────────────────────────────
+    # â”€â”€ JIRA SCOPE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## JIRA SCOPE FOR THIS CYCLE",
         "",
@@ -198,7 +198,7 @@ def generate_prompt(
             "",
         ]
 
-    # ── TASKS ─────────────────────────────────────────────────────────
+    # â”€â”€ TASKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## TASKS FOR THIS CYCLE",
         "",
@@ -227,7 +227,7 @@ def generate_prompt(
     if agent_id == "A" and task_num > 1:
         lines = _inject_agent_a_floor_script(lines, cycle)
 
-    # ── VALIDATION STEPS ──────────────────────────────────────────────
+    # â”€â”€ VALIDATION STEPS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## VALIDATION STEPS",
         "",
@@ -235,12 +235,12 @@ def generate_prompt(
         "",
         "```bash",
         "# 1. Ruff lint",
-        "python -m ruff check src/ tests/ automation/ --output-format=text",
+        "python -m ruff check src/ tests/ automation/ --output-format=full",
         "",
         "# 2. Mypy type check",
         "python -m mypy src/ --ignore-missing-imports",
         "",
-        "# 3. Pytest — run tests relevant to your changed files",
+        "# 3. Pytest â€” run tests relevant to your changed files",
         "python -m pytest tests/ -q --no-header --tb=short -x",
         "",
         "# 4. Config check",
@@ -251,7 +251,7 @@ def generate_prompt(
         "",
     ]
 
-    # ── REPORT REQUIREMENTS ───────────────────────────────────────────
+    # â”€â”€ REPORT REQUIREMENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## FINAL REPORT REQUIREMENTS",
         "",
@@ -271,7 +271,7 @@ def generate_prompt(
         "",
     ]
 
-    # ── FILES SUMMARY ─────────────────────────────────────────────────
+    # â”€â”€ FILES SUMMARY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         "## FILES CREATED/MODIFIED THIS CYCLE (Summary)",
         "",
@@ -283,7 +283,7 @@ def generate_prompt(
         "",
     ]
 
-    # ── END OF PROMPT ─────────────────────────────────────────────────
+    # â”€â”€ END OF PROMPT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     lines += [
         f"{'=' * 68}",
         f"END OF PROMPT -- AGENT {agent_id} CYCLE {cycle:03d}",
@@ -369,6 +369,8 @@ def _generate_tasks_from_issue(
     summary = issue.get("summary", "")
     status  = issue.get("status", "To Do")
     priority = issue.get("priority", "Medium")
+    acceptance_criteria = issue.get("acceptance_criteria", "AC placeholder: define acceptance criteria in Jira.")
+    dod_text = issue.get("definition_of_done", "Definition of done should be confirmed in Jira.")
     owned_paths = lane.get("owns", [])
     primary_path = owned_paths[0].replace("/**", "").replace("/*", "") if owned_paths else "src/"
 
@@ -388,11 +390,12 @@ def _generate_tasks_from_issue(
         lines += [
             f"### Task {task_num}: {task_title}",
             "",
-            f"- **Jira:** {key} — {summary[:50]}",
+            f"- **Jira:** {key} â€” {summary[:50]}",
             f"- **Status:** {status} | **Priority:** {priority}",
             f"- **Epic:** See {key} parent epic in Jira board",
             f"- **Spec:** `ref/project_plan/` (see {key} description for referenced spec files)",
-            f"- **DOD:** See {key} acceptance criteria in Jira",
+            f"- **AC:** {acceptance_criteria}",
+            f"- **DoD:** {dod_text}",
             "",
             "**Files to Create/Modify:**",
         ]
@@ -1011,7 +1014,7 @@ def _infer_file_scope(
 def _inject_agent_a_floor_script(lines: list[str], cycle: int) -> list[str]:
     """Inject the mandatory floor verification script at Agent A Task 1."""
     script = f"""
-**MANDATORY FLOOR CHECK — Run at the start of your work (AGENT_TASK_FLOOR_ENFORCEMENT.md):**
+**MANDATORY FLOOR CHECK â€” Run at the start of your work (AGENT_TASK_FLOOR_ENFORCEMENT.md):**
 
 ```python
 # cycle_{cycle:03d}_floor_check.py
@@ -1086,7 +1089,7 @@ def write_prompts(
         # Write PLANNING_INCOMPLETE diagnostic (do not write final-named prompts to dispatch dir)
         diagnostic_path = prompts_dir / f"PLANNING_INCOMPLETE_CYCLE_{cycle:03d}.md"
         diagnostic_path.write_text(
-            f"# PLANNING INCOMPLETE — Cycle {cycle:03d}\n\n"
+            f"# PLANNING INCOMPLETE â€” Cycle {cycle:03d}\n\n"
             f"Generated: {datetime.now(UTC).isoformat()}\n\n"
             f"## Failures\n\n" +
             "\n".join(f"- {f}" for f in planning_failures) +

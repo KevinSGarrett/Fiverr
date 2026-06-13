@@ -1,0 +1,9 @@
+{
+  "cycle": 76,
+  "verified_at": "2026-06-12T16:07:16.427151+00:00",
+  "connectivity": "PASS",
+  "non_done_story_count": 10,
+  "jira_api_token_present": true,
+  "dry_run_output_path": "docs/cycle_reports/CYCLE_076_JIRA_CONNECTIVITY.txt",
+  "notes": "jira-inventory dry run returned board data; printed total count line appears inconsistent with listed issues."
+}

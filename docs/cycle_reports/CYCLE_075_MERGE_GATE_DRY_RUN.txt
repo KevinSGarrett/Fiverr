@@ -1,0 +1,20 @@
+============================================================
+MERGE GATE - PR #1 [DRY RUN]
+============================================================
+MERGE GATE FAIL — PR #1 -> unknown
+  [FAIL] pr_target_develop: target=unknown
+  [FAIL] pr_open: state=unknown
+  [PASS] no_main_branch: branch=unknown
+  [PASS] github_mergeable: mergeable=UNKNOWN
+  [FAIL] ci_lint: check=CI / lint
+  [FAIL] ci_smoke_gates: check=CI / smoke-gates
+  [FAIL] ci_tests_coverage: check=CI / tests-coverage
+  [FAIL] ci_type_check: check=CI / type-check
+  [FAIL] codecov_project: status=MISSING
+  [FAIL] codecov_patch: status=MISSING
+  [PASS] no_secret_artifacts: staged file scan
+  [PASS] model_evidence_cursor: cursor_status=VERIFIED
+  [PASS] codex_review_disposition: threads=0 blockers=0
+  [PASS] post_cycle_gate: controller_status=READY_TO_DISPATCH
+
+MERGE GATE FAIL - 8 blocking failures

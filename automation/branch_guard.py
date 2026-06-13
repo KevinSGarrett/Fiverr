@@ -1,5 +1,5 @@
 """
-branch_guard.py — Enforce branch operation safety rules before git operations.
+branch_guard.py â€” Enforce branch operation safety rules before git operations.
 Hard blocks force-push, direct main commits, and other destructive operations.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 PROTECTED_BRANCHES = {"main", "master", "develop"}
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).parent.parent
 
 
 class BranchGuardError(Exception):
