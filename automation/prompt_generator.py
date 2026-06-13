@@ -17,6 +17,8 @@ from typing import Any
 
 import yaml
 
+from automation.jira_spec_mapper import map_jira_to_project_plan
+
 REPO_ROOT = Path(__file__).parent.parent
 PM_PACK   = REPO_ROOT / "PM_Pack"
 
@@ -35,6 +37,10 @@ TASKS_PER_ISSUE = {
 
 # Minimum issues needed to reach 55 tasks
 MIN_ISSUES_NEEDED = {a: max(1, TASK_FLOOR // t + 1) for a, t in TASKS_PER_ISSUE.items()}
+
+
+class PlanningIncompleteError(RuntimeError):
+    """Raised when prompt generation lacks required planning inputs."""
 
 
 def _load_agent_lanes() -> dict[str, Any]:
@@ -370,7 +376,10 @@ def _generate_tasks_from_issue(
     status  = issue.get("status", "To Do")
     priority = issue.get("priority", "Medium")
     acceptance_criteria = issue.get("acceptance_criteria", "AC placeholder: define acceptance criteria in Jira.")
-    dod_text = issue.get("definition_of_done", "Definition of done should be confirmed in Jira.")
+    dod_text = issue.get("definition_of_done", "")
+    if not dod_text:
+        dod_ref = issue.get("dod_path", "")
+        dod_text = f"See DoD reference: {dod_ref}" if dod_ref else "Definition of done should be confirmed in Jira."
     owned_paths = lane.get("owns", [])
     primary_path = owned_paths[0].replace("/**", "").replace("/*", "") if owned_paths else "src/"
 
@@ -1062,13 +1071,33 @@ def write_prompts(
     prompts_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
     planning_failures: list[str] = []
+    mapped_issues: list[dict[str, Any]] = []
+
+    for issue in jira_issues:
+        issue_key = str(issue.get("key", "")).strip()
+        if not issue_key:
+            continue
+        mapping = map_jira_to_project_plan(issue_key, issue, None, None)
+        enriched_issue = dict(issue)
+        enriched_issue.update(mapping)
+        mapped_issues.append(enriched_issue)
+        has_ac = bool((mapping.get("acceptance_criteria") or "").strip())
+        has_dod = bool((mapping.get("definition_of_done") or "").strip())
+        has_dod_ref = bool((mapping.get("dod_path") or "").strip())
+        if not has_ac and not has_dod and not has_dod_ref:
+            planning_failures.append(
+                "PLANNING_INCOMPLETE "
+                f"{issue_key}: acceptance_criteria={mapping.get('acceptance_criteria')!r}, "
+                f"definition_of_done={mapping.get('definition_of_done')!r}, "
+                f"dod_path={mapping.get('dod_path')!r}"
+            )
 
     for agent_id in agents:
         prompt_text = generate_prompt(
             agent_id=agent_id,
             cycle=cycle,
             branch=branch,
-            jira_issues=jira_issues,
+            jira_issues=mapped_issues,
             run_id=run_id,
         )
 
@@ -1098,7 +1127,7 @@ def write_prompts(
             "Re-run plan-cycle --live after adding stories to Jira.\n",
             encoding="utf-8"
         )
-        raise RuntimeError(
+        raise PlanningIncompleteError(
             "PLANNING_INCOMPLETE: " + "; ".join(planning_failures) +
             f"\nDiagnostic written to {diagnostic_path}"
         )

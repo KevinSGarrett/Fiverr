@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from automation.jira_client import JiraClient
 
 
@@ -243,6 +244,8 @@ def test_board_inventory_maps_issue_fields() -> None:
                     "priority": {"name": "High"},
                     "labels": ["a"],
                     "issuetype": {"name": "Story"},
+                    "description": "Story description",
+                    "customfield_10016": "AC text",
                 },
             }
         ],
@@ -255,6 +258,9 @@ def test_board_inventory_maps_issue_fields() -> None:
         data = board_inventory("SCRUM")
     assert data["total"] == 1
     assert data["issues"][0]["key"] == "SCRUM-1"
+    assert data["issues"][0]["acceptance_criteria"] == "AC text"
+    assert data["issues"][0]["description"] == "Story description"
+    assert "definition_of_done" in data["issues"][0]
 
 
 def test_issue_helper_functions_make_expected_requests() -> None:
@@ -333,3 +339,182 @@ def test_jira_client_raises_clear_error_when_email_missing() -> None:
     with patch("automation.jira_client.get_secret", side_effect=_missing_email):
         with pytest.raises(ValueError, match="JIRA_EMAIL is missing"):
             JiraClient()
+
+
+def test_board_inventory_includes_description() -> None:
+    from automation.jira_client import board_inventory
+
+    payload = {
+        "total": 1,
+        "issues": [
+            {
+                "key": "SCRUM-2",
+                "fields": {
+                    "summary": "Summary",
+                    "status": {"name": "To Do"},
+                    "priority": {"name": "Medium"},
+                    "labels": [],
+                    "issuetype": {"name": "Task"},
+                    "description": {"type": "doc", "content": [{"type": "text", "text": "Desc"}]},
+                },
+            }
+        ],
+    }
+    with patch("automation.jira_client.requests.get") as req:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = payload
+        req.return_value = resp
+        data = board_inventory("SCRUM")
+    assert data["issues"][0]["description"] == "Desc"
+
+
+def test_board_inventory_includes_acceptance_criteria() -> None:
+    from automation.jira_client import board_inventory
+
+    payload = {
+        "total": 1,
+        "issues": [
+            {
+                "key": "SCRUM-3",
+                "fields": {
+                    "summary": "Summary",
+                    "status": {"name": "In Progress"},
+                    "priority": {"name": "High"},
+                    "labels": [],
+                    "issuetype": {"name": "Story"},
+                    "description": "Description fallback",
+                    "customfield_10016": "AC custom text",
+                },
+            }
+        ],
+    }
+    with patch("automation.jira_client.requests.get") as req:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = payload
+        req.return_value = resp
+        data = board_inventory("SCRUM")
+    assert data["issues"][0]["acceptance_criteria"] == "AC custom text"
+
+
+def test_board_inventory_includes_definition_of_done() -> None:
+    from automation.jira_client import board_inventory
+
+    with patch("automation.jira_client._resolve_ac_dod_fields", return_value=("customfield_10016", "customfield_10099")):
+        payload = {
+            "total": 1,
+            "issues": [
+                {
+                    "key": "SCRUM-4",
+                    "fields": {
+                        "summary": "Summary",
+                        "status": {"name": "In Progress"},
+                        "priority": {"name": "High"},
+                        "labels": [],
+                        "issuetype": {"name": "Story"},
+                        "description": "Description fallback",
+                        "customfield_10016": "AC custom text",
+                        "customfield_10099": "DoD custom text",
+                    },
+                }
+            ],
+        }
+        with patch("automation.jira_client.requests.get") as req:
+            resp = MagicMock()
+            resp.raise_for_status.return_value = None
+            resp.json.return_value = payload
+            req.return_value = resp
+            data = board_inventory("SCRUM")
+    assert data["issues"][0]["definition_of_done"] == "DoD custom text"
+
+
+def test_board_inventory_handles_missing_ac_gracefully() -> None:
+    from automation.jira_client import board_inventory
+
+    payload = {
+        "total": 1,
+        "issues": [
+            {
+                "key": "SCRUM-5",
+                "fields": {
+                    "summary": "Summary",
+                    "status": {"name": "In Progress"},
+                    "priority": {"name": "High"},
+                    "labels": [],
+                    "issuetype": {"name": "Story"},
+                    "description": "Description fallback",
+                },
+            }
+        ],
+    }
+    with patch("automation.jira_client.requests.get") as req:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = payload
+        req.return_value = resp
+        data = board_inventory("SCRUM")
+    assert data["issues"][0]["acceptance_criteria"] == "Description fallback"
+
+
+def test_hydrate_ac_dod_returns_all_three_fields() -> None:
+    client = JiraClient()
+    with patch("automation.jira_client._resolve_ac_dod_fields", return_value=("customfield_10016", "customfield_10099")), patch(
+        "automation.jira_client.requests.get"
+    ) as req:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = {
+            "fields": {
+                "description": "Desc",
+                "customfield_10016": "AC",
+                "customfield_10099": "DoD",
+            }
+        }
+        req.return_value = resp
+        data = client.hydrate_ac_dod("SCRUM-1")
+    assert data == {"description": "Desc", "acceptance_criteria": "AC", "definition_of_done": "DoD"}
+
+
+def test_hydrate_ac_dod_handles_missing_fields_with_empty_strings() -> None:
+    client = JiraClient()
+    with patch("automation.jira_client._resolve_ac_dod_fields", return_value=("customfield_10016", "customfield_10099")), patch(
+        "automation.jira_client.requests.get"
+    ) as req:
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = {"fields": {"description": ""}}
+        req.return_value = resp
+        data = client.hydrate_ac_dod("SCRUM-1")
+    assert data == {"description": "", "acceptance_criteria": "", "definition_of_done": ""}
+
+
+def test_board_inventory_handles_401_unauthorized() -> None:
+    from automation.jira_client import board_inventory
+
+    with patch("automation.jira_client.requests.get") as req:
+        resp = MagicMock()
+        error = requests.HTTPError("401 Client Error")
+        resp.raise_for_status.side_effect = error
+        req.return_value = resp
+        with pytest.raises(requests.HTTPError):
+            board_inventory("SCRUM")
+
+
+def test_board_inventory_handles_timeout() -> None:
+    from automation.jira_client import board_inventory
+
+    with patch("automation.jira_client.requests.get", side_effect=requests.Timeout("timeout")):
+        with pytest.raises(requests.Timeout):
+            board_inventory("SCRUM")
+
+
+def test_add_comment_handles_404_issue_not_found() -> None:
+    from automation.jira_client import add_comment
+
+    with patch("automation.jira_client.requests.post") as post_req:
+        resp = MagicMock()
+        resp.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        post_req.return_value = resp
+        with pytest.raises(requests.HTTPError):
+            add_comment("SCRUM-404", "missing issue")

@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from automation.prompt_generator import (
     TASK_FLOOR,
+    PlanningIncompleteError,
     _load_agent_lanes,
     generate_prompt,
     write_prompts,
@@ -97,7 +98,7 @@ class TestGeneratePrompt:
             prompt = generate_prompt(
                 agent_id, 75, "cycle/075/integration",
                 [{"key": "SCRUM-100", "summary": "Test story",
-                  "status": "In Progress", "priority": "Medium"}] * 15,
+                  "status": "In Progress", "priority": "Medium", "description": "AC fallback description"}] * 15,
                 "run-test"
             )
             # Should not contain actual git commit commands as instructions
@@ -112,7 +113,7 @@ class TestGeneratePrompt:
 
     def test_prompt_includes_jira_issues(self):
         issues = [{"key": "SCRUM-100", "summary": "Test story",
-                   "status": "In Progress", "priority": "Medium"}]
+                   "status": "In Progress", "priority": "Medium", "description": "AC fallback description"}]
         prompt = generate_prompt("A", 75, "cycle/075/integration", issues, "test")
         assert "SCRUM-100" in prompt
 
@@ -132,7 +133,7 @@ class TestWritePrompts:
         agents = ["A", "B", "E", "C", "F", "D"]
         issues = [
             {"key": f"SCRUM-{100 + i}", "summary": f"Story {i} test implementation",
-             "status": "In Progress", "priority": "Medium"}
+             "status": "In Progress", "priority": "Medium", "description": "AC fallback description"}
             for i in range(20)  # 20 issues to generate enough tasks
         ]
         result = write_prompts(75, "cycle/075/integration", "test-run",
@@ -146,7 +147,7 @@ class TestWritePrompts:
         """Prompt files must follow CYCLE_NNN_AGENT_X_PROMPT.md naming."""
         issues = [
             {"key": f"SCRUM-{100 + i}", "summary": f"Story {i}",
-             "status": "In Progress", "priority": "Medium"}
+             "status": "In Progress", "priority": "Medium", "description": "AC fallback description"}
             for i in range(20)
         ]
         write_prompts(75, "cycle/075/integration", "test", ["A"], issues, tmp_path)
@@ -164,6 +165,7 @@ class TestWritePrompts:
                 "summary": f"Core implementation story {i}",
                 "status": "In Progress",
                 "priority": "Medium",
+                "description": "AC fallback description",
             }
             for i in range(14)
         ]
@@ -178,6 +180,7 @@ class TestWritePrompts:
                 "summary": "Single story",
                 "status": "In Progress",
                 "priority": "Medium",
+                "description": "AC fallback description",
             }
         ]
         with pytest.raises(RuntimeError, match="PLANNING_INCOMPLETE"):
@@ -207,3 +210,19 @@ def test_generate_prompt_uses_default_ac_placeholder_when_missing() -> None:
     }
     prompt = generate_prompt("B", 76, "cycle/075/integration", [issue] * 14, "run-ac")
     assert "AC placeholder: define acceptance criteria in Jira." in prompt
+
+
+def test_planning_incomplete_raised_when_ac_and_dod_both_empty(tmp_path: Path) -> None:
+    issues = [
+        {
+            "key": "SCRUM-999",
+            "summary": "Story with empty planning fields",
+            "status": "In Progress",
+            "priority": "Medium",
+            "description": "",
+            "acceptance_criteria": "",
+            "definition_of_done": "",
+        }
+    ]
+    with pytest.raises(PlanningIncompleteError, match="PLANNING_INCOMPLETE"):
+        write_prompts(78, "cycle/078/integration", "run-b", ["B"], issues, tmp_path)

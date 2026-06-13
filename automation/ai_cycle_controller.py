@@ -88,9 +88,12 @@ def cmd_brain_check() -> None:
     from automation.claude_sub_gate import check_api_key_absent
     api_check = check_api_key_absent()
     if not api_check["passed"]:
-        click.secho(f"  [WARN] ANTHROPIC_API_KEY detected -- run: {api_check.get('report', 'see report')}", fg="yellow")
+        click.secho(
+            f"  [WARN] Forbidden env var detected (ANTHROPIC_API_KEY) -- run: {api_check.get('report', 'see report')}",
+            fg="yellow",
+        )
     else:
-        click.echo("  CLAUDE-SUB      : API key absent (subscription-only confirmed)")
+        click.echo("  CLAUDE-SUB      : Subscription mode confirmed (forbidden API key absent)")
 
     click.echo()
 
@@ -148,7 +151,11 @@ def cmd_jira_inventory(dry_run: bool, project: str) -> None:
 
         click.echo(f"  Total non-Done issues : {inv['total']}")
         for issue in inv["issues"][:10]:
-            click.echo(f"    [{issue['status']}] {issue['key']} — {issue['summary'][:60]}")
+            click.echo(f"    {issue['key']}: [{issue['priority']}/{issue['status']}] \"{issue['summary'][:80]}\"")
+            ac_preview = (issue.get("acceptance_criteria", "") or "").replace("\n", " ").strip()
+            dod_preview = (issue.get("definition_of_done", "") or "").replace("\n", " ").strip()
+            click.echo(f"      AC : {(ac_preview or '(empty)')[:200]}")
+            click.echo(f"      DoD: {(dod_preview or '(empty)')[:200]}")
         if inv["total"] > 10:
             click.echo(f"    ... and {inv['total'] - 10} more")
         click.echo()
@@ -998,6 +1005,59 @@ def cmd_pm_pack_audit(check_only: bool) -> None:
                     fg="red", bold=True)
         sys.exit(1)
     click.secho("PM_PACK_AUDIT PASS", fg="green", bold=True)
+
+
+@cli.command("pytest-unit-batched")
+@click.option("--batch-size", default=12, type=int, show_default=True, help="Test files per batch.")
+@click.option(
+    "--batch-timeout",
+    default=240,
+    type=int,
+    show_default=True,
+    help="Per-batch timeout in seconds.",
+)
+def cmd_pytest_unit_batched(batch_size: int, batch_timeout: int) -> None:
+    """Run tests/unit in short batches to avoid long-session interrupts."""
+    from automation.pytest_batch_runner import run_batched_unit_pytest
+
+    click.echo("=" * 60)
+    click.echo("PYTEST UNIT BATCHED")
+    click.echo("=" * 60)
+    click.echo(f"  Batch size      : {batch_size}")
+    click.echo(f"  Batch timeout   : {batch_timeout}s")
+    click.echo("")
+
+    result = run_batched_unit_pytest(
+        repo_root=REPO_ROOT,
+        batch_size=batch_size,
+        per_batch_timeout_seconds=batch_timeout,
+    )
+    if not result.batches:
+        click.secho("No unit test files found under tests/unit", fg="yellow")
+        return
+
+    for batch in result.batches:
+        files = ", ".join(path.name for path in batch.files[:3])
+        if len(batch.files) > 3:
+            files += ", ..."
+        icon = "PASS" if batch.passed else "FAIL"
+        click.echo(f"  [{icon}] Batch {batch.index:02d} | passed={batch.passed_count} | files={files}")
+        if not batch.passed:
+            click.secho("      Output tail:", fg="red")
+            tail = "\n".join(batch.output.splitlines()[-8:])
+            click.secho(f"{tail}", fg="red")
+
+    click.echo("")
+    click.echo(f"  Total passed tests : {result.total_passed}")
+    click.echo(f"  Interrupted batches: {result.interrupted_batches}")
+    click.echo(f"  Batch count        : {len(result.batches)}")
+
+    if result.all_passed:
+        click.secho("PYTEST UNIT BATCHED PASS", fg="green", bold=True)
+        return
+
+    click.secho("PYTEST UNIT BATCHED FAIL", fg="red", bold=True)
+    sys.exit(1)
 
 
 @cli.command("cleanup")

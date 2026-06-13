@@ -5,9 +5,11 @@ All credentials from C:\\AI_Runner\\secrets\\runner.env.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -15,6 +17,7 @@ import requests
 from automation.config_loader import RUNNER_ENV_PATH, get_secret
 
 LOGGER = logging.getLogger(__name__)
+JIRA_FIELDS_MAP_PATH = Path("C:/Fiverr/Fiverr/PM_Pack/automation/jira_fields_map.json")
 
 
 class JiraClient:
@@ -121,6 +124,49 @@ class JiraClient:
         response.raise_for_status()
         return response.json().get("transitions", [])
 
+    def get_fields(self) -> list[dict[str, Any]]:
+        """Return Jira field definitions from REST API."""
+        url = f"{self.base_url}/rest/api/3/field"
+        response = requests.get(url, headers=_headers(), timeout=30)
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, list) else []
+
+    def board_inventory(self, project: str = "SCRUM", max_results: int = 100) -> list[dict[str, Any]]:
+        """Compatibility wrapper returning issue list only."""
+        return board_inventory(project_key=project, max_results=max_results).get("issues", [])
+
+    def hydrate_ac_dod(self, issue_key: str) -> dict[str, str]:
+        """
+        Fetch description, acceptance criteria, and definition of done for one issue.
+
+        Missing fields are returned as empty strings.
+        """
+        ac_field, dod_field = _resolve_ac_dod_fields()
+        field_ids = ["description"]
+        for maybe_field in (ac_field, dod_field):
+            if maybe_field and maybe_field not in field_ids:
+                field_ids.append(maybe_field)
+        url = f"{self.base_url}/rest/api/3/issue/{issue_key}"
+        response = requests.get(
+            url,
+            headers=_headers(),
+            params={"fields": ",".join(field_ids)},
+            timeout=30,
+        )
+        response.raise_for_status()
+        fields = response.json().get("fields", {})
+        description_text = _extract_jira_text(fields.get("description"))
+        acceptance_criteria = _extract_jira_text(fields.get(ac_field)) if ac_field else ""
+        definition_of_done = _extract_jira_text(fields.get(dod_field)) if dod_field else ""
+        if not _is_meaningful_text(acceptance_criteria):
+            acceptance_criteria = description_text
+        return {
+            "description": description_text,
+            "acceptance_criteria": acceptance_criteria or "",
+            "definition_of_done": definition_of_done or "",
+        }
+
     def _check_for_secrets(self, text: str) -> None:
         patterns = [
             r"gh" + r"p_[A-Za-z0-9]{36}",
@@ -170,9 +216,28 @@ def _validate_jira_credentials() -> tuple[str, str]:
     return email, token
 
 
-def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
-    """Return all non-Done issues for the project, ordered by priority."""
+def board_inventory(project_key: str = "SCRUM", max_results: int = 100) -> dict[str, Any]:
+    """
+    Return all non-Done issues for the project, ordered by priority.
+
+    `acceptance_criteria`: from Jira AC custom field or description fallback.
+    `definition_of_done`: from Jira DoD custom field or empty string fallback.
+    Both keys are always present in returned issue payloads.
+    """
     url = f"{_base_url()}/rest/api/3/search/jql"
+    ac_field, dod_field = _resolve_ac_dod_fields()
+    requested_fields = [
+        "summary",
+        "status",
+        "priority",
+        "assignee",
+        "labels",
+        "issuetype",
+        "description",
+    ]
+    for maybe_field in (ac_field, dod_field):
+        if maybe_field and maybe_field not in requested_fields:
+            requested_fields.append(maybe_field)
     jql = (
         f"project = {project_key} "
         "AND status != Done "
@@ -181,25 +246,36 @@ def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
     )
     params = {
         "jql": jql,
-        "maxResults": "100",
-        "fields": "summary,status,priority,assignee,labels,issuetype",
+        "maxResults": str(max_results),
+        "fields": ",".join(requested_fields),
     }
     resp = requests.get(url, headers=_headers(), params=dict(params), timeout=30)
     resp.raise_for_status()
     data = resp.json()
+    issues: list[dict[str, Any]] = []
+    for issue in data.get("issues", []):
+        fields = issue.get("fields", {})
+        description_text = _extract_jira_text(fields.get("description"))
+        ac_text = _extract_jira_text(fields.get(ac_field)) if ac_field else ""
+        dod_text = _extract_jira_text(fields.get(dod_field)) if dod_field else ""
+        if not _is_meaningful_text(ac_text):
+            ac_text = description_text
+        issues.append(
+            {
+                "key": issue.get("key", ""),
+                "summary": fields.get("summary", ""),
+                "status": fields.get("status", {}).get("name", ""),
+                "priority": fields.get("priority", {}).get("name", ""),
+                "labels": fields.get("labels", []),
+                "issuetype": fields.get("issuetype", {}).get("name", ""),
+                "description": description_text,
+                "acceptance_criteria": ac_text or "",
+                "definition_of_done": dod_text or "",
+            }
+        )
     return {
         "total": data.get("total", 0),
-        "issues": [
-            {
-                "key": i["key"],
-                "summary": i["fields"]["summary"],
-                "status": i["fields"]["status"]["name"],
-                "priority": i["fields"].get("priority", {}).get("name", ""),
-                "labels": i["fields"].get("labels", []),
-                "issuetype": i["fields"]["issuetype"]["name"],
-            }
-            for i in data.get("issues", [])
-        ],
+        "issues": issues,
     }
 
 
@@ -246,3 +322,53 @@ def create_issue(project_key: str, summary: str, description: str,
     resp = requests.post(url, headers=_headers(), json=payload, timeout=30)
     resp.raise_for_status()
     return resp.json()
+
+
+def _resolve_ac_dod_fields() -> tuple[str, str]:
+    ac_field = ""
+    dod_field = ""
+    if JIRA_FIELDS_MAP_PATH.exists():
+        try:
+            payload = json.loads(JIRA_FIELDS_MAP_PATH.read_text(encoding="utf-8"))
+            ac_field = str(
+                payload.get("acceptance_criteria", {}).get("field_id")
+                or payload.get("custom_fields", {}).get("acceptance_criteria", {}).get("id")
+                or ""
+            ).strip()
+            dod_field = str(
+                payload.get("definition_of_done", {}).get("field_id")
+                or payload.get("custom_fields", {}).get("definition_of_done", {}).get("id")
+                or ""
+            ).strip()
+        except (OSError, ValueError, TypeError):
+            ac_field = ""
+            dod_field = ""
+    if not ac_field:
+        ac_field = "customfield_10016"
+    return ac_field, dod_field
+
+
+def _extract_jira_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, int | float | bool):
+        return str(value)
+    if isinstance(value, list):
+        return " ".join(part for item in value if (part := _extract_jira_text(item))).strip()
+    if isinstance(value, dict):
+        text = value.get("text")
+        if isinstance(text, str):
+            return text.strip()
+        content = value.get("content")
+        if isinstance(content, list):
+            return " ".join(part for item in content if (part := _extract_jira_text(item))).strip()
+    return ""
+
+
+def _is_meaningful_text(value: str) -> bool:
+    text = value.strip()
+    if not text:
+        return False
+    return any(char.isalpha() for char in text)

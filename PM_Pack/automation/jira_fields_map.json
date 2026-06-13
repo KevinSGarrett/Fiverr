@@ -1,7 +1,20 @@
 {
   "_doc": "Jira custom field ID map for KevinSGarrett/Fiverr (SCRUM board). Discovered via GET /rest/api/3/field",
   "_cloud_id": "eae77257-a572-4e19-b746-8b184ba2d01f",
+  "_done_transition_id": "41",
   "_last_verified": "2026-06-11",
+  "acceptance_criteria": {
+    "field_id": "customfield_10016",
+    "source": "custom_field_or_description"
+  },
+  "definition_of_done": {
+    "field_id": "",
+    "source": "custom_field_or_dod_epic_file"
+  },
+  "description": {
+    "field_id": "description",
+    "source": "standard"
+  },
   "standard_fields": {
     "summary":      "summary",
     "description":  "description",

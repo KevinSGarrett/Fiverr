@@ -124,3 +124,28 @@ def test_find_repo_root_falls_back_to_cwd_after_limit(tmp_path: Path, monkeypatc
     nested.mkdir(parents=True, exist_ok=True)
     monkeypatch.chdir(nested)
     assert config_loader._find_repo_root() == nested
+
+
+def test_load_env_file_reads_key_value_pairs(tmp_path: Path, monkeypatch) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("JIRA_API_TOKEN=token-abc\nJIRA_EMAIL=test@example.com\n", encoding="utf-8")
+    monkeypatch.setattr(config_loader, "ENV_FILE_PATH", env_file)
+    values = config_loader.load_env_file()
+    assert values["JIRA_API_TOKEN"] == "token-abc"
+    assert values["JIRA_EMAIL"] == "test@example.com"
+
+
+def test_get_secret_reads_repo_env_as_third_source(tmp_path: Path, monkeypatch) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("JIRA_BASE_URL=https://example.atlassian.net\n", encoding="utf-8")
+    monkeypatch.setattr(config_loader, "RUNNER_ENV_PATH", tmp_path / "missing.env")
+    monkeypatch.setattr(config_loader, "ENV_FILE_PATH", env_file)
+    monkeypatch.delenv("JIRA_BASE_URL", raising=False)
+    assert config_loader.get_secret("JIRA_BASE_URL", "") == "https://example.atlassian.net"
+
+
+def test_get_secret_returns_none_when_absent_with_none_default(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(config_loader, "RUNNER_ENV_PATH", tmp_path / "missing.env")
+    monkeypatch.setattr(config_loader, "ENV_FILE_PATH", tmp_path / "missing.env")
+    monkeypatch.delenv("UNSET_KEY", raising=False)
+    assert config_loader.get_secret("UNSET_KEY", None) is None
