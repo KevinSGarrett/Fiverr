@@ -42,3 +42,14 @@ def test_handles_unknown_story_key_gracefully() -> None:
     assert result["issue_key"] == "SCRUM-UNKNOWN"
     assert result["acceptance_criteria"] == ""
     assert result["definition_of_done"] == ""
+
+
+def test_infers_dod_path_from_story_text_when_catalog_missing() -> None:
+    result = map_jira_to_project_plan(
+        "SCRUM-103",
+        {"description": "See DOD_EPIC_08.md and ToDo EPIC_08"},
+        None,
+        None,
+    )
+    assert result["dod_path"] == "PM_Pack/ref/dod/DOD_EPIC_08.md"
+    assert "DOD_EPIC_08.md" in result["definition_of_done"]

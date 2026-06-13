@@ -518,3 +518,11 @@ def test_add_comment_handles_404_issue_not_found() -> None:
         post_req.return_value = resp
         with pytest.raises(requests.HTTPError):
             add_comment("SCRUM-404", "missing issue")
+
+
+def test_jira_client_add_comment_method_delegates_to_module_helper() -> None:
+    client = JiraClient()
+    with patch("automation.jira_client.add_comment", return_value={"id": "42"}) as add_comment_mock:
+        result = client.add_comment("SCRUM-1", "normal comment")
+    assert result["id"] == "42"
+    add_comment_mock.assert_called_once_with("SCRUM-1", "normal comment")

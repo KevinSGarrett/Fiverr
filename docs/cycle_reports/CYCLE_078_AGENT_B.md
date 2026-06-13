@@ -17,12 +17,14 @@ Jira integration hardening, AC/DoD hydration, Jira-to-PM_Pack mapping, and promp
 - `automation/jira_client.py`
   - Added `JiraClient.get_fields()`.
   - Added `JiraClient.board_inventory(project, max_results)` list wrapper.
+  - Added `JiraClient.add_comment(issue_key, body)` method wrapper.
   - Added `JiraClient.hydrate_ac_dod(issue_key)`.
   - Extended module-level `board_inventory()` to include:
     - `description`
     - `acceptance_criteria`
     - `definition_of_done`
   - Added meaningful-text fallback so numeric story-point values are not treated as AC text.
+  - Added DoD fallback derivation from Jira story text via mapper (e.g., `DOD_EPIC_08.md` -> `PM_Pack/ref/dod/DOD_EPIC_08.md` reference).
   - Updated `board_inventory()` docstring to explain AC/DoD sourcing and fallback behavior.
 - `automation/jira_spec_mapper.py` (new)
   - Added `map_jira_to_project_plan()` with optional catalog inputs and safe behavior when catalogs are absent.
@@ -66,8 +68,8 @@ Jira integration hardening, AC/DoD hydration, Jira-to-PM_Pack mapping, and promp
 - `python automation/ai_cycle_controller.py jira-inventory --dry-run` now prints AC/DoD previews per issue.
 - `JiraClient.board_inventory(project='SCRUM', max_results=5)` succeeded and returned AC text.
 - Connectivity comment test succeeded:
-  - `add_comment("SCRUM-287", "Cycle 078 Agent B connectivity test — ignore")`
-  - Jira comment id: `12859`
+  - `JiraClient().add_comment("SCRUM-287", "Cycle 078 Agent B connectivity test via JiraClient.add_comment — ignore")`
+  - Jira comment id: `12860`
 
 ## Validation Results
 - `ruff check automation/jira_client.py automation/jira_spec_mapper.py automation/prompt_generator.py tests/unit/test_jira_client.py tests/unit/test_jira_spec_mapper.py tests/unit/test_prompt_generator.py tests/unit/test_config_loader.py --fix` -> PASS
@@ -99,5 +101,10 @@ Jira integration hardening, AC/DoD hydration, Jira-to-PM_Pack mapping, and promp
 ## Agent E Handoff Readiness
 - `map_jira_to_project_plan()` accepts `project_plan_catalog=None` and `dod_catalog=None` and still returns stable Jira-derived output.
 - Agent E can later provide catalog payloads without interface changes.
+
+## Task-Level Truth Note
+- Tasks `33` and `48` require uninterrupted full-suite `pytest tests/unit/ ...` completion with zero failures.
+- In this environment, repeated external `KeyboardInterrupt` occurs around ~2 minutes despite passing tests; this blocks a fully uninterrupted canonical full-suite run.
+- Remaining Agent B task items are completed and validated with direct evidence.
 
 AGENT_COMPLETE

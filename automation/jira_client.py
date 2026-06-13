@@ -15,6 +15,7 @@ from typing import Any
 import requests
 
 from automation.config_loader import RUNNER_ENV_PATH, get_secret
+from automation.jira_spec_mapper import map_jira_to_project_plan
 
 LOGGER = logging.getLogger(__name__)
 JIRA_FIELDS_MAP_PATH = Path("C:/Fiverr/Fiverr/PM_Pack/automation/jira_fields_map.json")
@@ -124,6 +125,11 @@ class JiraClient:
         response.raise_for_status()
         return response.json().get("transitions", [])
 
+    def add_comment(self, issue_key: str, body: str) -> dict[str, Any]:
+        """Post a Jira comment for the provided issue."""
+        self._check_for_secrets(body)
+        return add_comment(issue_key, body)
+
     def get_fields(self) -> list[dict[str, Any]]:
         """Return Jira field definitions from REST API."""
         url = f"{self.base_url}/rest/api/3/field"
@@ -221,7 +227,7 @@ def board_inventory(project_key: str = "SCRUM", max_results: int = 100) -> dict[
     Return all non-Done issues for the project, ordered by priority.
 
     `acceptance_criteria`: from Jira AC custom field or description fallback.
-    `definition_of_done`: from Jira DoD custom field or empty string fallback.
+    `definition_of_done`: from Jira DoD custom field or DoD epic-file reference fallback.
     Both keys are always present in returned issue payloads.
     """
     url = f"{_base_url()}/rest/api/3/search/jql"
@@ -260,19 +266,21 @@ def board_inventory(project_key: str = "SCRUM", max_results: int = 100) -> dict[
         dod_text = _extract_jira_text(fields.get(dod_field)) if dod_field else ""
         if not _is_meaningful_text(ac_text):
             ac_text = description_text
-        issues.append(
-            {
-                "key": issue.get("key", ""),
-                "summary": fields.get("summary", ""),
-                "status": fields.get("status", {}).get("name", ""),
-                "priority": fields.get("priority", {}).get("name", ""),
-                "labels": fields.get("labels", []),
-                "issuetype": fields.get("issuetype", {}).get("name", ""),
-                "description": description_text,
-                "acceptance_criteria": ac_text or "",
-                "definition_of_done": dod_text or "",
-            }
-        )
+        issue_payload: dict[str, Any] = {
+            "key": issue.get("key", ""),
+            "summary": fields.get("summary", ""),
+            "status": fields.get("status", {}).get("name", ""),
+            "priority": fields.get("priority", {}).get("name", ""),
+            "labels": fields.get("labels", []),
+            "issuetype": fields.get("issuetype", {}).get("name", ""),
+            "description": description_text,
+            "acceptance_criteria": ac_text or "",
+            "definition_of_done": dod_text or "",
+        }
+        if not issue_payload["definition_of_done"]:
+            mapping = map_jira_to_project_plan(issue_payload["key"], issue_payload, None, None)
+            issue_payload["definition_of_done"] = mapping.get("definition_of_done", "") or ""
+        issues.append(issue_payload)
     return {
         "total": data.get("total", 0),
         "issues": issues,

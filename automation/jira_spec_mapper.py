@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ def map_jira_to_project_plan(
     """
     normalized = _normalize_story(story)
     seed = _seed_mapping(issue_key)
+    inferred = _infer_paths_from_story(story)
     project_plan_path = _from_catalog(project_plan_catalog, issue_key, "project_plan_path")
     dod_path = _from_catalog(dod_catalog, issue_key, "dod_path")
     todo_epic_path = _from_catalog(project_plan_catalog, issue_key, "todo_epic_path")
@@ -31,12 +33,20 @@ def map_jira_to_project_plan(
 
     if project_plan_path is None:
         project_plan_path = _as_str(seed.get("project_plan_path"))
+    if not project_plan_path:
+        project_plan_path = inferred["project_plan_path"]
     if dod_path is None:
         dod_path = _as_str(seed.get("dod_path"))
+    if not dod_path:
+        dod_path = inferred["dod_path"]
     if todo_epic_path is None:
         todo_epic_path = _as_str(seed.get("todo_epic_path"))
+    if not todo_epic_path:
+        todo_epic_path = inferred["todo_epic_path"]
     if wave is None:
         wave = _as_str(seed.get("wave"))
+    if not wave:
+        wave = inferred["wave"]
 
     definition_of_done = normalized["definition_of_done"]
     if not definition_of_done and dod_path:
@@ -111,3 +121,33 @@ def _as_str(value: Any) -> str:
     if isinstance(value, str):
         return value.strip()
     return ""
+
+
+def _infer_paths_from_story(story: dict[str, Any]) -> dict[str, str]:
+    text_blob = " ".join(
+        part
+        for part in (
+            _as_str(story.get("summary")),
+            _as_str(story.get("description")),
+            _as_str(story.get("acceptance_criteria")),
+            _as_str(story.get("definition_of_done")),
+        )
+        if part
+    )
+    dod_match = re.search(r"DOD_EPIC_(\d{2})\.md", text_blob, re.IGNORECASE)
+    epic_match = re.search(r"EPIC_(\d{2})", text_blob, re.IGNORECASE)
+    wave_match = re.search(r"\b(?:wave|WAVE)\s*[:#-]?\s*(\d{1,2})\b", text_blob)
+    epic_num = ""
+    if dod_match:
+        epic_num = dod_match.group(1)
+    elif epic_match:
+        epic_num = epic_match.group(1)
+
+    dod_path = f"PM_Pack/ref/dod/DOD_EPIC_{epic_num}.md" if epic_num else ""
+    todo_epic_path = f"PM_Pack/ref/todo/EPIC_{epic_num}_*.md" if epic_num else ""
+    return {
+        "project_plan_path": "",
+        "dod_path": dod_path,
+        "todo_epic_path": todo_epic_path,
+        "wave": wave_match.group(1) if wave_match else "",
+    }
