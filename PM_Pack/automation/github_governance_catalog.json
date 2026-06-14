@@ -1,0 +1,288 @@
+{
+  "generated_at": "2026-06-14T00:08:06.770937+00:00",
+  "source_dir": "PM_Pack/ref/github",
+  "entries": [
+    {
+      "source_path": "PM_Pack/ref/github/00_setup/DIRECTORY_STRUCTURE.md",
+      "category": "00_setup",
+      "title": "Directory Structure",
+      "summary": "# Directory Structure\n# Fiverr Research System \u2014 Repository Layout\n\n---\n\n## Complete Directory Tree\n\n```\nfiverr-research-system/\n\u2502\n\u251c\u2500\u2500 .github/                          # GitHub configuration\n\u2502   \u251c\u2500\u2500 workflows/                    # CI/CD pipelines\n\u2502   \u2502   \u251c\u2500\u2500 ci.yml                    # Main CI pipe"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/00_setup/REPO_INIT.md",
+      "category": "00_setup",
+      "title": "Repository Initialization Guide",
+      "summary": "# Repository Initialization Guide\n# Fiverr Research System \u2014 GitHub Setup\n\n---\n\n## 1. Repository Creation\n\n### Create the Repository\n```\nRepository name: fiverr-research-system\nDescription: Automated Fiverr niche research, analysis, scoring, and recommendation engine\nVisibility: Private\nInitialize w"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/00_setup/REPO_SETTINGS.md",
+      "category": "00_setup",
+      "title": "Repository Settings Reference",
+      "summary": "# Repository Settings Reference\n# Fiverr Research System \u2014 Exact GitHub Configuration\n\n---\n\n## 1. General Repository Settings (Settings \u2192 General)\n\n### Repository Name and Description\n- **Name:** `fiverr-research-system`\n- **Description:** `Automated Fiverr niche research, analysis, scoring, and rec"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/01_branching/BRANCH_NAMING.md",
+      "category": "01_branching",
+      "title": "Branch Naming Conventions",
+      "summary": "# Branch Naming Conventions\n# Fiverr Research System\n\n---\n\n## Branch Name Format\n\n```\n{type}/{scope}/{description}\n```\n\n### Components\n\n| Component | Required | Format | Examples |\n|---|---|---|---|\n| type | Yes | Lowercase keyword | `feature`, `fix`, `hotfix`, `chore`, `refactor`, `test`, `docs` |\n"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/01_branching/BRANCH_PROTECTION.md",
+      "category": "01_branching",
+      "title": "Branch Protection Rules",
+      "summary": "# Branch Protection Rules\n# Fiverr Research System \u2014 Detailed Configuration\n\n---\n\n## Protection Rule: `main`\n\n### Access via: Settings \u2192 Branches \u2192 Add branch protection rule\n**Branch name pattern:** `main`\n\n| Setting | Value | Reason |\n|---|---|---|\n| Require a pull request before merging | \u2705 | No "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/01_branching/BRANCHING_STRATEGY.md",
+      "category": "01_branching",
+      "title": "Branching Strategy",
+      "summary": "# Branching Strategy\n# Fiverr Research System \u2014 Git Flow for AI-Driven Development\n\n---\n\n## Branch Architecture\n\n```\nmain (production)\n \u2514\u2500\u2500 develop (integration)\n      \u251c\u2500\u2500 feature/epic01/S1.1-project-scaffolding     (Agent 1)\n      \u251c\u2500\u2500 feature/epic02/S2.7-keyword-expansion        (Agent 2)\n      \u251c\u2500\u2500"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/02_pr_policy/PR_POLICY.md",
+      "category": "02_pr_policy",
+      "title": "Pull Request Policy",
+      "summary": "# Pull Request Policy\n# Fiverr Research System \u2014 Complete PR Rules\n\n---\n\n## PR Golden Rules\n\n1. **Every change goes through a PR** \u2014 No exceptions, no direct pushes\n2. **One PR = one logical change** \u2014 Don't bundle unrelated changes\n3. **Small PRs merge fast** \u2014 Target < 300 lines changed\n4. **PR mu"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/02_pr_policy/PR_REVIEW_PROCESS.md",
+      "category": "02_pr_policy",
+      "title": "PR Review Process",
+      "summary": "# PR Review Process\n# Fiverr Research System\n\n---\n\n## Review Model: Automated-First, Human-Selective\n\nSince this project is built by AI agents with a single human operator, the review process is:\n\n1. **Automated checks** (CI) are the primary quality gate \u2014 always required\n2. **Human review** is sele"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/02_pr_policy/PR_SIZE_POLICY.md",
+      "category": "02_pr_policy",
+      "title": "PR Size Policy",
+      "summary": "# PR Size Policy\n# Fiverr Research System\n\n---\n\n## Size Categories\n\n| Label | Lines Changed | Review Time | Risk Level |\n|---|---|---|---|\n| `size:XS` | 1-10 lines | < 5 min | Minimal |\n| `size:S` | 11-50 lines | 5-15 min | Low |\n| `size:M` | 51-200 lines | 15-30 min | Medium |\n| `size:L` | 201-500 "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/02_pr_policy/PR_TITLE_CONVENTIONS.md",
+      "category": "02_pr_policy",
+      "title": "PR Title Conventions",
+      "summary": "# PR Title Conventions\n# Fiverr Research System\n\n---\n\n## Title Format\n\n```\n{type}({scope}): {description}\n```\n\n**Max length:** 72 characters\n**All lowercase** except proper nouns\n\n---\n\n## Type Prefixes (Required)\n\n| Type | When to Use | Example |\n|---|---|---|\n| `feat` | New feature or functionality"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/03_labels/LABEL_AUTOMATION.md",
+      "category": "03_labels",
+      "title": "Label Automation",
+      "summary": "# Label Automation\n# Fiverr Research System \u2014 Automatic Label Application\n\n---\n\n## Auto-Applied Labels\n\n### 1. Size Labels (Applied by CI on every PR)\nThe `pr-checks.yml` workflow calculates lines changed and applies the correct size label.\n\n**Logic:**\n```\nadditions + deletions (excluding exempted f"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/03_labels/LABEL_TAXONOMY.md",
+      "category": "03_labels",
+      "title": "Label Taxonomy",
+      "summary": "# Label Taxonomy\n# Fiverr Research System \u2014 Complete Label System\n\n---\n\n## Label Categories\n\nAll labels follow the format: `{category}:{value}`\n\n---\n\n## 1. Type Labels (Required on every PR and Issue)\n\n| Label | Color (Hex) | Description |\n|---|---|---|\n| `type:feature` | `#1D76DB` | New functionali"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/04_ci_checks/CI_PIPELINE.md",
+      "category": "04_ci_checks",
+      "title": "CI/CD Pipeline",
+      "summary": "# CI/CD Pipeline\n# Fiverr Research System \u2014 GitHub Actions Workflows\n\n---\n\n## Pipeline Architecture\n\n```\nOn PR (to develop or main):\n  \u251c\u2500\u2500 ci.yml\n  \u2502   \u251c\u2500\u2500 lint (Ruff)\n  \u2502   \u251c\u2500\u2500 type-check (Mypy)\n  \u2502   \u2514\u2500\u2500 test (Pytest + coverage)\n  \u251c\u2500\u2500 pr-checks.yml\n  \u2502   \u251c\u2500\u2500 validate-title\n  \u2502   \u251c\u2500\u2500 validate-label"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/04_ci_checks/PR_CHECKS.md",
+      "category": "04_ci_checks",
+      "title": "PR Checks \u2014 Detailed Validation Rules",
+      "summary": "# PR Checks \u2014 Detailed Validation Rules\n# Fiverr Research System\n\n---\n\n## Overview\n\nThe `pr-checks.yml` workflow runs on every PR event (opened, edited, labeled, unlabeled, synchronize) and validates 5 areas. ALL checks must pass for the PR to be mergeable.\n\n---\n\n## Check 1: Title Validation\n\n### Ru"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/04_ci_checks/QUALITY_GATES.md",
+      "category": "04_ci_checks",
+      "title": "Quality Gates",
+      "summary": "# Quality Gates\n# Fiverr Research System \u2014 Gate Definitions & Thresholds\n\n---\n\n## Overview\n\nQuality gates are pass/fail thresholds that a PR or release must clear before proceeding. Gates are enforced by CI and cannot be bypassed without an override label + justification.\n\n---\n\n## Gate 1: Code Linti"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/05_templates/COMMIT_CONVENTIONS.md",
+      "category": "05_templates",
+      "title": "Commit Conventions",
+      "summary": "# Commit Conventions\n# Fiverr Research System \u2014 Commit Message Standards\n\n---\n\n## Commit Message Format\n\n```\n{type}({scope}): {subject}\n\n{body}\n\n{footer}\n```\n\n### Header (Required)\n- **Same format as PR titles** \u2014 see PR_TITLE_CONVENTIONS.md\n- Max 72 characters\n- Imperative mood: \"add\", \"fix\", \"upda"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/05_templates/ISSUE_TEMPLATES.md",
+      "category": "05_templates",
+      "title": "Issue Templates",
+      "summary": "# Issue Templates\n# Fiverr Research System \u2014 5 GitHub Issue Templates\n\n---\n\n## Overview\n\nAll issue templates are placed in `.github/ISSUE_TEMPLATE/` as YAML form files.\nGitHub renders them as structured forms when creating a new issue.\n\n---\n\n## Template 1: Bug Report (`bug_report.yml`)\n\n```yaml\nname"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/05_templates/PR_TEMPLATE.md",
+      "category": "05_templates",
+      "title": "Pull Request Template",
+      "summary": "# Pull Request Template\n# Fiverr Research System \u2014 Standard PR Body Template\n\n---\n\n## Purpose\n\nThis template is used for EVERY pull request. It is placed at `.github/PULL_REQUEST_TEMPLATE.md` in the repo. When an agent creates a PR, GitHub auto-populates the body with this template. The agent fills "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/06_risk_management/RISK_REVIEW_MATRIX.md",
+      "category": "06_risk_management",
+      "title": "Risk Review Matrix",
+      "summary": "# Risk Review Matrix\n# Fiverr Research System \u2014 What Gets Reviewed, By Whom, and How\n\n---\n\n## Review Matrix by Risk Tier\n\n| Dimension | `risk:critical` | `risk:high` | `risk:medium` | `risk:low` |\n|---|---|---|---|---|\n| **CI checks** | All required | All required | All required | All required |\n| *"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/06_risk_management/RISK_TIERS.md",
+      "category": "06_risk_management",
+      "title": "Risk Tiers",
+      "summary": "# Risk Tiers\n# Fiverr Research System \u2014 PR Risk Classification System\n\n---\n\n## Four Risk Tiers\n\nEvery PR must be classified into exactly one risk tier. The tier determines review requirements, merge conditions, and rollback planning.\n\n---\n\n## Tier 1: `risk:critical` \u2014 RED\n\n### Definition\nChanges tha"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/07_ai_workflow/AGENT_COORDINATION.md",
+      "category": "07_ai_workflow",
+      "title": "Agent Coordination",
+      "summary": "# Agent Coordination\n# Fiverr Research System \u2014 Multi-Agent Conflict Prevention & Handoff Protocol\n\n---\n\n## Core Principle: Directory Ownership Prevents Conflicts\n\nEach agent owns specific directories. This is the PRIMARY conflict prevention mechanism.\n\n### Ownership Rules\n1. **Only the owning agent"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/07_ai_workflow/AI_AGENT_ROLES.md",
+      "category": "07_ai_workflow",
+      "title": "AI Agent Roles",
+      "summary": "# AI Agent Roles\n# Fiverr Research System \u2014 4 Cursor Agents + ChatGPT PM\n\n---\n\n## Team Structure\n\n```\n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502   ChatGPT \u2014 Project Manager     \u2502\n\u2502   Creates issues, coordinates   \u2502\n\u2502   Reviews progress, decisions   \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n               \u2502 a"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/07_ai_workflow/AI_PR_RULES.md",
+      "category": "07_ai_workflow",
+      "title": "AI PR Rules",
+      "summary": "# AI PR Rules\n# Fiverr Research System \u2014 Rules AI Agents Must Follow When Creating PRs\n\n---\n\n## Mandatory Rules (Every PR, No Exceptions)\n\n### Rule 1: Always Branch from Latest Develop\n```bash\ngit checkout develop\ngit pull origin develop\ngit checkout -b feature/epicXX/SX.X-description\n```\nNEVER bran"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/07_ai_workflow/CURSOR_RULES.md",
+      "category": "07_ai_workflow",
+      "title": "Cursor Rules Configuration",
+      "summary": "# Cursor Rules Configuration\n# Fiverr Research System \u2014 .cursorrules File Design\n\n---\n\n## Purpose\n\nThe `.cursorrules` file sits at the repo root and configures how all 4 Cursor AI agents behave when generating code. It enforces project standards, architecture decisions, and coding conventions so eve"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/08_hygiene/HYGIENE_CHECKLIST.md",
+      "category": "08_hygiene",
+      "title": "Hygiene Checklist",
+      "summary": "# Hygiene Checklist\n# Fiverr Research System \u2014 Ongoing Maintenance Tasks\n\n---\n\n## Daily Hygiene (Automated)\n\nThese tasks run automatically via GitHub Actions or are part of normal agent workflow:\n\n| Task | How | Frequency |\n|---|---|---|\n| CI checks on every PR | ci.yml, pr-checks.yml | Every PR |\n|"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/08_hygiene/RELEASE_PROCESS.md",
+      "category": "08_hygiene",
+      "title": "Release Process",
+      "summary": "# Release Process\n# Fiverr Research System \u2014 Versioning, Tagging, and Changelog\n\n---\n\n## Version Numbering\n\n### Scheme: Semantic Versioning (Modified)\n```\nv{major}.{minor}.{patch}\n\nDuring development (pre-v1.0.0):\n  v0.{epic_number}.{patch}\n  \n  v0.1.0  \u2014 Epic 01 complete (Foundation)\n  v0.1.1  \u2014 Ho"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/08_hygiene/STALE_POLICY.md",
+      "category": "08_hygiene",
+      "title": "Stale Policy",
+      "summary": "# Stale Policy\n# Fiverr Research System \u2014 Stale Branch, PR, and Issue Management\n\n---\n\n## Stale Pull Requests\n\n### Definition\nA PR is considered stale when it has no commits, comments, or label changes for a defined period.\n\n### Stale Timeline\n\n| Day | Action | Automated? |\n|---|---|---|\n| Day 0 | P"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/09_security/CODEOWNERS.md",
+      "category": "09_security",
+      "title": "CODEOWNERS Design",
+      "summary": "# CODEOWNERS Design\n# Fiverr Research System \u2014 Code Ownership & Review Routing\n\n---\n\n## Purpose\n\nThe CODEOWNERS file tells GitHub who is responsible for which parts of the codebase. In this project, since all 4 Cursor agents operate through a single GitHub account, CODEOWNERS serves primarily as **d"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/09_security/SECRETS_MANAGEMENT.md",
+      "category": "09_security",
+      "title": "Secrets Management",
+      "summary": "# Secrets Management\n# Fiverr Research System \u2014 Handling Credentials and Environment Variables\n\n---\n\n## Environment Variable Architecture\n\n### .env File (Local Development)\nThe `.env` file lives at the repo root and is NEVER committed. It contains all runtime secrets.\n\n```bash\n# .env \u2014 DO NOT COMMIT"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/09_security/SECURITY_POLICY.md",
+      "category": "09_security",
+      "title": "Security Policy",
+      "summary": "# Security Policy\n# Fiverr Research System \u2014 Security Standards & Practices\n\n---\n\n## Security Principles\n\n1. **No secrets in code** \u2014 All credentials live in environment variables or GitHub Secrets\n2. **Least privilege** \u2014 Each component gets only the access it needs\n3. **Scan everything** \u2014 Automat"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.cursorrules",
+      "category": "10_repo_files",
+      "title": "Fiverr Research System \u2014 Cursor Agent Rules",
+      "summary": "# Fiverr Research System \u2014 Cursor Agent Rules\n# All 4 agents must follow these rules when generating code.\n\n## Project Context\n- This is a Python 3.11 project: automated Fiverr niche research, analysis, scoring, and recommendation engine\n- Stack: Playwright, SQLAlchemy 2.0 (sync only), Pydantic v2, "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/CODEOWNERS",
+      "category": ".github",
+      "title": "CODEOWNERS \u2014 Fiverr Research System",
+      "summary": "# CODEOWNERS \u2014 Fiverr Research System\n# All agents use the same GitHub account. This file documents ownership\n# boundaries and routes reviews when additional reviewers are added.\n\n# Default: human operator owns everything\n*                                   @owner-username\n\n# === Agent 1: Infrastruc"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/dependabot.yml",
+      "category": ".github",
+      "title": "dependabot",
+      "summary": "version: 2\nupdates:\n  - package-ecosystem: \"pip\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n      day: \"monday\"\n    open-pull-requests-limit: 5\n    labels:\n      - \"type:chore\"\n      - \"scope:deps\"\n      - \"priority:P3-medium\"\n      - \"risk:low\"\n    ignore:\n      - dependency-name: \"*"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/bug_report.yml",
+      "category": "ISSUE_TEMPLATE",
+      "title": "bug_report",
+      "summary": "name: Bug Report\ndescription: Report a bug or unexpected behavior\ntitle: \"[Bug]: \"\nlabels: [\"issue:bug\", \"priority:P3-medium\"]\nbody:\n  - type: textarea\n    id: description\n    attributes:\n      label: Bug Description\n      description: Clear description of the bug\n      placeholder: What happened?\n "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/epic.yml",
+      "category": "ISSUE_TEMPLATE",
+      "title": "epic",
+      "summary": "name: Epic Tracker\ndescription: Track an entire epic with all its stories\ntitle: \"[Epic]: \"\nlabels: [\"issue:epic\", \"priority:P2-high\"]\nbody:\n  - type: input\n    id: epic_id\n    attributes:\n      label: Epic ID\n      placeholder: \"Epic 01\"\n    validations:\n      required: true\n  - type: textarea\n    "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/feature_request.yml",
+      "category": "ISSUE_TEMPLATE",
+      "title": "feature_request",
+      "summary": "name: Feature Request\ndescription: Suggest a new feature or enhancement\ntitle: \"[Feature]: \"\nlabels: [\"issue:enhancement\", \"priority:P3-medium\"]\nbody:\n  - type: textarea\n    id: description\n    attributes:\n      label: Feature Description\n      description: What feature do you want to add?\n    valid"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/spike.yml",
+      "category": "ISSUE_TEMPLATE",
+      "title": "spike",
+      "summary": "name: Spike / Research\ndescription: Research or investigation task before implementation\ntitle: \"[Spike]: \"\nlabels: [\"issue:spike\", \"priority:P3-medium\"]\nbody:\n  - type: textarea\n    id: question\n    attributes:\n      label: Research Question\n      description: What do we need to figure out?\n    val"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/task.yml",
+      "category": "ISSUE_TEMPLATE",
+      "title": "task",
+      "summary": "name: Implementation Task\ndescription: A specific implementation task from a story or epic\ntitle: \"[Task]: \"\nlabels: [\"issue:task\", \"priority:P3-medium\"]\nbody:\n  - type: input\n    id: story\n    attributes:\n      label: Parent Story\n      description: Which story does this task belong to?\n      place"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/labels.json",
+      "category": ".github",
+      "title": "labels",
+      "summary": "[\n  {\"name\": \"type:feature\", \"color\": \"1D76DB\", \"description\": \"New functionality\"},\n  {\"name\": \"type:fix\", \"color\": \"D73A4A\", \"description\": \"Bug fix\"},\n  {\"name\": \"type:refactor\", \"color\": \"E4E669\", \"description\": \"Code restructuring\"},\n  {\"name\": \"type:test\", \"color\": \"0E8A16\", \"description\": \"Te"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/PULL_REQUEST_TEMPLATE.md",
+      "category": ".github",
+      "title": "PULL_REQUEST_TEMPLATE",
+      "summary": "## What\n<!-- 1-2 sentence summary of what this PR does -->\n\n## Why\n<!-- Which story/task this implements. Link to issue: Closes #XX -->\n\n## How\n<!-- Key implementation decisions or approach (2-5 sentences) -->\n\n## Testing\n<!-- What tests were added or modified -->\n\n## Checklist\n- [ ] Tests added for"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/ci.yml",
+      "category": "workflows",
+      "title": "ci",
+      "summary": "name: CI\n\non:\n  pull_request:\n    branches: [develop, main]\n  push:\n    branches: [develop]\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  lint:\n    name: Lint\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - uses: actions/checkout@v4\n      - uses"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/pr-checks.yml",
+      "category": "workflows",
+      "title": "pr-checks",
+      "summary": "name: PR Checks\n\non:\n  pull_request:\n    types: [opened, edited, labeled, unlabeled, synchronize]\n\njobs:\n  validate-pr:\n    name: Validate PR\n    runs-on: ubuntu-latest\n    timeout-minutes: 3\n    steps:\n      - uses: actions/checkout@v4\n\n      - name: Validate PR Title\n        uses: actions/github-s"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/release.yml",
+      "category": "workflows",
+      "title": "Try to extract version pattern like v0.1.0",
+      "summary": "name: Release\n\non:\n  push:\n    branches: [main]\n\njobs:\n  release:\n    name: Tag Release\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - name: Extract version from commit message\n        id: version\n       "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/security.yml",
+      "category": "workflows",
+      "title": "OpenAI API keys",
+      "summary": "name: Security\n\non:\n  pull_request:\n    branches: [develop, main]\n\njobs:\n  secret-scan:\n    name: Secret Scan\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - uses: actions/checkout@v4\n      - name: Scan for secrets\n        run: |\n          FOUND=0\n          # OpenAI API keys\n   "
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/stale.yml",
+      "category": "workflows",
+      "title": "PR settings",
+      "summary": "name: Stale\n\non:\n  schedule:\n    - cron: \"0 9 * * *\"  # 9 AM UTC daily\n  workflow_dispatch:  # Allow manual trigger\n\njobs:\n  stale:\n    name: Mark Stale\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - uses: actions/stale@v9\n        with:\n          repo-token: ${{ secrets.GITHUB_"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/10_repo_files/.gitignore",
+      "category": "10_repo_files",
+      "title": "=== Python ===",
+      "summary": "# === Python ===\n__pycache__/\n*.py[cod]\n*$py.class\n*.so\n*.egg-info/\ndist/\nbuild/\n*.egg\n\n# === Virtual Environments ===\nvenv/\n.venv/\nenv/\n\n# === Environment Variables ===\n.env\n.env.local\n.env.production\n.env.*.local\n\n# === Database ===\n*.db\n*.sqlite3\n\n# === IDE ===\n.vscode/\n.idea/\n*.swp\n*.swo\n*~\n.pro"
+    },
+    {
+      "source_path": "PM_Pack/ref/github/WAVE_SCHEDULE.md",
+      "category": "github",
+      "title": "GitHub Repository Setup \u2014 Wave Schedule",
+      "summary": "# GitHub Repository Setup \u2014 Wave Schedule\n# Fiverr Research System\n\n**Purpose:** Create a comprehensive, professional-grade GitHub repository setup guide covering every aspect of repo configuration, policies, CI/CD, templates, hygiene, and AI-driven workflow management.\n\n**Context:** This project wi"
+    }
+  ]
+}

@@ -217,3 +217,51 @@ def test_brain_check_uses_registry_load_order(tmp_path: Path) -> None:
     result = pm_pack_loader.brain_check(tmp_path)
     core_entries = [line for line in result.passed if line.startswith("PASS [core]")]
     assert core_entries == ["PASS [core]: a.md", "PASS [core]: b.md"]
+
+
+def test_brain_check_fails_when_required_catalog_missing(tmp_path: Path) -> None:
+    reg = tmp_path / "PM_Pack/automation/BRAIN_REGISTRY.yml"
+    reg.parent.mkdir(parents=True, exist_ok=True)
+    reg.write_text(
+        "load_order:\n"
+        "  core:\n"
+        "    - PM_Pack/07_hydration/HYDRATION_HEADER.md\n"
+        "generated_catalogs:\n"
+        "  project_plan_catalog:\n"
+        "    path: PM_Pack/automation/project_plan_catalog.json\n"
+        "    freshness_hours: 24\n"
+        "    required: true\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "PM_Pack/07_hydration").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "PM_Pack/07_hydration/HYDRATION_HEADER.md").write_text("CYCLE_CURRENT: 075", encoding="utf-8")
+    (tmp_path / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md").write_text("x", encoding="utf-8")
+    result = pm_pack_loader.brain_check(tmp_path)
+    assert any("CATALOG_STALE: project_plan_catalog" in item for item in result.failed)
+
+
+def test_brain_check_fails_when_required_catalog_stale(tmp_path: Path) -> None:
+    reg = tmp_path / "PM_Pack/automation/BRAIN_REGISTRY.yml"
+    reg.parent.mkdir(parents=True, exist_ok=True)
+    reg.write_text(
+        "load_order:\n"
+        "  core:\n"
+        "    - PM_Pack/07_hydration/HYDRATION_HEADER.md\n"
+        "generated_catalogs:\n"
+        "  project_plan_catalog:\n"
+        "    path: PM_Pack/automation/project_plan_catalog.json\n"
+        "    freshness_hours: 24\n"
+        "    required: true\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "PM_Pack/07_hydration").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "PM_Pack/07_hydration/HYDRATION_HEADER.md").write_text("CYCLE_CURRENT: 075", encoding="utf-8")
+    (tmp_path / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md").write_text("x", encoding="utf-8")
+    stale = '{"generated_at":"2020-01-01T00:00:00+00:00","entries":[{}]}'
+    catalog = tmp_path / "PM_Pack/automation/project_plan_catalog.json"
+    catalog.parent.mkdir(parents=True, exist_ok=True)
+    catalog.write_text(stale, encoding="utf-8")
+    result = pm_pack_loader.brain_check(tmp_path)
+    assert any("CATALOG_STALE: project_plan_catalog" in item for item in result.failed)

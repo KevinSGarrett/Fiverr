@@ -1,0 +1,83 @@
+{
+  "generated_at": "2026-06-14T00:08:06.729247+00:00",
+  "source_dir": "PM_Pack/ref/todo",
+  "entries": [
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_01_FOUNDATION.md",
+      "epic_id": "EPIC_01",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_02_COLLECTION.md",
+      "epic_id": "EPIC_02",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_03_ANALYSIS.md",
+      "epic_id": "EPIC_03",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_04_SCORING.md",
+      "epic_id": "EPIC_04",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_05_RECOMMENDATIONS.md",
+      "epic_id": "EPIC_05",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_06_PRICING.md",
+      "epic_id": "EPIC_06",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_07_DISCOVERY.md",
+      "epic_id": "EPIC_07",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_08_PLAYBOOK.md",
+      "epic_id": "EPIC_08",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_09_DASHBOARD.md",
+      "epic_id": "EPIC_09",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/EPIC_10_INTEGRATION.md",
+      "epic_id": "EPIC_10",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    },
+    {
+      "source_path": "PM_Pack/ref/todo/TODO_WAVE_SCHEDULE.md",
+      "epic_id": "EPIC_00",
+      "open_stories": [],
+      "done_stories": [],
+      "completion_pct": 0.0
+    }
+  ]
+}

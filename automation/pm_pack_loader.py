@@ -9,6 +9,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,33 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
                     result.warnings.append(f"SKIPPED [ci] [{section}]: {rel_path}")
                 else:
                     result.failed.append(f"MISSING [{section}]: {rel_path}")
+
+    # Validate generated catalogs freshness.
+    generated_catalogs = registry.get("generated_catalogs", {})
+    if isinstance(generated_catalogs, dict):
+        for catalog_name, catalog_cfg in generated_catalogs.items():
+            if not isinstance(catalog_cfg, dict) or not catalog_cfg.get("required"):
+                continue
+            rel_path = str(catalog_cfg.get("path", "")).strip()
+            freshness_hours = int(catalog_cfg.get("freshness_hours", 24) or 24)
+            if not rel_path:
+                result.failed.append(f"CATALOG_STALE: {catalog_name} (missing path)")
+                continue
+            catalog_path = _resolve(rel_path, repo_root)
+            if not catalog_path.exists():
+                result.failed.append(f"CATALOG_STALE: {catalog_name} (missing file)")
+                continue
+            generated_at = _catalog_generated_at(catalog_path)
+            if generated_at is None:
+                result.failed.append(f"CATALOG_STALE: {catalog_name} (missing generated_at)")
+                continue
+            age = datetime.now(UTC) - generated_at
+            if age > timedelta(hours=freshness_hours):
+                result.failed.append(
+                    f"CATALOG_STALE: {catalog_name} (age_hours={int(age.total_seconds() // 3600)})"
+                )
+            else:
+                result.passed.append(f"PASS [catalog]: {catalog_name} fresh")
 
     # Parse hydration header for cycle/wave/blockers Ã¢â‚¬â€ use exact key lines
     hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
@@ -172,4 +200,19 @@ def _load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text()) if path.exists() else {}
     except Exception:
         return {}
+
+
+def _catalog_generated_at(path: Path) -> datetime | None:
+    payload = _load_json(path)
+    generated_at = payload.get("generated_at")
+    if not isinstance(generated_at, str):
+        return None
+    candidate = generated_at.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 

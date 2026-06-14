@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from automation.ref_catalog_builder import build_all_catalogs
+
 SNAPSHOT_PATH = Path("PM_Pack/automation/current_policy_snapshot.json")
 
 
@@ -105,6 +107,9 @@ def compile_policy(repo_root: Path) -> dict[str, Any]:
     out_path = repo_root / SNAPSHOT_PATH
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(snapshot, indent=2))
+
+    results = build_all_catalogs(ref_dir=repo_root / "PM_Pack" / "ref", catalog_dir=repo_root / "PM_Pack" / "automation")
+    print(f"Catalogs rebuilt: {results}")
 
     return snapshot
 
