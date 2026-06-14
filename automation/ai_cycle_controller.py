@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import click
+import yaml
 
 # Ensure repo root on sys.path when run as a script
 _here = Path(__file__).parent
@@ -322,7 +323,8 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     # ── LIVE: Generate real prompts from PM_Pack + Jira ──────────────
     click.echo("  Fetching Jira board inventory...")
     from automation.jira_client import board_inventory
-    from automation.prompt_generator import write_prompts
+    from automation.prompt_contract_builder import build_prompt_contract
+    from automation.prompt_promotion import promote_prompt, write_validated_manifest
 
     try:
         inv = board_inventory()
@@ -332,16 +334,63 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         click.secho(f"  [WARN] Jira inventory failed: {e}", fg="yellow")
         jira_issues = []
 
-    click.echo("  Generating real agent prompts from PM_Pack + Jira...")
-    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
-    written = write_prompts(
-        cycle=next_cycle,
-        branch=branch,
-        run_id=run_id,
-        agents=manifest["agents"],
-        jira_issues=jira_issues,
-        prompts_dir=prompts_dir,
-    )
+    click.echo("  Generating draft prompts and promoting validated package...")
+    prompts_root = REPO_ROOT / "PM_Pack/automation/prompts"
+    draft_dir = prompts_root / f"CYCLE_{next_cycle:03d}"
+    validated_dir = prompts_root / "validated"
+    draft_dir.mkdir(parents=True, exist_ok=True)
+
+    lanes_path = REPO_ROOT / "PM_Pack/automation/agent_lanes.yml"
+    lanes = yaml.safe_load(lanes_path.read_text(encoding="utf-8")) if lanes_path.exists() else {}
+    pp_catalog_path = REPO_ROOT / "PM_Pack/automation/project_plan_catalog.json"
+    dod_catalog_path = REPO_ROOT / "PM_Pack/automation/dod_catalog.json"
+    pp_catalog = json.loads(pp_catalog_path.read_text(encoding="utf-8")) if pp_catalog_path.exists() else {}
+    dod_catalog = json.loads(dod_catalog_path.read_text(encoding="utf-8")) if dod_catalog_path.exists() else {}
+
+    complete_story_pool = [
+        story
+        for story in jira_issues
+        if str(story.get("acceptance_criteria", "") or "").strip()
+        or str(story.get("definition_of_done", "") or "").strip()
+    ]
+    story_pool = complete_story_pool or jira_issues
+    written: dict[str, Path] = {}
+    promotion_results: dict[str, dict[str, str | int]] = {}
+    for idx, agent in enumerate(manifest["agents"]):
+        selected = story_pool[idx:: len(manifest["agents"])] if story_pool else []
+        if not selected and story_pool:
+            selected = [story_pool[0]]
+        draft_path = draft_dir / f"CYCLE_{next_cycle:03d}_AGENT_{agent}_PROMPT_DRAFT.md"
+        contract = build_prompt_contract(
+            agent=agent,
+            cycle=next_cycle,
+            stories=selected,
+            lanes=lanes,
+            pp_catalog=pp_catalog,
+            dod_catalog=dod_catalog,
+        )
+        draft_path.write_text(contract, encoding="utf-8")
+        success, errors = promote_prompt(draft_path, validated_dir)
+        if not success:
+            click.secho(f"  [FAIL] promotion failed for Agent {agent}", fg="red")
+            for error in errors:
+                click.secho(f"         {error}", fg="red")
+            promotion_results[agent] = {"status": "FAIL", "task_count": 0}
+            continue
+        validated_path = validated_dir / f"CYCLE_{next_cycle:03d}_AGENT_{agent}_PROMPT.md"
+        written[agent] = validated_path
+        promotion_results[agent] = {
+            "status": "PASS",
+            "task_count": contract.count("### TASK "),
+            "draft_path": str(draft_path),
+            "validated_path": str(validated_path),
+        }
+
+    manifest_path = write_validated_manifest(next_cycle, validated_dir, promotion_results)
+    if not all(result.get("status") == "PASS" for result in promotion_results.values()):
+        click.secho("PLAN CYCLE FAILED — one or more prompt promotions failed", fg="red", bold=True)
+        click.secho(f"Validated manifest: {manifest_path}", fg="yellow")
+        sys.exit(1)
 
     click.echo(f"  Cycle           : {next_cycle:03d}")
     click.echo(f"  Branch          : {branch}")
@@ -351,6 +400,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     for agent_id, path in written.items():
         size = path.stat().st_size
         click.echo(f"  Prompt Agent {agent_id}: {path} ({size} bytes)")
+    click.echo(f"  Validated manifest: {manifest_path}")
     click.echo()
     click.secho("PLAN CYCLE COMPLETE — prompts generated from PM_Pack + Jira", fg="green", bold=True)
 
@@ -375,7 +425,8 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
 
     from automation.prompt_validator import validate_all
     agent_list = [a.strip() for a in agents.split(",")]
-    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    validated_dir = REPO_ROOT / "PM_Pack/automation/prompts/validated"
+    prompts_dir = validated_dir if validated_dir.exists() else REPO_ROOT / "PM_Pack/automation/prompts"
     results = validate_all(prompts_dir, cycle, agent_list)
 
     all_pass = True
@@ -445,10 +496,10 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
 
         # --- Locate prompt ---
         click.echo("  [2/5] Locating prompt...")
-        prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+        prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts/validated"
         prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
         if not prompt_path.exists():
-            click.secho(f"  Prompt not found: {prompt_path}", fg="red")
+            click.secho(f"ERROR: Prompt not in validated/ — {prompt_path}", fg="red")
             sys.exit(1)
         click.echo(f"  Prompt: {prompt_path}")
 

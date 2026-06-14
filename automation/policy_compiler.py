@@ -102,6 +102,14 @@ def compile_policy(repo_root: Path) -> dict[str, Any]:
 
     snapshot["claude_billing_mode"] = "claude_subscription_only"
     snapshot["access_profile"] = "lenient_autonomous_development"
+    manifest_path = repo_root / "PM_Pack/automation/prompts/validated" / f"CYCLE_{snapshot['cycle_current']:03d}_MANIFEST.json"
+    manifest = _load_json(manifest_path)
+    snapshot["prompt_package"] = {
+        "manifest_path": str(manifest_path),
+        "exists": manifest_path.exists(),
+        "overall": manifest.get("overall", "MISSING"),
+        "agent_count": len(manifest.get("agents", {})) if isinstance(manifest.get("agents"), dict) else 0,
+    }
 
     # Write snapshot to repo
     out_path = repo_root / SNAPSHOT_PATH
