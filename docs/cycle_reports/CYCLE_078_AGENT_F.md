@@ -44,7 +44,7 @@ Test coverage hardening, operations health reporting, export sanitization pipeli
 - `mypy automation/ --ignore-missing-imports` -> PASS
 - `pytest tests/unit/test_export_sanitizer_verify.py tests/unit/test_report_generator.py tests/unit/test_report_generator_model_status.py tests/unit/test_ai_cycle_controller.py -q` -> PASS (31 passed)
 - `pytest tests/unit/test_export_sanitizer_verify.py --cov=automation.export_sanitizer_verify --cov-report=term -q` -> PASS (97%)
-- `pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=30 -q` -> PARTIAL (interrupted by environment-level `KeyboardInterrupt`; 3283 passed before interrupt; reported 68.09% partial aggregate)
+- `pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=30 -q` -> PARTIAL (interrupted by environment-level `KeyboardInterrupt`; 3286 passed before interrupt; reported 68.15% partial aggregate)
 
 ## Ops Health and Schedules
 - Verified scheduled tasks exist and are enabled:
@@ -78,7 +78,7 @@ Test coverage hardening, operations health reporting, export sanitization pipeli
   - Plan of record: either align docs to canonical path or update snapshot script output path contract.
 
 ## Required End-State Fields
-- Final combined coverage percentage: `68.09%` (partial interrupted run).
+- Final combined coverage percentage: `68.15%` (partial interrupted run).
 - All modules `>=90%`: NO (repository-wide combined gate blocked by interruption); targeted Agent F lane modules YES.
 - `live_validation_evidence.json`: restored correctly.
 - `make_evidence_pack.ps1`: created.

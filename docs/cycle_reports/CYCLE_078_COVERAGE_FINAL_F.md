@@ -16,14 +16,14 @@
 
 ## Combined Full-Suite Coverage Attempts
 - Command: `pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=30 -q`
-- Result: interrupted with `KeyboardInterrupt` after ~3283 tests; partial combined coverage reported as 68.09%.
+- Result: interrupted with `KeyboardInterrupt` after ~3286 tests; partial combined coverage reported as 68.15%.
 - Interpretation: this remains an environment-level long-session interruption issue and prevents an honest claim of fully green combined coverage.
 
 ## CI Gate Configuration
 - `.github/workflows/ci.yml` includes `--cov-fail-under=90` in tests-coverage job.
 
 ## Agent F Summary
-- Final combined coverage (full-suite command): `68.09%` in this environment due interruption.
+- Final combined coverage (full-suite command): `68.15%` in this environment due interruption.
 - Modules at `>=90%` (Agent F lane): all targeted modules listed above.
 - Modules still below: repository-wide `src/` aggregate in interrupted full run (not recoverable in this session without resolving long-run interruption root cause).
 - `live_validation_evidence.json`: RESTORED.
