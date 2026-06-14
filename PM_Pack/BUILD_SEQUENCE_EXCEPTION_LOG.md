@@ -53,3 +53,11 @@ All V5 exceptions above are closed and marked RESOLVED.
 - Resolution: Manually staged and committed via cycle 076 Agent A Task-09
 - Status: RESOLVED
 
+## Exception 6 — Cycle 078 GitHub PR Auth Block
+
+- Exception type: INFRA_AUTH_BLOCK
+- Date discovered: 2026-06-13
+- Root cause: local `gh` CLI credentials invalid (`HTTP 401: Bad credentials`)
+- Impact: PR creation and CI-linked merge governance cannot complete with real PR number
+- Resolution plan: operator re-auth via `gh auth login -h github.com`, re-run PR create and post-merge verification
+- Status: OPEN
