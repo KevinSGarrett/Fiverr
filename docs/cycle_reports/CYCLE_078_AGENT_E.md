@@ -92,6 +92,23 @@
 - `EPIC_10`: 0% done, 0 open tasks
 - `EPIC_00` (schedule file): 0% done, 0 open tasks
 
+## Prompt Pre-Read Coverage Notes
+
+- Project-plan structure sample review confirmed recurring patterns:
+  - H1/H2 document identity headers
+  - `SCRUM-####` references in a subset of planning docs
+  - `EPIC_##` and story-style numeric IDs across planning and todo artifacts
+  - occasional `src/...py` path references
+- DoD corpus (`DOD_EPIC_01` .. `DOD_EPIC_10`) reviewed as a set:
+  - 9/10 files include explicit DoD/AC section structure
+  - `DOD_EPIC_04.md` is a notable outlier with no extractable criteria bullets in current source text
+- TODO corpus (11 files) reviewed as a set:
+  - story/task IDs are present
+  - no markdown checkbox state tracking currently present in source files (`- [ ]` / `- [x]` absent), so open/done counters remain zero
+- `POST_CYCLE_PM_REVIEW_v4.md` fully read (810 lines):
+  - includes `PART 0` through `PART 8` control flow and gating sections
+  - explicitly references `PM_Pack/ref/project_plan` for mandatory project-plan review logic
+
 ## Validation and Gates
 
 - `python automation/ref_catalog_builder.py build` -> PASS
