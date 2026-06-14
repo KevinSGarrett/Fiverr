@@ -1,0 +1,13 @@
+{
+  "pr_number": 95,
+  "state": "UNKNOWN",
+  "merge_commit_sha": null,
+  "verified_at": "2026-06-14T05:02:50.637447Z",
+  "ci_lint": "MISSING",
+  "ci_type_check": "MISSING",
+  "ci_tests_coverage": "MISSING",
+  "ci_smoke_gates": "MISSING",
+  "codecov_project": "MISSING",
+  "codecov_patch": "MISSING",
+  "codex_review_disposition": "PENDING"
+}

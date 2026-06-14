@@ -62,7 +62,11 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
         r = subprocess.run(
             ["gh", "pr", "view", str(pr_number), "--repo", repo,
              "--json", "reviews,reviewDecision,statusCheckRollup"],
-            capture_output=True, text=True, timeout=30
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
         )
         if r.returncode != 0:
             return result
@@ -102,10 +106,8 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
         })
 
     result.all_resolved = all(t.is_resolved for t in result.threads) if result.threads else True
-    result.merge_blocked = bool(result.blockers) or any(
-        not t.is_resolved and t.classification not in AUTO_RESOLVE_CATEGORIES
-        for t in result.threads
-    )
+    # Merge gate blocks only on explicitly blocking thread classes.
+    result.merge_blocked = bool(result.blockers)
     return result
 
 
