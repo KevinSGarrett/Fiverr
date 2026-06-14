@@ -44,16 +44,22 @@ Test coverage hardening, operations health reporting, export sanitization pipeli
 - `mypy automation/ --ignore-missing-imports` -> PASS
 - `pytest tests/unit/test_export_sanitizer_verify.py tests/unit/test_report_generator.py tests/unit/test_report_generator_model_status.py tests/unit/test_ai_cycle_controller.py -q` -> PASS (31 passed)
 - `pytest tests/unit/test_export_sanitizer_verify.py --cov=automation.export_sanitizer_verify --cov-report=term -q` -> PASS (97%)
-- `pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=30 -q` -> PARTIAL (interrupted by environment-level `KeyboardInterrupt`; 3286 passed before interrupt; reported 68.15% partial aggregate)
+- `pytest tests/unit/ --cov=automation --cov=src --cov-fail-under=90 --timeout=30 -q` -> PARTIAL (interrupted by environment-level `KeyboardInterrupt`; 3288 passed before interrupt; reported 68.16% partial aggregate)
 
 ## Ops Health and Schedules
 - Verified scheduled tasks exist and are enabled:
+  - `WatchdogRunner`
+  - `HealthReport`
+  - `DailySnapshot`
+  - `WeeklyMaintenance`
+- Existing equivalent AI Runner prefixed tasks remain present and unchanged:
   - `AI Runner Watchdog`
   - `AI Runner Health Report`
   - `AI Runner Daily Snapshot`
   - `AI Runner Weekly Maintenance`
 - `AI Runner Watchdog` is currently running.
-- `AI Runner Daily Snapshot` task is present and runnable (manual trigger attempted successfully).
+- `DailySnapshot` task is present and runnable (manual trigger attempted successfully).
+- Snapshot evidence artifact now present under `C:\AI_Runner\logs\snapshots\snapshot_*.json`.
 
 ## PASS4-P0-009 (Export Sanitization) Resolution
 - `C:\AI_Runner\scripts\make_evidence_pack.ps1` created.
@@ -66,6 +72,10 @@ Test coverage hardening, operations health reporting, export sanitization pipeli
 - Targeted Agent F lane module coverage is `>=90%` (see `docs/cycle_reports/CYCLE_078_COVERAGE_FINAL_F.md`).
 - Full combined `automation+src` coverage command remains blocked by long-session interruption and cannot be honestly marked PASS in this environment.
 
+## Regression Verification
+- `pytest tests/unit/test_claude_sub_gate.py -q -k "short_string"` -> PASS (1 passed).
+- Implemented short-string false-positive guard in `automation/claude_sub_gate.py` (`MIN_API_KEY_LENGTH=50`) and aligned tests.
+
 ## Checklist Open Items and Plan of Record
 - Full-suite combined coverage gate (`BUG-007`) remains open in this runtime due recurring long-session interruption.
   - Plan of record:
@@ -73,12 +83,10 @@ Test coverage hardening, operations health reporting, export sanitization pipeli
     2. Capture per-batch pass/fail and interruption markers.
     3. If stable, collect combined coverage via staged coverage data merge workflow.
     4. Re-run full gate command after interruption root cause is fixed.
-- Daily snapshot evidence path mismatch (task expectation vs implementation):
-  - Task expectation referenced `logs/snapshots`; implementation uses `C:\AI_Runner\backups\state_snapshots`.
-  - Plan of record: either align docs to canonical path or update snapshot script output path contract.
+- No remaining open items in Agent F scope besides BUG-007 runtime interruption root cause.
 
 ## Required End-State Fields
-- Final combined coverage percentage: `68.15%` (partial interrupted run).
+- Final combined coverage percentage: `68.16%` (partial interrupted run).
 - All modules `>=90%`: NO (repository-wide combined gate blocked by interruption); targeted Agent F lane modules YES.
 - `live_validation_evidence.json`: restored correctly.
 - `make_evidence_pack.ps1`: created.

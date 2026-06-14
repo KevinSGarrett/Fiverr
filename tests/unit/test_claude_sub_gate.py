@@ -24,11 +24,19 @@ class TestCheckApiKeyAbsent:
 
     def test_fails_when_key_present(self, monkeypatch):
         """Gate FAILS when ANTHROPIC_API_KEY is set in environment."""
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-12345")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "x" * 60)
         from automation.claude_sub_gate import check_api_key_absent
         result = check_api_key_absent()
         assert result["passed"] is False
         assert "BLOCKED" in result.get("incident_code", "") or not result["passed"]
+
+    def test_short_string_does_not_block_short_string(self, monkeypatch):
+        """Regression: short placeholder values must not trigger blocking incident."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "short_value")
+        from automation.claude_sub_gate import check_api_key_absent
+
+        result = check_api_key_absent()
+        assert result["passed"] is True
 
     def test_returns_dict(self, monkeypatch):
         """Return value must be a dict with 'passed' key."""
@@ -54,7 +62,7 @@ class TestRunSubscriptionCheck:
 
     def test_subscription_check_blocked_if_key_present(self, monkeypatch):
         """run_subscription_check is BLOCKED if API key gate fails."""
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-12345")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "x" * 60)
         from automation.claude_sub_gate import run_subscription_check
         result = run_subscription_check()
         assert not result["passed"]

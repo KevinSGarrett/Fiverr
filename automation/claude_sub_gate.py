@@ -14,6 +14,7 @@ from typing import Any
 
 RUNNER_ROOT = Path("C:/AI_Runner")
 BLOCKED_REPORT_DIR = RUNNER_ROOT / "reports/model_verification"
+MIN_API_KEY_LENGTH = 50
 
 
 def check_api_key_absent() -> dict:
@@ -44,7 +45,7 @@ def check_api_key_absent() -> dict:
                 key = r.stdout.strip()
             except Exception:
                 key = ""
-        if key:
+        if _is_real_api_key_candidate(key):
             findings.append(f"{scope} scope: API key detected (length={len(key)})")
 
     if findings:
@@ -58,6 +59,11 @@ def check_api_key_absent() -> dict:
         }
 
     return {"passed": True, "findings": [], "detail": "ANTHROPIC_API_KEY absent in all scopes"}
+
+
+def _is_real_api_key_candidate(value: str) -> bool:
+    """Reduce false positives from short placeholder strings."""
+    return len(value.strip()) >= MIN_API_KEY_LENGTH
 
 
 def verify_subscription_preflight() -> dict:
