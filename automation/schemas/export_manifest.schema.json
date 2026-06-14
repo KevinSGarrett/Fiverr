@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "required": [
+    "created_at",
+    "excluded_paths",
+    "sanitizer_version"
+  ],
+  "properties": {
+    "created_at": {
+      "type": "string"
+    },
+    "excluded_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sanitizer_version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    }
+  }
+}

@@ -1,4 +1,4 @@
-﻿"""Retry execution engine for queue jobs."""
+"""Retry execution engine for queue jobs."""
 
 from __future__ import annotations
 
@@ -23,20 +23,6 @@ if TYPE_CHECKING:
     from src.models.job import Job
 
 
-def _is_in_memory_sqlite_session(db: Any) -> bool:
-    """Return True when running against an in-memory SQLite session."""
-    if not isinstance(db, Session):
-        return False
-    try:
-        from sqlalchemy.engine import Engine  # noqa: PLC0415
-        bind = db.get_bind()
-        if not isinstance(bind, Engine) or bind.url is None:
-            return False
-        return bind.url.get_backend_name() == "sqlite" and bind.url.database in (None, ":memory:")
-    except Exception:
-        return False
-
-
 async def execute_with_retry(
     job_func: Callable,
     job: Job,
@@ -51,15 +37,8 @@ async def execute_with_retry(
     """
     _ = pacing_manager
     config = get_retry_config(job.job_type)
-    configured_max_retries = int(config["max_retries"])
-    job_level_max_retries = getattr(job, "max_retries", None)
-    if isinstance(job_level_max_retries, int) and job_level_max_retries >= 0:
-        effective_max_retries = min(configured_max_retries, job_level_max_retries)
-    else:
-        effective_max_retries = configured_max_retries
-    skip_sleep = _is_in_memory_sqlite_session(db)
 
-    for attempt in range(effective_max_retries + 1):
+    for attempt in range(config["max_retries"] + 1):
         try:
             job.status = "RUNNING"
             job.started_at = datetime.now(UTC)
@@ -79,24 +58,23 @@ async def execute_with_retry(
         except RateLimitError as e:
             wait = e.retry_after_seconds or config["backoff_base_seconds"]
             job.error_log = (job.error_log or []) + [
-                f"Attempt {attempt+1}: RateLimit â€” {e.source} â€” wait {wait}s"
+                f"Attempt {attempt+1}: RateLimit — {e.source} — wait {wait}s"
             ]
             job.retry_count += 1
             if isinstance(db, Session):
                 db.commit()
-            if job.retry_count > effective_max_retries:
+            if job.retry_count > config["max_retries"]:
                 job.status = "DEAD_LETTER"
                 job.completed_at = datetime.now(UTC)
                 if isinstance(db, Session):
                     db.commit()
                 return False
-            if not skip_sleep:
-                await asyncio.sleep(wait)
+            await asyncio.sleep(wait)
 
         except SessionExpiredError:
             await session_manager.force_relogin()
             job.error_log = (job.error_log or []) + [
-                f"Attempt {attempt+1}: Session expired â€” re-logged in"
+                f"Attempt {attempt+1}: Session expired — re-logged in"
             ]
             job.retry_count += 1
             if isinstance(db, Session):
@@ -127,15 +105,13 @@ async def execute_with_retry(
                     db.commit()
                 return False
 
-            error_msg = (
-                f"Attempt {attempt+1}/{effective_max_retries+1}: {type(e).__name__}: {str(e)[:200]}"
-            )
+            error_msg = f"Attempt {attempt+1}/{config['max_retries']+1}: {type(e).__name__}: {str(e)[:200]}"
             job.error_log = (job.error_log or []) + [error_msg]
             job.retry_count += 1
             if isinstance(db, Session):
                 db.commit()
 
-            if job.retry_count > effective_max_retries:
+            if job.retry_count > config["max_retries"]:
                 job.status = "DEAD_LETTER"
                 job.completed_at = datetime.now(UTC)
                 if isinstance(db, Session):
@@ -146,11 +122,9 @@ async def execute_with_retry(
                 config["backoff_base_seconds"] * (config["backoff_multiplier"] ** attempt),
                 config["max_backoff_seconds"],
             )
-            if not skip_sleep:
-                await asyncio.sleep(wait)
+            await asyncio.sleep(wait)
 
     job.status = "DEAD_LETTER"
     if isinstance(db, Session):
         db.commit()
     return False
-

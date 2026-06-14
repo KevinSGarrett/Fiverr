@@ -88,18 +88,11 @@ async def run_live_collection_pilot(
         # One niche only.
         niches = config_payload.get("niches", [])
         if isinstance(niches, list):
-            filtered_niches = [
+            config_payload["niches"] = [
                 niche
                 for niche in niches
                 if isinstance(niche, dict) and niche.get("niche_id") == niche_id
             ]
-            for niche in filtered_niches:
-                niche["external_sources"] = {
-                    "google_trends": False,
-                    "reddit": False,
-                    "youtube": False,
-                }
-            config_payload["niches"] = filtered_niches
 
         logger_obj = PilotLogger(log_path=log_path)
         run_id = f"pilot-{niche_id}-{uuid.uuid4().hex[:8]}"
@@ -123,10 +116,9 @@ async def run_live_collection_pilot(
                     session_manager=session_manager,
                     dry_run=False,
                 )
-                gigs_backfilled = _backfill_gigs_from_search_results(db=db, run_id=run_id, max_cards=25)
             result["success"] = True
             result["errors"] = list(summary.get("errors", []))
-            result["gigs_collected"] = gigs_backfilled
+            result["gigs_collected"] = int(summary.get("gig_detail_jobs_run", 0))
             result["search_results"] = int(summary.get("search_jobs_run", 0))
             result["keywords_found"] = int(summary.get("search_jobs_run", 0))
         except ScrapFlyRateLimitError as exc:

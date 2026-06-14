@@ -1,0 +1,1683 @@
+{
+  "generated_at": "2026-06-14T02:17:09.914337+00:00",
+  "source_dir": "PM_Pack/ref/project_plan",
+  "entries": [
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/CHANGE_LOG.md",
+      "title": "Change Log \u2014 Fiverr Research System",
+      "type": "markdown",
+      "wave": "12",
+      "epic_ids": [
+        "EPIC_01",
+        "EPIC_02",
+        "EPIC_03",
+        "EPIC_04",
+        "EPIC_05",
+        "EPIC_06",
+        "EPIC_07",
+        "EPIC_08",
+        "EPIC_09",
+        "EPIC_10"
+      ],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-994"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [
+        "PM_Pack/ref/dod/DOD_EPIC_01.md",
+        "PM_Pack/ref/dod/DOD_EPIC_02.md",
+        "PM_Pack/ref/dod/DOD_EPIC_03.md",
+        "PM_Pack/ref/dod/DOD_EPIC_04.md",
+        "PM_Pack/ref/dod/DOD_EPIC_05.md",
+        "PM_Pack/ref/dod/DOD_EPIC_06.md",
+        "PM_Pack/ref/dod/DOD_EPIC_07.md",
+        "PM_Pack/ref/dod/DOD_EPIC_08.md",
+        "PM_Pack/ref/dod/DOD_EPIC_09.md",
+        "PM_Pack/ref/dod/DOD_EPIC_10.md"
+      ],
+      "todo_refs": [
+        "PM_Pack/ref/todo/EPIC_01_*.md",
+        "PM_Pack/ref/todo/EPIC_02_*.md",
+        "PM_Pack/ref/todo/EPIC_03_*.md",
+        "PM_Pack/ref/todo/EPIC_04_*.md",
+        "PM_Pack/ref/todo/EPIC_05_*.md",
+        "PM_Pack/ref/todo/EPIC_06_*.md",
+        "PM_Pack/ref/todo/EPIC_07_*.md",
+        "PM_Pack/ref/todo/EPIC_08_*.md",
+        "PM_Pack/ref/todo/EPIC_09_*.md",
+        "PM_Pack/ref/todo/EPIC_10_*.md"
+      ],
+      "summary": "# Change Log \u2014 Fiverr Research System\n\n---\n\n## Implementation Breakdown \u2014 To-Do & DOD (Complete) \u2014 POST-PLANNING PHASE\n\n### Files Written (C:\\Fiverr1\\To-Do\\)\n- TODO_WAVE_SCHEDULE.md (new \u2014 master schedule for 10 epic waves TD-1 through TD-10)\n- EPIC_01_FOUNDATION.md (new \u2014 7 stories, 68 tasks: proje"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/DECISION_LOG.md",
+      "title": "Decision Log",
+      "type": "markdown",
+      "wave": "20",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/collection/__init__.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Decision Log\n# Fiverr Research System\n\n**Last Updated:** Post-Wave 20 Import + Niche Expansion + Category Verification\n\n---\n\n## DL-001 \u2014 Language: Python as Core Runtime\n| Field | Value |\n|---|---|\n| Decision | Python 3.11+ is the primary language for all automation, collection, analysis, scoring,"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/DECISION_LOG_APPEND.md",
+      "title": "DECISION_LOG_APPEND",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "This file is a leftover artifact from an earlier partial write session. Please disregard it.\nThe authoritative Decision Log is at: C:\\Fiverr1\\project-pack\\00_meta\\DECISION_LOG.md\n"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/DECISION_LOG_WAVE1.md",
+      "title": "Decision Log \u2014 Wave 1 Additions",
+      "type": "markdown",
+      "wave": "1",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Decision Log \u2014 Wave 1 Additions\n# Fiverr Research System\n\n*(Append to existing DECISION_LOG.md \u2014 DL-025 through DL-028)*\n\n---\n\n## DL-025 \u2014 Niche Profile Schema: 17-Field Structure Finalized\n\n| Field | Value |\n|---|---|\n| Decision | The niche profile schema in config.yaml uses 17 top-level sections"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/ENHANCEMENT_WAVE_SCHEDULE.md",
+      "title": "Enhancement Wave Schedule \u2014 Post-Wave 8",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Enhancement Wave Schedule \u2014 Post-Wave 8\n# Fiverr Research System\n# Created: 2026-05-12\n\n---\n\n## Gap Analysis: What You Asked vs. What's Already Built\n\nBefore creating new waves, here's what the existing Waves 0\u20138 already cover and what's genuinely new:\n\n### ALREADY FULLY COVERED (No new wave neede"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/OPEN_QUESTIONS.md",
+      "title": "Open Questions Register",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Open Questions Register\n# Fiverr Research System \u2014 Final Version (All Waves Complete)\n\n**Status:** ALL RESOLVED | **Last Updated:** Wave 8 Complete\n\n---\n\n## ALL 14 OPEN QUESTIONS \u2014 RESOLVED\n\n| ID | Question | Resolution | Wave |\n|---|---|---|---|\n| OQ-001 | Auth vs unauth collection | SessionManag"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/00_meta/WAVE_SCHEDULE.md",
+      "title": "Wave Schedule",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [
+        "EPIC_01",
+        "EPIC_02",
+        "EPIC_03",
+        "EPIC_04",
+        "EPIC_05",
+        "EPIC_06",
+        "EPIC_07",
+        "EPIC_08",
+        "EPIC_09",
+        "EPIC_10"
+      ],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-612",
+        "SCRUM-613",
+        "SCRUM-620",
+        "SCRUM-634",
+        "SCRUM-641",
+        "SCRUM-897"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [
+        "PM_Pack/ref/dod/DOD_EPIC_01.md",
+        "PM_Pack/ref/dod/DOD_EPIC_02.md",
+        "PM_Pack/ref/dod/DOD_EPIC_03.md",
+        "PM_Pack/ref/dod/DOD_EPIC_04.md",
+        "PM_Pack/ref/dod/DOD_EPIC_05.md",
+        "PM_Pack/ref/dod/DOD_EPIC_06.md",
+        "PM_Pack/ref/dod/DOD_EPIC_07.md",
+        "PM_Pack/ref/dod/DOD_EPIC_08.md",
+        "PM_Pack/ref/dod/DOD_EPIC_09.md",
+        "PM_Pack/ref/dod/DOD_EPIC_10.md"
+      ],
+      "todo_refs": [
+        "PM_Pack/ref/todo/EPIC_01_*.md",
+        "PM_Pack/ref/todo/EPIC_02_*.md",
+        "PM_Pack/ref/todo/EPIC_03_*.md",
+        "PM_Pack/ref/todo/EPIC_04_*.md",
+        "PM_Pack/ref/todo/EPIC_05_*.md",
+        "PM_Pack/ref/todo/EPIC_06_*.md",
+        "PM_Pack/ref/todo/EPIC_07_*.md",
+        "PM_Pack/ref/todo/EPIC_08_*.md",
+        "PM_Pack/ref/todo/EPIC_09_*.md",
+        "PM_Pack/ref/todo/EPIC_10_*.md"
+      ],
+      "summary": "# Wave Schedule\n# Fiverr Research System \u2014 ALL PLANNING + TO-DO/DOD WAVES COMPLETE\n\n**Status:** ALL 13 PLANNING WAVES COMPLETE (Waves 0\u201312) + ALL 10 IMPLEMENTATION BREAKDOWN WAVES COMPLETE (TD-1 through TD-10)\n\n## Planning Waves (Specification)\n\n| Wave | Name | Status |\n|---|---|---|\n| 0 | Foundatio"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/01_vision/AUTOMATION_OPERATING_MODEL.md",
+      "title": "Automation Operating Model",
+      "type": "markdown",
+      "wave": "0",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Automation Operating Model\n# Fiverr Research System \u2014 Wave 0 Rev 3\n\n**Version:** 0.3 \u2014 Full Authenticated Session + Complete LLM Integration Across All Stages\n\n---\n\n## Core Principle\n\n**Natural-rate automation with human-paced session behavior.**\n\nAfter initial configuration, the user runs one com"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/01_vision/NICHE_CONFIG_DESIGN.md",
+      "title": "Niche Configuration Design",
+      "type": "markdown",
+      "wave": "1",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Niche Configuration Design\n# Fiverr Research System \u2014 Wave 1\n\n**Document Status:** Complete\n**Wave:** 1 \u2014 Vision and Product Design\n**Purpose:** Define the complete niche profile schema for config.yaml, multi-niche run architecture, gating logic, auto-promotion design, and example YAML for all 9 c"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/01_vision/PERSONAS.md",
+      "title": "Personas",
+      "type": "markdown",
+      "wave": "1",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Personas\n# Fiverr Research System \u2014 Wave 1\n\n**Document Status:** Complete\n**Wave:** 1 \u2014 Vision and Product Design\n**Note:** These are personas for who USES this research tool \u2014 not Fiverr buyers. All three are Fiverr sellers researching AI, Python, and automation niches.\n\n---\n\n## Persona 1 \u2014 The S"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/01_vision/PRODUCT_VISION.md",
+      "title": "Product Vision",
+      "type": "markdown",
+      "wave": "1",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Product Vision\n# Fiverr Research System \u2014 Wave 1\n\n**Document Status:** Complete\n**Wave:** 1 \u2014 Vision and Product Design\n**Scope:** All 9 research niches across Tier 1 (PRD, Support-KB, Gumloop/Lindy, MCP) and Tier 2 (Python Automation, AI Tool/LLM Integration, AI Agent Dev, Workflow Automation, Py"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/01_vision/USER_STORIES.md",
+      "title": "User Stories",
+      "type": "markdown",
+      "wave": "1",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# User Stories\n# Fiverr Research System \u2014 Wave 1\n\n**Document Status:** Complete\n**Wave:** 1 \u2014 Vision and Product Design\n**Total Stories:** 32\n**Context:** All stories are written from the perspective of a Fiverr seller researching 9 AI/Python/automation niches using this automated system.\n\n---\n\n## G"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/API_SURFACE.md",
+      "title": "API Surface",
+      "type": "markdown",
+      "wave": "2",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/schemas/api_responses.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# API Surface\n# Fiverr Research System \u2014 Wave 2\n\n**Document Status:** Complete\n**Wave:** 2 \u2014 Technical Architecture\n**Purpose:** FastAPI endpoint design for dashboard integration. v1 is Streamlit reading directly from the database. v2 exposes this API for React dashboard and any external tooling.\n\n-"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/ARCHITECTURE_DIRECTION.md",
+      "title": "Architecture Direction",
+      "type": "markdown",
+      "wave": "0",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Architecture Direction\n# Fiverr Research System \u2014 Wave 0 Rev 3\n\n**Version:** 0.3 \u2014 Full Authenticated Session + Complete LLM Layer + 9-Niche Portfolio\n\n---\n\n## System Purpose\n\nA local-first, fully automated intelligence platform that collects data from Fiverr via authenticated Playwright sessions "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/COLLECTION_ARCHITECTURE.md",
+      "title": "Collection Architecture",
+      "type": "markdown",
+      "wave": "2",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/collection/human_events.py",
+        "src/collection/proxy_layer.py",
+        "src/collection/session_manager.py",
+        "src/core/niche_depth_dispatcher.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Collection Architecture\n# Fiverr Research System \u2014 Wave 2\n\n**Document Status:** Complete\n**Wave:** 2 \u2014 Technical Architecture\n**Purpose:** Playwright session manager design, human-event simulation module, niche depth dispatcher, proxy layer as pluggable interface, and session security.\n\n---\n\n## Se"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/CONFIG_SCHEMA.md",
+      "title": "Config Schema",
+      "type": "markdown",
+      "wave": "2",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Config Schema\n# Fiverr Research System \u2014 Wave 2\n\n**Document Status:** Complete\n**Wave:** 2 \u2014 Technical Architecture\n**Purpose:** Full documentation of every config.yaml field \u2014 name, type, default, validation rules, description, examples, and recalculation triggers.\n\n---\n\n## Config Design Rules\n\n1"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/DATA_FLOW.md",
+      "title": "Data Flow",
+      "type": "markdown",
+      "wave": "2",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Data Flow\n# Fiverr Research System \u2014 Wave 2\n\n**Document Status:** Complete\n**Wave:** 2 \u2014 Technical Architecture\n**Purpose:** End-to-end data flow for a complete run across all 9 niches, with tier-aware branching, LLM integration points, checkpoint locations, and queue involvement shown explicitly."
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/JOB_ARCHITECTURE.md",
+      "title": "Job Architecture",
+      "type": "markdown",
+      "wave": "2",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/scheduler/jobs.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Job Architecture\n# Fiverr Research System \u2014 Wave 2\n\n**Document Status:** Complete\n**Wave:** 2 \u2014 Technical Architecture\n**Purpose:** All job types, schemas, priority tier assignments, scheduling design, retry policy, and dead-letter queue for all 15 pipeline stages across 9 niches.\n\n---\n\n## Job Arc"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/02_architecture/SYSTEM_ARCHITECTURE.md",
+      "title": "System Architecture",
+      "type": "markdown",
+      "wave": "2",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/gig_quality_analyzer.py",
+        "src/analysis/keyword_clusterer.py",
+        "src/analysis/seller_strength.py",
+        "src/collection/fiverr_search.py",
+        "src/collection/gig_detail.py",
+        "src/collection/human_events.py",
+        "src/collection/keyword_expander.py",
+        "src/collection/seller_profile.py",
+        "src/collection/session_manager.py",
+        "src/llm/cache.py",
+        "src/llm/client.py",
+        "src/llm/cost_monitor.py",
+        "src/llm/structured_output.py",
+        "src/scoring/composite_scorer.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# System Architecture\n# Fiverr Research System \u2014 Wave 2\n\n**Document Status:** Complete\n**Wave:** 2 \u2014 Technical Architecture\n**Scope:** Full component map for the 9-niche automated research system with LLM Intelligence Layer, Niche Depth Dispatcher, Auto-Promotion Evaluator, and 5-tier job queue.\n\n--"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/03_data/FIELD_CATALOG.md",
+      "title": "Field Catalog",
+      "type": "markdown",
+      "wave": "3",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Field Catalog\n# Fiverr Research System \u2014 Wave 3\n\n**Document Status:** Complete\n**Wave:** 3 \u2014 Data Schema and Source Design\n**Purpose:** Every field across all 21 tables \u2014 Python type, SQLAlchemy type, nullable, default, source stage, purpose, validation rule, and notes.\n\n---\n\n## How to Read This C"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/03_data/FRESHNESS_MODEL.md",
+      "title": "Freshness Model",
+      "type": "markdown",
+      "wave": "3",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Freshness Model\n# Fiverr Research System \u2014 Wave 3\n\n**Document Status:** Complete\n**Wave:** 3 \u2014 Data Schema and Source Design\n**Purpose:** TTL by data type, staleness detection queries, re-queue logic, LLM cache invalidation, freshness scoring for the Confidence Modifier, and dashboard freshness di"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/03_data/RESULT_SET_VALIDATION.md",
+      "title": "Result Set Validation -- Stage 3.5",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-605",
+        "SCRUM-612"
+      ],
+      "files_or_modules": [
+        "src/analysis/result_set_validation_workflow.py",
+        "src/analysis/result_set_validator.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Result Set Validation -- Stage 3.5\n# Fiverr Research System -- SRDI Initiative Wave C (R2)\n\n**Document Status:** Active\n**Source:** WAVE_C_POST_COLLECTION_RELEVANCE_VALIDATION.md\n**Epic:** R2 (SCRUM-605 to SCRUM-612)\n**Modules:** src/analysis/result_set_validator.py (NEW),\n             src/analysi"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/03_data/SCHEMA.md",
+      "title": "Data Schema",
+      "type": "markdown",
+      "wave": "3",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-590"
+      ],
+      "files_or_modules": [
+        "src/models/alert.py",
+        "src/models/base.py",
+        "src/models/cluster_analysis.py",
+        "src/models/competitor_analysis.py",
+        "src/models/external_signal.py",
+        "src/models/gig.py",
+        "src/models/gig_quality_score.py",
+        "src/models/job.py",
+        "src/models/keyword.py",
+        "src/models/keyword_cluster.py",
+        "src/models/keyword_score.py",
+        "src/models/llm_cache.py",
+        "src/models/llm_usage_log.py",
+        "src/models/niche_config.py",
+        "src/models/opportunity_ranking.py",
+        "src/models/order.py",
+        "src/models/recommendation.py",
+        "src/models/run_log.py",
+        "src/models/run_niche.py",
+        "src/models/search_result.py",
+        "src/models/seller.py",
+        "src/models/seller_score.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Data Schema\n# Fiverr Research System \u2014 Wave 3\n\n**Document Status:** Complete\n**Wave:** 3 \u2014 Data Schema and Source Design\n**Purpose:** Full SQLAlchemy 2.0 ORM class definitions for all 21 database tables with primary keys, foreign keys, indexes, constraints, relationships, and default values.\n\n---\n"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/03_data/SOURCE_CONNECTORS.md",
+      "title": "Source Connectors",
+      "type": "markdown",
+      "wave": "3",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Source Connectors\n# Fiverr Research System \u2014 Wave 3\n\n**Document Status:** Complete\n**Wave:** 3 \u2014 Data Schema and Source Design\n**Purpose:** All 6 source connectors \u2014 method, authentication, rate limits, fields returned, TTL, retry behavior, known failure modes, and fallback impact.\n\n---\n\n## Connec"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/03_data/VALIDATION_RULES.md",
+      "title": "Validation Rules",
+      "type": "markdown",
+      "wave": "3",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-605",
+        "SCRUM-612"
+      ],
+      "files_or_modules": [
+        "src/analysis/result_set_validator.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Validation Rules\n# Fiverr Research System \u2014 Wave 3\n\n**Document Status:** Complete\n**Wave:** 3 \u2014 Data Schema and Source Design\n**Purpose:** Per-field validation rules, null handling strategy, outlier detection, data quality scoring per niche, cross-field validation, and reject vs. flag behavior.\n\n-"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/COLLECTION_WORKFLOWS.md",
+      "title": "Collection Workflows",
+      "type": "markdown",
+      "wave": "4",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-591",
+        "SCRUM-598"
+      ],
+      "files_or_modules": [
+        "src/analysis/zombie_gig_detector.py",
+        "src/collection/search_url_builder.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Collection Workflows\n# Fiverr Research System \u2014 Wave 4\n\n**Document Status:** Complete\n**Wave:** 4 \u2014 Collection Engine Design\n**Purpose:** All 15 collection workflow specs with depth variants, error handling, checkpoint locations, pacing, and LLM integration points.\n\n---\n\n## Workflow Design Standar"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/PACING_MODEL.md",
+      "title": "Pacing Model",
+      "type": "markdown",
+      "wave": "4",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/collection/pacing_manager.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Pacing Model\n# Fiverr Research System \u2014 Wave 4\n\n**Document Status:** Complete\n**Wave:** 4 \u2014 Collection Engine Design\n**Purpose:** Complete pacing delay tables, jitter formula, PacingManager class spec, adaptive pacing on 429 errors, human event timing, run-time pacing log, and per-niche pacing ove"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/PLAYWRIGHT_SESSION_DESIGN.md",
+      "title": "Playwright Session Design",
+      "type": "markdown",
+      "wave": "4",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/collection/fiverr_selectors.py",
+        "src/collection/session_manager.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Playwright Session Design\n# Fiverr Research System \u2014 Wave 4\n\n**Document Status:** Complete\n**Wave:** 4 \u2014 Collection Engine Design\n**Purpose:** Complete implementation specification for session_manager.py \u2014 all class methods, selector strategy, browser launch config, storage state handling, headed "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/PROXY_LAYER.md",
+      "title": "Proxy Layer",
+      "type": "markdown",
+      "wave": "4",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/collection/external/http_client.py",
+        "src/collection/proxy_layer.py",
+        "src/collection/proxy_layer_factory.py",
+        "src/collection/rotating_proxy_layer.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Proxy Layer\n# Fiverr Research System \u2014 Wave 4\n\n**Document Status:** Complete\n**Wave:** 4 \u2014 Collection Engine Design\n**Purpose:** ProxyLayer interface specification, v1 no-proxy pass-through implementation, v2 rotating residential proxy extension, Playwright and httpx injection, proxy health tracki"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/QUEUE_DESIGN.md",
+      "title": "Queue Design",
+      "type": "markdown",
+      "wave": "4",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/scheduler/celery_app.py",
+        "src/scheduler/celery_beat.py",
+        "src/scheduler/queue_processor.py",
+        "src/scheduler/scheduler_setup.py",
+        "src/scheduler/tasks/collection.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Queue Design\n# Fiverr Research System \u2014 Wave 4\n\n**Document Status:** Complete\n**Wave:** 4 \u2014 Collection Engine Design\n**Purpose:** Jobs table DDL, priority queue processing algorithm, concurrent job limits, dead-letter detection and handling, APScheduler v1 setup, and Celery v2 migration path.\n\n---"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/RETRY_AND_CHECKPOINT.md",
+      "title": "Retry and Checkpoint Design",
+      "type": "markdown",
+      "wave": "4",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/collection/checkpoint.py",
+        "src/core/orchestrator.py",
+        "src/scheduler/retry_config.py",
+        "src/scheduler/retry_handler.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Retry and Checkpoint Design\n# Fiverr Research System \u2014 Wave 4\n\n**Document Status:** Complete\n**Wave:** 4 \u2014 Collection Engine Design\n**Purpose:** Complete retry policy per job type and error type, checkpoint JSON format spec, atomic write implementation, resume algorithm, checkpoint cleanup, and ba"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/SEARCH_URL_BUILDER.md",
+      "title": "Search URL Builder -- Category-Constrained Search",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-591",
+        "SCRUM-597"
+      ],
+      "files_or_modules": [
+        "src/collection/search_url_builder.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Search URL Builder -- Category-Constrained Search\n# Fiverr Research System -- SRDI Initiative Wave B (R1)\n\n**Document Status:** Active\n**Source:** WAVE_B_CATEGORY_FILTER_SEARCH_URL_HARDENING.md\n**Epic:** R1 (SCRUM-591 to SCRUM-597)\n**Module:** src/collection/search_url_builder.py (NEW)\n**Tier:** 0"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/04_collection/SPONSORED_ZOMBIE_FILTERING.md",
+      "title": "Sponsored and Zombie Gig Filtering",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-598",
+        "SCRUM-604"
+      ],
+      "files_or_modules": [
+        "src/analysis/zombie_gig_detector.py",
+        "src/collection/gig_detail.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Sponsored and Zombie Gig Filtering\n# Fiverr Research System -- SRDI Initiative Wave D (R3)\n\n**Document Status:** Active\n**Source:** WAVE_D_SPONSORED_AND_ZOMBIE_GIG_FILTERING.md\n**Epic:** R3 (SCRUM-598 to SCRUM-604)\n**Modules:** src/collection/gig_detail.py (updated), src/analysis/zombie_gig_detect"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/COMPETITION_SCORE.md",
+      "title": "Competition Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-613",
+        "SCRUM-813"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Competition Score\n# Fiverr Research System \u2014 Wave 6, Score 2\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Lower = better opportunity (inverted in composite) | **Weight:** 20% (default) | **Depth:** All\n\n---\n\n## What It Measures\nThe strength of the existing competitive field \u2014 how stro"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/CONFIDENCE_SCORE.md",
+      "title": "Confidence Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Confidence Score\n# Fiverr Research System \u2014 Wave 6, Score 11\n\n**Status:** Complete | **Range:** 0.0\u20131.0 (multiplier, not 0\u2013100) | **Direction:** Higher = more confident | **Floor:** 0.20 | **Depth:** All\n\n---\n\n## What It Measures\nHow confident the system is in the keyword's Final Score, based on d"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/CONVERSION_INTENT_SCORE.md",
+      "title": "Conversion Intent Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Conversion Intent Score\n# Fiverr Research System \u2014 Wave 6, Score 6\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Weight:** 10% (default), 20% (profitability_focus) | **Depth:** standard, full\n\n---\n\n## What It Measures\nHow likely buyers searching this keyword are to "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/DEMAND_SCORE.md",
+      "title": "Demand Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-613",
+        "SCRUM-620"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Demand Score\n# Fiverr Research System \u2014 Wave 6, Score 1\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Weight:** 20% (default profile) | **Depth:** All\n\n---\n\n## What It Measures\nThe volume of buyer search activity for this keyword across Fiverr, Google, and Reddit. H"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/FINAL_SCORE.md",
+      "title": "Final Recommendation Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Final Recommendation Score\n# Fiverr Research System \u2014 Wave 6, Score 10\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Type:** Composite | **Depth:** All\n\n---\n\n## What It Measures\nThe single overall opportunity score for a keyword \u2014 the weighted composite of all avail"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/GIG_QUALITY_WEAKNESS_SCORE.md",
+      "title": "Gig Quality Weakness Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Gig Quality Weakness Score\n# Fiverr Research System \u2014 Wave 6, Score 8\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better (more weakness to exploit) | **Weight:** 10% (default), 20% (aggressive_new_seller) | **Depth:** standard, full\n\n---\n\n## What It Measures\nHow beatable the"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/NEW_SELLER_FEASIBILITY.md",
+      "title": "New Seller Feasibility Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-617"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# New Seller Feasibility Score\n# Fiverr Research System \u2014 Wave 6, Score 4\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Weight:** 15% (default), 25% (aggressive_new_seller) | **Depth:** standard, feasibility, full\n\n---\n\n## What It Measures\nHow feasible it is for a NEW"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/OPPORTUNITY_SCORE.md",
+      "title": "Opportunity Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-618"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Opportunity Score\n# Fiverr Research System \u2014 Wave 6, Score 3\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Weight:** 25% (default \u2014 highest weight) | **Depth:** All\n\n---\n\n## What It Measures\nThe net opportunity for a new seller \u2014 combining demand and competition wit"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/PROFITABILITY_SCORE.md",
+      "title": "Profitability Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Profitability Score\n# Fiverr Research System \u2014 Wave 6, Score 5\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Weight:** 10% (default), 25% (profitability_focus) | **Depth:** feasibility, standard, full\n\n---\n\n## What It Measures\nThe revenue potential of this keyword \u2014"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/SATURATION_SCORE.md",
+      "title": "Saturation Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/scoring/saturation_score.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Saturation Score\n# Fiverr Research System \u2014 Wave 6, Score 7\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Lower = better opportunity (inverted in composite) | **Weight:** 5% (default) | **Depth:** standard, full\n\n---\n\n## What It Measures\nHow commoditized and undifferentiated the existi"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/SCORING_DIRECTION.md",
+      "title": "Scoring System Direction",
+      "type": "markdown",
+      "wave": "0",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Scoring System Direction\n# Fiverr Research System \u2014 Wave 0 Rev 3 + 9-Niche Portfolio\n\n**Version:** 0.3 \u2014 LLM-Enhanced Inputs for All 11 Scores Across 9 Niches\n\n---\n\n## Scoring Philosophy\n\nEvery opportunity assessment is built from 11 quantifiable, explainable scores. No score is a black box. Every"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/SCORING_INTEGRITY_EXTENSIONS.md",
+      "title": "Scoring System Integrity Extensions",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-613",
+        "SCRUM-619",
+        "SCRUM-813"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Scoring System Integrity Extensions\n# Fiverr Research System -- SRDI Initiative Wave E (R4)\n\n**Document Status:** Active\n**Source:** WAVE_E_SCORING_SYSTEM_DATA_INTEGRITY_EXTENSIONS.md\n**Epic:** R4 (SCRUM-613 to SCRUM-619, SCRUM-813)\n**Tier:** 1 -- depends on R8+R1+R3+R2 (Tier 0) shipping first\n\n--"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/SCORING_SYSTEM.md",
+      "title": "Scoring System \u2014 Master Document",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/scoring/composite_scorer.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Scoring System \u2014 Master Document\n# Fiverr Research System \u2014 Wave 6\n\n**Document Status:** Complete\n**Wave:** 6 \u2014 Scoring System\n**Purpose:** Master reference for all 11 scores. Each score has its own detailed file (DEMAND_SCORE.md, etc.) in this folder. This document is the single source of truth f"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/05_scoring/TREND_SCORE.md",
+      "title": "Trend Score",
+      "type": "markdown",
+      "wave": "6",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Trend Score\n# Fiverr Research System \u2014 Wave 6, Score 9\n\n**Status:** Complete | **Range:** 0\u2013100 | **Direction:** Higher = better | **Weight:** 5% (default), 25% (trend_chaser) | **Depth:** standard, full\n\n---\n\n## What It Measures\nWhether the demand for this keyword is growing, flat, or declining. "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/COMPETITOR_PROFILING.md",
+      "title": "Competitor Profiling",
+      "type": "markdown",
+      "wave": "5",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/competitor_profiler.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Competitor Profiling\n# Fiverr Research System \u2014 Wave 5\n\n**Document Status:** Complete\n**Wave:** 5 \u2014 Analysis and Competitor Model\n**Purpose:** Competitor signal catalog, strength scoring rubric, weakness scoring rubric with 15+ weakness types, cluster synthesis design, per-seller weakness identifi"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/GIG_QUALITY_RUBRIC.md",
+      "title": "Gig Quality Rubric",
+      "type": "markdown",
+      "wave": "5",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-625"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Gig Quality Rubric\n# Fiverr Research System \u2014 Wave 5\n\n**Document Status:** Complete\n**Wave:** 5 \u2014 Analysis and Competitor Model\n**Purpose:** 15+ quality criteria with detection methods, scoring, LLM prompt direction, composite weakness score formula, overall_weakness_score calculation, and exploit"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/GIG_SUGGESTION_TEMPLATES.md",
+      "title": "Gig Suggestion Templates",
+      "type": "markdown",
+      "wave": "7",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Gig Suggestion Templates\n# Fiverr Research System \u2014 Wave 7\n\n**Document Status:** Complete\n**Wave:** 7 \u2014 Recommendation Engine\n**Purpose:** Complete design for all 11 LLM recommendation tasks \u2014 input spec, output schema, model selection, cache strategy, retry behavior, and quality standards per tas"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/GO_NOGO_LOGIC.md",
+      "title": "Go/No-Go Logic",
+      "type": "markdown",
+      "wave": "7",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Go/No-Go Logic\n# Fiverr Research System \u2014 Wave 7\n\n**Document Status:** Complete\n**Wave:** 7 \u2014 Recommendation Engine\n**Purpose:** Tag thresholds, confidence gating, override conditions, missing data handling for recommendations, and run-mode interactions.\n\n---\n\n## Tag Thresholds (from config.yaml)\n"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/KEYWORD_CLUSTERING.md",
+      "title": "Keyword Clustering",
+      "type": "markdown",
+      "wave": "5",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/keyword_clusterer.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Keyword Clustering\n# Fiverr Research System \u2014 Wave 5\n\n**Document Status:** Complete\n**Wave:** 5 \u2014 Analysis and Competitor Model\n**Purpose:** Embedding pipeline, algorithm selection, cluster count heuristic, LLM labeling integration, opportunity narrative design, cross-niche clustering decision, an"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/LLM_PROMPT_TEMPLATES.md",
+      "title": "LLM Prompt Templates",
+      "type": "markdown",
+      "wave": "7",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# LLM Prompt Templates\n# Fiverr Research System \u2014 Wave 7\n\n**Document Status:** Complete\n**Wave:** 7 \u2014 Recommendation Engine\n**Purpose:** All 11 Stage 13 Jinja2 prompt templates \u2014 copy-paste ready with input variables, output JSON schemas, and quality calibration examples.\n\n---\n\n## Template File Orga"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/LLM_RELEVANCE_STAGE_7_5.md",
+      "title": "LLM Relevance Classification -- Stage 7.5",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-624",
+        "SCRUM-816"
+      ],
+      "files_or_modules": [
+        "src/analysis/llm_relevance_classifier.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# LLM Relevance Classification -- Stage 7.5\n# Fiverr Research System -- SRDI Initiative Wave F (R5)\n\n**Document Status:** Active\n**Source:** WAVE_F_LLM_RELEVANCE_CLASSIFICATION.md\n**Epic:** R5 (SCRUM-624/625 + SCRUM-816/823/830/835/841)\n**Module:** src/analysis/llm_relevance_classifier.py (NEW)\n**Pi"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/RECOMMENDATION_ENGINE.md",
+      "title": "Recommendation Engine",
+      "type": "markdown",
+      "wave": "7",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-610"
+      ],
+      "files_or_modules": [
+        "src/scoring/recommendation_engine.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Recommendation Engine\n# Fiverr Research System \u2014 Wave 7\n\n**Document Status:** Complete\n**Wave:** 7 \u2014 Recommendation Engine\n**Purpose:** Stage 13 orchestration \u2014 which keywords trigger recommendations, gating logic, parallel LLM task execution, cost estimation, skip logic for unchanged scores, and "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/RECOMMENDATION_OUTPUT_FORMAT.md",
+      "title": "Recommendation Output Format",
+      "type": "markdown",
+      "wave": "7",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/schemas/recommendation_output.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Recommendation Output Format\n# Fiverr Research System \u2014 Wave 7\n\n**Document Status:** Complete\n**Wave:** 7 \u2014 Recommendation Engine\n**Purpose:** Full Pydantic RecommendationOutput schema, validation rules per field, storage format in recommendations table, dashboard display format, and export format"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/REVIEW_ANALYSIS.md",
+      "title": "Review Analysis",
+      "type": "markdown",
+      "wave": "5",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Review Analysis\n# Fiverr Research System \u2014 Wave 5\n\n**Document Status:** Complete\n**Wave:** 5 \u2014 Analysis and Competitor Model\n**Purpose:** Review sentiment analysis design, theme extraction for these 9 niches, review velocity proxy formula, red flag review detection, and review insight integration "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/SATURATION_MODEL.md",
+      "title": "Saturation Model",
+      "type": "markdown",
+      "wave": "5",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/saturation_model.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Saturation Model\n# Fiverr Research System \u2014 Wave 5\n\n**Document Status:** Complete\n**Wave:** 5 \u2014 Analysis and Competitor Model\n**Purpose:** Niche-level saturation score formula, saturation signals, title duplication algorithm, price compression detection, LLM saturation classification, and the dist"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/06_analysis/SELLER_STRENGTH_MODEL.md",
+      "title": "Seller Strength Model",
+      "type": "markdown",
+      "wave": "5",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/seller_strength.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Seller Strength Model\n# Fiverr Research System \u2014 Wave 5\n\n**Document Status:** Complete\n**Wave:** 5 \u2014 Analysis and Competitor Model\n**Purpose:** Authority signal catalog, scoring formula, LLM bio parse design, seller strength vs. gig quality interaction, and new seller detection.\n\n---\n\n## Authority"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/07_reporting/ALERT_SYSTEM.md",
+      "title": "Alert System",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-637",
+        "SCRUM-638"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Alert System\n# Fiverr Research System \u2014 Wave 8\n\n**Document Status:** Complete\n**Wave:** 8 \u2014 Reporting and Dashboard\n**Purpose:** All alert types with trigger conditions, severity levels, display location, resolution behavior, and storage schema.\n\n---\n\n## Alert Types\n\n| # | Alert Type | Severity | "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/07_reporting/DASHBOARD_PLAN.md",
+      "title": "Dashboard Plan",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-634",
+        "SCRUM-897"
+      ],
+      "files_or_modules": [
+        "src/dashboard/app.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Dashboard Plan\n# Fiverr Research System \u2014 Wave 8\n\n**Document Status:** Complete\n**Wave:** 8 \u2014 Reporting and Dashboard (FINAL planning wave)\n**Purpose:** Complete specification for all 6 Streamlit dashboard pages \u2014 every widget, data source query, chart type, and interactive behavior.\n\n**OQ-008 Res"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/07_reporting/EXPORT_FORMATS.md",
+      "title": "Export Formats",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/exports/excel_exporter.py",
+        "src/exports/orchestrator.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Export Formats\n# Fiverr Research System \u2014 Wave 8\n\n**Document Status:** Complete\n**Wave:** 8 \u2014 Reporting and Dashboard\n**Purpose:** Field-level specifications for all 5 export formats \u2014 CSV, Excel, JSON, PDF, Markdown.\n\n**OQ-009 Resolved:** Export formats are CSV, Excel (.xlsx), PDF, JSON, and Mark"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/07_reporting/REPORT_TEMPLATES.md",
+      "title": "Report Templates",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/reports/generator.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Report Templates\n# Fiverr Research System \u2014 Wave 8\n\n**Document Status:** Complete\n**Wave:** 8 \u2014 Reporting and Dashboard\n**Purpose:** Jinja2 HTML templates for PDF report generation via WeasyPrint. Four report types with base template, chart SVG generation, and styling.\n\n---\n\n## Report Types\n\n| Rep"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/07_reporting/RUN_LOG_DESIGN.md",
+      "title": "Run Log Design",
+      "type": "markdown",
+      "wave": "8",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Run Log Design\n# Fiverr Research System \u2014 Wave 8\n\n**Document Status:** Complete\n**Wave:** 8 \u2014 Reporting and Dashboard\n**Purpose:** Run log dashboard view, run detail page layout, LLM usage history, data quality trend, and dead letter job review panel.\n\n---\n\n## Run Log Table \u2014 Dashboard Display (Pa"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/08_roadmap/DEVELOPMENT_ROADMAP.md",
+      "title": "Development Roadmap",
+      "type": "markdown",
+      "wave": "0",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-591",
+        "SCRUM-598",
+        "SCRUM-605",
+        "SCRUM-613",
+        "SCRUM-620",
+        "SCRUM-624",
+        "SCRUM-626",
+        "SCRUM-630",
+        "SCRUM-634",
+        "SCRUM-641",
+        "SCRUM-994"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Development Roadmap\n# Fiverr Research System \u2014 Wave 0 Rev 3 + 9-Niche Portfolio\n\n---\n\n## Phase Overview\n\n| Phase | Waves | Focus | Output |\n|---|---|---|---|\n| Phase 0: Foundation | Wave 0 | Planning infrastructure + niche confirmation + category verification | Project pack, hydration pack |\n| Pha"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/09_pricing/NEW_SELLER_PRICING_MODEL.md",
+      "title": "New Seller Pricing Model",
+      "type": "markdown",
+      "wave": "9",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/pricing/new_seller_pricing.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# New Seller Pricing Model\n# Fiverr Research System \u2014 Wave 9\n\n**Document Status:** Complete\n**Wave:** 9 \u2014 Pricing Strategy Engine\n**Purpose:** Optimal entry price calculator for zero-review sellers, undercut strategy, price ladder with review milestones, tier-specific recommendations, first-5-orders"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/09_pricing/PRICE_DISTRIBUTION_ANALYSIS.md",
+      "title": "Price Distribution Analysis",
+      "type": "markdown",
+      "wave": "9",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/price_distribution.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Price Distribution Analysis\n# Fiverr Research System \u2014 Wave 9\n\n**Document Status:** Complete\n**Wave:** 9 \u2014 Pricing Strategy Engine\n**Purpose:** Competitor price distribution curves, quartile analysis, price clustering, price-to-review correlation, price gap detection, and statistical summary per k"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/09_pricing/PRICING_DASHBOARD_WIDGETS.md",
+      "title": "Pricing Dashboard Widgets",
+      "type": "markdown",
+      "wave": "9",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Pricing Dashboard Widgets\n# Fiverr Research System \u2014 Wave 9\n\n**Document Status:** Complete\n**Wave:** 9 \u2014 Pricing Strategy Engine\n**Purpose:** All new dashboard widgets for pricing analysis \u2014 price distribution histograms, pricing strategy cards, price heatmap, revenue projections, and integration "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/09_pricing/PRICING_RECOMMENDATIONS_LLM.md",
+      "title": "Pricing Recommendations LLM Task",
+      "type": "markdown",
+      "wave": "9",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/schemas/pricing_output.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Pricing Recommendations LLM Task\n# Fiverr Research System \u2014 Wave 9\n\n**Document Status:** Complete\n**Wave:** 9 \u2014 Pricing Strategy Engine\n**Purpose:** LLM task #12 for pricing recommendation generation \u2014 prompt template, output schema, integration into RecommendationOutput, model selection, and cach"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/10_discovery/DISCOVERY_DASHBOARD_WIDGETS.md",
+      "title": "Discovery Dashboard Widgets",
+      "type": "markdown",
+      "wave": "10",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/dashboard/app.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Discovery Dashboard Widgets\n# Fiverr Research System \u2014 Wave 10\n\n**Document Status:** Complete\n**Wave:** 10 \u2014 LLM-Powered Niche Discovery\n**Purpose:** New Dashboard Page 7 (Discovery) with all widgets \u2014 hypothesis queue, discovery results, hit rate trends, gold highlights, cost tracking, and mode p"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/10_discovery/DISCOVERY_ENGINE_ARCHITECTURE.md",
+      "title": "Discovery Engine Architecture",
+      "type": "markdown",
+      "wave": "10",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-626",
+        "SCRUM-864"
+      ],
+      "files_or_modules": [
+        "src/discovery/context_builder.py",
+        "src/discovery/feedback.py",
+        "src/discovery/orchestrator.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Discovery Engine Architecture\n# Fiverr Research System \u2014 Wave 10\n\n**Document Status:** Complete\n**Wave:** 10 \u2014 LLM-Powered Niche Discovery (\"Gold Mining\")\n**Purpose:** Autonomous discovery loop architecture \u2014 how the system learns from scored data, generates hypotheses for new keywords and niches,"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/10_discovery/DISCOVERY_SCORING_AND_FEEDBACK.md",
+      "title": "Discovery Scoring and Feedback",
+      "type": "markdown",
+      "wave": "10",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/discovery/evaluation.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Discovery Scoring and Feedback\n# Fiverr Research System \u2014 Wave 10\n\n**Document Status:** Complete\n**Wave:** 10 \u2014 LLM-Powered Niche Discovery\n**Purpose:** How discovery hypotheses are evaluated after scoring, hit/miss tracking, feedback loop mechanics, pattern learning, auto-retire logic, gold detec"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/10_discovery/HYPOTHESIS_GENERATION_PROMPTS.md",
+      "title": "Hypothesis Generation Prompts",
+      "type": "markdown",
+      "wave": "10",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/schemas/discovery_output.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Hypothesis Generation Prompts\n# Fiverr Research System \u2014 Wave 10\n\n**Document Status:** Complete\n**Wave:** 10 \u2014 LLM-Powered Niche Discovery\n**Purpose:** All 4 Jinja2 prompt templates for discovery modes \u2014 adjacent keyword, adjacent niche, gap exploit, and trend chase. Each with input variables, out"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/11_playbook/GIG_VISUAL_ANALYSIS.md",
+      "title": "Gig Visual Analysis",
+      "type": "markdown",
+      "wave": "11",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/visual_analysis.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Gig Visual Analysis\n# Fiverr Research System \u2014 Wave 11\n\n**Document Status:** Complete\n**Wave:** 11 \u2014 Gig Creation Playbook\n**Purpose:** Thumbnail and gallery image classification, competitor visual pattern detection, image-to-conversion correlation analysis, LLM vision analysis of competitor scree"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/11_playbook/SELLER_PROFILE_OPTIMIZATION.md",
+      "title": "Seller Profile Optimization",
+      "type": "markdown",
+      "wave": "11",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/profile_optimization.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Seller Profile Optimization\n# Fiverr Research System \u2014 Wave 11\n\n**Document Status:** Complete\n**Wave:** 11 \u2014 Gig Creation Playbook\n**Purpose:** Competitor profile element analysis, profile-to-authority correlation, new seller profile checklist, LLM profile optimization task, and integration into R"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/11_playbook/SELLER_SETUP_PLAYBOOK.md",
+      "title": "Seller Setup Playbook",
+      "type": "markdown",
+      "wave": "11",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/playbook/generator.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Seller Setup Playbook\n# Fiverr Research System \u2014 Wave 11\n\n**Document Status:** Complete\n**Wave:** 11 \u2014 Gig Creation Playbook\n**Purpose:** End-to-end new seller onboarding guide generated per niche \u2014 account setup, gig creation walkthrough, first 5 orders strategy, review acquisition, buyer request"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/12_dashboard_ux/DESIGN_SYSTEM.md",
+      "title": "Design System",
+      "type": "markdown",
+      "wave": "12",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/dashboard/styles.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Design System\n# Fiverr Research System \u2014 Wave 12\n\n**Document Status:** Complete\n**Wave:** 12 \u2014 Dashboard UX Overhaul\n**Purpose:** Complete visual design system \u2014 color palette, typography, spacing, component library, dark mode, loading states, empty states, and Streamlit CSS injection.\n\n---\n\n## De"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/12_dashboard_ux/INTERACTION_PATTERNS.md",
+      "title": "Interaction Patterns",
+      "type": "markdown",
+      "wave": "12",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Interaction Patterns\n# Fiverr Research System \u2014 Wave 12\n\n**Document Status:** Complete\n**Wave:** 12 \u2014 Dashboard UX Overhaul\n**Purpose:** Navigation flows, keyboard shortcuts, notification system, progressive disclosure, bulk actions, comparison mode, quick actions, help tooltips, and first-run onb"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/12_dashboard_ux/RESPONSIVE_AND_PERFORMANCE.md",
+      "title": "Responsive and Performance",
+      "type": "markdown",
+      "wave": "12",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/dashboard/app.py",
+        "src/dashboard/queries.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Responsive and Performance\n# Fiverr Research System \u2014 Wave 12\n\n**Document Status:** Complete\n**Wave:** 12 \u2014 Dashboard UX Overhaul\n**Purpose:** Streamlit layout optimization, chart performance, query optimization, caching strategy, session state management, mobile considerations, data pagination, a"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/00_SRDI_INDEX.md",
+      "title": "Search Relevance & Data Integrity Initiative \u2014 Project Plan",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-591",
+        "SCRUM-598",
+        "SCRUM-605",
+        "SCRUM-613",
+        "SCRUM-620",
+        "SCRUM-624",
+        "SCRUM-626",
+        "SCRUM-630",
+        "SCRUM-634",
+        "SCRUM-641"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# Search Relevance & Data Integrity Initiative \u2014 Project Plan\n# 13_srdi \u2014 SRDI (Bulletproof) Initiative Directory\n# Fiverr Research System\n\n**Package ID:** SRDI-IPP  \n**Initiative codename:** \"Bulletproof\"  \n**Created:** 2026-05-29 (Cycle 049)  \n**Status:** READY FOR EXECUTION \u2014 all 11 epics fully s"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/01_INITIATIVE_CHARTER.md",
+      "title": "01 \u2014 SRDI Initiative Charter",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-589",
+        "SCRUM-591",
+        "SCRUM-598",
+        "SCRUM-605",
+        "SCRUM-613",
+        "SCRUM-620",
+        "SCRUM-624",
+        "SCRUM-626",
+        "SCRUM-630",
+        "SCRUM-634",
+        "SCRUM-641"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 01 \u2014 SRDI Initiative Charter\n# Search Relevance & Data Integrity (\"Bulletproof\")\n# Fiverr Research System\n\n**Status:** Active \u2014 All epics specified + Jira implementation complete  \n**Owner:** PM / Agent A  \n**Created:** 2026-05-29 (Cycle 049)  \n**Source:** WAVE_A + waves B\u2013L  \n\n---\n\n## 1. EXECUTIV"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/02_ARCHITECTURE_IMPACT.md",
+      "title": "02 \u2014 SRDI Architecture Impact & Technical Blueprint",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/competitor_profiler.py",
+        "src/analysis/llm_relevance_classifier.py",
+        "src/analysis/result_set_validator.py",
+        "src/analysis/zombie_gig_detector.py",
+        "src/collection/fiverr_search.py",
+        "src/collection/gig_detail.py",
+        "src/collection/search_result_parser.py",
+        "src/collection/search_url_builder.py",
+        "src/discovery/feedback.py",
+        "src/discovery/orchestrator.py",
+        "src/discovery/pre_validator.py",
+        "src/recommendations/eligibility.py",
+        "src/scoring/competition.py",
+        "src/scoring/confidence.py",
+        "src/scoring/demand.py",
+        "src/scoring/feasibility.py",
+        "src/scoring/opportunity.py",
+        "src/scoring/profitability.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 02 \u2014 SRDI Architecture Impact & Technical Blueprint\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Status:** Active \u2014 Draft v1  \n**Source:** WAVE_A (problem/architecture) + waves B\u2013L + live `src/` tree\n\n---\n\n## 1. TECHNICAL EXECUTIVE SUMMARY\n\nThis initiative inserts a *"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/03_EPIC_BREAKDOWN_MASTER.md",
+      "title": "03 \u2014 SRDI Epic Breakdown Master",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-583",
+        "SCRUM-584",
+        "SCRUM-585",
+        "SCRUM-586",
+        "SCRUM-587",
+        "SCRUM-588",
+        "SCRUM-589",
+        "SCRUM-590",
+        "SCRUM-591",
+        "SCRUM-592",
+        "SCRUM-593",
+        "SCRUM-594",
+        "SCRUM-595",
+        "SCRUM-596",
+        "SCRUM-597",
+        "SCRUM-598",
+        "SCRUM-599",
+        "SCRUM-600",
+        "SCRUM-601",
+        "SCRUM-602",
+        "SCRUM-603",
+        "SCRUM-604",
+        "SCRUM-605",
+        "SCRUM-606",
+        "SCRUM-607",
+        "SCRUM-608",
+        "SCRUM-609",
+        "SCRUM-610",
+        "SCRUM-611",
+        "SCRUM-612",
+        "SCRUM-613",
+        "SCRUM-614",
+        "SCRUM-615",
+        "SCRUM-616",
+        "SCRUM-617",
+        "SCRUM-618",
+        "SCRUM-619",
+        "SCRUM-620",
+        "SCRUM-621",
+        "SCRUM-622",
+        "SCRUM-623",
+        "SCRUM-624",
+        "SCRUM-625",
+        "SCRUM-626",
+        "SCRUM-627",
+        "SCRUM-628",
+        "SCRUM-629",
+        "SCRUM-630",
+        "SCRUM-631",
+        "SCRUM-632",
+        "SCRUM-633",
+        "SCRUM-634",
+        "SCRUM-635",
+        "SCRUM-636",
+        "SCRUM-637",
+        "SCRUM-638",
+        "SCRUM-639",
+        "SCRUM-640",
+        "SCRUM-641",
+        "SCRUM-642",
+        "SCRUM-643",
+        "SCRUM-644",
+        "SCRUM-645",
+        "SCRUM-646",
+        "SCRUM-813",
+        "SCRUM-816",
+        "SCRUM-823",
+        "SCRUM-830",
+        "SCRUM-835",
+        "SCRUM-841",
+        "SCRUM-847",
+        "SCRUM-851",
+        "SCRUM-854",
+        "SCRUM-858",
+        "SCRUM-864",
+        "SCRUM-868",
+        "SCRUM-873",
+        "SCRUM-877",
+        "SCRUM-880",
+        "SCRUM-883",
+        "SCRUM-886",
+        "SCRUM-893",
+        "SCRUM-897",
+        "SCRUM-901",
+        "SCRUM-906"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 03 \u2014 SRDI Epic Breakdown Master\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Status:** Complete \u2014 85 stories, 322+ subtasks in Jira  \n**Source:** WAVE_A\u2013L + per-epic files in `epics/`\n\n---\n\n## 1. EPIC OVERVIEW\n\n| Epic | Title | Wave | Tier | Stories | Tasks | New Modu"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/04_DOD_AND_ACCEPTANCE.md",
+      "title": "04 \u2014 SRDI Definition of Done & Acceptance Criteria",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 04 \u2014 SRDI Definition of Done & Acceptance Criteria\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Source:** 15_DOD_AND_ACCEPTANCE_CRITERIA.md  \n**Tags/Thresholds:** STRONG GO \u226580 \u00b7 CONDITIONAL GO 60\u201379 \u00b7 MONITOR 40\u201359 \u00b7 CAUTION 20\u201339 \u00b7 PASS <20 \u00b7 CM floor 0.20\n\n---\n\n## "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/05_DATA_SCHEMA_MIGRATION.md",
+      "title": "05 \u2014 SRDI Data Schema & Migration Plan",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 05 \u2014 SRDI Data Schema & Migration Plan\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Source:** WAVE_I (authoritative). **Owning epic:** R8. **Tier:** 0 (ships first).\n\nAll changes are **additive** \u2014 no column is dropped, renamed, or type-changed. NULL = include (backwa"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/06_TEST_PLAN_REGRESSION.md",
+      "title": "06 \u2014 SRDI Test Plan & Regression Register",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 06 \u2014 SRDI Test Plan & Regression Register\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Source:** WAVE_J (authoritative). **Owning epic:** R9. **Tier:** 1 (continuous).  \n**Target:** 120+ new tests (baseline ~3334 \u2192 ~3454+) \u00b7 **18 permanent regressions: REG-13\u2026REG-30**"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/07_SEQUENCING_ROADMAP.md",
+      "title": "07 \u2014 SRDI Sequencing Roadmap & Cycle Plan",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 07 \u2014 SRDI Sequencing Roadmap & Cycle Plan\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Sources:** WAVE_A (tier order), WAVE_L \u00a74 (phase roadmap), live `AGENT_EXECUTION_STRATEGY.md`\n\n---\n\n## 1. HARD DEPENDENCY ORDER\n\n```\nR8 (schema, Tier 0)  \u2500 FIRST, alone, behaviorall"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/08_REGISTERS.md",
+      "title": "08 \u2014 SRDI Registers",
+      "type": "markdown",
+      "wave": "12",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 08 \u2014 SRDI Registers\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Status:** Planning-complete \u00b7 **Sources:** Waves A\u2013L + live codebase  \n**Six registers:** Decisions \u00b7 Assumptions \u00b7 Risks \u00b7 Dependencies \u00b7 Open Questions \u00b7 Contradictions/Gaps\n\n---\n\n## 1. DECISION REGIST"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/09_TRACEABILITY_MATRIX.md",
+      "title": "09 \u2014 SRDI Traceability Matrix",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 09 \u2014 SRDI Traceability Matrix\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Purpose:** Every one of the 20 problems in WAVE_A is owned by a wave, epic, stories/tasks, permanent regression, AC, code component, and dashboard surface.  \n**Wave\u2192Epic spine:** B\u2192R1 \u00b7 C\u2192R2 \u00b7 "
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/10_DEVELOPER_HANDOFF.md",
+      "title": "10 \u2014 SRDI Developer Handoff",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [
+        "src/analysis/competitor_profiler.py",
+        "src/analysis/llm_relevance_classifier.py",
+        "src/analysis/monitors.py",
+        "src/analysis/result_set_validator.py",
+        "src/analysis/zombie_gig_detector.py",
+        "src/collection/fiverr_search.py",
+        "src/collection/gig_detail.py",
+        "src/collection/google_trends.py",
+        "src/collection/reddit_signals.py",
+        "src/collection/search_result_parser.py",
+        "src/collection/search_url_builder.py",
+        "src/discovery/feedback.py",
+        "src/discovery/orchestrator.py",
+        "src/discovery/pre_validator.py",
+        "src/models/discovery.py",
+        "src/models/external_signal.py",
+        "src/models/gig.py",
+        "src/models/keyword.py",
+        "src/models/keyword_score.py",
+        "src/models/result_set_validation.py",
+        "src/models/search_result.py",
+        "src/recommendations/eligibility.py",
+        "src/scoring/competition.py",
+        "src/scoring/confidence.py",
+        "src/scoring/demand.py",
+        "src/scoring/feasibility.py",
+        "src/scoring/opportunity.py",
+        "src/scoring/profitability.py"
+      ],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 10 \u2014 SRDI Developer Handoff\n# Search Relevance & Data Integrity Initiative\n# Fiverr Research System\n\n**Audience:** Human developer implementing SRDI in `C:\\Fiverr\\Fiverr`  \n**Read first:** The epic file you're building (`epics/R*.md`), then `04_DOD_AND_ACCEPTANCE.md` and `06_TEST_PLAN_REGRESSION.m"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/11_AI_AGENT_HANDOFF.md",
+      "title": "11 AI Agent Handoff",
+      "type": "markdown",
+      "wave": "9",
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 11 AI Agent Handoff\n\n## C062 Multi-Agent Execution Topology\n\nCycle 062 follows the enforced six-agent architecture:\n\n1. Agent A runs solo first: state checks, branch initialization, Jira transitions, handoff package generation.\n2. Agents B and E run in parallel only after A has committed and pushe"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/12_LAUNCH_READINESS.md",
+      "title": "12 Launch Readiness",
+      "type": "markdown",
+      "wave": "9",
+      "epic_ids": [],
+      "story_ids": [
+        "S2.15",
+        "S6.3",
+        "S6.5",
+        "S7.2",
+        "S7.9"
+      ],
+      "jira_keys": [
+        "SCRUM-71"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 12 Launch Readiness\n\n## Gate Status (C062 Start)\n\n- **G-A:** PARTIAL  \n  `11_AI_AGENT_HANDOFF.md`, `12_LAUNCH_READINESS.md`, and `13_RISK_COMPLIANCE_COST.md` existed but were placeholder stubs through C061. C062 expands these to substantive launch artifacts; additional updates remain expected as W"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/13_srdi/13_RISK_COMPLIANCE_COST.md",
+      "title": "13 Risk Compliance Cost",
+      "type": "markdown",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [
+        "SCRUM-74"
+      ],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": "# 13 Risk Compliance Cost\n\n## Platform and Compliance Risk\n\n- Fiverr ToS/platform-policy risk remains active for automated collection paths (tracked in SCRUM-74).\n- Collection strategy must continue respecting pacing, authentication, and anti-abuse boundaries.\n- Compliance evidence must remain attac"
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/project_plan.zip",
+      "title": "archived-project-plan",
+      "type": "archive",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": ""
+    },
+    {
+      "source_path": "PM_Pack/ref/project_plan/project_plan2.zip",
+      "title": "archived-project-plan",
+      "type": "archive",
+      "wave": null,
+      "epic_ids": [],
+      "story_ids": [],
+      "jira_keys": [],
+      "files_or_modules": [],
+      "dod_refs": [],
+      "todo_refs": [],
+      "summary": ""
+    }
+  ]
+}

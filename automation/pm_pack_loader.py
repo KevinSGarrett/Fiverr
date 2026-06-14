@@ -1,5 +1,5 @@
-﻿"""
-pm_pack_loader.py Ã¢â‚¬â€ Read and validate PM_Pack brain files.
+"""
+pm_pack_loader.py â€” Read and validate PM_Pack brain files.
 Implements the brain-check command logic: load each file in registry order
 and report PASS/FAIL per file.
 """
@@ -44,7 +44,7 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
         result.failed.append(f"BRAIN_REGISTRY.yml missing: {registry_path}")
         return result
 
-    registry = yaml.safe_load(registry_path.read_text(encoding="utf-8", errors="replace")) or {}
+    registry = yaml.safe_load(registry_path.read_text()) or {}
     result.passed.append(f"BRAIN_REGISTRY.yml loaded: {registry_path}")
 
     # Check all load_order files
@@ -55,18 +55,18 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
             if full.exists():
                 result.passed.append(f"PASS [{section}]: {rel_path}")
             else:
-                # In CI, runner-side paths (C:/AI_Runner) do not exist â€” skip as warning
+                # In CI, runner-side paths (C:/AI_Runner) do not exist — skip as warning
                 _norm_path = rel_path.replace("\\", "/").replace("\\", "/")
                 if os.environ.get("CI", "").strip() and _norm_path.startswith("C:/AI_Runner"):
                     result.warnings.append(f"SKIPPED [ci] [{section}]: {rel_path}")
                 else:
                     result.failed.append(f"MISSING [{section}]: {rel_path}")
 
-    # Parse hydration header for cycle/wave/blockers Ã¢â‚¬â€ use exact key lines
+    # Parse hydration header for cycle/wave/blockers â€” use exact key lines
     hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
     if hydration_path.exists():
         text = hydration_path.read_text(encoding="utf-8", errors="replace")
-        # Match key-value lines like "CYCLE_CURRENT: 075" Ã¢â‚¬â€ NOT filenames like cycle037_live.db
+        # Match key-value lines like "CYCLE_CURRENT: 075" â€” NOT filenames like cycle037_live.db
         m_cycle = re.search(r"^CYCLE_CURRENT:\s*0*(\d+)", text, re.MULTILINE)
         if not m_cycle:
             m_cycle = re.search(r"^CYCLE_NEXT:\s*0*(\d+)", text, re.MULTILINE)
@@ -172,4 +172,3 @@ def _load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text()) if path.exists() else {}
     except Exception:
         return {}
-

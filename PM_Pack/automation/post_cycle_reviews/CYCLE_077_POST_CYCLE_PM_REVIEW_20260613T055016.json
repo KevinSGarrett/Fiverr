@@ -1,0 +1,44 @@
+{
+  "cycle": 77,
+  "mode": "POST_CYCLE_PM_REVIEW",
+  "result": "ADVISORY_ONLY",
+  "blocks_dispatch": true,
+  "errors": [],
+  "warnings": [
+    "Claude review status: ERROR. Treating as advisory."
+  ],
+  "facts": {
+    "cycle": 77,
+    "mode": "POST_CYCLE_PM_REVIEW",
+    "collected_at": "2026-06-13T05:50:12.620117+00:00",
+    "head_sha": "41bac8c5f9e06854970a7f6df8df0ac6a66cc2eb",
+    "develop_sha": "87b5f924ee1b8ec06dd8094da8e4e05dbc905414",
+    "pr_number": 88,
+    "pr_merged": true,
+    "merge_sha": "e0c9753b023c3c96b5214d73dd4d441816c969d8",
+    "ci_passed": false,
+    "codecov_project": "UNKNOWN",
+    "codecov_patch": "SUCCESS",
+    "codex_threads_resolved": false,
+    "local_ruff": false,
+    "local_mypy": false,
+    "local_pytest": false,
+    "local_coverage_pct": 0.0,
+    "baseline_db_mtime_unchanged": true,
+    "scrapfly_enabled_false": true,
+    "cycle_control_done": false,
+    "next_cycle_control_created": false,
+    "agent_reports_present": {
+      "A": true,
+      "B": true,
+      "E": true,
+      "C": true,
+      "F": true,
+      "D": true
+    },
+    "score1_internal_pct": 0.0,
+    "score2_e2e_pct": 0.0,
+    "tierd2_stages": {}
+  },
+  "evaluated_at": "2026-06-13T05:50:16.639738+00:00"
+}

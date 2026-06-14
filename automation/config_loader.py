@@ -1,5 +1,5 @@
-﻿"""
-config_loader.py â€” Load and merge runner config from repo-side and runner-side sources.
+"""
+config_loader.py — Load and merge runner config from repo-side and runner-side sources.
 Secrets always come from C:\\AI_Runner\\secrets\\runner.env, never from repo.
 """
 from __future__ import annotations
@@ -51,31 +51,10 @@ def load_secrets() -> dict[str, str]:
     return secrets
 
 
-ENV_FILE_PATH = Path("C:/Fiverr/Fiverr/.env")
-
-
-def load_env_file() -> dict[str, str]:
-    """Load project .env file (repo-side, KEY=VALUE format). Used as fallback for agents."""
-    if not ENV_FILE_PATH.exists():
-        return {}
-    try:
-        return {k: (v or "").strip() for k, v in dotenv_values(str(ENV_FILE_PATH)).items()}
-    except Exception:
-        return {}
-
-
 def get_secret(key: str, default: str = "") -> str:
-    """Get a single secret value.
-    Priority: runner.env > os.environ > .env file
-    All three sources are checked so Cursor agents can reliably find any key.
-    """
+    """Get a single secret value."""
     secrets = load_secrets()
-    val = secrets.get(key) or os.environ.get(key)
-    if val:
-        return val.strip()
-    # Fallback: try repo .env file (colon-space entries have been converted to KEY=VALUE)
-    env_vals = load_env_file()
-    return env_vals.get(key, default)
+    return secrets.get(key, os.environ.get(key, default))
 
 
 def _find_repo_root() -> Path:
@@ -95,4 +74,3 @@ def _deep_merge(base: dict, override: dict) -> None:
             _deep_merge(base[k], v)
         else:
             base[k] = v
-
