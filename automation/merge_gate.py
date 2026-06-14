@@ -134,8 +134,11 @@ def run(pr_number: int, repo: str = REPO,
         "CI / tests-coverage", "CI / smoke-gates",
     }
     ci_passed = {
-        c.get("name") for c in ci_checks
-        if c.get("conclusion") == "success" or c.get("state") == "SUCCESS"
+        c.get("name")
+        for c in ci_checks
+        if (str(c.get("conclusion", "")).lower() == "success")
+        or (str(c.get("state", "")).upper() == "SUCCESS")
+        or (str(c.get("status", "")).upper() == "COMPLETED" and str(c.get("conclusion", "")).upper() == "SUCCESS")
     }
     for check_name in sorted(required_ci):
         result.checks.append(GateCheck(
