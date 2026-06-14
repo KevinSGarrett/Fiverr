@@ -88,3 +88,61 @@ def test_generate_daily_report_handles_invalid_valid_until(tmp_path: Path) -> No
     out = report_generator.generate_daily_report(75)
     text = out.read_text(encoding="utf-8")
     assert "Days to expiry: N/A" in text
+
+
+def test_daily_report_has_health_section(tmp_path: Path) -> None:
+    runner = tmp_path / "runner"
+    report_generator.RUNNER_ROOT = runner
+    report_generator.REPORTS_DIR = runner / "reports"
+    _write_json(runner / "state/heartbeat.json", {"last_seen": datetime.now(UTC).isoformat()})
+    _write_json(runner / "state/controller_state.json", {"status": "PLANNED", "active_cycle": 78})
+    _write_json(runner / "state/cursor_model_state.json", {"valid_until": (datetime.now(UTC) + timedelta(days=5)).isoformat()})
+    _write_json(runner / "state/claude_model_state.json", {"billing_mode": "claude_subscription_only"})
+    _write_json(runner / "reports/health_20260614.json", {"health_level": "GREEN", "git_dirty_count": 2})
+    out = report_generator.generate_daily_report(78)
+    text = out.read_text(encoding="utf-8")
+    assert "## Health Status" in text
+    assert "Level: GREEN" in text
+
+
+def test_daily_report_has_heartbeat_age(tmp_path: Path) -> None:
+    runner = tmp_path / "runner"
+    report_generator.RUNNER_ROOT = runner
+    report_generator.REPORTS_DIR = runner / "reports"
+    _write_json(
+        runner / "state/heartbeat.json",
+        {"last_seen": (datetime.now(UTC) - timedelta(minutes=5)).isoformat()},
+    )
+    _write_json(runner / "state/controller_state.json", {"status": "ACTIVE", "active_cycle": 78})
+    _write_json(runner / "state/cursor_model_state.json", {})
+    _write_json(runner / "state/claude_model_state.json", {})
+    out = report_generator.generate_daily_report(78)
+    text = out.read_text(encoding="utf-8")
+    assert "Heartbeat age:" in text
+
+
+def test_daily_report_has_model_status_section(tmp_path: Path) -> None:
+    runner = tmp_path / "runner"
+    report_generator.RUNNER_ROOT = runner
+    report_generator.REPORTS_DIR = runner / "reports"
+    _write_json(runner / "state/heartbeat.json", {"last_seen": datetime.now(UTC).isoformat()})
+    _write_json(runner / "state/controller_state.json", {"status": "PLANNED", "active_cycle": 78})
+    _write_json(
+        runner / "state/cursor_model_state.json",
+        {"valid_until": (datetime.now(UTC) + timedelta(days=5)).isoformat(), "observed_model": "Codex 5.3"},
+    )
+    _write_json(runner / "state/claude_model_state.json", {"billing_mode": "claude_subscription_only"})
+    text = report_generator.generate_daily_report(78).read_text(encoding="utf-8")
+    assert "## Model Status" in text
+
+
+def test_weekly_report_has_cycles_section(tmp_path: Path) -> None:
+    runner = tmp_path / "runner"
+    repo = tmp_path / "repo"
+    report_generator.RUNNER_ROOT = runner
+    report_generator.REPORTS_DIR = runner / "reports"
+    report_generator.REPO_ROOT = repo
+    (repo / "PM_Pack/10_cycle_log").mkdir(parents=True, exist_ok=True)
+    (repo / "PM_Pack/10_cycle_log/CYCLE_078_COMPLETE.md").write_text("done", encoding="utf-8")
+    text = report_generator.generate_weekly_report().read_text(encoding="utf-8")
+    assert "Cycles completed (7d)" in text

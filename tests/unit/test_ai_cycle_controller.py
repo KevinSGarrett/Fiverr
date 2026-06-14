@@ -29,6 +29,13 @@ class TestCommandSurface:
         for cmd in required_commands:
             assert cmd in result.output, f"Command '{cmd}' missing from help output"
 
+    def test_cursor_docs_smoke_command_registered(self):
+        from automation.ai_cycle_controller import cli
+
+        result = CliRunner().invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "cursor-docs-smoke" in result.output
+
     def test_brain_check_command_exists(self):
         from automation.ai_cycle_controller import cli
         runner = CliRunner()
@@ -129,15 +136,55 @@ def test_run_agent_model_blocked_calls_notify(tmp_path):
     assert result.exit_code != 0
     notify.assert_called()
 
-    def test_write_runner_state_writes_json(self, tmp_path):
-        import automation.ai_cycle_controller as ctrl
-        from automation.ai_cycle_controller import _write_runner_state
-        orig_path = ctrl.RUNNER_STATE
-        ctrl.RUNNER_STATE = tmp_path / "controller_state.json"
-        try:
-            _write_runner_state({"status": "TEST", "cycle": 75})
-            data = json.loads(ctrl.RUNNER_STATE.read_text())
-            assert data["status"] == "TEST"
-            assert data["cycle"] == 75
-        finally:
-            ctrl.RUNNER_STATE = orig_path
+
+def test_pm_pack_audit_check_only_flag():
+    from automation.ai_cycle_controller import cli
+
+    runner = CliRunner()
+    with patch("automation.pm_pack_consistency_audit.run_audit") as run_audit:
+        run_audit.return_value = MagicMock(passed=True, summary=lambda: "ok", sources={})
+        result = runner.invoke(cli, ["pm-pack-audit", "--check-only"])
+    assert result.exit_code == 0
+    run_audit.assert_called_once()
+
+
+def test_compile_policy_command_runs_with_mocked_compiler():
+    from automation.ai_cycle_controller import cli
+
+    runner = CliRunner()
+    fake_snapshot = {
+        "cycle_current": 78,
+        "active_wave": 0,
+        "e2e_score_pct": 50,
+        "active_agent_lanes": ["A", "B", "E", "C", "F", "D"],
+        "cursor_model": {"status": "VERIFIED"},
+    }
+    with patch("automation.ai_cycle_controller.compile_policy", return_value=fake_snapshot):
+        result = runner.invoke(cli, ["compile-policy"])
+    assert result.exit_code == 0
+    assert "Policy snapshot written to" in result.output
+
+
+def test_validate_prompts_cycle_078_with_mocked_validator():
+    from automation.ai_cycle_controller import cli
+
+    runner = CliRunner()
+    fake_result = MagicMock(passed=True, errors=[], warnings=[], prompt_path="x")
+    with patch("automation.prompt_validator.validate_all", return_value={"A": fake_result}):
+        result = runner.invoke(cli, ["validate-prompts", "--cycle", "78", "--agents", "A"])
+    assert result.exit_code == 0
+    assert "PROMPT VALIDATION PASS" in result.output
+
+def test_write_runner_state_writes_json(tmp_path):
+    import automation.ai_cycle_controller as ctrl
+    from automation.ai_cycle_controller import _write_runner_state
+
+    orig_path = ctrl.RUNNER_STATE
+    ctrl.RUNNER_STATE = tmp_path / "controller_state.json"
+    try:
+        _write_runner_state({"status": "TEST", "cycle": 75})
+        data = json.loads(ctrl.RUNNER_STATE.read_text(encoding="utf-8"))
+        assert data["status"] == "TEST"
+        assert data["cycle"] == 75
+    finally:
+        ctrl.RUNNER_STATE = orig_path

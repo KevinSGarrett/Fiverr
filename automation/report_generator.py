@@ -1,6 +1,4 @@
-"""
-report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
-"""
+"""Daily and weekly autonomy reports (OPS-022, OPS-023)."""
 from __future__ import annotations
 
 import json
@@ -25,7 +23,10 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     cs  = _load_json(RUNNER_ROOT / "state/controller_state.json")
     ms  = _load_json(RUNNER_ROOT / "state/cursor_model_state.json")
     cls = _load_json(RUNNER_ROOT / "state/claude_model_state.json")
-    last_health = _latest_json(RUNNER_ROOT / "logs/watchdog", "health_*.json")
+    # Primary health source from reports; fallback to legacy watchdog logs.
+    last_health = _latest_json(RUNNER_ROOT / "reports", "health_*.json")
+    if not last_health:
+        last_health = _latest_json(RUNNER_ROOT / "logs/watchdog", "health_*.json")
 
     # Count incidents in last 24h
     incident_count = _count_recent_files(RUNNER_ROOT / "logs/incidents", hours=24)
@@ -47,15 +48,28 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     if days_until_expiry is not None and days_until_expiry <= 2:
         model_header = "## Model Status WARNING"
 
+    heartbeat_age = _heartbeat_age_minutes(hb)
+    health_level = _health_level(last_health)
+    git_dirty_count = int(last_health.get("git_dirty_count", 0) or 0)
+    controller_status = str(cs.get("status", "UNKNOWN"))
+    next_action = _load_json(RUNNER_ROOT / "state/next_action_decision.json").get("next_action", "N/A")
+
     lines = [
         "# Daily Autonomous Runner Report",
         f"Generated: {now.isoformat()}",
         f"Cycle: {cycle or cs.get('active_cycle', 'IDLE')}",
         "",
+        "## Health Status",
+        f"Level: {health_level}",
+        f"Heartbeat age: {heartbeat_age if heartbeat_age is not None else 'N/A'} minutes",
+        f"Dirty files: {git_dirty_count}",
+        f"Controller status: {controller_status}",
+        f"Next action: {next_action}",
+        "",
         "## Runner Status",
         f"- Controller state : {cs.get('status', 'UNKNOWN')}",
         f"- Last heartbeat   : {hb.get('last_seen', 'N/A')}",
-        f"- Health level     : {last_health.get('Level', 'N/A') if last_health else 'N/A'}",
+        f"- Health level     : {health_level}",
         f"- GitHub runner    : {cs.get('github_runner_status', 'N/A')}",
         "",
         "## Development Activity",
@@ -98,8 +112,21 @@ def generate_weekly_report() -> Path:
     now = datetime.now(UTC)
     ts  = now.strftime("%Y%m%d")
 
-    incident_count  = _count_recent_files(RUNNER_ROOT / "logs/incidents", hours=168)
-    snapshot_count  = _count_recent_files(RUNNER_ROOT / "logs/snapshots", hours=168)
+    incident_count = _count_recent_files(RUNNER_ROOT / "reports/incidents", hours=168)
+    if incident_count == 0:
+        incident_count = _count_recent_files(RUNNER_ROOT / "logs/incidents", hours=168)
+    snapshot_count = _count_recent_files(RUNNER_ROOT / "logs/snapshots", hours=168)
+    cycles_completed = _count_recent_files(REPO_ROOT / "PM_Pack/10_cycle_log", hours=168, pattern="CYCLE_*.md")
+    model_drift_count = _count_recent_files(RUNNER_ROOT / "reports", hours=168, pattern="*drift*.json")
+    human_interruptions = _count_recent_files(
+        RUNNER_ROOT / "reports/incidents", hours=168, pattern="*HUMAN*"
+    )
+    if human_interruptions == 0:
+        human_interruptions = _count_recent_files(
+            RUNNER_ROOT / "logs/incidents", hours=168, pattern="*HUMAN*"
+        )
+    avg_cycle_duration_minutes = _average_cycle_duration_minutes(REPO_ROOT / "PM_Pack/10_cycle_log")
+    health_summary = _weekly_health_summary(RUNNER_ROOT / "reports")
 
     lines = [
         "# Weekly Autonomy Review",
@@ -107,6 +134,11 @@ def generate_weekly_report() -> Path:
         f"Generated  : {now.isoformat()}",
         "",
         "## This Week",
+        f"- Cycles completed (7d) : {cycles_completed}",
+        f"- Human interruptions    : {human_interruptions}",
+        f"- Model drift incidents  : {model_drift_count}",
+        f"- Avg cycle duration (m) : {avg_cycle_duration_minutes if avg_cycle_duration_minutes is not None else 'N/A'}",
+        f"- Health summary         : GREEN={health_summary['GREEN']} ORANGE={health_summary['ORANGE']} RED={health_summary['RED']}",
         f"- Incidents (7d)       : {incident_count}",
         f"- Daily snapshots (7d) : {snapshot_count}",
         "",
@@ -133,7 +165,7 @@ def generate_weekly_report() -> Path:
 
 def _load_json(path: Path) -> dict:
     try:
-        return json.loads(path.read_text()) if path.exists() else {}
+        return json.loads(path.read_text(encoding="utf-8", errors="replace")) if path.exists() else {}
     except Exception:
         return {}
 
@@ -145,12 +177,12 @@ def _latest_json(directory: Path, pattern: str) -> dict:
     return _load_json(files[-1]) if files else {}
 
 
-def _count_recent_files(directory: Path, hours: int = 24) -> int:
+def _count_recent_files(directory: Path, hours: int = 24, pattern: str = "*") -> int:
     if not directory.exists():
         return 0
     cutoff = datetime.now(UTC) - timedelta(hours=hours)
     return sum(
-        1 for f in directory.glob("*")
+        1 for f in directory.glob(pattern)
         if f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, tz=UTC) >= cutoff
     )
 
@@ -168,3 +200,67 @@ def _tail_log(path: Path, hours: int = 24) -> list[str]:
         except Exception:
             pass
     return lines
+
+
+def _heartbeat_age_minutes(heartbeat_payload: dict) -> float | None:
+    last_seen = heartbeat_payload.get("last_seen")
+    if not isinstance(last_seen, str) or not last_seen.strip():
+        return None
+    try:
+        hb_time = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return round((datetime.now(UTC) - hb_time).total_seconds() / 60.0, 1)
+
+
+def _health_level(health_payload: dict) -> str:
+    if not isinstance(health_payload, dict) or not health_payload:
+        return "N/A"
+    return str(
+        health_payload.get("health_level")
+        or health_payload.get("Level")
+        or "N/A"
+    )
+
+
+def _average_cycle_duration_minutes(cycle_log_dir: Path) -> float | None:
+    if not cycle_log_dir.exists():
+        return None
+    starts: list[datetime] = []
+    ends: list[datetime] = []
+    for path in cycle_log_dir.glob("CYCLE_*.md"):
+        try:
+            ts = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+        except OSError:
+            continue
+        if "START" in path.name.upper():
+            starts.append(ts)
+        elif "END" in path.name.upper() or "COMPLETE" in path.name.upper():
+            ends.append(ts)
+    if not starts or not ends:
+        return None
+    starts.sort()
+    ends.sort()
+    pairs = zip(starts, ends, strict=False)
+    durations = [(end - start).total_seconds() / 60.0 for start, end in pairs if end >= start]
+    if not durations:
+        return None
+    return round(sum(durations) / len(durations), 1)
+
+
+def _weekly_health_summary(reports_dir: Path) -> dict[str, int]:
+    summary = {"GREEN": 0, "ORANGE": 0, "RED": 0}
+    if not reports_dir.exists():
+        return summary
+    cutoff = datetime.now(UTC) - timedelta(days=7)
+    for path in reports_dir.glob("health_*.json"):
+        try:
+            if datetime.fromtimestamp(path.stat().st_mtime, tz=UTC) < cutoff:
+                continue
+        except OSError:
+            continue
+        payload = _load_json(path)
+        level = _health_level(payload).upper()
+        if level in summary:
+            summary[level] += 1
+    return summary
