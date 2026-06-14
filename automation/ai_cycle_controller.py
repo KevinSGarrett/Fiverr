@@ -368,7 +368,10 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
 
     from automation.prompt_validator import validate_all
     agent_list = [a.strip() for a in agents.split(",")]
-    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    # Use validated/ subdirectory where Agent C promotes finished prompts
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts/validated"
+    if not prompts_dir.exists():
+        prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"  # fallback
     results = validate_all(prompts_dir, cycle, agent_list)
 
     all_pass = True
