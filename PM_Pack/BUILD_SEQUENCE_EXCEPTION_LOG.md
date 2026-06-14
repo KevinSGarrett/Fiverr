@@ -60,4 +60,13 @@ All V5 exceptions above are closed and marked RESOLVED.
 - Root cause: local `gh` CLI credentials invalid (`HTTP 401: Bad credentials`)
 - Impact: PR creation and CI-linked merge governance cannot complete with real PR number
 - Resolution plan: operator re-auth via `gh auth login -h github.com`, re-run PR create and post-merge verification
+- Status: RESOLVED
+
+## Exception 7 — Cycle 078 PR Merge Conflict
+
+- Exception type: MERGE_CONFLICT_BLOCK
+- Date discovered: 2026-06-13
+- Root cause: branch `cycle/078/integration` diverged from `develop` with overlapping edits
+- Impact: PR #95 cannot merge while `mergeable=CONFLICTING`
+- Resolution plan: resolve conflicts on branch, rerun merge-gate, then merge PR
 - Status: OPEN

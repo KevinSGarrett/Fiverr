@@ -19,11 +19,13 @@ Authority: Highest state authority. If any PM state document contradicts this fi
 
 ## Cycle 078 Closeout Snapshot (Agent D)
 
-- Branch pushed: `cycle/078/integration` @ `cbad174f382f91613d512a5b8227cf6178e961d7`
+- Branch pushed: `cycle/078/integration` @ `f53e3ae173467bfa67fdcc7ececd871cbdd9b91e`
+- PR: `#95` (open, mergeable=CONFLICTING)
 - Agents complete flags: A, B, E, C, F = `AGENT_COMPLETE`
-- Agent D status: closeout artifacts generated; final PR creation blocked by `gh` auth (HTTP 401)
+- Agent D status: closeout artifacts generated; merge pending conflict/codecov blockers
 - Validation status:
   - `brain-check`: PASS
   - `validate-prompts --cycle 078`: PASS (6/6)
   - `pm-pack-audit`: PASS
+  - CI on PR head: PASS
   - full combined coverage command: PARTIAL/blocked (interruption + aggregate below threshold)

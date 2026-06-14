@@ -6,7 +6,7 @@
 
 ## Active Branch: cycle/078/integration (pushed)
 
-## Last Merged PR: 94 (SHA 1855f7c9); Cycle 078 PR pending due gh auth blocker
+## Last Merged PR: 94 (SHA 1855f7c9); Active PR: 95 (open, conflicting)
 
 ## Score State: Score 1 = 67.0%, Score 2 = 46.9%, cap <=50% active
 

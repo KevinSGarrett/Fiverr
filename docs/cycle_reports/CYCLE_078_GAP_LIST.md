@@ -2,10 +2,10 @@
 
 ## Open / Blocked Items
 
-1. **GitHub PR creation blocked**
-   - Blocker: `gh` authentication (`HTTP 401: Bad credentials`).
-   - Owner: Kevin / operator credentials.
-   - Plan: run `gh auth login -h github.com`, create PR from `cycle/078/integration` to `develop`.
+1. **PR merge blocked**
+   - Current state: PR `#95` exists and CI passed, but `mergeable=CONFLICTING`.
+   - Owner: Kevin + Agent D governance follow-up.
+   - Plan: resolve conflicts against `develop`, rerun merge-gate dry-run, then merge.
 
 2. **Full combined coverage gate not passing**
    - Blocker: long-run interruption (`KeyboardInterrupt`) + aggregate below 90 in interrupted run.
@@ -13,9 +13,9 @@
    - Plan: run stable batched/full execution path, eliminate interruption root cause, then re-run exact gate command.
 
 3. **Post-merge verification with real PR**
-   - Blocker: depends on PR creation + merge.
-   - Owner: Agent D / Kevin post-auth.
-   - Plan: after merge, run `python automation/ai_cycle_controller.py merge-gate --post-merge --pr <PR_NUMBER>`.
+   - Blocker: depends on PR merge.
+   - Owner: Agent D / Kevin.
+   - Plan: after merge, run `python automation/ai_cycle_controller.py merge-gate --post-merge --pr 95`.
 
 4. **Official post-cycle review post-merge mode**
    - Blocker: depends on merged PR and complete merged facts.

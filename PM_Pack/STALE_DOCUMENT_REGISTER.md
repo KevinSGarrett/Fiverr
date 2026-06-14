@@ -5,7 +5,7 @@ Potentially stale/unfinalized items:
 1. GitHub PR lifecycle closeout documents requiring real PR number and URL.
 2. Coverage finalization statements that depend on successful uninterrupted full-suite run.
 
-Planned resolution: finalize after `gh` auth fix + PR creation/merge + full gate rerun.
+Planned resolution: finalize after PR #95 merge conflict resolution, post-merge verification, and full gate rerun.
 
 ## Register Policy
 

@@ -2,27 +2,27 @@
 
 ## REQUIRED BEFORE CYCLE 079 DISPATCH
 
-1. Re-authenticate GitHub CLI on this machine:
-   - `gh auth login -h github.com`
-   - Re-run PR creation for `cycle/078/integration`.
-
-2. Re-verify Cursor model before next dispatch window:
+1. Re-verify Cursor model before next dispatch window:
    - `powershell C:\AI_Runner\scripts\verify_model_selection.ps1`
    - confirm `C:\AI_Runner\state\cursor_model_state.json` remains `VERIFIED` and unexpired.
 
-3. Confirm Jira token naming in runner secrets:
+2. Confirm Jira token naming in runner secrets:
    - Must be `JIRA_API_TOKEN=...` (not `JIRA_API`, `JIRA_TOKEN`, or `JIRA_KEY`).
 
-4. Obtain and configure `CODECOV_TOKEN`:
+3. Obtain and configure `CODECOV_TOKEN`:
    - GitHub repo secrets
    - `C:\AI_Runner\secrets\runner.env` if required for local checks.
 
-## AFTER PR CREATED/MERGED
+4. Resolve PR merge conflict and merge PR #95:
+   - URL: `https://github.com/KevinSGarrett/Fiverr/pull/95`
+   - current blockers: `mergeable=CONFLICTING`, `codecov/project=MISSING`
 
-5. Run post-merge verification:
-   - `python automation/ai_cycle_controller.py merge-gate --post-merge --pr <PR_NUMBER>`
+## AFTER PR MERGED
 
-6. Run post-merge PM review path and archive artifacts.
+1. Run post-merge verification:
+   - `python automation/ai_cycle_controller.py merge-gate --post-merge --pr 95`
+
+2. Run post-merge PM review path and archive artifacts.
 
 ## WHAT CYCLE 078 DELIVERED
 
@@ -45,6 +45,6 @@
 - `validate-prompts --cycle 078`: PASS
 - `cursor-smoke`: PASS
 - `daily-report`: PASS
-- `merge-gate --pr 0 --dry-run`: expected FAIL for placeholder PR context
+- `merge-gate --pr 95 --dry-run`: FAIL with 2 blocking checks (`CONFLICTING`, `codecov/project=MISSING`)
 
-No unexpected failures in local command suite beyond known blockers (PR auth + full combined coverage gate).
+No unexpected failures in local command suite beyond known blockers (merge conflict + codecov project check + full combined coverage gate interruption).

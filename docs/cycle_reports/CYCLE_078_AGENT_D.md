@@ -27,7 +27,7 @@ PR lifecycle governance, merge gate hardening, Jira transition/comment evidence,
 - `brain-check` -> PASS
 - `pm-pack-audit` -> PASS
 - `validate-prompts --cycle 078` -> PASS (6/6)
-- command-suite health run completed with expected placeholder merge-gate failure for PR `0`.
+- command-suite health run completed with merge-gate evidence on real PR `95` (blocking issues documented).
 
 ## Jira Evidence
 
@@ -38,12 +38,15 @@ PR lifecycle governance, merge gate hardening, Jira transition/comment evidence,
 ## PR Lifecycle Status
 
 - Branch pushed: `cycle/078/integration`
-- HEAD SHA: `cbad174f382f91613d512a5b8227cf6178e961d7`
+- HEAD SHA: `f53e3ae173467bfa67fdcc7ececd871cbdd9b91e`
+- PR: [#95](https://github.com/KevinSGarrett/Fiverr/pull/95)
+- PR state: `OPEN`
+- CI status on PR head: `success`
 - Pre-merge PASS artifact:
-  - `PM_Pack/automation/merge_gates/PR_0000_PRE_MERGE_PASS.json` (placeholder PR id)
-- Post-merge verification artifact:
-  - `PM_Pack/automation/merge_gates/PR_0000_POST_MERGE_VERIFICATION.json` (placeholder PR id)
-- PR creation attempt: blocked by `gh` auth (`HTTP 401: Bad credentials`)
+  - `PM_Pack/automation/merge_gates/PR_0095_PRE_MERGE_PASS.json`
+- Merge-gate dry-run (`--pr 95`) current blockers:
+  - `github_mergeable=CONFLICTING`
+  - `codecov_project=MISSING`
 
 ## PM Review Chain Verification
 
@@ -55,8 +58,8 @@ PR lifecycle governance, merge gate hardening, Jira transition/comment evidence,
 
 ## Remaining Honest Gaps
 
-1. Real PR number/URL unavailable until `gh` auth is fixed.
-2. Full combined coverage gate remains blocked/interrupted in this runtime.
+1. Full combined coverage gate remains blocked/interrupted in this runtime.
+2. PR merge is blocked by merge conflicts against `develop`.
 3. Post-merge verification with real PR is pending merge event.
 
 ## Closeout Artifacts

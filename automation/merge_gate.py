@@ -229,7 +229,7 @@ def _get_pr(pr_number: int, repo: str) -> dict[str, Any]:
     r = subprocess.run(
         ["gh", "pr", "view", str(pr_number), "--repo", repo,
          "--json", "headRefName,baseRefName,state,mergeable,statusCheckRollup,mergeCommit"],
-        capture_output=True, text=True, timeout=30
+        capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace"
     )
     if r.returncode != 0:
         return {}
@@ -260,14 +260,14 @@ def _execute_merge(pr_number: int, repo: str) -> str | None:
     r = subprocess.run(
         ["gh", "pr", "merge", str(pr_number),
          "--repo", repo, "--squash", "--delete-branch"],
-        capture_output=True, text=True, timeout=60
+        capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace"
     )
     if r.returncode != 0:
         raise RuntimeError(f"Merge failed: {r.stderr.strip()}")
     # Get merge SHA
     r2 = subprocess.run(
         ["git", "rev-parse", "origin/develop"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True
+        cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     return r2.stdout.strip()
 
@@ -516,6 +516,8 @@ def execute_merge(pr_number: int) -> str:
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     ).stdout.strip()
     _validate_premerge_artifact(pr_number, current_head)
@@ -524,6 +526,8 @@ def execute_merge(pr_number: int) -> str:
         ["gh", "pr", "view", str(pr_number), "--json", "headRefOid,baseRefName"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     pr_payload = json.loads(pr.stdout)
@@ -542,12 +546,16 @@ def execute_merge(pr_number: int) -> str:
         ["gh", "pr", "merge", str(pr_number), "--squash", "--delete-branch", "--yes"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     merged = subprocess.run(
         ["gh", "pr", "view", str(pr_number), "--json", "mergeCommit", "--jq", ".mergeCommit.oid"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     return merged.stdout.strip()
