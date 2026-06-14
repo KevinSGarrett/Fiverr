@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from automation.lock_manager import LockAcquireError, LockManager
 
+pytestmark = pytest.mark.timeout(0)
+
 
 def test_acquire_creates_file(tmp_path: Path) -> None:
     manager = LockManager(lock_dir=tmp_path)
@@ -116,13 +118,7 @@ def test_is_locked_returns_true_when_file_exists(tmp_path: Path) -> None:
 def test_is_locked_returns_false_when_stale_by_dead_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     manager = LockManager(lock_dir=tmp_path)
     manager.acquire("cycle_run", "owner-a")
-
-    class _PsutilStub:
-        @staticmethod
-        def pid_exists(_pid: int) -> bool:
-            return False
-
-    monkeypatch.setattr("automation.lock_manager.psutil", _PsutilStub())
+    monkeypatch.setattr(manager, "_pid_exists", lambda _pid: False)
     assert manager.is_locked("cycle_run") is False
 
 

@@ -108,3 +108,51 @@ def test_contract_catalog_hint_variants() -> None:
     matching = {"entries": [{"source_path": "PM_Pack/ref/project_plan/sample.md", "jira_keys": ["SCRUM-1000"]}]}
     contract_match = build_prompt_contract("A", 78, [story], _lanes(), pp_catalog=matching)
     assert "PM_Pack/ref/project_plan/sample.md" in contract_match
+
+
+def test_contract_includes_dod_catalog_hint_from_explicit_epic() -> None:
+    story = {
+        "key": "SCRUM-2000",
+        "summary": "Story with explicit epic id",
+        "acceptance_criteria": "AC text",
+        "definition_of_done": "DoD text",
+        "epic_id": "EPIC_08",
+    }
+    dod_catalog = {
+        "entries": [
+            {
+                "epic_id": "EPIC_08",
+                "criteria": ["Criterion one for epic 08"],
+            }
+        ]
+    }
+    contract = build_prompt_contract("A", 78, [story], _lanes(), dod_catalog=dod_catalog)
+    assert "EPIC_08: Criterion one for epic 08" in contract
+
+
+def test_contract_includes_dod_catalog_hint_from_summary_token() -> None:
+    story = {
+        "key": "SCRUM-2001",
+        "summary": "Implements gating for EPIC_09 with docs",
+        "acceptance_criteria": "AC text",
+        "definition_of_done": "DoD text",
+    }
+    dod_catalog = {
+        "entries": [
+            {
+                "epic_id": "EPIC_09",
+                "criteria": [],
+            }
+        ]
+    }
+    contract = build_prompt_contract("A", 78, [story], _lanes(), dod_catalog=dod_catalog)
+    assert "EPIC_09: criteria available in catalog" in contract
+
+
+def test_contract_handles_missing_or_malformed_dod_catalog() -> None:
+    story = _story()
+    contract_missing = build_prompt_contract("A", 78, [story], _lanes(), dod_catalog=None)
+    assert "PM_Pack/ref/dod (catalog unavailable)" in contract_missing
+
+    contract_bad_shape = build_prompt_contract("A", 78, [story], _lanes(), dod_catalog={"entries": "bad"})
+    assert "PM_Pack/ref/dod (catalog malformed)" in contract_bad_shape

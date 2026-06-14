@@ -1,6 +1,7 @@
 """Unit tests for merge_gate.py — all gates blocking."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -410,11 +411,14 @@ def test_execute_merge_success_path_returns_sha() -> None:
     import automation.merge_gate as merge_gate
 
     with patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": True}}), patch(
+        "automation.merge_gate._validate_premerge_artifact"
+    ), patch(
         "automation.merge_gate.subprocess.run"
     ) as run, patch("automation.merge_gate.check_all_gates") as gates, patch(
         "automation.merge_gate.check_freeze"
     ):
         run.side_effect = [
+            MagicMock(stdout="abc"),
             MagicMock(stdout='{"headRefOid":"abc","baseRefName":"develop"}'),
             MagicMock(),
             MagicMock(stdout="mergedsha"),
@@ -435,9 +439,14 @@ def test_execute_merge_blocks_when_gate_fails() -> None:
     import automation.merge_gate as merge_gate
 
     with patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": True}}), patch(
+        "automation.merge_gate._validate_premerge_artifact"
+    ), patch(
         "automation.merge_gate.subprocess.run"
     ) as run, patch("automation.merge_gate.check_all_gates") as gates:
-        run.return_value = MagicMock(stdout='{"headRefOid":"abc","baseRefName":"develop"}')
+        run.side_effect = [
+            MagicMock(stdout="abc"),
+            MagicMock(stdout='{"headRefOid":"abc","baseRefName":"develop"}'),
+        ]
         gates.return_value = merge_gate.MergeGateResult(
             pr_number=1,
             branch="cycle/075/integration",
@@ -448,3 +457,48 @@ def test_execute_merge_blocks_when_gate_fails() -> None:
         )
         with pytest.raises(merge_gate.MergeBlockedError):
             merge_gate.execute_merge(1)
+
+
+def test_write_premerge_pass_artifact_creates_file(tmp_path: Path) -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch.object(merge_gate, "REPO_ROOT", tmp_path), patch.object(
+        merge_gate, "MERGE_GATES_DIR", tmp_path / "PM_Pack/automation/merge_gates"
+    ):
+        path = merge_gate.write_premerge_pass_artifact(7, "abc123", {"lint": "PASS"})
+        assert path.exists()
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["pr_number"] == 7
+        assert payload["head_sha"] == "abc123"
+        assert payload["passed"] is True
+
+
+def test_execute_merge_blocked_without_premerge_artifact(tmp_path: Path) -> None:
+    import automation.merge_gate as merge_gate
+
+    with patch.object(merge_gate, "REPO_ROOT", tmp_path), patch.object(
+        merge_gate, "MERGE_GATES_DIR", tmp_path / "PM_Pack/automation/merge_gates"
+    ), patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": True}}), patch(
+        "automation.merge_gate.subprocess.run", return_value=MagicMock(stdout="headsha")
+    ):
+        with pytest.raises(merge_gate.MergeBlockedError, match="PRE_MERGE_ARTIFACT_MISSING"):
+            merge_gate.execute_merge(42)
+
+
+def test_execute_merge_blocked_when_artifact_sha_stale(tmp_path: Path) -> None:
+    import automation.merge_gate as merge_gate
+
+    gates_dir = tmp_path / "PM_Pack/automation/merge_gates"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    artifact = gates_dir / "PR_0042_PRE_MERGE_PASS.json"
+    artifact.write_text(
+        json.dumps({"pr_number": 42, "head_sha": "stale_sha", "passed": True}),
+        encoding="utf-8",
+    )
+    with patch.object(merge_gate, "REPO_ROOT", tmp_path), patch.object(
+        merge_gate, "MERGE_GATES_DIR", gates_dir
+    ), patch("automation.merge_gate.load_config", return_value={"merge_gate": {"execute_merge": True}}), patch(
+        "automation.merge_gate.subprocess.run", return_value=MagicMock(stdout="current_sha")
+    ):
+        with pytest.raises(merge_gate.MergeBlockedError, match="PRE_MERGE_ARTIFACT_STALE"):
+            merge_gate.execute_merge(42)

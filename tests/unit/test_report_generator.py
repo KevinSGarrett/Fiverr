@@ -146,3 +146,43 @@ def test_weekly_report_has_cycles_section(tmp_path: Path) -> None:
     (repo / "PM_Pack/10_cycle_log/CYCLE_078_COMPLETE.md").write_text("done", encoding="utf-8")
     text = report_generator.generate_weekly_report().read_text(encoding="utf-8")
     assert "Cycles completed (7d)" in text
+
+
+def test_load_json_returns_empty_on_invalid_json(tmp_path: Path) -> None:
+    path = tmp_path / "bad.json"
+    path.write_text("{not-json", encoding="utf-8")
+    assert report_generator._load_json(path) == {}
+
+
+def test_average_cycle_duration_minutes_returns_value(tmp_path: Path) -> None:
+    d = tmp_path / "cycle_logs"
+    d.mkdir(parents=True, exist_ok=True)
+    start = d / "CYCLE_001_START.md"
+    end = d / "CYCLE_001_COMPLETE.md"
+    start.write_text("start", encoding="utf-8")
+    end.write_text("end", encoding="utf-8")
+    old_ts = (datetime.now(UTC) - timedelta(minutes=20)).timestamp()
+    new_ts = datetime.now(UTC).timestamp()
+    import os
+
+    os.utime(start, (old_ts, old_ts))
+    os.utime(end, (new_ts, new_ts))
+    value = report_generator._average_cycle_duration_minutes(d)
+    assert value is not None
+    assert value >= 0
+
+
+def test_average_cycle_duration_minutes_returns_none_for_missing_dir(tmp_path: Path) -> None:
+    assert report_generator._average_cycle_duration_minutes(tmp_path / "missing") is None
+
+
+def test_weekly_health_summary_counts_recent_files(tmp_path: Path) -> None:
+    d = tmp_path / "reports"
+    d.mkdir(parents=True, exist_ok=True)
+    _write_json(d / "health_1.json", {"health_level": "GREEN"})
+    _write_json(d / "health_2.json", {"health_level": "ORANGE"})
+    _write_json(d / "health_3.json", {"Level": "RED"})
+    summary = report_generator._weekly_health_summary(d)
+    assert summary["GREEN"] == 1
+    assert summary["ORANGE"] == 1
+    assert summary["RED"] == 1

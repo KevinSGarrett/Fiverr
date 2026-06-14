@@ -19,6 +19,7 @@ from automation.github_client import GitHubClient
 REPO = "KevinSGarrett/Fiverr"
 REPO_ROOT = Path(__file__).parent.parent
 MERGE_POLICY_PATH = REPO_ROOT / "PM_Pack/automation/merge_policy.yml"
+MERGE_GATES_DIR = REPO_ROOT / "PM_Pack/automation/merge_gates"
 
 
 @dataclass
@@ -224,7 +225,7 @@ def run(pr_number: int, repo: str = REPO,
 def _get_pr(pr_number: int, repo: str) -> dict[str, Any]:
     r = subprocess.run(
         ["gh", "pr", "view", str(pr_number), "--repo", repo,
-         "--json", "headRefName,baseRefName,state,mergeable,statusCheckRollup"],
+         "--json", "headRefName,baseRefName,state,mergeable,statusCheckRollup,mergeCommit"],
         capture_output=True, text=True, timeout=30
     )
     if r.returncode != 0:
@@ -341,6 +342,48 @@ class CodexThread:
 class CodexGateResult:
     threads: list[CodexThread]
     any_blocking: bool
+
+
+def _premerge_artifact_path(pr_number: int) -> Path:
+    return MERGE_GATES_DIR / f"PR_{pr_number:04d}_PRE_MERGE_PASS.json"
+
+
+def write_premerge_pass_artifact(pr_number: int, head_sha: str, gate_result: dict) -> Path:
+    """Write pre-merge PASS proof to PM_Pack/automation/merge_gates/."""
+    artifact = {
+        "pr_number": pr_number,
+        "head_sha": head_sha,
+        "passed": True,
+        "checked_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "gate_checks": gate_result,
+    }
+    path = _premerge_artifact_path(pr_number)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(artifact, indent=2), encoding="utf-8")
+    return path
+
+
+def write_postmerge_verification_artifact(pr_number: int, repo: str = REPO) -> Path:
+    """Write post-merge verification summary for a merged PR."""
+    pr_data = _get_pr(pr_number, repo)
+    status_rollup = pr_data.get("statusCheckRollup") or []
+    artifact = {
+        "pr_number": pr_number,
+        "state": pr_data.get("state", "UNKNOWN"),
+        "merge_commit_sha": (pr_data.get("mergeCommit") or {}).get("oid"),
+        "verified_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "ci_lint": _find_check_state(status_rollup, "CI / lint"),
+        "ci_type_check": _find_check_state(status_rollup, "CI / type-check"),
+        "ci_tests_coverage": _find_check_state(status_rollup, "CI / tests-coverage"),
+        "ci_smoke_gates": _find_check_state(status_rollup, "CI / smoke-gates"),
+        "codecov_project": _find_check_state(status_rollup, "codecov/project"),
+        "codecov_patch": _find_check_state(status_rollup, "codecov/patch"),
+        "codex_review_disposition": "PENDING",
+    }
+    path = MERGE_GATES_DIR / f"PR_{pr_number:04d}_POST_MERGE_VERIFICATION.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(artifact, indent=2), encoding="utf-8")
+    return path
 
 
 def _check_ci_status(sha: str, client: GitHubClient) -> CIGateResult:
@@ -465,6 +508,15 @@ def execute_merge(pr_number: int) -> str:
     if not execute_enabled:
         raise MergeBlockedError("Merge blocked: execute_merge flag is disabled")
 
+    current_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    _validate_premerge_artifact(pr_number, current_head)
+
     pr = subprocess.run(
         ["gh", "pr", "view", str(pr_number), "--json", "headRefOid,baseRefName"],
         capture_output=True,
@@ -496,3 +548,15 @@ def execute_merge(pr_number: int) -> str:
         check=True,
     )
     return merged.stdout.strip()
+
+
+def _validate_premerge_artifact(pr_number: int, current_head_sha: str) -> None:
+    artifact_path = _premerge_artifact_path(pr_number)
+    if not artifact_path.exists():
+        raise MergeBlockedError("PRE_MERGE_ARTIFACT_MISSING")
+    try:
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise MergeBlockedError("PRE_MERGE_ARTIFACT_INVALID") from exc
+    if artifact.get("head_sha") != current_head_sha:
+        raise MergeBlockedError("PRE_MERGE_ARTIFACT_STALE: SHA mismatch")

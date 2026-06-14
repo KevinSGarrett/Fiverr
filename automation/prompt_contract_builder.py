@@ -145,9 +145,9 @@ def _render_tasks(
     pp_catalog: dict[str, Any] | None,
     dod_catalog: dict[str, Any] | None,
 ) -> list[str]:
-    _ = dod_catalog
     tasks: list[str] = []
     story_count = max(1, len(stories))
+    phases = ["setup/verify", "read project plan", "implement AC", "validation", "cleanup"]
     for idx in range(1, 56):
         story = stories[(idx - 1) % story_count] if stories else {}
         key = str(story.get("key", f"SCRUM-{cycle}{idx:02d}"))
@@ -155,12 +155,15 @@ def _render_tasks(
         ac = str(story.get("acceptance_criteria", "Validate behavior from Jira AC")).strip()
         dod = str(story.get("definition_of_done", "Meet DoD evidence for this story")).strip()
         catalog_hint = _catalog_hint(pp_catalog, key)
+        dod_hint = _dod_hint(dod_catalog, story)
+        phase = phases[(idx - 1) % len(phases)]
         tasks.extend(
             [
-                f"### TASK {idx:02d} — Agent {agent} delivery for {key}: {summary}",
+                f"### TASK {idx:02d} — Agent {agent} {phase} for {key}: {summary}",
                 f"- Story: {key}",
                 f"- AC Focus: {ac}",
                 f"- DoD Focus: {dod}",
+                f"- DoD Catalog Context: {dod_hint}",
                 f"- Project Plan Context: {catalog_hint}",
                 "- Validation: run targeted unit tests and record evidence in cycle report.",
                 "",
@@ -184,6 +187,33 @@ def _catalog_hint(pp_catalog: dict[str, Any] | None, issue_key: str) -> str:
     return "PM_Pack/ref/project_plan (no direct SCRUM mapping)"
 
 
+def _dod_hint(dod_catalog: dict[str, Any] | None, story: dict[str, Any]) -> str:
+    if not isinstance(dod_catalog, dict):
+        return "PM_Pack/ref/dod (catalog unavailable)"
+    entries = dod_catalog.get("entries")
+    if not isinstance(entries, list):
+        return "PM_Pack/ref/dod (catalog malformed)"
+    epic_candidates = {
+        str(story.get("epic_id", "")).strip(),
+        str(story.get("epic", "")).strip(),
+        str(story.get("epic_key", "")).strip(),
+    }
+    text_blob = " ".join(str(story.get(field, "") or "") for field in ("summary", "description"))
+    for token in ("EPIC_01", "EPIC_02", "EPIC_03", "EPIC_04", "EPIC_05", "EPIC_06", "EPIC_07", "EPIC_08", "EPIC_09", "EPIC_10"):
+        if token in text_blob:
+            epic_candidates.add(token)
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        epic_id = str(entry.get("epic_id", "")).strip()
+        if epic_id and epic_id in epic_candidates:
+            criteria = entry.get("criteria", [])
+            if isinstance(criteria, list) and criteria:
+                return f"{epic_id}: {str(criteria[0])[:120]}"
+            return f"{epic_id}: criteria available in catalog"
+    return "PM_Pack/ref/dod (no direct epic mapping)"
+
+
 def _default_preamble() -> str:
     return "\n".join(
         [
@@ -196,8 +226,27 @@ def _default_preamble() -> str:
             "## Exact Directory Map",
             "- Repo root: C:\\Fiverr\\Fiverr",
             "- Automation modules: C:\\Fiverr\\Fiverr\\automation\\",
+            "- Tests: C:\\Fiverr\\Fiverr\\tests\\unit\\",
             "- PM_Pack root: C:\\Fiverr\\Fiverr\\PM_Pack\\",
+            "- PM_Pack automation configs: C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\",
+            "- PM_Pack instructions: C:\\Fiverr\\Fiverr\\PM_Pack\\01_pm_instructions\\",
+            "- PM_Pack current state: C:\\Fiverr\\Fiverr\\PM_Pack\\02_current_state\\",
+            "- PM_Pack Cursor agent system: C:\\Fiverr\\Fiverr\\PM_Pack\\03_cursor_agent_system\\",
+            "- PM_Pack cycle log: C:\\Fiverr\\Fiverr\\PM_Pack\\10_cycle_log\\",
+            "- Docs/cycle_reports: C:\\Fiverr\\Fiverr\\docs\\cycle_reports\\",
+            "- Docs/architecture: C:\\Fiverr\\Fiverr\\docs\\architecture\\",
+            "- Docs/runbooks: C:\\Fiverr\\Fiverr\\docs\\runbooks\\",
             "- Runner root: C:\\AI_Runner\\",
+            "- Runner config: C:\\AI_Runner\\config\\",
+            "- Runner state: C:\\AI_Runner\\state\\",
+            "- Runner secrets: C:\\AI_Runner\\secrets\\",
+            "- Runner logs: C:\\AI_Runner\\logs\\",
+            "- Runner reports: C:\\AI_Runner\\reports\\",
+            "- Runner scripts: C:\\AI_Runner\\scripts\\",
+            "- Runner runs: C:\\AI_Runner\\runs\\",
+            "- Runner queue: C:\\AI_Runner\\queue\\",
+            "- Runner artifacts: C:\\AI_Runner\\artifacts\\",
+            "- GitHub Actions runner: C:\\actions-runner\\",
             "",
             "## PM_Pack Structure",
             "- Post-cycle review prompt: C:\\Fiverr\\Fiverr\\PM_Pack\\01_pm_instructions\\POST_CYCLE_PM_REVIEW_v4.md",

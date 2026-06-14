@@ -816,7 +816,7 @@ def cmd_weekly_report() -> None:
 @click.option("--cycle", required=True, type=int, help="Cycle number.")
 @click.option("--pr", default=None, type=int, help="PR number (if known).")
 @click.option("--mode", default="POST_CYCLE_PM_REVIEW",
-              type=click.Choice(["POST_CYCLE_PM_REVIEW", "POST_AGENT_CYCLE_REVIEW"]),
+              type=click.Choice(["POST_CYCLE_PM_REVIEW", "POST_AGENT_CYCLE_REVIEW", "POST_AGENT"]),
               help="Review mode.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Collect facts only, do not write artifacts.")
@@ -867,13 +867,20 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) 
               help="Check gates only, do not merge (default: True).")
 @click.option("--execute-merge", is_flag=True, default=False,
               help="Actually merge if all gates pass.")
-def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool) -> None:
+@click.option("--post-merge", is_flag=True, default=False,
+              help="Write post-merge verification artifact.")
+def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool, post_merge: bool) -> None:
     """Run full merge gate check for a PR. Safe by default (dry-run)."""
     click.echo("=" * 60)
     live = not do_dry_run or execute_merge
     click.echo(f"MERGE GATE - PR #{pr} {'[LIVE]' if live else '[DRY RUN]'}")
     click.echo("=" * 60)
     from automation.merge_gate import run as gate_run
+    from automation.merge_gate import write_postmerge_verification_artifact
+    if post_merge:
+        path = write_postmerge_verification_artifact(pr)
+        click.secho(f"Post-merge verification artifact written: {path}", fg="green", bold=True)
+        return
     result = gate_run(pr_number=pr, dry_run=(not execute_merge))
     click.echo(result.summary())
     click.echo()

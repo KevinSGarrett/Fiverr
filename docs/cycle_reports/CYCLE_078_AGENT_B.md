@@ -83,6 +83,9 @@ Jira integration hardening, AC/DoD hydration, Jira-to-PM_Pack mapping, and promp
 - Full suite command:
   - `pytest tests/unit/ --timeout=30 --tb=no -q` -> PARTIAL (`KeyboardInterrupt` in environment after 3259 passes)
   - `pytest tests/unit/ --timeout=30 --tb=no -q --junitxml=docs/cycle_reports/CYCLE_078_AGENT_B_TEST_RESULTS.xml` -> PARTIAL with XML artifact emitted (`tests="3259"`, `errors="0"`, `failures="0"`).
+  - `pytest tests/unit/ --timeout=30 --tb=short -vv --full-trace` -> PARTIAL (`KeyboardInterrupt` after 3261 passes)
+  - `Start-Process python -m pytest tests/unit/ --timeout=30 --tb=no -q` (redirected output) -> PARTIAL (`KeyboardInterrupt` after 3261 passes; proves interruption persists outside direct shell invocation)
+  - Partitioned multi-run strategy completed several batches successfully, but interruption artifact still occurred in later batches; full uninterrupted canonical sweep could not be captured in this environment.
 - `python automation/ai_cycle_controller.py brain-check` -> PASS
 - `python automation/secret_guard.py scan_staged` -> PASS (clean)
 
@@ -105,6 +108,7 @@ Jira integration hardening, AC/DoD hydration, Jira-to-PM_Pack mapping, and promp
 ## Task-Level Truth Note
 - Tasks `33` and `48` require uninterrupted full-suite `pytest tests/unit/ ...` completion with zero failures.
 - In this environment, repeated external `KeyboardInterrupt` occurs around ~2 minutes despite passing tests; this blocks a fully uninterrupted canonical full-suite run.
+- Task `53` is also impacted by the same interruption behavior, though XML evidence artifact is produced.
 - Remaining Agent B task items are completed and validated with direct evidence.
 
 AGENT_COMPLETE

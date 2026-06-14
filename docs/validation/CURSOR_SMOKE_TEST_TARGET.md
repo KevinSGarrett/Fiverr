@@ -4,3 +4,4 @@ This is a target file for the docs-only Cursor smoke test.
 Cursor agent will be prompted to append a timestamp to this file.
 No code changes. No src/ changes.
 Branch: cycle/075/integration-smoke (test-only).
+Smoke test executed at: 2026-06-13T18:00:00-05:00

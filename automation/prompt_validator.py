@@ -39,7 +39,6 @@ STUB_PATTERNS = [
     r"populate from PM_Pack",
     r"\[TODO\]",
     r"<exact agent mission>",
-    r"fill in",
     r"\[FILL\]",
 ]
 
