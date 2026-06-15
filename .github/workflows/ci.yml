@@ -27,7 +27,7 @@ jobs:
     name: CI / lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -43,7 +43,7 @@ jobs:
     name: CI / type-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -64,7 +64,7 @@ jobs:
       statuses: write
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -118,7 +118,7 @@ jobs:
           --ignore=tests/unit/test_prompt_generator.py
           --cov=src --cov=automation --cov-report=xml --cov-fail-under=80
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         if: always()
         with:
           name: coverage-xml
@@ -136,7 +136,7 @@ jobs:
     name: CI / smoke-gates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -201,7 +201,7 @@ jobs:
           if snapshot.exists():
               txt = snapshot.read_text()
               txt = re.sub(r'(# STATE SNAPSHOT - CYCLE\\s*)\\d+', r'\\g<1>080', txt)
-              txt = re.sub(r'(# State Snapshot — Cycle\\s*)\\d+', r'\\g<1>080', txt)
+              txt = re.sub(r'(# State Snapshot â€” Cycle\\s*)\\d+', r'\\g<1>080', txt)
               txt = re.sub(r'Cycle:\\s*\\d+', 'Cycle: 080', txt)
               txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
               txt = re.sub(r'Previous cycle:\\s*\\d+', 'Previous cycle: 079', txt)
