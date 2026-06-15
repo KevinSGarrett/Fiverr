@@ -1,0 +1,131 @@
+{
+  "generated_at": "2026-06-14T02:17:09.923794+00:00",
+  "source_dir": "PM_Pack/ref/dod",
+  "entries": [
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_01.md",
+      "epic_id": "EPIC_01",
+      "epic_name": "DOD \u2014 EPIC 01: Foundation & Infrastructure",
+      "criteria": [
+        "[ ] All directories exist and match the specified structure",
+        "[ ] `pip install -e .` completes without errors",
+        "[ ] `playwright install chromium` installs browser binary successfully",
+        "[ ] `.env.example` contains all required environment variables",
+        "[ ] `.gitignore` prevents data/, .env, __pycache__ from being committed",
+        "[ ] README.md contains setup instructions that a new developer can follow from zero to running"
+      ],
+      "validation_commands": [
+        "python -c \"import playwright; import sqlalchemy; import pydantic; import openai; import streamlit\"",
+        "python run.py --mode full",
+        "python run.py init-db",
+        "python run.py dashboard",
+        "python run.py --mode invalid",
+        "python run.py --mode resume",
+        "python -c \"from src.models import *; from src.config import *; from src.llm import *\""
+      ]
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_02.md",
+      "epic_id": "EPIC_02",
+      "epic_name": "DOD \u2014 EPIC 02: Collection Engine",
+      "criteria": [
+        "[ ] Browser launches in persistent context with reusable cookies",
+        "[ ] Auth detection correctly identifies logged-in vs. anonymous state",
+        "[ ] Human-event simulation produces non-robotic browsing patterns",
+        "[ ] Graceful shutdown saves browser state"
+      ],
+      "validation_commands": [
+        "python run.py --mode collect-only"
+      ]
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_03.md",
+      "epic_id": "EPIC_03",
+      "epic_name": "DOD \u2014 EPIC 03: Analysis Engine",
+      "criteria": [
+        "[ ] Embeddings generated for all keywords in the niche",
+        "[ ] KMeans runs with k = ceil(sqrt(n/2)), capped 2\u201320",
+        "[ ] Silhouette score computed; warning logged if < 0.3",
+        "[ ] Cluster labels (3-5 words) generated via LLM",
+        "[ ] All keywords have a non-null `cluster_id`",
+        "[ ] Re-cluster triggers when > 15% new keywords since last run"
+      ],
+      "validation_commands": []
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_04.md",
+      "epic_id": "EPIC_04",
+      "epic_name": "DOD \u2014 EPIC 04: Scoring Engine",
+      "criteria": [],
+      "validation_commands": []
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_05.md",
+      "epic_id": "EPIC_05",
+      "epic_name": "DOD \u2014 EPIC 05: Recommendation Engine",
+      "criteria": [
+        "[ ] RecommendationContext built with all required fields",
+        "[ ] completeness_ratio() computed correctly",
+        "[ ] Wave 9 pricing + Wave 11 visual fields included in context"
+      ],
+      "validation_commands": []
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_06.md",
+      "epic_id": "EPIC_06",
+      "epic_name": "DOD \u2014 EPIC 06: Pricing Engine",
+      "criteria": [
+        "[ ] PriceAnalysis computed per keyword (p25, median, p75, std dev)",
+        "[ ] NichePriceAnalysis aggregate computed per niche",
+        "[ ] price_clusters identified and labelled"
+      ],
+      "validation_commands": []
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_07.md",
+      "epic_id": "EPIC_07",
+      "epic_name": "DOD \u2014 EPIC 07: Discovery Engine",
+      "criteria": [
+        "[ ] Discovery cycle loop runs without error for all enabled modes",
+        "[ ] Hypothesis budget respected (max_cost_per_run)",
+        "[ ] DiscoveryCycleLog entry created per cycle"
+      ],
+      "validation_commands": []
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_08.md",
+      "epic_id": "EPIC_08",
+      "epic_name": "DOD \u2014 EPIC 08: Playbook Engine",
+      "criteria": [
+        "[ ] GigVisualAnalysis model populated for all scraped gig thumbnails",
+        "[ ] thumbnail_type classified (branded/stock/illustration/text_only/screenshot)",
+        "[ ] visual_strength_score computed and stored"
+      ],
+      "validation_commands": []
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_09.md",
+      "epic_id": "EPIC_09",
+      "epic_name": "DOD \u2014 EPIC 09: Dashboard & Reporting",
+      "criteria": [
+        "[ ] Design tokens defined (colours, typography, spacing)",
+        "[ ] Streamlit theme configured consistently across all pages",
+        "[ ] Design system documented in src/dashboard/design.py"
+      ],
+      "validation_commands": [
+        "python run.py dashboard"
+      ]
+    },
+    {
+      "source_path": "PM_Pack/ref/dod/DOD_EPIC_10.md",
+      "epic_id": "EPIC_10",
+      "epic_name": "DOD \u2014 EPIC 10: Integration, Testing & Launch",
+      "criteria": [
+        "[ ] All 16 pipeline stages wire correctly in --mode full",
+        "[ ] Stage sequence logged with timing",
+        "[ ] Stage failure isolation: one stage failure doesn't crash independent stages"
+      ],
+      "validation_commands": []
+    }
+  ]
+}

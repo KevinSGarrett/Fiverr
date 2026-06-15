@@ -1029,11 +1029,7 @@ def _generate_playbook_from_live_data(niche_id: str, database_url: str) -> dict[
 @click.option("--database-url", default=None)
 def playbook_command(niche_id: str, fmt: str, output: str | None, database_url: str | None) -> None:
     """Generate seller setup playbook for a niche."""
-    from src.playbook.generator import (
-        export_playbook_markdown,
-        export_playbook_pdf,
-        generate_playbook,
-    )
+    from src.playbook.generator import export_playbook_markdown, export_playbook_pdf, generate_playbook
 
     config_payload = _load_recommendation_config()
     with _recommendation_db_session(database_url) as db:

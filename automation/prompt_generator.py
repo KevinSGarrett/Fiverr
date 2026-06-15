@@ -17,7 +17,7 @@ from typing import Any
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).parent.parent
 PM_PACK   = REPO_ROOT / "PM_Pack"
 
 # Minimum tasks per AGENT_TASK_FLOOR_ENFORCEMENT.md (2026-06-09 hard rule)
@@ -35,6 +35,12 @@ TASKS_PER_ISSUE = {
 
 # Minimum issues needed to reach 55 tasks
 MIN_ISSUES_NEEDED = {a: max(1, TASK_FLOOR // t + 1) for a, t in TASKS_PER_ISSUE.items()}
+
+
+
+
+class PlanningIncompleteError(RuntimeError):
+    """Raised when a prompt contract cannot be built due to missing planning data."""
 
 
 def _load_agent_lanes() -> dict[str, Any]:

@@ -83,6 +83,7 @@ def test_critical_writes_incident_file(tmp_path: Path) -> None:
 
     def _mapped_path(value: str) -> Path:
         mapping = {
+            "C:/AI_Runner/reports/incidents": incident_dir,
             "C:/AI_Runner/state/notification_rate.json": rate_file,
         }
         return mapping.get(value, Path(value))
@@ -95,9 +96,8 @@ def test_critical_writes_incident_file(tmp_path: Path) -> None:
             "log_path": str(tmp_path / "notifications.log"),
             "rate_limit_per_hour": 10,
         },
-    ), patch("automation.notification_router.INCIDENTS_DIR", incident_dir), patch(
-        "automation.notification_router.Path", side_effect=_mapped_path
-    ):
+    ), patch("automation.notification_router.INCIDENTS_DIR", incident_dir), \
+       patch("automation.notification_router.Path", side_effect=_mapped_path):
         notification_router.notify("CRITICAL", "critical", incident_code="X")
     assert list(incident_dir.glob("NOTIFICATION_X_*.md"))
 
@@ -315,8 +315,12 @@ def test_load_notification_config_reads_yaml_file(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    # Patch RUNNER_ROOT so config path resolves to tmp_path/config/...
-    with patch("automation.notification_router.RUNNER_ROOT", tmp_path):
+    def _mapped_path(value: str) -> Path:
+        if value == "C:/AI_Runner/config/notification_config.yaml":
+            return config_path
+        return Path(value)
+
+    with patch("automation.notification_router.Path", side_effect=_mapped_path):
         loaded = notification_router._load_notification_config()
     assert loaded["slack_enabled"] is True
     assert loaded["rate_limit_per_hour"] == 7

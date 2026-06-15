@@ -436,6 +436,8 @@ def test_notification_router_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(notification_router, "RUNNER_ROOT", tmp_path)
     monkeypatch.setattr(notification_router, "NOTIFY_LOG", tmp_path / "logs/notifications.log")
     monkeypatch.setattr(notification_router, "INCIDENTS_DIR", tmp_path / "logs/incidents")
+    # Ensure _load_notification_config returns no log_path so NOTIFY_LOG fallback is used
+    monkeypatch.setattr(notification_router, "_load_notification_config", lambda: {"log_path": "", "slack_enabled": False, "slack_webhook_url": "", "rate_limit_per_hour": 10})
     monkeypatch.setitem(
         __import__("sys").modules,
         "automation.config_loader",

@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "required": [
+    "generated_at",
+    "source_dir",
+    "entries"
+  ],
+  "properties": {
+    "generated_at": {
+      "type": "string"
+    },
+    "source_dir": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_path",
+          "title"
+        ],
+        "properties": {
+          "source_path": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "archive"
+            ]
+          },
+          "wave": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "epic_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "story_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "jira_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "files_or_modules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dod_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "todo_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -126,22 +126,54 @@ def test_plan_cycle_dry_and_live(monkeypatch, tmp_path: Path) -> None:
         "automation.jira_client",
         SimpleNamespace(board_inventory=lambda: {"issues": [{"key": "SCRUM-1"}]}),
     )
+    # The live code path calls write_prompts from prompt_generator
+    # Provide stubs so neither the old nor new code path hits real files
+    (tmp_path / "A.md").write_text("stub", encoding="utf-8")
+    (tmp_path / "B.md").write_text("stub", encoding="utf-8")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text("{}", encoding="utf-8")
     monkeypatch.setitem(
         __import__("sys").modules,
         "automation.prompt_generator",
-        SimpleNamespace(write_prompts=lambda **k: {"A": tmp_path / "A.md", "B": tmp_path / "B.md"}),
+        SimpleNamespace(
+            write_prompts=lambda **k: {"A": tmp_path / "A.md", "B": tmp_path / "B.md"},
+            PlanningIncompleteError=type("PlanningIncompleteError", (RuntimeError,), {}),
+        ),
     )
-    (tmp_path / "A.md").write_text("a", encoding="utf-8")
-    (tmp_path / "B.md").write_text("b", encoding="utf-8")
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "automation.prompt_contract_builder",
+        SimpleNamespace(
+            build_prompt_contract=lambda **k: "\n".join("### TASK %02d - task\ndescription\n" % i for i in range(1, 56)) + "\n\nEND OF PROMPT\n"
+        ),
+    )
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "automation.prompt_promotion",
+        SimpleNamespace(
+            promote_prompt=lambda draft, validated_dir: (
+                    validated_dir.mkdir(parents=True, exist_ok=True),
+                    (validated_dir / draft.name.replace("_DRAFT", "")).write_text("x", encoding="utf-8"),
+                    (True, [])
+                )[-1],
+            write_validated_manifest=lambda cycle, validated_dir, results: manifest_path,
+        ),
+    )
+    # drift_detector needed by live preflight
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "automation.drift_detector",
+        SimpleNamespace(DriftDetector=lambda: SimpleNamespace(detect=lambda *a: SimpleNamespace(drifts=[]))),
+    )
     live = runner.invoke(ctrl.cli, ["plan-cycle", "--live"])
-    assert live.exit_code == 0
+    assert live.exit_code == 0, f"plan-cycle --live failed: {live.output}"
     assert "PLAN CYCLE COMPLETE" in live.output
 
 
 def test_run_agent_dry_run(monkeypatch, tmp_path: Path) -> None:
     runner = CliRunner()
     monkeypatch.setattr(ctrl, "REPO_ROOT", tmp_path)
-    prompt = tmp_path / "PM_Pack/automation/prompts/CYCLE_077_AGENT_F_PROMPT.md"
+    prompt = tmp_path / "PM_Pack/automation/prompts/validated/CYCLE_077_AGENT_F_PROMPT.md"
     prompt.parent.mkdir(parents=True, exist_ok=True)
     prompt.write_text("prompt", encoding="utf-8")
     monkeypatch.setitem(
@@ -201,7 +233,8 @@ def test_cursor_smoke_recover_status_tick_and_pm_audit(monkeypatch, tmp_path: Pa
     )
     # Mock drift detector so status-tick doesn't hit real runner paths
     from automation.drift_detector import DriftReport
-    _fake_detector = type("FakeDriftDetector", (), {"detect": lambda self, *a, **k: DriftReport()})
+    _fake_report = DriftReport(passed=True, drifts=[], warnings=[], checked_at="2026-01-01T00:00:00Z")
+    _fake_detector = type("FakeDriftDetector", (), {"detect": lambda self, *a, **k: _fake_report})
     monkeypatch.setattr("automation.drift_detector.DriftDetector", _fake_detector)
     ctrl._write_runner_state({"status": "PLANNED", "active_cycle": 77})
     st = runner.invoke(ctrl.cli, ["status-tick"])
@@ -216,4 +249,3 @@ def test_cursor_smoke_recover_status_tick_and_pm_audit(monkeypatch, tmp_path: Pa
     audit = runner.invoke(ctrl.cli, ["pm-pack-audit"])
     assert audit.exit_code == 0
     assert "PM_PACK_AUDIT PASS" in audit.output
-
