@@ -1,124 +1,95 @@
 # CURSOR AGENT PROMPT TEMPLATE
-# The PM MUST use this exact structure for EVERY agent prompt. No exceptions.
+# The PM MUST use this exact structure for every cycle prompt.
 
 ---
 
 ```
 ====================================================================
-AGENT {A|B|C|D} — CYCLE {NNN} PROMPT
+CYCLE {NNN} — AGENT {A|B|E|C|F|D}
 ====================================================================
+
+## LANE DEFINITIONS (MANDATORY — 6 AGENTS)
+Lane A: Planning / Architecture / PM_Pack Governance / Config
+Lane B: Backend / Data / Scoring / Core Implementation
+Lane E: Live Validation / External Signals / Evidence
+Lane C: Integration / Dashboard / Reports
+Lane F: Test Coverage / Regression / Quality Repair
+Lane D: PR Steward / Jira Steward / Merge-Gate Readiness
 
 ## PROJECT CONTEXT
 - Project: Fiverr Research System
-- GitHub: https://github.com/KevinSGarrett/Fiverr
-- Local: C:\Fiverr
+- Repository root: C:/Fiverr/Fiverr
 - Branch: cycle/{NNN}/integration
-- Python: 3.11+ | SQLAlchemy 2.0 | Pydantic v2 | Playwright | OpenAI | Streamlit
+- Cycle: {NNN}
 
-## YOUR ROLE
-{Agent role and epic ownership from AGENT_ROSTER.md}
-MANDATORY (Agent D, Draft PRs): Start §15.1 Codex wait from `ready_for_review` timestamp (after `gh pr ready <PR>`), not CI completion.
+## IDENTITY AND ROLE
+You are Agent {A|B|E|C|F|D} for Cycle {NNN}.
+{Lane-specific responsibilities and blocked paths}
 
-## GIT INSTRUCTIONS
-1. Ensure you are on branch: cycle/{NNN}/integration
-2. Pull latest: git pull origin cycle/{NNN}/integration
-3. All work goes on this branch — do NOT create other branches
-4. Commit message format: {type}({scope}): {description}
-5. Do NOT push — the human operator will push after all agents complete
+## MODEL POLICY — MANDATORY
+Worker: Cursor CLI
+Model: codex-5.3
+Effort: medium
+Auto model selection: DISABLED
+Fallback: DISABLED
 
-## TASKS FOR THIS CYCLE
+## AUTONOMY RULE
+Complete all assigned tasks end-to-end without waiting for approval.
+If ambiguous, make the safest implementation choice and document rationale in final report.
 
-### Task {N}.{N}.{N}: {Task Title}
-- **Story:** S{N}.{N} — {Story Title}
-- **Epic:** Epic {NN} — {Epic Name}
-- **Spec Reference:** ref/project_plan/{folder}/{FILE}.md
-- **DOD Reference:** ref/dod/DOD_EPIC_{NN}.md -> AC-{ID}
-- **Files to Create/Modify:**
-  - CREATE: src/{path}/{filename}.py
-  - MODIFY: src/{path}/{existing_file}.py (add {what exactly})
-- **Implementation Details:**
-  {Detailed description — class names, method signatures, field types,
-  logic flow, edge cases, error handling. >=100 words per task.
-  This threshold is strict for every substantive task unless a
-  documented PROMPT-DETAIL WAIVER is included in the cycle plan.
-  Be exhaustive — the agent should not need to guess anything.}
-- **Required Tests:**
-  - tests/unit/test_{module}.py::test_{function_name}
-  - Test: {describe what the test validates and expected behavior}
-  - Test: {describe edge case test}
-  - Test: {describe error handling test}
-- **Definition of Done:**
-  - [ ] {DOD criterion from DOD file}
-  - [ ] All tests pass: pytest tests/unit/test_{module}.py -v
-  - [ ] No Ruff lint errors
-  - [ ] Mypy type check passes
+## TASKS
+### TASK 1: {title}
+- Story: {SCRUM-key}
+- Scope: {exact files and paths}
+- Action: {deterministic implementation instructions}
+- Validation: {exact command(s)}
+- DoD: {explicit completion criteria}
 
-{REPEAT FOR EACH ADDITIONAL TASK — minimum 20 substantive tasks; target 24-32 tasks; maximum 40 tasks. Any exception requires BOTH a TASK-COUNT WAIVER and a PROMPT-DETAIL WAIVER in the cycle plan, including risk rationale and backfill plan.}
+### TASK 2: {title}
+...
 
-## VALIDATION STEPS (Run before declaring done)
-1. Path preflight command proving each required file/directory exists (or is intentionally created by this cycle)
-2. ruff check {exact existing directories/files} --output-format=full
-3. mypy {exact existing directories/files} --ignore-missing-imports
-4. pytest {exact existing test files/node IDs} -v
-5. If any path is missing and not created by this cycle, use nearest existing suite with explicit rationale instead of blind-failing commands
-6. Verify all __init__.py files export new classes/functions when applicable
+### TASK 55: {title}
+...
 
-## FILES CREATED THIS CYCLE (Summary)
-| Action | File Path |
-|---|---|
-| CREATE | src/... |
-| CREATE | tests/... |
-| MODIFY | src/... |
+## GIT RULES — MANDATORY
+The controller owns all staging, commit creation, pushing, and merge actions.
+Agents must not run direct staging/commit/push commands.
+Agents may run local validation and produce reports only.
 
-## COMMIT INSTRUCTIONS
-git add .
-git commit -m "{type}({scope}): {description} [Agent {A|B|C|D}]"
+## VALIDATION STEPS
+1. python automation/ai_cycle_controller.py brain-check
+2. python automation/ai_cycle_controller.py pm-pack-audit
+3. python automation/ai_cycle_controller.py validate-prompts --cycle {NNN}
+4. ruff check {exact paths} --output-format=concise
+5. mypy {exact paths} --ignore-missing-imports --no-error-summary
+6. pytest {exact test paths} --timeout=8 --tb=short -q
+
+## FINAL REPORT REQUIREMENT
+Write report to: docs/cycle_reports/CYCLE_{NNN}_AGENT_{A|B|E|C|F|D}.md
+Required first line: AGENT_COMPLETE
+
+## STOP CONDITIONS
+Stop immediately and report if:
+- Secret exposure risk is detected
+- A blocked path would be modified
+- A mandatory fail-closed gate blocks progress
+- Controller-only source-of-truth appears corrupted
 
 ====================================================================
-END OF AGENT {A|B|C|D} PROMPT
+END OF PROMPT
 ====================================================================
 ```
 
 ---
 
-## Template Validation Rules (15 mandatory checks)
+## Template Validation Rules
 
 | # | Rule | Fail Condition |
 |---|---|---|
-| 1 | PROJECT CONTEXT section present | Missing = reject |
-| 2 | YOUR ROLE section present with specific text | Missing or generic = reject |
-| 3 | GIT INSTRUCTIONS with exact branch name | Missing or wrong branch = reject |
-| 4 | At least 20 substantive tasks listed | <20 tasks = reject unless both waivers are present with reason, risk, and next-cycle backfill |
-| 5 | Each task has Story + Epic reference | Any task missing = reject |
-| 6 | Each task has Spec Reference with full path | Any task missing = reject |
-| 7 | Each task has DOD Reference with AC ID | Any task missing = reject |
-| 8 | Each task lists files to create/modify with full paths | Any task missing = reject |
-| 9 | Each task has Implementation Details >=100 words | Any task <100 words = reject |
-| 10 | Each task has >=3 Required Tests with descriptions | Any task <3 tests = reject unless the task is explicitly non-code documentation with a validation checklist |
-| 11 | Each task has Definition of Done checklist | Any task missing = reject |
-| 12 | VALIDATION STEPS section present with commands | Missing = reject |
-| 13 | FILES CREATED THIS CYCLE table present | Missing = reject |
-| 14 | COMMIT INSTRUCTIONS present | Missing = reject |
-| 15 | Total prompt >=6,000 words and preferably 8,000-12,000 words | <6,000 words = reject unless both waivers are present |
-
-## Prompt Template Self-Check (Required)
-
-Before issuing any agent prompt, the PM must include and validate this checklist:
-
-- [ ] Substantive task count is 20-40 (target 24-32), or both waivers are explicitly documented.
-- [ ] Every substantive task contains at least 100 words of implementation detail, or a cycle-specific prompt-detail waiver is documented.
-- [ ] Each task lists exact Jira key(s), AC bullets, and DoD bullets.
-- [ ] Every referenced path exists in the current repository, or the task explicitly creates it this cycle.
-- [ ] Validation commands are exact and runnable against current repo layout; no guaranteed-fail mandatory path assumptions remain.
-- [ ] Obsolete path assumptions (for example future architecture paths not yet present) are either conditionalized or removed.
-
-
-## Cycle 012 Corrective Addendum — Depth Standard
-
-The old 500-word / 3-task and 3,000-word / 10-20-task floors are not sufficient for this project. They are preserved only as historical context where explicitly labeled. The binding rule is:
-
-- Every active Cursor agent prompt must contain **20-40 substantive tasks** (target **24-32**).
-- Every prompt must be **>=6,000 words**, target **8,000-12,000 words**.
-- Every implementation task must include exact files, exact method/class/function names where applicable, edge cases, validation behavior, data-shape expectations, and test names.
-- Every cycle reply must include a separate **GitHub Operator Workflow** section with branch creation, per-agent commit order, push command, PR target, PR title/body, CI expectations, merge rule, and main-promotion rule.
-- Agents do **not** push directly to `main`. Agents do not push at all unless explicitly instructed. The human operator pushes `cycle/{NNN}/integration`; PR targets `develop`; `main` is updated only by an approved release PR from `develop` after release gates pass.
+| 1 | 6-lane definitions present for A/B/E/C/F/D | Missing any lane = reject |
+| 2 | Model policy block present with codex-5.3 + medium + disabled auto/fallback | Missing any field = reject |
+| 3 | Task floor is 55 minimum, explicitly numbered | Fewer than 55 = reject |
+| 4 | Git rules indicate controller owns staging/commit/push/merge | Missing = reject |
+| 5 | Validation commands are concrete and runnable | Missing = reject |
+| 6 | Final report path and AGENT_COMPLETE requirement present | Missing = reject |
+| 7 | Stop conditions section present | Missing = reject |

@@ -142,6 +142,9 @@ load_order:
   freeze_policy:
     - PM_Pack/automation/policies/autonomy_freeze.yml
 
+  provider_router:
+    - PM_Pack/automation/provider_policy.yml
+
 authority:
   highest:
     # Precedence: HYDRATION_HEADER > CURRENT_STATE_CANONICAL > policy snapshot > controller state
@@ -170,6 +173,8 @@ optional_warn_if_missing:
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_1.md
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_2.md
   - PM_Pack/TASK_PRODUCTION_IMPACT_LEDGER.md
+  - PM_Pack/automation/provider_policy.yml
+  - automation/adapters/
 
 agent_lane_config: PM_Pack/automation/agent_lanes.yml
 
@@ -183,4 +188,14 @@ consistency_check_fields:
 
 registered_doc_paths:
   - docs/architecture/   # Contains 13 ADR files (ADR-001..ADR-013)
+
+automation_config:
+  - path: PM_Pack/automation/provider_policy.yml
+    purpose: Provider Router V7 master policy
+    required_when: providerrouteractive
+
+planned_paths:
+  - path: automation/adapters/
+    status: planned_cycle_079
+    purpose: Planned adapter package for Provider Router V7
 

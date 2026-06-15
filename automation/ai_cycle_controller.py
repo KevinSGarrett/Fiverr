@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import click
+import yaml
 
 # Ensure repo root on sys.path when run as a script
 _here = Path(__file__).parent
@@ -104,6 +105,13 @@ def cmd_brain_check() -> None:
         click.secho(f"  [WARN] ANTHROPIC_API_KEY detected -- run: {api_check.get('report', 'see report')}", fg="yellow")
     else:
         click.echo("  CLAUDE-SUB      : API key absent (subscription-only confirmed)")
+
+    provider_policy_path = REPO_ROOT / "PM_Pack/automation/provider_policy.yml"
+    if not provider_policy_path.exists():
+        click.secho(
+            "  [WARN] provider_policy.yml not found — Provider Router V7 not yet configured.",
+            fg="yellow",
+        )
 
     click.echo()
 
@@ -381,7 +389,13 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
 
     from automation.prompt_validator import validate_all
     agent_list = [a.strip() for a in agents.split(",")]
-    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts/validated"
+    if not prompts_dir.exists():
+        click.secho(
+            "  [WARN] validated prompt directory not found, falling back to PM_Pack/automation/prompts",
+            fg="yellow",
+        )
+        prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
     results = validate_all(prompts_dir, cycle, agent_list)
 
     all_pass = True
@@ -448,10 +462,16 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         # --- Locate prompt ---
         click.echo("  [2/5] Locating prompt...")
         prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
-        prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
+        validated_dir = prompts_dir / "validated"
+        prompt_path = validated_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
         if not prompt_path.exists():
-            click.secho(f"  Prompt not found: {prompt_path}", fg="red")
-            sys.exit(1)
+            # fall back to unvalidated path for backward compatibility
+            fallback = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
+            if fallback.exists():
+                prompt_path = fallback
+            else:
+                click.secho(f"  Prompt not in validated/ — {prompt_path}", fg="red")
+                sys.exit(1)
         click.echo(f"  Prompt: {prompt_path}")
 
         # --- Validate prompt ---
@@ -459,14 +479,11 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         from automation.prompt_validator import validate as validate_prompt
 
         pv = validate_prompt(prompt_path, agent, cycle)
-        if not pv.passed and not safe_docs_only:
+        if not pv.passed:
             click.secho(pv.summary(), fg="red")
+            write_controller_state("PROMPT_VALIDATION_FAILED", cycle=cycle)
             sys.exit(1)
-        elif not pv.passed:
-            click.secho("  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
-            click.echo(pv.summary())
-        else:
-            click.secho("  Prompt validation PASS", fg="green")
+        click.secho("  Prompt validation PASS", fg="green")
 
         if dry_run:
             click.echo()
@@ -554,6 +571,12 @@ def cmd_cursor_smoke() -> None:
     click.echo(f"  Smoke prompt    : {prompt_path}")
     click.echo()
     click.secho("Cursor CLI is reachable. Model and headless dispatch verified in Wave 04.", fg="green")
+
+
+@cli.command("cursor-docs-smoke")
+def cmd_cursor_docs_smoke() -> None:
+    """Alias smoke command for docs/workflow compatibility."""
+    cmd_cursor_smoke()
 
 
 @cli.command("recover")
@@ -1129,6 +1152,29 @@ def cmd_pm_pack_audit() -> None:
     """
     from automation.pm_pack_consistency_audit import run_audit
     result = run_audit()
+    provider_policy_path = REPO_ROOT / "PM_Pack/automation/provider_policy.yml"
+    if not provider_policy_path.exists():
+        result.warnings.append(
+            "provider_policy.yml missing (Stage 1 advisory): Provider Router governance not configured yet."
+        )
+    else:
+        try:
+            parsed = yaml.safe_load(provider_policy_path.read_text(encoding="utf-8")) or {}
+            if not isinstance(parsed, dict):
+                raise ValueError("provider_policy.yml must parse to a mapping object")
+        except Exception as exc:
+            result.passed = False
+            from automation.pm_pack_consistency_audit import ConflictItem
+
+            result.conflicts.append(ConflictItem(
+                source_a="provider_policy.yml",
+                source_b="yaml.safe_load",
+                field="parse",
+                value_a="malformed",
+                value_b=str(exc)[:200],
+                severity="BLOCKING",
+                code="PROVIDERPOLICY_INVALID",
+            ))
     click.echo(result.summary())
     if result.sources:
         click.echo("")

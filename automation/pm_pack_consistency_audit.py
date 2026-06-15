@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 REPO_ROOT   = Path(__file__).parent.parent
 RUNNER_ROOT = Path("C:/AI_Runner")
 
@@ -28,9 +30,10 @@ class ConflictItem:
     value_a: Any
     value_b: Any
     severity: str  # BLOCKING | WARNING
+    code: str = "UNSPECIFIED"
 
     def __str__(self) -> str:
-        return (f"[{self.severity}] {self.field}: "
+        return (f"[{self.severity}] [{self.code}] {self.field}: "
                 f"{self.source_a}={self.value_a!r} vs {self.source_b}={self.value_b!r}")
 
 
@@ -101,6 +104,20 @@ def run_audit(repo_root: Path | None = None,
 
         return signals
 
+    # FC-1: controller_state.json must exist
+    if not (runner / "state/controller_state.json").exists():
+        result.passed = False
+        result.conflicts.append(ConflictItem(
+            source_a="runner/state/controller_state.json",
+            source_b="expected",
+            field="existence",
+            value_a="MISSING",
+            value_b="present",
+            severity="BLOCKING",
+            code="MISSING_CONTROLLER_STATE",
+        ))
+        return result
+
     # Load sources
     policy_snap = load_json(repo / "PM_Pack/automation/current_policy_snapshot.json",
                             "policy_snapshot")
@@ -138,7 +155,7 @@ def run_audit(repo_root: Path | None = None,
         result.conflicts.append(ConflictItem(
             source_a="STATE_SNAPSHOT", source_b="controller_state",
             field="cycle", value_a=snap_cycle, value_b=ctrl_cycle,
-            severity="BLOCKING"
+            severity="BLOCKING", code="STATE_CYCLE_MISMATCH"
         ))
 
     # â”€â”€ Check 2: policy_snapshot.last_completed_cycle should not be null
@@ -157,7 +174,7 @@ def run_audit(repo_root: Path | None = None,
         result.conflicts.append(ConflictItem(
             source_a="controller_state", source_b="current_status.md",
             field="status", value_a="AGENT_DISPATCH", value_b="not started",
-            severity="BLOCKING"
+            severity="BLOCKING", code="STATUS_CONFLICT"
         ))
 
     # â”€â”€ Check 4: hydration cycle and controller cycle should agree within 2
@@ -190,6 +207,25 @@ def run_audit(repo_root: Path | None = None,
         except Exception:
             pass
 
+    # FC-6 (Stage 1 soft gate): provider policy exists but is malformed.
+    provider_policy_path = repo / "PM_Pack/automation/provider_policy.yml"
+    if provider_policy_path.exists():
+        try:
+            parsed = yaml.safe_load(provider_policy_path.read_text(encoding="utf-8")) or {}
+            if not isinstance(parsed, dict):
+                raise ValueError("provider_policy.yml must parse to mapping")
+        except Exception as exc:
+            result.passed = False
+            result.conflicts.append(ConflictItem(
+                source_a="provider_policy.yml",
+                source_b="yaml.safe_load",
+                field="parse",
+                value_a="malformed",
+                value_b=str(exc)[:200],
+                severity="BLOCKING",
+                code="PROVIDERPOLICY_INVALID",
+            ))
+
     # â”€â”€ Write result artifact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     out_dir = runner / "reports/validation"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -202,5 +238,79 @@ def run_audit(repo_root: Path | None = None,
         "missing_files":  result.missing_files,
         "sources":        result.sources,
     }, indent=2), encoding="utf-8")
+
+    # FC-2: policy snapshot cycle must not be zero.
+    policy_cycle = policy_snap.get("cycle_current", 0)
+    if policy_cycle == 0:
+        result.passed = False
+        result.conflicts.append(ConflictItem(
+            source_a="current_policy_snapshot.json",
+            source_b="expected",
+            field="cycle_current",
+            value_a=0,
+            value_b=">0",
+            severity="BLOCKING",
+            code="POLICY_SNAPSHOT_CYCLE_ZERO",
+        ))
+
+    # FC-3: cycle numbers must not disagree by more than 1 across sources.
+    ctrl_cycle_fc = ctrl_state.get("active_cycle", 0)
+    hyd_cycle_fc = hydration_signals.get("cycle_detected", 0)
+    snap_cycle_fc = snapshot_signals.get("cycle_detected", 0)
+    hb_cycle_fc = load_json(runner / "state/heartbeat.json", "heartbeat").get("active_cycle", 0)
+    cycle_sources = [c for c in [ctrl_cycle_fc, hyd_cycle_fc, snap_cycle_fc, hb_cycle_fc] if c]
+    if len(cycle_sources) >= 2 and max(cycle_sources) - min(cycle_sources) > 1:
+        result.passed = False
+        result.conflicts.append(ConflictItem(
+            source_a="multi-source",
+            source_b="expected",
+            field="cycle_agreement",
+            value_a=min(cycle_sources),
+            value_b=max(cycle_sources),
+            severity="BLOCKING",
+            code="CYCLE_SOURCE_DISAGREEMENT",
+        ))
+
+    # FC-4: post-cycle result must not block dispatch.
+    pcr_paths = sorted((runner / "runs").glob("CYCLE_*_post_cycle_result.json")) if (runner / "runs").exists() else []
+    if pcr_paths:
+        latest_pcr = json.loads(pcr_paths[-1].read_text(encoding="utf-8"))
+        if latest_pcr.get("blocks_dispatch", False):
+            result.passed = False
+            result.conflicts.append(ConflictItem(
+                source_a=str(pcr_paths[-1].name),
+                source_b="expected",
+                field="blocks_dispatch",
+                value_a=True,
+                value_b=False,
+                severity="BLOCKING",
+                code="POST_CYCLE_REVIEW_BLOCKS_DISPATCH",
+            ))
+
+    # FC-5: active validated prompts must all pass validation.
+    cycle_for_prompts = policy_snap.get("cycle_current") or ctrl_state.get("active_cycle")
+    if cycle_for_prompts:
+        validated_dir = repo / "PM_Pack/automation/prompts/validated"
+        manifest = validated_dir / f"CYCLE_{int(cycle_for_prompts):03d}_manifest.json"
+        if manifest.exists():
+            try:
+                from automation import prompt_validator as pv
+
+                agents = ["A", "B", "E", "C", "F", "D"]
+                results = pv.validate_all(validated_dir, int(cycle_for_prompts), agents)
+                failing = [a for a, item in results.items() if not item.passed]
+                if failing:
+                    result.passed = False
+                    result.conflicts.append(ConflictItem(
+                        source_a="prompts/validated",
+                        source_b="expected",
+                        field="prompt_validation",
+                        value_a=str(failing),
+                        value_b="all pass",
+                        severity="BLOCKING",
+                        code="ACTIVE_PROMPTS_INVALID",
+                    ))
+            except Exception:
+                pass
 
     return result

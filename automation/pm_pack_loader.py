@@ -9,6 +9,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +108,30 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
         result.passed.append(f"PASS [model]: Claude billing = {claude_state.get('billing_mode')}")
     else:
         result.warnings.append(f"WARNING [model]: Claude status = {result.claude_model_status}")
+
+    # Freshness checks for generated catalogs (Cycle 078 requirement).
+    freshness_window = timedelta(days=7)
+    now = datetime.now(UTC)
+    catalog_paths = [
+        "PM_Pack/ref/REF_INDEX.md",
+        "PM_Pack/00_index/QUICK_NAV.md",
+        "PM_Pack/10_cycle_log/ref/REF_INDEX.md",
+        "PM_Pack/10_cycle_log/00_index/QUICK_NAV.md",
+    ]
+    for rel in catalog_paths:
+        full = repo_root / rel
+        if not full.exists():
+            result.warnings.append(f"WARN [catalog_freshness]: missing {rel}")
+            continue
+        age = now - datetime.fromtimestamp(full.stat().st_mtime, tz=UTC)
+        if age > freshness_window:
+            result.warnings.append(
+                f"WARN [catalog_freshness]: stale {rel} age_days={age.days}"
+            )
+        else:
+            result.passed.append(
+                f"PASS [catalog_freshness]: {rel} age_days={age.days}"
+            )
 
     return result
 
