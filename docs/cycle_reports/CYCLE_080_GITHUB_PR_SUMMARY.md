@@ -16,9 +16,8 @@ Generated: 2026-06-15
 - State: `OPEN`
 - Base/head: `develop <- cycle/080/integration`
 - Pre-merge artifact: `PM_Pack/automation/merge_gates/PR_0098_PRE_MERGE_PASS.json`
-- Current CI run: `27566670487` with all four jobs SUCCESS (`lint`, `type-check`, `tests-coverage`, `smoke-gates`)
-- Current merge state: `DIRTY` (branch conflicts with `develop`, requires conflict resolution before merge)
+- Current CI runs: `27570100174` (pull_request) and `27570101100` (push) with all four jobs SUCCESS (`lint`, `type-check`, `tests-coverage`, `smoke-gates`)
+- Current merge state: `BLOCKED` (no branch conflicts; awaiting reviewer approval/merge authorization)
 - Pending items:
-  - resolve branch conflicts against `develop`
   - CODECOV token provisioning for strict Codecov governance
   - final human review/approval before merge

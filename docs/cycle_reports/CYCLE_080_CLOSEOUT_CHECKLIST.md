@@ -11,8 +11,8 @@
 - [x] Pre-merge PASS artifact: PR_0098_PRE_MERGE_PASS.json
 - [x] Provider Router V7 Wave B/C: all modules created (provider_router, 3 adapters, 5 modules, 5 schemas, prompt_renderer)
 - [x] Test suite: 3300+ total tests, 0 failed (integration branch run: 5645 passed, 0 failed)
-- [x] PR #98 CI: all 4 jobs PASS (run 27566670487)
-- [ ] PR #98 mergeability clean (currently DIRTY/conflicting with develop)
+- [x] PR #98 CI: all 4 jobs PASS (runs 27570100174 and 27570101100)
+- [x] PR #98 mergeability clean (no conflicts; state is BLOCKED pending reviewer approval)
 - [ ] Coverage >=90% Codecov gate (pending CODECOV_TOKEN)
 - [ ] Cursor model re-verify (Kevin action — check BUG-013 status)
 - [ ] CODECOV_TOKEN obtained (Kevin action)

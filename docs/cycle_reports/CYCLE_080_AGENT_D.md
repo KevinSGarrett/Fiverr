@@ -36,7 +36,7 @@ Branch: `cycle/080/integration`
 27. DONE - Verified provider-router import path failures were not dependency-install blockers in CI after workflow repair.
 28. DONE - Verified `jsonschema` availability (no additional dependency patch required).
 29. DONE - Monitored cycle/080 CI until all 4 jobs PASS (run `27566670487`).
-30. DONE - Ran merge-gate dry-run for PR #98; current output reports merge conflict + Codecov pending blockers.
+30. DONE - Ran merge-gate dry-run for PR #98; output reports Codecov pending blockers and stale check-state mismatch.
 31. DONE - Wrote `PR_0098_PRE_MERGE_PASS.json`.
 32. DONE - Created PR #98: [https://github.com/KevinSGarrett/Fiverr/pull/98](https://github.com/KevinSGarrett/Fiverr/pull/98)
 33. DONE - Verified PR #98 OPEN with base/head refs.
@@ -71,8 +71,8 @@ Branch: `cycle/080/integration`
 - Jira SCRUM-1037 + SCRUM-1038 to Done: ✓ (completed via Atlassian MCP transitions)
 - PR #98 created: [https://github.com/KevinSGarrett/Fiverr/pull/98](https://github.com/KevinSGarrett/Fiverr/pull/98) ✓
 - Pre-merge PASS artifact PR0098: `PR_0098_PRE_MERGE_PASS.json` ✓
-- PR #98 CI all 4 PASS: ✓ (run `27566670487`)
-- PR #98 mergeable clean: ✗ (`mergeStateStatus=DIRTY`, conflicts with `develop`)
+- PR #98 CI all 4 PASS: ✓ (runs `27570100174` and `27570101100`)
+- PR #98 mergeable clean (no conflicts): ✓ (`mergeStateStatus=BLOCKED`, awaiting reviewer approval)
 - validate-routes: PASS ✓
 - brain-check: PASS ✓
 - pm-pack-audit: PASS ✓
@@ -82,6 +82,5 @@ Branch: `cycle/080/integration`
 
 1. BUG-013 CRITICAL: Re-verify Cursor model freshness (`cursor_model_state.json` expiry) and refresh if expired.
 2. PENDING-002: Provision `CODECOV_TOKEN` in GitHub secrets to unblock strict coverage governance.
-3. Resolve PR #98 branch conflicts with `develop` (current merge state is DIRTY).
-4. Review and approve PR #98 for merge after conflict resolution.
-5. Stage 2 dispatch readiness check: confirm all four run steps complete before real Cursor dispatch.
+3. Review and approve PR #98 for merge (checks green, merge state now reviewer-blocked).
+4. Stage 2 dispatch readiness check: confirm all four run steps complete before real Cursor dispatch.
