@@ -4,20 +4,17 @@ Generated: 2026-06-15
 
 ## Cycle 079 Transitions
 
-- SCRUM-1037: PARTIAL (automation command unavailable in this branch; transition not executed by controller CLI)
-- SCRUM-1038: PARTIAL (automation command unavailable in this branch; transition not executed by controller CLI)
+- SCRUM-1037: DONE via Atlassian MCP (`transitionJiraIssue` id `41`) at `2026-06-15T13:47:xx-0500`
+- SCRUM-1038: DONE via Atlassian MCP (`transitionJiraIssue` id `41`) at `2026-06-15T13:47:xx-0500`
 
 ## Transition Evidence
 
-- `python automation/ai_cycle_controller.py jira-transition ...` is unavailable in current command set (`No such command 'jira-transition'`).
-- `jira-inventory` exists, but this build does not support `--status` filtering argument.
+- Controller CLI does not expose `jira-transition`; transitions were completed through authenticated Atlassian MCP tools.
+- Comment evidence IDs:
+  - SCRUM-1037: `12908`, `12910`
+  - SCRUM-1038: `12907`, `12909`
 
-## Open Cycle 080 Stories
+## Remaining In Review Stories (Cycle 079 scope)
 
-- Not queried via controller CLI due command-surface mismatch in this branch.
-- Manual Jira verification is required.
-
-## Stories Not Transitioned
-
-- SCRUM-1037 (requires manual Jira transition/comment).
-- SCRUM-1038 (requires manual Jira transition/comment).
+- Query used: `project = SCRUM AND status = "In Review" AND text ~ "079"`
+- Result: no remaining Cycle 079 stories in `In Review`
