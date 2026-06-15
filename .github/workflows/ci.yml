@@ -163,7 +163,7 @@ jobs:
                   'BRANCH_CURRENT: cycle/080/integration',
                   txt,
               )
-              txt = re.sub(r'Branch:\\s*`?[^\\n`]+`?', 'Branch: `cycle/080/integration`', txt)
+              txt = re.sub(r'Branch:\\s*`?[^\\n`]+`?', 'Branch: cycle/080/integration', txt)
               hydration.write_text(txt)
           snapshot = Path('PM_Pack/07_hydration/STATE_SNAPSHOT.md')
           if snapshot.exists():
