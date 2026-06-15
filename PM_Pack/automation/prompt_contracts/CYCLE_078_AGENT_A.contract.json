@@ -1,0 +1,48 @@
+{
+  "cycle": "078",
+  "agent": "A",
+  "agentlane": "PM Pack / Governance",
+  "branch": "cycle/078/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-200",
+      "summary": "Cycle 078 governance completion",
+      "acceptancecriteria": [
+        "All assigned checks executed",
+        "All required artifacts documented"
+      ],
+      "definitionofdone": [
+        "Validation commands pass",
+        "Final report contains AGENT_COMPLETE"
+      ],
+      "projectplanpath": null,
+      "filesormodules": [
+        "docs/cycle_reports/CYCLE_078_AGENT_A.md"
+      ],
+      "status": "DONE",
+      "priority": "HIGH"
+    }
+  ],
+  "allowedpaths": [
+    "docs/cycle_reports/"
+  ],
+  "blockedpaths": [
+    "src/",
+    "automation/adapters/"
+  ],
+  "validationcommands": [
+    "ruff check automation/ --output-format=concise",
+    "mypy automation/ --ignore-missing-imports --no-error-summary",
+    "pytest tests/unit/ -q"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_078_AGENT_A.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0"
+}

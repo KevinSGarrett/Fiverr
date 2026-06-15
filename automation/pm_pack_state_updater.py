@@ -1,5 +1,5 @@
 """
-pm_pack_state_updater.py â€” Update PM_Pack brain files after each cycle.
+pm_pack_state_updater.py — Update PM_Pack brain files after each cycle.
 Writes to HYDRATION_HEADER, STATE_SNAPSHOT, EPIC_STATUS_TRACKER, cycle logs.
 This is the STATE section of the checklist (STATE-001 through STATE-016).
 """
@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path("C:/Fiverr/Fiverr")
 PM_PACK = REPO_ROOT / "PM_Pack"
 
 
@@ -68,7 +68,7 @@ def write_cycle_log(cycle: int, branch: str, pr: int | None,
 
     now = datetime.now(UTC).isoformat()
     lines = [
-        f"# Cycle {cycle:03d} â€” Autonomous Runner Log",
+        f"# Cycle {cycle:03d} — Autonomous Runner Log",
         f"Generated: {now}",
         f"Branch: {branch}",
         f"PR: #{pr}" if pr else "PR: N/A",
@@ -101,7 +101,7 @@ def write_run_summary_full(run_dir: Path, cycle: int, agents: list[str],
     path = run_dir / "RUN_SUMMARY.md"
     now = datetime.now(UTC).isoformat()
     lines = [
-        f"# Run Summary â€” Cycle {cycle:03d}",
+        f"# Run Summary — Cycle {cycle:03d}",
         f"Generated: {now}",
         "",
         "## Agents",
@@ -132,7 +132,7 @@ def write_run_summary_full(run_dir: Path, cycle: int, agents: list[str],
 def write_agent_summary(run_dir: Path, cycle: int,
                          agent_results: dict) -> Path:
     path = run_dir / "AGENT_SUMMARY.md"
-    lines = [f"# Agent Summary â€” Cycle {cycle:03d}", ""]
+    lines = [f"# Agent Summary — Cycle {cycle:03d}", ""]
     for agent, result in agent_results.items():
         status = result.get("status", "?") if isinstance(result, dict) else getattr(result, "status", "?")
         lines += [f"## Agent {agent}", f"Status: {status}", ""]
@@ -143,7 +143,7 @@ def write_agent_summary(run_dir: Path, cycle: int,
 def write_validation_summary(run_dir: Path, cycle: int,
                                validation_result: Any) -> Path:
     path = run_dir / "VALIDATION_SUMMARY.md"
-    lines = [f"# Validation Summary â€” Cycle {cycle:03d}", ""]
+    lines = [f"# Validation Summary — Cycle {cycle:03d}", ""]
     if hasattr(validation_result, "gates"):
         for gate in validation_result.gates:
             icon = "PASS" if gate.passed else "FAIL"
@@ -155,7 +155,7 @@ def write_validation_summary(run_dir: Path, cycle: int,
 def write_jira_sync_summary(run_dir: Path, cycle: int,
                               updates: list[dict]) -> Path:
     path = run_dir / "JIRA_SYNC_SUMMARY.md"
-    lines = [f"# Jira Sync Summary â€” Cycle {cycle:03d}", ""]
+    lines = [f"# Jira Sync Summary — Cycle {cycle:03d}", ""]
     for u in updates:
         lines.append(f"- {u.get('key', '?')}: {u.get('action', '?')}")
     if not updates:
@@ -169,7 +169,7 @@ def write_github_pr_summary(run_dir: Path, cycle: int,
                               ci_passed: bool) -> Path:
     path = run_dir / "GITHUB_PR_SUMMARY.md"
     lines = [
-        f"# GitHub PR Summary â€” Cycle {cycle:03d}",
+        f"# GitHub PR Summary — Cycle {cycle:03d}",
         "",
         f"PR: #{pr}" if pr else "PR: not yet created",
         f"Merge SHA: {merge_sha or 'N/A'}",

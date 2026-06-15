@@ -1,12 +1,12 @@
 """
-post_cycle_review.py â€” Post-cycle PM review automation.
+post_cycle_review.py — Post-cycle PM review automation.
 
 Implements the gate between a merged cycle and next-cycle dispatch.
 Source prompt: PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
 
 Two modes:
-  POST_AGENT_CYCLE_REVIEW  â€” agents done, PR open, not yet merged (draft preview)
-  POST_CYCLE_PM_REVIEW     â€” PR merged to develop (canonical closeout, blocks next dispatch)
+  POST_AGENT_CYCLE_REVIEW  — agents done, PR open, not yet merged (draft preview)
+  POST_CYCLE_PM_REVIEW     — PR merged to develop (canonical closeout, blocks next dispatch)
 """
 from __future__ import annotations
 
@@ -18,9 +18,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from automation import claude_post_cycle_adapter, claude_sub_gate, state_writer
-
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
 POLICY_PATH = REPO_ROOT / "PM_Pack/automation/post_cycle_review_policy.yml"
 SOURCE_PROMPT = REPO_ROOT / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
@@ -91,9 +89,6 @@ class PostCycleReviewResult:
     mode: ReviewMode
     result: ReviewResult
     facts: PostCycleFacts
-    status: str = ""
-    review_result: str = ""
-    reason: str = ""
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     next_scope_decision: str = ""
@@ -102,12 +97,12 @@ class PostCycleReviewResult:
 
     @property
     def blocks_dispatch(self) -> bool:
-        if self.mode == ReviewMode.POST_AGENT and self.review_result in ("PASS", ""):
+        if self.mode == ReviewMode.POST_AGENT:
             return False
-        return (self.review_result or self.result.value) != ReviewResult.PASS.value
+        return self.result != ReviewResult.PASS
 
     def summary(self) -> str:
-        lines = [f"POST-CYCLE REVIEW {self.result.value} â€” Cycle {self.cycle:03d} [{self.mode.value}]"]
+        lines = [f"POST-CYCLE REVIEW {self.result.value} — Cycle {self.cycle:03d} [{self.mode.value}]"]
         for e in self.errors:
             lines.append(f"  ERROR: {e}")
         for w in self.warnings:
@@ -117,203 +112,108 @@ class PostCycleReviewResult:
         return "\n".join(lines)
 
 
-def collect_facts(
-    cycle: int,
-    mode_or_repo_root: ReviewMode | Path,
-    pr_number_or_runner_root: int | Path | None = None,
-) -> PostCycleFacts:
-    """Collect facts (legacy + new signatures supported)."""
-    if isinstance(mode_or_repo_root, ReviewMode):
-        mode = mode_or_repo_root
-        repo_root = REPO_ROOT
-        runner_root = RUNNER_ROOT
-        pr_number = pr_number_or_runner_root if isinstance(pr_number_or_runner_root, int) else None
-    else:
-        mode = ReviewMode.POST_MERGE
-        repo_root = mode_or_repo_root
-        runner_root = (
-            pr_number_or_runner_root if isinstance(pr_number_or_runner_root, Path) else RUNNER_ROOT
-        )
-        pr_number = None
+def collect_facts(cycle: int, mode: ReviewMode,
+                  pr_number: int | None = None) -> PostCycleFacts:
+    """Collect all deterministic facts before any PM review runs."""
+    facts = PostCycleFacts(cycle=cycle, mode=mode,
+                           collected_at=datetime.now(UTC).isoformat())
 
-    facts = PostCycleFacts(cycle=cycle, mode=mode, collected_at=datetime.now(UTC).isoformat())
+    # ── Git facts ─────────────────────────────────────────────────────
     facts.head_sha = _git("rev-parse", "HEAD")
     facts.develop_sha = _git("rev-parse", "origin/develop")
+
+    # ── PR merge state ────────────────────────────────────────────────
     if pr_number:
         facts.pr_number = pr_number
-
-    collectors = [
-        ("local", lambda: _collect_local_code_verification(cycle, repo_root)),
-        ("github", lambda: _collect_github_facts(cycle, repo_root)),
-        ("jira", lambda: _collect_jira_facts(cycle)),
-    ]
-    collected: dict[str, Any] = {}
-    for key, collector in collectors:
         try:
-            collected[key] = collector()
+            pr = json.loads(_gh("pr", "view", str(pr_number),
+                                "--repo", "KevinSGarrett/Fiverr",
+                                "--json", "state,mergeCommit,headRefName"))
+            facts.pr_merged = pr.get("state") == "MERGED"
+            mc = pr.get("mergeCommit") or {}
+            facts.merge_sha = mc.get("oid", "")
         except Exception:
-            collected[key] = {}
+            pass
 
-    github = collected.get("github", {})
-    facts.pr_merged = bool(github.get("pr_merged"))
-    facts.merge_sha = str(github.get("merge_sha", ""))
-    facts.ci_passed = bool(github.get("ci_passed", False))
-    facts.codecov_project = str(github.get("codecov_project", "UNKNOWN"))
-    facts.codecov_patch = str(github.get("codecov_patch", "UNKNOWN"))
+    # ── CI status ─────────────────────────────────────────────────────
+    if pr_number:
+        try:
+            checks = json.loads(_gh("pr", "view", str(pr_number),
+                                    "--repo", "KevinSGarrett/Fiverr",
+                                    "--json", "statusCheckRollup"))
+            rollup = checks.get("statusCheckRollup") or []
+            required = {"CI / lint", "CI / type-check",
+                        "CI / tests-coverage", "CI / smoke-gates"}
+            passed = {c.get("name") for c in rollup
+                      if c.get("conclusion") == "success"}
+            facts.ci_passed = required.issubset(passed)
+            for c in rollup:
+                name = (c.get("name") or "").lower()
+                state = c.get("conclusion") or c.get("state") or "pending"
+                if "codecov/project" in name:
+                    facts.codecov_project = state.upper()
+                elif "codecov/patch" in name:
+                    facts.codecov_patch = state.upper()
+        except Exception:
+            pass
 
-    local = collected.get("local", {})
-    facts.local_ruff = bool(local.get("ruff_passed", False))
-    facts.local_mypy = bool(local.get("mypy_passed", False))
-    facts.local_pytest = bool(local.get("pytest_passed", False))
-    facts.local_coverage_pct = float(local.get("coverage_pct", 0.0))
-    facts.baseline_db_mtime_unchanged = not bool(local.get("baseline_db_modified", False))
-    facts.scrapfly_enabled_false = not bool(local.get("scrapfly_enabled", True))
-
-    jira = collected.get("jira", {})
-    facts.cycle_control_done = jira.get("cycle_control_status") == "Done"
-
-    reports_dir = repo_root / "docs/cycle_reports"
+    # ── Agent reports ─────────────────────────────────────────────────
+    reports_dir = REPO_ROOT / "docs/cycle_reports"
     for agent in ["A", "B", "E", "C", "F", "D"]:
-        facts.agent_reports_present[agent] = (reports_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}.md").exists()
-    _ = runner_root
+        pattern = f"CYCLE_{cycle:03d}_AGENT_{agent}.md"
+        found = list(reports_dir.glob(pattern))
+        facts.agent_reports_present[agent] = bool(found)
+
+    # ── Local validation ──────────────────────────────────────────────
+    py = str(REPO_ROOT / ".venv/Scripts/python.exe")
+    facts.local_ruff = _run_check([py, "-m", "ruff", "check", "."])
+    facts.local_mypy = _run_check([py, "-m", "mypy", "src"])
+
+    # ── Baseline DB mtime ─────────────────────────────────────────────
+    baseline_db = REPO_ROOT / "data/cycle037_live.db"
+    if baseline_db.exists():
+        mtime = baseline_db.stat().st_mtime
+        facts.baseline_db_mtime_unchanged = (round(mtime) == 1780553758)
+
+    # ── ScrapFly config check ─────────────────────────────────────────
+    config_path = REPO_ROOT / "config.yaml"
+    if config_path.exists():
+        content = config_path.read_text(encoding="utf-8", errors="replace")
+        facts.scrapfly_enabled_false = "scrapfly.enabled: false" in content or \
+                                        "enabled: false" in content
+
+    # ── Jira cycle control ────────────────────────────────────────────
+    try:
+        import base64
+
+        import requests
+
+        from automation.config_loader import get_secret
+        jira_url = get_secret("JIRA_BASE_URL")
+        email = get_secret("JIRA_EMAIL")
+        token = get_secret("JIRA_API_TOKEN")
+        if jira_url and email and token:
+            creds = base64.b64encode(f"{email}:{token}".encode()).decode()
+            headers = {"Authorization": f"Basic {creds}", "Accept": "application/json"}
+            jql = f"project=SCRUM AND labels='cycle:{cycle:03d}' AND issuetype=Story ORDER BY created ASC"
+            r = requests.get(f"{jira_url}/rest/api/3/search/jql",
+                             headers=headers,
+                             params={"jql": jql, "maxResults": "5", "fields": "summary,status"},
+                             timeout=10)
+            if r.status_code == 200:
+                issues = r.json().get("issues", [])
+                for issue in issues:
+                    status = issue["fields"]["status"]["name"]
+                    if status == "Done":
+                        facts.cycle_control_done = True
+    except Exception:
+        pass
+
     return facts
 
 
-def _collect_local_code_verification(cycle: int, repo_root: Path) -> dict[str, Any]:
-    _ = cycle
-    ruff = subprocess.run(
-        ["python", "-m", "ruff", "check", "automation/", "src/"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    mypy = subprocess.run(
-        ["python", "-m", "mypy", "automation/", "--ignore-missing-imports"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    pytest = subprocess.run(
-        ["python", "-m", "pytest", "tests/unit/", "-q", "--tb=short"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    baseline_db = repo_root / "data/cycle037_live.db"
-    baseline_db_modified = baseline_db.exists() and (
-        datetime.now(UTC).timestamp() - baseline_db.stat().st_mtime
-    ) < 24 * 3600
-    config = repo_root / "config.yaml"
-    config_text = config.read_text(encoding="utf-8", errors="replace") if config.exists() else ""
-    return {
-        "ruff_passed": ruff.returncode == 0,
-        "mypy_passed": mypy.returncode == 0,
-        "pytest_passed": pytest.returncode == 0,
-        "coverage_pct": 0.0,
-        "baseline_db_modified": baseline_db_modified,
-        "scrapfly_enabled": "scrapfly.enabled: true" in config_text,
-    }
-
-
-def _collect_github_facts(cycle: int, repo_root: Path) -> dict[str, Any]:
-    pr_list = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--state",
-            "merged",
-            "--head",
-            f"cycle/{cycle:03d}/integration",
-            "--json",
-            "number,mergeCommit,mergeable",
-        ],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if pr_list.returncode != 0:
-        return {"pr_merged": False, "ci_results": [], "codecov_results": []}
-    items = json.loads(pr_list.stdout.strip() or "[]")
-    if not items:
-        return {"pr_merged": False, "ci_results": [], "codecov_results": []}
-    merge_sha = (items[0].get("mergeCommit") or {}).get("oid", "")
-    ci_results: list[dict[str, Any]] = []
-    codecov_results: list[dict[str, Any]] = []
-    if merge_sha:
-        from automation.github_client import GitHubClient
-
-        client = GitHubClient()
-        ci_results = client.get_check_runs(merge_sha)
-        codecov_results = [c for c in ci_results if c["name"].startswith("codecov/")]
-    return {
-        "pr_merged": True,
-        "merge_sha": merge_sha,
-        "ci_results": ci_results,
-        "codecov_results": codecov_results,
-        "ci_passed": all(c.get("conclusion") == "success" for c in ci_results) if ci_results else False,
-        "codecov_project": next((c.get("conclusion", "MISSING") for c in codecov_results if c["name"] == "codecov/project"), "MISSING"),
-        "codecov_patch": next((c.get("conclusion", "MISSING") for c in codecov_results if c["name"] == "codecov/patch"), "MISSING"),
-    }
-
-
-def _collect_jira_facts(cycle: int) -> dict[str, Any]:
-    from automation.jira_client import JiraClient
-
-    client = JiraClient()
-    issues = client.search_issues(f'project = SCRUM AND text ~ "cycle {cycle}"', max_results=100)
-    return {
-        "cycle_control_status": issues[0]["fields"]["status"]["name"] if issues else "UNKNOWN",
-        "in_review_stories": [i["key"] for i in issues if i["fields"]["status"]["name"] == "In Review"],
-        "done_stories": [i["key"] for i in issues if i["fields"]["status"]["name"] == "Done"],
-    }
-
-
-def calculate_score2_with_cap(score1: float, tierd2_evidence: dict[str, Any]) -> float:
-    base_cap = 50.0
-    passes = sum(1 for value in tierd2_evidence.values() if str(value).upper() == "PASS")
-    cap = base_cap + (passes * 2.0)
-    return min(score1, cap)
-
-
-def update_tierd2_tracker(evidence_dir: Path) -> dict[str, str]:
-    statuses = {f"V{i}": "NOT_STARTED" for i in range(1, 10)}
-    evidence = evidence_dir / "data/live_validation_evidence.json"
-    if not evidence.exists():
-        return statuses
-    payload = json.loads(evidence.read_text(encoding="utf-8"))
-    allowed = {"NOT_STARTED", "IN_PROGRESS", "CONDITIONAL_GO", "PASS", "BLOCKED"}
-    for stage in statuses:
-        value = payload.get(stage)
-        if value in allowed:
-            statuses[stage] = value
-    return statuses
-
-
-def generate_post_cycle_github_bundle(cycle: int, merge_sha: str, client: Any) -> dict[str, Any]:
-    return {
-        "cycle": cycle,
-        "merge_sha": merge_sha,
-        "checks": client.get_check_runs(merge_sha),
-    }
-
-
-def generate_post_cycle_jira_bundle(cycle: int, jira_client: Any) -> dict[str, Any]:
-    facts = _collect_jira_facts(cycle)
-    return {
-        "cycle": cycle,
-        "done_stories": facts["done_stories"],
-        "in_review_stories": facts["in_review_stories"],
-        "cycle_control_status": facts["cycle_control_status"],
-    }
-
-
-def _legacy_run_review(cycle: int, mode: ReviewMode,
-                       pr_number: int | None = None) -> PostCycleReviewResult:
+def run_review(cycle: int, mode: ReviewMode,
+               pr_number: int | None = None) -> PostCycleReviewResult:
     """Run a post-cycle review. Returns result with dispatch gate decision."""
     result = PostCycleReviewResult(
         cycle=cycle, mode=mode,
@@ -321,26 +221,26 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
         facts=PostCycleFacts(cycle=cycle, mode=mode),
     )
 
-    # â”€â”€ GATE 1: Source prompt must exist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 1: Source prompt must exist ──────────────────────────────
     if not SOURCE_PROMPT.exists():
         result.result = ReviewResult.BLOCKED_SOURCE_PROMPT_MISSING
         result.errors.append(f"Source prompt missing: {SOURCE_PROMPT}")
         _write_result(result)
         return result
 
-    # â”€â”€ GATE 2: Write queue request â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 2: Write queue request ───────────────────────────────────
     _write_queue_request(cycle, mode, pr_number)
 
-    # â”€â”€ GATE 3: Collect deterministic facts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 3: Collect deterministic facts ───────────────────────────
     result.facts = collect_facts(cycle, mode, pr_number)
 
-    # â”€â”€ GATE 4: Validate facts (POST_MERGE requires merge) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 4: Validate facts (POST_MERGE requires merge) ────────────
     if mode == ReviewMode.POST_MERGE and not result.facts.pr_merged:
-        result.errors.append("PR not merged â€” cannot run POST_CYCLE_PM_REVIEW")
+        result.errors.append("PR not merged — cannot run POST_CYCLE_PM_REVIEW")
         _write_result(result)
         return result
 
-    # â”€â”€ GATE 5: Agent reports audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 5: Agent reports audit ───────────────────────────────────
     # V5-010: missing reports are HARD ERRORS for official POST_MERGE review
     missing_reports = [a for a, present in result.facts.agent_reports_present.items()
                        if not present]
@@ -352,18 +252,18 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
         else:
             result.warnings.append(f"Missing agent reports: {missing_reports}")
 
-    # â”€â”€ GATE 6: Baseline DB integrity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 6: Baseline DB integrity ────────────────────────────────
     if not result.facts.baseline_db_mtime_unchanged:
-        result.errors.append("cycle037_live.db mtime changed â€” baseline tampered")
+        result.errors.append("cycle037_live.db mtime changed — baseline tampered")
 
-    # â”€â”€ GATE 7: ScrapFly config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 7: ScrapFly config ───────────────────────────────────────
     if not result.facts.scrapfly_enabled_false:
-        result.errors.append("config.yaml has scrapfly.enabled:true â€” not allowed in commits")
+        result.errors.append("config.yaml has scrapfly.enabled:true — not allowed in commits")
 
-    # â”€â”€ GATE 8: Claude subscription PM review (V5-010 fix) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── GATE 8: Claude subscription PM review (V5-010 fix) ───────────
     # Official POST_MERGE review MUST invoke Claude adapter.
-    # If Claude is not available â†’ ADVISORY_ONLY, dispatch blocked.
-    # If model/effort/adaptive thinking unverified â†’ ADVISORY_ONLY.
+    # If Claude is not available → ADVISORY_ONLY, dispatch blocked.
+    # If model/effort/adaptive thinking unverified → ADVISORY_ONLY.
     if mode == ReviewMode.POST_MERGE and not result.errors:
         from automation.claude_post_cycle_adapter import run_post_cycle_review as _claude_review
         run_dir = REVIEWS_DIR / f"cycle_{result.cycle:03d}_runs" / "current"
@@ -405,7 +305,7 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
                 f"Claude review status: {claude_result.status}. Treating as advisory."
             )
 
-    # â”€â”€ RESULT: POST_AGENT is always preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── RESULT: POST_AGENT is always preview ──────────────────────────
     elif mode == ReviewMode.POST_AGENT:
         result.result = ReviewResult.DRAFT_UNMERGED_PREVIEW
     elif not result.errors:
@@ -414,12 +314,12 @@ def _legacy_run_review(cycle: int, mode: ReviewMode,
         result.result = ReviewResult.FAIL
 
     _write_result(result)
-    _legacy_write_artifacts(result)
+    _write_artifacts(result)
     return result
 
 
 def write_queue_request_for_agent_d(cycle: int) -> Path:
-    """Called when Agent D completes â€” writes review queue request."""
+    """Called when Agent D completes — writes review queue request."""
     return _write_queue_request(cycle, ReviewMode.POST_AGENT, None)
 
 
@@ -457,7 +357,7 @@ def _write_result(result: PostCycleReviewResult) -> None:
     json_path.write_text(json.dumps(payload, indent=2))
 
     lines = [
-        f"# Post-Cycle Review â€” Cycle {result.cycle:03d}",
+        f"# Post-Cycle Review — Cycle {result.cycle:03d}",
         f"Mode: {result.mode.value}  Result: **{result.result.value}**",
         f"Blocks dispatch: {result.blocks_dispatch}",
         "", "## Errors",
@@ -478,7 +378,7 @@ def _write_result(result: PostCycleReviewResult) -> None:
     result.artifact_paths.extend([str(json_path), str(md_path)])
 
 
-def _legacy_write_artifacts(result: PostCycleReviewResult) -> None:
+def _write_artifacts(result: PostCycleReviewResult) -> None:
     """Write sub-artifact files for individual audit sections."""
     REVIEWS_DIR.mkdir(parents=True, exist_ok=True)
     cycle = result.cycle
@@ -529,232 +429,3 @@ def _run_check(cmd: list[str]) -> bool:
     r = subprocess.run(cmd, cwd=str(REPO_ROOT),
                        capture_output=True, text=True, check=False, timeout=120)
     return r.returncode == 0
-
-
-def run_review(
-    cycle: int,
-    mode: ReviewMode,
-    pr_number: int | None = None,
-    repo_root: Path = REPO_ROOT,
-    runner_root: Path = RUNNER_ROOT,
-) -> PostCycleReviewResult:
-    _ = pr_number
-    source_prompt = repo_root / "PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md"
-    if not source_prompt.exists():
-        facts = PostCycleFacts(cycle=cycle, mode=mode)
-        result = PostCycleReviewResult(
-            cycle=cycle,
-            mode=mode,
-            result=ReviewResult.FAIL,
-            facts=facts,
-            status="BLOCKED_MISSING_SOURCE_PROMPT",
-            review_result="FAIL",
-            reason="Missing source prompt",
-        )
-        _write_dispatch_decision(result, runner_root)
-        _write_post_cycle_result(result, runner_root)
-        return result
-
-    preflight = claude_sub_gate.verify_subscription_preflight()
-    if not preflight.get("passed", False):
-        incident = preflight.get("incident_code", "")
-        status = (
-            "BLOCKED_CLAUDE_API_KEY_PRESENT"
-            if incident == "BLOCKED_CLAUDE_API_KEY_PRESENT"
-            else "BLOCKED_CLAUDE_NOT_LOGGED_IN"
-        )
-        facts = PostCycleFacts(cycle=cycle, mode=mode)
-        result = PostCycleReviewResult(
-            cycle=cycle,
-            mode=mode,
-            result=ReviewResult.FAIL,
-            facts=facts,
-            status=status,
-            review_result="FAIL",
-            reason=incident or "preflight failed",
-        )
-        _write_dispatch_decision(result, runner_root)
-        _write_post_cycle_result(result, runner_root)
-        return result
-
-    facts = collect_facts(cycle, mode)
-    facts.agent_reports_present = {
-        agent: (repo_root / "docs/cycle_reports" / f"CYCLE_{cycle:03d}_AGENT_{agent}.md").exists()
-        for agent in ["A", "B", "E", "C", "F", "D"]
-    }
-    missing = [agent for agent, present in facts.agent_reports_present.items() if not present]
-    if mode == ReviewMode.POST_MERGE and missing:
-        result = PostCycleReviewResult(
-            cycle=cycle,
-            mode=mode,
-            result=ReviewResult.FAIL,
-            facts=facts,
-            status="BLOCKED_MISSING_AGENT_REPORT",
-            review_result="FAIL",
-            reason=f"Missing reports: {missing}",
-            warnings=[f"Missing reports: {missing}"],
-        )
-        _write_dispatch_decision(result, runner_root)
-        _write_post_cycle_result(result, runner_root)
-        return result
-
-    prompt_text = source_prompt.read_text(encoding="utf-8", errors="replace")
-    prompt = f"{prompt_text}\n\n## Facts\n```json\n{json.dumps(facts.to_dict(), indent=2)}\n```"
-    try:
-        claude_result = claude_post_cycle_adapter.submit_for_review(prompt, facts.to_dict())
-    except Exception as exc:
-        result = PostCycleReviewResult(
-            cycle=cycle,
-            mode=mode,
-            result=ReviewResult.ADVISORY_ONLY,
-            facts=facts,
-            status="ADVISORY_ONLY_ADAPTER_ERROR",
-            review_result="ADVISORY_ONLY",
-            reason=str(exc),
-            errors=[str(exc)],
-        )
-        _write_dispatch_decision(result, runner_root)
-        _write_post_cycle_result(result, runner_root)
-        return result
-
-    if claude_result.status != "PASS":
-        result = PostCycleReviewResult(
-            cycle=cycle,
-            mode=mode,
-            result=ReviewResult.ADVISORY_ONLY,
-            facts=facts,
-            status="ADVISORY_ONLY_ADAPTER_ERROR",
-            review_result="ADVISORY_ONLY",
-            reason=claude_result.error or claude_result.status,
-            warnings=[claude_result.error or claude_result.status],
-        )
-    else:
-        result = PostCycleReviewResult(
-            cycle=cycle,
-            mode=mode,
-            result=ReviewResult.PASS,
-            facts=facts,
-            status="PASS",
-            review_result="PASS",
-            reason="Post-cycle review passed",
-        )
-
-    _write_artifacts(cycle, facts.to_dict(), claude_result, runner_root)
-    state_writer.write_cycle_log_entry(
-        cycle=cycle,
-        run_id=datetime.now(UTC).strftime("%Y%m%dT%H%M%S"),
-        commit_shas=[],
-        agents_complete=[a for a, present in facts.agent_reports_present.items() if present],
-        scores={"s1": 0, "s2": 0},
-        repo_root=repo_root,
-    )
-    _write_dispatch_decision(result, runner_root)
-    _write_post_cycle_result(result, runner_root)
-    return result
-
-
-def get_review_result(cycle: int, runner_root: Path) -> PostCycleReviewResult | None:
-    path = runner_root / "runs" / f"CYCLE_{cycle:03d}_post_cycle_result.json"
-    if not path.exists():
-        return None
-    data = json.loads(path.read_text(encoding="utf-8"))
-    facts_payload = data.get("facts", {})
-    facts = PostCycleFacts(
-        cycle=data["cycle"],
-        mode=ReviewMode(data["mode"]),
-    )
-    if isinstance(facts_payload, dict):
-        for key, value in facts_payload.items():
-            if hasattr(facts, key):
-                setattr(facts, key, value)
-    return PostCycleReviewResult(
-        cycle=data["cycle"],
-        mode=ReviewMode(data["mode"]),
-        result=ReviewResult(data.get("review_result", "FAIL")),
-        facts=facts,
-        status=data["status"],
-        review_result=data["review_result"],
-        reason=data.get("reason", ""),
-    )
-
-
-def _write_dispatch_decision(result: PostCycleReviewResult, runner_root: Path) -> None:
-    path = runner_root / "state/next_cycle_dispatch_decision.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "cycle": result.cycle,
-                "review_result": result.review_result,
-                "blocks_dispatch": result.blocks_dispatch,
-                "next_action": f"DISPATCH_CYCLE_{result.cycle + 1:03d}",
-                "reason": result.reason,
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
-
-def _write_post_cycle_result(result: PostCycleReviewResult, runner_root: Path) -> None:
-    path = runner_root / "runs" / f"CYCLE_{result.cycle:03d}_post_cycle_result.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "cycle": result.cycle,
-                "mode": result.mode.value,
-                "status": result.status,
-                "review_result": result.review_result,
-                "blocks_dispatch": result.blocks_dispatch,
-                "reason": result.reason,
-                "facts": result.facts.to_dict(),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
-
-def _write_artifacts(
-    cycle: int,
-    facts: dict[str, Any],
-    claude_result: Any,
-    runner_root: Path,
-) -> None:
-    run_dir = runner_root / "runs" / f"CYCLE_{cycle:03d}"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    common = {
-        "cycle": cycle,
-        "timestamp": datetime.now(UTC).isoformat(),
-        "billing_mode": "claude_subscription_only",
-        "anthropic_api_key_present": False,
-    }
-    payloads = {
-        "agent_report_audit.json": {
-            **common,
-            "agent_reports": facts.get("agent_reports_present", facts.get("agent_reports", {})),
-        },
-        "github_verification.json": {
-            **common,
-            "pr_merged": facts.get("pr_merged", False),
-            "merge_sha": facts.get("merge_sha", ""),
-            "ci_passed": facts.get("ci_passed", False),
-            "codecov_project": facts.get("codecov_project", "UNKNOWN"),
-            "codecov_patch": facts.get("codecov_patch", "UNKNOWN"),
-        },
-        "jira_verification.json": {
-            **common,
-            "cycle_control_done": facts.get("cycle_control_done", False),
-            "in_review_stories": facts.get("in_review_stories", []),
-            "done_stories": facts.get("done_stories", []),
-        },
-        "post_cycle_result.json": {
-            **common,
-            "claude_status": str(getattr(claude_result, "status", "UNKNOWN")),
-            "claude_error": str(getattr(claude_result, "error", "")),
-        },
-    }
-    for name, payload in payloads.items():
-        (run_dir / name).write_text(json.dumps(payload, indent=2), encoding="utf-8")

@@ -1,19 +1,19 @@
 # TASK SIZING — Work Volume Per Agent Per Cycle
 
-Version: Cycle 079 governance alignment
+Version: Cycle 012 governance correction
 
 ---
 
-## Binding Rule: Prompt Depth and Task Volume
+## Binding Cycle 012 Rule: Prompt Depth and Task Volume
 
-Legacy 5-8 and 10-20 guidance is historical only. Active cycles must use the six-lane, 55-task governance floor.
+The old 5-8 and 10-20 guidance is no longer a planning baseline for active cycles. Normal cycles must run with materially larger, AC/DoD-driven prompts that support autonomous execution.
 
 ## Required Per-Agent Task Volume
 
 | Metric | Minimum | Target | Maximum |
 |---|---:|---:|---:|
-| Substantive tasks per agent | 55 | 55-70 | No hard cap with quality |
-| Total substantive tasks per 6-agent cycle | 330 | 330-420 | No hard cap with quality |
+| Substantive tasks per agent | 55 | 55-70 | 80 |
+| Total substantive tasks per 4-agent cycle | 80 | 96-128 | 160 |
 | Agent prompt word count | 6,000 | 8,000-12,000 | No hard cap if organized |
 | New/modified files per agent (when coding) | 8 | 12-30 | 50 |
 | Jira operations per Jira-assigned agent | 5 | 8-20 | 40 |
@@ -89,4 +89,4 @@ If either waiver block is missing, incomplete, or not cycle-specific, the prompt
 
 ## Historical Language Handling
 
-Any legacy references to 5-8 tasks, 10-20 tasks, or 20-40 tasks in PM Pack files must be updated or explicitly labeled as historical/non-binding context.
+Any legacy references to 5-8 tasks, 10-20 tasks, or 3,000-word minimums in PM Pack files must be updated or explicitly labeled as historical/non-binding context.

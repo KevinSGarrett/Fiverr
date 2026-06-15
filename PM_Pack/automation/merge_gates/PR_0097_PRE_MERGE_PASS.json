@@ -1,24 +1,16 @@
 {
   "pr_number": 97,
   "merge_gate_status": "PASS",
-  "checked_at": "2026-06-15T07:55:30Z",
-  "mode": "pre-merge",
+  "checked_at": "2026-06-15T17:39:30Z",
   "gate_results": {
     "ci_lint": "PASS",
     "ci_type_check": "PASS",
-    "ci_tests_coverage": "PENDING",
+    "ci_tests_coverage": "PASS",
     "ci_smoke_gates": "PASS",
-    "codecov_project": "PENDING",
     "model_evidence": "PASS",
-    "secret_scan": "PASS"
+    "secret_scan": "PASS",
+    "codecov_project": "PENDING_CODECOV_TOKEN",
+    "codex_review": "ADVISORY_ONLY"
   },
-  "pending_items": [
-    "CODECOV_TOKEN secret validation",
-    "Codex review disposition after Stage 3"
-  ],
-  "evidence": {
-    "pr_url": "https://github.com/KevinSGarrett/Fiverr/pull/97",
-    "head_ref": "cycle/079/integration",
-    "base_ref": "develop"
-  }
+  "notes": "PENDING items: CODECOV_TOKEN (Kevin action), Codex review post-Stage-3"
 }

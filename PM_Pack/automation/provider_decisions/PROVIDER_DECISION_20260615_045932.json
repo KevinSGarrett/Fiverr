@@ -1,0 +1,11 @@
+{
+  "decisionid": "7a584709-fab3-4a3f-af8d-a8f2e5061d05",
+  "cycle": "000",
+  "tasktype": "prompt_lint",
+  "selectedprovider": "deterministicvalidator",
+  "reason": "classified_as=prompt_lint;primary=openai_api;route=deterministic_validator",
+  "billingmode": "unknown",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T04:59:32.626888+00:00"
+}

@@ -40,10 +40,7 @@ data/**/*.sqlite3
 data/**/*.log
 data/live_pilot_*.db
 data/live_pilot_log.jsonl
-# Live validation evidence (updated at runtime, not committed)
 data/live_validation_evidence.json
-data/evidence/*.json
-!data/evidence/.gitkeep
 data/exports/live_pilot/
 data/imports/reddit_devvit/*.json
 logs/
@@ -102,6 +99,7 @@ external_signal_cache.json
 PM_Pack/automation/runs/
 PM_Pack/automation/locks/
 PM_Pack/automation/current_policy_snapshot.json
+PM_Pack/automation/provider_usage_ledger.json
 PM_Pack/automation/prompts/cursor_smoke_test.md
 
 # ── Go-live / setup helper scripts (local machine only) ─────────────

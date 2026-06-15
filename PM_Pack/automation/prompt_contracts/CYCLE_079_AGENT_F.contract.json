@@ -1,0 +1,82 @@
+{
+  "cycle": "079",
+  "agent": "F",
+  "agentlane": "Test Coverage and Regression",
+  "branch": "cycle/079/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-266",
+      "summary": "Provider router test coverage expansion",
+      "acceptancecriteria": [
+        "Router edge paths are covered by unit tests",
+        "Failure handling and fallback behavior is asserted"
+      ],
+      "definitionofdone": [
+        "test_provider_router passes",
+        "Coverage increase is documented in cycle report"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "tests/unit/test_provider_router.py",
+        "tests/unit/test_provider_health.py"
+      ],
+      "status": "To Do",
+      "priority": "High"
+    },
+    {
+      "key": "SCRUM-267",
+      "summary": "Cost guard and provider health regression tests",
+      "acceptancecriteria": [
+        "Cost guard budget states are tested for pass/warn/block",
+        "Provider health blocked and degraded states are covered"
+      ],
+      "definitionofdone": [
+        "test_cost_guard and test_provider_health pass",
+        "Regression suite remains green"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "tests/unit/test_cost_guard.py",
+        "tests/unit/test_provider_health.py",
+        "tests/unit/test_provider_usage_ledger.py"
+      ],
+      "status": "To Do",
+      "priority": "Medium"
+    }
+  ],
+  "allowedpaths": [
+    "tests/**"
+  ],
+  "blockedpaths": [
+    "PM_Pack/**",
+    "docs/**"
+  ],
+  "validationcommands": [
+    "pytest tests/unit/test_provider_router.py --timeout=8 --tb=short -q",
+    "pytest tests/unit/test_cost_guard.py --timeout=8 --tb=short -q",
+    "pytest tests/unit/test_provider_health.py --timeout=8 --tb=short -q"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_079_AGENT_F.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-266",
+      "SCRUM-267",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"
+    ]
+  }
+}

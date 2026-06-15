@@ -1,0 +1,16 @@
+{
+  "pr_number": 98,
+  "merge_gate_status": "PASS",
+  "checked_at": "2026-06-15T19:17:00Z",
+  "gate_results": {
+    "ci_lint": "PASS",
+    "ci_type_check": "PASS",
+    "ci_tests_coverage": "PASS",
+    "ci_smoke_gates": "PASS",
+    "model_evidence": "PASS",
+    "secret_scan": "PASS",
+    "codecov_project": "PENDING_CODECOV_TOKEN",
+    "codex_review": "ADVISORY_ONLY"
+  },
+  "notes": "CI 4/4 green on runs 27570100174 and 27570101100. PR has no merge conflicts (merge state BLOCKED pending approval). Remaining advisory items: codecov token and codex advisory tracking."
+}

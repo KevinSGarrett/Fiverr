@@ -1,5 +1,5 @@
 """
-freeze_gate.py â€” Autonomy freeze enforcement.
+freeze_gate.py — Autonomy freeze enforcement.
 Every dangerous command (run-agent, merge-gate execute, post-cycle official) must call
 _check_freeze() before proceeding.
 """
@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 FREEZE_POLICY_PATH = Path("PM_Pack/automation/policies/autonomy_freeze.yml")
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path("C:/Fiverr/Fiverr")
 
 BLOCKED_COMMANDS = {
     "run-agent",
@@ -48,7 +48,7 @@ def check_freeze(command: str, repo_root: Path | None = None) -> None:
     """
     policy = load_freeze_policy(repo_root)
     if not policy.get("frozen", False):
-        return  # Not frozen â€” allow
+        return  # Not frozen — allow
 
     permitted = policy.get("permitted_while_frozen", [])
     # If command is a permitted status-only command, allow it

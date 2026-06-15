@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProviderUsageLedgerDaily",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "date": {
+      "type": "string"
+    },
+    "provider_totals": {
+      "type": "object"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "decision_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "task_type": {
+            "type": "string"
+          },
+          "estimated_cost_usd": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_id",
+          "provider",
+          "task_type",
+          "estimated_cost_usd",
+          "timestamp"
+        ]
+      }
+    }
+  },
+  "required": [
+    "date",
+    "provider_totals",
+    "entries"
+  ]
+}

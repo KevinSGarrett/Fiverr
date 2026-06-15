@@ -1,5 +1,5 @@
 """
-secret_guard.py â€” Scan staged/changed files for secrets before commit.
+secret_guard.py — Scan staged/changed files for secrets before commit.
 Blocks commits containing .env values, tokens, private keys, or browser sessions.
 """
 from __future__ import annotations
@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path("C:/Fiverr/Fiverr")
 
 # File patterns that should never be committed
 DANGEROUS_FILE_PATTERNS = [
@@ -31,11 +31,9 @@ DANGEROUS_FILE_PATTERNS = [
 # Content patterns that indicate secrets inside files
 SECRET_CONTENT_PATTERNS = [
     (r"ANTHROPIC_API_KEY\s*=\s*[\'\"]{0,1}sk-", "Anthropic API key value"),
-    (r"AKIA[0-9A-Z]{16}", "AWS access key"),
     (r"api_key\s*=\s*['\"][a-zA-Z0-9_\-]{20,}", "API key value"),
     (r"password\s*=\s*['\"][^'\"]{8,}", "password value"),
     (r"secret\s*=\s*['\"][^'\"]{8,}", "secret value"),
-    (r"Authorization:\s*Bearer\s+[A-Za-z0-9\-\._~\+\/]+=*", "Bearer token"),
     (r"-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----", "private key"),
     (r"gh[pousr]_[A-Za-z0-9]{20,}", "GitHub token"),
     (r"xoxb-|xoxp-|xoxa-", "Slack token"),

@@ -1,5 +1,5 @@
 """
-git_adapter.py â€” Clean git operations for the autonomous runner.
+git_adapter.py — Clean git operations for the autonomous runner.
 All operations constrained to cycle branches; main is never touched directly.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path("C:/Fiverr/Fiverr")
 FORBIDDEN_BRANCHES = {"main", "master"}
 
 

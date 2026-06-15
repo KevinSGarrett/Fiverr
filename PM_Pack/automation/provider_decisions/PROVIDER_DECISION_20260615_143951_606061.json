@@ -1,0 +1,11 @@
+{
+  "decisionid": "98ca40d3-8c0e-4c10-9435-bd68a91a7883",
+  "cycle": "080",
+  "tasktype": "prompt_rendering",
+  "selectedprovider": "deterministicpromptfactory",
+  "reason": "classified_as=prompt_rendering;primary=BLOCK;route=deterministic_prompt_factory",
+  "billingmode": "deterministic",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T14:39:51.607577+00:00"
+}

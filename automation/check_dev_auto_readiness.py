@@ -1,5 +1,5 @@
 """
-check_dev_auto_readiness.py â€” V6-GOLIVE-002 gate script.
+check_dev_auto_readiness.py — V6-GOLIVE-002 gate script.
 Checks whether all P0 items have been resolved before dev_auto can be enabled.
 Usage: python automation/check_dev_auto_readiness.py
 """
@@ -11,7 +11,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT   = Path(__file__).parent.parent
+REPO_ROOT   = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
 
 
@@ -132,7 +132,7 @@ def check_all() -> dict:
 if __name__ == "__main__":
     result = check_all()
     print(f"\n{'=' * 60}")
-    print(f"DEV_AUTO READINESS CHECK â€” {result['evaluated_at']}")
+    print(f"DEV_AUTO READINESS CHECK — {result['evaluated_at']}")
     print(f"{'=' * 60}")
     for c in result["checks"]:
         icon = "PASS" if c["passed"] else "FAIL"

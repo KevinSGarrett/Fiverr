@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+
 NICHE_NAME_MAP: dict[str, str] = {
     "prd_ai_saas": "PRD AI SaaS",
     "support_kb_readiness": "Support KB Readiness",
@@ -148,7 +149,7 @@ def export_playbook_pdf(playbook: dict[str, Any], output_path: str) -> None:
     """Render playbook HTML template and write PDF via WeasyPrint."""
     try:
         from jinja2 import Environment, FileSystemLoader
-        from weasyprint import HTML
+        from weasyprint import HTML  # type: ignore[import-untyped]
     except (ImportError, OSError) as exc:  # pragma: no cover - environment dependent
         raise ImportError(
             "PDF export requires WeasyPrint + Jinja2. Install with: pip install weasyprint jinja2"

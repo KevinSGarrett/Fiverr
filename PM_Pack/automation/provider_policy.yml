@@ -33,6 +33,25 @@ providers:
       - prompt_validated
       - lane_scope_enforced
 
+  cursor_cli:
+    enabled: true
+    role: primary_coding_worker_alias
+    billing_mode: cursor_subscription
+    can_edit_files: true
+    official_pm_review: false
+    approved_for:
+      - implementation
+      - repair
+      - test_generation
+      - docs_agent_work
+      - cursor_execution
+    blocked_for:
+      - official_post_cycle_pm_review
+      - merge_gate_decision
+      - jira_done_transition
+      - git_commit
+      - git_push
+
   claude_subscription:
     enabled: true
     role: official_pm_review
@@ -89,3 +108,11 @@ routes:
   jira_transition: deterministic_controller
   prompt_contract_generation: deterministic_prompt_factory
   prompt_rendering: deterministic_prompt_factory
+  prompt_validation: deterministic_validator
+  cursor_execution: cursor_cli
+  secondary_code_review: codex_subscription
+  promptcontractgeneration: deterministic_prompt_factory
+  promptrendering: deterministic_prompt_factory
+  promptvalidation: deterministic_validator
+  cursorexecution: cursor_cli
+  secondarycode_review: codex_subscription

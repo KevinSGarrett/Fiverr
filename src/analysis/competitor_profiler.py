@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 

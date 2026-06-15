@@ -1,0 +1,62 @@
+{
+  "cycle": "079",
+  "agent": "B",
+  "agentlane": "Primary Implementation",
+  "branch": "cycle/079/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-264",
+      "summary": "Prompt rendering and contract generation hardening for Cycle 079",
+      "acceptancecriteria": [
+        "Prompt rendering path supports Cycle 079 contract payloads",
+        "Validation and promotion flow works for all six agents"
+      ],
+      "definitionofdone": [
+        "Rendered prompts pass validate-prompts checks",
+        "No schema regressions in prompt contract payloads"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "automation/prompt_renderer.py",
+        "automation/prompt_contract_builder.py",
+        "automation/schemas/prompt_contract.schema.json"
+      ],
+      "status": "In Progress",
+      "priority": "High"
+    }
+  ],
+  "allowedpaths": [
+    "src/**",
+    "tests/**"
+  ],
+  "blockedpaths": [
+    "PM_Pack/**",
+    "docs/**"
+  ],
+  "validationcommands": [
+    "ruff check automation/ src/ tests/ --output-format=concise",
+    "mypy automation/ src/ --ignore-missing-imports --no-error-summary",
+    "pytest tests/unit/test_prompt_renderer.py --timeout=8 --tb=short -q"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_079_AGENT_B.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-264",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"
+    ]
+  }
+}

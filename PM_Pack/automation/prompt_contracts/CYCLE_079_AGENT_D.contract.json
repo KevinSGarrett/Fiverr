@@ -1,0 +1,59 @@
+{
+  "cycle": "079",
+  "agent": "D",
+  "agentlane": "PR Lifecycle / Merge Gate",
+  "branch": "cycle/079/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-268",
+      "summary": "PR lifecycle execution for Cycle 079 integration handoff",
+      "acceptancecriteria": [
+        "Stale PR is closed and active integration PR is updated",
+        "Jira issue transitions reflect delivered evidence"
+      ],
+      "definitionofdone": [
+        "PR checks are green and merge-ready",
+        "Jira comments and transitions include links to artifacts"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "docs/cycle_reports/CYCLE_079_AGENT_D.md",
+        "docs/architecture/PROMPT_FACTORY_CHAIN.md"
+      ],
+      "status": "To Do",
+      "priority": "High"
+    }
+  ],
+  "allowedpaths": [
+    "docs/cycle_reports/**"
+  ],
+  "blockedpaths": [
+    "src/**",
+    "tests/**"
+  ],
+  "validationcommands": [
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 079",
+    "python automation/ai_cycle_controller.py brain-check"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_079_AGENT_D.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-268",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"
+    ]
+  }
+}

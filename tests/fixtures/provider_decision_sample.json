@@ -1,0 +1,11 @@
+{
+  "decision_id": "DEC-080-0001",
+  "cycle": "080",
+  "task_type": "implementation",
+  "selected_provider": "cursorcli",
+  "reason": "Primary route for implementation tasks",
+  "billing_mode": "cursor_subscription",
+  "estimated_cost_usd": 0.01,
+  "approved_by_policy": true,
+  "decided_at": "2026-06-15T09:30:00Z"
+}

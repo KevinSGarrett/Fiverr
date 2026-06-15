@@ -1,0 +1,162 @@
+{
+  "cycle": "079",
+  "agent": "E",
+  "agentlane": "Live Validation / External Signals / Prompt Factory",
+  "branch": "cycle/079/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-256",
+      "summary": "PROMPTFACTORY-010 generate six Cycle 079 prompt contracts",
+      "acceptancecriteria": [
+        "Six contract JSON files are created in PM_Pack/automation/prompt_contracts/",
+        "All contracts validate against prompt_contract.schema.json"
+      ],
+      "definitionofdone": [
+        "Contract generation for A/B/E/C/F/D completes successfully",
+        "Schema validation command exits zero for all contracts"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "PM_Pack/automation/prompt_contracts/",
+        "automation/schemas/prompt_contract.schema.json"
+      ],
+      "status": "In Progress",
+      "priority": "High"
+    },
+    {
+      "key": "SCRUM-257",
+      "summary": "PROMPTFACTORY-012 add prompt lineage metadata",
+      "acceptancecriteria": [
+        "Each contract includes source lineage entries",
+        "Lineage references Jira keys and PM_Pack catalogs"
+      ],
+      "definitionofdone": [
+        "Lineage is present for all six agents",
+        "Lineage report captures source resolution evidence"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "PM_Pack/automation/prompt_contracts/CYCLE_079_*.contract.json",
+        "PM_Pack/automation/prompt_contracts/CYCLE_079_LINEAGE_REPORT.md"
+      ],
+      "status": "In Progress",
+      "priority": "High"
+    },
+    {
+      "key": "SCRUM-258",
+      "summary": "PROMPTFACTORY-015 create Cycle 079 validation report artifact",
+      "acceptancecriteria": [
+        "Validation report JSON exists in prompts/validated",
+        "Per-agent PASS/FAIL/WARN and gate checks are recorded"
+      ],
+      "definitionofdone": [
+        "validate-prompts evidence is captured into report",
+        "Report includes generation timestamp and summary status"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "PM_Pack/automation/prompts/validated/CYCLE_079_VALIDATION_REPORT.json"
+      ],
+      "status": "In Progress",
+      "priority": "High"
+    },
+    {
+      "key": "SCRUM-259",
+      "summary": "PROMPTFACTORY-030/031 contract README and prompt factory chain docs",
+      "acceptancecriteria": [
+        "prompt_contracts/README.md explains schema and generation flow",
+        "PROMPT_FACTORY_CHAIN.md documents the artifact lifecycle"
+      ],
+      "definitionofdone": [
+        "Both documentation artifacts exist with correct chain details",
+        "Dispatch source of truth in prompts/validated is documented"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "PM_Pack/automation/prompt_contracts/README.md",
+        "docs/architecture/PROMPT_FACTORY_CHAIN.md"
+      ],
+      "status": "In Progress",
+      "priority": "Medium"
+    },
+    {
+      "key": "SCRUM-260",
+      "summary": "REFCAT freshness rebuild and strict verification",
+      "acceptancecriteria": [
+        "All four ref catalogs are rebuilt fresh",
+        "verify --strict exits zero and brain-check has no stale warnings"
+      ],
+      "definitionofdone": [
+        "Catalog counts meet strict minimum thresholds",
+        "BRAIN_REGISTRY freshness constraints are confirmed"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "automation/ref_catalog_builder.py",
+        "PM_Pack/automation/project_plan_catalog.json",
+        "PM_Pack/automation/dod_catalog.json",
+        "PM_Pack/automation/todo_epic_catalog.json",
+        "PM_Pack/automation/github_governance_catalog.json",
+        "PM_Pack/automation/BRAIN_REGISTRY.yml"
+      ],
+      "status": "In Progress",
+      "priority": "High"
+    }
+  ],
+  "allowedpaths": [
+    "automation/ref_catalog_builder.py",
+    "PM_Pack/automation/project_plan_catalog.json",
+    "PM_Pack/automation/dod_catalog.json",
+    "PM_Pack/automation/todo_epic_catalog.json",
+    "PM_Pack/automation/github_governance_catalog.json",
+    "PM_Pack/automation/prompt_contracts/",
+    "PM_Pack/automation/prompts/validated/CYCLE_079_VALIDATION_REPORT.json",
+    "docs/architecture/PROMPT_FACTORY_CHAIN.md",
+    "PM_Pack/automation/BRAIN_REGISTRY.yml",
+    "src/collection/live_pilot.py"
+  ],
+  "blockedpaths": [
+    "automation/provider_router.py",
+    "automation/adapters/",
+    "automation/prompt_renderer.py",
+    "automation/pm_pack_consistency_audit.py",
+    "tests/**"
+  ],
+  "validationcommands": [
+    "python automation/ref_catalog_builder.py verify --strict",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 079",
+    "ruff check automation/ref_catalog_builder.py automation/jira_spec_mapper.py --output-format=concise",
+    "mypy automation/ref_catalog_builder.py automation/jira_spec_mapper.py --ignore-missing-imports --no-error-summary",
+    "mypy src/ automation/ --ignore-missing-imports",
+    "pytest tests/unit/ --timeout=8 --tb=short -q"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_079_AGENT_E.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-256",
+      "SCRUM-257",
+      "SCRUM-258",
+      "SCRUM-259",
+      "SCRUM-260",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"
+    ]
+  }
+}

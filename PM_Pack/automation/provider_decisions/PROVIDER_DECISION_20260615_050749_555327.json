@@ -1,0 +1,11 @@
+{
+  "decisionid": "5cef4adc-474d-42ff-80b1-3443a8f95ffd",
+  "cycle": "000",
+  "tasktype": "merge_gate",
+  "selectedprovider": "deterministiccontroller",
+  "reason": "classified_as=merge_gate;primary=deterministic_controller;route=deterministic_controller",
+  "billingmode": "deterministic",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T05:07:49.555327+00:00"
+}

@@ -1,47 +1,48 @@
-# State Snapshot — Cycle 076
+# State Snapshot — Cycle 080 (Reconciled 2026-06-15)
 
-## Snapshot: 2026-06-12
+**Reconciliation note:** Prior STATE_SNAPSHOT was stale at Cycle 049.
+Updated to reflect current state per HYDRATION_HEADER, CURRENT_STATE_CANONICAL,
+and controller_state agreement.
 
-- Snapshot date: 2026-06-12
-- Cycle: 076 (continuing on cycle/075/integration)
-- HEAD SHA: 09afbc27819c841a9b0416cb7da0368fad05676b
-- Branch: cycle/075/integration
-- Score 1: 67.0%, Score 2: 46.9%
-- Tests: 5847 collected
-- PR: not yet created
-- Stage gate: Stage 1 ACTIVE
-
----
-
-Updated: 2026-06-11
+Updated: 2026-06-15 | Cycle 080 reconciliation
 
 ## Current State
 
-- Active cycle: 075
-- Last completed cycle: 074
-- Active wave: 11
-- Active branch target: `cycle/075/integration`
-- Integration target branch: `develop`
-- Freeze state: `false` (LIFTED)
-- Runner: id=22, online, interactive
-- PM state authority: `HYDRATION_HEADER.md`
+- Completed: C079
+- **Active cycle:** 080
+- **Last completed cycle:** 079
+- **Current branch:** cycle/080/integration
+- **Canonical working directory:** `C:\Fiverr\Fiverr`
+- **Autonomy status:** FROZEN — V5 audit corrections pending
+- **Controller state:** AGENT_DISPATCH (frozen — no real dispatch)
+- **PM_Pack brain status:** BRAIN_REGISTRY v2 loaded, all 44 files verified
 
-## Score State
+## Cycle 074 Summary (Last Completed)
 
-- Score 1 (internal): ~67%
-- Score 2 (E2E): ~45-50%
-- TierD-2: SEED x17 (critical cap on Score 2)
+- Wave 10: S7.1-S7.9 DONE (9/9 complete)
+- SCRUM-22 closed
+- TierD-2 decision: SEED x17, CRITICAL BLOCKER remains
+- Score1 (internal): ~67% | Score2 (E2E): ~45-50%
+- Two-score model established (Score2 <= Score1 with TierD-2 caps)
 
-## Blockers
+## Cycle 080 Status (Current)
 
-- TierD-2 decision/evidence chain not complete
-- OPS-031 through OPS-037 pending
+- Status: ACTIVE — Cycle 080 prompt artifacts generated and validated
+- Branch: cycle/080/integration
+- Awaiting: downstream implementation handoff and controller-managed dispatch
+- Prompts: Cycle 080 prompt contracts: 6 generated
 
-## Execution Order
+## Key Technical Anchors
 
-A -> B+E -> C -> F -> D
+- Baseline DB: `data/cycle037_live.db` (immutable, do not overwrite)
+- `scrapfly.enabled` must stay `false` in committed `config.yaml`
+- Jira cloud ID: `eae77257-a572-4e19-b746-8b184ba2d01f`
+- Done transition ID: 41
+- Golden anchor: Wave 10 kw=110 at 62.7/1.0/CONDITIONAL_GO
+- Execution order: A → B+E parallel → C → F → D
 
-## Notes
+## Previous C049 Snapshot
 
-Snapshot is subordinate to `HYDRATION_HEADER.md`. Any mismatch must be corrected immediately in favor of hydration authority.
-
+The prior state snapshot was from Cycle 049 and is now superseded.
+For historical reference, it documented the C049 AI chatbot handoff keyword work
+(kw=110, final=58.66, MONITOR status, gap to CONDITIONAL_GO = 1.34 points).

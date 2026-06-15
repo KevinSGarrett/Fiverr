@@ -2,92 +2,78 @@ name: Runner Smoke Test
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'   # Daily at 06:00 UTC
 
 jobs:
   smoke:
-    runs-on: [self-hosted, Windows, X64, fiverr-ai-runner]
+    name: Runner smoke
+    runs-on: [self-hosted, fiverr-runner, windows, cursor, dedicated, ai-dev]
+    timeout-minutes: 10
+
     steps:
-      - id: checkout
-        name: Checkout repo
-        if: always()
+      - name: Checkout develop
         uses: actions/checkout@v4
+        with:
+          ref: develop
 
-      - id: verify_python
-        name: Verify Python
-        if: always()
-        shell: pwsh
-        run: python --version
-
-      - id: verify_git
-        name: Verify Git
-        if: always()
-        shell: pwsh
-        run: git --version
-
-      - id: verify_gh
-        name: Verify GitHub CLI
-        if: always()
-        shell: pwsh
-        run: gh --version
-
-      - id: verify_cursor_cli
-        name: Verify Cursor CLI
-        if: always()
-        shell: pwsh
-        run: '& "C:\Users\Windows 11\AppData\Local\cursor-agent\agent.cmd" --version'
-
-      - id: verify_repo_path
-        name: Verify repo path
-        if: always()
+      - name: Tool versions
         shell: pwsh
         run: |
-          $repo = (git rev-parse --show-toplevel).Trim()
-          Write-Host "Repo path: $repo"
-          if ($repo -ne "C:/Fiverr/Fiverr" -and $repo -ne "C:\\Fiverr\\Fiverr") {
-            throw "Unexpected repo path: $repo"
+          git --version
+          gh --version
+          python --version
+          pwsh --version
+
+      - name: Cursor CLI check (standalone agent.cmd ONLY)
+        shell: pwsh
+        run: |
+          # Discover standalone Cursor CLI — must NOT be Cursor Desktop
+          $cliPath = "C:\Users\Windows 11\AppData\Local\cursor-agent\agent.cmd"
+          $desktopPath = "C:\Users\Windows 11\AppData\Local\Programs\cursor\resources\app\bin\cursor.CMD"
+
+          # Fail hard if only desktop is available
+          if (-not (Test-Path $cliPath)) {
+            Write-Error "Standalone Cursor CLI not found at $cliPath"
+            Write-Error "Install via: irm 'https://cursor.com/install?win32=true' | iex"
+            exit 1
           }
 
-      - id: verify_brain
-        name: Verify PM_Pack brain
-        if: always()
-        shell: pwsh
-        run: python automation/ai_cycle_controller.py brain-check
+          $ver = (& $cliPath --version 2>&1)
+          Write-Host "Cursor CLI version: $ver"
 
-      - id: verify_model_state
-        name: Verify model state
-        if: always()
+          # Fail if version looks like Cursor Desktop (3.x.xx format)
+          if ($ver -match "^\d+\.\d+\.\d+$") {
+            Write-Error "FAIL: Resolved binary looks like Cursor Desktop ($ver), not standalone CLI"
+            exit 1
+          }
+          Write-Host "PASS: Standalone Cursor CLI confirmed"
+
+      - name: Python venv
         shell: pwsh
         run: |
-          $path = "C:\AI_Runner\state\cursor_model_state.json"
-          if (-not (Test-Path $path)) { throw "Missing model state: $path" }
-          $json = Get-Content $path -Raw | ConvertFrom-Json
-          if ($json.status -ne "VERIFIED") { throw "Model status is not VERIFIED" }
-          Write-Host "Model status VERIFIED"
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe -c "import click, yaml, requests, pydantic; print('venv OK')"
 
-      - id: write_smoke_result
-        name: Write smoke result
-        if: always()
+      - name: PM_Pack brain check
         shell: pwsh
-        env:
-          JOB_STATUS: ${{ job.status }}
         run: |
-          $logPath = "C:\AI_Runner\logs\smoke_test_latest.json"
-          $result = @{
-            timestamp_utc = (Get-Date).ToUniversalTime().ToString("o")
-            workflow = "runner-smoke"
-            overall = $env:JOB_STATUS
-            checks = @(
-              "checkout",
-              "verify_python",
-              "verify_git",
-              "verify_gh",
-              "verify_cursor_cli",
-              "verify_repo_path",
-              "verify_brain",
-              "verify_model_state"
-            )
-          } | ConvertTo-Json -Depth 4
-          New-Item -ItemType Directory -Path (Split-Path $logPath) -Force | Out-Null
-          Set-Content -Path $logPath -Value $result -Encoding UTF8
-          Write-Host "Smoke result written to $logPath"
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe automation\ai_cycle_controller.py brain-check
 
+      - name: Cursor CLI non-interactive smoke
+        shell: pwsh
+        run: |
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe automation\ai_cycle_controller.py cursor-smoke
+
+      - name: Health check
+        shell: pwsh
+        run: |
+          powershell -File C:\AI_Runner\scripts\health_check.ps1
+
+      - name: Config check
+        shell: pwsh
+        run: |
+          Set-Location C:\Fiverr\Fiverr
+          .venv\Scripts\python.exe run.py config-check

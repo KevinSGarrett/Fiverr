@@ -1,0 +1,116 @@
+{
+  "cycle": "080",
+  "generated_at": "2026-06-15T15:45:55.769261+00:00",
+  "overall": "PASS",
+  "agents": {
+    "A": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "task_floor_55",
+        "no_stub",
+        "no_git_command",
+        "end_of_prompt"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 2763 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3",
+        "Agent A Task 1 floor check script missing"
+      ],
+      "rejected_reasons": []
+    },
+    "B": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "task_floor_55",
+        "no_stub",
+        "no_git_command",
+        "end_of_prompt"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 2778 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ],
+      "rejected_reasons": []
+    },
+    "E": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "task_floor_55",
+        "no_stub",
+        "no_git_command",
+        "end_of_prompt"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3210 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ],
+      "rejected_reasons": []
+    },
+    "C": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "task_floor_55",
+        "no_stub",
+        "no_git_command",
+        "end_of_prompt"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 2737 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ],
+      "rejected_reasons": []
+    },
+    "F": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "task_floor_55",
+        "no_stub",
+        "no_git_command",
+        "end_of_prompt"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 2849 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ],
+      "rejected_reasons": []
+    },
+    "D": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "task_floor_55",
+        "no_stub",
+        "no_git_command",
+        "end_of_prompt"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 2761 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ],
+      "rejected_reasons": []
+    }
+  }
+}

@@ -594,7 +594,7 @@ class TestS79CoverageUplift:
         db = MagicMock()
         db.query.side_effect = Exception("DB error")
         result = get_gold_discoveries(db)
-        assert isinstance(result, list)
+        assert type(result) is list
 
     def test_mode_perf_avg_is_float(self) -> None:
         db = MagicMock()

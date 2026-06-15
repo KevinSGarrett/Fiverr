@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate PR Title
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           script: |
             const title = context.payload.pull_request.title;
@@ -34,7 +34,7 @@ jobs:
             }
 
       - name: Validate PR Description
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           script: |
             const body = context.payload.pull_request.body || '';
@@ -47,14 +47,14 @@ jobs:
             }
 
       - name: Check PR Size
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
             const labels = pr.labels.map(l => l.name);
             // Skip size check for PRs explicitly labelled override:large-pr
             if (labels.includes('override:large-pr')) {
-              core.info('override:large-pr label found â€” skipping size check.');
+              core.info('override:large-pr label found — skipping size check.');
               return;
             }
             const additions = pr.additions;
@@ -65,4 +65,3 @@ jobs:
             } else if (total > 300) {
               core.warning(`PR is large: ${total} lines changed. Consider splitting if possible.`);
             }
-

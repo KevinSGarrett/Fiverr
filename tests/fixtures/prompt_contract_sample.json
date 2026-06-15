@@ -1,0 +1,41 @@
+{
+  "cycle": "080",
+  "agent": "B",
+  "agent_lane": "Backend / Data / Provider Router",
+  "branch": "cycle/080/integration",
+  "model_policy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false
+  },
+  "jira_scope": [
+    {
+      "key": "SCRUM-258",
+      "summary": "Provider task classifier implementation",
+      "acceptance_criteria": [
+        "Classifies all known task types correctly"
+      ],
+      "definition_of_done": [
+        "Module importable"
+      ],
+      "project_plan_path": "PM_Pack/ref/cycle080/provider_router.md",
+      "files_or_modules": [
+        "automation/provider_task_classifier.py"
+      ]
+    }
+  ],
+  "allowed_paths": [
+    "automation/provider_task_classifier.py"
+  ],
+  "blocked_paths": [
+    "src/"
+  ],
+  "validation_commands": [
+    "ruff check automation/provider_task_classifier.py --output-format=concise"
+  ],
+  "final_report_path": "docs/cycle_reports/CYCLE_080_AGENT_B.md",
+  "built_at": "2026-06-15T09:35:00Z",
+  "contract_version": "1.0.0"
+}

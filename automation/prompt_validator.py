@@ -113,7 +113,7 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
 
     result.line_count  = len(lines_list)
     result.word_count  = len(text.split())
-    result.task_count  = len(re.findall(r"^### (?:TASK|Task) \d+", text, re.MULTILINE))
+    result.task_count  = len(re.findall(r"^### Task \d+", text, re.MULTILINE))
     result.end_of_prompt_count = len(re.findall(r"END OF PROMPT", text))
 
     # ── Stub check (immediate fail) ─────────────────────────────────────

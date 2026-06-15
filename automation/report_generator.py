@@ -1,5 +1,5 @@
 """
-report_generator.py â€” Daily and weekly autonomy reports (OPS-022, OPS-023).
+report_generator.py — Daily and weekly autonomy reports (OPS-022, OPS-023).
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 RUNNER_ROOT = Path("C:/AI_Runner")
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path("C:/Fiverr/Fiverr")
 REPORTS_DIR = RUNNER_ROOT / "reports"
 
 
@@ -35,18 +35,6 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     notif_lines = _tail_log(notif_log, hours=24)
     blocked_count = sum(1 for line in notif_lines if '"BLOCKED"' in line or '"CRITICAL"' in line)
 
-    valid_until_raw = ms.get("valid_until", "")
-    days_until_expiry = None
-    if valid_until_raw:
-        try:
-            valid_until = datetime.fromisoformat(str(valid_until_raw).replace("Z", "+00:00"))
-            days_until_expiry = (valid_until - now).days
-        except Exception:
-            days_until_expiry = None
-    model_header = "## Model Status"
-    if days_until_expiry is not None and days_until_expiry <= 2:
-        model_header = "## Model Status WARNING"
-
     lines = [
         "# Daily Autonomous Runner Report",
         f"Generated: {now.isoformat()}",
@@ -63,13 +51,10 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         f"- Active branch : {cs.get('active_branch', 'N/A')}",
         f"- Active PR     : {cs.get('active_pr', 'N/A')}",
         "",
-        model_header,
+        "## Model Selection",
         f"- Cursor model  : {ms.get('observed_model', 'N/A')} [{ms.get('status', 'N/A')}]",
-        f"- Effort        : {ms.get('effort', 'N/A')}",
-        f"- Verified at   : {ms.get('verified_at', 'N/A')}",
-        f"- Days to expiry: {days_until_expiry if days_until_expiry is not None else 'N/A'}",
         f"- Claude billing: {cls.get('billing_mode', 'N/A')} [{cls.get('status', 'N/A')}]",
-        f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT â€” REVIEW REQUIRED'}",
+        f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT — REVIEW REQUIRED'}",
         "",
         "## Incidents (last 24h)",
         f"- Total incidents      : {incident_count}",
@@ -92,7 +77,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
 
 def generate_weekly_report() -> Path:
     """
-    OPS-023: Weekly autonomy review â€” cycles, PRs, repairs, interruptions,
+    OPS-023: Weekly autonomy review — cycles, PRs, repairs, interruptions,
     false stops, unsafe attempts, model drift, post-cycle failures.
     """
     now = datetime.now(UTC)
@@ -168,21 +153,3 @@ def _tail_log(path: Path, hours: int = 24) -> list[str]:
         except Exception:
             pass
     return lines
-
-
-def _extract_open_blockers(text: str) -> list[str]:
-    if not text:
-        return []
-    lines = text.splitlines()
-    open_started = False
-    out: list[str] = []
-    for raw in lines:
-        line = raw.strip()
-        if line.lower() == "## open":
-            open_started = True
-            continue
-        if open_started and line.startswith("## "):
-            break
-        if open_started and line.startswith("- "):
-            out.append(line[2:].strip())
-    return out

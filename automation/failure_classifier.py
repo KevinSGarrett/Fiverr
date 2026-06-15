@@ -79,62 +79,6 @@ class ClassifiedFailure:
     is_cycle_blocker: bool = False
     is_auto_retry: bool = False
     attempt: int = 1
-    remediation_steps: list[str] | None = None
-
-
-def classify_post_cycle_failure(error_type: str) -> ClassifiedFailure:
-    """Classify post-cycle failure with remediation guidance."""
-    mapping = {
-        "MISSING_SOURCE_PROMPT": [
-            "Verify POST_CYCLE_PM_REVIEW_v4.md exists in PM_Pack instructions.",
-            "Restore the prompt from the last known good branch/tag.",
-            "Re-run post-cycle review after prompt restoration.",
-        ],
-        "MODEL_UNVERIFIED": [
-            "Run model verification workflow to refresh cursor_model_state.",
-            "Confirm valid_until is in the future and status=VERIFIED.",
-            "Re-run post-cycle review after verification succeeds.",
-        ],
-        "MISSING_AGENT_REPORT": [
-            "Check docs/cycle_reports for all six agent report files.",
-            "Request missing agent(s) to generate final report with AGENT_COMPLETE marker.",
-            "Re-run post-cycle review once all reports exist.",
-        ],
-        "SCORE_CAP_VIOLATION": [
-            "Recompute score inputs and verify score2 <= score1 cap.",
-            "Confirm TierD-2 stage evidence supports claimed score uplift.",
-            "Update readiness scorecard and rerun review.",
-        ],
-        "PROMPT_QUALITY_FAIL": [
-            "Regenerate PM review prompt package from source template.",
-            "Validate prompt sections (AC, validation, blockers) are complete.",
-            "Submit corrected prompt to post-cycle adapter.",
-        ],
-        "PM_PACK_CONTRADICTION": [
-            "Run pm-pack-audit to identify conflicting state documents.",
-            "Resolve cycle/status/branch contradictions in canonical files.",
-            "Re-run post-cycle review after consistency is restored.",
-        ],
-    }
-    steps = mapping.get(
-        error_type,
-        [
-            "Collect error logs and artifacts for this post-cycle run.",
-            "Open a rework item and assign owner for remediation.",
-            "Re-run post-cycle review once remediation completes.",
-        ],
-    )
-    return ClassifiedFailure(
-        failure_type=FailureType.UNKNOWN,
-        agent="D",
-        cycle=0,
-        evidence=error_type,
-        repair_agent="D",
-        is_cycle_blocker=True,
-        is_auto_retry=False,
-        attempt=1,
-        remediation_steps=steps,
-    )
 
 
 def classify(

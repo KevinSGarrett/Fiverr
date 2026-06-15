@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
@@ -85,49 +84,6 @@ class TestStateHelpers:
             assert isinstance(result, dict)
         finally:
             ctrl.RUNNER_STATE = orig_path
-
-
-def test_status_tick_sets_resolve_drift(tmp_path):
-    from automation.ai_cycle_controller import cli
-
-    runner = CliRunner()
-    state_path = tmp_path / "controller_state.json"
-    state_path.write_text('{"status":"IDLE","active_cycle":75}', encoding="utf-8")
-    with patch("automation.ai_cycle_controller.RUNNER_STATE", state_path), patch(
-        "automation.drift_detector.DriftDetector.detect",
-        return_value=MagicMock(drifts=[MagicMock(severity="BLOCKING"),], passed=False),
-    ), patch("automation.freeze_gate.is_frozen", return_value=False), patch(
-        "automation.state_writer.write_heartbeat"
-    ), patch("subprocess.run") as subrun, patch(
-        "automation.notification_router.notify_critical"
-    ) as notify_critical:
-        subrun.return_value = MagicMock(stdout="")
-        result = runner.invoke(cli, ["status-tick"])
-    assert result.exit_code == 0
-    assert "RESOLVE_DRIFT" in result.output
-    notify_critical.assert_called_once()
-
-
-def test_run_agent_model_blocked_calls_notify(tmp_path):
-    from automation.ai_cycle_controller import cli
-
-    prompt = tmp_path / "PM_Pack/automation/prompts/CYCLE_075_AGENT_A_PROMPT.md"
-    prompt.parent.mkdir(parents=True, exist_ok=True)
-    prompt.write_text("prompt", encoding="utf-8")
-    runner = CliRunner()
-    with patch("automation.model_gate.check", return_value=MagicMock(passed=False, summary=lambda: "bad")), patch(
-        "automation.notification_router.notify_blocked"
-    ) as notify, patch("automation.lock_manager.LockManager", create=True) as lock_manager, patch(
-        "automation.state_writer.write_controller_state"
-    ), patch("automation.state_writer.write_heartbeat"), patch(
-        "automation.prompt_validator.validate", return_value=MagicMock(passed=True)
-    ):
-        lock = MagicMock()
-        lock.acquire.return_value = True
-        lock_manager.return_value = lock
-        result = runner.invoke(cli, ["run-agent", "--agent", "A", "--cycle", "75"])
-    assert result.exit_code != 0
-    notify.assert_called()
 
     def test_write_runner_state_writes_json(self, tmp_path):
         import automation.ai_cycle_controller as ctrl

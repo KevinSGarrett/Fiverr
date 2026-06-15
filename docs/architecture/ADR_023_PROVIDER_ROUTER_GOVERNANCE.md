@@ -1,50 +1,25 @@
 # ADR 023: Provider Router Governance
 
-- Status: Accepted
-- Date: 2026-06-15
-- Owners: Cycle 079 Agent A governance lane
+## Status
+Accepted — In Implementation
 
 ## Context
-
-The system now operates as a six-lane architecture (A/B/E/C/F/D) with mixed deterministic and provider-assisted execution paths. Governance requires a single policy authority for provider routing, usage control, and fail-closed safety behavior.
-
-Provider routing must remain auditable and bounded across:
-
-- policy definitions in `PM_Pack/automation/provider_policy.yml`
-- controller command checks in `automation/ai_cycle_controller.py`
-- fail-closed consistency checks in `automation/pm_pack_consistency_audit.py`
-- future runtime dispatching in `automation/provider_router.py` (CYCLE_079_AGENT_C)
+Provider selection and execution policy is centralized in `PM_Pack/automation/provider_policy.yml`.
+Cycle 079 established governance-level policy artifacts and route ownership. Cycle 080 continues by
+aligning runner-side state/config and preparing implementation modules.
 
 ## Decision
-
-`PM_Pack/automation/provider_policy.yml` is the master governance authority for Provider Router V7.
-
-All provider dispatch paths must enforce these five non-negotiable rules:
-
-1. Controller owns git/jira/merge actions; providers cannot directly commit/push.
-2. Every provider decision emits a decision artifact (`PM_Pack/automation/provider_decisions/`).
-3. Every provider usage event writes a usage ledger entry (`C:\AI_Runner\reports\provider_usage\`).
-4. Budget-capped providers must honor hard/soft limits before execution.
-5. Malformed provider policy is fail-closed for audit flows when the policy file exists.
+- Keep deterministic controller ownership for merge/jira transitions.
+- Keep `advisory_only_provider_routing: true` through Stage 1.
+- Require provider decision artifacts and usage ledger entries for provider actions.
+- Keep Claude subscription lane blocked for direct implementation and repair work.
 
 ## Consequences
+- Router and adapter implementations can proceed with stable policy contracts.
+- Governance can validate provider dispatch intent before hard-routing is enabled.
+- Stage 2 can flip advisory mode only after route validation and adapter health checks pass.
 
-- Deterministic controller remains merge authority.
-- Official PM review remains bound to subscription-only review provider policy.
-- Advisory-only routing is enabled for Stage 1 rollout.
-- Missing provider policy is a warning in Stage 1, while malformed policy is blocking.
-- Decision artifacts and usage ledgers are required for post-cycle traceability.
-
-## Implementation Phases
-
-- Stage 1 (Cycle 079): advisory-only provider routing, policy + audit wiring.
-- Stage 2-4: decision artifact/usage ledger hard enforcement.
-- Stage 5-6: provider health and adapter routing operationalization.
-- Stage 7: deferred secondary coder enablement gate.
-
-## Path References
-
-- `PM_Pack/automation/provider_policy.yml`
-- `C:\AI_Runner\config\provider_router.yaml` (CYCLE_079_AGENT_C)
-- `C:\AI_Runner\state\provider_health.json` (CYCLE_079_AGENT_C)
-- `automation/provider_router.py` (CYCLE_079_AGENT_C)
+## Cycle 080 Implementation Status
+- Wave A complete: `provider_policy.yml` route governance and runner config/state files are in place.
+- Wave B/C in Cycle 080: Python modules and adapters are pending (`provider_router.py`, adapter classes).
+- `advisory_only_provider_routing=true` remains active until Stage 2 validation is complete.

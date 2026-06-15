@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-06-15T09:32:00Z",
+  "cursorcli": {
+    "status": "READY",
+    "model": "codex-5.3",
+    "billing_mode": "cursor_subscription",
+    "full_size_prompt_smoke": "PASS"
+  },
+  "claudesubscription": {
+    "status": "READY",
+    "billing_mode": "claude_subscription_only"
+  },
+  "openaiapi": {
+    "status": "DEGRADED",
+    "billing_mode": "openai_api_key",
+    "api_key_present": true
+  },
+  "codexsubscription": {
+    "status": "NOT_VERIFIED",
+    "note": "Deferred by policy"
+  }
+}

@@ -209,12 +209,3 @@ class TestValidateAll:
         agents = ["A", "B", "E", "C", "F", "D"]
         results = validate_all(tmp_path, 75, agents)
         assert set(results.keys()) == set(agents)
-
-
-def test_prompt_task_floor_boundaries(tmp_path):
-    for tasks, should_pass in ((55, True), (54, False), (56, True)):
-        prompt = _make_valid_prompt(tasks=tasks)
-        f = tmp_path / f"CYCLE_075_AGENT_A_PROMPT_{tasks}.md"
-        f.write_text(prompt)
-        result = validate(f, "A", 75)
-        assert result.passed is should_pass

@@ -2,18 +2,6 @@ version: 1
 # Repo-side model policy — committed to source control
 # Runtime state is in C:\AI_Runner\state\cursor_model_state.json
 
-cursorworker:
-  model: "Codex 5.3"
-  effort: "medium"
-  autodisabled: true
-  fallbackdisabled: true
-  accepted_labels:
-    - "Codex 5.3"
-    - "GPT-5.3 Codex"
-    - "gpt-5.3-codex"
-    - "codex-5.3"
-    - "OpenAI Codex 5.3"
-
 cursor_worker:
   model: "Codex 5.3"
   accepted_labels:

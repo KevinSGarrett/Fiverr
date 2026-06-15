@@ -31,10 +31,9 @@ def compile_policy(repo_root: Path) -> dict[str, Any]:
     # NOT loose pattern which would match filenames like data/cycle037_live.db
     snapshot["cycle_current"] = (
         _extract_int(hydration, r"^CYCLE_CURRENT:\s*0*(\d+)", from_line_start=True)
+        or _extract_int(hydration, r"^Active cycle:\s*0*(\d+)", from_line_start=True)
         or _extract_int(hydration, r"^CYCLE_NEXT:\s*0*(\d+)", from_line_start=True)
         or _extract_int(hydration, r"NEXT CYCLE \(C0*(\d+)\)")
-        or _extract_int(hydration, r"Active cycle:\s*0*(\d+)")
-        or _extract_int(hydration, r"active[ _]cycle[:\s]+0*(\d+)")
     )
     snapshot["active_wave"] = (
         _extract_int(hydration, r"^WAVE_CURRENT:\s*(\d+)", from_line_start=True)
@@ -127,5 +126,3 @@ def _extract_float(text: str, pattern: str) -> float | None:
 def _extract_str(text: str, pattern: str) -> str | None:
     m = re.search(pattern, text)
     return m.group(1) if m else None
-
-

@@ -46,8 +46,8 @@ HUMAN_INTERRUPT_CODES = {
 }
 
 
-def _legacy_notify(severity: Severity | str, title: str, body: str,
-                   incident_code: str = "", cycle: int | None = None) -> None:
+def notify(severity: Severity | str, title: str, body: str,
+           incident_code: str = "", cycle: int | None = None) -> None:
     """Route notification to appropriate destinations based on severity."""
     if isinstance(severity, str):
         severity = Severity[severity.upper()]
@@ -73,27 +73,27 @@ def _legacy_notify(severity: Severity | str, title: str, body: str,
         _try_github_issue(severity, title, body, incident_code, cycle)
 
 
-def _legacy_notify_info(title: str, body: str = "", cycle: int | None = None) -> None:
-    _legacy_notify(Severity.INFO, title, body, cycle=cycle)
+def notify_info(title: str, body: str = "", cycle: int | None = None) -> None:
+    notify(Severity.INFO, title, body, cycle=cycle)
 
 
-def _legacy_notify_success(title: str, body: str = "", cycle: int | None = None) -> None:
-    _legacy_notify(Severity.SUCCESS, title, body, cycle=cycle)
+def notify_success(title: str, body: str = "", cycle: int | None = None) -> None:
+    notify(Severity.SUCCESS, title, body, cycle=cycle)
 
 
-def _legacy_notify_warning(title: str, body: str = "", incident_code: str = "",
-                           cycle: int | None = None) -> None:
-    _legacy_notify(Severity.WARNING, title, body, incident_code, cycle)
+def notify_warning(title: str, body: str = "", incident_code: str = "",
+                   cycle: int | None = None) -> None:
+    notify(Severity.WARNING, title, body, incident_code, cycle)
 
 
-def _legacy_notify_blocked(title: str, body: str = "", incident_code: str = "",
-                           cycle: int | None = None) -> None:
-    _legacy_notify(Severity.BLOCKED, title, body, incident_code, cycle)
+def notify_blocked(title: str, body: str = "", incident_code: str = "",
+                   cycle: int | None = None) -> None:
+    notify(Severity.BLOCKED, title, body, incident_code, cycle)
 
 
-def _legacy_notify_critical(title: str, body: str = "", incident_code: str = "",
-                            cycle: int | None = None) -> None:
-    _legacy_notify(Severity.CRITICAL, title, body, incident_code, cycle)
+def notify_critical(title: str, body: str = "", incident_code: str = "",
+                    cycle: int | None = None) -> None:
+    notify(Severity.CRITICAL, title, body, incident_code, cycle)
 
 
 def _write_log(entry: dict) -> None:
@@ -169,110 +169,3 @@ def _try_github_issue(severity: Severity, title: str, body: str,
         )
     except Exception:
         pass
-
-
-def _load_notification_config() -> dict:
-    import yaml
-
-    path = Path("C:/AI_Runner/config/notification_config.yaml")
-    if not path.exists():
-        return {
-            "slack_enabled": False,
-            "slack_webhook_url": "",
-            "log_enabled": True,
-            "log_path": "",  # empty so callers fall back to module-level NOTIFY_LOG
-            "rate_limit_per_hour": 10,
-        }
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-
-
-def _rate_limit_allowed(rate_file: Path, limit: int) -> bool:
-    now = datetime.now(UTC)
-    data: dict[str, list[str]] = {"events": []}
-    if rate_file.exists():
-        try:
-            data = json.loads(rate_file.read_text(encoding="utf-8"))
-        except Exception:
-            data = {"events": []}
-    events = []
-    for ts in data.get("events", []):
-        try:
-            parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            if (now - parsed).total_seconds() <= 3600:
-                events.append(ts)
-        except Exception:
-            continue
-    allowed = len(events) < limit
-    events.append(now.isoformat())
-    rate_file.parent.mkdir(parents=True, exist_ok=True)
-    rate_file.write_text(json.dumps({"events": events}, indent=2), encoding="utf-8")
-    return allowed
-
-
-def notify(severity: str, message: str, incident_code: str = "", cycle: int | None = None) -> None:
-    """Write notification log and fan out to Slack/incident file as configured."""
-    config = _load_notification_config()
-    timestamp = datetime.now(UTC).isoformat()
-
-    config_log = config.get("log_path", "")
-    log_path = Path(config_log) if config_log else NOTIFY_LOG
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(f"{timestamp} [{severity}] [{incident_code}] {message}\n")
-
-    should_attempt_slack = bool(config.get("slack_enabled"))
-    webhook = config.get("slack_webhook_url", "")
-    if should_attempt_slack and webhook:
-        limit = int(config.get("rate_limit_per_hour", 10))
-        rate_file = Path("C:/AI_Runner/state/notification_rate.json")
-        if _rate_limit_allowed(rate_file, limit):
-            try:
-                import requests
-
-                requests.post(webhook, json={"text": f"[{severity}] {message}"}, timeout=5)
-            except Exception:
-                pass
-
-    if severity in ("CRITICAL", "BLOCKED"):
-        incident_dir = Path(str(INCIDENTS_DIR))
-        incident_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
-        incident = incident_dir / f"NOTIFICATION_{incident_code or 'CRITICAL'}_{stamp}.md"
-        incident.write_text(
-            "\n".join(
-                [
-                    f"# Notification Incident {incident_code or 'CRITICAL'}",
-                    f"- Time: {timestamp}",
-                    f"- Severity: {severity}",
-                    f"- Cycle: {cycle}",
-                    "",
-                    message,
-                ]
-            ),
-            encoding="utf-8",
-        )
-
-
-def notify_blocked(
-    message: str,
-    body: str = "",
-    incident_code: str = "",
-    cycle: int | None = None,
-) -> None:
-    text = f"{message}\n{body}".strip() if body else message
-    notify("BLOCKED", text, incident_code=incident_code, cycle=cycle)
-
-
-def notify_critical(
-    message: str,
-    body: str = "",
-    incident_code: str = "",
-    cycle: int | None = None,
-) -> None:
-    text = f"{message}\n{body}".strip() if body else message
-    notify("CRITICAL", text, incident_code=incident_code, cycle=cycle)
-
-
-def notify_info(message: str, body: str = "", cycle: int | None = None) -> None:
-    text = f"{message}\n{body}".strip() if body else message
-    notify("INFO", text, cycle=cycle)

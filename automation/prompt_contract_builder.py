@@ -1,260 +1,156 @@
-"""Prompt contract builder for cycle agent prompts."""
+"""Generate cycle prompt contracts from lane and catalog metadata."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from automation.prompt_generator import PlanningIncompleteError
+import yaml
+
+from automation.jira_spec_mapper import JiraSpecMapper
 
 
-@dataclass(frozen=True)
-class LaneScope:
-    """Resolved lane ownership/prohibition scope."""
-
-    owned_paths: list[str]
-    prohibited_paths: list[str]
-    description: str
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PM_AUTOMATION_DIR = REPO_ROOT / "PM_Pack" / "automation"
+CONTRACTS_DIR = PM_AUTOMATION_DIR / "prompt_contracts"
+AGENT_LANES_PATH = PM_AUTOMATION_DIR / "agent_lanes.yml"
 
 
-def build_prompt_contract(
-    agent: str,
-    cycle: int,
-    stories: list[dict[str, Any]],
-    lanes: dict[str, Any],
-    pp_catalog: dict[str, Any] | None = None,
-    dod_catalog: dict[str, Any] | None = None,
-    preamble_text: str = "",
-) -> str:
-    """
-    Build a complete prompt contract string.
-
-    The generated contract includes:
-      - canonical environment and path preamble
-      - lane identity block
-      - model policy block
-      - Jira scope with AC/DoD snippets
-      - >=55 tasks
-      - validation command block
-      - final END OF PROMPT marker
-    """
-    _validate_story_planning(stories)
-    scope = _resolve_lane_scope(agent, lanes)
-    now = datetime.now(UTC).isoformat()
-    report_path = f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent}.md"
-
-    lines: list[str] = [
-        f"Cycle {cycle:03d} — Agent {agent} Prompt",
-        "",
-        preamble_text.strip() if preamble_text.strip() else _default_preamble(),
-        "",
-        "## Agent Identity and Lane",
-        f"You are Agent {agent} for Cycle {cycle:03d} on branch cycle/{cycle:03d}/integration.",
-        f"Lane description: {scope.description}",
-        "Your lane owns:",
-    ]
-    lines.extend([f"- {path}" for path in scope.owned_paths] or ["- (defined by agent_lanes.yml)"])
-    lines.append("You MUST NOT touch:")
-    lines.extend([f"- {path}" for path in scope.prohibited_paths] or ["- (none explicitly declared)"])
-    lines.extend(
-        [
-            "",
-            "## Model Policy (MANDATORY)",
-            "- Model: Codex 5.3",
-            "- Effort: medium",
-            "- Auto model selection: DISABLED",
-            "",
-            "## Autonomy rule",
-            "- Proceed autonomously through all tasks without pausing for confirmation.",
-            "- If blocked, document blocker and continue with next executable task.",
-            "- Do not include git add/commit/push instructions in this prompt.",
-            "",
-            "## Jira Scope",
-        ]
-    )
-    lines.extend(_render_jira_scope(stories))
-    lines.extend(["", "## Tasks"])
-    lines.extend(_render_tasks(agent, cycle, stories, pp_catalog, dod_catalog))
-    task_count = sum(1 for line in lines if line.startswith("### TASK "))
-    if task_count < 55:
-        raise ValueError(f"Task floor not met: {task_count} < 55")
-
-    lines.extend(
-        [
-            "",
-            "## Validation Commands",
-            "- ruff check automation/ src/ tests/",
-            "- mypy src/ automation/ --ignore-missing-imports",
-            "- pytest tests/unit/ --timeout=30 --tb=no -q",
-            "- python automation/ai_cycle_controller.py brain-check",
-            "- python automation/ai_cycle_controller.py pm-pack-audit --check-only",
-            "",
-            "## Report",
-            f"- Write: {report_path}",
-            "- Final line must be: AGENT_COMPLETE",
-            "",
-            f"Generated at: {now}",
-            "",
-            "---",
-            "",
-            "END OF PROMPT",
-        ]
-    )
-    return "\n".join(lines).strip() + "\n"
+class PlanningIncompleteError(RuntimeError):
+    """Raised when contract stories are missing AC/DoD data."""
 
 
-def _resolve_lane_scope(agent: str, lanes: dict[str, Any]) -> LaneScope:
-    lane_cfg = (lanes or {}).get("lanes", {}).get(agent, {})
-    prohibited = lane_cfg.get("prohibited", lane_cfg.get("prohibited_without_explicit_task", []))
-    return LaneScope(
-        owned_paths=[str(path) for path in lane_cfg.get("owns", [])],
-        prohibited_paths=[str(path) for path in prohibited],
-        description=str(lane_cfg.get("description", "No lane description provided")),
-    )
+class PromptContractBuilder:
+    """Build cycle contracts with canonical and compatibility keys."""
 
+    def __init__(
+        self,
+        contracts_dir: Path | None = None,
+        template_contracts_dir: Path | None = None,
+        agent_lanes_path: Path | None = None,
+        mapper: JiraSpecMapper | None = None,
+    ) -> None:
+        self.contracts_dir = contracts_dir or CONTRACTS_DIR
+        self.template_contracts_dir = template_contracts_dir or CONTRACTS_DIR
+        self.agent_lanes_path = agent_lanes_path or AGENT_LANES_PATH
+        self.mapper = mapper or JiraSpecMapper()
+        self.agent_lanes = self._load_agent_lanes()
 
-def _validate_story_planning(stories: list[dict[str, Any]]) -> None:
-    for story in stories:
-        ac = str(story.get("acceptance_criteria", "") or "").strip()
-        dod = str(story.get("definition_of_done", "") or "").strip()
-        if not ac and not dod:
-            key = story.get("key", "UNKNOWN")
-            raise PlanningIncompleteError(
-                f"PLANNING_INCOMPLETE {key}: missing acceptance_criteria and definition_of_done"
-            )
+    def _load_agent_lanes(self) -> dict[str, dict[str, Any]]:
+        payload = yaml.safe_load(self.agent_lanes_path.read_text(encoding="utf-8")) or {}
+        lanes = payload.get("lanes", {})
+        if not isinstance(lanes, dict):
+            return {}
+        return {str(key): value for key, value in lanes.items() if isinstance(value, dict)}
 
+    def _load_template_story_scope(self, agent: str) -> list[dict[str, Any]]:
+        template_path = self.template_contracts_dir / f"CYCLE_079_AGENT_{agent}.contract.json"
+        if not template_path.exists():
+            return []
+        payload = json.loads(template_path.read_text(encoding="utf-8"))
+        stories = payload.get("jirascope", payload.get("jira_scope", []))
+        return [story for story in stories if isinstance(story, dict)]
 
-def _render_jira_scope(stories: list[dict[str, Any]]) -> list[str]:
-    if not stories:
-        return ["No stories assigned."]
-    lines: list[str] = []
-    for story in stories:
-        key = str(story.get("key", "SCRUM-UNKNOWN"))
-        summary = str(story.get("summary", "") or "")[:80]
-        ac = str(story.get("acceptance_criteria", "") or "")[:200]
-        dod = str(story.get("definition_of_done", "") or "")[:200]
-        lines.extend([f"- {key}: {summary}", f"  - AC: {ac}", f"  - DoD: {dod}"])
-    return lines
-
-
-def _render_tasks(
-    agent: str,
-    cycle: int,
-    stories: list[dict[str, Any]],
-    pp_catalog: dict[str, Any] | None,
-    dod_catalog: dict[str, Any] | None,
-) -> list[str]:
-    tasks: list[str] = []
-    story_count = max(1, len(stories))
-    phases = ["setup/verify", "read project plan", "implement AC", "validation", "cleanup"]
-    for idx in range(1, 56):
-        story = stories[(idx - 1) % story_count] if stories else {}
-        key = str(story.get("key", f"SCRUM-{cycle}{idx:02d}"))
-        summary = str(story.get("summary", "Prompt contract task"))[:70]
-        ac = str(story.get("acceptance_criteria", "Validate behavior from Jira AC")).strip()
-        dod = str(story.get("definition_of_done", "Meet DoD evidence for this story")).strip()
-        catalog_hint = _catalog_hint(pp_catalog, key)
-        dod_hint = _dod_hint(dod_catalog, story)
-        phase = phases[(idx - 1) % len(phases)]
-        tasks.extend(
-            [
-                f"### TASK {idx:02d} — Agent {agent} {phase} for {key}: {summary}",
-                f"- Story: {key}",
-                f"- AC Focus: {ac}",
-                f"- DoD Focus: {dod}",
-                f"- DoD Catalog Context: {dod_hint}",
-                f"- Project Plan Context: {catalog_hint}",
-                "- Validation: run targeted unit tests and record evidence in cycle report.",
-                "",
-            ]
+    def _normalize_story(self, story: dict[str, Any]) -> dict[str, Any]:
+        ac = story.get("acceptancecriteria", story.get("acceptance_criteria", [])) or []
+        dod = story.get("definitionofdone", story.get("definition_of_done", [])) or []
+        path = story.get(
+            "projectplanpath",
+            story.get("project_plan_path", "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"),
         )
-    return tasks
+        files = story.get("filesormodules", story.get("files_or_modules", [])) or []
+        return {
+            "key": story.get("key", "SCRUM-000"),
+            "summary": story.get("summary", "Cycle scope item"),
+            "status": story.get("status", "To Do"),
+            "priority": story.get("priority", "Medium"),
+            "acceptance_criteria": [str(item) for item in ac],
+            "definition_of_done": [str(item) for item in dod],
+            "project_plan_path": str(path),
+            "files_or_modules": [str(item) for item in files],
+            "acceptancecriteria": [str(item) for item in ac],
+            "definitionofdone": [str(item) for item in dod],
+            "projectplanpath": str(path),
+            "filesormodules": [str(item) for item in files],
+        }
 
+    def build_contract(self, agent: str, cycle: str, branch: str) -> dict[str, Any]:
+        if agent not in self.agent_lanes:
+            raise KeyError(f"Unknown agent lane: {agent}")
 
-def _catalog_hint(pp_catalog: dict[str, Any] | None, issue_key: str) -> str:
-    if not isinstance(pp_catalog, dict):
-        return "PM_Pack/ref/project_plan (catalog unavailable)"
-    entries = pp_catalog.get("entries")
-    if not isinstance(entries, list):
-        return "PM_Pack/ref/project_plan (catalog malformed)"
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        jira_keys = entry.get("jira_keys", [])
-        if isinstance(jira_keys, list) and issue_key in jira_keys:
-            return str(entry.get("source_path", "PM_Pack/ref/project_plan"))
-    return "PM_Pack/ref/project_plan (no direct SCRUM mapping)"
+        stories = [self._normalize_story(story) for story in self._load_template_story_scope(agent)]
+        if not stories:
+            raise PlanningIncompleteError(f"No stories available for agent {agent}")
+        for story in stories:
+            if len(story["acceptance_criteria"]) == 0 or len(story["definition_of_done"]) == 0:
+                raise PlanningIncompleteError(
+                    f"{story['key']} missing AC/DoD for agent {agent}"
+                )
 
+        lane = self.agent_lanes[agent]
+        lane_desc = str(lane.get("description", f"Agent {agent} lane"))
+        allowed = [str(item) for item in lane.get("owns", [])]
+        blocked = [str(item) for item in lane.get("prohibited", lane.get("prohibited_without_explicit_task", []))]
 
-def _dod_hint(dod_catalog: dict[str, Any] | None, story: dict[str, Any]) -> str:
-    if not isinstance(dod_catalog, dict):
-        return "PM_Pack/ref/dod (catalog unavailable)"
-    entries = dod_catalog.get("entries")
-    if not isinstance(entries, list):
-        return "PM_Pack/ref/dod (catalog malformed)"
-    epic_candidates = {
-        str(story.get("epic_id", "")).strip(),
-        str(story.get("epic", "")).strip(),
-        str(story.get("epic_key", "")).strip(),
-    }
-    text_blob = " ".join(str(story.get(field, "") or "") for field in ("summary", "description"))
-    for token in ("EPIC_01", "EPIC_02", "EPIC_03", "EPIC_04", "EPIC_05", "EPIC_06", "EPIC_07", "EPIC_08", "EPIC_09", "EPIC_10"):
-        if token in text_blob:
-            epic_candidates.add(token)
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        epic_id = str(entry.get("epic_id", "")).strip()
-        if epic_id and epic_id in epic_candidates:
-            criteria = entry.get("criteria", [])
-            if isinstance(criteria, list) and criteria:
-                return f"{epic_id}: {str(criteria[0])[:120]}"
-            return f"{epic_id}: criteria available in catalog"
-    return "PM_Pack/ref/dod (no direct epic mapping)"
-
-
-def _default_preamble() -> str:
-    return "\n".join(
-        [
-            "## Canonical Secrets Reference",
-            "- Master .env: C:\\Fiverr\\Fiverr\\.env",
-            "- Runner secrets: C:\\AI_Runner\\secrets\\runner.env",
-            "- Required keys: OPENAI_API_KEY, SCRAPFLY_API_KEY, JIRA_API_TOKEN, JIRA_EMAIL, JIRA_BASE_URL, GH_AUTOMATION_TOKEN",
-            "- ANTHROPIC_API_KEY must be ABSENT",
-            "",
-            "## Exact Directory Map",
-            "- Repo root: C:\\Fiverr\\Fiverr",
-            "- Automation modules: C:\\Fiverr\\Fiverr\\automation\\",
-            "- Tests: C:\\Fiverr\\Fiverr\\tests\\unit\\",
-            "- PM_Pack root: C:\\Fiverr\\Fiverr\\PM_Pack\\",
-            "- PM_Pack automation configs: C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\",
-            "- PM_Pack instructions: C:\\Fiverr\\Fiverr\\PM_Pack\\01_pm_instructions\\",
-            "- PM_Pack current state: C:\\Fiverr\\Fiverr\\PM_Pack\\02_current_state\\",
-            "- PM_Pack Cursor agent system: C:\\Fiverr\\Fiverr\\PM_Pack\\03_cursor_agent_system\\",
-            "- PM_Pack cycle log: C:\\Fiverr\\Fiverr\\PM_Pack\\10_cycle_log\\",
-            "- Docs/cycle_reports: C:\\Fiverr\\Fiverr\\docs\\cycle_reports\\",
-            "- Docs/architecture: C:\\Fiverr\\Fiverr\\docs\\architecture\\",
-            "- Docs/runbooks: C:\\Fiverr\\Fiverr\\docs\\runbooks\\",
-            "- Runner root: C:\\AI_Runner\\",
-            "- Runner config: C:\\AI_Runner\\config\\",
-            "- Runner state: C:\\AI_Runner\\state\\",
-            "- Runner secrets: C:\\AI_Runner\\secrets\\",
-            "- Runner logs: C:\\AI_Runner\\logs\\",
-            "- Runner reports: C:\\AI_Runner\\reports\\",
-            "- Runner scripts: C:\\AI_Runner\\scripts\\",
-            "- Runner runs: C:\\AI_Runner\\runs\\",
-            "- Runner queue: C:\\AI_Runner\\queue\\",
-            "- Runner artifacts: C:\\AI_Runner\\artifacts\\",
-            "- GitHub Actions runner: C:\\actions-runner\\",
-            "",
-            "## PM_Pack Structure",
-            "- Post-cycle review prompt: C:\\Fiverr\\Fiverr\\PM_Pack\\01_pm_instructions\\POST_CYCLE_PM_REVIEW_v4.md",
-            "- PM_Pack/ref project plans: C:\\Fiverr\\Fiverr\\PM_Pack\\ref\\project_plan\\",
-            "- PM_Pack/ref DoD: C:\\Fiverr\\Fiverr\\PM_Pack\\ref\\dod\\",
-            "- PM_Pack/ref TODO: C:\\Fiverr\\Fiverr\\PM_Pack\\ref\\todo\\",
-            "",
-            "## Model Verification",
-            "- Verify C:\\AI_Runner\\state\\cursor_model_state.json is VERIFIED and unexpired before dispatch.",
+        sources = [
+            "PM_Pack/automation/project_plan_catalog.json",
+            "PM_Pack/automation/dod_catalog.json",
+            "PM_Pack/automation/todo_epic_catalog.json",
+            "PM_Pack/automation/github_governance_catalog.json",
+            "PM_Pack/automation/agent_lanes.yml",
+            *[str(story["key"]) for story in stories],
         ]
-    )
+
+        built_at = datetime.now(UTC).isoformat()
+        model_policy = {
+            "worker": "Cursor CLI",
+            "model": "codex-5.3",
+            "effort": "medium",
+            "auto": False,
+            "fallback": False,
+        }
+
+        contract = {
+            "cycle": cycle,
+            "agent": agent,
+            "agent_lane": lane_desc,
+            "agentlane": lane_desc,
+            "branch": branch,
+            "model_policy": model_policy,
+            "modelpolicy": {**model_policy, "auto_model_selection": "DISABLED"},
+            "jira_scope": stories,
+            "jirascope": stories,
+            "allowed_paths": allowed,
+            "allowedpaths": allowed,
+            "blocked_paths": blocked,
+            "blockedpaths": blocked,
+            "validation_commands": [
+                "python automation/ai_cycle_controller.py brain-check",
+                "python automation/ai_cycle_controller.py validate-prompts --cycle 080",
+            ],
+            "validationcommands": [
+                "python automation/ai_cycle_controller.py brain-check",
+                "python automation/ai_cycle_controller.py validate-prompts --cycle 080",
+            ],
+            "final_report_path": f"docs/cycle_reports/CYCLE_{cycle}_AGENT_{agent}.md",
+            "finalreportpath": f"docs/cycle_reports/CYCLE_{cycle}_AGENT_{agent}.md",
+            "built_at": built_at,
+            "builtat": built_at,
+            "contract_version": "1.0.0",
+            "contractversion": "1.0.0",
+            "metadata": {
+                "sources_used": sources,
+                "sourcesused": sources,
+                "catalog_counts": self.mapper.catalog_counts(),
+            },
+        }
+        return contract
+
+    def write_contract(self, agent: str, cycle: str, branch: str) -> Path:
+        self.contracts_dir.mkdir(parents=True, exist_ok=True)
+        contract = self.build_contract(agent=agent, cycle=cycle, branch=branch)
+        path = self.contracts_dir / f"CYCLE_{cycle}_AGENT_{agent}.contract.json"
+        path.write_text(json.dumps(contract, indent=2) + "\n", encoding="utf-8")
+        return path

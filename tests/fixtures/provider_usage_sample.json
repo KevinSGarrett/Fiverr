@@ -1,0 +1,10 @@
+[
+  {
+    "decisionid": "DEC-079-0001",
+    "provider": "openai_api",
+    "tasktype": "prompt_lint",
+    "estimatedcostusd": 1.2,
+    "timestamp": "2026-06-15T08:00:00Z",
+    "cycle": "079"
+  }
+]
