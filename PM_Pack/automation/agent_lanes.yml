@@ -26,6 +26,19 @@ lanes:
       - "src/**"
       - "tests/**"
       - "data/**"
+    allowed_paths:
+      - "automation/**"
+      - "PM_Pack/**"
+      - "docs/architecture/**"
+      - "docs/cycle_reports/**"
+    blocked_paths:
+      - "src/**"
+      - "tests/integration/**"
+    validation_commands:
+      - "python automation/ai_cycle_controller.py brain-check"
+      - "python automation/ai_cycle_controller.py pm-pack-audit"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+    min_tasks: 55
 
   B:
     role: primary_implementation
@@ -35,6 +48,17 @@ lanes:
       - "src/**"
       - "tests/**"
     requires_extra_gate: true
+    allowed_paths:
+      - "src/**"
+      - "tests/unit/**"
+    blocked_paths:
+      - "PM_Pack/**"
+    validation_commands:
+      - "ruff check src/ --output-format=concise"
+      - "mypy src/ --ignore-missing-imports --no-error-summary"
+      - "pytest tests/unit -q"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+    min_tasks: 55
 
   E:
     role: live_validation_external_signals
@@ -50,6 +74,17 @@ lanes:
       - "src/**"
       - "tests/**"
       - "config.yaml"
+    allowed_paths:
+      - "data/evidence/**"
+      - "docs/cycle_reports/**"
+      - "scripts/validation/**"
+    blocked_paths:
+      - "src/**"
+      - "tests/**"
+    validation_commands:
+      - "python automation/ai_cycle_controller.py brain-check"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+    min_tasks: 55
 
   C:
     role: integration_validation
@@ -60,6 +95,16 @@ lanes:
       - "PM_Pack/10_cycle_log/**"
     prohibited:
       - "src/**"
+    allowed_paths:
+      - "docs/cycle_reports/**"
+      - "PM_Pack/10_cycle_log/**"
+      - "automation/**"
+    blocked_paths:
+      - "src/**"
+    validation_commands:
+      - "python automation/ai_cycle_controller.py validate-prompts --cycle 078"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+    min_tasks: 55
 
   F:
     role: test_coverage_regression
@@ -67,6 +112,14 @@ lanes:
     description: "Test coverage gaps, regression tests, coverage enforcement"
     owns:
       - "tests/**"
+    allowed_paths:
+      - "tests/**"
+    blocked_paths:
+      - "src/**"
+    validation_commands:
+      - "pytest tests/unit -q"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+    min_tasks: 55
 
   D:
     role: pr_steward_merge_gate
@@ -76,3 +129,13 @@ lanes:
       - "docs/cycle_reports/**"
     jira_authority: true
     github_pr_authority: true
+    allowed_paths:
+      - "docs/cycle_reports/**"
+      - "PM_Pack/**"
+    blocked_paths:
+      - "src/**"
+      - "tests/**"
+    validation_commands:
+      - "python automation/ai_cycle_controller.py merge-gate --pr 0 --dry-run"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+    min_tasks: 55

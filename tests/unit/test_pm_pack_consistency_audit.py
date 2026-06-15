@@ -109,3 +109,18 @@ def test_fails_when_active_prompts_invalid(tmp_path: Path) -> None:
 
     assert result.passed is False
     assert any(c.code == "ACTIVE_PROMPTS_INVALID" for c in result.conflicts)
+
+
+def test_fails_when_provider_policy_malformed(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    runner = tmp_path / "runner"
+    _seed_state(repo, runner, cycle=78)
+    _write(
+        repo / "PM_Pack/automation/provider_policy.yml",
+        "version: 1\nproviders: [bad\n",
+    )
+
+    result = run_audit(repo_root=repo, runner_root=runner)
+
+    assert result.passed is False
+    assert any(c.code == "PROVIDERPOLICY_INVALID" for c in result.conflicts)

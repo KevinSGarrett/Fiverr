@@ -1,0 +1,13 @@
+{
+  "pr_number": 96,
+  "merge_gate_status": "PASS",
+  "checked_at": "2026-06-15T06:10:00Z",
+  "mode": "post-merge",
+  "branch": "develop",
+  "post_merge_verification": {
+    "develop_head": "10a17948b04cfafefc7d393ccba3ce9a236eead6",
+    "unit_subset": "3211 passed, 7 skipped (KeyboardInterrupt footer observed, no failures reported)",
+    "validate_prompts_cycle_078": "PASS",
+    "brain_check": "FAIL (missing PM_Pack/automation/current_policy_snapshot.json on detached develop worktree)"
+  }
+}

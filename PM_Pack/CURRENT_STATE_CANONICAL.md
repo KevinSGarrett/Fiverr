@@ -1,16 +1,40 @@
-# CURRENT STATE CANONICAL
+# CURRENT STATE CANONICAL - CYCLE 079
 
 ## Current Cycle: 076
 
 ## Branch State: cycle/075/integration — committed, push verified
 
-## Score State: Score 1 = 67.0%, Score 2 = 46.9%, cap <=50% active
+| Field | Value |
+|---|---|
+| cycle | 079 |
+| previous_cycle | 078 |
+| next_cycle | 080 |
+| branch | cycle/079/integration |
+| status | IN_PROGRESS |
+| score1_internal | 67.3% (unchanged) |
+| score2_e2e | 47.1% (unchanged) |
+| tierd2_cap | ACTIVE |
 
 ## Go-Live Stage: Stage 1 ACTIVE (CI must pass before merge)
 
-## Critical Blockers: (1) CI failing — coverage gaps not yet fixed, (2) PR not yet created, (3) Jira token not loading from env
+- Agent A: READY (active)
+- Agent B: READY
+- Agent E: READY
+- Agent C: READY
+- Agent F: READY
+- Agent D: READY
 
-## Last Completed Cycle: 075
+## Active Cycle Lanes
+
+- A / B / E / C / F / D
+
+## Key Deliverables This Cycle
+
+- Provider Router V7 Wave A governance baseline
+- Provider policy creation and parser enforcement
+- Six-lane prompt governance updates
+
+## Active Constraints
 
 ## TierD-2 Status: BLOCKED — V-1 live collection evidence not yet captured
 

@@ -1,0 +1,91 @@
+version: 1
+global_rules:
+  controller_owns_git: true
+  controller_owns_jira: true
+  controller_owns_merge: true
+  no_provider_direct_commit: true
+  no_provider_direct_push: true
+  no_browser_automation_chatgpt: true
+  require_provider_decision_artifact: true
+  require_usage_ledger_entry: true
+  advisory_only_provider_routing: true
+
+providers:
+  cursorcli:
+    enabled: true
+    role: primary_coding_worker
+    billing_mode: cursor_subscription
+    can_edit_files: true
+    official_pm_review: false
+    approved_for:
+      - implementation
+      - repair
+      - test_generation
+      - docs_agent_work
+    blocked_for:
+      - official_post_cycle_pm_review
+      - merge_gate_decision
+      - jira_done_transition
+      - git_commit
+      - git_push
+    required_gates:
+      - model_verified
+      - prompt_validated
+      - lane_scope_enforced
+
+  claude_subscription:
+    enabled: true
+    role: official_pm_review
+    billing_mode: claude_subscription_only
+    can_edit_files: false
+    official_pm_review: true
+    approved_for:
+      - official_post_cycle_review
+      - pm_pack_governance_review
+      - architecture_review
+    blocked_for:
+      - direct_code_edit
+      - implementation
+      - repair
+      - api_billing_fallback
+    on_limit:
+      action: pause_official_review
+      do_not_fallback_to_api: true
+
+  openai_api:
+    enabled: false
+    role: budget_controlled_helper
+    billing_mode: openai_api_key
+    can_edit_files: false
+    approved_for:
+      - prompt_lint
+      - json_classification
+      - rubric_scoring
+      - summary_generation
+    hard_limits:
+      daily_usd: 10
+      monthly_usd: 150
+    soft_warn:
+      daily_usd: 5
+
+  codex_subscription:
+    enabled: false
+    status: deferred
+    role: secondary_coder_deferred
+    note:
+      deferred_until: cursorcli_and_claude_proven_in_stage7
+    blocked_for:
+      - all_operations_until_stage7_complete
+
+routes:
+  implementation: cursorcli
+  repair: cursorcli
+  test_generation: cursorcli
+  docs_agent_work: cursorcli
+  prompt_lint: deterministic_validator
+  json_classification: openai_api
+  official_post_cycle_review: claude_subscription
+  merge_gate: deterministic_controller
+  jira_transition: deterministic_controller
+  prompt_contract_generation: deterministic_prompt_factory
+  prompt_rendering: deterministic_prompt_factory
