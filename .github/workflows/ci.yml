@@ -135,6 +135,7 @@ jobs:
         run: |
           python -c "
           import json
+          import re
           from pathlib import Path
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state/controller_state.json').write_text(
@@ -149,6 +150,30 @@ jobs:
           Path('PM_Pack/automation/current_policy_snapshot.json').write_text(
               json.dumps({'cycle_current': 80, 'last_completed_cycle': 'C079'})
           )
+          hydration = Path('PM_Pack/07_hydration/HYDRATION_HEADER.md')
+          if hydration.exists():
+              txt = hydration.read_text()
+              txt = re.sub(r'CYCLE_CURRENT:\\s*\\d+', 'CYCLE_CURRENT: 080', txt)
+              txt = re.sub(r'CYCLE_PREVIOUS:\\s*\\d+', 'CYCLE_PREVIOUS: 079', txt)
+              txt = re.sub(r'CYCLE_NEXT:\\s*\\d+', 'CYCLE_NEXT: 081', txt)
+              txt = re.sub(
+                  r'BRANCH_CURRENT:\\s*[^\\n]+',
+                  'BRANCH_CURRENT: cycle/080/integration',
+                  txt,
+              )
+              hydration.write_text(txt)
+          snapshot = Path('PM_Pack/07_hydration/STATE_SNAPSHOT.md')
+          if snapshot.exists():
+              txt = snapshot.read_text()
+              txt = re.sub(r'(# STATE SNAPSHOT - CYCLE\\s*)\\d+', r'\\g<1>080', txt)
+              txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
+              txt = re.sub(r'Previous cycle:\\s*\\d+', 'Previous cycle: 079', txt)
+              txt = re.sub(
+                  r'Current branch:\\s*[^\\n]+',
+                  'Current branch: cycle/080/integration',
+                  txt,
+              )
+              snapshot.write_text(txt)
           "
       - name: Brain check
         run: python automation/ai_cycle_controller.py brain-check
