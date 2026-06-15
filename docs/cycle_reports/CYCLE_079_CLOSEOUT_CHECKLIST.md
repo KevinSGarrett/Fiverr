@@ -5,7 +5,7 @@
 - [x] PR #96 CI green (all 4 jobs PASS after fixes)
 - [x] PR #96 merged to develop
 - [ ] Post-merge verify on develop: PASS (partial only; `merge-gate --post-merge` option unavailable in this branch)
-- [ ] Jira Cycle 078 stories: Done transitions complete (blocked by missing Jira transition command/tooling)
+- [x] Jira Cycle 078 stories: Done transitions complete (`SCRUM-256/257/258/259/260/261/287/288`)
 - [x] brain-check: PASS on develop (after running `compile-policy`)
 - [ ] validate-prompts --cycle 079: PASS (6/6) on develop (Cycle 079 prompts are not yet present on develop)
 - [x] PR #97 created

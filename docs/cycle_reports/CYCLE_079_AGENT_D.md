@@ -30,12 +30,12 @@ Branch: `cycle/079/integration`
 21. PARTIAL - Post-merge unit subset run on develop worktree: `3211 passed, 7 skipped`, but runtime appended `KeyboardInterrupt`.
 22. DONE - Ran `compile-policy` then `brain-check` on develop worktree; `BRAIN CHECK PASS`.
 23. DONE - `validate-prompts --cycle 078` on develop: PASS.
-24. BLOCKED - `jira-transition` command not present in this `ai_cycle_controller` build.
-25. BLOCKED - Same Jira transition-command gap for SCRUM-257/258/259.
-26. BLOCKED - Same Jira transition-command gap for SCRUM-260/261.
-27. BLOCKED - Same Jira transition-command gap for SCRUM-287/288.
-28. BLOCKED - Could not transition additional In Review stories due missing Jira transition tooling.
-29. BLOCKED - Could not post SCRUM-1038 Jira completion comment via unavailable Jira command/tool.
+24. DONE - Transitioned `SCRUM-256` to Done (id `41`) and posted evidence comment (id `12898`).
+25. DONE - Transitioned `SCRUM-257`, `SCRUM-258`, `SCRUM-259` to Done and posted evidence comments (ids `12899`, `12900`, `12901`).
+26. DONE - Transitioned `SCRUM-260`, `SCRUM-261` to Done and posted evidence comments (ids `12902`, `12903`).
+27. DONE - Transitioned `SCRUM-287`, `SCRUM-288` to Done and posted evidence comments (ids `12904`, `12905`).
+28. DONE - Queried In Review inventory via Jira JQL; no remaining Cycle 078 scoped keys in `In Review`.
+29. DONE - Posted overall Cycle 078 completion comment to `SCRUM-1038` (comment id `12906`).
 30. DONE - Confirmed and worked from `cycle/079/integration` worktree; recent commits captured.
 31. DONE - Confirmed Cycle 079 branch CI now triggers and runs.
 32. DONE - Fixed Cycle 079 CI failures (tests-coverage + smoke-gates) via workflow remediation commits.
@@ -69,7 +69,7 @@ Branch: `cycle/079/integration`
 - PR #96: merged to develop (SHA: `10a17948b04cfafefc7d393ccba3ce9a236eead6`) ✓
 - PR #96 CI: all 4 jobs PASS after fixes ✓
 - Post-merge develop test suite: partial (`3211 passed`, runtime `KeyboardInterrupt` footer) ✗ strict-tail proof
-- Jira transitions: 0 moved to Done (tooling blocker)
+- Jira transitions: 8 stories moved to Done (`SCRUM-256/257/258/259/260/261/287/288`) ✓
 - PR #97: created (`https://github.com/KevinSGarrett/Fiverr/pull/97`) ✓
 - Pre-merge PASS artifact: `PM_Pack/automation/merge_gates/PR_0097_PRE_MERGE_PASS.json` ✓
 - pm-pack-audit after controller update: blocked by FC-3 cycle disagreement ✗
@@ -80,5 +80,5 @@ Branch: `cycle/079/integration`
 1. BUG-013: Re-verify Cursor model before 2026-06-18 and refresh model-state evidence.
 2. PENDING-002: Add/validate `CODECOV_TOKEN` in GitHub repo secrets for final Codecov policy confidence.
 3. Review/resolve PR #97 merge conflict status reported by merge-gate and finalize merge readiness.
-4. Complete Jira Done transitions/comments for Cycle 078 stories using Jira toolchain with write support.
+4. Confirm PR #97 CI remains green on newest push before merge approval.
 5. Rotate any potentially exposed automation tokens as a precautionary follow-up.
