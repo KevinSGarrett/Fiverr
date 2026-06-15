@@ -1,8 +1,8 @@
 # CURRENT STATE CANONICAL - CYCLE 079
 
-This file is authoritative for cycle state reconciliation.
+## Current Cycle: 076
 
-## Canonical Runtime State
+## Branch State: cycle/075/integration — committed, push verified
 
 | Field | Value |
 |---|---|
@@ -15,7 +15,7 @@ This file is authoritative for cycle state reconciliation.
 | score2_e2e | 47.1% (unchanged) |
 | tierd2_cap | ACTIVE |
 
-## Agent Readiness
+## Go-Live Stage: Stage 1 ACTIVE (CI must pass before merge)
 
 - Agent A: READY (active)
 - Agent B: READY
@@ -36,23 +36,7 @@ This file is authoritative for cycle state reconciliation.
 
 ## Active Constraints
 
-- Do not modify `data/cycle037_live.db`.
-- No `src/` code changes in Agent A scope.
-- 55-task floor required for all six prompts before B+E authorization.
+## TierD-2 Status: BLOCKED — V-1 live collection evidence not yet captured
 
-## Open Governance And Security Items
+## Next Priority: Agent B fixes coverage -> Agent E Jira token -> CI green -> PR -> merge
 
-- BUG-011 / SEC-010: branch protection API call requires elevated token scope.
-- BUG-012: governance token limitation still open.
-- PENDING-001: live multi-cycle evidence still pending.
-
-## Stage State
-
-- Stage 1 (OPS-030): PASS
-- Stage 2 (OPS-031): PASS
-- Stage 3 (OPS-032): PASS
-- Stage 4 (OPS-033): PASS
-- Stage 5 (OPS-034): PASS
-- Stage 6 (OPS-035): ADVISORY_ONLY_WITH_DISPATCH_ALLOWED
-- Stage 7 (OPS-036): SCAFFOLD_READY
-- Stage 8: NOT_STARTED

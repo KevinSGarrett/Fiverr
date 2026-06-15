@@ -1,0 +1,12 @@
+{
+  "pr_number": 0,
+  "head_sha": "cbad174f382f91613d512a5b8227cf6178e961d7",
+  "passed": true,
+  "checked_at": "2026-06-14T02:17:32.585228Z",
+  "gate_checks": {
+    "lint": "PASS",
+    "type_check": "PASS",
+    "tests_coverage": "PARTIAL_BLOCKED",
+    "smoke_gates": "PASS"
+  }
+}

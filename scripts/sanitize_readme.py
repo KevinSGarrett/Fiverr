@@ -1,4 +1,4 @@
-r"""
+"""
 Sanitize a repo export before sharing with agents/Claude/Cursor.
 NEVER export the raw working directory. Always run this first.
 

@@ -1,46 +1,21 @@
-# HYDRATION HEADER - ACTIVE CURRENT STATE
+# HYDRATION HEADER — ACTIVE AUTHORITY
 
-Updated: 2026-06-13
+Updated: 2026-06-12  
+Owner: Agent A (Cycle 076)  
+Authority: Highest state authority. If any PM state document contradicts this file, this file wins.
 
-## Cycle Anchors
+## Active Context
 
-- CYCLE_CURRENT: 077
-- CYCLE_PREVIOUS: 076
-- CYCLE_NEXT: 078
-- BRANCH_CURRENT: cycle/077/integration
-- STATUS: IN_PROGRESS (Agent D close-out not fully complete)
-- EXECUTION_ORDER: A -> B+E -> C -> F -> D
+- Active cycle: 076
+- Branch: `cycle/075/integration`
+- Stage gate: Stage 1 — branch committed and pushed, PR creation pending
+- Last completed cycle: 075
+- Score 1: 67.0% | Score 2: 46.9%
+- TierD-2 SEED x17: ACTIVE BLOCKER (cap <=50% until V-1 PASS)
+- V5 correction commits: `9a2948a`, `f8f2e11`, `982c2ef`, `87b5f92`
+- Cycle 075 work commit: `09afbc27819c841a9b0416cb7da0368fad05676b`
+- Top 3 gaps: V-1 (+2%), V-2 (+2%), V-9 (+2%)
+- Runner: id=22, online, labels=self-hosted,Windows,X64,fiverr-ai-runner
+- Freeze status: LIFTED (frozen=false)
+- Next action: Fix coverage gaps -> get CI green -> create PR -> merge to develop
 
-## Scores And Tier Gate
-
-- SCORE_1_INTERNAL_BUILD_PROGRESS: 91.3%
-- SCORE_2_E2E_PRODUCTION_READINESS: 53.1%
-- TIERD2_CAP: REMOVED
-- V1_STATUS: PASS
-
-## Blockers
-
-Resolved blockers:
-- BUG-001 through BUG-010
-- BUG-013 through BUG-021
-
-Open blockers:
-- BUG-011 (branch protection API scope)
-- BUG-012 (governance token scope dependency)
-- PENDING-001 (awaiting CODECOV_TOKEN provisioning)
-
-## Production Gate Snapshot
-
-- Stage 1: PASS
-- Stage 2: PASS
-- Stage 3: PASS
-- Stage 4: PASS
-- Stage 5: PASS
-- Stage 6: ADVISORY_ONLY_WITH_DISPATCH_ALLOWED
-- Stage 7: SCAFFOLD_READY
-- Stage 8: NOT_STARTED
-
-## Notes
-
-- Baseline DB invariant remains protected: `data/cycle037_live.db` mtime must remain 1780553759.
-- Agent A scope excludes `src/` code modifications.

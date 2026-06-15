@@ -147,16 +147,12 @@ def run_post_cycle_review(
     try:
         # Claude Code defaults to Opus 4.8 â€” force Sonnet 4.6 for PM review
         # (per claude_model_state.json: observed_default_model = Opus 4.8)
-        # Use stdin for large prompts to avoid Windows argv length limits.
         r = subprocess.run(
-            [claude_binary, "-p", "-", "--output-format", "text",
+            [claude_binary, "-p", request_content, "--output-format", "text",
              "--model", "claude-sonnet-4-6"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
-            encoding="utf-8",
-            errors="replace",
-            input=request_content,
             timeout=600,  # 10 min max for PM review
         )
         response_text = (r.stdout + r.stderr).strip()

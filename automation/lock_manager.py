@@ -1,4 +1,4 @@
-﻿"""File-lock coordination utilities for cycle automation."""
+"""File-lock coordination utilities for cycle automation."""
 
 from __future__ import annotations
 
@@ -10,27 +10,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
-LOCK_DIR = Path("C:/AI_Runner/state/locks")  # module-level constant for tests
-
-def _process_alive(pid: int) -> bool:
-    """Module-level process alive check. Patchable in tests."""
-    if pid <= 0:
-        return False
-    try:
-        import psutil
-        return bool(psutil.pid_exists(pid))
-    except Exception:
-        try:
-            import os
-            os.kill(pid, 0)
-            return True
-        except OSError:
-            return False
-
 try:
     import psutil
 except Exception:  # pragma: no cover - fallback path when psutil unavailable
     psutil = None
+
+
+LOCK_DIR = Path("C:/AI_Runner/state/locks")  # module-level constant for tests
 
 
 class LockAcquireError(RuntimeError):
@@ -212,6 +198,20 @@ class LockManager:
             return False
 
 
+def _process_alive(pid: int) -> bool:
+    """Module-level process alive check. Patchable in tests."""
+    if pid <= 0:
+        return False
+    try:
+        import psutil
+        return bool(psutil.pid_exists(pid))
+    except Exception:
+        try:
+            import os
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
 
 
 # ------------------------------------------------------------------ #
@@ -222,7 +222,6 @@ LockError = LockAcquireError  # alias at module level for tests
 
 
 def _lock_file(lock_id: str) -> Path:
-    """Return the lock file path for lock_id using module-level LOCK_DIR."""
     return LOCK_DIR / f"{lock_id}.lock"
 
 
@@ -257,7 +256,6 @@ def acquire(lock_id: str, run_id: str, branch: str, cycle: str | int) -> Path:
 
 
 def is_locked(lock_id: str) -> bool:
-    """Return True if lock exists and is held by an alive process."""
     import json as _json
     import time as _time
     lp = _lock_file(lock_id)
@@ -267,7 +265,6 @@ def is_locked(lock_id: str) -> bool:
         data = _json.loads(lp.read_text(encoding="utf-8"))
         pid = int(data.get("pid", 0))
         heartbeat_ts = float(data.get("heartbeat_ts", 0))
-        # If process is dead or heartbeat is very old (>12h), not locked
         if not _process_alive(pid):
             return False
         if (_time.time() - heartbeat_ts) > 12 * 3600:
@@ -278,7 +275,6 @@ def is_locked(lock_id: str) -> bool:
 
 
 def heartbeat(lock_id: str) -> None:
-    """Update heartbeat timestamp in the lock file."""
     import json as _json
     import time as _time
     lp = _lock_file(lock_id)
@@ -292,6 +288,9 @@ def heartbeat(lock_id: str) -> None:
 
 
 def release(lock_id: str) -> None:
-    """Remove the lock file."""
     lp = _lock_file(lock_id)
-    lp.unlink(missing_ok=True)
+    if lp.exists():
+        try:
+            lp.unlink()
+        except Exception:
+            pass
