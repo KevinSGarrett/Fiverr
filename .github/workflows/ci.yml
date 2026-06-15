@@ -156,23 +156,30 @@ jobs:
               txt = re.sub(r'CYCLE_CURRENT:\\s*\\d+', 'CYCLE_CURRENT: 080', txt)
               txt = re.sub(r'CYCLE_PREVIOUS:\\s*\\d+', 'CYCLE_PREVIOUS: 079', txt)
               txt = re.sub(r'CYCLE_NEXT:\\s*\\d+', 'CYCLE_NEXT: 081', txt)
+              txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
+              txt = re.sub(r'Last completed cycle:\\s*\\d+', 'Last completed cycle: 079', txt)
               txt = re.sub(
                   r'BRANCH_CURRENT:\\s*[^\\n]+',
                   'BRANCH_CURRENT: cycle/080/integration',
                   txt,
               )
+              txt = re.sub(r'Branch:\\s*`?[^\\n`]+`?', 'Branch: `cycle/080/integration`', txt)
               hydration.write_text(txt)
           snapshot = Path('PM_Pack/07_hydration/STATE_SNAPSHOT.md')
           if snapshot.exists():
               txt = snapshot.read_text()
               txt = re.sub(r'(# STATE SNAPSHOT - CYCLE\\s*)\\d+', r'\\g<1>080', txt)
+              txt = re.sub(r'(# State Snapshot — Cycle\\s*)\\d+', r'\\g<1>080', txt)
+              txt = re.sub(r'Cycle:\\s*\\d+', 'Cycle: 080', txt)
               txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
               txt = re.sub(r'Previous cycle:\\s*\\d+', 'Previous cycle: 079', txt)
+              txt = re.sub(r'Last completed cycle:\\s*\\d+', 'Last completed cycle: 079', txt)
               txt = re.sub(
                   r'Current branch:\\s*[^\\n]+',
                   'Current branch: cycle/080/integration',
                   txt,
               )
+              txt = re.sub(r'Branch:\\s*[^\\n]+', 'Branch: cycle/080/integration', txt)
               snapshot.write_text(txt)
           "
       - name: Brain check
