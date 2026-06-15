@@ -99,6 +99,7 @@ external_signal_cache.json
 PM_Pack/automation/runs/
 PM_Pack/automation/locks/
 PM_Pack/automation/current_policy_snapshot.json
+PM_Pack/automation/provider_usage_ledger.json
 PM_Pack/automation/prompts/cursor_smoke_test.md
 
 # ── Go-live / setup helper scripts (local machine only) ─────────────

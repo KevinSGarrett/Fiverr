@@ -1,9 +1,13 @@
 ## HYDRATION HEADER — ACTIVE CURRENT STATE
-## Updated: 2026-06-10 | PM Governance Correction + C074 Merged
+## Updated: 2026-06-15 | Cycle 080 state reconciliation
 ##
 ## SECTION 1: ACTIVE CURRENT STATE
-CYCLE_CURRENT: 075
-LAST_COMPLETED: C074 (TierD-2 live pilot + Wave 11 S8.3)
+Active cycle: 080
+Branch: cycle/080/integration
+Stage gate: Stage 1 — Cycle 080 in progress
+Last completed cycle: 079
+CYCLE_CURRENT: 080
+LAST_COMPLETED: C079 (provider policy governance updates)
 C074_SQUASH_SHA: 13f28e0
 WAVE_CURRENT: 11 (IN PROGRESS)
 WAVE_10: COMPLETE (SCRUM-22 CLOSED, S7.1-S7.9 all done)
@@ -13,7 +17,7 @@ G_A_B_C: CLOSED
 TIER_D1: OPEN (13 stale stashes, user decision required)
 TIER_D2: APPROVED controlled pilot — infrastructure BUILT, pilot PENDING
 SCRUM_1036: Done (C074 control ticket)
-SCRUM_1037: To Do (C075 target — Wave 11 S8.1)
+SCRUM_1037: To Do (C080 target — Wave 11 S8.1)
 
 ## SECTION 2: CORRECTED TWO-SCORE MODEL (DO NOT CONFLATE THESE)
 INTERNAL_BUILD_PROGRESS: ~67%

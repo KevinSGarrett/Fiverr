@@ -1,0 +1,142 @@
+{
+  "cycle": "080",
+  "agent": "B",
+  "agent_lane": "Primary src/ and tests/ author \u2014 new features, core logic",
+  "agentlane": "Primary src/ and tests/ author \u2014 new features, core logic",
+  "branch": "cycle/080/integration",
+  "model_policy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false
+  },
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false,
+    "auto_model_selection": "DISABLED"
+  },
+  "jira_scope": [
+    {
+      "key": "SCRUM-264",
+      "summary": "Prompt rendering and contract generation hardening for Cycle 079",
+      "status": "In Progress",
+      "priority": "High",
+      "acceptance_criteria": [
+        "Prompt rendering path supports Cycle 079 contract payloads",
+        "Validation and promotion flow works for all six agents"
+      ],
+      "definition_of_done": [
+        "Rendered prompts pass validate-prompts checks",
+        "No schema regressions in prompt contract payloads"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "automation/prompt_renderer.py",
+        "automation/prompt_contract_builder.py",
+        "automation/schemas/prompt_contract.schema.json"
+      ],
+      "acceptancecriteria": [
+        "Prompt rendering path supports Cycle 079 contract payloads",
+        "Validation and promotion flow works for all six agents"
+      ],
+      "definitionofdone": [
+        "Rendered prompts pass validate-prompts checks",
+        "No schema regressions in prompt contract payloads"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "automation/prompt_renderer.py",
+        "automation/prompt_contract_builder.py",
+        "automation/schemas/prompt_contract.schema.json"
+      ]
+    }
+  ],
+  "jirascope": [
+    {
+      "key": "SCRUM-264",
+      "summary": "Prompt rendering and contract generation hardening for Cycle 079",
+      "status": "In Progress",
+      "priority": "High",
+      "acceptance_criteria": [
+        "Prompt rendering path supports Cycle 079 contract payloads",
+        "Validation and promotion flow works for all six agents"
+      ],
+      "definition_of_done": [
+        "Rendered prompts pass validate-prompts checks",
+        "No schema regressions in prompt contract payloads"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "automation/prompt_renderer.py",
+        "automation/prompt_contract_builder.py",
+        "automation/schemas/prompt_contract.schema.json"
+      ],
+      "acceptancecriteria": [
+        "Prompt rendering path supports Cycle 079 contract payloads",
+        "Validation and promotion flow works for all six agents"
+      ],
+      "definitionofdone": [
+        "Rendered prompts pass validate-prompts checks",
+        "No schema regressions in prompt contract payloads"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "automation/prompt_renderer.py",
+        "automation/prompt_contract_builder.py",
+        "automation/schemas/prompt_contract.schema.json"
+      ]
+    }
+  ],
+  "allowed_paths": [
+    "src/**",
+    "tests/**"
+  ],
+  "allowedpaths": [
+    "src/**",
+    "tests/**"
+  ],
+  "blocked_paths": [],
+  "blockedpaths": [],
+  "validation_commands": [
+    "python automation/ai_cycle_controller.py brain-check",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 080"
+  ],
+  "validationcommands": [
+    "python automation/ai_cycle_controller.py brain-check",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 080"
+  ],
+  "final_report_path": "docs/cycle_reports/CYCLE_080_AGENT_B.md",
+  "finalreportpath": "docs/cycle_reports/CYCLE_080_AGENT_B.md",
+  "built_at": "2026-06-15T15:40:19.505770+00:00",
+  "builtat": "2026-06-15T15:40:19.505770+00:00",
+  "contract_version": "1.0.0",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-264"
+    ],
+    "sourcesused": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-264"
+    ],
+    "catalog_counts": {
+      "project_plan": 96,
+      "dod": 10,
+      "todo": 11,
+      "github": 47
+    }
+  }
+}

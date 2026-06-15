@@ -1,0 +1,66 @@
+{
+  "cycle": "079",
+  "agent": "A",
+  "agentlane": "Planning / PM Pack Integration",
+  "branch": "cycle/079/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-263",
+      "summary": "Cycle 079 planning and PM Pack integration governance",
+      "acceptancecriteria": [
+        "Cycle planning artifacts are refreshed for 079",
+        "Cross-agent dependencies are reflected in PM docs"
+      ],
+      "definitionofdone": [
+        "Governance docs updated and internally consistent",
+        "Cycle report includes AGENT_COMPLETE evidence"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "PM_Pack/**",
+        "docs/cycle_reports/CYCLE_079_AGENT_A.md"
+      ],
+      "status": "To Do",
+      "priority": "High"
+    }
+  ],
+  "allowedpaths": [
+    "PM_Pack/**",
+    "docs/**",
+    ".github/**",
+    "pyproject.toml",
+    "config.yaml",
+    ".cursorrules"
+  ],
+  "blockedpaths": [
+    "src/**",
+    "tests/**",
+    "data/**"
+  ],
+  "validationcommands": [
+    "ruff check automation/ --output-format=concise",
+    "mypy automation/ --ignore-missing-imports --no-error-summary",
+    "python automation/ai_cycle_controller.py brain-check"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_079_AGENT_A.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-263",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"
+    ]
+  }
+}

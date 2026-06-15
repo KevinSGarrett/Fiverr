@@ -28,9 +28,11 @@ class ConflictItem:
     value_a: Any
     value_b: Any
     severity: str  # BLOCKING | WARNING
+    code: str = ""
 
     def __str__(self) -> str:
-        return (f"[{self.severity}] {self.field}: "
+        prefix = f"{self.code} " if self.code else ""
+        return (f"[{self.severity}] {prefix}{self.field}: "
                 f"{self.source_a}={self.value_a!r} vs {self.source_b}={self.value_b!r}")
 
 
@@ -136,6 +138,7 @@ def run_audit(repo_root: Path | None = None,
     if snap_cycle and ctrl_cycle and abs(snap_cycle - ctrl_cycle) > 10:
         result.passed = False
         result.conflicts.append(ConflictItem(
+            code="STATESNAPSHOTSTALE",
             source_a="STATE_SNAPSHOT", source_b="controller_state",
             field="cycle", value_a=snap_cycle, value_b=ctrl_cycle,
             severity="BLOCKING"
@@ -155,6 +158,7 @@ def run_audit(repo_root: Path | None = None,
             current_status_txt and "not started" in current_status_txt.lower()):
         result.passed = False
         result.conflicts.append(ConflictItem(
+            code="CYCLESOURCEDISAGREEMENT",
             source_a="controller_state", source_b="current_status.md",
             field="status", value_a="AGENT_DISPATCH", value_b="not started",
             severity="BLOCKING"
@@ -172,6 +176,23 @@ def run_audit(repo_root: Path | None = None,
     if canonical_signals.get("status_keyword", "").upper() == "FROZEN":
         result.warnings.append(
             "CURRENT_STATE_CANONICAL mentions FROZEN state — verify prompts/dispatch are blocked."
+        )
+
+    # ── Check 7: provider health artifact exists when provider policy is configured ──
+    provider_policy_path = repo / "PM_Pack/automation/provider_policy.yml"
+    provider_health_path = runner / "state/provider_health.json"
+    if provider_policy_path.exists() and not provider_health_path.exists():
+        result.conflicts.append(ConflictItem(
+            code="PROVIDERHEALTHMISSING",
+            source_a="provider_policy.yml",
+            source_b="provider_health.json",
+            field="provider_health_artifact",
+            value_a="configured",
+            value_b="missing",
+            severity="WARNING",
+        ))
+        result.warnings.append(
+            "PROVIDERHEALTHMISSING: provider_health.json is missing while provider policy is present."
         )
 
     # ── Check 6: autonomy freeze flag ────────────────────────────────

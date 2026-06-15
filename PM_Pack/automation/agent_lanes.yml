@@ -13,6 +13,7 @@ default_order:
 lanes:
   A:
     role: planner_foundation_integration
+    min_tasks: 55
     label: "agent:A"
     description: "PM planning, architecture, docs, GitHub governance, config"
     owns:
@@ -29,6 +30,7 @@ lanes:
 
   B:
     role: primary_implementation
+    min_tasks: 55
     label: "agent:B"
     description: "Primary src/ and tests/ author — new features, core logic"
     owns:
@@ -38,6 +40,7 @@ lanes:
 
   E:
     role: live_validation_external_signals
+    min_tasks: 55
     label: "agent:E"
     description: "Live data validation, external signal collection, evidence files"
     owns:
@@ -53,6 +56,7 @@ lanes:
 
   C:
     role: integration_validation
+    min_tasks: 55
     label: "agent:C"
     description: "Integration checks, validation run, cycle report"
     owns:
@@ -63,6 +67,7 @@ lanes:
 
   F:
     role: test_coverage_regression
+    min_tasks: 55
     label: "agent:F"
     description: "Test coverage gaps, regression tests, coverage enforcement"
     owns:
@@ -70,6 +75,7 @@ lanes:
 
   D:
     role: pr_steward_merge_gate
+    min_tasks: 55
     label: "agent:D"
     description: "PR body, Jira evidence, GitHub status, merge gate preparation"
     owns:

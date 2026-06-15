@@ -1,0 +1,19 @@
+{
+  "catalog": "todo_epic",
+  "generated_at": "2026-06-15T15:22:39.893844+00:00",
+  "root": "PM_Pack\\ref\\todo",
+  "entry_count": 11,
+  "entries": [
+    "PM_Pack\\ref\\todo\\EPIC_01_FOUNDATION.md",
+    "PM_Pack\\ref\\todo\\EPIC_02_COLLECTION.md",
+    "PM_Pack\\ref\\todo\\EPIC_03_ANALYSIS.md",
+    "PM_Pack\\ref\\todo\\EPIC_04_SCORING.md",
+    "PM_Pack\\ref\\todo\\EPIC_05_RECOMMENDATIONS.md",
+    "PM_Pack\\ref\\todo\\EPIC_06_PRICING.md",
+    "PM_Pack\\ref\\todo\\EPIC_07_DISCOVERY.md",
+    "PM_Pack\\ref\\todo\\EPIC_08_PLAYBOOK.md",
+    "PM_Pack\\ref\\todo\\EPIC_09_DASHBOARD.md",
+    "PM_Pack\\ref\\todo\\EPIC_10_INTEGRATION.md",
+    "PM_Pack\\ref\\todo\\TODO_WAVE_SCHEDULE.md"
+  ]
+}

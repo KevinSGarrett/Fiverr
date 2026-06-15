@@ -1,0 +1,146 @@
+"""Cost governance checks for provider routing."""
+
+from __future__ import annotations
+
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from automation.provider_usage_ledger import get_daily_spend, get_monthly_spend
+
+DEFAULT_POLICY_PATH = Path("PM_Pack/automation/provider_policy.yml")
+DEFAULT_BUDGET_STATE_PATH = Path("C:/AI_Runner/state/openai_api_budget_state.json")
+
+
+@dataclass(frozen=True)
+class BudgetCheckResult:
+    status: str
+    reason: str
+    current_daily: float
+    current_monthly: float
+    daily_limit: float
+    monthly_limit: float
+
+
+class CostGuard:
+    def __init__(
+        self,
+        policy_path: Path | None = None,
+        budget_state_path: Path | None = None,
+    ) -> None:
+        self.policy_path = Path(os.getenv("PROVIDER_POLICY_PATH", str(policy_path or DEFAULT_POLICY_PATH)))
+        self.budget_state_path = Path(
+            os.getenv("PROVIDER_BUDGET_STATE_PATH", str(budget_state_path or DEFAULT_BUDGET_STATE_PATH))
+        )
+        self.daily_limit = 10.0
+        self.monthly_limit = 150.0
+        self.soft_warn = 5.0
+        self._load_policy_limits()
+
+    def _load_policy_limits(self) -> None:
+        if not self.policy_path.exists():
+            return
+        payload = yaml.safe_load(self.policy_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return
+        providers = payload.get("providers")
+        if not isinstance(providers, dict):
+            return
+        openai_config = providers.get("openaiapi") or providers.get("openai_api")
+        if not isinstance(openai_config, dict):
+            return
+        hard_limits = openai_config.get("hardlimits") or openai_config.get("hard_limits")
+        if isinstance(hard_limits, dict):
+            self.daily_limit = _as_float(hard_limits.get("dailyusd", hard_limits.get("daily_usd")), 10.0)
+            self.monthly_limit = _as_float(
+                hard_limits.get("monthlyusd", hard_limits.get("monthly_usd")),
+                150.0,
+            )
+        soft_warn = openai_config.get("softwarn") or openai_config.get("soft_warn")
+        if isinstance(soft_warn, dict):
+            self.soft_warn = _as_float(
+                soft_warn.get("dailyusd", soft_warn.get("daily_usd")),
+                5.0,
+            )
+
+    def check_budget(self, provider: str, estimated_cost: float) -> BudgetCheckResult:
+        normalized = provider.strip().lower().replace("_", "")
+        if normalized != "openaiapi":
+            return BudgetCheckResult(
+                status="PASS",
+                reason="Provider not hard-capped",
+                current_daily=0.0,
+                current_monthly=0.0,
+                daily_limit=self.daily_limit,
+                monthly_limit=self.monthly_limit,
+            )
+
+        current_daily = _get_daily_spend("openai_api")
+        current_monthly = _get_monthly_spend("openai_api")
+        projected_daily = current_daily + estimated_cost
+        projected_monthly = current_monthly + estimated_cost
+
+        if projected_daily >= self.daily_limit or projected_monthly >= self.monthly_limit:
+            return BudgetCheckResult(
+                status="HARDBLOCK",
+                reason="Projected spend exceeds hard limits",
+                current_daily=current_daily,
+                current_monthly=current_monthly,
+                daily_limit=self.daily_limit,
+                monthly_limit=self.monthly_limit,
+            )
+        if projected_daily >= self.soft_warn:
+            return BudgetCheckResult(
+                status="SOFTWARN",
+                reason="Projected daily spend exceeds soft warning limit",
+                current_daily=current_daily,
+                current_monthly=current_monthly,
+                daily_limit=self.daily_limit,
+                monthly_limit=self.monthly_limit,
+            )
+        return BudgetCheckResult(
+            status="PASS",
+            reason="Projected spend within limits",
+            current_daily=current_daily,
+            current_monthly=current_monthly,
+            daily_limit=self.daily_limit,
+            monthly_limit=self.monthly_limit,
+        )
+
+    def get_status(self, provider: str = "openai_api") -> dict[str, Any]:
+        result = self.check_budget(provider, estimated_cost=0.0)
+        return {
+            "provider": provider,
+            "status": result.status,
+            "reason": result.reason,
+            "current_daily": result.current_daily,
+            "current_monthly": result.current_monthly,
+            "daily_limit": result.daily_limit,
+            "monthly_limit": result.monthly_limit,
+            "soft_warn": self.soft_warn,
+        }
+
+
+if __name__ == "__main__":
+    guard = CostGuard()
+    target_provider = sys.argv[1] if len(sys.argv) > 1 else "openai_api"
+    print(guard.get_status(target_provider))
+
+
+def _as_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _get_daily_spend(provider: str) -> float:
+    return get_daily_spend(provider)
+
+
+def _get_monthly_spend(provider: str) -> float:
+    return get_monthly_spend(provider)

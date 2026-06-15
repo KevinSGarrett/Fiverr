@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProviderHealth",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cursorcli": {
+      "$ref": "#/definitions/providerHealthEntry"
+    },
+    "claudesubscription": {
+      "$ref": "#/definitions/providerHealthEntry"
+    },
+    "openaiapi": {
+      "$ref": "#/definitions/providerHealthEntry"
+    },
+    "codexsubscription": {
+      "$ref": "#/definitions/providerHealthEntry"
+    }
+  },
+  "required": [
+    "generated_at",
+    "cursorcli",
+    "claudesubscription",
+    "openaiapi",
+    "codexsubscription"
+  ],
+  "definitions": {
+    "providerHealthEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "READY",
+            "NOT_VERIFIED",
+            "DEGRADED",
+            "BLOCKED"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "billing_mode": {
+          "type": "string"
+        },
+        "full_size_prompt_smoke": {
+          "type": "string"
+        },
+        "api_key_present": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    }
+  }
+}

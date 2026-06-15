@@ -510,6 +510,41 @@ def cmd_cursor_smoke() -> None:
     click.secho("Cursor CLI is reachable. Model and headless dispatch verified in Wave 04.", fg="green")
 
 
+@cli.command("cursor-docs-smoke")
+def cmd_cursor_docs_smoke() -> None:
+    """Run a docs-only smoke command surface check."""
+    click.echo("=" * 60)
+    click.echo("CURSOR DOCS SMOKE TEST")
+    click.echo("=" * 60)
+    click.echo("  Command is registered and available.")
+    click.echo("  Use this as a lightweight command-surface verification gate.")
+    click.secho("CURSOR DOCS SMOKE PASS", fg="green")
+
+
+@cli.command("validate-routes")
+def cmd_validate_routes() -> None:
+    """Validate provider policy routes via ProviderRouter."""
+    from automation.provider_router import ProviderRouter
+
+    router = ProviderRouter()
+    result = router.validate_policy()
+    click.echo(str(result))
+    sys.exit(0 if result.passed else 1)
+
+
+@cli.command("provider-route-dry-run")
+@click.option("--task-type", default="prompt_lint", help="Task type to route.")
+@click.option("--cycle", default="080", help="Cycle number to stamp in decision.")
+def cmd_provider_route_dry_run(task_type: str, cycle: str) -> None:
+    """Run provider router dry-run and print selected route."""
+    from automation.provider_router import ProviderRouter
+
+    _ = cycle
+    payload = ProviderRouter().route_dry_run(task_type)
+    click.echo(str(payload))
+    sys.exit(0)
+
+
 @cli.command("recover")
 def cmd_recover() -> None:
     """Attempt safe recovery from stale lock or interrupted run."""

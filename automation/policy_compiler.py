@@ -31,6 +31,7 @@ def compile_policy(repo_root: Path) -> dict[str, Any]:
     # NOT loose pattern which would match filenames like data/cycle037_live.db
     snapshot["cycle_current"] = (
         _extract_int(hydration, r"^CYCLE_CURRENT:\s*0*(\d+)", from_line_start=True)
+        or _extract_int(hydration, r"^Active cycle:\s*0*(\d+)", from_line_start=True)
         or _extract_int(hydration, r"^CYCLE_NEXT:\s*0*(\d+)", from_line_start=True)
         or _extract_int(hydration, r"NEXT CYCLE \(C0*(\d+)\)")
     )

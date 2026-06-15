@@ -1,0 +1,18 @@
+{
+  "catalog": "dod",
+  "generated_at": "2026-06-15T15:22:39.893844+00:00",
+  "root": "PM_Pack\\ref\\dod",
+  "entry_count": 10,
+  "entries": [
+    "PM_Pack\\ref\\dod\\DOD_EPIC_01.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_02.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_03.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_04.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_05.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_06.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_07.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_08.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_09.md",
+    "PM_Pack\\ref\\dod\\DOD_EPIC_10.md"
+  ]
+}

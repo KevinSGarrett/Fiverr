@@ -1,0 +1,97 @@
+{
+  "cycle": "079",
+  "generated_at": "2026-06-15T04:40:42.891551+00:00",
+  "overall": "PASS",
+  "agents": {
+    "A": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "model policy present",
+        "END OF PROMPT present",
+        "jira key present",
+        "branch reference present",
+        "repo root present",
+        "report path present",
+        "validation commands present",
+        "task floor >=55"
+      ],
+      "rejected_reasons": []
+    },
+    "B": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "model policy present",
+        "END OF PROMPT present",
+        "jira key present",
+        "branch reference present",
+        "repo root present",
+        "report path present",
+        "validation commands present",
+        "task floor >=55"
+      ],
+      "rejected_reasons": []
+    },
+    "E": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "model policy present",
+        "END OF PROMPT present",
+        "jira key present",
+        "branch reference present",
+        "repo root present",
+        "report path present",
+        "validation commands present",
+        "task floor >=55"
+      ],
+      "rejected_reasons": []
+    },
+    "C": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "model policy present",
+        "END OF PROMPT present",
+        "jira key present",
+        "branch reference present",
+        "repo root present",
+        "report path present",
+        "validation commands present",
+        "task floor >=55"
+      ],
+      "rejected_reasons": []
+    },
+    "F": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "model policy present",
+        "END OF PROMPT present",
+        "jira key present",
+        "branch reference present",
+        "repo root present",
+        "report path present",
+        "validation commands present",
+        "task floor >=55"
+      ],
+      "rejected_reasons": []
+    },
+    "D": {
+      "status": "PASS",
+      "task_count": 55,
+      "gates_checked": [
+        "model policy present",
+        "END OF PROMPT present",
+        "jira key present",
+        "branch reference present",
+        "repo root present",
+        "report path present",
+        "validation commands present",
+        "task floor >=55"
+      ],
+      "rejected_reasons": []
+    }
+  }
+}

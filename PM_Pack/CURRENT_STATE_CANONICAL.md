@@ -9,16 +9,16 @@
 
 | Field | Value |
 |---|---|
-| Last completed cycle | C073 |
-| Current cycle | C074 (not yet started — prompts FROZEN pending correction) |
-| Branch at C073 close | develop |
+| Last completed cycle | C079 |
+| Current cycle | C080 (in progress) |
+| Branch at C079 close | develop |
 | develop HEAD after C073 PM review | d11de90 |
 | C073 squash SHA (PR #83) | 33ebd24 |
 | C073 integration SHA (PR #84) | 7762132 |
 | C073 post-squash Ruff fix | 1460cd2 |
 | C073 PM review governance | d11de90 |
-| C074 control task | SCRUM-1036 (To Do — not yet started) |
-| C074 prompts status | FROZEN — pre-correction drafts, must not be executed |
+| C080 control task | SCRUM-211 / SCRUM-229 / SCRUM-230 |
+| C080 prompts status | ACTIVE — Stage 1 governance and reconciliation |
 
 ---
 
@@ -154,3 +154,12 @@ Critical stale items:
 5. Rewrite C074 prompts per corrected framework
 6. Formally document C074 +5% gate exception (TierD-2 blocker)
 7. Get user decision on TierD-2 before proceeding with C074 execution
+
+---
+
+## CYCLE 080 ACTIVE DELIVERABLES
+
+- Provider Router V7 Wave B/C Python modules (`automation/provider_router.py`, provider adapters).
+- Deterministic prompt rendering implementation (`automation/prompt_renderer.py`).
+- Prompt contract pipeline updates and validation artifacts.
+- State reconciliation and governance alignment for cycle/080/integration.

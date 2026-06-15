@@ -12,7 +12,7 @@ The old 5-8 and 10-20 guidance is no longer a planning baseline for active cycle
 
 | Metric | Minimum | Target | Maximum |
 |---|---:|---:|---:|
-| Substantive tasks per agent | 20 | 24-32 | 40 |
+| Substantive tasks per agent | 55 | 55-70 | 80 |
 | Total substantive tasks per 4-agent cycle | 80 | 96-128 | 160 |
 | Agent prompt word count | 6,000 | 8,000-12,000 | No hard cap if organized |
 | New/modified files per agent (when coding) | 8 | 12-30 | 50 |
@@ -47,7 +47,7 @@ These may appear as sub-steps under a substantive task, but never as separate co
 
 ## Invalid Prompt Conditions
 
-A prompt is invalid if any agent receives fewer than 20 substantive tasks unless both waivers are present and justified:
+A prompt is invalid if any agent receives fewer than 55 substantive tasks unless both waivers are present and justified:
 
 - `TASK-COUNT WAIVER`
 - `PROMPT-DETAIL WAIVER`
@@ -73,7 +73,7 @@ Waivers are permitted only for:
 
 ### `TASK-COUNT WAIVER` must include:
 
-1. Why 20+ substantive tasks are unsafe for this cycle.
+1. Why 55+ substantive tasks are unsafe for this cycle.
 2. Exact reduced count approved per agent.
 3. Risk of normal scope versus reduced scope.
 4. Named backfill cycle where deferred scope will be restored.

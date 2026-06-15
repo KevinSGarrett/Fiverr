@@ -1,0 +1,61 @@
+{
+  "cycle": "079",
+  "agent": "C",
+  "agentlane": "Provider Router Integration",
+  "branch": "cycle/079/integration",
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto_model_selection": "DISABLED",
+    "fallback": "DISABLED"
+  },
+  "jirascope": [
+    {
+      "key": "SCRUM-265",
+      "summary": "Provider Router integration and adapter orchestration",
+      "acceptancecriteria": [
+        "Provider router selects approved providers by task class",
+        "Adapter pathways preserve policy and cost guard constraints"
+      ],
+      "definitionofdone": [
+        "Provider routing integration tests pass",
+        "Router decisions include auditable rationale"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "automation/provider_router.py",
+        "automation/adapters/"
+      ],
+      "status": "To Do",
+      "priority": "High"
+    }
+  ],
+  "allowedpaths": [
+    "automation/provider_router.py",
+    "automation/adapters/**",
+    "docs/cycle_reports/CYCLE_079_AGENT_C.md"
+  ],
+  "blockedpaths": [
+    "PM_Pack/automation/prompt_contracts/**",
+    "tests/**"
+  ],
+  "validationcommands": [
+    "ruff check automation/provider_router.py automation/adapters --output-format=concise",
+    "mypy automation/provider_router.py automation/adapters --ignore-missing-imports --no-error-summary"
+  ],
+  "finalreportpath": "docs/cycle_reports/CYCLE_079_AGENT_C.md",
+  "builtat": "2026-06-15T08:00:00Z",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-265",
+      "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md"
+    ]
+  }
+}
