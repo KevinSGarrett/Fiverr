@@ -75,8 +75,8 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: CI state bootstrap
         run: |
-          mkdir -p runner/state
-          echo '{"status":"PLANNED","active_cycle":79}' > runner/state/controller_state.json
+          mkdir -p C:/AI_Runner/state
+          echo '{"status":"PLANNED","active_cycle":79}' > C:/AI_Runner/state/controller_state.json
           mkdir -p C:/AI_Runner/secrets
           echo 'JIRA_API_TOKEN=ci-placeholder' > C:/AI_Runner/secrets/runner.env
       - name: Pytest with coverage
@@ -117,13 +117,15 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: CI state bootstrap
         run: |
-          mkdir -p runner/state
-          echo '{"status":"PLANNED","active_cycle":79}' > runner/state/controller_state.json
+          mkdir -p C:/AI_Runner/state
+          echo '{"status":"PLANNED","active_cycle":79}' > C:/AI_Runner/state/controller_state.json
           mkdir -p PM_Pack/automation
           echo '{"cycle_current":79,"last_completed_cycle":"C078"}' > PM_Pack/automation/current_policy_snapshot.json
           python automation/ref_catalog_builder.py build
       - name: Compile policy
         run: python automation/ai_cycle_controller.py compile-policy
+      - name: Normalize policy snapshot
+        run: echo '{"cycle_current":79,"last_completed_cycle":"C078"}' > PM_Pack/automation/current_policy_snapshot.json
       - name: Brain check
         run: python automation/ai_cycle_controller.py brain-check
       - name: PM Pack audit
