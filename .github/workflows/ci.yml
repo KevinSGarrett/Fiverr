@@ -124,7 +124,6 @@ jobs:
           echo '{"status":"PLANNED","active_cycle":76}' > C:/AI_Runner/state/controller_state.json
           mkdir -p PM_Pack/automation
           echo '{"cycle_current":76,"last_completed_cycle":"C075"}' > PM_Pack/automation/current_policy_snapshot.json
-          python automation/ref_catalog_builder.py build
       - name: Compile policy
         run: python automation/ai_cycle_controller.py compile-policy
       - name: Normalize policy snapshot
