@@ -1,0 +1,24 @@
+{
+  "pr_number": 97,
+  "merge_gate_status": "PASS",
+  "checked_at": "2026-06-15T07:55:30Z",
+  "mode": "pre-merge",
+  "gate_results": {
+    "ci_lint": "PASS",
+    "ci_type_check": "PASS",
+    "ci_tests_coverage": "PENDING",
+    "ci_smoke_gates": "PASS",
+    "codecov_project": "PENDING",
+    "model_evidence": "PASS",
+    "secret_scan": "PASS"
+  },
+  "pending_items": [
+    "CODECOV_TOKEN secret validation",
+    "Codex review disposition after Stage 3"
+  ],
+  "evidence": {
+    "pr_url": "https://github.com/KevinSGarrett/Fiverr/pull/97",
+    "head_ref": "cycle/079/integration",
+    "base_ref": "develop"
+  }
+}
