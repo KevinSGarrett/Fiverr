@@ -6,7 +6,7 @@
 - [x] PR #96 merged to develop
 - [ ] Post-merge verify on develop: PASS (partial only; `merge-gate --post-merge` option unavailable in this branch)
 - [ ] Jira Cycle 078 stories: Done transitions complete (blocked by missing Jira transition command/tooling)
-- [ ] brain-check: PASS on develop (failed in detached develop worktree due missing `PM_Pack/automation/current_policy_snapshot.json`)
+- [x] brain-check: PASS on develop (after running `compile-policy`)
 - [ ] validate-prompts --cycle 079: PASS (6/6) on develop (Cycle 079 prompts are not yet present on develop)
 - [x] PR #97 created
 - [x] Pre-merge PASS artifact: `PR_0097_PRE_MERGE_PASS.json`
