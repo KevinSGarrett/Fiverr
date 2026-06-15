@@ -88,6 +88,16 @@ jobs:
                   {'last_seen': '2026-06-15T00:00:00Z', 'status': 'OK', 'active_cycle': 80}
               )
           )
+          Path('C:/AI_Runner/state/provider_health.json').write_text(
+              json.dumps(
+                  {
+                      'cursor_cli': {'status': 'HEALTHY', 'last_ok': '2026-06-15T00:00:00Z'},
+                      'claude_subscription': {'status': 'HEALTHY'},
+                      'openai_api': {'status': 'HEALTHY'},
+                      'codex_subscription': {'status': 'HEALTHY'},
+                  }
+              )
+          )
           Path('PM_Pack/automation').mkdir(parents=True, exist_ok=True)
           Path('PM_Pack/automation/current_policy_snapshot.json').write_text(
               json.dumps({'cycle_current': 80, 'last_completed_cycle': 'C079'})
