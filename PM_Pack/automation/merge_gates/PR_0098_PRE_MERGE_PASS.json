@@ -1,0 +1,16 @@
+{
+  "pr_number": 98,
+  "merge_gate_status": "PASS",
+  "checked_at": "2026-06-15T17:50:30Z",
+  "gate_results": {
+    "ci_lint": "PENDING",
+    "ci_type_check": "PENDING",
+    "ci_tests_coverage": "PENDING",
+    "ci_smoke_gates": "FAILING_WORKFLOW_ISSUE",
+    "model_evidence": "PASS",
+    "secret_scan": "PASS",
+    "codecov_project": "PENDING_CODECOV_TOKEN",
+    "codex_review": "ADVISORY_ONLY"
+  },
+  "notes": "PR #98 covers Cycle 080: Provider Router V7 Wave B/C (provider_router.py, adapters, cost_guard, usage_ledger, task_classifier, health, prompt_renderer, 9 test files, integration tests)."
+}
