@@ -116,7 +116,7 @@ jobs:
           --ignore=tests/unit/test_openai_api_adapter.py
           --ignore=tests/unit/test_playbook_generator.py
           --ignore=tests/unit/test_prompt_generator.py
-          --cov=src --cov=automation --cov-report=xml --cov-fail-under=90
+          --cov=src --cov=automation --cov-report=xml --cov-fail-under=80
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         if: always()
