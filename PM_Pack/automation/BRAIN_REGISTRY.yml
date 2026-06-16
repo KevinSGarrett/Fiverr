@@ -19,7 +19,6 @@ load_order:
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_v4.md
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_1.md
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_2.md
-<<<<<<< HEAD
   pm_identity:
   - PM_Pack/01_pm_instructions/PM_ROLE.md
   - PM_Pack/01_pm_instructions/PM_RULES.md
@@ -85,14 +84,8 @@ optional_warn_if_missing:
 - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_2.md
 - PM_Pack/TASK_PRODUCTION_IMPACT_LEDGER.md
 - automation/adapters/__init__.py
-=======
-  - PM_Pack/TASK_PRODUCTION_IMPACT_LEDGER.md
-  - automation/adapters/__init__.py
-
->>>>>>> origin/develop
 agent_lane_config: PM_Pack/automation/agent_lanes.yml
 consistency_check_fields:
-<<<<<<< HEAD
 - cycle_current
 - last_completed_cycle
 - active_branch
@@ -117,20 +110,3 @@ fiverr_project:
   - 04_NICHE_QUEUE_GTM.md
   description: "Fiverr niche research product \u2014 what to build, how to score,\
     \ what the reports look like"
-=======
-  # pm-pack-audit compares these across sources
-  - cycle_current
-  - last_completed_cycle
-  - active_branch
-  - autonomy_status
-  - post_cycle_review_status
-
-generated_catalogs:
-  validation_schemas:
-    - automation/schemas/dod_catalog.schema.json
-    - automation/schemas/project_plan_catalog.schema.json
-    - automation/schemas/todo_epic_catalog.schema.json
-    - automation/schemas/github_governance_catalog.schema.json
-  manifests:
-    - PM_Pack/automation/prompts/validated/CYCLE_081_MANIFEST.json
->>>>>>> origin/develop

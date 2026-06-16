@@ -1,17 +1,8 @@
 {
-<<<<<<< HEAD
   "cycle": "082",
   "status": "READY",
   "validated_at": "2026-06-16T03:48:31.428573+00:00",
   "agent_count": 6,
   "all_agents_valid": true,
   "manifest_ref": "PM_Pack/automation/prompts/validated/CYCLE_082_MANIFEST.json"
-=======
-  "cycle": "081",
-  "status": "READY",
-  "validated_at": "2026-06-15T22:24:58.205296+00:00",
-  "agent_count": 6,
-  "all_agents_valid": true,
-  "manifest_ref": "PM_Pack/automation/prompts/validated/CYCLE_081_MANIFEST.json"
->>>>>>> origin/develop
 }

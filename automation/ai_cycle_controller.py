@@ -64,7 +64,6 @@ def _run_shell_command(args: list[str]) -> tuple[int, str]:
     return proc.returncode, output
 
 
-<<<<<<< HEAD
 def _current_repo_touched_files() -> set[str]:
     changed = subprocess.run(
         ["git", "diff", "--name-only", "HEAD"],
@@ -121,8 +120,6 @@ def _write_stage_state(payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-=======
->>>>>>> origin/develop
 @click.group()
 def cli() -> None:
     """Fiverr Research System — Autonomous Development Runner."""
@@ -598,41 +595,17 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     if result.error_message:
         click.secho(f"  Error: {result.error_message}", fg="red")
     if safe_docs_only:
-<<<<<<< HEAD
         touched_after = _current_repo_touched_files()
         new_touched = sorted(touched_after - touched_before)
         disallowed = [name for name in new_touched if name != docs_smoke_target]
-=======
-        allowed_target = "PM_Pack/automation/prompts/smoke/cursor_docs_smoke_target.md"
-        changed = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD"],
-            cwd=str(REPO_ROOT),
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip().splitlines()
-        untracked = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard"],
-            cwd=str(REPO_ROOT),
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip().splitlines()
-        touched = sorted({name for name in changed + untracked if name})
-        disallowed = [name for name in touched if name != allowed_target]
->>>>>>> origin/develop
         if disallowed:
             click.secho("  BLOCKED_SAFE_DOCS_SCOPE: non-docs file changes detected", fg="red", bold=True)
             for name in disallowed[:20]:
                 click.echo(f"    - {name}")
-<<<<<<< HEAD
             _record_nonblocking_error(
                 f"run-agent docs scope violation cycle={cycle} agent={agent} files={disallowed[:5]}"
             )
             return
-=======
-            sys.exit(1)
->>>>>>> origin/develop
 
     # --- Post-agent lifecycle (FINDING-009 fix) ---
     # Ownership check, secret guard, report required, full validation, commit, Jira, record
@@ -658,12 +631,8 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         except ExportSecretError as exc:
             write_controller_state("BLOCKED_EXPORT_SECRETS", cycle=cycle)
             click.secho(f"  BLOCKED_EXPORT_SECRETS: {exc}", fg="red", bold=True)
-<<<<<<< HEAD
             _record_nonblocking_error(f"run-agent export secret block cycle={cycle} agent={agent}: {exc}")
             return
-=======
-            sys.exit(1)
->>>>>>> origin/develop
 
     from automation.run_agent_lifecycle import run_post_agent_lifecycle
     lifecycle = run_post_agent_lifecycle(

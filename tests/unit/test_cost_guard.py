@@ -99,7 +99,6 @@ def test_budget_check_result_status_is_always_expected_enum(monkeypatch) -> None
     assert result.status in {"PASS", "SOFTWARN", "HARDBLOCK"}
 
 
-<<<<<<< HEAD
 def test_get_status_reports_softwarn_when_daily_projection_crosses_soft_limit(monkeypatch) -> None:
     monkeypatch.setattr("automation.cost_guard._get_daily_spend", lambda provider: 6.0)
     monkeypatch.setattr("automation.cost_guard._get_monthly_spend", lambda provider: 20.0)
@@ -107,8 +106,6 @@ def test_get_status_reports_softwarn_when_daily_projection_crosses_soft_limit(mo
     assert status["status"] == "SOFTWARN"
 
 
-=======
->>>>>>> origin/develop
 def test_update_spend_increases_daily(tmp_path: Path, monkeypatch) -> None:
     state_path = tmp_path / "openai_budget_state.json"
     state_path.write_text(json.dumps({"dailyspendusd": 1.5, "monthlyspendusd": 20.0}), encoding="utf-8")

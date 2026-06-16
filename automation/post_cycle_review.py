@@ -210,15 +210,9 @@ def collect_facts(cycle: int, mode: ReviewMode,
         pass
 
     reviewer = PostCycleReview(cycle=cycle)
-<<<<<<< HEAD
     reviewer.collect_github_facts(pr_number=pr_number)
     jira_facts = reviewer.collect_jira_facts(merge_sha=facts.merge_sha)
     if jira_facts.get("all_done", False):
-=======
-    reviewer._verify_github_facts()
-    jira_facts = reviewer._verify_jira_facts()
-    if jira_facts.get("done_stories"):
->>>>>>> origin/develop
         facts.cycle_control_done = True
     return facts
 
@@ -455,11 +449,7 @@ class _JiraClientProxy:
         response = requests.get(
             f"{_base_url()}/rest/api/3/search/jql",
             headers=_headers(),
-<<<<<<< HEAD
             params={"jql": jql, "maxResults": "100", "fields": "key,status"},
-=======
-            params={"jql": jql, "maxResults": "100", "fields": "key"},
->>>>>>> origin/develop
             timeout=20,
         )
         if response.status_code in {401, 403}:
@@ -468,7 +458,6 @@ class _JiraClientProxy:
         payload = response.json()
         return payload.get("issues", [])
 
-<<<<<<< HEAD
     def transition_issue(self, issue_key: str, transition_id: str) -> None:
         from automation.jira_client import transition_issue
 
@@ -479,8 +468,6 @@ class _JiraClientProxy:
 
         add_comment(issue_key, body)
 
-=======
->>>>>>> origin/develop
 
 class PostCycleReview:
     """Post-cycle fact collector helpers for GitHub and Jira verification."""
@@ -495,7 +482,6 @@ class PostCycleReview:
         jira_facts = self._verify_jira_facts()
         return {"github": github_facts, "jira": jira_facts}
 
-<<<<<<< HEAD
     def collect_github_facts(self, pr_number: int | None = None) -> dict[str, Any]:
         _ = pr_number
         return self._verify_github_facts()
@@ -518,25 +504,15 @@ class PostCycleReview:
                     "--json",
                     "number,title,mergedAt",
                 ],
-=======
-    def _verify_github_facts(self) -> dict[str, Any]:
-        try:
-            result = subprocess.run(
-                ["gh", "pr", "list", "--state", "merged", "--limit", "5", "--json", "number,title,mergedAt"],
->>>>>>> origin/develop
                 capture_output=True,
                 text=True,
                 check=True,
             )
             merged_prs = json.loads(result.stdout or "[]")
-<<<<<<< HEAD
             payload: dict[str, Any] = {
                 "merged_prs": merged_prs,
                 "collected_at": datetime.now(UTC).isoformat(),
             }
-=======
-            payload = {"merged_prs": merged_prs, "collected_at": datetime.now(UTC).isoformat()}
->>>>>>> origin/develop
         except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
             payload = {"merged_prs": [], "error": "gh_unavailable"}
         self.current_run_dir.mkdir(parents=True, exist_ok=True)
@@ -551,7 +527,6 @@ class PostCycleReview:
             issues = self.jira_client.search_issues(
                 "project=SCRUM AND status=Done AND sprint in openSprints()"
             )
-<<<<<<< HEAD
             done_stories: list[str] = []
             for issue in issues:
                 if isinstance(issue, dict):
@@ -563,13 +538,6 @@ class PostCycleReview:
                 "collected_at": datetime.now(UTC).isoformat(),
             }
         except (JiraAuthError, ConnectionError, OSError):
-=======
-            done_stories = [str(issue.get("key", "")) for issue in issues if issue.get("key")]
-            payload = {"done_stories": done_stories, "collected_at": datetime.now(UTC).isoformat()}
-        except (JiraAuthError, ConnectionError):
-            payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
-        except Exception:
->>>>>>> origin/develop
             payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
         self.current_run_dir.mkdir(parents=True, exist_ok=True)
         (self.current_run_dir / "jira_verification.json").write_text(

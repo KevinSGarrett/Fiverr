@@ -10,11 +10,7 @@ global_rules:
   require_provider_decision_artifact: true
   require_usage_ledger_entry: true
   advisory_only_provider_routing: false
-<<<<<<< HEAD
   # All providers dispatch autonomously — system operates like manual Claude PM + Cursor loop.
-=======
-  advisory_confirm_mode: true
->>>>>>> origin/develop
 
 providers:
   cursorcli:

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # PROMPT_FACTORY_CHAIN v3
-=======
-# PROMPT_FACTORY_CHAIN v2
->>>>>>> origin/develop
 
 ## Artifact Chain
 - `board_inventory.json` (Jira stories with AC/DoD)
@@ -16,11 +12,8 @@
   - `automation/schemas/dod_catalog.schema.json`
   - `automation/schemas/todo_epic_catalog.schema.json`
   - `automation/schemas/github_governance_catalog.schema.json`
-<<<<<<< HEAD
 - Step 2c: Fiverr brain file injection into contracts (`PM_Pack/fiverr_project/*.md`).
   - When `system_mode=fiverr_research`, contract Jira scope is expanded to include `FIVERR-*` epics.
-=======
->>>>>>> origin/develop
 - `PM_Pack/automation/prompt_contracts/CYCLE_NNN_AGENT_X.contract.json` (structured input)
 - `PM_Pack/automation/prompts/drafts/CYCLE_NNN_AGENT_X_DRAFT.md` (rendered markdown)
 - Validation output: `CYCLE_NNN_VALIDATION_REPORT.json`

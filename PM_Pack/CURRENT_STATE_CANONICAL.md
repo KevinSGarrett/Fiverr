@@ -9,26 +9,16 @@
 
 | Field | Value |
 |---|---|
-<<<<<<< HEAD
 | Last completed cycle | C081 |
 | Current cycle | C082 (in progress) |
-=======
-| Last completed cycle | C080 |
-| Current cycle | C081 (in progress) |
->>>>>>> origin/develop
 | Branch at C079 close | develop |
 | develop HEAD after C073 PM review | d11de90 |
 | C073 squash SHA (PR #83) | 33ebd24 |
 | C073 integration SHA (PR #84) | 7762132 |
 | C073 post-squash Ruff fix | 1460cd2 |
 | C073 PM review governance | d11de90 |
-<<<<<<< HEAD
 | C082 control task | SCRUM-1049 / SCRUM-1050 / SCRUM-1051 |
 | C082 prompts status | ACTIVE — unrestricted autonomous execution + stage evidence reporting |
-=======
-| C081 control task | SCRUM-1039 / SCRUM-1040 |
-| C081 prompts status | ACTIVE — Stage 2 readiness governance and reconciliation |
->>>>>>> origin/develop
 
 ---
 
@@ -173,7 +163,6 @@ Critical stale items:
 - Provider routing advisory reporting (`routing-advisory-report`) with cycle markdown outputs.
 - ADR 027 documenting Stage 2 launch criteria, risks, and rollback.
 - State reconciliation and governance alignment for `cycle/081/integration`.
-<<<<<<< HEAD
 - Provider router unrestricted autonomous policy active (`advisory_only_provider_routing=false`).
 - Cursor CLI dispatch runs autonomously; Claude/OpenAI policies remain role-scoped without confirmation gates.
 - `stage2-readiness-check` command added to enforce pre-dispatch gates in one pass.
@@ -198,8 +187,3 @@ Critical stale items:
    - Auth: codex login → ChatGPT (NOT API key)
    - Tasks: docs_agent_work, test_generation only
    - State: C:\AI_Runner\state\codex_subscription_state.json
-=======
-- Provider router advisory-confirm policy active (`advisory_only_provider_routing=false`, `advisory_confirm_mode=true`).
-- Cursor CLI dispatch allowed in advisory-confirm mode; Claude/OpenAI remain confirmation-gated.
-- `stage2-readiness-check` command added to enforce pre-dispatch gates in one pass.
->>>>>>> origin/develop

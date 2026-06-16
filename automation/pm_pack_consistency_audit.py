@@ -190,37 +190,25 @@ def run_audit(repo_root: Path | None = None,
             "PROVIDERHEALTHMISSING: provider_health.json is missing while provider policy is present."
         )
 
-<<<<<<< HEAD
     # ── Check 8 (FC-8): post-cycle ADVISORY_ONLY must fail audit ─────
-=======
-    # ── Check 8: post-cycle advisory-only result blocks dispatch ──────
->>>>>>> origin/develop
     active_cycle = ctrl_state.get("active_cycle")
     reviews_dir = repo / "PM_Pack/automation/post_cycle_reviews"
     if isinstance(active_cycle, int) and reviews_dir.exists():
         cycle_marker = f"{active_cycle:03d}"
-<<<<<<< HEAD
         review_files = sorted(
             reviews_dir.glob("*.json"),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
         for review_file in review_files:
-=======
-        for review_file in reviews_dir.glob("*.json"):
->>>>>>> origin/develop
             try:
                 review_payload = json.loads(review_file.read_text(encoding="utf-8", errors="replace"))
             except (OSError, json.JSONDecodeError):
                 continue
-<<<<<<< HEAD
             review_status = str(
                 review_payload.get("result") or review_payload.get("status") or ""
             ).upper()
             if review_status != "ADVISORY_ONLY":
-=======
-            if str(review_payload.get("status", "")).upper() != "ADVISORY_ONLY":
->>>>>>> origin/develop
                 continue
             file_cycle = str(review_payload.get("cycle") or "")
             if not file_cycle and cycle_marker in review_file.name:
@@ -230,11 +218,7 @@ def run_audit(repo_root: Path | None = None,
             result.passed = False
             result.conflicts.append(
                 ConflictItem(
-<<<<<<< HEAD
                     code="FC-8",
-=======
-                    code="POSTCYCLEADVISORYBLOCKS_DISPATCH",
->>>>>>> origin/develop
                     source_a="post_cycle_reviews",
                     source_b="controller_state",
                     field="post_cycle_status",
@@ -244,11 +228,7 @@ def run_audit(repo_root: Path | None = None,
                 )
             )
             result.warnings.append(
-<<<<<<< HEAD
                 "FC-8: ADVISORY_ONLY result in post_cycle_review — system cannot be in advisory-only state."
-=======
-                "Post-cycle ADVISORY_ONLY result exists — dispatch is blocked until result is cleared or upgraded to PASS"
->>>>>>> origin/develop
             )
             break
 
