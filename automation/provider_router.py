@@ -117,14 +117,6 @@ class ProviderRouter:
             ")"
         )
 
-    def __repr__(self) -> str:
-        return (
-            "ProviderRouter("
-            f"advisory_only={self.advisory_only_mode}, "
-            f"advisory_confirm={self.advisory_confirm_mode}"
-            ")"
-        )
-
     def _load_runner_config(self) -> None:
         if not self.runner_config_path.exists():
             self.runner_config = {}
