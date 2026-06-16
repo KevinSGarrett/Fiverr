@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import json
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from automation.prompt_validator import PromptValidationResult, validate
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROMPTS_DIR = REPO_ROOT / "PM_Pack" / "automation" / "prompts"

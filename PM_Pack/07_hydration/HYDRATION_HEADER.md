@@ -1,13 +1,13 @@
 ## HYDRATION HEADER — ACTIVE CURRENT STATE
-## Updated: 2026-06-15 | Cycle 080 state reconciliation
+## Updated: 2026-06-15 | Cycle 081 state reconciliation
 ##
 ## SECTION 1: ACTIVE CURRENT STATE
-Active cycle: 080
-Branch: cycle/080/integration
-Stage gate: Stage 1 — Cycle 080 in progress
-Last completed cycle: 079
-CYCLE_CURRENT: 080
-LAST_COMPLETED: C079 (provider policy governance updates)
+Active cycle: 081
+Branch: cycle/081/integration
+Stage gate: Stage 1 — Cycle 081 in progress
+Last completed cycle: 080
+CYCLE_CURRENT: 081
+LAST_COMPLETED: C080 (provider policy governance updates)
 C074_SQUASH_SHA: 13f28e0
 WAVE_CURRENT: 11 (IN PROGRESS)
 WAVE_10: COMPLETE (SCRUM-22 CLOSED, S7.1-S7.9 all done)

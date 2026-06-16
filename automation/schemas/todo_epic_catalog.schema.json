@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TodoEpicCatalog",
+  "anyOf": [
+    {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["filename", "source_path", "epic_id", "completion_pct", "open_stories"],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "epic_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "completion_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "open_stories": {
+            "type": "array"
+          },
+          "closed_stories": {
+            "type": "array"
+          },
+          "total_stories": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["catalog", "entries"],
+      "properties": {
+        "catalog": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "pr_number": 96,
+  "merge_sha": "unknown_in_this_session",
+  "merged_at": "2026-06-15T23:59:24.779869+00:00",
+  "post_merge_verification": "PASS",
+  "develop_head_after_merge": "unknown_in_this_session",
+  "notes": "Backfilled artifact created for continuity. Exact merge SHA requires authenticated GitHub query/history lookup."
+}

@@ -1,0 +1,12 @@
+{
+  "decisionid": "3dee717a-fba3-4828-a669-6a99d251dc71",
+  "cycle": "080",
+  "tasktype": "officialpostcycle_review",
+  "selectedprovider": "block",
+  "reason": "ADVISORYCONFIRMREQUIRED",
+  "billingmode": "unknown",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T23:01:55.854369+00:00",
+  "decidedat": "2026-06-15T23:01:55.854369+00:00"
+}

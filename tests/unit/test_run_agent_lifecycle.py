@@ -102,3 +102,111 @@ class TestClassifyFailure:
         from automation.repair_loop import _classify_failure
         result = _classify_failure(["Some unknown error message"])
         assert result == "general"
+
+
+def _setup_lifecycle_repo(tmp_path: Path, monkeypatch):
+    from automation import run_agent_lifecycle as lifecycle
+
+    repo_root = tmp_path / "repo"
+    report_path = repo_root / "docs/cycle_reports/CYCLE_081_AGENT_A.md"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("AGENT_COMPLETE\n", encoding="utf-8")
+    monkeypatch.setattr(lifecycle, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(lifecycle, "_get_changed_files", lambda: ["tests/unit/test_run_agent_lifecycle.py"])
+    monkeypatch.setattr(lifecycle, "_check_ownership", lambda agent, files: [])
+    monkeypatch.setattr(lifecycle, "_scan_changed_files", lambda files: [])
+    monkeypatch.setattr(lifecycle, "_run_validation", lambda agent: (True, "all passed"))
+    return lifecycle
+
+
+def test_dispatch_020_ruff_failure_blocks_commit(tmp_path: Path, monkeypatch) -> None:
+    lifecycle = _setup_lifecycle_repo(tmp_path, monkeypatch)
+    commit_called = {"count": 0}
+    state_updates: list[str] = []
+
+    class _Result:
+        def __init__(self, returncode: int) -> None:
+            self.returncode = returncode
+            self.stdout = ""
+            self.stderr = ""
+
+    def _fake_subprocess_run(cmd, *args, **kwargs):
+        _ = args, kwargs
+        if isinstance(cmd, list) and "ruff" in cmd:
+            return _Result(1)
+        return _Result(0)
+
+    monkeypatch.setattr("automation.run_agent_lifecycle.subprocess.run", _fake_subprocess_run)
+    monkeypatch.setattr(
+        lifecycle,
+        "_commit_agent_work",
+        lambda *args, **kwargs: commit_called.__setitem__("count", commit_called["count"] + 1),
+    )
+    monkeypatch.setattr(lifecycle, "_write_controller_state", lambda status, cycle: state_updates.append(status))
+
+    result = lifecycle.run_post_agent_lifecycle("A", 81, "rid", tmp_path / "run", dry_run=False)
+    assert result.status == "BLOCKED_FAILING_WORK"
+    assert result.commit_blocked is True
+    assert commit_called["count"] == 0
+    assert "BLOCKED_FAILING_WORK" in state_updates
+
+
+def test_dispatch_020_pytest_failure_blocks_commit(tmp_path: Path, monkeypatch) -> None:
+    lifecycle = _setup_lifecycle_repo(tmp_path, monkeypatch)
+    commit_called = {"count": 0}
+
+    class _Result:
+        def __init__(self, returncode: int) -> None:
+            self.returncode = returncode
+            self.stdout = ""
+            self.stderr = ""
+
+    def _fake_subprocess_run(cmd, *args, **kwargs):
+        _ = args, kwargs
+        if isinstance(cmd, list) and "pytest" in cmd:
+            return _Result(1)
+        return _Result(0)
+
+    monkeypatch.setattr("automation.run_agent_lifecycle.subprocess.run", _fake_subprocess_run)
+    monkeypatch.setattr(
+        lifecycle,
+        "_commit_agent_work",
+        lambda *args, **kwargs: commit_called.__setitem__("count", commit_called["count"] + 1),
+    )
+    monkeypatch.setattr(lifecycle, "_write_controller_state", lambda status, cycle: None)
+
+    result = lifecycle.run_post_agent_lifecycle("A", 81, "rid", tmp_path / "run2", dry_run=False)
+    assert result.status == "BLOCKED_FAILING_WORK"
+    assert result.commit_blocked is True
+    assert commit_called["count"] == 0
+
+
+def test_dispatch_017_contract_validation_commands_run(tmp_path: Path, monkeypatch) -> None:
+    lifecycle = _setup_lifecycle_repo(tmp_path, monkeypatch)
+    executed: list[str] = []
+
+    class _Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def _fake_subprocess_run(cmd, **kwargs):
+        if kwargs.get("shell"):
+            executed.append(str(cmd))
+        return _Result()
+
+    monkeypatch.setattr("automation.run_agent_lifecycle.subprocess.run", _fake_subprocess_run)
+    monkeypatch.setattr(lifecycle, "_run_pre_commit_gate", lambda: (True, "PASS"))
+    monkeypatch.setattr(lifecycle, "_commit_agent_work", lambda *args, **kwargs: "abc123")
+
+    contract = {"validation_commands": ["ruff check automation/"]}
+    result = lifecycle.run_post_agent_lifecycle(
+        "A",
+        81,
+        "rid",
+        tmp_path / "run3",
+        contract=contract,
+        dry_run=True,
+    )
+    assert result.status == "COMPLETE"
+    assert "ruff check automation/" in executed

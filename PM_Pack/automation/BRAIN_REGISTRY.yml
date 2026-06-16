@@ -102,6 +102,7 @@ optional_warn_if_missing:
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_1.md
   - PM_Pack/01_pm_instructions/POST_CYCLE_PM_REVIEW_ADDENDUM_v4_2.md
   - PM_Pack/TASK_PRODUCTION_IMPACT_LEDGER.md
+  - automation/adapters/__init__.py
 
 agent_lane_config: PM_Pack/automation/agent_lanes.yml
 
@@ -112,3 +113,12 @@ consistency_check_fields:
   - active_branch
   - autonomy_status
   - post_cycle_review_status
+
+generated_catalogs:
+  validation_schemas:
+    - automation/schemas/dod_catalog.schema.json
+    - automation/schemas/project_plan_catalog.schema.json
+    - automation/schemas/todo_epic_catalog.schema.json
+    - automation/schemas/github_governance_catalog.schema.json
+  manifests:
+    - PM_Pack/automation/prompts/validated/CYCLE_081_MANIFEST.json

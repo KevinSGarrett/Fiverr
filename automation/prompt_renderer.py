@@ -6,9 +6,49 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+__version__ = "1.1.0"
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TEMPLATE_PATH = REPO_ROOT / "PM_Pack" / "03_cursor_agent_system" / "PROMPT_TEMPLATE.md"
 DEFAULT_DRAFTS_DIR = REPO_ROOT / "PM_Pack" / "automation" / "prompts" / "drafts"
+DEFAULT_STOP_CONDITIONS = [
+    "Stop immediately if secrets/credentials are exposed in outputs or artifacts.",
+    "Stop if any blocked path must be modified to complete a task.",
+    "Stop if FC-1 (frozen/autonomy block) is triggered by policy or state.",
+    "Stop before attempting write-side Git operations.",
+]
+ADDITIONAL_TASKS_SECTION = """
+ADDITIONAL TASKS — Checklist Completion (Items with no prior coverage)
+Task 56: EXPORT-001 — Create automation/export_sanitizer_verify.py
+Create the module automation/export_sanitizer_verify.py. It must export:
+class ExportSecretError(Exception) — carries offending_paths: list[str]
+def verify_staged_files(staged_files: list[str]) -> None — raises ExportSecretError if any path matches: *.env, runner.env, *.credentials, *.pem, *.key, any name containing _TOKEN or secret (case-insensitive)
+def verify_zip(zip_path: Path) -> None — opens ZIP, runs same check on all member names, raises ExportSecretError if any match Clean input → returns None silently. Add if __name__ == "__main__": import sys; verify_zip(Path(sys.argv[1])) CLI entrypoint. Run python -c "from automation.export_sanitizer_verify import verify_staged_files, verify_zip, ExportSecretError; verify_staged_files([]); print('export_sanitizer_verify OK')". Must exit 0.
+Task 57: BRAIN-021 — Complete post_cycle_review.py fact collection
+Open automation/post_cycle_review.py. Locate or create _verify_github_facts(self) -> dict: must call subprocess.run(["gh","pr","list","--state","merged","--limit","5","--json","number,title,mergedAt"]), parse JSON, return {"merged_prs": [...], "collected_at": ISO}. Write result to PM_Pack/automation/post_cycle_reviews/current_run/github_verification.json (create dirs). Handle subprocess errors gracefully — on CalledProcessError or FileNotFoundError return {"merged_prs":[], "error":"gh_unavailable"}. Wire this into collect_facts().
+Task 58: POSTCYCLE-010/011 — Complete Jira closeout facts
+In automation/post_cycle_review.py, add _verify_jira_facts(self) -> dict: queries Jira for Done stories in the current cycle using jira_client.search_issues(f"project=SCRUM AND status=Done AND sprint in openSprints()"), returns {"done_stories": [list of keys], "collected_at": ISO}. On JiraAuthError or ConnectionError: return {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"} — never raises. Wire into collect_facts(). Write result to PM_Pack/automation/post_cycle_reviews/current_run/jira_verification.json. Run python -c "from automation.post_cycle_review import PostCycleReview; r=PostCycleReview(); print('PostCycleReview importable')". Must exit 0.
+Task 59: MODEL-014 — Add model verification section to daily report
+Open automation/report_generator.py. Add _get_model_status_section(self) -> str: reads C:\\AI_Runner\\state\\cursor_model_state.json (and claude_model_state.json if it exists). Computes age in days from verified_at. Returns a formatted markdown block: `## Model Verification Status
+Cursor: {model} | effort: {effort} | age: {N} days | expires: {date}
+Claude: {model} | effort: {effort} | billing: {billingmode}. Wire intogeneratedailyreport(). Runpython automation/aicycle_controller.py daily-report 2>&1 | grep -i model` — must show at least one model line.
+Task 60: GJCI-031 — Add CI timing benchmark to daily report
+In automation/report_generator.py, add _get_ci_timing_section(self) -> str: runs subprocess.run(["gh","run","list","--workflow=ci.yml","--limit","5","--json","conclusion,createdAt,updatedAt"]), parses the JSON, computes average duration in seconds, returns `## CI Timing
+Last 5 runs avg: {N}s | last run: {conclusion} ({duration}s). Handle gh unavailable gracefully. Wire intogeneratedailyreport()`. Document the output.
+Task 61: PASS4-P1-010 — Health check ORANGE on stale heartbeat
+Create C:\\AI_Runner\\scripts\\health_check.ps1 if it doesn't already exist. The script must:
+Read C:\\AI_Runner\\state\\heartbeat.json — get last_seen timestamp
+Compute age in minutes: (Get-Date) - [datetime]::Parse($heartbeat.last_seen)
+If age > 120 minutes AND controller_state.json status is ACTIVE: write RED and exit 2
+If age > 30 minutes AND controller_state.json status is ACTIVE: write ORANGE and exit 1
+Otherwise: write GREEN and exit 0 Document the script. Verify it exists at the correct path.
+Task 62: STATE-010 — Implement Slack webhook notification on BLOCKED severity
+Open automation/notification_router.py (create if not exists). Implement class NotificationRouter with:
+send_slack_notification(self, message: str, channel: str, severity: str) -> None: reads SLACK_WEBHOOK_URL from config_loader.get_secret('SLACK_WEBHOOK_URL', default=None). If None/empty: logs "SLACK_WEBHOOK_NOT_CONFIGURED — skipping" and returns. Otherwise: requests.post(url, json={"text": f"[{severity}] {message}"}) with 5-second timeout. Never raises on network error (catch all exceptions and log).
+route_notification(self, severity: str, message: str, context: dict) -> None: calls send_slack_notification only when severity in ('BLOCKED', 'RED', 'CRITICAL'). Run python -c "from automation.notification_router import NotificationRouter; r=NotificationRouter(); r.send_slack_notification('test','#ch','INFO'); print('NotificationRouter OK')". Must not crash even without SLACKWEBHOOKURL set.
+Task 63: Run ruff + mypy on all new Agent B files
+Run ruff check automation/export_sanitizer_verify.py automation/post_cycle_review.py automation/report_generator.py automation/notification_router.py --output-format=concise. Must exit 0. Run mypy automation/export_sanitizer_verify.py automation/notification_router.py --ignore-missing-imports --no-error-summary. Must exit 0. Document any type issues found and fixed.
+""".strip()
 
 
 class PromptRenderer:
@@ -20,6 +60,14 @@ class PromptRenderer:
         DEFAULT_DRAFTS_DIR.mkdir(parents=True, exist_ok=True)
 
     def render(self, contract: dict[str, Any]) -> str:
+        return self.render_with_overrides(contract=contract)
+
+    def render_with_overrides(
+        self,
+        contract: dict[str, Any],
+        extra_tasks: list[dict[str, Any]] | None = None,
+        stop_conditions: list[str] | None = None,
+    ) -> str:
         cycle = _get_str(contract, "cycle", "000")
         agent = _get_str(contract, "agent", "X")
         lane_name = _get_str(contract, "agent_lane", _get_str(contract, "agentlane", "General"))
@@ -37,6 +85,19 @@ class PromptRenderer:
         )
 
         task_blocks = self._generate_task_blocks(jira_scope, agent)
+        if extra_tasks:
+            start_index = len(task_blocks) + 1
+            for idx, task in enumerate(extra_tasks):
+                task_blocks.append(
+                    {
+                        "index": start_index + idx,
+                        "title": _get_str(task, "title", "Additional task"),
+                        "jira_key": _get_str(task, "jira_key", "SCRUM-UNKNOWN"),
+                        "description": _get_str(task, "description", "No description provided."),
+                        "files": _get_list(task, "files"),
+                        "validation": _get_str(task, "validation", "Validation command/output evidence."),
+                    }
+                )
         if not validation_commands:
             validation_commands = [
                 "ruff check automation/ --output-format=concise",
@@ -62,7 +123,7 @@ class PromptRenderer:
             f"Fallback: {_bool_text(model_policy.get('fallback'), default='DISABLED')}",
             "",
             "## GIT RULES — MANDATORY",
-            "You MUST NOT run git add, git commit, git push, gh pr merge, or any force push command.",
+            "You MUST NOT run any write-side Git command or PR merge command.",
             "Controller owns all git operations.",
             "",
             "## AUTONOMY RULE",
@@ -89,6 +150,7 @@ class PromptRenderer:
             )
         lines.extend(["## REQUIRED VALIDATION STEPS"])
         lines.extend(_render_list(validation_commands))
+        effective_stop_conditions = stop_conditions or DEFAULT_STOP_CONDITIONS
         lines.extend(
             [
                 "",
@@ -96,9 +158,13 @@ class PromptRenderer:
                 f"Write final report to {final_report_path}.",
                 "",
                 "## STOP CONDITIONS",
-                "- Stop if a blocked path must be modified.",
-                "- Stop if a required external prerequisite is missing.",
-                "- Stop before executing any forbidden git write operation.",
+            ]
+        )
+        lines.extend(_render_list(effective_stop_conditions))
+        lines.extend(
+            [
+                "",
+                ADDITIONAL_TASKS_SECTION,
                 "",
                 "END OF PROMPT",
             ]
@@ -146,9 +212,27 @@ class PromptRenderer:
         return lines
 
     def _generate_task_blocks(self, jira_scope: list[dict[str, Any]], agent: str) -> list[dict[str, Any]]:
-        stories = jira_scope or [{"key": "SCRUM-000", "summary": "Fallback story", "files_or_modules": []}]
+        if not jira_scope:
+            stories = [{"key": "SCRUM-000", "summary": "Fallback story", "files_or_modules": []}]
+        else:
+            stories = jira_scope
         tasks: list[dict[str, Any]] = []
         index = 1
+        if not jira_scope:
+            tasks.append(
+                {
+                    "index": index,
+                    "title": "No Jira stories assigned — verify contract generation.",
+                    "jira_key": "SCRUM-000",
+                    "description": (
+                        f"Agent {agent} must validate why jira_scope is empty and confirm contract inputs "
+                        "before continuing with generic quality and safety work."
+                    ),
+                    "files": [],
+                    "validation": "Inspect contract generator output and record remediation notes.",
+                }
+            )
+            index += 1
         for story in stories:
             key = _get_str(story, "key", "SCRUM-UNKNOWN")
             summary = _get_str(story, "summary", "Story workstream")
@@ -193,6 +277,22 @@ class PromptRenderer:
             )
             index += 1
         return tasks
+
+
+SCHEMA_PATH = Path(__file__).parent / "schemas" / "prompt_contract.schema.json"
+
+
+def get_schema_path() -> Path:
+    return SCHEMA_PATH
+
+
+def render_with_overrides(
+    contract: dict[str, Any],
+    extra_tasks: list[dict[str, Any]] | None = None,
+    stop_conditions: list[str] | None = None,
+) -> str:
+    renderer = PromptRenderer()
+    return renderer.render_with_overrides(contract, extra_tasks=extra_tasks, stop_conditions=stop_conditions)
 
 
 def _get_str(payload: dict[str, Any], key: str, default: str, fallback_key: str | None = None) -> str:

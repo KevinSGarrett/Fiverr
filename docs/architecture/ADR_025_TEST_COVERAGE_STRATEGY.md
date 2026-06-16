@@ -42,3 +42,29 @@ protected with deterministic tests.
 - Provider-routing regressions are caught earlier with deterministic, hermetic checks.
 - Safety gates move from policy text into executable assertions.
 - CI remains stable by excluding known hanging tests from standard regression commands.
+
+## Cycle 081 Test Additions
+
+- advisory_confirm mode coverage in `test_provider_router.py`:
+  - `test_advisory_confirm_cursor_dispatches`
+  - `test_advisory_confirm_claude_blocked`
+  - `test_advisory_confirm_deterministic_unchanged`
+  - `test_route_dry_run_advisory_confirm_mode`
+- stage2 readiness command coverage in `test_stage2_readiness.py` (4 tests).
+- catalog schema coverage in `test_catalog_schemas.py` (6 tests, including invalid payload fail case).
+- provider module extension coverage:
+  - `test_provider_health.py`: update/refresh status transitions and repeated error blocking.
+  - `test_provider_usage_ledger.py`: weekly spend and ledger summary structure/sums.
+  - `test_cost_guard.py`: `update_spend()` and policy-loaded limits.
+  - `test_prompt_renderer.py`: `render_with_overrides()` and empty `jira_scope`.
+  - `test_provider_router_integration.py`: advisory-confirm dispatch integration path.
+- checklist completion coverage:
+  - `test_export_sanitizer_verify.py`: 5 tests (EXPORT-001).
+  - `test_notification_router.py`: 3 tests (STATE-010).
+  - `test_cursor_adapter.py`: 2 tests (DISPATCH-013).
+  - `test_run_agent_lifecycle.py`: 3 tests (DISPATCH-017/020).
+  - `test_post_cycle_review.py`: 4 tests (BRAIN-021).
+  - `test_pm_pack_consistency_audit.py`: +1 FC-8 coverage test for post-cycle advisory dispatch block, file now at 8 tests total.
+- cycle-level suite snapshot after Agent F changes:
+  - Collected tests: 5704.
+  - Full suite: 5704 passed, 0 failed (2 warnings).

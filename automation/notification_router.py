@@ -13,10 +13,12 @@ Human interruption rules (OPS-012):
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 from datetime import UTC, datetime
 from enum import IntEnum
 from pathlib import Path
+from typing import Any
 
 RUNNER_ROOT = Path("C:/AI_Runner")
 NOTIFY_LOG = RUNNER_ROOT / "logs/notifications.log"
@@ -44,6 +46,8 @@ HUMAN_INTERRUPT_CODES = {
     "BLOCKED_CLAUDE_API_KEY_PRESENT",
     "CLAUDE_SUBSCRIPTION_LIMIT_REACHED",
 }
+
+LOGGER = logging.getLogger(__name__)
 
 
 def notify(severity: Severity | str, title: str, body: str,
@@ -169,3 +173,32 @@ def _try_github_issue(severity: Severity, title: str, body: str,
         )
     except Exception:
         pass
+
+
+class NotificationRouter:
+    """Notification adapter for severity-based Slack routing."""
+
+    def send_slack_notification(self, message: str, channel: str, severity: str) -> None:
+        try:
+            import requests
+
+            from automation.config_loader import get_secret
+
+            webhook_url = get_secret("SLACK_WEBHOOK_URL", default="")
+            if not webhook_url:
+                LOGGER.info("SLACK_WEBHOOK_NOT_CONFIGURED — skipping")
+                return
+            _ = channel
+            requests.post(
+                webhook_url,
+                json={"text": f"[{severity}] {message}"},
+                timeout=5,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Slack notification failed: %s", exc)
+
+    def route_notification(self, severity: str, message: str, context: dict[str, Any]) -> None:
+        normalized = severity.upper().strip()
+        if normalized in {"BLOCKED", "RED", "CRITICAL"}:
+            channel = str(context.get("channel", "#ai-runner-alerts"))
+            self.send_slack_notification(message, channel, normalized)

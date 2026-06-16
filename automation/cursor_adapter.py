@@ -39,6 +39,44 @@ NO_OUTPUT_KILL_MIN      = 45
 CLI_ARG_CHAR_LIMIT      = 4000
 
 
+def kill_cursor_process(pid: int) -> bool:
+    """Kill Cursor and all child processes on Windows using taskkill /F /T."""
+    import platform
+
+    if platform.system() != "Windows":
+        import signal
+
+        if not hasattr(os, "killpg") or not hasattr(os, "getpgid"):
+            return False
+        try:
+            sig_kill = signal.SIGKILL  # type: ignore[attr-defined]
+        except AttributeError:
+            return False
+        try:
+            os.killpg(os.getpgid(pid), sig_kill)  # type: ignore[attr-defined]
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+    try:
+        result = subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+class CursorAdapter:
+    """Compatibility wrapper for Cursor adapter utility methods."""
+
+    def kill_cursor_process(self, pid: int) -> bool:
+        return kill_cursor_process(pid)
+
+
 @dataclass
 class AgentRunResult:
     agent: str
@@ -326,7 +364,7 @@ def run_agent(
                     break
                 now = time.time()
                 if now > hard_deadline:
-                    proc.kill()
+                    kill_cursor_process(proc.pid)
                     return AgentRunResult(
                         agent=agent_id, status="timeout",
                         started_at=started, ended_at=datetime.now(UTC).isoformat(),
@@ -337,7 +375,7 @@ def run_agent(
                         stdout_tail=_tail(stdout_path), stderr_tail=_tail(stderr_path),
                     )
                 if now - last_output_ts[0] > no_output_limit_sec:
-                    proc.kill()
+                    kill_cursor_process(proc.pid)
                     return AgentRunResult(
                         agent=agent_id, status="no_output",
                         started_at=started, ended_at=datetime.now(UTC).isoformat(),

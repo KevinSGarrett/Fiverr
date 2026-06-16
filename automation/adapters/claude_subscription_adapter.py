@@ -12,6 +12,7 @@ from typing import Any
 
 import yaml
 
+from automation.provider_health import refresh_after_dispatch
 from automation.provider_router import ProviderRunResult
 
 CLAUDE_ADAPTER_CONFIG = Path(r"C:\AI_Runner\config\claude_adapter.yaml")
@@ -140,8 +141,15 @@ class ClaudeSubscriptionAdapter:
             self._handle_limit_reached()
             status = "BLOCKED"
             error_message = "SUBSCRIPTIONLIMITREACHED"
+            refresh_after_dispatch("claude_subscription", "LIMIT_HIT", run_dir=run_dir)
         if status == "ADVISORY_ONLY":
             status = "ADVISORYONLYBLOCKED"
+        if error_message != "SUBSCRIPTIONLIMITREACHED":
+            refresh_after_dispatch(
+                "claude_subscription",
+                "SUCCESS" if status == "SUCCESS" else "ERROR",
+                run_dir=run_dir,
+            )
 
         return ProviderRunResult(
             status=status,

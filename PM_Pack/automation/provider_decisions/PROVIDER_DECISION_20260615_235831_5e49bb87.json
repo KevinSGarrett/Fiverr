@@ -1,0 +1,12 @@
+{
+  "decisionid": "9adac189-5694-4c77-8b56-a951b35781f7",
+  "cycle": "081",
+  "tasktype": "official_post_cycle_review",
+  "selectedprovider": "claudesubscription",
+  "reason": "ADVISORYCONFIRMREQUIRED",
+  "billingmode": "claude_subscription_only",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T23:58:31.822914+00:00",
+  "decidedat": "2026-06-15T23:58:31.822914+00:00"
+}

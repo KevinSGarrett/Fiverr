@@ -11,7 +11,6 @@ import yaml
 
 from automation.jira_spec_mapper import JiraSpecMapper
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PM_AUTOMATION_DIR = REPO_ROOT / "PM_Pack" / "automation"
 CONTRACTS_DIR = PM_AUTOMATION_DIR / "prompt_contracts"

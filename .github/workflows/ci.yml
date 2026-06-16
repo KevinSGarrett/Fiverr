@@ -81,11 +81,11 @@ jobs:
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/secrets').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state/controller_state.json').write_text(
-              json.dumps({'status': 'PLANNED', 'active_cycle': 80, 'last_merged_cycle': 79})
+              json.dumps({'status': 'PLANNED', 'active_cycle': 81, 'last_merged_cycle': 80})
           )
           Path('C:/AI_Runner/state/heartbeat.json').write_text(
               json.dumps(
-                  {'last_seen': '2026-06-15T00:00:00Z', 'status': 'OK', 'active_cycle': 80}
+                  {'last_seen': '2026-06-15T00:00:00Z', 'status': 'OK', 'active_cycle': 81}
               )
           )
           Path('C:/AI_Runner/state/provider_health.json').write_text(
@@ -100,7 +100,7 @@ jobs:
           )
           Path('PM_Pack/automation').mkdir(parents=True, exist_ok=True)
           Path('PM_Pack/automation/current_policy_snapshot.json').write_text(
-              json.dumps({'cycle_current': 80, 'last_completed_cycle': 'C079'})
+              json.dumps({'cycle_current': 81, 'last_completed_cycle': 'C080'})
           )
           Path('C:/AI_Runner/secrets/runner.env').write_text('JIRA_API_TOKEN=ci-placeholder')
           "
@@ -153,16 +153,16 @@ jobs:
           from pathlib import Path
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state/controller_state.json').write_text(
-              json.dumps({'status': 'PLANNED', 'active_cycle': 80, 'last_merged_cycle': 79})
+              json.dumps({'status': 'PLANNED', 'active_cycle': 81, 'last_merged_cycle': 80})
           )
           Path('C:/AI_Runner/state/heartbeat.json').write_text(
               json.dumps(
-                  {'last_seen': '2026-06-15T00:00:00Z', 'status': 'OK', 'active_cycle': 80}
+                  {'last_seen': '2026-06-15T00:00:00Z', 'status': 'OK', 'active_cycle': 81}
               )
           )
           Path('PM_Pack/automation').mkdir(parents=True, exist_ok=True)
           Path('PM_Pack/automation/current_policy_snapshot.json').write_text(
-              json.dumps({'cycle_current': 80, 'last_completed_cycle': 'C079'})
+              json.dumps({'cycle_current': 81, 'last_completed_cycle': 'C080'})
           )
           Path('C:/AI_Runner/config').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
@@ -178,40 +178,44 @@ jobs:
           hydration = Path('PM_Pack/07_hydration/HYDRATION_HEADER.md')
           if hydration.exists():
               txt = hydration.read_text()
-              txt = re.sub(r'CYCLE_CURRENT:\\s*\\d+', 'CYCLE_CURRENT: 080', txt)
-              txt = re.sub(r'CYCLE_PREVIOUS:\\s*\\d+', 'CYCLE_PREVIOUS: 079', txt)
-              txt = re.sub(r'CYCLE_NEXT:\\s*\\d+', 'CYCLE_NEXT: 081', txt)
-              txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
-              txt = re.sub(r'Last completed cycle:\\s*\\d+', 'Last completed cycle: 079', txt)
+              m = re.search(r'Active cycle:\\s*0*(\\d+)', txt)
+              active_cycle = int(m.group(1)) if m else 81
+              last_cycle = max(active_cycle - 1, 0)
+              next_cycle = active_cycle + 1
+              txt = re.sub(r'CYCLE_CURRENT:\\s*\\d+', f'CYCLE_CURRENT: {active_cycle:03d}', txt)
+              txt = re.sub(r'CYCLE_PREVIOUS:\\s*\\d+', f'CYCLE_PREVIOUS: {last_cycle:03d}', txt)
+              txt = re.sub(r'CYCLE_NEXT:\\s*\\d+', f'CYCLE_NEXT: {next_cycle:03d}', txt)
+              txt = re.sub(r'Active cycle:\\s*\\d+', f'Active cycle: {active_cycle:03d}', txt)
+              txt = re.sub(r'Last completed cycle:\\s*\\d+', f'Last completed cycle: {last_cycle:03d}', txt)
               txt = re.sub(
                   r'BRANCH_CURRENT:\\s*[^\\n]+',
-                  'BRANCH_CURRENT: cycle/080/integration',
+                  f'BRANCH_CURRENT: cycle/{active_cycle:03d}/integration',
                   txt,
               )
-              txt = re.sub(r'Branch:\\s*[^\\n]+', 'Branch: cycle/080/integration', txt)
+              txt = re.sub(r'Branch:\\s*[^\\n]+', f'Branch: cycle/{active_cycle:03d}/integration', txt)
               hydration.write_text(txt)
           hydration_state = Path('PM_Pack/02_current_state/HYDRATION_HEADER.md')
           if hydration_state.exists():
               txt = hydration_state.read_text()
-              txt = re.sub(r'CYCLE_CURRENT:\\s*\\d+', 'CYCLE_CURRENT: 080', txt)
-              txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
-              txt = re.sub(r'Last completed cycle:\\s*\\d+', 'Last completed cycle: 079', txt)
+              txt = re.sub(r'CYCLE_CURRENT:\\s*\\d+', f'CYCLE_CURRENT: {active_cycle:03d}', txt)
+              txt = re.sub(r'Active cycle:\\s*\\d+', f'Active cycle: {active_cycle:03d}', txt)
+              txt = re.sub(r'Last completed cycle:\\s*\\d+', f'Last completed cycle: {last_cycle:03d}', txt)
               hydration_state.write_text(txt)
           snapshot = Path('PM_Pack/07_hydration/STATE_SNAPSHOT.md')
           if snapshot.exists():
               txt = snapshot.read_text()
-              txt = re.sub(r'(# STATE SNAPSHOT - CYCLE\\s*)\\d+', r'\\g<1>080', txt)
-              txt = re.sub(r'(# State Snapshot â€” Cycle\\s*)\\d+', r'\\g<1>080', txt)
-              txt = re.sub(r'Cycle:\\s*\\d+', 'Cycle: 080', txt)
-              txt = re.sub(r'Active cycle:\\s*\\d+', 'Active cycle: 080', txt)
-              txt = re.sub(r'Previous cycle:\\s*\\d+', 'Previous cycle: 079', txt)
-              txt = re.sub(r'Last completed cycle:\\s*\\d+', 'Last completed cycle: 079', txt)
+              txt = re.sub(r'(# STATE SNAPSHOT - CYCLE\\s*)\\d+', rf'\\g<1>{active_cycle:03d}', txt)
+              txt = re.sub(r'(# State Snapshot â€” Cycle\\s*)\\d+', rf'\\g<1>{active_cycle:03d}', txt)
+              txt = re.sub(r'Cycle:\\s*\\d+', f'Cycle: {active_cycle:03d}', txt)
+              txt = re.sub(r'Active cycle:\\s*\\d+', f'Active cycle: {active_cycle:03d}', txt)
+              txt = re.sub(r'Previous cycle:\\s*\\d+', f'Previous cycle: {last_cycle:03d}', txt)
+              txt = re.sub(r'Last completed cycle:\\s*\\d+', f'Last completed cycle: {last_cycle:03d}', txt)
               txt = re.sub(
                   r'Current branch:\\s*[^\\n]+',
-                  'Current branch: cycle/080/integration',
+                  f'Current branch: cycle/{active_cycle:03d}/integration',
                   txt,
               )
-              txt = re.sub(r'Branch:\\s*[^\\n]+', 'Branch: cycle/080/integration', txt)
+              txt = re.sub(r'Branch:\\s*[^\\n]+', f'Branch: cycle/{active_cycle:03d}/integration', txt)
               snapshot.write_text(txt)
           "
       - name: Brain check

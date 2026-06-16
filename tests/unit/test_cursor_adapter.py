@@ -86,3 +86,34 @@ class TestCheckVersion:
         # Shouldn't be empty
         assert version != "NOT_FOUND", f"Cursor CLI not found: {version}"
         assert "ERROR" not in version, f"Error getting version: {version}"
+
+
+def test_kill_cursor_process_invalid_pid_returns_false() -> None:
+    from automation.cursor_adapter import kill_cursor_process
+
+    assert kill_cursor_process(99999999) is False
+
+
+def test_kill_cursor_process_on_windows_uses_taskkill(monkeypatch) -> None:
+    import subprocess
+
+    import pytest
+    from automation.cursor_adapter import kill_cursor_process
+
+    if sys.platform != "win32":
+        pytest.skip("Windows-specific taskkill behavior")
+
+    class _Result:
+        returncode = 0
+
+    called = {"count": 0}
+
+    def _fake_run(*args, **kwargs):
+        _ = args, kwargs
+        called["count"] += 1
+        return _Result()
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    result = kill_cursor_process(12345)
+    assert isinstance(result, bool)
+    assert called["count"] == 1

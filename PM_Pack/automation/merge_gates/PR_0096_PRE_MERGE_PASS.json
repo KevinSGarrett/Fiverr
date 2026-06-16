@@ -1,0 +1,15 @@
+{
+  "pr_number": 96,
+  "merge_gate_status": "PASS",
+  "checked_at": "2026-06-15T23:59:24.779869+00:00",
+  "gate_results": {
+    "ci_lint": "PASS",
+    "ci_type_check": "PASS",
+    "ci_tests_coverage": "PASS",
+    "ci_smoke_gates": "PASS",
+    "model_evidence": "PASS",
+    "secret_scan": "PASS",
+    "codecov_project": "PENDING_CODECOV_ACTIVATION"
+  },
+  "notes": "Backfilled to complete merge-gate artifact continuity for PRs 96-99."
+}

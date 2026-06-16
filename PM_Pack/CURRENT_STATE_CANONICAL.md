@@ -9,16 +9,16 @@
 
 | Field | Value |
 |---|---|
-| Last completed cycle | C079 |
-| Current cycle | C080 (in progress) |
+| Last completed cycle | C080 |
+| Current cycle | C081 (in progress) |
 | Branch at C079 close | develop |
 | develop HEAD after C073 PM review | d11de90 |
 | C073 squash SHA (PR #83) | 33ebd24 |
 | C073 integration SHA (PR #84) | 7762132 |
 | C073 post-squash Ruff fix | 1460cd2 |
 | C073 PM review governance | d11de90 |
-| C080 control task | SCRUM-211 / SCRUM-229 / SCRUM-230 |
-| C080 prompts status | ACTIVE — Stage 1 governance and reconciliation |
+| C081 control task | SCRUM-1039 / SCRUM-1040 |
+| C081 prompts status | ACTIVE — Stage 2 readiness governance and reconciliation |
 
 ---
 
@@ -157,9 +157,12 @@ Critical stale items:
 
 ---
 
-## CYCLE 080 ACTIVE DELIVERABLES
+## CYCLE 081 ACTIVE DELIVERABLES
 
-- Provider Router V7 Wave B/C Python modules (`automation/provider_router.py`, provider adapters).
-- Deterministic prompt rendering implementation (`automation/prompt_renderer.py`).
-- Prompt contract pipeline updates and validation artifacts.
-- State reconciliation and governance alignment for cycle/080/integration.
+- Stage 2 readiness proof preparation (real dispatch prerequisites and gates).
+- Provider routing advisory reporting (`routing-advisory-report`) with cycle markdown outputs.
+- ADR 027 documenting Stage 2 launch criteria, risks, and rollback.
+- State reconciliation and governance alignment for `cycle/081/integration`.
+- Provider router advisory-confirm policy active (`advisory_only_provider_routing=false`, `advisory_confirm_mode=true`).
+- Cursor CLI dispatch allowed in advisory-confirm mode; Claude/OpenAI remain confirmation-gated.
+- `stage2-readiness-check` command added to enforce pre-dispatch gates in one pass.

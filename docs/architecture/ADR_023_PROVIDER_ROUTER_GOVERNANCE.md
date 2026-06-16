@@ -23,3 +23,9 @@ aligning runner-side state/config and preparing implementation modules.
 - Wave A complete: `provider_policy.yml` route governance and runner config/state files are in place.
 - Wave B/C in Cycle 080: Python modules and adapters are pending (`provider_router.py`, adapter classes).
 - `advisory_only_provider_routing=true` remains active until Stage 2 validation is complete.
+
+## Cycle 081 Update
+- `advisory_confirm_mode=true` replaces `advisory_only_provider_routing=true` as the default governance posture in Cycle 081.
+- `cursor_cli` can dispatch in advisory-confirm mode for implementation/repair/test/docs execution lanes.
+- Claude subscription and OpenAI API routes still require explicit human confirmation (`ADVISORYCONFIRMREQUIRED`) before dispatch.
+- This change advances the system toward Stage 2 real dispatch readiness while preserving strict review controls.

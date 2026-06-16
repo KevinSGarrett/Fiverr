@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProjectPlanCatalog",
+  "anyOf": [
+    {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["filename", "source_path", "title"],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "jira_keys": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^SCRUM-\\d+$"
+            }
+          },
+          "epic_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "dod_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["catalog", "entries"],
+      "properties": {
+        "catalog": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

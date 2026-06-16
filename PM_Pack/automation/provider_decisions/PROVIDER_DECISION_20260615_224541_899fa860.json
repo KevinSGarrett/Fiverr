@@ -1,0 +1,12 @@
+{
+  "decisionid": "d8fae1d4-9a53-4768-824b-4465fd8c7618",
+  "cycle": "081",
+  "tasktype": "repair",
+  "selectedprovider": "cursorcli",
+  "reason": "DISPATCHCONFIRM",
+  "billingmode": "cursor_subscription",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T22:45:41.097241+00:00",
+  "decidedat": "2026-06-15T22:45:41.097241+00:00"
+}

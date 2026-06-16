@@ -1,0 +1,12 @@
+{
+  "decisionid": "47c6b414-fe80-4f2e-a5e2-d113efc72408",
+  "cycle": "080",
+  "tasktype": "jsonclassification",
+  "selectedprovider": "openaiapi",
+  "reason": "classified=json_classification;primary=openai_api;route=openai_api;health=READY",
+  "billingmode": "openai_api_key",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T21:10:18.752180+00:00",
+  "decidedat": "2026-06-15T21:10:18.752180+00:00"
+}

@@ -76,6 +76,7 @@ def test_runner_env_only_key_loading(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_send_prompt_writes_usage_ledger(monkeypatch: pytest.MonkeyPatch, fake_openai_module) -> None:
     _ = fake_openai_module
     monkeypatch.setattr(oaa, "load_secrets", lambda: {"OPENAIAPIKEY": "k"})
+    monkeypatch.setattr(oaa, "update_spend", lambda provider, actual_cost: None)
     ledger_entries: list[object] = []
     monkeypatch.setattr(oaa, "record_call", lambda entry: ledger_entries.append(entry))
     adapter = OpenAIApiAdapter()
@@ -90,6 +91,7 @@ def test_send_prompt_writes_usage_ledger(monkeypatch: pytest.MonkeyPatch, fake_o
 
 def test_send_prompt_hardblock_returns_blocked_without_ledger(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(oaa, "load_secrets", lambda: {"OPENAIAPIKEY": "k"})
+    monkeypatch.setattr(oaa, "update_spend", lambda provider, actual_cost: None)
     ledger_entries: list[object] = []
     monkeypatch.setattr(oaa, "record_call", lambda entry: ledger_entries.append(entry))
     adapter = OpenAIApiAdapter()
@@ -104,6 +106,7 @@ def test_send_prompt_hardblock_returns_blocked_without_ledger(monkeypatch: pytes
 def test_send_prompt_writes_advisory_file(monkeypatch: pytest.MonkeyPatch, fake_openai_module) -> None:
     _ = fake_openai_module
     monkeypatch.setattr(oaa, "load_secrets", lambda: {"OPENAIAPIKEY": "k"})
+    monkeypatch.setattr(oaa, "update_spend", lambda provider, actual_cost: None)
     adapter = OpenAIApiAdapter()
     adapter.cost_guard = SimpleNamespace(
         check_budget=lambda provider, estimated_cost: SimpleNamespace(status="PASS")

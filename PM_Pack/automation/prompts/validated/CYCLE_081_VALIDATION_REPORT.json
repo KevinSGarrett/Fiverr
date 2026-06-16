@@ -1,0 +1,167 @@
+{
+  "cycle": "081",
+  "generated_at": "2026-06-15T22:24:58.205296+00:00",
+  "overall": "PASS",
+  "agents": {
+    "A": {
+      "status": "PASS",
+      "task_count": 55,
+      "word_count": 3392,
+      "line_count": 441,
+      "gates_checked": [
+        "MODEL_POLICY",
+        "END_OF_PROMPT",
+        "TASK_FLOOR_55",
+        "NO_STUB_CONTENT",
+        "NO_GIT_WRITE_COMMANDS",
+        "CYCLE_REFERENCE"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3392 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3",
+        "Agent A Task 1 floor check script missing"
+      ]
+    },
+    "B": {
+      "status": "PASS",
+      "task_count": 55,
+      "word_count": 3355,
+      "line_count": 422,
+      "gates_checked": [
+        "MODEL_POLICY",
+        "END_OF_PROMPT",
+        "TASK_FLOOR_55",
+        "NO_STUB_CONTENT",
+        "NO_GIT_WRITE_COMMANDS",
+        "CYCLE_REFERENCE"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3355 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ]
+    },
+    "E": {
+      "status": "PASS",
+      "task_count": 55,
+      "word_count": 3787,
+      "line_count": 483,
+      "gates_checked": [
+        "MODEL_POLICY",
+        "END_OF_PROMPT",
+        "TASK_FLOOR_55",
+        "NO_STUB_CONTENT",
+        "NO_GIT_WRITE_COMMANDS",
+        "CYCLE_REFERENCE"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3787 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ]
+    },
+    "C": {
+      "status": "PASS",
+      "task_count": 55,
+      "word_count": 3314,
+      "line_count": 421,
+      "gates_checked": [
+        "MODEL_POLICY",
+        "END_OF_PROMPT",
+        "TASK_FLOOR_55",
+        "NO_STUB_CONTENT",
+        "NO_GIT_WRITE_COMMANDS",
+        "CYCLE_REFERENCE"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3314 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ]
+    },
+    "F": {
+      "status": "PASS",
+      "task_count": 55,
+      "word_count": 3426,
+      "line_count": 435,
+      "gates_checked": [
+        "MODEL_POLICY",
+        "END_OF_PROMPT",
+        "TASK_FLOOR_55",
+        "NO_STUB_CONTENT",
+        "NO_GIT_WRITE_COMMANDS",
+        "CYCLE_REFERENCE"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3426 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ]
+    },
+    "D": {
+      "status": "PASS",
+      "task_count": 55,
+      "word_count": 3338,
+      "line_count": 420,
+      "gates_checked": [
+        "MODEL_POLICY",
+        "END_OF_PROMPT",
+        "TASK_FLOOR_55",
+        "NO_STUB_CONTENT",
+        "NO_GIT_WRITE_COMMANDS",
+        "CYCLE_REFERENCE"
+      ],
+      "warnings": [
+        "Prompt below 6,000 word target: 3338 words",
+        "PQ gate not confirmed: PQ-0",
+        "PQ gate not confirmed: PQ-1",
+        "PQ gate not confirmed: PQ-2",
+        "PQ gate not confirmed: PQ-3"
+      ]
+    }
+  },
+  "warnings": [
+    "A: Prompt below 6,000 word target: 3392 words",
+    "A: PQ gate not confirmed: PQ-0",
+    "A: PQ gate not confirmed: PQ-1",
+    "A: PQ gate not confirmed: PQ-2",
+    "A: PQ gate not confirmed: PQ-3",
+    "A: Agent A Task 1 floor check script missing",
+    "B: Prompt below 6,000 word target: 3355 words",
+    "B: PQ gate not confirmed: PQ-0",
+    "B: PQ gate not confirmed: PQ-1",
+    "B: PQ gate not confirmed: PQ-2",
+    "B: PQ gate not confirmed: PQ-3",
+    "E: Prompt below 6,000 word target: 3787 words",
+    "E: PQ gate not confirmed: PQ-0",
+    "E: PQ gate not confirmed: PQ-1",
+    "E: PQ gate not confirmed: PQ-2",
+    "E: PQ gate not confirmed: PQ-3",
+    "C: Prompt below 6,000 word target: 3314 words",
+    "C: PQ gate not confirmed: PQ-0",
+    "C: PQ gate not confirmed: PQ-1",
+    "C: PQ gate not confirmed: PQ-2",
+    "C: PQ gate not confirmed: PQ-3",
+    "F: Prompt below 6,000 word target: 3426 words",
+    "F: PQ gate not confirmed: PQ-0",
+    "F: PQ gate not confirmed: PQ-1",
+    "F: PQ gate not confirmed: PQ-2",
+    "F: PQ gate not confirmed: PQ-3",
+    "D: Prompt below 6,000 word target: 3338 words",
+    "D: PQ gate not confirmed: PQ-0",
+    "D: PQ gate not confirmed: PQ-1",
+    "D: PQ gate not confirmed: PQ-2",
+    "D: PQ gate not confirmed: PQ-3"
+  ]
+}

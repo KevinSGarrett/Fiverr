@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
+
+__version__ = "1.1.0"
 
 DEFAULT_PROVIDER_HEALTH_PATH = Path("C:/AI_Runner/state/provider_health.json")
 KNOWN_PROVIDERS = ("cursorcli", "claudesubscription", "openaiapi", "codexsubscription")
 EDITING_PROVIDERS = {"cursorcli", "codexsubscription"}
+VALID_STATUSES = {"READY", "NOTVERIFIED", "DEGRADED", "BLOCKED"}
 _PROVIDER_ALIASES = {
     "cursor_cli": "cursorcli",
     "claude_subscription": "claudesubscription",
@@ -32,13 +37,13 @@ class ProviderHealth:
         else:
             selected_raw = str(DEFAULT_PROVIDER_HEALTH_PATH)
         selected_path = Path(selected_raw)
-        if not selected_path.exists():
+        if health_path is not None and not selected_path.exists():
             raise FileNotFoundError(f"Provider health file not found: {selected_path}")
         self._health_path = selected_path
         self._health_data = self._load_health_data()
 
     def _load_health_data(self) -> dict[str, Any]:
-        payload = json.loads(self._health_path.read_text(encoding="utf-8"))
+        payload = _read_health_payload(self._health_path)
         if not isinstance(payload, dict):
             return {}
         normalized: dict[str, Any] = {}
@@ -56,10 +61,12 @@ class ProviderHealth:
         if not isinstance(entry, dict):
             return "BLOCKED"
         status = _normalize_status(entry.get("status", "BLOCKED"))
-        if status != "READY":
+        if status not in {"READY", "DEGRADED"}:
             return "BLOCKED"
         is_ready, _ = self.is_editing_provider_ready(provider)
-        return "READY" if is_ready else "BLOCKED"
+        if not is_ready:
+            return "BLOCKED"
+        return "READY" if status == "READY" else "DEGRADED"
 
     def is_editing_provider_ready(self, provider: str) -> tuple[bool, str]:
         normalized_provider = _normalize_provider_name(provider)
@@ -90,3 +97,91 @@ def _normalize_provider_name(provider: Any) -> str:
 def _normalize_status(status: Any) -> str:
     value = str(status or "").strip().upper()
     return _STATUS_ALIASES.get(value, value)
+
+
+def _default_health_payload() -> dict[str, Any]:
+    generated_at = datetime.now(tz=UTC).isoformat()
+    return {
+        "generated_at": generated_at,
+        **{provider: {"status": "NOT_VERIFIED"} for provider in KNOWN_PROVIDERS},
+    }
+
+
+def _read_health_payload(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return _default_health_payload()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except JSONDecodeError:
+        return _default_health_payload()
+    if not isinstance(payload, dict):
+        return _default_health_payload()
+    merged = _default_health_payload()
+    merged.update(payload)
+    for provider in KNOWN_PROVIDERS:
+        entry = merged.get(provider)
+        if not isinstance(entry, dict):
+            merged[provider] = {"status": "NOT_VERIFIED"}
+        elif "status" not in entry:
+            merged[provider]["status"] = "NOT_VERIFIED"
+    return merged
+
+
+def _write_health_payload(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload["generated_at"] = datetime.now(tz=UTC).isoformat()
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def update_provider_status(provider: str, status: str, extras: dict[str, Any] | None = None) -> None:
+    normalized_provider = _normalize_provider_name(provider)
+    normalized_status = _normalize_status(status)
+    if normalized_status not in VALID_STATUSES:
+        raise ValueError(f"Invalid provider status: {status}")
+    if normalized_provider not in KNOWN_PROVIDERS:
+        raise ValueError(f"Unknown provider: {provider}")
+
+    health_path = Path(os.getenv("PROVIDER_HEALTH_PATH", str(DEFAULT_PROVIDER_HEALTH_PATH)))
+    payload = _read_health_payload(health_path)
+    entry = payload.get(normalized_provider)
+    if not isinstance(entry, dict):
+        entry = {}
+    entry["status"] = "NOT_VERIFIED" if normalized_status == "NOTVERIFIED" else normalized_status
+    if extras:
+        entry.update(extras)
+    payload[normalized_provider] = entry
+    _write_health_payload(health_path, payload)
+
+
+def refresh_after_dispatch(provider: str, result_status: str, run_dir: Path | None = None) -> None:
+    normalized_provider = _normalize_provider_name(provider)
+    health_path = Path(os.getenv("PROVIDER_HEALTH_PATH", str(DEFAULT_PROVIDER_HEALTH_PATH)))
+    payload = _read_health_payload(health_path)
+    entry = payload.get(normalized_provider)
+    if not isinstance(entry, dict):
+        entry = {"status": "NOT_VERIFIED", "error_count": 0}
+
+    normalized_result = str(result_status).strip().upper()
+    extras: dict[str, Any] = {"last_checked_at": datetime.now(tz=UTC).isoformat()}
+    if run_dir is not None:
+        extras["last_run_dir"] = str(run_dir)
+
+    if normalized_result in {"SUCCESS", "PASS", "OK"}:
+        extras["error_count"] = 0
+        extras["last_ok"] = datetime.now(tz=UTC).isoformat()
+        update_provider_status(normalized_provider, "READY", extras)
+        return
+
+    previous_errors = int(entry.get("error_count", 0) or 0)
+    next_error_count = previous_errors + 1
+    extras["error_count"] = next_error_count
+    extras["last_error"] = datetime.now(tz=UTC).isoformat()
+    next_status = "BLOCKED" if next_error_count >= 2 else "DEGRADED"
+    update_provider_status(normalized_provider, next_status, extras)
+
+
+SCHEMA_PATH = Path(__file__).parent / "schemas" / "provider_health.schema.json"
+
+
+def get_schema_path() -> Path:
+    return SCHEMA_PATH

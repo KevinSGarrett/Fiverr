@@ -12,7 +12,8 @@ import yaml
 from automation import model_gate
 from automation.cursor_adapter import _resolve_binary
 from automation.cursor_adapter import run_agent as cursor_run_agent
-from automation.provider_router import ProviderRunResult
+from automation.provider_health import refresh_after_dispatch
+from automation.provider_router import ProviderRouter, ProviderRunResult
 
 CURSOR_ADAPTER_CONFIG_PATH = Path(r"C:\AI_Runner\config\cursor_adapter.yaml")
 CURSOR_MODEL_STATE_PATH = Path(r"C:\AI_Runner\state\cursor_model_state.json")
@@ -57,17 +58,22 @@ class CursorWorkerAdapter:
             raise AdapterBlockedError("BLOCKED_DRAFT_PROMPT: only validated prompts may be dispatched")
         return True
 
-    def preflight(self) -> None:
+    def preflight(self, prompt_path: Path | None = None, cycle: str = "", agent: str = "") -> None:
+        _ = cycle, agent
         gate = model_gate.check()
         observed_model = getattr(gate, "observed_model", "")
         if (not gate.passed) or observed_model == "UNVERIFIED":
             raise AdapterBlockedError("BLOCKED_MODEL_VERIFICATION")
+        router = ProviderRouter()
+        if router.advisory_only_mode:
+            raise AdapterBlockedError("BLOCKED_ADVISORY_ONLY_MODE")
         if self._is_desktop_binary(self.binary):
             raise AdapterBlockedError("BLOCKED_CURSOR_DESKTOP_BINARY_PATH")
+        if prompt_path is not None:
+            self._validate_prompt_path(prompt_path)
 
     def run_agent(self, prompt_path: Path, cycle: str, agent: str) -> ProviderRunResult:
-        self.preflight()
-        self._validate_prompt_path(prompt_path)
+        self.preflight(prompt_path=prompt_path, cycle=cycle, agent=agent)
 
         started_at = datetime.now(UTC).isoformat()
         run_dir = Path(r"C:\AI_Runner\runs") / f"CYCLE_{(cycle or '000').zfill(3)}" / "agent_runs" / agent
@@ -86,6 +92,11 @@ class CursorWorkerAdapter:
             report_complete = first_line == ["AGENT_COMPLETE"]
 
         status = "SUCCESS" if result.status == "complete" and report_complete else "ERROR"
+        refresh_after_dispatch(
+            "cursor_cli",
+            "SUCCESS" if status == "SUCCESS" else "ERROR",
+            run_dir=run_dir,
+        )
         return ProviderRunResult(
             status=status,
             provider="cursorcli",

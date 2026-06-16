@@ -1,13 +1,14 @@
 {
   "catalog": "docs_architecture",
-  "generated_at": "2026-06-15T16:49:33.753642+00:00",
+  "generated_at": "2026-06-16T00:24:06.105402+00:00",
   "root": "docs/architecture",
-  "entry_count": 6,
+  "entry_count": 7,
   "entries": [
     "docs/architecture/ADR_023_PROVIDER_ROUTER_GOVERNANCE.md",
     "docs/architecture/ADR_024_COST_GOVERNANCE.md",
     "docs/architecture/ADR_025_TEST_COVERAGE_STRATEGY.md",
     "docs/architecture/ADR_026_STATE_RECONCILIATION.md",
+    "docs/architecture/ADR_027_STAGE2_READINESS.md",
     "docs/architecture/PROMPT_FACTORY_CHAIN.md",
     "docs/architecture/PROMPTFACTORYCHAIN.md"
   ]
