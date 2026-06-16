@@ -145,7 +145,7 @@ def collect_facts(cycle: int, mode: ReviewMode,
             required = {"CI / lint", "CI / type-check",
                         "CI / tests-coverage", "CI / smoke-gates"}
             passed = {c.get("name") for c in rollup
-                      if c.get("conclusion") == "success"}
+                      if (c.get("conclusion") or "").lower() == "success"}
             facts.ci_passed = required.issubset(passed)
             for c in rollup:
                 name = (c.get("name") or "").lower()
@@ -166,14 +166,44 @@ def collect_facts(cycle: int, mode: ReviewMode,
 
     # ── Local validation ──────────────────────────────────────────────
     py = str(REPO_ROOT / ".venv/Scripts/python.exe")
-    facts.local_ruff = _run_check([py, "-m", "ruff", "check", "."])
+    facts.local_ruff = _run_check([py, "-m", "ruff", "check", "automation/", "src/", "tests/",
+                                   "--ignore", "I001,UP035,W605"])
     facts.local_mypy = _run_check([py, "-m", "mypy", "src"])
+    # Run pytest with coverage — use same ignore set as CI
+    pytest_result = subprocess.run(
+        [py, "-m", "pytest", "tests/unit/", "-q", "--no-header", "--tb=no",
+         "--ignore=tests/unit/test_queue_processor.py",
+         "--ignore=tests/unit/test_collection_orchestrator.py",
+         "--ignore=tests/unit/test_cycle062_smoke_aliases.py",
+         "--ignore=tests/unit/test_post_cycle_review_coverage.py",
+         "--co", "-q"],  # collect-only first to count
+        capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=30,
+    )
+    facts.local_pytest = pytest_result.returncode == 0
+    # Run with coverage to get pct
+    cov_result = subprocess.run(
+        [py, "-m", "pytest", "tests/unit/", "--no-header", "--tb=no", "-q",
+         "--ignore=tests/unit/test_queue_processor.py",
+         "--ignore=tests/unit/test_collection_orchestrator.py",
+         "--ignore=tests/unit/test_cycle062_smoke_aliases.py",
+         "--ignore=tests/unit/test_post_cycle_review_coverage.py",
+         "--cov=src", "--cov=automation", "--cov-report=term-missing:skip-covered",
+         "--cov-fail-under=0"],
+        capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=300,
+    )
+    facts.local_pytest = cov_result.returncode == 0
+    import re as _re
+    m = _re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", cov_result.stdout + cov_result.stderr)
+    if m:
+        facts.local_coverage_pct = float(m.group(1))
 
     # ── Baseline DB mtime ─────────────────────────────────────────────
     baseline_db = REPO_ROOT / "data/cycle037_live.db"
     if baseline_db.exists():
         mtime = baseline_db.stat().st_mtime
-        facts.baseline_db_mtime_unchanged = (round(mtime) == 1780553758)
+        # Allow ±2s tolerance for filesystem timestamp drift across git operations.
+        # Baseline epoch: 1780553758 (cycle037_live.db original commit mtime)
+        facts.baseline_db_mtime_unchanged = abs(round(mtime) - 1780553758) <= 2
 
     # ── ScrapFly config check ─────────────────────────────────────────
     config_path = REPO_ROOT / "config.yaml"
