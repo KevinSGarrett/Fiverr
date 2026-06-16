@@ -451,22 +451,40 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         click.secho(f"  [WARN] Jira inventory failed: {e}", fg="yellow")
         jira_issues = []
 
-    # Filter out automation runner control tickets — agents build Fiverr product, not runner infra.
-    # Exclude issues with labels: control-ticket, automation-runner, or summary starting with CYCLE-0NN
+    # Filter 1: automation runner control tickets
     import re as _re
     _ctrl_labels = {"control-ticket", "automation-runner"}
     _ctrl_summary_pattern = _re.compile(r"^CYCLE-0\d{2,3}\s", _re.IGNORECASE)
+    # Filter 2: [JIRA] admin import tasks (e.g. "[JIRA] Prepare Wave 20 product task...")
+    _jira_admin_pattern = _re.compile(r"^\s*\[JIRA\]", _re.IGNORECASE)
+
     filtered_issues = [
         issue for issue in jira_issues
         if not (
-            _ctrl_labels & set(issue.get("fields", {}).get("labels", []))
+            _ctrl_labels & set(issue.get("labels", []))
+            or _ctrl_labels & set(issue.get("fields", {}).get("labels", []))
+            or _ctrl_summary_pattern.match(issue.get("summary", ""))
             or _ctrl_summary_pattern.match(issue.get("fields", {}).get("summary", ""))
+            or _jira_admin_pattern.match(issue.get("summary", ""))
+            or _jira_admin_pattern.match(issue.get("fields", {}).get("summary", ""))
         )
     ]
     excluded = len(jira_issues) - len(filtered_issues)
     if excluded:
-        click.echo(f"  Excluded {excluded} automation control ticket(s) from agent scope")
+        click.echo(f"  Excluded {excluded} control/admin ticket(s) from agent scope")
     jira_issues = filtered_issues
+
+    # Filter 3: When Wave 11 stories exist and are open, prioritise them.
+    # Check for open Wave 11 [PLAYBOOK] stories — if any exist, put them first.
+    _playbook_stories = [i for i in jira_issues
+                         if "[PLAYBOOK]" in (i.get("summary", "") or
+                                             i.get("fields", {}).get("summary", ""))]
+    _other_stories    = [i for i in jira_issues if i not in _playbook_stories]
+
+    if _playbook_stories:
+        # Agents should focus on Wave 11 playbook first, then supplemental context
+        jira_issues = _playbook_stories + _other_stories
+        click.echo(f"  Priority ordering: {len(_playbook_stories)} [PLAYBOOK] stories first")
 
     click.echo("  Generating real agent prompts from PM_Pack + Jira...")
 

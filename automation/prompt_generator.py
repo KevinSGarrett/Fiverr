@@ -37,6 +37,87 @@ TASKS_PER_ISSUE = {
 MIN_ISSUES_NEEDED = {a: max(1, TASK_FLOOR // t + 1) for a, t in TASKS_PER_ISSUE.items()}
 
 
+def _get_runtime_state(cycle: int) -> tuple[str, str, str]:
+    """Return (base_sha, suite_count, coverage) from git + pytest baseline."""
+    base_sha = "unknown"
+    suite    = "unknown"
+    cov      = "unknown"
+    try:
+        import subprocess
+        r = subprocess.run(
+            ["git", "log", "origin/develop", "--oneline", "-1"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            base_sha = r.stdout.strip().split()[0]
+    except Exception:
+        pass
+    try:
+        baseline = Path("C:/AI_Runner/state/pytest_baseline.json")
+        if baseline.exists():
+            import json as _json
+            b = _json.loads(baseline.read_text())
+            suite = f"{b.get('passed', '?')} passed"
+            cov   = f"{b.get('coverage_pct', '?')}%"
+    except Exception:
+        pass
+    return base_sha, suite, cov
+
+
+def _load_regression_pack() -> list[str]:
+    """Load the permanent regression test names from the test suite."""
+    lines: list[str] = []
+    # Find regression tests by scanning test files for REG-NN pattern names
+    tests_dir = REPO_ROOT / "tests/unit"
+    if not tests_dir.exists():
+        return lines
+    try:
+        import subprocess
+        r = subprocess.run(
+            [str(REPO_ROOT / ".venv/Scripts/python.exe"), "-m", "pytest",
+             "--collect-only", "-q", "tests/", "--no-header"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=30
+        )
+        # Extract test_xxx_regression or test_golden_anchor names
+        import re
+        reg_tests = sorted(set(re.findall(
+            r"(test_(?:golden_anchor|(?:\w+_)?regression|[a-z_]+_reg(?:ression)?)\w*)",
+            r.stdout
+        )))
+        if reg_tests:
+            lines.append(f"({len(reg_tests)} regression tests — all must pass after your changes)")
+            for i, name in enumerate(reg_tests[:44], 1):
+                lines.append(f"REG-{i:02d}: {name}")
+    except Exception:
+        pass
+    return lines
+
+
+def _load_prod_gates() -> str:
+    """Load production readiness gate status from stage_state.json."""
+    try:
+        import json as _json
+        state_path = Path("C:/AI_Runner/state/stage_state.json")
+        if state_path.exists():
+            state = _json.loads(state_path.read_text())
+            gates = state.get("gates", {})
+            if gates:
+                lines = []
+                for gate, status in gates.items():
+                    lines.append(f"- {gate}: {status}")
+                return "\n".join(lines)
+    except Exception:
+        pass
+    return (
+        "- G-A (Foundation): verify config-check + single worktree\n"
+        "- G-B (DB/Schema): all 9 niche tables + migrations applied\n"
+        "- G-C (Analysis): scrapfly=false, external_signals=true\n"
+        "- G-D (Wave completion gate): open until all Wave 11 stories merged\n"
+        "- Coverage floor: 90% hard gate\n"
+        "- Golden anchor: python_automation kw=110 must score 62.7/CONDITIONAL_GO"
+    )
+
+
 def _load_agent_lanes() -> dict[str, Any]:
     """Load agent_lanes.yml — single source of truth for agent roles."""
     path = PM_PACK / "automation/agent_lanes.yml"
@@ -115,6 +196,75 @@ def generate_prompt(
         f"- Branch: `{branch}`",
         "- Python: 3.11+ | SQLAlchemy 2.0 | Pydantic v2 | Playwright | OpenAI | Streamlit",
         f"- Cycle: {cycle:03d} | Run ID: {run_id}",
+        f"- Squash SHA placeholder: [{cycle:03d}_SQUASH_SHA] (D agent resolves post-merge)",
+        "",
+    ]
+
+    # ── INVOKE-EXE HELPER (matches C070 manual prompt standard) ──────
+    lines += [
+        "## INVOKE-EXE HELPER — paste at session start",
+        "",
+        "```powershell",
+        "function Invoke-Exe { param([string]$File,[string]$ArgString)",
+        "  $psi = New-Object System.Diagnostics.ProcessStartInfo",
+        "  $psi.FileName=$File; $psi.WorkingDirectory='C:\\Fiverr\\Fiverr'",
+        "  $psi.Arguments=$ArgString; $psi.RedirectStandardOutput=$true",
+        "  $psi.RedirectStandardError=$true; $psi.UseShellExecute=$false",
+        "  $psi.CreateNoWindow=$true; $p=[System.Diagnostics.Process]::Start($psi)",
+        "  $o=$p.StandardOutput.ReadToEnd(); $e=$p.StandardError.ReadToEnd()",
+        "  $p.WaitForExit(); return [pscustomobject]@{Out=$o;Err=$e;Exit=$p.ExitCode} }",
+        "$py  = 'C:\\Fiverr\\Fiverr\\.venv\\Scripts\\python.exe'",
+        "$git = 'C:\\Program Files\\Git\\cmd\\git.exe'",
+        "$gh  = 'C:\\Program Files\\GitHub CLI\\gh.exe'",
+        "```",
+        "",
+        "**PREFLIGHT (run these first):**",
+        "```powershell",
+        f"Invoke-Exe $git 'branch --show-current'   # must be: {branch}",
+        f"Invoke-Exe $git 'pull origin {branch}'",
+        "Invoke-Exe $py 'run.py config-check'",
+        "```",
+        "",
+    ]
+
+    # ── RUNTIME STATE (base SHA, suite count, coverage) ──────────────
+    _base_sha, _suite, _cov = _get_runtime_state(cycle)
+    lines += [
+        "## RUNTIME STATE AT CYCLE START",
+        "",
+        f"- Base SHA: `{_base_sha}`",
+        f"- Test suite at base: {_suite}",
+        f"- Coverage at base: {_cov}",
+        "- Coverage floor: 90% (hard gate)",
+        "- Scrapfly: DISABLED (scrapfly.enabled=false must stay false)",
+        "",
+    ]
+
+    # ── 9 NICHE IDs ──────────────────────────────────────────────────
+    lines += [
+        "## 9 NICHE IDs (reference these — do not invent new niche names)",
+        "",
+        "prd_ai_saas | support_kb_readiness | gumloop_lindy_workflow | mcp_ai_agent | python_automation",
+        "ai_tool_llm_integration | ai_agent_development | workflow_automation | python_web_scraping",
+        "",
+    ]
+
+    # ── REGRESSION PACK ──────────────────────────────────────────────
+    _reg_pack = _load_regression_pack()
+    if _reg_pack:
+        lines += [
+            "## PERMANENT REGRESSION PACK (all must still pass after your changes)",
+            "",
+        ]
+        lines += _reg_pack
+        lines.append("")
+
+    # ── PRODUCTION READINESS GATES ────────────────────────────────────
+    _gates = _load_prod_gates()
+    lines += [
+        "## PRODUCTION READINESS GATES",
+        "",
+        _gates,
         "",
     ]
 
@@ -309,62 +459,75 @@ def generate_prompt(
 
 def _select_issues(agent_id: str, all_issues: list[dict],
                    lane: dict) -> list[dict]:
-    """Select Jira issues relevant to this agent based on lane definition."""
+    """
+    Select Jira issues for this agent.
+
+    C070 MODEL (correct): ALL agents work on the SAME canonical Wave stories
+    but with DIFFERENT ROLES (A=planning, B=implementation, C=gates, etc.)
+
+    Priority:
+    1. [PLAYBOOK] Wave 11 stories (current build target) — ALL agents get these
+    2. [CRITICAL] / [HIGH] priority blocking issues
+    3. Supplemental context stories to reach task floor
+    """
     if not all_issues:
         return []
 
     non_done = [i for i in all_issues
                 if i.get("status") not in ("Done", "Cancelled")]
 
-    if agent_id == "A":
-        # Planning agent: architecture, docs, config stories
-        selected = [i for i in non_done
-                    if any(kw in i.get("summary", "").lower()
-                           for kw in ["architecture", "config", "plan", "governance",
-                                      "doc", "pm", "jira", "github", "pipeline"])]
-        if not selected:
-            selected = non_done[:MIN_ISSUES_NEEDED["A"]]
-    elif agent_id == "B":
-        # Primary implementation: src/ related
-        selected = [i for i in non_done
-                    if i.get("issuetype") not in ("Bug",) and
-                    not any(kw in i.get("summary", "").lower()
-                            for kw in ["test", "qa", "doc", "pr", "jira"])]
-        if not selected:
-            selected = non_done[:MIN_ISSUES_NEEDED["B"]]
-    elif agent_id == "E":
-        # Live validation: evidence, validation probes
-        selected = [i for i in non_done
-                    if any(kw in i.get("summary", "").lower()
-                           for kw in ["valid", "live", "evidence", "collect", "probe",
-                                      "data", "signal"])]
-        # E needs enough issues to generate 55 tasks; if not enough, supplement
-        if len(selected) < MIN_ISSUES_NEEDED["E"]:
-            supplement = [i for i in non_done if i not in selected]
-            selected.extend(supplement[:MIN_ISSUES_NEEDED["E"] - len(selected)])
-    elif agent_id == "F":
-        # Test coverage: test, regression
-        selected = [i for i in non_done
-                    if any(kw in i.get("summary", "").lower()
-                           for kw in ["test", "coverage", "regression", "edge",
-                                      "qa", "quality"])]
-        if len(selected) < MIN_ISSUES_NEEDED["F"]:
-            selected = non_done[:MIN_ISSUES_NEEDED["F"]]
-    elif agent_id == "D":
-        # PR/Jira steward: any story needing PR/evidence work
-        selected = non_done[:MIN_ISSUES_NEEDED["D"]]
-    else:  # C
-        selected = non_done[:MIN_ISSUES_NEEDED.get(agent_id, 12)]
+    # ── Step 1: always include all open Wave 11 [PLAYBOOK] stories ──
+    playbook = [i for i in non_done
+                if "[PLAYBOOK]" in i.get("summary", "")]
+    selected: list[dict] = list(playbook)
 
-    # Ensure we have enough to generate 55 tasks
-    min_needed = MIN_ISSUES_NEEDED.get(agent_id, 12)
-    if len(selected) < min_needed and len(non_done) >= min_needed:
-        # Take the first min_needed from non-done if selector didn't find enough
-        selected = non_done[:min_needed]
-    elif len(selected) < min_needed:
-        selected = non_done  # Take all we have
+    # ── Step 2: add critical / high priority blocking issues ─────────
+    critical = [i for i in non_done
+                if i not in selected and (
+                    i.get("priority", "").lower() in ("highest", "high")
+                    or "[CRITICAL" in i.get("summary", "")
+                    or "[HIGH" in i.get("summary", "")
+                )]
+    selected.extend(critical[:5])  # max 5 critical stories as context
 
-    return selected[:20]  # Cap at 20 issues (will produce ~60-100 tasks)
+    # ── Step 3: agent-specific supplemental stories ──────────────────
+    # Different agents get different supplemental context to reach task floor,
+    # but Wave 11 [PLAYBOOK] is ALWAYS the primary target for all agents.
+    remaining = [i for i in non_done if i not in selected]
+    min_needed = MIN_ISSUES_NEEDED.get(agent_id, 10)
+
+    if len(selected) < min_needed:
+        if agent_id == "A":
+            # Agent A (planning): add integration + foundation stories for spec context
+            supplement = [i for i in remaining
+                          if any(p in i.get("summary", "")
+                                 for p in ["[INTEGRATION]", "[FOUNDATION]", "[DASHBOARD]"])]
+            selected.extend(supplement[:min_needed - len(selected)])
+        elif agent_id == "B":
+            # Agent B (implementation): add any implementation-type stories
+            supplement = [i for i in remaining
+                          if i.get("issuetype", "") == "Story"]
+            selected.extend(supplement[:min_needed - len(selected)])
+        elif agent_id in ("C", "E"):
+            # Agent C/E (gates/validation): any story needing validation
+            selected.extend(remaining[:min_needed - len(selected)])
+        elif agent_id == "F":
+            # Agent F (test coverage): prefer test/regression related
+            supplement = [i for i in remaining
+                          if any(kw in i.get("summary", "").lower()
+                                 for kw in ["test", "coverage", "regression", "edge"])]
+            selected.extend(supplement[:min_needed - len(selected)])
+            if len(selected) < min_needed:
+                selected.extend(remaining[:min_needed - len(selected)])
+        else:  # D and others
+            selected.extend(remaining[:min_needed - len(selected)])
+
+    # If still short, take whatever we have
+    if len(selected) < min_needed:
+        extra = [i for i in non_done if i not in selected]
+        selected.extend(extra[:min_needed - len(selected)])
+
+    return selected[:20]  # Cap at 20 issues (~60-100 tasks for B, ~80 for A)
 
 
 def _generate_tasks_from_issue(
