@@ -1063,13 +1063,27 @@ def write_prompts(
     agents: list[str],
     jira_issues: list[dict],
     prompts_dir: Path,
+    cycle_brief: "Any | None" = None,
 ) -> dict[str, Path]:
     """Generate and write all agent prompts. Returns agent -> path map.
     Raises RuntimeError with PLANNING_INCOMPLETE if insufficient Jira issues.
+
+    cycle_brief: CycleBrief from pm_intelligence.build_cycle_brief().
+    When provided, its SECTION 0 is prepended to every agent prompt to ensure
+    agents understand the correct build target (Wave/story/file) rather than
+    building generic wrappers.
     """
     prompts_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
     planning_failures: list[str] = []
+
+    # Pre-render the PM intelligence brief (SECTION 0) once, reuse in all prompts
+    intelligence_header = ""
+    if cycle_brief is not None:
+        try:
+            intelligence_header = cycle_brief.to_prompt_section() + "\n\n"
+        except Exception:
+            intelligence_header = ""
 
     for agent_id in agents:
         prompt_text = generate_prompt(
@@ -1079,6 +1093,10 @@ def write_prompts(
             jira_issues=jira_issues,
             run_id=run_id,
         )
+
+        # Prepend PM intelligence brief as SECTION 0
+        if intelligence_header:
+            prompt_text = intelligence_header + prompt_text
 
         # Verify task count meets floor
         task_count = len([ln for ln in prompt_text.splitlines()

@@ -1,5 +1,5 @@
 # EPIC STATUS TRACKER — Fiverr Research System
-# Last updated: 2026-06-09 (PM Governance Correction — C073 complete; C074 current)
+# Last updated: 2026-06-16 (Cycle 083 governance planning refresh)
 # CANONICAL SOURCE: PM_Pack/CURRENT_STATE_CANONICAL.md
 
 ---
@@ -74,6 +74,27 @@
 - NOTE: All C074 prompts FROZEN. See CYCLE_074_PROMPT_CORRECTION_PROTOCOL.md
 
 ### Wave 12 — Dashboard UX Overhaul: NOT STARTED
+
+---
+
+## CYCLE 083 GOVERNANCE PLANNING (SCRUM-1088 CONTROL + STORY SLICES)
+
+| Jira Key | Scope | Status | Cycle |
+|---|---|---|---|
+| SCRUM-1088 | Automation Runner Control Stage 5-7 observation | PLANNED (Agent A spec + governance) | C083 |
+| SCRUM-1086 | FIVERR-E6 Story 04 slice | PLANNED | C083 |
+| SCRUM-1085 | FIVERR-E6 Story 03 slice | PLANNED | C083 |
+| SCRUM-1084 | FIVERR-E6 Story 02 slice | PLANNED | C083 |
+| SCRUM-1083 | FIVERR-E6 Story 01 slice | PLANNED | C083 |
+| SCRUM-1081 | FIVERR-E5 Story 07 slice | PLANNED | C083 |
+| SCRUM-1080 | FIVERR-E5 Story 06 slice | PLANNED | C083 |
+| SCRUM-1079 | FIVERR-E5 Story 05 slice | PLANNED | C083 |
+| SCRUM-1078 | FIVERR-E5 Story 04 slice | PLANNED | C083 |
+| SCRUM-1077 | FIVERR-E5 Story 03 slice | PLANNED | C083 |
+| SCRUM-1076 | FIVERR-E5 Story 02 slice | PLANNED | C083 |
+| SCRUM-1075 | FIVERR-E5 Story 01 slice | PLANNED | C083 |
+| SCRUM-1073 | FIVERR-E4 Story 07 slice | PLANNED | C083 |
+| SCRUM-1072 | FIVERR-E4 Story 06 slice | PLANNED | C083 |
 
 ---
 

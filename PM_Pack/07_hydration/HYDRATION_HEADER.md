@@ -1,13 +1,13 @@
 ## HYDRATION HEADER — ACTIVE CURRENT STATE
-## Updated: 2026-06-16 | Cycle 082 autonomous launch
+## Updated: 2026-06-16 | Cycle 083 autonomous launch (Agent A governance refresh)
 ##
 ## SECTION 1: ACTIVE CURRENT STATE
-Active cycle: 082
-Branch: cycle/082/integration
+Active cycle: 083
+Branch: cycle/083/integration
 Stage gate: Stage 2 — Autonomous stage execution active
-Last completed cycle: 081
-CYCLE_CURRENT: 082
-LAST_COMPLETED: C081 (stage readiness governance completed)
+Last completed cycle: 082
+CYCLE_CURRENT: 083
+LAST_COMPLETED: C082 (stage readiness governance completed)
 C074_SQUASH_SHA: 13f28e0
 WAVE_CURRENT: 11 (IN PROGRESS)
 WAVE_10: COMPLETE (SCRUM-22 CLOSED, S7.1-S7.9 all done)
@@ -46,6 +46,18 @@ BLOCKER_1: TierD-2 pilot execution — user must run live-validate post-merge
 BLOCKER_2: TierD-1 stale stashes (13 stashes, user decision required)
 BLOCKER_3: Wave 12 Dashboard UX — not started
 BLOCKER_4: Recommendations still dry_run=True in production (requires live pilot first)
+BLOCKER_5: SCRUM-1088 Stage 5-7 observation execution depends on controller-run shell access in this session
+
+## SECTION 4A: CYCLE 083 AGENT A PLANNING SCOPE (SCRUM-1088 + E6/E5/E4 SLICES)
+- Control ticket in-scope: SCRUM-1088 (Automation Runner Control, Stage 5-7 observation)
+- E6 stories in-scope: SCRUM-1086, SCRUM-1085, SCRUM-1084, SCRUM-1083
+- E5 stories in-scope: SCRUM-1081, SCRUM-1080, SCRUM-1079, SCRUM-1078, SCRUM-1077, SCRUM-1076, SCRUM-1075
+- E4 stories in-scope: SCRUM-1073, SCRUM-1072
+- Agent A output contract:
+  - Architecture spec artifacts for each listed Jira key in PM_Pack cycle log specs
+  - CI governance alignment check names: CI / lint, CI / type-check, CI / tests-coverage, CI / smoke-gates
+  - PR template Jira evidence updated with explicit C083 key coverage requirement
+  - PM governance sync in CYCLE_075 cycle log stream (legacy naming retained for continuity)
 
 ## SECTION 5: TierD-2 STAGED CREDIT STATUS
 Stage V-1 TierD-2 approved: EARNED (small unlock)

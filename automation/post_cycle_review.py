@@ -143,7 +143,8 @@ def collect_facts(cycle: int, mode: ReviewMode,
                                     "--json", "statusCheckRollup"))
             rollup = checks.get("statusCheckRollup") or []
             required = {"CI / lint", "CI / type-check",
-                        "CI / tests-coverage", "CI / smoke-gates"}
+                        "CI / tests-coverage", "CI / smoke-gates",
+                        "CI / codex-review-gate"}
             passed = {c.get("name") for c in rollup
                       if (c.get("conclusion") or "").lower() == "success"}
             facts.ci_passed = required.issubset(passed)

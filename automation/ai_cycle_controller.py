@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -423,7 +424,38 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         click.secho(f"  [WARN] Jira inventory failed: {e}", fg="yellow")
         jira_issues = []
 
+    # Filter out automation runner control tickets — agents build Fiverr product, not runner infra.
+    # Exclude issues with labels: control-ticket, automation-runner, or summary starting with CYCLE-0NN
+    import re as _re
+    _ctrl_labels = {"control-ticket", "automation-runner"}
+    _ctrl_summary_pattern = _re.compile(r"^CYCLE-0\d{2,3}\s", _re.IGNORECASE)
+    filtered_issues = [
+        issue for issue in jira_issues
+        if not (
+            _ctrl_labels & set(issue.get("fields", {}).get("labels", []))
+            or _ctrl_summary_pattern.match(issue.get("fields", {}).get("summary", ""))
+        )
+    ]
+    excluded = len(jira_issues) - len(filtered_issues)
+    if excluded:
+        click.echo(f"  Excluded {excluded} automation control ticket(s) from agent scope")
+    jira_issues = filtered_issues
+
     click.echo("  Generating real agent prompts from PM_Pack + Jira...")
+
+    # ── PM Intelligence: build wave context brief ─────────────────────
+    # This prevents agents from building automation runner stubs instead of
+    # real Fiverr product features. The brief injects the full wave/story
+    # context from PM_Pack/ref into SECTION 0 of every agent prompt.
+    click.echo("  Building PM intelligence cycle brief...")
+    from automation.pm_intelligence import build_cycle_brief
+    cycle_brief = build_cycle_brief(jira_issues=jira_issues)
+    click.echo(
+        f"  PM brief: Wave {cycle_brief.current_wave} ({cycle_brief.wave_name}) | "
+        f"{len(cycle_brief.current_wave_stories)} stories | "
+        f"{len(cycle_brief.already_built_in_src)} existing src files scanned"
+    )
+
     prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
     written = write_prompts(
         cycle=next_cycle,
@@ -432,6 +464,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         agents=manifest["agents"],
         jira_issues=jira_issues,
         prompts_dir=prompts_dir,
+        cycle_brief=cycle_brief,
     )
 
     click.echo(f"  Cycle           : {next_cycle:03d}")
@@ -580,6 +613,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
 
     click.echo(f"  [4/5] Dispatching Cursor agent {agent}...")
     write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
+    _agent_start_time = time.time()
 
     from automation.cursor_adapter import run_agent as cursor_run
     result = cursor_run(
@@ -589,7 +623,24 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         output_dir=str(agent_dir),
     )
 
-    click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code}")
+    _agent_elapsed_min = (time.time() - _agent_start_time) / 60.0
+    click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code} "
+               f"elapsed={_agent_elapsed_min:.1f}min")
+
+    # Warn if agent completed suspiciously fast (< 5 min with 55+ tasks is a red flag)
+    MIN_EXPECTED_MINUTES = 5.0
+    if _agent_elapsed_min < MIN_EXPECTED_MINUTES:
+        click.secho(
+            f"  [WARN] Agent {agent} completed in {_agent_elapsed_min:.1f}min "
+            f"(expected >= {MIN_EXPECTED_MINUTES}min for 55-task prompt). "
+            "Shell execution may have been blocked.",
+            fg="yellow",
+        )
+        _record_nonblocking_error(
+            f"run-agent suspiciously fast: cycle={cycle} agent={agent} "
+            f"elapsed={_agent_elapsed_min:.1f}min"
+        )
+
     if result.stdout_tail:
         click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
     if result.error_message:
