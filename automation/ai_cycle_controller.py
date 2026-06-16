@@ -1189,10 +1189,19 @@ def cmd_tick() -> None:
         click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
 
     elif status == "COMPILED":
-        # Plan the cycle — generate prompts
-        click.echo("  → Planning cycle (generating prompts)...")
-        write_controller_state("PLANNING", cycle=cycle)
-        click.secho("  State: PLANNING — run plan-cycle --cycle {cycle} to generate prompts", fg="cyan")
+        # Auto-run plan-cycle to generate prompts — no manual intervention needed
+        click.echo(f"  → Auto-running plan-cycle for cycle {cycle}...")
+        rc, out = _run_shell_command(
+            [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
+             "--cycle", str(cycle)]
+        )
+        if rc == 0:
+            write_controller_state("PLANNED", cycle=cycle)
+            click.secho(f"  State: PLANNED (cycle {cycle}) — prompts generated", fg="cyan")
+        else:
+            click.secho(f"  [WARN] plan-cycle failed:\n{out.strip()[-400:]}", fg="yellow")
+            write_controller_state("PLANNING", cycle=cycle)
+            click.secho(f"  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
 
     elif status == "PLANNED":
         # Validate prompts
@@ -1314,6 +1323,29 @@ def cmd_tick() -> None:
 
     elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
         click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+
+    elif status == "BLOCKED_STAGE2_READINESS":
+        # Retry readiness check — if prompts now exist (generated in a previous tick), should pass
+        click.echo("  Retrying stage2-readiness-check...")
+        rc, out = _run_shell_command([sys.executable, "automation/ai_cycle_controller.py", "stage2-readiness-check"])
+        if rc == 0:
+            write_controller_state("COMPILED", cycle=cycle)
+            click.secho(f"  Stage2 now passes — advancing to COMPILED (cycle {cycle})", fg="green")
+        else:
+            click.secho(f"  Still blocked: {out.strip()[-200:]}", fg="yellow")
+
+    elif status == "PLANNING":
+        # plan-cycle failed or is in progress — retry
+        click.echo(f"  Retrying plan-cycle for cycle {cycle}...")
+        rc, out = _run_shell_command(
+            [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
+             "--cycle", str(cycle)]
+        )
+        if rc == 0:
+            write_controller_state("PLANNED", cycle=cycle)
+            click.secho(f"  State: PLANNED (cycle {cycle})", fg="cyan")
+        else:
+            click.secho(f"  plan-cycle still failing: {out.strip()[-200:]}", fg="yellow")
 
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")
