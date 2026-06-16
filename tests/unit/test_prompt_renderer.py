@@ -143,7 +143,11 @@ def test_render_with_overrides_total_tasks_still_55plus() -> None:
         _contract(),
         extra_tasks=[{"title": "Extra 1"}, {"title": "Extra 2"}],
     )
+<<<<<<< HEAD
     assert rendered.count(TASK_MARKER) >= MIN_TASK_COUNT
+=======
+    assert rendered.count("### Task ") >= 55
+>>>>>>> origin/develop
 
 
 def test_render_with_empty_jira_scope() -> None:
@@ -151,6 +155,7 @@ def test_render_with_empty_jira_scope() -> None:
     contract["jirascope"] = []
     rendered = render_with_overrides(contract)
     assert "No Jira stories assigned" in rendered
+<<<<<<< HEAD
     assert rendered.count(TASK_MARKER) >= MIN_TASK_COUNT
 
 
@@ -192,3 +197,6 @@ def test_render_supports_cycle079_compatibility_keys() -> None:
     assert "CYCLE 079" in rendered
     assert "SCRUM-264" in rendered
     assert "mypy src/ automation/ --ignore-missing-imports" in rendered
+=======
+    assert rendered.count("### Task ") >= 55
+>>>>>>> origin/develop

@@ -2,7 +2,13 @@
 from __future__ import annotations
 
 import json
+<<<<<<< HEAD
 from datetime import UTC, date, datetime
+=======
+import logging
+import subprocess
+from datetime import UTC, datetime
+>>>>>>> origin/develop
 from enum import IntEnum
 from pathlib import Path
 from typing import Any
@@ -34,6 +40,12 @@ HUMAN_INTERRUPT_CODES = {
     "CLAUDE_SUBSCRIPTION_LIMIT_REACHED",
 }
 
+<<<<<<< HEAD
+=======
+LOGGER = logging.getLogger(__name__)
+
+
+>>>>>>> origin/develop
 def notify(severity: Severity | str, title: str, body: str,
            incident_code: str = "", cycle: int | None = None) -> None:
     """Route notification to appropriate destinations based on severity."""
@@ -110,6 +122,7 @@ def route_notification(severity: str, message: str, context: dict[str, Any]) -> 
     _write_log(entry)
 
 
+<<<<<<< HEAD
 class NotificationRouter:
     """Compatibility wrapper around local notification routing."""
 
@@ -132,3 +145,54 @@ class NotificationRouter:
         if normalized in {"BLOCKED", "RED", "CRITICAL"}:
             channel = str(context.get("channel", "local"))
             self.send_local_notification(message=message, channel=channel, severity=normalized)
+=======
+def _try_github_issue(severity: Severity, title: str, body: str,
+                      incident_code: str, cycle: int | None) -> None:
+    """Open a GitHub issue for BLOCKED/CRITICAL incidents."""
+    try:
+        issue_title = f"[Runner {severity.name}] {title}"
+        if incident_code:
+            issue_title += f" ({incident_code})"
+        issue_body = body or "No details provided."
+        if cycle:
+            issue_body += f"\n\nCycle: {cycle}"
+        subprocess.run(
+            ["gh", "issue", "create",
+             "--repo", "KevinSGarrett/Fiverr",
+             "--title", issue_title,
+             "--body", issue_body,
+             "--label", "ai-runner"],
+            capture_output=True, timeout=15
+        )
+    except Exception:
+        pass
+
+
+class NotificationRouter:
+    """Notification adapter for severity-based Slack routing."""
+
+    def send_slack_notification(self, message: str, channel: str, severity: str) -> None:
+        try:
+            import requests
+
+            from automation.config_loader import get_secret
+
+            webhook_url = get_secret("SLACK_WEBHOOK_URL", default="")
+            if not webhook_url:
+                LOGGER.info("SLACK_WEBHOOK_NOT_CONFIGURED — skipping")
+                return
+            _ = channel
+            requests.post(
+                webhook_url,
+                json={"text": f"[{severity}] {message}"},
+                timeout=5,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Slack notification failed: %s", exc)
+
+    def route_notification(self, severity: str, message: str, context: dict[str, Any]) -> None:
+        normalized = severity.upper().strip()
+        if normalized in {"BLOCKED", "RED", "CRITICAL"}:
+            channel = str(context.get("channel", "#ai-runner-alerts"))
+            self.send_slack_notification(message, channel, normalized)
+>>>>>>> origin/develop

@@ -217,6 +217,145 @@ def run_post_agent_lifecycle(
         contract=contract,
         dry_run=dry_run,
     )
+<<<<<<< HEAD
+=======
+    jira_keys = jira_keys or []
+
+    # ── Step 1: Collect changed files ─────────────────────────────────
+    result.changed_files = _get_changed_files()
+
+    # ── Step 2: Enforce file ownership ───────────────────────────────
+    unauthorized = _check_ownership(agent_id, result.changed_files)
+    if unauthorized:
+        result.unauthorized_files = unauthorized
+        result.status = "OWNERSHIP_VIOLATION"
+        result.errors.append(
+            f"Agent {agent_id} modified files outside its scope: {unauthorized}"
+        )
+        # Don't commit — quarantine changed files
+        if not dry_run:
+            _write_record(result, run_dir)
+            from automation.notification_router import notify_blocked
+            notify_blocked(
+                f"Agent {agent_id} ownership violation: {unauthorized[:3]}",
+                incident_code="OWNERSHIP_VIOLATION", cycle=cycle
+            )
+        return result
+
+    # ── Step 3: Secret guard — scan changed_files BEFORE any staging (V5-008) ────
+    # Scan must happen on the changed_files list before we stage anything.
+    # We call scan_working_tree (not scan_staged) at this point.
+    secret_findings = _scan_changed_files(result.changed_files)
+    if secret_findings:
+        result.secret_findings = secret_findings
+        result.status = "SECRET_FOUND"
+        result.errors.extend(secret_findings)
+        if not dry_run:
+            _write_record(result, run_dir)
+        return result
+
+    # ── Step 4: Require report file ───────────────────────────────────
+    report_path = REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md"
+    result.report_path = str(report_path)
+    result.report_found = report_path.exists()
+
+    if not result.report_found:
+        result.status = "NO_REPORT"
+        result.errors.append(
+            f"Required report not found: {report_path}\n"
+            f"Agent must write report before exiting."
+        )
+        if not dry_run:
+            _write_record(result, run_dir)
+        return result
+
+    # Verify report contains AGENT_COMPLETE
+    report_text = report_path.read_text(encoding="utf-8", errors="replace")
+    if "AGENT_COMPLETE" not in report_text:
+        result.status = "NO_REPORT"
+        result.errors.append("Report exists but missing AGENT_COMPLETE marker")
+        if not dry_run:
+            _write_record(result, run_dir)
+        return result
+
+    # DISPATCH-017: run targeted validation_commands from the prompt contract.
+    if contract and contract.get("validation_commands"):
+        for cmd in contract["validation_commands"]:
+            validation_proc = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                check=False,
+            )
+            if validation_proc.returncode != 0:
+                result.status = "VALIDATION_FAILED"
+                result.errors.append(f"Contract validation failed: {cmd}")
+                if not dry_run:
+                    _write_record(result, run_dir)
+                return result
+
+    # ── Step 5: Targeted validation ───────────────────────────────────
+    val_passed, val_details = _run_validation(agent_id)
+    result.validation_passed = val_passed
+
+    if not val_passed:
+        result.status = "VALIDATION_FAILED"
+        result.errors.append(f"Validation failed: {val_details}")
+        if not dry_run:
+            _write_record(result, run_dir)
+        # Don't commit — route to repair
+        return result
+
+    # ── Step 6: Commit approved files ────────────────────────────────
+    # Stage and commit only files that passed ownership check
+    approved_files = [
+        fn for fn in result.changed_files
+        if fn not in result.unauthorized_files
+    ]
+    if not dry_run and approved_files:
+        gate_ok, gate_detail = _run_pre_commit_gate()
+        if not gate_ok:
+            result.commit_blocked = True
+            result.status = "BLOCKED_FAILING_WORK"
+            result.errors.append(gate_detail)
+            _write_controller_state("BLOCKED_FAILING_WORK", cycle=cycle)
+            _write_record(result, run_dir)
+            return result
+        # Second secret scan: after classifying files, before staging
+        post_scan = _scan_changed_files(approved_files)
+        if post_scan:
+            result.secret_findings.extend(post_scan)
+            result.status = "SECRET_FOUND"
+            result.errors.extend(post_scan)
+            _write_record(result, run_dir)
+            return result
+        sha = _commit_agent_work(agent_id, cycle, approved_files)
+        result.commit_sha = sha
+
+    # ── Step 7: Update Jira with evidence ────────────────────────────
+    if not dry_run and jira_keys:
+        from automation.jira_sync import on_agent_complete
+        updates = on_agent_complete(
+            cycle=cycle,
+            agent=agent_id,
+            branch=_get_current_branch(),
+            pr_number=None,
+            files_changed=result.changed_files,
+            validation_passed=val_passed,
+            jira_keys=jira_keys,
+        )
+        result.jira_updates = updates
+
+    # ── Step 8: Write run record ──────────────────────────────────────
+    result.status = "COMPLETE"
+    if not dry_run:
+        record_path = _write_record(result, run_dir)
+        result.record_path = str(record_path)
+
+    return result
+>>>>>>> origin/develop
 
 
 def _get_changed_files() -> list[str]:
@@ -418,6 +557,7 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
     if ruff_proc.returncode != 0:
         print("DISPATCH-020: ruff failures detected - commit blocked")
         return (False, "DISPATCH-020: ruff failures detected — commit blocked")
+<<<<<<< HEAD
     mypy_proc = subprocess.run(
         [py, "-m", "mypy", "src/", "--ignore-missing-imports", "--no-error-summary"],
         cwd=str(REPO_ROOT),
@@ -428,6 +568,8 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
     if mypy_proc.returncode != 0:
         print("DISPATCH-020: mypy failures detected - commit blocked")
         return (False, "DISPATCH-020: mypy failures detected — commit blocked")
+=======
+>>>>>>> origin/develop
     pytest_cmd = [
         py,
         "-m",
@@ -435,6 +577,10 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
         "tests/unit/",
         "-q",
         "--tb=no",
+<<<<<<< HEAD
+=======
+        "--timeout=30",
+>>>>>>> origin/develop
         "-x",
         "--ignore=tests/unit/test_queue_processor.py",
         "--ignore=tests/unit/test_collection_orchestrator.py",
@@ -452,6 +598,7 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
         print("DISPATCH-020: pytest failures detected - commit blocked")
         return (False, "DISPATCH-020: pytest failures detected — commit blocked")
     return (True, "PASS")
+<<<<<<< HEAD
 
 
 def _run_export_sanitizer() -> tuple[bool, list[str]]:
@@ -485,3 +632,5 @@ def _record_secret_scan_failure(violations: list[str]) -> None:
     report_payload["last_secret_scan_fail"] = datetime.now(UTC).isoformat()
     stage_report.parent.mkdir(parents=True, exist_ok=True)
     stage_report.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")
+=======
+>>>>>>> origin/develop

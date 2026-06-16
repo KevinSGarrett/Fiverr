@@ -412,9 +412,13 @@ def test_cli_dry_run_returns_error_on_exception(monkeypatch: pytest.MonkeyPatch)
     assert _cli() == 1
 
 
+<<<<<<< HEAD
 def test_cursor_cli_routes_no_advisory_confirm(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+=======
+def test_advisory_confirm_routes_cursor_tasks_to_dispatch_confirm(tmp_path: Path) -> None:
+>>>>>>> origin/develop
     policy_path = tmp_path / "provider_policy.yml"
     policy_path.write_text(
         json.dumps(
@@ -423,6 +427,10 @@ def test_cursor_cli_routes_no_advisory_confirm(
                 "global_rules": {
                     "no_browser_automation_chatgpt": True,
                     "advisory_only_provider_routing": False,
+<<<<<<< HEAD
+=======
+                    "advisory_confirm_mode": True,
+>>>>>>> origin/develop
                 },
                 "providers": {
                     "cursorcli": {"billing_mode": "cursor_subscription"},
@@ -445,6 +453,7 @@ def test_cursor_cli_routes_no_advisory_confirm(
         ),
         encoding="utf-8",
     )
+<<<<<<< HEAD
     health_path = tmp_path / "provider_health.json"
     health_path.write_text(
         json.dumps(
@@ -473,6 +482,14 @@ def test_browser_automation_prohibited(router: ProviderRouter) -> None:
 def test_dispatch_with_dispatchconfirm_still_executes_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+=======
+    test_router = ProviderRouter(policy_path=policy_path)
+    assert test_router.select_provider("implementation").reason == "DISPATCHCONFIRM"
+    assert test_router.select_provider("official_post_cycle_review").reason == "ADVISORYCONFIRMREQUIRED"
+
+
+def _advisory_confirm_router(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ProviderRouter:
+>>>>>>> origin/develop
     policy_path = tmp_path / "provider_policy.yml"
     policy_path.write_text(
         json.dumps(
@@ -506,6 +523,7 @@ def test_dispatch_with_dispatchconfirm_still_executes_success(
     )
     health_path = tmp_path / "provider_health.json"
     health_path.write_text(
+<<<<<<< HEAD
         json.dumps({"cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"}}),
         encoding="utf-8",
     )
@@ -519,3 +537,56 @@ def test_dispatch_with_dispatchconfirm_still_executes_success(
     assert result.status == "SUCCESS"
     assert result.error_message is None
     assert result.provider == "cursorcli"
+=======
+        json.dumps(
+            {
+                "cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+                "claudesubscription": {"status": "READY"},
+                "openaiapi": {"status": "READY"},
+                "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    monkeypatch.setattr("automation.provider_router.DECISION_DIR", tmp_path / "provider_decisions")
+    return ProviderRouter(policy_path=policy_path)
+
+
+def test_advisory_confirm_cursor_dispatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    decision = test_router.select_provider("implementation")
+    assert decision.provider == "cursorcli"
+    assert decision.reason == "DISPATCHCONFIRM"
+    assert decision.reason != "ADVISORYONLYBLOCKED"
+
+
+def test_advisory_confirm_claude_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    decision = test_router.select_provider("officialpostcyclereview")
+    assert decision.provider == "claudesubscription"
+    assert decision.reason == "ADVISORYCONFIRMREQUIRED"
+
+
+def test_advisory_confirm_deterministic_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    decision = test_router.select_provider("merge_gate")
+    assert decision.provider == "deterministiccontroller"
+    assert decision.reason.startswith("classified=")
+
+
+def test_route_dry_run_advisory_confirm_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    payload = test_router.route_dryrun("implementation", cycle="081")
+    assert payload["provider"] == "cursorcli"
+    assert payload["reason"] == "DISPATCHCONFIRM"
+    assert payload["reason"] != "ADVISORYONLYBLOCKED"
+>>>>>>> origin/develop

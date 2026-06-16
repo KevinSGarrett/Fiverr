@@ -8,6 +8,7 @@ default_order:
 - F
 - D
 lanes:
+<<<<<<< HEAD
 - role: planner_foundation_integration
   min_tasks: 55
   label: agent:A
@@ -87,3 +88,82 @@ lanes:
   deferred: false
   disabled: false
   agent: codex_subscription
+=======
+  A:
+    role: planner_foundation_integration
+    min_tasks: 55
+    label: "agent:A"
+    description: "PM planning, architecture, docs, GitHub governance, config"
+    owns:
+      - "PM_Pack/**"
+      - "docs/**"
+      - ".github/**"
+      - "pyproject.toml"
+      - "config.yaml"
+      - ".cursorrules"
+    prohibited_without_explicit_task:
+      - "src/**"
+      - "tests/**"
+      - "data/**"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+
+  B:
+    role: primary_implementation
+    min_tasks: 55
+    label: "agent:B"
+    description: "Primary src/ and tests/ author — new features, core logic"
+    owns:
+      - "src/**"
+      - "tests/**"
+    requires_extra_gate: true
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+
+  E:
+    role: live_validation_external_signals
+    min_tasks: 55
+    label: "agent:E"
+    description: "Live data validation, external signal collection, evidence files"
+    owns:
+      - "docs/cycle_reports/**"
+      - "data/evidence/**"
+      - "scripts/validation/**"
+    cost_guard: controlled_budget_only
+    wait_for_b_first_commit: true
+    prohibited:
+      - "src/**"
+      - "tests/**"
+      - "config.yaml"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+
+  C:
+    role: integration_validation
+    min_tasks: 55
+    label: "agent:C"
+    description: "Integration checks, validation run, cycle report"
+    owns:
+      - "docs/cycle_reports/**"
+      - "PM_Pack/10_cycle_log/**"
+    prohibited:
+      - "src/**"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+
+  F:
+    role: test_coverage_regression
+    min_tasks: 55
+    label: "agent:F"
+    description: "Test coverage gaps, regression tests, coverage enforcement"
+    owns:
+      - "tests/**"
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+
+  D:
+    role: pr_steward_merge_gate
+    min_tasks: 55
+    label: "agent:D"
+    description: "PR body, Jira evidence, GitHub status, merge gate preparation"
+    owns:
+      - "docs/cycle_reports/**"
+    jira_authority: true
+    github_pr_authority: true
+    provider_policy_ref: "PM_Pack/automation/provider_policy.yml"
+>>>>>>> origin/develop

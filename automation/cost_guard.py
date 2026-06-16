@@ -197,6 +197,7 @@ def update_spend(provider: str, actual_cost: float) -> None:
     guard = CostGuard()
     payload = guard._load_budget_state()
     spend_value = max(0.0, float(actual_cost))
+<<<<<<< HEAD
 
     # Reset daily spend when the calendar date has rolled over.
     # Only resets if last_reset_date is recorded AND differs from today
@@ -216,6 +217,8 @@ def update_spend(provider: str, actual_cost: float) -> None:
         payload["monthlyspendusd"] = 0.0
     payload.setdefault("last_reset_month", this_month)
 
+=======
+>>>>>>> origin/develop
     payload["dailyspendusd"] = max(0.0, float(payload.get("dailyspendusd", 0.0))) + spend_value
     payload["monthlyspendusd"] = max(0.0, float(payload.get("monthlyspendusd", 0.0))) + spend_value
     payload["updatedat"] = datetime.now(tz=UTC).isoformat()

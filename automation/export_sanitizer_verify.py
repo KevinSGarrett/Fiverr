@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 """Export path sanitizer checks for staged files and ZIP artifacts."""
+=======
+"""Verify staged paths and zip members do not expose secrets."""
+>>>>>>> origin/develop
 
 from __future__ import annotations
 
 import fnmatch
+<<<<<<< HEAD
 import re
+=======
+>>>>>>> origin/develop
 import sys
 from pathlib import Path
 from zipfile import ZipFile
@@ -17,21 +24,32 @@ class ExportSecretError(Exception):
         super().__init__(f"Sensitive paths detected: {', '.join(offending_paths)}")
 
 
+<<<<<<< HEAD
 _PATH_PATTERNS = ("*.env", "runner.env", "*.credentials", "*.pem", "*.key")
 _INLINE_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"OPENAI_API_KEY\s*=\s*sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"ANTHROPIC_API_KEY\s*=\s*sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"(?<!no )secret\s*=\s*[\"'][^\"']+[\"']", re.IGNORECASE),
 )
+=======
+_PATTERNS = ("*.env", "runner.env", "*.credentials", "*.pem", "*.key")
+>>>>>>> origin/develop
 
 
 def _is_sensitive(path_value: str) -> bool:
     normalized = path_value.replace("\\", "/")
     lower = normalized.lower()
+<<<<<<< HEAD
     basename = Path(lower).name
     if any(fnmatch.fnmatch(basename, pattern) for pattern in _PATH_PATTERNS):
         return True
     return "_token" in lower or "secret" in lower
+=======
+    if any(fnmatch.fnmatch(lower, pattern) for pattern in _PATTERNS):
+        return True
+    name = Path(normalized).name.lower()
+    return "_token" in lower or "secret" in lower or "_token" in name or "secret" in name
+>>>>>>> origin/develop
 
 
 def verify_staged_files(staged_files: list[str]) -> None:
@@ -41,6 +59,7 @@ def verify_staged_files(staged_files: list[str]) -> None:
 
 
 def verify_zip(zip_path: Path) -> None:
+<<<<<<< HEAD
     offending_paths: list[str] = []
     with ZipFile(zip_path, "r") as archive:
         for member in archive.namelist():
@@ -75,6 +94,15 @@ def verify_repo_clean(repo_root: Path | None = None) -> tuple[bool, list[str]]:
         if matches:
             violations.append(str(py_file))
     return len(violations) == 0, violations
+=======
+    offending: list[str] = []
+    with ZipFile(zip_path, "r") as archive:
+        for member in archive.namelist():
+            if _is_sensitive(member):
+                offending.append(member)
+    if offending:
+        raise ExportSecretError(offending)
+>>>>>>> origin/develop
 
 
 if __name__ == "__main__":

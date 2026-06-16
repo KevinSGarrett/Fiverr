@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 # State Snapshot — Cycle 082 (Autonomous Finalization 2026-06-16)
+=======
+# State Snapshot — Cycle 081 (Reconciled 2026-06-15)
+>>>>>>> origin/develop
 
 **Reconciliation note:** Prior STATE_SNAPSHOT was stale at Cycle 049.
 Updated to reflect current state per HYDRATION_HEADER, CURRENT_STATE_CANONICAL,
 and controller_state agreement.
 
+<<<<<<< HEAD
 Updated: 2026-06-16 | Cycle 082 autonomous finalization
 
 ## Current State
@@ -12,6 +17,16 @@ Updated: 2026-06-16 | Cycle 082 autonomous finalization
 - **Active cycle:** 082
 - **Last completed cycle:** 081
 - **Current branch:** cycle/082/integration
+=======
+Updated: 2026-06-15 | Cycle 081 reconciliation
+
+## Current State
+
+- Completed: C080
+- **Active cycle:** 081
+- **Last completed cycle:** 080
+- **Current branch:** cycle/081/integration
+>>>>>>> origin/develop
 - **Canonical working directory:** `C:\Fiverr\Fiverr`
 - **Autonomy status:** FROZEN — V5 audit corrections pending
 - **Controller state:** AGENT_DISPATCH (frozen — no real dispatch)
@@ -25,12 +40,21 @@ Updated: 2026-06-16 | Cycle 082 autonomous finalization
 - Score1 (internal): ~67% | Score2 (E2E): ~45-50%
 - Two-score model established (Score2 <= Score1 with TierD-2 caps)
 
+<<<<<<< HEAD
 ## Cycle 082 Status (Current)
 
 - Status: ACTIVE — fully autonomous dispatch and stage automation enabled
 - Branch: cycle/082/integration
 - Awaiting: stage evidence and daily Claude PM report review only
 - Prompts: Cycle 082 prompt package marked READY for six-agent execution
+=======
+## Cycle 081 Status (Current)
+
+- Status: ACTIVE — Cycle 081 prompt/governance state reconciliation in progress
+- Branch: cycle/081/integration
+- Awaiting: downstream implementation handoff and controller-managed dispatch
+- Prompts: Cycle 081 prompt contracts: 6 generated; validated 6/6 PASS; prompt_package_manifest.json status=READY
+>>>>>>> origin/develop
 
 ## Key Technical Anchors
 

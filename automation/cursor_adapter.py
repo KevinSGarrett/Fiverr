@@ -54,6 +54,7 @@ def kill_cursor_process(pid: int) -> bool:
         except AttributeError:
             return False
         try:
+<<<<<<< HEAD
             pgid = os.getpgid(pid)  # type: ignore[attr-defined]
             # Safety: never kill the runner's own process group.
             runner_pgid = os.getpgid(0)  # type: ignore[attr-defined]
@@ -62,6 +63,9 @@ def kill_cursor_process(pid: int) -> bool:
                 os.kill(pid, sig_kill)  # type: ignore[attr-defined]
             else:
                 os.killpg(pgid, sig_kill)  # type: ignore[attr-defined]
+=======
+            os.killpg(os.getpgid(pid), sig_kill)  # type: ignore[attr-defined]
+>>>>>>> origin/develop
             return True
         except (ProcessLookupError, PermissionError):
             return False
@@ -81,6 +85,7 @@ def kill_cursor_process(pid: int) -> bool:
 class CursorAdapter:
     """Compatibility wrapper for Cursor adapter utility methods."""
 
+<<<<<<< HEAD
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
@@ -96,6 +101,10 @@ class CursorAdapter:
         except Exception as exc:  # noqa: BLE001
             self.logger.error("Process tree kill failed for PID %s: %s", pid, exc)
             return False
+=======
+    def kill_cursor_process(self, pid: int) -> bool:
+        return kill_cursor_process(pid)
+>>>>>>> origin/develop
 
 
 @dataclass

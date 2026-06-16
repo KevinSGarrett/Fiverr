@@ -1,16 +1,25 @@
 {
   "catalog": "docs_architecture",
+<<<<<<< HEAD
   "generated_at": "2026-06-16T06:03:52.432811+00:00",
   "root": "docs/architecture",
   "entry_count": 9,
+=======
+  "generated_at": "2026-06-16T00:24:06.105402+00:00",
+  "root": "docs/architecture",
+  "entry_count": 7,
+>>>>>>> origin/develop
   "entries": [
     "docs/architecture/ADR_023_PROVIDER_ROUTER_GOVERNANCE.md",
     "docs/architecture/ADR_024_COST_GOVERNANCE.md",
     "docs/architecture/ADR_025_TEST_COVERAGE_STRATEGY.md",
     "docs/architecture/ADR_026_STATE_RECONCILIATION.md",
     "docs/architecture/ADR_027_STAGE2_READINESS.md",
+<<<<<<< HEAD
     "docs/architecture/ADR_028_AUTONOMOUS_STAGE_EXECUTION.md",
     "docs/architecture/ADR_029_RESTRICTION_REMOVAL.md",
+=======
+>>>>>>> origin/develop
     "docs/architecture/PROMPT_FACTORY_CHAIN.md",
     "docs/architecture/PROMPTFACTORYCHAIN.md"
   ]

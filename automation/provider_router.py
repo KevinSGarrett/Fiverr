@@ -101,10 +101,21 @@ class ProviderRouter:
         self.provider_health = ProviderHealth()
         self.advisory_only_mode = True
         self.advisory_confirm_mode = False
+<<<<<<< HEAD
         self.adapters: dict[str, Any] = {}
+=======
+>>>>>>> origin/develop
         self._load_runner_config()
         self._load_policy()
         self._init_adapters()
+
+    def __repr__(self) -> str:
+        return (
+            "ProviderRouter("
+            f"advisory_only={self.advisory_only_mode}, "
+            f"advisory_confirm={self.advisory_confirm_mode}"
+            ")"
+        )
 
     def __repr__(self) -> str:
         return (
@@ -139,6 +150,7 @@ class ProviderRouter:
         global_rules = payload.get("global_rules", {})
         self.advisory_only_mode = bool(global_rules.get("advisory_only_provider_routing", True))
         self.advisory_confirm_mode = bool(global_rules.get("advisory_confirm_mode", False))
+<<<<<<< HEAD
 
     def _init_adapters(self) -> None:
         from automation.adapters.claude_subscription_adapter import ClaudeSubscriptionAdapter
@@ -152,6 +164,8 @@ class ProviderRouter:
             "openai_api": OpenAIApiAdapter(),
             "codex_subscription": CodexSubscriptionAdapter(),
         }
+=======
+>>>>>>> origin/develop
 
     def _has_minimum_structure(self, payload: dict[str, Any]) -> bool:
         return (
@@ -170,7 +184,10 @@ class ProviderRouter:
         aliases = {
             "officialpostcyclereview": "official_post_cycle_review",
             "officialpostcycle_review": "official_post_cycle_review",
+<<<<<<< HEAD
             "code_implementation": "implementation",
+=======
+>>>>>>> origin/develop
             "testgeneration": "test_generation",
             "docsagentwork": "docs_agent_work",
             "jsonclassification": "json_classification",
@@ -429,6 +446,7 @@ class ProviderRouter:
         payload["provider"] = provider_alias.get(payload["provider"], payload["provider"])
         payload["decision_artifact_path"] = str(artifact_path)
         if decision.reason == "DISPATCHCONFIRM":
+<<<<<<< HEAD
             message = f"ADVISORYCONFIRM: Would route to {payload['provider']} - confirm before dispatching"
         elif decision.reason == "ADVISORYCONFIRMREQUIRED":
             message = "ADVISORYCONFIRM_BLOCKED: confirmation token required"
@@ -436,6 +454,18 @@ class ProviderRouter:
             message = "ADVISORY_ONLY_BLOCKED: advisory-only mode blocks provider dispatch"
         else:
             message = f"WILL_DISPATCH: route {task_type} to {payload['provider']}"
+=======
+            message = (
+                f"ADVISORYCONFIRM: Would route to {payload['provider']} - "
+                "confirm before dispatching"
+            )
+        elif decision.reason == "ADVISORYCONFIRMREQUIRED":
+            message = "ADVISORYCONFIRM_BLOCKED: requires human confirmation"
+        elif decision.reason == "ADVISORYONLYBLOCKED":
+            message = "ADVISORY_ONLY_BLOCKED: advisory-only mode blocks provider dispatch"
+        else:
+            message = f"DRYRUN: Would route {task_type} to {payload['provider']}"
+>>>>>>> origin/develop
         print(f"{message}. Artifact: {artifact_path}")
         return payload
 
@@ -460,7 +490,10 @@ class ProviderRouter:
                 error_message=decision.reason,
                 decision_artifact_path=str(artifact_path),
             )
+<<<<<<< HEAD
         self._record_usage(decision=decision, cycle=cycle, agent=agent)
+=======
+>>>>>>> origin/develop
         refresh_after_dispatch(decision.provider, "SUCCESS")
         return ProviderRunResult(
             status="SUCCESS",

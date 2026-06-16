@@ -226,6 +226,7 @@ def test_refresh_after_dispatch_repeated_error_blocks(
     monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
     refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_1")
     refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_2")
+<<<<<<< HEAD
     payload = json.loads(health_path.read_text(encoding="utf-8"))
     assert payload["cursorcli"]["status"] == "BLOCKED"
     assert payload["cursorcli"]["error_count"] == 2
@@ -255,3 +256,9 @@ def test_update_provider_status_accepts_not_verified_alias(
     update_provider_status("cursor_cli", "NOT_VERIFIED")
     payload = json.loads(health_path.read_text(encoding="utf-8"))
     assert payload["cursorcli"]["status"] == "NOT_VERIFIED"
+=======
+    refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_3")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["cursorcli"]["status"] == "BLOCKED"
+    assert payload["cursorcli"]["error_count"] == 3
+>>>>>>> origin/develop

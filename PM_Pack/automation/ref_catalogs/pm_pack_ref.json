@@ -1,6 +1,10 @@
 {
   "catalog": "pm_pack_ref",
+<<<<<<< HEAD
   "generated_at": "2026-06-16T06:03:52.364672+00:00",
+=======
+  "generated_at": "2026-06-16T00:24:06.055890+00:00",
+>>>>>>> origin/develop
   "root": "PM_Pack/ref",
   "entry_count": 168,
   "entries": [

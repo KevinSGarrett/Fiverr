@@ -37,7 +37,11 @@ def test_run_pre_commit_gate_pytest_failure_blocks(monkeypatch) -> None:
     def _fake_run(*args, **kwargs):
         _ = args, kwargs
         calls["idx"] += 1
+<<<<<<< HEAD
         if calls["idx"] == 3:
+=======
+        if calls["idx"] == 2:
+>>>>>>> origin/develop
             return _Result(1)
         return _Result(0)
 
