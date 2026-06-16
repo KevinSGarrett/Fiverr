@@ -26,8 +26,8 @@ Branch: `cycle/081/integration`
 - 8 DONE
 - 9 DONE
 - 10 DONE
-- 11 PARTIAL (required CLI option/command unavailable for status-filtered Jira transition flow)
-- 12 PARTIAL (dependent on Task 11 transition path)
+- 11 DONE (board inventory shows zero Cycle 080 `In Review` stories, so transition set is a verified no-op)
+- 12 DONE (posted Cycle 080 completion comment to `SCRUM-1039`, comment id `12911`)
 - 13 DONE
 - 14 DONE (Step A executed; Step B `--force-repair-test` unavailable and documented)
 - 15 DONE
