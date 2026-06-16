@@ -41,6 +41,33 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _update_hydration_cycle(new_cycle: int) -> None:
+    """Update CYCLE_CURRENT and related fields in HYDRATION_HEADER.md when advancing cycles.
+    Called when transitioning POST_CYCLE_PASS → COMPILED to ensure compile_policy
+    picks up the new cycle number rather than the completed one.
+    """
+    header = REPO_ROOT / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
+    if not header.exists():
+        return
+    import re as _re
+    text = header.read_text(encoding="utf-8", errors="replace")
+    prev_cycle = new_cycle - 1
+    # Update CYCLE_CURRENT
+    text = _re.sub(r"(CYCLE_CURRENT:\s*)\d+", rf"\g<1>{new_cycle:03d}", text)
+    # Update Active cycle
+    text = _re.sub(r"(Active cycle:\s*)\d+", rf"\g<1>{new_cycle}", text)
+    # Update Branch
+    text = _re.sub(r"(Branch:\s*)cycle/\d{3}/integration",
+                   rf"\g<1>cycle/{new_cycle:03d}/integration", text)
+    # Update LAST_COMPLETED
+    text = _re.sub(r"(LAST_COMPLETED:\s*)C\d+", rf"\g<1>C{prev_cycle:03d}", text)
+    # Update the header timestamp
+    from datetime import date as _date
+    today = _date.today().isoformat()
+    text = _re.sub(r"(## Updated:)[^\n]+", rf"\1 {today} | Cycle {new_cycle:03d} autonomous run", text)
+    header.write_text(text, encoding="utf-8")
+
+
 def _write_runner_state(state: dict) -> None:
     RUNNER_STATE.parent.mkdir(parents=True, exist_ok=True)
     RUNNER_STATE.write_text(json.dumps(state, indent=2))
@@ -1147,7 +1174,13 @@ def cmd_tick() -> None:
             click.secho("  State: BLOCKED_STAGE2_READINESS — dispatch paused, report updated", fg="yellow")
             click.echo("[TICK COMPLETE]")
             return
-        # Ready for next cycle — compile policy to get current cycle
+        # Ready for next cycle — compile policy to get current cycle.
+        # If we just completed a cycle (POST_CYCLE_PASS), the next cycle is cycle+1.
+        # Update HYDRATION_HEADER so compile_policy picks up the right number.
+        if status == "POST_CYCLE_PASS" and cycle:
+            next_cycle_target = cycle + 1
+            _update_hydration_cycle(next_cycle_target)
+            click.echo(f"  Advancing HYDRATION_HEADER: cycle {cycle} → {next_cycle_target}")
         click.echo("  → Running compile-policy...")
         snap = compile_policy(REPO_ROOT)
         next_cycle = snap.get("cycle_current", 75)
@@ -1209,12 +1242,12 @@ def cmd_tick() -> None:
                     fg="cyan", bold=True)
         write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
         # Run post-cycle-review inline so the scheduled tick handles the full lifecycle
-        from automation.post_cycle_review import run_post_cycle_review
+        from automation.post_cycle_review import run_review, ReviewMode, ReviewResult
         try:
-            result = run_post_cycle_review(cycle=cycle)
-            grade = getattr(result, "grade", "UNKNOWN")
+            result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
             click.echo(f"  Post-cycle-review grade: {grade}")
-            if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY"):
+            if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY") or not result.blocks_dispatch:
                 write_controller_state("POST_CYCLE_PASS", cycle=cycle)
                 click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick will plan cycle {cycle + 1}.",
                             fg="green", bold=True)
@@ -1260,7 +1293,24 @@ def cmd_tick() -> None:
                 click.secho(f"  Agent running, heartbeat {age_min:.1f}m old — OK", fg="cyan")
 
     elif status in ("POST_CYCLE_PENDING", "POST_CYCLE_REVIEW"):
-        click.secho(f"  Waiting for post-cycle review — run post-cycle-review --cycle {cycle}", fg="yellow")
+        # Either we transitioned here automatically (retry after crash) or manually.
+        # Always attempt the review rather than waiting indefinitely.
+        click.secho(f"  [TICK] {status} — attempting post-cycle-review for cycle {cycle}...",
+                    fg="cyan")
+        from automation.post_cycle_review import run_review, ReviewMode, ReviewResult
+        try:
+            result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
+            click.echo(f"  Post-cycle-review grade: {grade}")
+            if not result.blocks_dispatch:
+                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+                click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick plans cycle {cycle + 1}.",
+                            fg="green", bold=True)
+            else:
+                write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
+                click.secho(f"  POST_CYCLE_FAIL grade={grade}", fg="red", bold=True)
+        except Exception as exc:
+            click.secho(f"  [ERROR] post-cycle-review raised: {exc} — staying in {status}", fg="red")
 
     elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
         click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
