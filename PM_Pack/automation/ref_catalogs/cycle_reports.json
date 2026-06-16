@@ -1,8 +1,8 @@
 {
   "catalog": "cycle_reports",
-  "generated_at": "2026-06-15T23:53:20.414557+00:00",
+  "generated_at": "2026-06-16T00:24:06.127724+00:00",
   "root": "docs/cycle_reports",
-  "entry_count": 445,
+  "entry_count": 450,
   "entries": [
     "docs/cycle_reports/CYCLE_004_AGENT_A.md",
     "docs/cycle_reports/CYCLE_004_AGENT_B.md",
@@ -445,9 +445,14 @@
     "docs/cycle_reports/CYCLE_081_AGENT_B.md",
     "docs/cycle_reports/CYCLE_081_AGENT_C.md",
     "docs/cycle_reports/CYCLE_081_AGENT_C_STUBS.md",
+    "docs/cycle_reports/CYCLE_081_AGENT_D.md",
+    "docs/cycle_reports/CYCLE_081_AGENT_D_JIRA.md",
     "docs/cycle_reports/CYCLE_081_AGENT_E.md",
     "docs/cycle_reports/CYCLE_081_AGENT_F.md",
+    "docs/cycle_reports/CYCLE_081_CLOSEOUT_CHECKLIST.md",
     "docs/cycle_reports/CYCLE_081_COVERAGE_FINAL_F.md",
+    "docs/cycle_reports/CYCLE_081_GITHUB_PR_SUMMARY.md",
+    "docs/cycle_reports/CYCLE_081_JIRA_SYNC_SUMMARY.md",
     "docs/cycle_reports/HANDOFF_E.md"
   ]
 }
