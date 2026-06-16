@@ -125,7 +125,7 @@ jobs:
           path: coverage.xml
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
-        if: always()
+        if: ${{ always() && secrets.CODECOV_TOKEN != '' }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
