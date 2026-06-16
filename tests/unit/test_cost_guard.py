@@ -30,6 +30,14 @@ def test_daily_hard_limit_returns_hardblock(monkeypatch) -> None:
     assert result.status == "HARDBLOCK"
 
 
+def test_daily_soft_warn_boundary_is_inclusive(monkeypatch) -> None:
+    monkeypatch.setattr("automation.cost_guard._get_daily_spend", lambda provider: 4.0)
+    monkeypatch.setattr("automation.cost_guard._get_monthly_spend", lambda provider: 20.0)
+    guard = CostGuard(policy_path="C:/does/not/exist/provider_policy.yml")
+    result = guard.check_budget("openai_api", estimated_cost=1.0)
+    assert result.status == "SOFTWARN"
+
+
 def test_monthly_hard_limit_returns_hardblock(monkeypatch) -> None:
     monkeypatch.setattr("automation.cost_guard._get_daily_spend", lambda provider: 1.0)
     monkeypatch.setattr("automation.cost_guard._get_monthly_spend", lambda provider: 149.99)
@@ -89,6 +97,13 @@ def test_budget_check_result_status_is_always_expected_enum(monkeypatch) -> None
         estimated_cost=0.01,
     )
     assert result.status in {"PASS", "SOFTWARN", "HARDBLOCK"}
+
+
+def test_get_status_reports_softwarn_when_daily_projection_crosses_soft_limit(monkeypatch) -> None:
+    monkeypatch.setattr("automation.cost_guard._get_daily_spend", lambda provider: 6.0)
+    monkeypatch.setattr("automation.cost_guard._get_monthly_spend", lambda provider: 20.0)
+    status = CostGuard(policy_path="C:/does/not/exist/provider_policy.yml").get_status("openai_api")
+    assert status["status"] == "SOFTWARN"
 
 
 def test_update_spend_increases_daily(tmp_path: Path, monkeypatch) -> None:

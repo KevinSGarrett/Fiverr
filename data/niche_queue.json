@@ -1,0 +1,162 @@
+[
+  {
+    "id": "N001",
+    "name": "AI Workflow Automation",
+    "tier": "A",
+    "slug": "ai-workflow-automation",
+    "status": "PENDING",
+    "priority": 1
+  },
+  {
+    "id": "N002",
+    "name": "Custom GPT and AI Agent Setup",
+    "tier": "A",
+    "slug": "custom-gpt-ai-agent-setup",
+    "status": "PENDING",
+    "priority": 2
+  },
+  {
+    "id": "N003",
+    "name": "Chatbot Integration for SMB",
+    "tier": "A",
+    "slug": "chatbot-integration-smb",
+    "status": "PENDING",
+    "priority": 3
+  },
+  {
+    "id": "N004",
+    "name": "Python Web Scraping Automation",
+    "tier": "A",
+    "slug": "python-web-scraping-automation",
+    "status": "PENDING",
+    "priority": 4
+  },
+  {
+    "id": "N005",
+    "name": "CRM Automation Services",
+    "tier": "A",
+    "slug": "crm-automation-services",
+    "status": "PENDING",
+    "priority": 5
+  },
+  {
+    "id": "N006",
+    "name": "Ecommerce Process Automation",
+    "tier": "A",
+    "slug": "ecommerce-process-automation",
+    "status": "PENDING",
+    "priority": 6
+  },
+  {
+    "id": "N007",
+    "name": "Prompt Engineering Services",
+    "tier": "A",
+    "slug": "prompt-engineering-services",
+    "status": "PENDING",
+    "priority": 7
+  },
+  {
+    "id": "N008",
+    "name": "Zapier and Make AI Automation",
+    "tier": "A",
+    "slug": "zapier-make-ai-automation",
+    "status": "PENDING",
+    "priority": 8
+  },
+  {
+    "id": "N009",
+    "name": "Lead Generation Automation",
+    "tier": "A",
+    "slug": "lead-generation-automation",
+    "status": "PENDING",
+    "priority": 9
+  },
+  {
+    "id": "N010",
+    "name": "Customer Support AI Enablement",
+    "tier": "A",
+    "slug": "customer-support-ai-enablement",
+    "status": "PENDING",
+    "priority": 10
+  },
+  {
+    "id": "N011",
+    "name": "YouTube Content Automation",
+    "tier": "B",
+    "slug": "youtube-content-automation",
+    "status": "PENDING",
+    "priority": 11
+  },
+  {
+    "id": "N012",
+    "name": "Reddit Market Research Automation",
+    "tier": "B",
+    "slug": "reddit-market-research-automation",
+    "status": "PENDING",
+    "priority": 12
+  },
+  {
+    "id": "N013",
+    "name": "SEO Content AI Operations",
+    "tier": "B",
+    "slug": "seo-content-ai-operations",
+    "status": "PENDING",
+    "priority": 13
+  },
+  {
+    "id": "N014",
+    "name": "Notion Workspace Automation",
+    "tier": "B",
+    "slug": "notion-workspace-automation",
+    "status": "PENDING",
+    "priority": 14
+  },
+  {
+    "id": "N015",
+    "name": "Internal Ops Dashboard Automation",
+    "tier": "B",
+    "slug": "internal-ops-dashboard-automation",
+    "status": "PENDING",
+    "priority": 15
+  },
+  {
+    "id": "N016",
+    "name": "Proposal and Sales Automation",
+    "tier": "B",
+    "slug": "proposal-sales-automation",
+    "status": "PENDING",
+    "priority": 16
+  },
+  {
+    "id": "N017",
+    "name": "Data Cleanup and Enrichment Automation",
+    "tier": "B",
+    "slug": "data-cleanup-enrichment-automation",
+    "status": "PENDING",
+    "priority": 17
+  },
+  {
+    "id": "N018",
+    "name": "Outreach Personalization Automation",
+    "tier": "B",
+    "slug": "outreach-personalization-automation",
+    "status": "PENDING",
+    "priority": 18
+  },
+  {
+    "id": "N019",
+    "name": "Competitor Monitoring Automation",
+    "tier": "B",
+    "slug": "competitor-monitoring-automation",
+    "status": "PENDING",
+    "priority": 19
+  },
+  {
+    "id": "N020",
+    "name": "Reporting Pipeline Automation",
+    "tier": "B",
+    "slug": "reporting-pipeline-automation",
+    "status": "PENDING",
+    "priority": 20
+  }
+]

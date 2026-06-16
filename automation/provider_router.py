@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -15,6 +14,7 @@ import yaml
 
 from automation.provider_health import ProviderHealth, refresh_after_dispatch
 from automation.provider_task_classifier import classify
+from automation.provider_usage_ledger import LedgerEntry, record_call
 
 POLICY_PATH = Path("PM_Pack/automation/provider_policy.yml")
 RUNNER_ROUTER_CONFIG_PATH = Path("C:/AI_Runner/config/provider_router.yaml")
@@ -101,8 +101,10 @@ class ProviderRouter:
         self.provider_health = ProviderHealth()
         self.advisory_only_mode = True
         self.advisory_confirm_mode = False
+        self.adapters: dict[str, Any] = {}
         self._load_runner_config()
         self._load_policy()
+        self._init_adapters()
 
     def __repr__(self) -> str:
         return (
@@ -138,6 +140,19 @@ class ProviderRouter:
         self.advisory_only_mode = bool(global_rules.get("advisory_only_provider_routing", True))
         self.advisory_confirm_mode = bool(global_rules.get("advisory_confirm_mode", False))
 
+    def _init_adapters(self) -> None:
+        from automation.adapters.claude_subscription_adapter import ClaudeSubscriptionAdapter
+        from automation.adapters.codex_subscription_adapter import CodexSubscriptionAdapter
+        from automation.adapters.cursor_worker_adapter import CursorWorkerAdapter
+        from automation.adapters.openai_api_adapter import OpenAIApiAdapter
+
+        self.adapters = {
+            "cursor_cli": CursorWorkerAdapter(),
+            "claude_subscription": ClaudeSubscriptionAdapter(),
+            "openai_api": OpenAIApiAdapter(),
+            "codex_subscription": CodexSubscriptionAdapter(),
+        }
+
     def _has_minimum_structure(self, payload: dict[str, Any]) -> bool:
         return (
             isinstance(payload.get("providers"), dict)
@@ -155,6 +170,7 @@ class ProviderRouter:
         aliases = {
             "officialpostcyclereview": "official_post_cycle_review",
             "officialpostcycle_review": "official_post_cycle_review",
+            "code_implementation": "implementation",
             "testgeneration": "test_generation",
             "docsagentwork": "docs_agent_work",
             "jsonclassification": "json_classification",
@@ -168,17 +184,25 @@ class ProviderRouter:
     def _provider_for_decision(self, provider: str) -> str:
         mapping = {
             "cursor_cli": "cursorcli",
+            "cursorcli": "cursorcli",
             "claude_subscription": "claudesubscription",
+            "claudesubscription": "claudesubscription",
             "openai_api": "openaiapi",
+            "openaiapi": "openaiapi",
             "codex_subscription": "codexsubscription",
+            "codexsubscription": "codexsubscription",
             "deterministic_controller": "deterministiccontroller",
+            "deterministiccontroller": "deterministiccontroller",
             "deterministic_prompt_factory": "deterministicpromptfactory",
+            "deterministicpromptfactory": "deterministicpromptfactory",
             "deterministic_validator": "deterministicvalidator",
+            "deterministicvalidator": "deterministicvalidator",
             "chatgpt_browser": "chatgptbrowser",
+            "chatgptbrowser": "chatgptbrowser",
             "chatgpt_browser_automation": "chatgptbrowser",
         }
         normalized = self._normalize_provider(provider)
-        return mapping.get(normalized, normalized.replace("_", ""))
+        return mapping.get(normalized, normalized)
 
     def _provider_for_health(self, provider: str) -> str:
         mapping = {
@@ -193,14 +217,43 @@ class ProviderRouter:
         policy = self._require_policy()
         providers = policy.get("providers", {})
         normalized = self._normalize_provider(provider)
-        if isinstance(providers, dict) and normalized in providers and isinstance(providers[normalized], dict):
-            return str(providers[normalized].get("billing_mode", "unknown"))
+        aliases = [
+            normalized,
+            normalized.replace("_", ""),
+            "cursorcli" if normalized == "cursor_cli" else normalized,
+        ]
+        if isinstance(providers, dict):
+            for alias in aliases:
+                entry = providers.get(alias)
+                if isinstance(entry, dict):
+                    return str(entry.get("billing_mode", "unknown"))
         deterministic = {
             "deterministic_controller": "deterministic",
             "deterministic_prompt_factory": "deterministic",
             "deterministic_validator": "deterministic",
         }
         return deterministic.get(normalized, "unknown")
+
+    def _record_usage(self, decision: ProviderDecision, cycle: str = "", agent: str = "") -> None:
+        label = decision.task_type if not agent else f"{decision.task_type}:{agent}"
+        entry = LedgerEntry(
+            decision_id=str(uuid.uuid4()),
+            provider=decision.provider,
+            task_type=label,
+            estimated_cost_usd=float(decision.estimated_cost_usd),
+            actual_cost_usd=None,
+            timestamp=datetime.now(UTC).isoformat(),
+            cycle=(cycle or "000").zfill(3),
+        )
+        record_call(entry)
+
+    def _enforce_no_browser_automation(self, provider: str) -> None:
+        """Block any attempt to use ChatGPT browser automation. Only codex CLI is permitted."""
+        if self._normalize_provider(provider).replace("_", "") == "chatgptbrowser":
+            raise PolicyViolation(
+                "NO_BROWSER_AUTOMATION: ChatGPT browser automation is prohibited. "
+                "Use codex_subscription (the codex CLI) instead."
+            )
 
     def get_primary_route(self, task_type: str) -> str:
         normalized_task = self._normalize_task_type(task_type)
@@ -223,15 +276,9 @@ class ProviderRouter:
         route_provider = self.get_primary_route(normalized_task)
         provider_decision_value = self._provider_for_decision(route_provider)
 
-        if (
-            provider_decision_value == "chatgptbrowser"
-            or normalized_task == "chatgpt_browser_automation"
-            or normalized_task == "chatgptbrowserautomation"
-        ):
-            raise PolicyViolation(
-                "NO_BROWSER_AUTOMATION_CHATGPT: provider_policy.yml "
-                "no_browser_automation_chatgpt=true"
-            )
+        self._enforce_no_browser_automation(provider_decision_value)
+        if normalized_task in {"chatgpt_browser_automation", "chatgptbrowserautomation"}:
+            self._enforce_no_browser_automation("chatgpt_browser")
 
         if (
             provider_decision_value == "claudesubscription"
@@ -351,6 +398,10 @@ class ProviderRouter:
         artifact_path = self.write_decision_artifact(decision, cycle=cycle)
         payload = asdict(decision)
         provider_alias = {
+            "cursorcli": "cursor_cli",
+            "claudesubscription": "claude_subscription",
+            "openaiapi": "openai_api",
+            "codexsubscription": "codex_subscription",
             "deterministiccontroller": "deterministic_controller",
             "deterministicpromptfactory": "deterministic_prompt_factory",
             "deterministicvalidator": "deterministic_validator",
@@ -358,16 +409,13 @@ class ProviderRouter:
         payload["provider"] = provider_alias.get(payload["provider"], payload["provider"])
         payload["decision_artifact_path"] = str(artifact_path)
         if decision.reason == "DISPATCHCONFIRM":
-            message = (
-                f"ADVISORYCONFIRM: Would route to {payload['provider']} - "
-                "confirm before dispatching"
-            )
+            message = f"ADVISORYCONFIRM: Would route to {payload['provider']} - confirm before dispatching"
         elif decision.reason == "ADVISORYCONFIRMREQUIRED":
-            message = "ADVISORYCONFIRM_BLOCKED: requires human confirmation"
+            message = "ADVISORYCONFIRM_BLOCKED: confirmation token required"
         elif decision.reason == "ADVISORYONLYBLOCKED":
             message = "ADVISORY_ONLY_BLOCKED: advisory-only mode blocks provider dispatch"
         else:
-            message = f"DRYRUN: Would route {task_type} to {payload['provider']}"
+            message = f"WILL_DISPATCH: route {task_type} to {payload['provider']}"
         print(f"{message}. Artifact: {artifact_path}")
         return payload
 
@@ -392,6 +440,7 @@ class ProviderRouter:
                 error_message=decision.reason,
                 decision_artifact_path=str(artifact_path),
             )
+        self._record_usage(decision=decision, cycle=cycle, agent=agent)
         refresh_after_dispatch(decision.provider, "SUCCESS")
         return ProviderRunResult(
             status="SUCCESS",
@@ -436,8 +485,8 @@ if __name__ == "__main__":
     if args.command == "validate-routes":
         result = router.validate_policy()
         print(result)
-        sys.exit(0 if result.passed else 1)
+        raise SystemExit(0 if result.passed else 1)
 
     dry = router.route_dry_run(args.task_type)
     print(dry)
-    sys.exit(0)
+    raise SystemExit(0)

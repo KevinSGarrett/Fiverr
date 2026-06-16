@@ -10,6 +10,7 @@ V5-009 fixes (AUDIT-P0-012):
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import threading
@@ -73,8 +74,21 @@ def kill_cursor_process(pid: int) -> bool:
 class CursorAdapter:
     """Compatibility wrapper for Cursor adapter utility methods."""
 
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(__name__)
+
     def kill_cursor_process(self, pid: int) -> bool:
-        return kill_cursor_process(pid)
+        try:
+            result = subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            return result.returncode == 0
+        except Exception as exc:  # noqa: BLE001
+            self.logger.error("Process tree kill failed for PID %s: %s", pid, exc)
+            return False
 
 
 @dataclass

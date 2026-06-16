@@ -1,0 +1,148 @@
+{
+  "cycle": "082",
+  "agent": "D",
+  "agent_lane": "PR body, Jira evidence, GitHub status, merge gate preparation",
+  "agentlane": "PR body, Jira evidence, GitHub status, merge gate preparation",
+  "branch": "cycle/082/integration",
+  "model_policy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false
+  },
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false,
+    "auto_model_selection": "DISABLED"
+  },
+  "jira_scope": [
+    {
+      "key": "SCRUM-268",
+      "summary": "PR lifecycle execution for Cycle 079 integration handoff",
+      "status": "To Do",
+      "priority": "High",
+      "acceptance_criteria": [
+        "Stale PR is closed and active integration PR is updated",
+        "Jira issue transitions reflect delivered evidence"
+      ],
+      "definition_of_done": [
+        "PR checks are green and merge-ready",
+        "Jira comments and transitions include links to artifacts"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "docs/cycle_reports/CYCLE_079_AGENT_D.md",
+        "docs/architecture/PROMPT_FACTORY_CHAIN.md"
+      ],
+      "acceptancecriteria": [
+        "Stale PR is closed and active integration PR is updated",
+        "Jira issue transitions reflect delivered evidence"
+      ],
+      "definitionofdone": [
+        "PR checks are green and merge-ready",
+        "Jira comments and transitions include links to artifacts"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "docs/cycle_reports/CYCLE_079_AGENT_D.md",
+        "docs/architecture/PROMPT_FACTORY_CHAIN.md"
+      ]
+    }
+  ],
+  "jirascope": [
+    {
+      "key": "SCRUM-268",
+      "summary": "PR lifecycle execution for Cycle 079 integration handoff",
+      "status": "To Do",
+      "priority": "High",
+      "acceptance_criteria": [
+        "Stale PR is closed and active integration PR is updated",
+        "Jira issue transitions reflect delivered evidence"
+      ],
+      "definition_of_done": [
+        "PR checks are green and merge-ready",
+        "Jira comments and transitions include links to artifacts"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "docs/cycle_reports/CYCLE_079_AGENT_D.md",
+        "docs/architecture/PROMPT_FACTORY_CHAIN.md"
+      ],
+      "acceptancecriteria": [
+        "Stale PR is closed and active integration PR is updated",
+        "Jira issue transitions reflect delivered evidence"
+      ],
+      "definitionofdone": [
+        "PR checks are green and merge-ready",
+        "Jira comments and transitions include links to artifacts"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "docs/cycle_reports/CYCLE_079_AGENT_D.md",
+        "docs/architecture/PROMPT_FACTORY_CHAIN.md"
+      ]
+    }
+  ],
+  "allowed_paths": [
+    "docs/cycle_reports/**"
+  ],
+  "allowedpaths": [
+    "docs/cycle_reports/**"
+  ],
+  "blocked_paths": [],
+  "blockedpaths": [],
+  "validation_commands": [
+    "python automation/ai_cycle_controller.py brain-check",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 080"
+  ],
+  "validationcommands": [
+    "python automation/ai_cycle_controller.py brain-check",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 080"
+  ],
+  "final_report_path": "docs/cycle_reports/CYCLE_082_AGENT_D.md",
+  "finalreportpath": "docs/cycle_reports/CYCLE_082_AGENT_D.md",
+  "built_at": "2026-06-16T03:48:17.751595+00:00",
+  "builtat": "2026-06-16T03:48:17.751595+00:00",
+  "contract_version": "1.0.0",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-268",
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "sourcesused": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-268",
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "catalog_counts": {
+      "project_plan": 98,
+      "dod": 10,
+      "todo": 16,
+      "github": 47
+    }
+  }
+}

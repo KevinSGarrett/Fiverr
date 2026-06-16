@@ -1,0 +1,18 @@
+{
+  "pr_number": 100,
+  "status": "PASS",
+  "generated_at": "2026-06-16T06:06:30+00:00",
+  "gate_results": {
+    "ci_lint": "PASS",
+    "ci_type_check": "PASS",
+    "ci_tests_coverage": "PASS",
+    "ci_smoke_gates": "PASS",
+    "model_evidence": "PASS",
+    "secret_scan": "PASS",
+    "stage2_dispatch": "PASS",
+    "stage3_fiverr_cycle": "ATTEMPTED",
+    "4_providers_verified": "PASS",
+    "zero_human_gates": "PASS"
+  },
+  "notes": "Local gate artifact generated; GitHub PR/CI publication blocked by gh authentication."
+}

@@ -6,22 +6,25 @@ import pytest
 from automation.prompt_renderer import DEFAULT_DRAFTS_DIR, PromptRenderer, render_with_overrides
 from automation.prompt_validator import validate
 
+END_MARKER = "END OF PROMPT"
+TASK_MARKER = "### Task "
+MIN_TASK_COUNT = 55
+
 
 def _contract(story_count: int = 3) -> dict[str, object]:
-    stories = []
-    for idx in range(1, story_count + 1):
-        stories.append(
-            {
-                "key": f"SCRUM-{500 + idx}",
-                "summary": f"Coverage story {idx}",
-                "status": "TODO",
-                "priority": "HIGH",
-                "acceptancecriteria": [f"AC {idx}a", f"AC {idx}b"],
-                "definitionofdone": [f"DoD {idx}a", f"DoD {idx}b"],
-                "projectplanpath": f"PM_Pack/ref/project_plan/epic_{idx}.md",
-                "filesormodules": [f"tests/unit/file_{idx}.py"],
-            }
-        )
+    stories = [
+        {
+            "key": f"SCRUM-{500 + idx}",
+            "summary": f"Coverage story {idx}",
+            "status": "TODO",
+            "priority": "HIGH",
+            "acceptancecriteria": [f"AC {idx}a", f"AC {idx}b"],
+            "definitionofdone": [f"DoD {idx}a", f"DoD {idx}b"],
+            "projectplanpath": f"PM_Pack/ref/project_plan/epic_{idx}.md",
+            "filesormodules": [f"tests/unit/file_{idx}.py"],
+        }
+        for idx in range(1, story_count + 1)
+    ]
     return {
         "cycle": "080",
         "agent": "F",
@@ -45,12 +48,12 @@ def _contract(story_count: int = 3) -> dict[str, object]:
 def test_render_returns_string_with_end_of_prompt() -> None:
     rendered = PromptRenderer().render(_contract())
     assert isinstance(rendered, str)
-    assert "END OF PROMPT" in rendered
+    assert END_MARKER in rendered
 
 
 def test_render_contains_at_least_55_task_markers() -> None:
     rendered = PromptRenderer().render(_contract())
-    assert rendered.count("### Task ") >= 55
+    assert rendered.count(TASK_MARKER) >= MIN_TASK_COUNT
 
 
 def test_render_includes_git_rules_block() -> None:
@@ -84,12 +87,12 @@ def test_render_to_draft_creates_file_in_drafts_directory() -> None:
 
 def test_render_to_draft_file_contains_end_of_prompt() -> None:
     draft_path = PromptRenderer().render_to_draft(_contract())
-    assert "END OF PROMPT" in draft_path.read_text(encoding="utf-8")
+    assert END_MARKER in draft_path.read_text(encoding="utf-8")
 
 
 def test_render_to_draft_file_contains_at_least_55_task_markers() -> None:
     draft_path = PromptRenderer().render_to_draft(_contract())
-    assert draft_path.read_text(encoding="utf-8").count("### Task ") >= 55
+    assert draft_path.read_text(encoding="utf-8").count(TASK_MARKER) >= MIN_TASK_COUNT
 
 
 def test_render_to_draft_returns_expected_path_object() -> None:
@@ -140,7 +143,7 @@ def test_render_with_overrides_total_tasks_still_55plus() -> None:
         _contract(),
         extra_tasks=[{"title": "Extra 1"}, {"title": "Extra 2"}],
     )
-    assert rendered.count("### Task ") >= 55
+    assert rendered.count(TASK_MARKER) >= MIN_TASK_COUNT
 
 
 def test_render_with_empty_jira_scope() -> None:
@@ -148,4 +151,44 @@ def test_render_with_empty_jira_scope() -> None:
     contract["jirascope"] = []
     rendered = render_with_overrides(contract)
     assert "No Jira stories assigned" in rendered
-    assert rendered.count("### Task ") >= 55
+    assert rendered.count(TASK_MARKER) >= MIN_TASK_COUNT
+
+
+def test_render_supports_cycle079_compatibility_keys() -> None:
+    contract = {
+        "cycle": "079",
+        "agent": "B",
+        "agentlane": "Primary src/ and tests/ author — new features, core logic",
+        "branch": "cycle/079/integration",
+        "modelpolicy": {
+            "worker": "Cursor CLI",
+            "model": "codex-5.3",
+            "effort": "medium",
+            "auto": False,
+            "fallback": False,
+        },
+        "jirascope": [
+            {
+                "key": "SCRUM-264",
+                "summary": "Prompt rendering hardening",
+                "status": "In Progress",
+                "priority": "High",
+                "acceptancecriteria": ["Prompt rendering path supports Cycle 079 contracts"],
+                "definitionofdone": ["Rendered prompts pass validate-prompts checks"],
+                "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+                "filesormodules": ["automation/prompt_renderer.py", "automation/prompt_contract_builder.py"],
+            }
+        ],
+        "allowedpaths": ["src/**", "tests/**"],
+        "blockedpaths": [],
+        "validationcommands": [
+            "python automation/ai_cycle_controller.py brain-check",
+            "python automation/ai_cycle_controller.py validate-prompts --cycle 080",
+        ],
+        "finalreportpath": "docs/cycle_reports/CYCLE_082_AGENT_B.md",
+        "builtat": "2026-06-16T03:48:17.746995+00:00",
+    }
+    rendered = render_with_overrides(contract)
+    assert "CYCLE 079" in rendered
+    assert "SCRUM-264" in rendered
+    assert "mypy src/ automation/ --ignore-missing-imports" in rendered

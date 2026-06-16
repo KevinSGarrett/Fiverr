@@ -42,10 +42,10 @@ Compute age in minutes: (Get-Date) - [datetime]::Parse($heartbeat.last_seen)
 If age > 120 minutes AND controller_state.json status is ACTIVE: write RED and exit 2
 If age > 30 minutes AND controller_state.json status is ACTIVE: write ORANGE and exit 1
 Otherwise: write GREEN and exit 0 Document the script. Verify it exists at the correct path.
-Task 62: STATE-010 — Implement Slack webhook notification on BLOCKED severity
+Task 62: STATE-010 — Implement local notification logging on BLOCKED severity
 Open automation/notification_router.py (create if not exists). Implement class NotificationRouter with:
-send_slack_notification(self, message: str, channel: str, severity: str) -> None: reads SLACK_WEBHOOK_URL from config_loader.get_secret('SLACK_WEBHOOK_URL', default=None). If None/empty: logs "SLACK_WEBHOOK_NOT_CONFIGURED — skipping" and returns. Otherwise: requests.post(url, json={"text": f"[{severity}] {message}"}) with 5-second timeout. Never raises on network error (catch all exceptions and log).
-route_notification(self, severity: str, message: str, context: dict) -> None: calls send_slack_notification only when severity in ('BLOCKED', 'RED', 'CRITICAL'). Run python -c "from automation.notification_router import NotificationRouter; r=NotificationRouter(); r.send_slack_notification('test','#ch','INFO'); print('NotificationRouter OK')". Must not crash even without SLACKWEBHOOKURL set.
+send_local_notification(self, message: str, channel: str, severity: str) -> None: writes local jsonl entries, no external network calls.
+route_notification(self, severity: str, message: str, context: dict) -> None: calls send_local_notification only when severity in ('BLOCKED', 'RED', 'CRITICAL'). Run python -c "from automation.notification_router import NotificationRouter; r=NotificationRouter(); r.route_notification('INFO','test',{}); print('NotificationRouter OK')". Must not crash.
 Task 63: Run ruff + mypy on all new Agent B files
 Run ruff check automation/export_sanitizer_verify.py automation/post_cycle_review.py automation/report_generator.py automation/notification_router.py --output-format=concise. Must exit 0. Run mypy automation/export_sanitizer_verify.py automation/notification_router.py --ignore-missing-imports --no-error-summary. Must exit 0. Document any type issues found and fixed.
 """.strip()

@@ -56,6 +56,23 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
             else:
                 result.failed.append(f"MISSING [{section}]: {rel_path}")
 
+    # Validate optional structured fiverr_project registry block when present.
+    fiverr_registry = registry.get("fiverr_project", {})
+    if isinstance(fiverr_registry, dict):
+        fiverr_base = str(fiverr_registry.get("path", "PM_Pack/fiverr_project/")).strip()
+        fiverr_files = fiverr_registry.get("files", [])
+        required_for_build = bool(fiverr_registry.get("required_for_build", False))
+        if isinstance(fiverr_files, list):
+            for filename in fiverr_files:
+                rel_path = f"{fiverr_base.rstrip('/')}/{filename}"
+                full = _resolve(rel_path, repo_root)
+                if full.exists():
+                    result.passed.append(f"PASS [fiverr_project]: {rel_path}")
+                elif required_for_build:
+                    result.failed.append(f"MISSING [fiverr_project]: {rel_path}")
+                else:
+                    result.warnings.append(f"WARNING [fiverr_project]: {rel_path}")
+
     # Parse hydration header for cycle/wave/blockers — use exact key lines
     hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
     if hydration_path.exists():

@@ -1,19 +1,193 @@
-{
-  "catalog": "todo_epic",
-  "generated_at": "2026-06-15T15:22:39.893844+00:00",
-  "root": "PM_Pack\\ref\\todo",
-  "entry_count": 11,
-  "entries": [
-    "PM_Pack\\ref\\todo\\EPIC_01_FOUNDATION.md",
-    "PM_Pack\\ref\\todo\\EPIC_02_COLLECTION.md",
-    "PM_Pack\\ref\\todo\\EPIC_03_ANALYSIS.md",
-    "PM_Pack\\ref\\todo\\EPIC_04_SCORING.md",
-    "PM_Pack\\ref\\todo\\EPIC_05_RECOMMENDATIONS.md",
-    "PM_Pack\\ref\\todo\\EPIC_06_PRICING.md",
-    "PM_Pack\\ref\\todo\\EPIC_07_DISCOVERY.md",
-    "PM_Pack\\ref\\todo\\EPIC_08_PLAYBOOK.md",
-    "PM_Pack\\ref\\todo\\EPIC_09_DASHBOARD.md",
-    "PM_Pack\\ref\\todo\\EPIC_10_INTEGRATION.md",
-    "PM_Pack\\ref\\todo\\TODO_WAVE_SCHEDULE.md"
-  ]
-}
+[
+  {
+    "filename": "EPIC_01_FOUNDATION.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_01_FOUNDATION.md",
+    "epic_id": "EPIC-01_FOUNDATION",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_02_COLLECTION.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_02_COLLECTION.md",
+    "epic_id": "EPIC-02_COLLECTION",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_03_ANALYSIS.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_03_ANALYSIS.md",
+    "epic_id": "EPIC-03_ANALYSIS",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_04_SCORING.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_04_SCORING.md",
+    "epic_id": "EPIC-04_SCORING",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_05_RECOMMENDATIONS.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_05_RECOMMENDATIONS.md",
+    "epic_id": "EPIC-05_RECOMMENDATIONS",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_06_PRICING.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_06_PRICING.md",
+    "epic_id": "EPIC-06_PRICING",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_07_DISCOVERY.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_07_DISCOVERY.md",
+    "epic_id": "EPIC-07_DISCOVERY",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_08_PLAYBOOK.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_08_PLAYBOOK.md",
+    "epic_id": "EPIC-08_PLAYBOOK",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_09_DASHBOARD.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_09_DASHBOARD.md",
+    "epic_id": "EPIC-09_DASHBOARD",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "EPIC_10_INTEGRATION.md",
+    "source_path": "PM_Pack/ref/todo/EPIC_10_INTEGRATION.md",
+    "epic_id": "EPIC-10_INTEGRATION",
+    "completion_pct": 0,
+    "open_stories": [],
+    "closed_stories": [],
+    "total_stories": 0
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "epic_id": "FIVERR-E1",
+    "completion_pct": 0,
+    "open_stories": [
+      "FIVERR-E1-STORY-01",
+      "FIVERR-E1-STORY-02",
+      "FIVERR-E1-STORY-03",
+      "FIVERR-E1-STORY-04",
+      "FIVERR-E1-STORY-05",
+      "FIVERR-E1-STORY-06",
+      "FIVERR-E1-STORY-07"
+    ],
+    "closed_stories": [],
+    "total_stories": 7
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "epic_id": "FIVERR-E2",
+    "completion_pct": 0,
+    "open_stories": [
+      "FIVERR-E2-STORY-01",
+      "FIVERR-E2-STORY-02",
+      "FIVERR-E2-STORY-03",
+      "FIVERR-E2-STORY-04",
+      "FIVERR-E2-STORY-05",
+      "FIVERR-E2-STORY-06",
+      "FIVERR-E2-STORY-07",
+      "FIVERR-E2-STORY-08"
+    ],
+    "closed_stories": [],
+    "total_stories": 8
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "epic_id": "FIVERR-E3",
+    "completion_pct": 0,
+    "open_stories": [
+      "FIVERR-E3-STORY-01",
+      "FIVERR-E3-STORY-02",
+      "FIVERR-E3-STORY-03",
+      "FIVERR-E3-STORY-04",
+      "FIVERR-E3-STORY-05",
+      "FIVERR-E3-STORY-06",
+      "FIVERR-E3-STORY-07",
+      "FIVERR-E3-STORY-08"
+    ],
+    "closed_stories": [],
+    "total_stories": 8
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "epic_id": "FIVERR-E4",
+    "completion_pct": 0,
+    "open_stories": [
+      "FIVERR-E4-STORY-01",
+      "FIVERR-E4-STORY-02",
+      "FIVERR-E4-STORY-03",
+      "FIVERR-E4-STORY-04",
+      "FIVERR-E4-STORY-05",
+      "FIVERR-E4-STORY-06",
+      "FIVERR-E4-STORY-07"
+    ],
+    "closed_stories": [],
+    "total_stories": 7
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "epic_id": "FIVERR-E5",
+    "completion_pct": 0,
+    "open_stories": [
+      "FIVERR-E5-STORY-01",
+      "FIVERR-E5-STORY-02",
+      "FIVERR-E5-STORY-03",
+      "FIVERR-E5-STORY-04",
+      "FIVERR-E5-STORY-05",
+      "FIVERR-E5-STORY-06",
+      "FIVERR-E5-STORY-07"
+    ],
+    "closed_stories": [],
+    "total_stories": 7
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "epic_id": "FIVERR-E6",
+    "completion_pct": 0,
+    "open_stories": [
+      "FIVERR-E6-STORY-01",
+      "FIVERR-E6-STORY-02",
+      "FIVERR-E6-STORY-03",
+      "FIVERR-E6-STORY-04"
+    ],
+    "closed_stories": [],
+    "total_stories": 4
+  }
+]

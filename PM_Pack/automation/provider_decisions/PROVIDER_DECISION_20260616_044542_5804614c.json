@@ -1,0 +1,12 @@
+{
+  "decisionid": "887d4b60-5dfd-4b4a-b01d-62c39484815a",
+  "cycle": "080",
+  "tasktype": "docs_agent_work",
+  "selectedprovider": "codexsubscription",
+  "reason": "classified=docs_agent_work;primary=cursorcli;route=codex_subscription;health=BLOCKED",
+  "billingmode": "chatgpt_subscription_only",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-16T04:45:42.303506+00:00",
+  "decidedat": "2026-06-16T04:45:42.303506+00:00"
+}

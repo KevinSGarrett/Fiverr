@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stage Evidence",
+  "type": "object",
+  "required": [
+    "stage",
+    "status",
+    "timestamp",
+    "evidence"
+  ],
+  "properties": {
+    "stage": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 7
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "PENDING"
+      ]
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

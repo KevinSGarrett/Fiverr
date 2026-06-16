@@ -31,8 +31,9 @@ def _invoke_stage2(
 
     manifest_path = repo_root / "PM_Pack/automation/prompt_package_manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    active_cycle = int(controller._read_runner_state().get("active_cycle", 81))
     manifest_path.write_text(
-        json.dumps({"cycle": "081", "status": manifest_status}),
+        json.dumps({"cycle": f"{active_cycle:03d}", "status": manifest_status}),
         encoding="utf-8",
     )
     policy_path = repo_root / "PM_Pack/automation/provider_policy.yml"

@@ -30,6 +30,21 @@ Default handoff chain for Cycle 079:
 - Validation commands defined per-agent prompt must be executed and reported.
 - Cycle report must include `AGENT_COMPLETE` as completion evidence.
 
+## Cycle 079 Governance Refresh
+
+- Refresh target: `SCRUM-263` (Cycle 079 planning and PM Pack integration governance).
+- Agent A ownership: planning, architecture docs, governance consistency, and quality-gate evidence capture.
+- Dependency chain for this cycle:
+  - Agent A publishes governance artifacts and acceptance mapping.
+  - Agent B consumes routing/control notes and implementation constraints.
+  - Agent E/C/F execute validation and regression evidence tied to Agent A acceptance coverage.
+  - Agent D finalizes merge-gate stewardship after all upstream evidence lands.
+- Required evidence files:
+  - `docs/cycle_reports/CYCLE_079_AGENT_A.md`
+  - `docs/cycle_reports/CYCLE_082_AGENT_A.md`
+  - `PM_Pack/automation/post_cycle_reviews/current_run/github_verification.json`
+  - `PM_Pack/automation/post_cycle_reviews/current_run/jira_verification.json`
+
 ## Required Handoff Artifacts
 
 - Updated cycle report in `docs/cycle_reports/`.

@@ -1,18 +1,173 @@
-{
-  "catalog": "dod",
-  "generated_at": "2026-06-15T15:22:39.893844+00:00",
-  "root": "PM_Pack\\ref\\dod",
-  "entry_count": 10,
-  "entries": [
-    "PM_Pack\\ref\\dod\\DOD_EPIC_01.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_02.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_03.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_04.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_05.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_06.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_07.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_08.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_09.md",
-    "PM_Pack\\ref\\dod\\DOD_EPIC_10.md"
-  ]
-}
+[
+  {
+    "filename": "DOD_EPIC_01.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_01.md",
+    "epic_id": "EPIC_01",
+    "criteria": [
+      "[ ] All directories exist and match the specified structure",
+      "[ ] `pip install -e .` completes without errors",
+      "[ ] `playwright install chromium` installs browser binary successfully",
+      "[ ] `.env.example` contains all required environment variables",
+      "[ ] `.gitignore` prevents data/, .env, __pycache__ from being committed",
+      "[ ] README.md contains setup instructions that a new developer can follow from zero to running"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_02.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_02.md",
+    "epic_id": "EPIC_02",
+    "criteria": [
+      "[ ] Browser launches in persistent context with reusable cookies",
+      "[ ] Auth detection correctly identifies logged-in vs. anonymous state",
+      "[ ] Human-event simulation produces non-robotic browsing patterns",
+      "[ ] Graceful shutdown saves browser state",
+      "[ ] All 30+ selectors are defined with primary + 2 fallback patterns each",
+      "[ ] Selector validation script reports match rate against live Fiverr page"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_03.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_03.md",
+    "epic_id": "EPIC_03",
+    "criteria": [
+      "[ ] Embeddings generated for all keywords in the niche",
+      "[ ] KMeans runs with k = ceil(sqrt(n/2)), capped 2\u201320",
+      "[ ] Silhouette score computed; warning logged if < 0.3",
+      "[ ] Cluster labels (3-5 words) generated via LLM",
+      "[ ] All keywords have a non-null `cluster_id`",
+      "[ ] Re-cluster triggers when > 15% new keywords since last run"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_04.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_04.md",
+    "epic_id": "EPIC_04",
+    "criteria": [
+      "[ ] All 11 score calculators produce valid 0-100 scores (confidence: 0-1) for every keyword",
+      "[ ] Null inputs return None \u2014 no crashes",
+      "[ ] score_components JSON populated with all sub-component values",
+      "[ ] All 4 weight profiles sum to 1.0 \u00b1 0.001",
+      "[ ] Tags assigned: STRONG GO \u226580, CONDITIONAL GO 60-79, MONITOR 40-59, CAUTION 20-39, PASS <20",
+      "[ ] Confidence demotion: tag demoted one tier when confidence < 0.50",
+      "[ ] OpportunityRanking table populated with rank, tag, final_score per keyword per run"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_05.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_05.md",
+    "epic_id": "EPIC_05",
+    "criteria": [
+      "[ ] RecommendationContext built with all required fields",
+      "[ ] completeness_ratio() computed correctly",
+      "[ ] Wave 9 pricing + Wave 11 visual fields included in context",
+      "[ ] get_eligible_keywords() filters to STRONG GO + CONDITIONAL GO only",
+      "[ ] passes_recommendation_gates() enforces all 3 gate conditions",
+      "[ ] should_regenerate_recommendation() skip logic works"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_06.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_06.md",
+    "epic_id": "EPIC_06",
+    "criteria": [
+      "[ ] PriceAnalysis computed per keyword (p25, median, p75, std dev)",
+      "[ ] NichePriceAnalysis aggregate computed per niche",
+      "[ ] price_clusters identified and labelled",
+      "[ ] entry_price recommendation computed for all 9 niches",
+      "[ ] Milestone pricing roadmap (30/60/90 day) generated",
+      "[ ] moat_strength and market_type classified per niche"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_07.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_07.md",
+    "epic_id": "EPIC_07",
+    "criteria": [
+      "[ ] Discovery cycle loop runs without error for all enabled modes",
+      "[ ] Hypothesis budget respected (max_cost_per_run)",
+      "[ ] DiscoveryCycleLog entry created per cycle",
+      "[ ] All 4 hypothesis modes (adjacent_keyword, adjacent_niche, gap_exploit, trend_chase) generate valid hypotheses",
+      "[ ] Each mode respects the min_confidence threshold",
+      "[ ] Hypotheses stored in discovery_hypotheses table"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_08.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_08.md",
+    "epic_id": "EPIC_08",
+    "criteria": [
+      "[ ] GigVisualAnalysis model populated for all scraped gig thumbnails",
+      "[ ] thumbnail_type classified (branded/stock/illustration/text_only/screenshot)",
+      "[ ] visual_strength_score computed and stored",
+      "[ ] generate_profile_optimization() returns valid ProfileOptimization schema",
+      "[ ] Bio template includes [PLACEHOLDER] markers for personalisation",
+      "[ ] Output stored in Recommendation profile_optimization field"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_09.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_09.md",
+    "epic_id": "EPIC_09",
+    "criteria": [
+      "[ ] Design tokens defined (colours, typography, spacing)",
+      "[ ] Streamlit theme configured consistently across all pages",
+      "[ ] Design system documented in src/dashboard/design.py",
+      "[ ] Reusable component library covers: score badge, tag chip, gig card, opportunity row",
+      "[ ] All components tested with sample data",
+      "[ ] Components available via src/dashboard/components.py"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  },
+  {
+    "filename": "DOD_EPIC_10.md",
+    "source_path": "PM_Pack/ref/dod/DOD_EPIC_10.md",
+    "epic_id": "EPIC_10",
+    "criteria": [
+      "[ ] All 16 pipeline stages wire correctly in --mode full",
+      "[ ] Stage sequence logged with timing",
+      "[ ] Stage failure isolation: one stage failure doesn't crash independent stages",
+      "[ ] Orphan detection finds 0 orphans after clean full run",
+      "[ ] FK integrity validated after every run",
+      "[ ] No NaN or out-of-range score values"
+    ],
+    "validation_commands": [
+      "pytest tests/unit/ -q",
+      "ruff check src/ automation/ --output-format=concise"
+    ]
+  }
+]

@@ -149,7 +149,7 @@ def export_pricing_json(keyword_id: int, db: Any, output_path: str) -> str:
 
 def export_pricing_excel(keyword_ids: list[int], db: Any, output_path: str) -> str:
     """Export pricing payloads as workbook sheets and return file path."""
-    import pandas as pd  # type: ignore[import-untyped]
+    import pandas as pd
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)

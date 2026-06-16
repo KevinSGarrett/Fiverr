@@ -1,0 +1,218 @@
+{
+  "cycle": "082",
+  "agent": "F",
+  "agent_lane": "Test coverage gaps, regression tests, coverage enforcement",
+  "agentlane": "Test coverage gaps, regression tests, coverage enforcement",
+  "branch": "cycle/082/integration",
+  "model_policy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false
+  },
+  "modelpolicy": {
+    "worker": "Cursor CLI",
+    "model": "codex-5.3",
+    "effort": "medium",
+    "auto": false,
+    "fallback": false,
+    "auto_model_selection": "DISABLED"
+  },
+  "jira_scope": [
+    {
+      "key": "SCRUM-266",
+      "summary": "Provider router test coverage expansion",
+      "status": "To Do",
+      "priority": "High",
+      "acceptance_criteria": [
+        "Router edge paths are covered by unit tests",
+        "Failure handling and fallback behavior is asserted"
+      ],
+      "definition_of_done": [
+        "test_provider_router passes",
+        "Coverage increase is documented in cycle report"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "tests/unit/test_provider_router.py",
+        "tests/unit/test_provider_health.py"
+      ],
+      "acceptancecriteria": [
+        "Router edge paths are covered by unit tests",
+        "Failure handling and fallback behavior is asserted"
+      ],
+      "definitionofdone": [
+        "test_provider_router passes",
+        "Coverage increase is documented in cycle report"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "tests/unit/test_provider_router.py",
+        "tests/unit/test_provider_health.py"
+      ]
+    },
+    {
+      "key": "SCRUM-267",
+      "summary": "Cost guard and provider health regression tests",
+      "status": "To Do",
+      "priority": "Medium",
+      "acceptance_criteria": [
+        "Cost guard budget states are tested for pass/warn/block",
+        "Provider health blocked and degraded states are covered"
+      ],
+      "definition_of_done": [
+        "test_cost_guard and test_provider_health pass",
+        "Regression suite remains green"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "tests/unit/test_cost_guard.py",
+        "tests/unit/test_provider_health.py",
+        "tests/unit/test_provider_usage_ledger.py"
+      ],
+      "acceptancecriteria": [
+        "Cost guard budget states are tested for pass/warn/block",
+        "Provider health blocked and degraded states are covered"
+      ],
+      "definitionofdone": [
+        "test_cost_guard and test_provider_health pass",
+        "Regression suite remains green"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "tests/unit/test_cost_guard.py",
+        "tests/unit/test_provider_health.py",
+        "tests/unit/test_provider_usage_ledger.py"
+      ]
+    }
+  ],
+  "jirascope": [
+    {
+      "key": "SCRUM-266",
+      "summary": "Provider router test coverage expansion",
+      "status": "To Do",
+      "priority": "High",
+      "acceptance_criteria": [
+        "Router edge paths are covered by unit tests",
+        "Failure handling and fallback behavior is asserted"
+      ],
+      "definition_of_done": [
+        "test_provider_router passes",
+        "Coverage increase is documented in cycle report"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "tests/unit/test_provider_router.py",
+        "tests/unit/test_provider_health.py"
+      ],
+      "acceptancecriteria": [
+        "Router edge paths are covered by unit tests",
+        "Failure handling and fallback behavior is asserted"
+      ],
+      "definitionofdone": [
+        "test_provider_router passes",
+        "Coverage increase is documented in cycle report"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "tests/unit/test_provider_router.py",
+        "tests/unit/test_provider_health.py"
+      ]
+    },
+    {
+      "key": "SCRUM-267",
+      "summary": "Cost guard and provider health regression tests",
+      "status": "To Do",
+      "priority": "Medium",
+      "acceptance_criteria": [
+        "Cost guard budget states are tested for pass/warn/block",
+        "Provider health blocked and degraded states are covered"
+      ],
+      "definition_of_done": [
+        "test_cost_guard and test_provider_health pass",
+        "Regression suite remains green"
+      ],
+      "project_plan_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "files_or_modules": [
+        "tests/unit/test_cost_guard.py",
+        "tests/unit/test_provider_health.py",
+        "tests/unit/test_provider_usage_ledger.py"
+      ],
+      "acceptancecriteria": [
+        "Cost guard budget states are tested for pass/warn/block",
+        "Provider health blocked and degraded states are covered"
+      ],
+      "definitionofdone": [
+        "test_cost_guard and test_provider_health pass",
+        "Regression suite remains green"
+      ],
+      "projectplanpath": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+      "filesormodules": [
+        "tests/unit/test_cost_guard.py",
+        "tests/unit/test_provider_health.py",
+        "tests/unit/test_provider_usage_ledger.py"
+      ]
+    }
+  ],
+  "allowed_paths": [
+    "tests/**"
+  ],
+  "allowedpaths": [
+    "tests/**"
+  ],
+  "blocked_paths": [],
+  "blockedpaths": [],
+  "validation_commands": [
+    "python automation/ai_cycle_controller.py brain-check",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 080"
+  ],
+  "validationcommands": [
+    "python automation/ai_cycle_controller.py brain-check",
+    "python automation/ai_cycle_controller.py validate-prompts --cycle 080"
+  ],
+  "final_report_path": "docs/cycle_reports/CYCLE_082_AGENT_F.md",
+  "finalreportpath": "docs/cycle_reports/CYCLE_082_AGENT_F.md",
+  "built_at": "2026-06-16T03:48:17.751595+00:00",
+  "builtat": "2026-06-16T03:48:17.751595+00:00",
+  "contract_version": "1.0.0",
+  "contractversion": "1.0.0",
+  "metadata": {
+    "sources_used": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-266",
+      "SCRUM-267",
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "sourcesused": [
+      "PM_Pack/automation/project_plan_catalog.json",
+      "PM_Pack/automation/dod_catalog.json",
+      "PM_Pack/automation/todo_epic_catalog.json",
+      "PM_Pack/automation/github_governance_catalog.json",
+      "PM_Pack/automation/agent_lanes.yml",
+      "SCRUM-266",
+      "SCRUM-267",
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "catalog_counts": {
+      "project_plan": 98,
+      "dod": 10,
+      "todo": 16,
+      "github": 47
+    }
+  }
+}

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -143,4 +142,4 @@ if __name__ == "__main__":
     else:
         print(f"NOT READY: {result['checks_failed']} gate(s) failing")
         print("Resolve all FAIL items before setting frozen: false")
-    sys.exit(0 if result["ready_for_dev_auto"] else 1)
+    raise SystemExit(0 if result["ready_for_dev_auto"] else 1)

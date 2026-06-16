@@ -1,104 +1,912 @@
-{
-  "catalog": "project_plan",
-  "generated_at": "2026-06-15T15:22:39.893844+00:00",
-  "root": "PM_Pack\\ref\\project_plan",
-  "entry_count": 96,
-  "entries": [
-    "PM_Pack\\ref\\project_plan\\00_meta\\CHANGE_LOG.md",
-    "PM_Pack\\ref\\project_plan\\00_meta\\DECISION_LOG.md",
-    "PM_Pack\\ref\\project_plan\\00_meta\\DECISION_LOG_APPEND.md",
-    "PM_Pack\\ref\\project_plan\\00_meta\\DECISION_LOG_WAVE1.md",
-    "PM_Pack\\ref\\project_plan\\00_meta\\ENHANCEMENT_WAVE_SCHEDULE.md",
-    "PM_Pack\\ref\\project_plan\\00_meta\\OPEN_QUESTIONS.md",
-    "PM_Pack\\ref\\project_plan\\00_meta\\WAVE_SCHEDULE.md",
-    "PM_Pack\\ref\\project_plan\\01_vision\\AUTOMATION_OPERATING_MODEL.md",
-    "PM_Pack\\ref\\project_plan\\01_vision\\NICHE_CONFIG_DESIGN.md",
-    "PM_Pack\\ref\\project_plan\\01_vision\\PERSONAS.md",
-    "PM_Pack\\ref\\project_plan\\01_vision\\PRODUCT_VISION.md",
-    "PM_Pack\\ref\\project_plan\\01_vision\\USER_STORIES.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\API_SURFACE.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\ARCHITECTURE_DIRECTION.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\COLLECTION_ARCHITECTURE.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\CONFIG_SCHEMA.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\DATA_FLOW.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\JOB_ARCHITECTURE.md",
-    "PM_Pack\\ref\\project_plan\\02_architecture\\SYSTEM_ARCHITECTURE.md",
-    "PM_Pack\\ref\\project_plan\\03_data\\FIELD_CATALOG.md",
-    "PM_Pack\\ref\\project_plan\\03_data\\FRESHNESS_MODEL.md",
-    "PM_Pack\\ref\\project_plan\\03_data\\RESULT_SET_VALIDATION.md",
-    "PM_Pack\\ref\\project_plan\\03_data\\SCHEMA.md",
-    "PM_Pack\\ref\\project_plan\\03_data\\SOURCE_CONNECTORS.md",
-    "PM_Pack\\ref\\project_plan\\03_data\\VALIDATION_RULES.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\COLLECTION_WORKFLOWS.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\PACING_MODEL.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\PLAYWRIGHT_SESSION_DESIGN.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\PROXY_LAYER.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\QUEUE_DESIGN.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\RETRY_AND_CHECKPOINT.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\SEARCH_URL_BUILDER.md",
-    "PM_Pack\\ref\\project_plan\\04_collection\\SPONSORED_ZOMBIE_FILTERING.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\COMPETITION_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\CONFIDENCE_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\CONVERSION_INTENT_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\DEMAND_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\FINAL_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\GIG_QUALITY_WEAKNESS_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\NEW_SELLER_FEASIBILITY.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\OPPORTUNITY_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\PROFITABILITY_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\SATURATION_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\SCORING_DIRECTION.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\SCORING_INTEGRITY_EXTENSIONS.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\SCORING_SYSTEM.md",
-    "PM_Pack\\ref\\project_plan\\05_scoring\\TREND_SCORE.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\COMPETITOR_PROFILING.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\GIG_QUALITY_RUBRIC.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\GIG_SUGGESTION_TEMPLATES.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\GO_NOGO_LOGIC.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\KEYWORD_CLUSTERING.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\LLM_PROMPT_TEMPLATES.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\LLM_RELEVANCE_STAGE_7_5.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\RECOMMENDATION_ENGINE.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\RECOMMENDATION_OUTPUT_FORMAT.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\REVIEW_ANALYSIS.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\SATURATION_MODEL.md",
-    "PM_Pack\\ref\\project_plan\\06_analysis\\SELLER_STRENGTH_MODEL.md",
-    "PM_Pack\\ref\\project_plan\\07_reporting\\ALERT_SYSTEM.md",
-    "PM_Pack\\ref\\project_plan\\07_reporting\\DASHBOARD_PLAN.md",
-    "PM_Pack\\ref\\project_plan\\07_reporting\\EXPORT_FORMATS.md",
-    "PM_Pack\\ref\\project_plan\\07_reporting\\REPORT_TEMPLATES.md",
-    "PM_Pack\\ref\\project_plan\\07_reporting\\RUN_LOG_DESIGN.md",
-    "PM_Pack\\ref\\project_plan\\08_roadmap\\DEVELOPMENT_ROADMAP.md",
-    "PM_Pack\\ref\\project_plan\\09_pricing\\NEW_SELLER_PRICING_MODEL.md",
-    "PM_Pack\\ref\\project_plan\\09_pricing\\PRICE_DISTRIBUTION_ANALYSIS.md",
-    "PM_Pack\\ref\\project_plan\\09_pricing\\PRICING_DASHBOARD_WIDGETS.md",
-    "PM_Pack\\ref\\project_plan\\09_pricing\\PRICING_RECOMMENDATIONS_LLM.md",
-    "PM_Pack\\ref\\project_plan\\10_discovery\\DISCOVERY_DASHBOARD_WIDGETS.md",
-    "PM_Pack\\ref\\project_plan\\10_discovery\\DISCOVERY_ENGINE_ARCHITECTURE.md",
-    "PM_Pack\\ref\\project_plan\\10_discovery\\DISCOVERY_SCORING_AND_FEEDBACK.md",
-    "PM_Pack\\ref\\project_plan\\10_discovery\\HYPOTHESIS_GENERATION_PROMPTS.md",
-    "PM_Pack\\ref\\project_plan\\11_playbook\\GIG_VISUAL_ANALYSIS.md",
-    "PM_Pack\\ref\\project_plan\\11_playbook\\SELLER_PROFILE_OPTIMIZATION.md",
-    "PM_Pack\\ref\\project_plan\\11_playbook\\SELLER_SETUP_PLAYBOOK.md",
-    "PM_Pack\\ref\\project_plan\\12_dashboard_ux\\DESIGN_SYSTEM.md",
-    "PM_Pack\\ref\\project_plan\\12_dashboard_ux\\INTERACTION_PATTERNS.md",
-    "PM_Pack\\ref\\project_plan\\12_dashboard_ux\\RESPONSIVE_AND_PERFORMANCE.md",
-    "PM_Pack\\ref\\project_plan\\13_Cycle_013_Execution_Protocol.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\00_SRDI_INDEX.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\01_INITIATIVE_CHARTER.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\02_ARCHITECTURE_IMPACT.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\03_EPIC_BREAKDOWN_MASTER.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\04_DOD_AND_ACCEPTANCE.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\05_DATA_SCHEMA_MIGRATION.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\06_TEST_PLAN_REGRESSION.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\07_SEQUENCING_ROADMAP.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\08_REGISTERS.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\09_TRACEABILITY_MATRIX.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\10_DEVELOPER_HANDOFF.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\11_AI_AGENT_HANDOFF.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\12_LAUNCH_READINESS.md",
-    "PM_Pack\\ref\\project_plan\\13_srdi\\13_RISK_COMPLIANCE_COST.md",
-    "PM_Pack\\ref\\project_plan\\project_plan.zip",
-    "PM_Pack\\ref\\project_plan\\project_plan2.zip"
-  ]
-}
+[
+  {
+    "filename": "CHANGE_LOG.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/CHANGE_LOG.md",
+    "title": "CHANGE LOG",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DECISION_LOG.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/DECISION_LOG.md",
+    "title": "DECISION LOG",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DECISION_LOG_APPEND.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/DECISION_LOG_APPEND.md",
+    "title": "DECISION LOG APPEND",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DECISION_LOG_WAVE1.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/DECISION_LOG_WAVE1.md",
+    "title": "DECISION LOG WAVE1",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "ENHANCEMENT_WAVE_SCHEDULE.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/ENHANCEMENT_WAVE_SCHEDULE.md",
+    "title": "ENHANCEMENT WAVE SCHEDULE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "OPEN_QUESTIONS.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/OPEN_QUESTIONS.md",
+    "title": "OPEN QUESTIONS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "WAVE_SCHEDULE.md",
+    "source_path": "PM_Pack/ref/project_plan/00_meta/WAVE_SCHEDULE.md",
+    "title": "WAVE SCHEDULE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "AUTOMATION_OPERATING_MODEL.md",
+    "source_path": "PM_Pack/ref/project_plan/01_vision/AUTOMATION_OPERATING_MODEL.md",
+    "title": "AUTOMATION OPERATING MODEL",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "NICHE_CONFIG_DESIGN.md",
+    "source_path": "PM_Pack/ref/project_plan/01_vision/NICHE_CONFIG_DESIGN.md",
+    "title": "NICHE CONFIG DESIGN",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PERSONAS.md",
+    "source_path": "PM_Pack/ref/project_plan/01_vision/PERSONAS.md",
+    "title": "PERSONAS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PRODUCT_VISION.md",
+    "source_path": "PM_Pack/ref/project_plan/01_vision/PRODUCT_VISION.md",
+    "title": "PRODUCT VISION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "USER_STORIES.md",
+    "source_path": "PM_Pack/ref/project_plan/01_vision/USER_STORIES.md",
+    "title": "USER STORIES",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "API_SURFACE.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/API_SURFACE.md",
+    "title": "API SURFACE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "ARCHITECTURE_DIRECTION.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/ARCHITECTURE_DIRECTION.md",
+    "title": "ARCHITECTURE DIRECTION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "COLLECTION_ARCHITECTURE.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/COLLECTION_ARCHITECTURE.md",
+    "title": "COLLECTION ARCHITECTURE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "CONFIG_SCHEMA.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/CONFIG_SCHEMA.md",
+    "title": "CONFIG SCHEMA",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DATA_FLOW.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/DATA_FLOW.md",
+    "title": "DATA FLOW",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "JOB_ARCHITECTURE.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/JOB_ARCHITECTURE.md",
+    "title": "JOB ARCHITECTURE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SYSTEM_ARCHITECTURE.md",
+    "source_path": "PM_Pack/ref/project_plan/02_architecture/SYSTEM_ARCHITECTURE.md",
+    "title": "SYSTEM ARCHITECTURE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "FIELD_CATALOG.md",
+    "source_path": "PM_Pack/ref/project_plan/03_data/FIELD_CATALOG.md",
+    "title": "FIELD CATALOG",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "FRESHNESS_MODEL.md",
+    "source_path": "PM_Pack/ref/project_plan/03_data/FRESHNESS_MODEL.md",
+    "title": "FRESHNESS MODEL",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "RESULT_SET_VALIDATION.md",
+    "source_path": "PM_Pack/ref/project_plan/03_data/RESULT_SET_VALIDATION.md",
+    "title": "RESULT SET VALIDATION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SCHEMA.md",
+    "source_path": "PM_Pack/ref/project_plan/03_data/SCHEMA.md",
+    "title": "SCHEMA",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SOURCE_CONNECTORS.md",
+    "source_path": "PM_Pack/ref/project_plan/03_data/SOURCE_CONNECTORS.md",
+    "title": "SOURCE CONNECTORS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "VALIDATION_RULES.md",
+    "source_path": "PM_Pack/ref/project_plan/03_data/VALIDATION_RULES.md",
+    "title": "VALIDATION RULES",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "COLLECTION_WORKFLOWS.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/COLLECTION_WORKFLOWS.md",
+    "title": "COLLECTION WORKFLOWS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PACING_MODEL.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/PACING_MODEL.md",
+    "title": "PACING MODEL",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PLAYWRIGHT_SESSION_DESIGN.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/PLAYWRIGHT_SESSION_DESIGN.md",
+    "title": "PLAYWRIGHT SESSION DESIGN",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PROXY_LAYER.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/PROXY_LAYER.md",
+    "title": "PROXY LAYER",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "QUEUE_DESIGN.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/QUEUE_DESIGN.md",
+    "title": "QUEUE DESIGN",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "RETRY_AND_CHECKPOINT.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/RETRY_AND_CHECKPOINT.md",
+    "title": "RETRY AND CHECKPOINT",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SEARCH_URL_BUILDER.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/SEARCH_URL_BUILDER.md",
+    "title": "SEARCH URL BUILDER",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SPONSORED_ZOMBIE_FILTERING.md",
+    "source_path": "PM_Pack/ref/project_plan/04_collection/SPONSORED_ZOMBIE_FILTERING.md",
+    "title": "SPONSORED ZOMBIE FILTERING",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "COMPETITION_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/COMPETITION_SCORE.md",
+    "title": "COMPETITION SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "CONFIDENCE_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/CONFIDENCE_SCORE.md",
+    "title": "CONFIDENCE SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "CONVERSION_INTENT_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/CONVERSION_INTENT_SCORE.md",
+    "title": "CONVERSION INTENT SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DEMAND_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/DEMAND_SCORE.md",
+    "title": "DEMAND SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "FINAL_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/FINAL_SCORE.md",
+    "title": "FINAL SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "GIG_QUALITY_WEAKNESS_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/GIG_QUALITY_WEAKNESS_SCORE.md",
+    "title": "GIG QUALITY WEAKNESS SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "NEW_SELLER_FEASIBILITY.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/NEW_SELLER_FEASIBILITY.md",
+    "title": "NEW SELLER FEASIBILITY",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "OPPORTUNITY_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/OPPORTUNITY_SCORE.md",
+    "title": "OPPORTUNITY SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PROFITABILITY_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/PROFITABILITY_SCORE.md",
+    "title": "PROFITABILITY SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SATURATION_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/SATURATION_SCORE.md",
+    "title": "SATURATION SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SCORING_DIRECTION.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/SCORING_DIRECTION.md",
+    "title": "SCORING DIRECTION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SCORING_INTEGRITY_EXTENSIONS.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/SCORING_INTEGRITY_EXTENSIONS.md",
+    "title": "SCORING INTEGRITY EXTENSIONS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SCORING_SYSTEM.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/SCORING_SYSTEM.md",
+    "title": "SCORING SYSTEM",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "TREND_SCORE.md",
+    "source_path": "PM_Pack/ref/project_plan/05_scoring/TREND_SCORE.md",
+    "title": "TREND SCORE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "COMPETITOR_PROFILING.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/COMPETITOR_PROFILING.md",
+    "title": "COMPETITOR PROFILING",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "GIG_QUALITY_RUBRIC.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/GIG_QUALITY_RUBRIC.md",
+    "title": "GIG QUALITY RUBRIC",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "GIG_SUGGESTION_TEMPLATES.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/GIG_SUGGESTION_TEMPLATES.md",
+    "title": "GIG SUGGESTION TEMPLATES",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "GO_NOGO_LOGIC.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/GO_NOGO_LOGIC.md",
+    "title": "GO NOGO LOGIC",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "KEYWORD_CLUSTERING.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/KEYWORD_CLUSTERING.md",
+    "title": "KEYWORD CLUSTERING",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "LLM_PROMPT_TEMPLATES.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/LLM_PROMPT_TEMPLATES.md",
+    "title": "LLM PROMPT TEMPLATES",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "LLM_RELEVANCE_STAGE_7_5.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/LLM_RELEVANCE_STAGE_7_5.md",
+    "title": "LLM RELEVANCE STAGE 7 5",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "RECOMMENDATION_ENGINE.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/RECOMMENDATION_ENGINE.md",
+    "title": "RECOMMENDATION ENGINE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "RECOMMENDATION_OUTPUT_FORMAT.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/RECOMMENDATION_OUTPUT_FORMAT.md",
+    "title": "RECOMMENDATION OUTPUT FORMAT",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "REVIEW_ANALYSIS.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/REVIEW_ANALYSIS.md",
+    "title": "REVIEW ANALYSIS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SATURATION_MODEL.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/SATURATION_MODEL.md",
+    "title": "SATURATION MODEL",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SELLER_STRENGTH_MODEL.md",
+    "source_path": "PM_Pack/ref/project_plan/06_analysis/SELLER_STRENGTH_MODEL.md",
+    "title": "SELLER STRENGTH MODEL",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "ALERT_SYSTEM.md",
+    "source_path": "PM_Pack/ref/project_plan/07_reporting/ALERT_SYSTEM.md",
+    "title": "ALERT SYSTEM",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DASHBOARD_PLAN.md",
+    "source_path": "PM_Pack/ref/project_plan/07_reporting/DASHBOARD_PLAN.md",
+    "title": "DASHBOARD PLAN",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "EXPORT_FORMATS.md",
+    "source_path": "PM_Pack/ref/project_plan/07_reporting/EXPORT_FORMATS.md",
+    "title": "EXPORT FORMATS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "REPORT_TEMPLATES.md",
+    "source_path": "PM_Pack/ref/project_plan/07_reporting/REPORT_TEMPLATES.md",
+    "title": "REPORT TEMPLATES",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "RUN_LOG_DESIGN.md",
+    "source_path": "PM_Pack/ref/project_plan/07_reporting/RUN_LOG_DESIGN.md",
+    "title": "RUN LOG DESIGN",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DEVELOPMENT_ROADMAP.md",
+    "source_path": "PM_Pack/ref/project_plan/08_roadmap/DEVELOPMENT_ROADMAP.md",
+    "title": "DEVELOPMENT ROADMAP",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "NEW_SELLER_PRICING_MODEL.md",
+    "source_path": "PM_Pack/ref/project_plan/09_pricing/NEW_SELLER_PRICING_MODEL.md",
+    "title": "NEW SELLER PRICING MODEL",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PRICE_DISTRIBUTION_ANALYSIS.md",
+    "source_path": "PM_Pack/ref/project_plan/09_pricing/PRICE_DISTRIBUTION_ANALYSIS.md",
+    "title": "PRICE DISTRIBUTION ANALYSIS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PRICING_DASHBOARD_WIDGETS.md",
+    "source_path": "PM_Pack/ref/project_plan/09_pricing/PRICING_DASHBOARD_WIDGETS.md",
+    "title": "PRICING DASHBOARD WIDGETS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "PRICING_RECOMMENDATIONS_LLM.md",
+    "source_path": "PM_Pack/ref/project_plan/09_pricing/PRICING_RECOMMENDATIONS_LLM.md",
+    "title": "PRICING RECOMMENDATIONS LLM",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DISCOVERY_DASHBOARD_WIDGETS.md",
+    "source_path": "PM_Pack/ref/project_plan/10_discovery/DISCOVERY_DASHBOARD_WIDGETS.md",
+    "title": "DISCOVERY DASHBOARD WIDGETS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DISCOVERY_ENGINE_ARCHITECTURE.md",
+    "source_path": "PM_Pack/ref/project_plan/10_discovery/DISCOVERY_ENGINE_ARCHITECTURE.md",
+    "title": "DISCOVERY ENGINE ARCHITECTURE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DISCOVERY_SCORING_AND_FEEDBACK.md",
+    "source_path": "PM_Pack/ref/project_plan/10_discovery/DISCOVERY_SCORING_AND_FEEDBACK.md",
+    "title": "DISCOVERY SCORING AND FEEDBACK",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "HYPOTHESIS_GENERATION_PROMPTS.md",
+    "source_path": "PM_Pack/ref/project_plan/10_discovery/HYPOTHESIS_GENERATION_PROMPTS.md",
+    "title": "HYPOTHESIS GENERATION PROMPTS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "GIG_VISUAL_ANALYSIS.md",
+    "source_path": "PM_Pack/ref/project_plan/11_playbook/GIG_VISUAL_ANALYSIS.md",
+    "title": "GIG VISUAL ANALYSIS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SELLER_PROFILE_OPTIMIZATION.md",
+    "source_path": "PM_Pack/ref/project_plan/11_playbook/SELLER_PROFILE_OPTIMIZATION.md",
+    "title": "SELLER PROFILE OPTIMIZATION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "SELLER_SETUP_PLAYBOOK.md",
+    "source_path": "PM_Pack/ref/project_plan/11_playbook/SELLER_SETUP_PLAYBOOK.md",
+    "title": "SELLER SETUP PLAYBOOK",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "DESIGN_SYSTEM.md",
+    "source_path": "PM_Pack/ref/project_plan/12_dashboard_ux/DESIGN_SYSTEM.md",
+    "title": "DESIGN SYSTEM",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "INTERACTION_PATTERNS.md",
+    "source_path": "PM_Pack/ref/project_plan/12_dashboard_ux/INTERACTION_PATTERNS.md",
+    "title": "INTERACTION PATTERNS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "RESPONSIVE_AND_PERFORMANCE.md",
+    "source_path": "PM_Pack/ref/project_plan/12_dashboard_ux/RESPONSIVE_AND_PERFORMANCE.md",
+    "title": "RESPONSIVE AND PERFORMANCE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "13_Cycle_013_Execution_Protocol.md",
+    "source_path": "PM_Pack/ref/project_plan/13_Cycle_013_Execution_Protocol.md",
+    "title": "13 Cycle 013 Execution Protocol",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "00_SRDI_INDEX.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/00_SRDI_INDEX.md",
+    "title": "00 SRDI INDEX",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "01_INITIATIVE_CHARTER.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/01_INITIATIVE_CHARTER.md",
+    "title": "01 INITIATIVE CHARTER",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "02_ARCHITECTURE_IMPACT.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/02_ARCHITECTURE_IMPACT.md",
+    "title": "02 ARCHITECTURE IMPACT",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "03_EPIC_BREAKDOWN_MASTER.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/03_EPIC_BREAKDOWN_MASTER.md",
+    "title": "03 EPIC BREAKDOWN MASTER",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "04_DOD_AND_ACCEPTANCE.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/04_DOD_AND_ACCEPTANCE.md",
+    "title": "04 DOD AND ACCEPTANCE",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "05_DATA_SCHEMA_MIGRATION.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/05_DATA_SCHEMA_MIGRATION.md",
+    "title": "05 DATA SCHEMA MIGRATION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "06_TEST_PLAN_REGRESSION.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/06_TEST_PLAN_REGRESSION.md",
+    "title": "06 TEST PLAN REGRESSION",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "07_SEQUENCING_ROADMAP.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/07_SEQUENCING_ROADMAP.md",
+    "title": "07 SEQUENCING ROADMAP",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "08_REGISTERS.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/08_REGISTERS.md",
+    "title": "08 REGISTERS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "09_TRACEABILITY_MATRIX.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/09_TRACEABILITY_MATRIX.md",
+    "title": "09 TRACEABILITY MATRIX",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "10_DEVELOPER_HANDOFF.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/10_DEVELOPER_HANDOFF.md",
+    "title": "10 DEVELOPER HANDOFF",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "11_AI_AGENT_HANDOFF.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/11_AI_AGENT_HANDOFF.md",
+    "title": "11 AI AGENT HANDOFF",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "12_LAUNCH_READINESS.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/12_LAUNCH_READINESS.md",
+    "title": "12 LAUNCH READINESS",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "13_RISK_COMPLIANCE_COST.md",
+    "source_path": "PM_Pack/ref/project_plan/13_srdi/13_RISK_COMPLIANCE_COST.md",
+    "title": "13 RISK COMPLIANCE COST",
+    "jira_keys": [],
+    "epic_ids": [],
+    "dod_refs": [],
+    "summary": "Project plan reference"
+  },
+  {
+    "filename": "01_PRODUCT_DEFINITION.md",
+    "source_path": "PM_Pack/fiverr_project/01_PRODUCT_DEFINITION.md",
+    "title": "01 PRODUCT DEFINITION",
+    "jira_keys": [],
+    "epic_ids": [
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "dod_refs": [],
+    "summary": "Fiverr project brain reference"
+  },
+  {
+    "filename": "02_REPORT_TEMPLATE.md",
+    "source_path": "PM_Pack/fiverr_project/02_REPORT_TEMPLATE.md",
+    "title": "02 REPORT TEMPLATE",
+    "jira_keys": [],
+    "epic_ids": [
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "dod_refs": [],
+    "summary": "Fiverr project brain reference"
+  },
+  {
+    "filename": "03_JIRA_EPICS.md",
+    "source_path": "PM_Pack/fiverr_project/03_JIRA_EPICS.md",
+    "title": "03 JIRA EPICS",
+    "jira_keys": [],
+    "epic_ids": [
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "dod_refs": [],
+    "summary": "Fiverr project brain reference"
+  },
+  {
+    "filename": "04_NICHE_QUEUE_GTM.md",
+    "source_path": "PM_Pack/fiverr_project/04_NICHE_QUEUE_GTM.md",
+    "title": "04 NICHE QUEUE GTM",
+    "jira_keys": [],
+    "epic_ids": [
+      "FIVERR-E1",
+      "FIVERR-E2",
+      "FIVERR-E3",
+      "FIVERR-E4",
+      "FIVERR-E5",
+      "FIVERR-E6"
+    ],
+    "dod_refs": [],
+    "summary": "Fiverr project brain reference"
+  }
+]

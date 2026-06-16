@@ -1,0 +1,43 @@
+{
+  "cycle": "082",
+  "overall": "PASS",
+  "generated_at": "2026-06-16T03:48:31.428573+00:00",
+  "agents": {
+    "A": {
+      "status": "PASS",
+      "contract": "PM_Pack/automation/prompt_contracts/CYCLE_082_AGENT_A.contract.json",
+      "prompt": "PM_Pack/automation/prompts/validated/CYCLE_082_AGENT_A_PROMPT.md",
+      "schema_valid": true
+    },
+    "B": {
+      "status": "PASS",
+      "contract": "PM_Pack/automation/prompt_contracts/CYCLE_082_AGENT_B.contract.json",
+      "prompt": "PM_Pack/automation/prompts/validated/CYCLE_082_AGENT_B_PROMPT.md",
+      "schema_valid": true
+    },
+    "E": {
+      "status": "PASS",
+      "contract": "PM_Pack/automation/prompt_contracts/CYCLE_082_AGENT_E.contract.json",
+      "prompt": "PM_Pack/automation/prompts/validated/CYCLE_082_AGENT_E_PROMPT.md",
+      "schema_valid": true
+    },
+    "C": {
+      "status": "PASS",
+      "contract": "PM_Pack/automation/prompt_contracts/CYCLE_082_AGENT_C.contract.json",
+      "prompt": "PM_Pack/automation/prompts/validated/CYCLE_082_AGENT_C_PROMPT.md",
+      "schema_valid": true
+    },
+    "F": {
+      "status": "PASS",
+      "contract": "PM_Pack/automation/prompt_contracts/CYCLE_082_AGENT_F.contract.json",
+      "prompt": "PM_Pack/automation/prompts/validated/CYCLE_082_AGENT_F_PROMPT.md",
+      "schema_valid": true
+    },
+    "D": {
+      "status": "PASS",
+      "contract": "PM_Pack/automation/prompt_contracts/CYCLE_082_AGENT_D.contract.json",
+      "prompt": "PM_Pack/automation/prompts/validated/CYCLE_082_AGENT_D_PROMPT.md",
+      "schema_valid": true
+    }
+  }
+}
