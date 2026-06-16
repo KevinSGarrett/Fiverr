@@ -1,17 +1,4 @@
-"""
-run_agent_lifecycle.py — Complete run-agent lifecycle after Cursor CLI returns.
-
-After cursor agent -p "prompt" completes, this module:
-  1. Collects git diff/changed files
-  2. Enforces file ownership (agent must not touch out-of-scope files)
-  3. Runs secret guard on changed files
-  4. Requires report file (docs/cycle_reports/CYCLE_NNN_AGENT_X.md)
-  5. Runs targeted validation (ruff, mypy, pytest)
-  6. Commits approved files only
-  7. Updates Jira with evidence comments
-  8. Writes agent_run_record.json
-  9. Routes to repair loop on failure
-"""
+"""Post-agent lifecycle with ownership, validation, and commit hardening."""
 from __future__ import annotations
 
 import json
@@ -19,6 +6,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
@@ -76,83 +64,67 @@ class AgentLifecycleResult:
         return {k: v for k, v in self.__dict__.items()}
 
 
-def run_post_agent_lifecycle(
-    agent_id: str,
-    cycle: int,
-    run_id: str,
-    run_dir: Path,
-    jira_keys: list[str] | None = None,
-    contract: dict | None = None,
-    dry_run: bool = False,
-) -> AgentLifecycleResult:
-    """
-    Execute full post-Cursor lifecycle. Called after cursor agent -p returns.
-    """
-    result = AgentLifecycleResult(
-        agent=agent_id, cycle=cycle, run_id=run_id, status="IN_PROGRESS"
-    )
-    jira_keys = jira_keys or []
+class AgentLifecycle:
+    """Stateful lifecycle helper for post-agent processing."""
 
-    # ── Step 1: Collect changed files ─────────────────────────────────
-    result.changed_files = _get_changed_files()
+    def run(
+        self,
+        agent_id: str,
+        cycle: int,
+        run_id: str,
+        run_dir: Path,
+        jira_keys: list[str] | None = None,
+        contract: dict[str, Any] | None = None,
+        dry_run: bool = False,
+    ) -> AgentLifecycleResult:
+        result = AgentLifecycleResult(agent=agent_id, cycle=cycle, run_id=run_id, status="IN_PROGRESS")
+        jira_keys = jira_keys or []
+        result.changed_files = _get_changed_files()
 
-    # ── Step 2: Enforce file ownership ───────────────────────────────
-    unauthorized = _check_ownership(agent_id, result.changed_files)
-    if unauthorized:
-        result.unauthorized_files = unauthorized
-        result.status = "OWNERSHIP_VIOLATION"
-        result.errors.append(
-            f"Agent {agent_id} modified files outside its scope: {unauthorized}"
-        )
-        # Don't commit — quarantine changed files
-        if not dry_run:
-            _write_record(result, run_dir)
-            from automation.notification_router import notify_blocked
-            notify_blocked(
-                f"Agent {agent_id} ownership violation: {unauthorized[:3]}",
-                incident_code="OWNERSHIP_VIOLATION", cycle=cycle
-            )
-        return result
+        unauthorized = _check_ownership(agent_id, result.changed_files)
+        if unauthorized:
+            result.unauthorized_files = unauthorized
+            result.status = "OWNERSHIP_VIOLATION"
+            result.errors.append(f"Agent {agent_id} modified files outside scope: {unauthorized}")
+            if not dry_run:
+                _write_record(result, run_dir)
+                from automation.notification_router import notify_blocked
 
-    # ── Step 3: Secret guard — scan changed_files BEFORE any staging (V5-008) ────
-    # Scan must happen on the changed_files list before we stage anything.
-    # We call scan_working_tree (not scan_staged) at this point.
-    secret_findings = _scan_changed_files(result.changed_files)
-    if secret_findings:
-        result.secret_findings = secret_findings
-        result.status = "SECRET_FOUND"
-        result.errors.extend(secret_findings)
-        if not dry_run:
-            _write_record(result, run_dir)
-        return result
+                notify_blocked(
+                    f"Agent {agent_id} ownership violation: {unauthorized[:3]}",
+                    incident_code="OWNERSHIP_VIOLATION",
+                    cycle=cycle,
+                )
+            return result
 
-    # ── Step 4: Require report file ───────────────────────────────────
-    report_path = REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md"
-    result.report_path = str(report_path)
-    result.report_found = report_path.exists()
+        secret_findings = _scan_changed_files(result.changed_files)
+        if secret_findings:
+            result.secret_findings = secret_findings
+            result.status = "SECRET_FOUND"
+            result.errors.extend(secret_findings)
+            if not dry_run:
+                _write_record(result, run_dir)
+            return result
 
-    if not result.report_found:
-        result.status = "NO_REPORT"
-        result.errors.append(
-            f"Required report not found: {report_path}\n"
-            f"Agent must write report before exiting."
-        )
-        if not dry_run:
-            _write_record(result, run_dir)
-        return result
+        report_path = REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md"
+        result.report_path = str(report_path)
+        result.report_found = report_path.exists()
+        if not result.report_found:
+            result.status = "NO_REPORT"
+            result.errors.append(f"Required report not found: {report_path}")
+            if not dry_run:
+                _write_record(result, run_dir)
+            return result
+        report_text = report_path.read_text(encoding="utf-8", errors="replace")
+        if "AGENT_COMPLETE" not in report_text:
+            result.status = "NO_REPORT"
+            result.errors.append("Report exists but missing AGENT_COMPLETE marker")
+            if not dry_run:
+                _write_record(result, run_dir)
+            return result
 
-    # Verify report contains AGENT_COMPLETE
-    report_text = report_path.read_text(encoding="utf-8", errors="replace")
-    if "AGENT_COMPLETE" not in report_text:
-        result.status = "NO_REPORT"
-        result.errors.append("Report exists but missing AGENT_COMPLETE marker")
-        if not dry_run:
-            _write_record(result, run_dir)
-        return result
-
-    # DISPATCH-017: run targeted validation_commands from the prompt contract.
-    if contract and contract.get("validation_commands"):
-        for cmd in contract["validation_commands"]:
+        validation_commands = contract.get("validation_commands", []) if contract else []
+        for cmd in validation_commands:
             validation_proc = subprocess.run(
                 cmd,
                 shell=True,
@@ -168,65 +140,83 @@ def run_post_agent_lifecycle(
                     _write_record(result, run_dir)
                 return result
 
-    # ── Step 5: Targeted validation ───────────────────────────────────
-    val_passed, val_details = _run_validation(agent_id)
-    result.validation_passed = val_passed
+        val_passed, val_details = _run_validation(agent_id)
+        result.validation_passed = val_passed
+        if not val_passed:
+            result.status = "VALIDATION_FAILED"
+            result.errors.append(f"Validation failed: {val_details}")
+            if not dry_run:
+                _write_record(result, run_dir)
+            return result
 
-    if not val_passed:
-        result.status = "VALIDATION_FAILED"
-        result.errors.append(f"Validation failed: {val_details}")
+        approved_files = [fn for fn in result.changed_files if fn not in result.unauthorized_files]
+        if not dry_run and approved_files:
+            repo_clean, repo_violations = _run_export_sanitizer()
+            if not repo_clean:
+                result.commit_blocked = True
+                result.status = "SECRET_SCAN_FAIL"
+                result.errors.extend(repo_violations)
+                _record_secret_scan_failure(repo_violations)
+                _write_controller_state("BLOCKED_FAILING_WORK", cycle=cycle)
+                _write_record(result, run_dir)
+                return result
+
+            # DISPATCH-020: block commits when any ruff/mypy/pytest gate fails.
+            gate_ok, gate_detail = _run_pre_commit_gate()
+            if not gate_ok:
+                result.commit_blocked = True
+                result.status = "BLOCKED_FAILING_WORK"
+                result.errors.append(gate_detail)
+                _write_controller_state("BLOCKED_FAILING_WORK", cycle=cycle)
+                _write_record(result, run_dir)
+                return result
+
+            post_scan = _scan_changed_files(approved_files)
+            if post_scan:
+                result.secret_findings.extend(post_scan)
+                result.status = "SECRET_FOUND"
+                result.errors.extend(post_scan)
+                _write_record(result, run_dir)
+                return result
+            result.commit_sha = _commit_agent_work(agent_id, cycle, approved_files)
+
+        if not dry_run and jira_keys:
+            from automation.jira_sync import on_agent_complete
+
+            result.jira_updates = on_agent_complete(
+                cycle=cycle,
+                agent=agent_id,
+                branch=_get_current_branch(),
+                pr_number=None,
+                files_changed=result.changed_files,
+                validation_passed=val_passed,
+                jira_keys=jira_keys,
+            )
+
+        result.status = "COMPLETE"
         if not dry_run:
-            _write_record(result, run_dir)
-        # Don't commit — route to repair
+            result.record_path = str(_write_record(result, run_dir))
         return result
 
-    # ── Step 6: Commit approved files ────────────────────────────────
-    # Stage and commit only files that passed ownership check
-    approved_files = [
-        fn for fn in result.changed_files
-        if fn not in result.unauthorized_files
-    ]
-    if not dry_run and approved_files:
-        gate_ok, gate_detail = _run_pre_commit_gate()
-        if not gate_ok:
-            result.commit_blocked = True
-            result.status = "BLOCKED_FAILING_WORK"
-            result.errors.append(gate_detail)
-            _write_controller_state("BLOCKED_FAILING_WORK", cycle=cycle)
-            _write_record(result, run_dir)
-            return result
-        # Second secret scan: after classifying files, before staging
-        post_scan = _scan_changed_files(approved_files)
-        if post_scan:
-            result.secret_findings.extend(post_scan)
-            result.status = "SECRET_FOUND"
-            result.errors.extend(post_scan)
-            _write_record(result, run_dir)
-            return result
-        sha = _commit_agent_work(agent_id, cycle, approved_files)
-        result.commit_sha = sha
 
-    # ── Step 7: Update Jira with evidence ────────────────────────────
-    if not dry_run and jira_keys:
-        from automation.jira_sync import on_agent_complete
-        updates = on_agent_complete(
-            cycle=cycle,
-            agent=agent_id,
-            branch=_get_current_branch(),
-            pr_number=None,
-            files_changed=result.changed_files,
-            validation_passed=val_passed,
-            jira_keys=jira_keys,
-        )
-        result.jira_updates = updates
-
-    # ── Step 8: Write run record ──────────────────────────────────────
-    result.status = "COMPLETE"
-    if not dry_run:
-        record_path = _write_record(result, run_dir)
-        result.record_path = str(record_path)
-
-    return result
+def run_post_agent_lifecycle(
+    agent_id: str,
+    cycle: int,
+    run_id: str,
+    run_dir: Path,
+    jira_keys: list[str] | None = None,
+    contract: dict | None = None,
+    dry_run: bool = False,
+) -> AgentLifecycleResult:
+    return AgentLifecycle().run(
+        agent_id=agent_id,
+        cycle=cycle,
+        run_id=run_id,
+        run_dir=run_dir,
+        jira_keys=jira_keys,
+        contract=contract,
+        dry_run=dry_run,
+    )
 
 
 def _get_changed_files() -> list[str]:
@@ -428,6 +418,16 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
     if ruff_proc.returncode != 0:
         print("DISPATCH-020: ruff failures detected - commit blocked")
         return (False, "DISPATCH-020: ruff failures detected — commit blocked")
+    mypy_proc = subprocess.run(
+        [py, "-m", "mypy", "src/", "--ignore-missing-imports", "--no-error-summary"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if mypy_proc.returncode != 0:
+        print("DISPATCH-020: mypy failures detected - commit blocked")
+        return (False, "DISPATCH-020: mypy failures detected — commit blocked")
     pytest_cmd = [
         py,
         "-m",
@@ -435,7 +435,6 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
         "tests/unit/",
         "-q",
         "--tb=no",
-        "--timeout=30",
         "-x",
         "--ignore=tests/unit/test_queue_processor.py",
         "--ignore=tests/unit/test_collection_orchestrator.py",
@@ -453,3 +452,36 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
         print("DISPATCH-020: pytest failures detected - commit blocked")
         return (False, "DISPATCH-020: pytest failures detected — commit blocked")
     return (True, "PASS")
+
+
+def _run_export_sanitizer() -> tuple[bool, list[str]]:
+    try:
+        from automation.export_sanitizer_verify import verify_repo_clean
+
+        return verify_repo_clean()
+    except Exception as exc:  # noqa: BLE001
+        return (False, [f"export_sanitizer_exception:{exc}"])
+
+
+def _record_secret_scan_failure(violations: list[str]) -> None:
+    fail_path = RUNNER_ROOT / "reports/SECRET_SCAN_FAIL.json"
+    payload = {"generated_at": datetime.now(UTC).isoformat(), "violations": violations}
+    fail_path.parent.mkdir(parents=True, exist_ok=True)
+    fail_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    stage_report = RUNNER_ROOT / "reports/DAILY_STAGE_REPORT.json"
+    if stage_report.exists():
+        try:
+            report_payload = json.loads(stage_report.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            report_payload = {}
+    else:
+        report_payload = {}
+    errors = report_payload.get("errors", [])
+    if not isinstance(errors, list):
+        errors = []
+    errors.extend([f"SECRET_SCAN_FAIL:{item}" for item in violations])
+    report_payload["errors"] = errors[-500:]
+    report_payload["last_secret_scan_fail"] = datetime.now(UTC).isoformat()
+    stage_report.parent.mkdir(parents=True, exist_ok=True)
+    stage_report.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")

@@ -90,7 +90,8 @@ def test_fc8_postcycle_advisory_blocks_dispatch(tmp_path: Path) -> None:
     )
 
     result = run_audit(repo_root=repo, runner_root=runner)
-    assert any(c.code == "POSTCYCLEADVISORYBLOCKS_DISPATCH" for c in result.conflicts)
+    assert any(c.code == "FC-8" for c in result.conflicts)
+    assert any("FC-8: ADVISORY_ONLY result in post_cycle_review" in w for w in result.warnings)
 
 
 def test_statesnapshot_stale_sets_blocking_conflict(tmp_path: Path) -> None:

@@ -43,7 +43,18 @@ def _load_agent_lanes() -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"agent_lanes.yml not found at {path}")
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        payload = yaml.safe_load(f) or {}
+    lanes = payload.get("lanes")
+    if isinstance(lanes, list):
+        normalized: dict[str, Any] = {}
+        for lane in lanes:
+            if not isinstance(lane, dict):
+                continue
+            agent_id = str(lane.get("agent", "")).strip()
+            if agent_id in {"A", "B", "C", "D", "E", "F"}:
+                normalized[agent_id] = lane
+        payload["lanes"] = normalized
+    return payload
 
 
 def _load_prompt_template_sections() -> dict[str, str]:
@@ -1034,7 +1045,7 @@ for agent in ["A", "B", "E", "C", "F", "D"]:
 print(f"Total: {{total}}")
 if total < MIN_TASKS * 6:
     print(f"FLOOR VIOLATION: {{total}} < {{MIN_TASKS * 6}} minimum", file=sys.stderr)
-    sys.exit(1)
+    raise SystemExit(1)
 print("PASS: task floor met")
 ```
 """

@@ -9,16 +9,16 @@
 
 | Field | Value |
 |---|---|
-| Last completed cycle | C080 |
-| Current cycle | C081 (in progress) |
+| Last completed cycle | C081 |
+| Current cycle | C082 (in progress) |
 | Branch at C079 close | develop |
 | develop HEAD after C073 PM review | d11de90 |
 | C073 squash SHA (PR #83) | 33ebd24 |
 | C073 integration SHA (PR #84) | 7762132 |
 | C073 post-squash Ruff fix | 1460cd2 |
 | C073 PM review governance | d11de90 |
-| C081 control task | SCRUM-1039 / SCRUM-1040 |
-| C081 prompts status | ACTIVE — Stage 2 readiness governance and reconciliation |
+| C082 control task | SCRUM-1049 / SCRUM-1050 / SCRUM-1051 |
+| C082 prompts status | ACTIVE — unrestricted autonomous execution + stage evidence reporting |
 
 ---
 
@@ -122,7 +122,7 @@ Cap rule: Without live collection validated, E2E production readiness is capped 
 ## CANONICAL C074 STATUS
 
 C074 prompts were created as pre-correction drafts before the PM Governance Correction (2026-06-09).
-ALL C074 PROMPTS ARE FROZEN AND MUST NOT BE EXECUTED.
+Legacy C074 prompts are archived and superseded by current cycle governance artifacts.
 They must be rewritten after the correction waves are complete.
 See: CYCLE_074_PROMPT_CORRECTION_PROTOCOL.md
 
@@ -141,7 +141,7 @@ Critical stale items:
 - CYCLE_073.md: has 6 unresolved placeholders
 - HYDRATION_HEADER.md G-D section: shows S7.6-S7.9 as "TO DO"
 - HYDRATION_HEADER.md completion line: says "~66% production-ready" without distinction
-- All C074 prompt files: pre-correction drafts, frozen
+- All C074 prompt files: pre-correction drafts, archived
 
 ---
 
@@ -163,6 +163,27 @@ Critical stale items:
 - Provider routing advisory reporting (`routing-advisory-report`) with cycle markdown outputs.
 - ADR 027 documenting Stage 2 launch criteria, risks, and rollback.
 - State reconciliation and governance alignment for `cycle/081/integration`.
-- Provider router advisory-confirm policy active (`advisory_only_provider_routing=false`, `advisory_confirm_mode=true`).
-- Cursor CLI dispatch allowed in advisory-confirm mode; Claude/OpenAI remain confirmation-gated.
+- Provider router unrestricted autonomous policy active (`advisory_only_provider_routing=false`).
+- Cursor CLI dispatch runs autonomously; Claude/OpenAI policies remain role-scoped without confirmation gates.
 - `stage2-readiness-check` command added to enforce pre-dispatch gates in one pass.
+
+---
+
+## CYCLE 082 CANONICAL DIRECTIVES
+
+- active_cycle=082
+- branch=cycle/082/integration
+- key_deliverables_this_cycle: restriction removal, stage automation, Fiverr PM_Pack, daily review system
+- after_c082_status: SYSTEM FULLY AUTONOMOUS — Claude PM reviews daily report — no human work required
+- fiverr_project_status: brain files loaded, niche queue seeded, ready for development cycles
+
+## Active AI Providers (4 total)
+
+1. Cursor CLI (Lane 2) — PRIMARY coding worker — Codex 5.3 model — ACTIVE
+2. Claude Subscription (Lane 3) — Official PM/review ONLY — Same subscription as Claude Desktop + Claude Browser — ACTIVE
+3. OpenAI API Key (Lane 4) — Budget-capped helper ($10/day hard cap) — JSON classification + prompt lint — ACTIVE
+4. ChatGPT Pro / OpenAI Codex CLI (Lane 5) — `codex` command — ChatGPT Pro monthly subscription — ACTIVE as of C082
+   - Install: npm install -g @openai/codex
+   - Auth: codex login → ChatGPT (NOT API key)
+   - Tasks: docs_agent_work, test_generation only
+   - State: C:\AI_Runner\state\codex_subscription_state.json

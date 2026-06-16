@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 NICHE_NAME_MAP: dict[str, str] = {
     "prd_ai_saas": "PRD AI SaaS",
     "support_kb_readiness": "Support KB Readiness",

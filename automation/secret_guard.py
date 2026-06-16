@@ -36,7 +36,7 @@ SECRET_CONTENT_PATTERNS = [
     (r"secret\s*=\s*['\"][^'\"]{8,}", "secret value"),
     (r"-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----", "private key"),
     (r"gh[pousr]_[A-Za-z0-9]{20,}", "GitHub token"),
-    (r"xoxb-|xoxp-|xoxa-", "Slack token"),
+    (r"xoxb-|xoxp-|xoxa-", "workspace token"),
     (r"JIRA_API_TOKEN\s*=\s*[A-Za-z0-9]{20,}", "Jira API token value"),
     (r"ATATT3x[A-Za-z0-9]{5,}", "Atlassian token literal"),
 ]

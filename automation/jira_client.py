@@ -35,11 +35,11 @@ def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
         f"project = {project_key} "
         "AND status != Done "
         "AND status != Cancelled "
-        "ORDER BY priority ASC, created ASC"
+        "ORDER BY created DESC"
     )
     params = {
         "jql": jql,
-        "maxResults": "100",
+        "maxResults": "200",
         "fields": "summary,status,priority,assignee,labels,issuetype",
     }
     resp = requests.get(url, headers=_headers(), params=dict(params), timeout=30)

@@ -25,6 +25,26 @@ class JiraSpecMapper:
         if not path.exists():
             return []
         payload = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(payload, list):
+            normalized: list[str] = []
+            for item in payload:
+                if isinstance(item, str):
+                    normalized.append(item)
+                    continue
+                if isinstance(item, dict):
+                    source_path = item.get("source_path")
+                    filename_value = item.get("filename")
+                    epic_id = item.get("epic_id")
+                    if isinstance(source_path, str) and source_path:
+                        normalized.append(source_path)
+                    elif isinstance(filename_value, str) and filename_value:
+                        normalized.append(filename_value)
+                    elif isinstance(epic_id, str) and epic_id:
+                        normalized.append(epic_id)
+            return normalized
+
+        if not isinstance(payload, dict):
+            return []
         entries = payload.get("entries", [])
         if not isinstance(entries, list):
             return []

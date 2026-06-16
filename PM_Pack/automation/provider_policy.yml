@@ -1,5 +1,6 @@
 version: 1
 global_rules:
+  system_mode: fiverr_research
   controller_owns_git: true
   controller_owns_jira: true
   controller_owns_merge: true
@@ -9,7 +10,7 @@ global_rules:
   require_provider_decision_artifact: true
   require_usage_ledger_entry: true
   advisory_only_provider_routing: false
-  advisory_confirm_mode: true
+  # All providers dispatch autonomously — system operates like manual Claude PM + Cursor loop.
 
 providers:
   cursorcli:
@@ -73,7 +74,7 @@ providers:
       do_not_fallback_to_api: true
 
   openai_api:
-    enabled: false
+    enabled: true
     role: budget_controlled_helper
     billing_mode: openai_api_key
     can_edit_files: false
@@ -89,22 +90,28 @@ providers:
       daily_usd: 5
 
   codex_subscription:
-    enabled: false
-    status: deferred
-    role: secondary_coder_deferred
-    note:
-      deferred_until: cursorcli_and_claude_proven_in_stage7
-    blocked_for:
-      - all_operations_until_stage7_complete
+    enabled: true
+    status: ACTIVE
+    role: secondary_coder
+    billing_mode: chatgpt_subscription_only
+    api_key_billing_allowed: false
+    allowed_task_types:
+      - docs_agent_work
+      - test_generation
+    not_allowed:
+      - code_implementation
+      - official_post_cycle_review
 
 routes:
-  implementation: cursorcli
-  repair: cursorcli
-  test_generation: cursorcli
-  docs_agent_work: cursorcli
-  prompt_lint: deterministic_validator
+  implementation: cursor_cli
+  code_implementation: cursor_cli
+  repair: cursor_cli
+  test_generation: codex_subscription
+  docs_agent_work: codex_subscription
+  prompt_lint: openai_api
   json_classification: openai_api
   official_post_cycle_review: claude_subscription
+  architecture_review: claude_subscription
   merge_gate: deterministic_controller
   jira_transition: deterministic_controller
   prompt_contract_generation: deterministic_prompt_factory

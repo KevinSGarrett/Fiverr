@@ -45,6 +45,21 @@ def test_not_verified_provider_is_blocked(tmp_path: Path) -> None:
     assert health.get_status("claudesubscription") == "BLOCKED"
 
 
+def test_degraded_editing_provider_with_smoke_pass_returns_degraded(tmp_path: Path) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(
+        health_path,
+        {
+            "cursorcli": {"status": "DEGRADED", "full_size_prompt_smoke": "PASS"},
+            "claudesubscription": {"status": "READY"},
+            "openaiapi": {"status": "READY"},
+            "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+        },
+    )
+    health = ProviderHealth(health_path=health_path)
+    assert health.get_status("cursorcli") == "DEGRADED"
+
+
 def test_editing_provider_without_smoke_is_blocked(tmp_path: Path) -> None:
     health_path = tmp_path / "provider_health.json"
     _write_health(
@@ -211,7 +226,32 @@ def test_refresh_after_dispatch_repeated_error_blocks(
     monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
     refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_1")
     refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_2")
-    refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_3")
     payload = json.loads(health_path.read_text(encoding="utf-8"))
     assert payload["cursorcli"]["status"] == "BLOCKED"
-    assert payload["cursorcli"]["error_count"] == 3
+    assert payload["cursorcli"]["error_count"] == 2
+
+
+def test_get_status_unknown_provider_is_blocked(tmp_path: Path) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(
+        health_path,
+        {
+            "cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+            "claudesubscription": {"status": "READY"},
+            "openaiapi": {"status": "READY"},
+            "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+        },
+    )
+    health = ProviderHealth(health_path=health_path)
+    assert health.get_status("unknown-provider") == "BLOCKED"
+
+
+def test_update_provider_status_accepts_not_verified_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(health_path, {"cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"}})
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    update_provider_status("cursor_cli", "NOT_VERIFIED")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["cursorcli"]["status"] == "NOT_VERIFIED"

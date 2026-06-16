@@ -1,55 +1,378 @@
-{
-  "catalog": "github_governance",
-  "generated_at": "2026-06-15T15:22:39.893844+00:00",
-  "root": "PM_Pack\\ref\\github",
-  "entry_count": 47,
-  "entries": [
-    "PM_Pack\\ref\\github\\00_setup\\DIRECTORY_STRUCTURE.md",
-    "PM_Pack\\ref\\github\\00_setup\\REPO_INIT.md",
-    "PM_Pack\\ref\\github\\00_setup\\REPO_SETTINGS.md",
-    "PM_Pack\\ref\\github\\01_branching\\BRANCHING_STRATEGY.md",
-    "PM_Pack\\ref\\github\\01_branching\\BRANCH_NAMING.md",
-    "PM_Pack\\ref\\github\\01_branching\\BRANCH_PROTECTION.md",
-    "PM_Pack\\ref\\github\\02_pr_policy\\PR_POLICY.md",
-    "PM_Pack\\ref\\github\\02_pr_policy\\PR_REVIEW_PROCESS.md",
-    "PM_Pack\\ref\\github\\02_pr_policy\\PR_SIZE_POLICY.md",
-    "PM_Pack\\ref\\github\\02_pr_policy\\PR_TITLE_CONVENTIONS.md",
-    "PM_Pack\\ref\\github\\03_labels\\LABEL_AUTOMATION.md",
-    "PM_Pack\\ref\\github\\03_labels\\LABEL_TAXONOMY.md",
-    "PM_Pack\\ref\\github\\04_ci_checks\\CI_PIPELINE.md",
-    "PM_Pack\\ref\\github\\04_ci_checks\\PR_CHECKS.md",
-    "PM_Pack\\ref\\github\\04_ci_checks\\QUALITY_GATES.md",
-    "PM_Pack\\ref\\github\\05_templates\\COMMIT_CONVENTIONS.md",
-    "PM_Pack\\ref\\github\\05_templates\\ISSUE_TEMPLATES.md",
-    "PM_Pack\\ref\\github\\05_templates\\PR_TEMPLATE.md",
-    "PM_Pack\\ref\\github\\06_risk_management\\RISK_REVIEW_MATRIX.md",
-    "PM_Pack\\ref\\github\\06_risk_management\\RISK_TIERS.md",
-    "PM_Pack\\ref\\github\\07_ai_workflow\\AGENT_COORDINATION.md",
-    "PM_Pack\\ref\\github\\07_ai_workflow\\AI_AGENT_ROLES.md",
-    "PM_Pack\\ref\\github\\07_ai_workflow\\AI_PR_RULES.md",
-    "PM_Pack\\ref\\github\\07_ai_workflow\\CURSOR_RULES.md",
-    "PM_Pack\\ref\\github\\08_hygiene\\HYGIENE_CHECKLIST.md",
-    "PM_Pack\\ref\\github\\08_hygiene\\RELEASE_PROCESS.md",
-    "PM_Pack\\ref\\github\\08_hygiene\\STALE_POLICY.md",
-    "PM_Pack\\ref\\github\\09_security\\CODEOWNERS.md",
-    "PM_Pack\\ref\\github\\09_security\\SECRETS_MANAGEMENT.md",
-    "PM_Pack\\ref\\github\\09_security\\SECURITY_POLICY.md",
-    "PM_Pack\\ref\\github\\10_repo_files\\.cursorrules",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\CODEOWNERS",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\ISSUE_TEMPLATE\\bug_report.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\ISSUE_TEMPLATE\\epic.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\ISSUE_TEMPLATE\\feature_request.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\ISSUE_TEMPLATE\\spike.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\ISSUE_TEMPLATE\\task.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\PULL_REQUEST_TEMPLATE.md",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\dependabot.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\labels.json",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\workflows\\ci.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\workflows\\pr-checks.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\workflows\\release.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\workflows\\security.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.github\\workflows\\stale.yml",
-    "PM_Pack\\ref\\github\\10_repo_files\\.gitignore",
-    "PM_Pack\\ref\\github\\WAVE_SCHEDULE.md"
-  ]
-}
+[
+  {
+    "filename": "DIRECTORY_STRUCTURE.md",
+    "source_path": "PM_Pack/ref/github/00_setup/DIRECTORY_STRUCTURE.md",
+    "title": "DIRECTORY STRUCTURE",
+    "category": "00_setup",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "REPO_INIT.md",
+    "source_path": "PM_Pack/ref/github/00_setup/REPO_INIT.md",
+    "title": "REPO INIT",
+    "category": "00_setup",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "REPO_SETTINGS.md",
+    "source_path": "PM_Pack/ref/github/00_setup/REPO_SETTINGS.md",
+    "title": "REPO SETTINGS",
+    "category": "00_setup",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "BRANCH_NAMING.md",
+    "source_path": "PM_Pack/ref/github/01_branching/BRANCH_NAMING.md",
+    "title": "BRANCH NAMING",
+    "category": "01_branching",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "BRANCH_PROTECTION.md",
+    "source_path": "PM_Pack/ref/github/01_branching/BRANCH_PROTECTION.md",
+    "title": "BRANCH PROTECTION",
+    "category": "01_branching",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "BRANCHING_STRATEGY.md",
+    "source_path": "PM_Pack/ref/github/01_branching/BRANCHING_STRATEGY.md",
+    "title": "BRANCHING STRATEGY",
+    "category": "01_branching",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PR_POLICY.md",
+    "source_path": "PM_Pack/ref/github/02_pr_policy/PR_POLICY.md",
+    "title": "PR POLICY",
+    "category": "02_pr_policy",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PR_REVIEW_PROCESS.md",
+    "source_path": "PM_Pack/ref/github/02_pr_policy/PR_REVIEW_PROCESS.md",
+    "title": "PR REVIEW PROCESS",
+    "category": "02_pr_policy",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PR_SIZE_POLICY.md",
+    "source_path": "PM_Pack/ref/github/02_pr_policy/PR_SIZE_POLICY.md",
+    "title": "PR SIZE POLICY",
+    "category": "02_pr_policy",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PR_TITLE_CONVENTIONS.md",
+    "source_path": "PM_Pack/ref/github/02_pr_policy/PR_TITLE_CONVENTIONS.md",
+    "title": "PR TITLE CONVENTIONS",
+    "category": "02_pr_policy",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "LABEL_AUTOMATION.md",
+    "source_path": "PM_Pack/ref/github/03_labels/LABEL_AUTOMATION.md",
+    "title": "LABEL AUTOMATION",
+    "category": "03_labels",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "LABEL_TAXONOMY.md",
+    "source_path": "PM_Pack/ref/github/03_labels/LABEL_TAXONOMY.md",
+    "title": "LABEL TAXONOMY",
+    "category": "03_labels",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "CI_PIPELINE.md",
+    "source_path": "PM_Pack/ref/github/04_ci_checks/CI_PIPELINE.md",
+    "title": "CI PIPELINE",
+    "category": "04_ci_checks",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PR_CHECKS.md",
+    "source_path": "PM_Pack/ref/github/04_ci_checks/PR_CHECKS.md",
+    "title": "PR CHECKS",
+    "category": "04_ci_checks",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "QUALITY_GATES.md",
+    "source_path": "PM_Pack/ref/github/04_ci_checks/QUALITY_GATES.md",
+    "title": "QUALITY GATES",
+    "category": "04_ci_checks",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "COMMIT_CONVENTIONS.md",
+    "source_path": "PM_Pack/ref/github/05_templates/COMMIT_CONVENTIONS.md",
+    "title": "COMMIT CONVENTIONS",
+    "category": "05_templates",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "ISSUE_TEMPLATES.md",
+    "source_path": "PM_Pack/ref/github/05_templates/ISSUE_TEMPLATES.md",
+    "title": "ISSUE TEMPLATES",
+    "category": "05_templates",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PR_TEMPLATE.md",
+    "source_path": "PM_Pack/ref/github/05_templates/PR_TEMPLATE.md",
+    "title": "PR TEMPLATE",
+    "category": "05_templates",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "RISK_REVIEW_MATRIX.md",
+    "source_path": "PM_Pack/ref/github/06_risk_management/RISK_REVIEW_MATRIX.md",
+    "title": "RISK REVIEW MATRIX",
+    "category": "06_risk_management",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "RISK_TIERS.md",
+    "source_path": "PM_Pack/ref/github/06_risk_management/RISK_TIERS.md",
+    "title": "RISK TIERS",
+    "category": "06_risk_management",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "AGENT_COORDINATION.md",
+    "source_path": "PM_Pack/ref/github/07_ai_workflow/AGENT_COORDINATION.md",
+    "title": "AGENT COORDINATION",
+    "category": "07_ai_workflow",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "AI_AGENT_ROLES.md",
+    "source_path": "PM_Pack/ref/github/07_ai_workflow/AI_AGENT_ROLES.md",
+    "title": "AI AGENT ROLES",
+    "category": "07_ai_workflow",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "AI_PR_RULES.md",
+    "source_path": "PM_Pack/ref/github/07_ai_workflow/AI_PR_RULES.md",
+    "title": "AI PR RULES",
+    "category": "07_ai_workflow",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "CURSOR_RULES.md",
+    "source_path": "PM_Pack/ref/github/07_ai_workflow/CURSOR_RULES.md",
+    "title": "CURSOR RULES",
+    "category": "07_ai_workflow",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "HYGIENE_CHECKLIST.md",
+    "source_path": "PM_Pack/ref/github/08_hygiene/HYGIENE_CHECKLIST.md",
+    "title": "HYGIENE CHECKLIST",
+    "category": "08_hygiene",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "RELEASE_PROCESS.md",
+    "source_path": "PM_Pack/ref/github/08_hygiene/RELEASE_PROCESS.md",
+    "title": "RELEASE PROCESS",
+    "category": "08_hygiene",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "STALE_POLICY.md",
+    "source_path": "PM_Pack/ref/github/08_hygiene/STALE_POLICY.md",
+    "title": "STALE POLICY",
+    "category": "08_hygiene",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "CODEOWNERS.md",
+    "source_path": "PM_Pack/ref/github/09_security/CODEOWNERS.md",
+    "title": "CODEOWNERS",
+    "category": "09_security",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "SECRETS_MANAGEMENT.md",
+    "source_path": "PM_Pack/ref/github/09_security/SECRETS_MANAGEMENT.md",
+    "title": "SECRETS MANAGEMENT",
+    "category": "09_security",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "SECURITY_POLICY.md",
+    "source_path": "PM_Pack/ref/github/09_security/SECURITY_POLICY.md",
+    "title": "SECURITY POLICY",
+    "category": "09_security",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": ".cursorrules",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.cursorrules",
+    "title": ".cursorrules",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "CODEOWNERS",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/CODEOWNERS",
+    "title": "CODEOWNERS",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "dependabot.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/dependabot.yml",
+    "title": "dependabot",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "bug_report.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/bug_report.yml",
+    "title": "bug report",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "epic.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/epic.yml",
+    "title": "epic",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "feature_request.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/feature_request.yml",
+    "title": "feature request",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "spike.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/spike.yml",
+    "title": "spike",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "task.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/ISSUE_TEMPLATE/task.yml",
+    "title": "task",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "labels.json",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/labels.json",
+    "title": "labels",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "PULL_REQUEST_TEMPLATE.md",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/PULL_REQUEST_TEMPLATE.md",
+    "title": "PULL REQUEST TEMPLATE",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "ci.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/ci.yml",
+    "title": "ci",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "pr-checks.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/pr-checks.yml",
+    "title": "pr checks",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "release.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/release.yml",
+    "title": "release",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "security.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/security.yml",
+    "title": "security",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "stale.yml",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.github/workflows/stale.yml",
+    "title": "stale",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": ".gitignore",
+    "source_path": "PM_Pack/ref/github/10_repo_files/.gitignore",
+    "title": ".gitignore",
+    "category": "10_repo_files",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  },
+  {
+    "filename": "WAVE_SCHEDULE.md",
+    "source_path": "PM_Pack/ref/github/WAVE_SCHEDULE.md",
+    "title": "WAVE SCHEDULE",
+    "category": "root",
+    "jira_refs": [],
+    "summary": "GitHub governance reference"
+  }
+]

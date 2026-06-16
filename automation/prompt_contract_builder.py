@@ -40,9 +40,22 @@ class PromptContractBuilder:
     def _load_agent_lanes(self) -> dict[str, dict[str, Any]]:
         payload = yaml.safe_load(self.agent_lanes_path.read_text(encoding="utf-8")) or {}
         lanes = payload.get("lanes", {})
+        if isinstance(lanes, list):
+            mapped: dict[str, dict[str, Any]] = {}
+            for lane in lanes:
+                if not isinstance(lane, dict):
+                    continue
+                agent = str(lane.get("agent", "")).strip()
+                if len(agent) == 1 and agent in {"A", "B", "C", "D", "E", "F"}:
+                    mapped[agent] = lane
+            return mapped
         if not isinstance(lanes, dict):
             return {}
-        return {str(key): value for key, value in lanes.items() if isinstance(value, dict)}
+        return {
+            str(key): value
+            for key, value in lanes.items()
+            if isinstance(value, dict) and len(str(key)) == 1 and str(key) in {"A", "B", "C", "D", "E", "F"}
+        }
 
     def _load_template_story_scope(self, agent: str) -> list[dict[str, Any]]:
         template_path = self.template_contracts_dir / f"CYCLE_079_AGENT_{agent}.contract.json"
@@ -100,6 +113,12 @@ class PromptContractBuilder:
             "PM_Pack/automation/github_governance_catalog.json",
             "PM_Pack/automation/agent_lanes.yml",
             *[str(story["key"]) for story in stories],
+            "FIVERR-E1",
+            "FIVERR-E2",
+            "FIVERR-E3",
+            "FIVERR-E4",
+            "FIVERR-E5",
+            "FIVERR-E6",
         ]
 
         built_at = datetime.now(UTC).isoformat()
