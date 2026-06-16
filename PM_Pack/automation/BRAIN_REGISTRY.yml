@@ -58,7 +58,6 @@ load_order:
   - C:/AI_Runner/config/claude_adapter.yaml
   - C:/AI_Runner/state/cursor_model_state.json
   - C:/AI_Runner/state/claude_model_state.json
-  - C:/AI_Runner/state/codex_subscription_state.json
   freeze_policy:
   - PM_Pack/automation/policies/autonomy_freeze.yml
 authority:

@@ -24,8 +24,8 @@ def get_pricing_summary_for_keyword(keyword_id: int, db: Session) -> dict[str, f
 
 def render_price_heatmap(niche_id: str, db: Session) -> None:
     """Render cross-keyword pricing heatmap for basic/standard/premium medians."""
-    import pandas as pd
-    import plotly.graph_objects as go
+    import pandas as pd  # type: ignore[import-untyped]
+    import plotly.graph_objects as go  # type: ignore[import-untyped]
     import streamlit as st
 
     from src.models import Keyword

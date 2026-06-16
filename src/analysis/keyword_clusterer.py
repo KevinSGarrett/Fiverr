@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.cluster import DBSCAN, KMeans
-from sklearn.preprocessing import normalize
+from sklearn.cluster import DBSCAN, KMeans  # type: ignore[import-untyped]
+from sklearn.preprocessing import normalize  # type: ignore[import-untyped]
 from sqlalchemy.orm import Session
 
 from src.llm import TemplateRenderer
