@@ -1202,26 +1202,48 @@ def cmd_tick() -> None:
                 click.secho("  State: AWAITING_DISPATCH — all gates pass, ready to dispatch", fg="green")
                 notify_info(f"Tick: awaiting dispatch signal for cycle {cycle}")
 
-    elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING", "AGENT_COMPLETE"):
-        # Agent is running — verify the branch exactly matches the active cycle.
-        # Only enforce branch check during active dispatch (not after completion).
-        if status != "AGENT_COMPLETE":
-            expected_branch = f"cycle/{cycle:03d}/integration"
-            from automation.branch_guard import current_branch as _current_branch
-            actual_branch = _current_branch()
-            if actual_branch and actual_branch != expected_branch:
-                notify_blocked(
-                    f"BRANCH_MISMATCH: active_cycle={cycle} but on branch '{actual_branch}' "
-                    f"(expected '{expected_branch}'). Dispatcher is on the wrong branch.",
-                    incident_code="BRANCH_MISMATCH", cycle=cycle,
-                )
-                click.secho(
-                    f"  [ERROR] BRANCH_MISMATCH: on '{actual_branch}' but active_cycle={cycle} "
-                    f"expects '{expected_branch}'. Blocking dispatch.",
-                    fg="red", bold=True,
-                )
-                write_controller_state("BRANCH_MISMATCH_BLOCKED", cycle=cycle)
-                return
+    elif status == "AGENT_COMPLETE":
+        # All agents finished — automatically trigger post-cycle-review.
+        # This is the critical handoff: AGENT_COMPLETE → POST_CYCLE_REVIEW → POST_CYCLE_PASS → IDLE
+        click.secho(f"  [TICK] AGENT_COMPLETE for cycle {cycle} — advancing to post-cycle-review...",
+                    fg="cyan", bold=True)
+        write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
+        # Run post-cycle-review inline so the scheduled tick handles the full lifecycle
+        from automation.post_cycle_review import run_post_cycle_review
+        try:
+            result = run_post_cycle_review(cycle=cycle)
+            grade = getattr(result, "grade", "UNKNOWN")
+            click.echo(f"  Post-cycle-review grade: {grade}")
+            if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY"):
+                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+                click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick will plan cycle {cycle + 1}.",
+                            fg="green", bold=True)
+            else:
+                write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
+                click.secho(f"  POST_CYCLE_FAIL grade={grade} — review needed before cycle {cycle + 1}.",
+                            fg="red", bold=True)
+        except Exception as exc:
+            click.secho(f"  [ERROR] post-cycle-review raised: {exc}", fg="red")
+            write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
+
+    elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
+        # Agent is still running — verify the branch exactly matches the active cycle.
+        expected_branch = f"cycle/{cycle:03d}/integration"
+        from automation.branch_guard import current_branch as _current_branch
+        actual_branch = _current_branch()
+        if actual_branch and actual_branch != expected_branch:
+            notify_blocked(
+                f"BRANCH_MISMATCH: active_cycle={cycle} but on branch '{actual_branch}' "
+                f"(expected '{expected_branch}'). Dispatcher is on the wrong branch.",
+                incident_code="BRANCH_MISMATCH", cycle=cycle,
+            )
+            click.secho(
+                f"  [ERROR] BRANCH_MISMATCH: on '{actual_branch}' but active_cycle={cycle} "
+                f"expects '{expected_branch}'. Blocking dispatch.",
+                fg="red", bold=True,
+            )
+            write_controller_state("BRANCH_MISMATCH_BLOCKED", cycle=cycle)
+            return
         # Monitor heartbeat freshness
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
         if hb_path.exists():
