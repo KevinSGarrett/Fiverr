@@ -22,6 +22,7 @@ from pathlib import Path
 
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
+CONTROLLER_STATE = RUNNER_ROOT / "state/controller_state.json"
 
 # Agent file ownership map — agents must not modify outside their scope
 AGENT_OWNERSHIP = {
@@ -69,6 +70,7 @@ class AgentLifecycleResult:
     jira_updates: list[dict] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     record_path: str = ""
+    commit_blocked: bool = False
 
     def to_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
@@ -80,6 +82,7 @@ def run_post_agent_lifecycle(
     run_id: str,
     run_dir: Path,
     jira_keys: list[str] | None = None,
+    contract: dict | None = None,
     dry_run: bool = False,
 ) -> AgentLifecycleResult:
     """
@@ -147,6 +150,24 @@ def run_post_agent_lifecycle(
             _write_record(result, run_dir)
         return result
 
+    # DISPATCH-017: run targeted validation_commands from the prompt contract.
+    if contract and contract.get("validation_commands"):
+        for cmd in contract["validation_commands"]:
+            validation_proc = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                check=False,
+            )
+            if validation_proc.returncode != 0:
+                result.status = "VALIDATION_FAILED"
+                result.errors.append(f"Contract validation failed: {cmd}")
+                if not dry_run:
+                    _write_record(result, run_dir)
+                return result
+
     # ── Step 5: Targeted validation ───────────────────────────────────
     val_passed, val_details = _run_validation(agent_id)
     result.validation_passed = val_passed
@@ -166,6 +187,14 @@ def run_post_agent_lifecycle(
         if fn not in result.unauthorized_files
     ]
     if not dry_run and approved_files:
+        gate_ok, gate_detail = _run_pre_commit_gate()
+        if not gate_ok:
+            result.commit_blocked = True
+            result.status = "BLOCKED_FAILING_WORK"
+            result.errors.append(gate_detail)
+            _write_controller_state("BLOCKED_FAILING_WORK", cycle=cycle)
+            _write_record(result, run_dir)
+            return result
         # Second secret scan: after classifying files, before staging
         post_scan = _scan_changed_files(approved_files)
         if post_scan:
@@ -371,3 +400,56 @@ def _write_record(result: AgentLifecycleResult, run_dir: Path) -> Path:
         "recorded_at": datetime.now(UTC).isoformat(),
     }, indent=2))
     return path
+
+
+def _write_controller_state(status: str, cycle: int) -> None:
+    payload: dict[str, object] = {}
+    if CONTROLLER_STATE.exists():
+        try:
+            payload = json.loads(CONTROLLER_STATE.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            payload = {}
+    payload["status"] = status
+    payload["active_cycle"] = cycle
+    payload["last_heartbeat"] = datetime.now(UTC).isoformat()
+    CONTROLLER_STATE.parent.mkdir(parents=True, exist_ok=True)
+    CONTROLLER_STATE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _run_pre_commit_gate() -> tuple[bool, str]:
+    py = str(REPO_ROOT / ".venv/Scripts/python.exe")
+    ruff_proc = subprocess.run(
+        [py, "-m", "ruff", "check", "automation/", "--output-format=concise", "--quiet"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if ruff_proc.returncode != 0:
+        print("DISPATCH-020: ruff failures detected - commit blocked")
+        return (False, "DISPATCH-020: ruff failures detected — commit blocked")
+    pytest_cmd = [
+        py,
+        "-m",
+        "pytest",
+        "tests/unit/",
+        "-q",
+        "--tb=no",
+        "--timeout=30",
+        "-x",
+        "--ignore=tests/unit/test_queue_processor.py",
+        "--ignore=tests/unit/test_collection_orchestrator.py",
+        "--ignore=tests/unit/test_cycle062_smoke_aliases.py",
+        "--ignore=tests/unit/test_post_cycle_review_coverage.py",
+    ]
+    pytest_proc = subprocess.run(
+        pytest_cmd,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if pytest_proc.returncode != 0:
+        print("DISPATCH-020: pytest failures detected - commit blocked")
+        return (False, "DISPATCH-020: pytest failures detected — commit blocked")
+    return (True, "PASS")

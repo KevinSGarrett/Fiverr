@@ -8,7 +8,8 @@ global_rules:
   no_browser_automation_chatgpt: true
   require_provider_decision_artifact: true
   require_usage_ledger_entry: true
-  advisory_only_provider_routing: true
+  advisory_only_provider_routing: false
+  advisory_confirm_mode: true
 
 providers:
   cursorcli:

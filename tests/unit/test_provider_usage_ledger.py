@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from automation import provider_usage_ledger as ledger
@@ -154,3 +154,72 @@ def test_read_json_returns_none_when_json_is_unrecoverable(tmp_path: Path) -> No
     payload_path = tmp_path / "broken.json"
     payload_path.write_text("{this is not valid json")
     assert ledger._read_json(payload_path) is None
+
+
+def test_get_weekly_spend_zero_no_files(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PROVIDER_DAILY_REPORT_DIR", str(tmp_path / "missing"))
+    monkeypatch.setattr(ledger, "_utc_now", lambda: datetime(2026, 6, 15, tzinfo=UTC))
+    assert ledger.get_weekly_spend("openai_api") == 0.0
+
+
+def test_get_weekly_spend_sums_past_7_days(tmp_path: Path, monkeypatch) -> None:
+    daily_dir = tmp_path / "daily"
+    monkeypatch.setenv("PROVIDER_DAILY_REPORT_DIR", str(daily_dir))
+    now = datetime(2026, 6, 15, tzinfo=UTC)
+    monkeypatch.setattr(ledger, "_utc_now", lambda: now)
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    for idx, amount in enumerate([1.2, 2.3, 3.4]):
+        day_key = (now.date() - timedelta(days=idx)).strftime("%Y%m%d")
+        (daily_dir / f"daily_{day_key}.json").write_text(
+            json.dumps({"entries": [_entry(f"w-{idx}", amount).to_dict()]}), encoding="utf-8"
+        )
+    assert ledger.get_weekly_spend("openai_api") == 6.9
+
+
+def test_get_weekly_spend_excludes_old_files(tmp_path: Path, monkeypatch) -> None:
+    daily_dir = tmp_path / "daily"
+    monkeypatch.setenv("PROVIDER_DAILY_REPORT_DIR", str(daily_dir))
+    now = datetime(2026, 6, 15, tzinfo=UTC)
+    monkeypatch.setattr(ledger, "_utc_now", lambda: now)
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    in_range = now.date().strftime("%Y%m%d")
+    old_key = (now.date() - timedelta(days=9)).strftime("%Y%m%d")
+    (daily_dir / f"daily_{in_range}.json").write_text(
+        json.dumps({"entries": [_entry("wk-new", 4.0).to_dict()]}), encoding="utf-8"
+    )
+    (daily_dir / f"daily_{old_key}.json").write_text(
+        json.dumps({"entries": [_entry("wk-old", 10.0).to_dict()]}), encoding="utf-8"
+    )
+    assert ledger.get_weekly_spend("openai_api") == 4.0
+
+
+def test_get_ledger_summary_returns_all_providers(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PROVIDER_DAILY_REPORT_DIR", str(tmp_path / "empty"))
+    monkeypatch.setattr(ledger, "_utc_now", lambda: datetime(2026, 6, 15, tzinfo=UTC))
+    summary = ledger.get_ledger_summary()
+    assert set(summary) == {"cursorcli", "claudesubscription", "openaiapi", "codexsubscription"}
+
+
+def test_get_ledger_summary_correct_sums(tmp_path: Path, monkeypatch) -> None:
+    daily_dir = tmp_path / "daily"
+    monkeypatch.setenv("PROVIDER_DAILY_REPORT_DIR", str(daily_dir))
+    now = datetime(2026, 6, 15, tzinfo=UTC)
+    monkeypatch.setattr(ledger, "_utc_now", lambda: now)
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    for date_key, amount in [("20260615", 2.0), ("20260614", 3.0), ("20260601", 4.0)]:
+        (daily_dir / f"daily_{date_key}.json").write_text(
+            json.dumps({"entries": [_entry(f"sum-{date_key}", amount).to_dict()]}), encoding="utf-8"
+        )
+    summary = ledger.get_ledger_summary()
+    assert summary["openaiapi"]["daily"] == 2.0
+    assert summary["openaiapi"]["weekly"] == 5.0
+    assert summary["openaiapi"]["monthly"] == 9.0
+
+
+def test_get_ledger_summary_structure_complete(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PROVIDER_DAILY_REPORT_DIR", str(tmp_path / "empty"))
+    monkeypatch.setattr(ledger, "_utc_now", lambda: datetime(2026, 6, 15, tzinfo=UTC))
+    summary = ledger.get_ledger_summary()
+    assert len(summary) == 4
+    for provider_totals in summary.values():
+        assert set(provider_totals) == {"daily", "weekly", "monthly"}

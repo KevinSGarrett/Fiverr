@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from automation.config_loader import load_secrets
-from automation.cost_guard import CostGuard
+from automation.cost_guard import CostGuard, update_spend
 from automation.provider_router import ProviderRunResult
 from automation.provider_usage_ledger import LedgerEntry, record_call
 
@@ -100,17 +100,19 @@ class OpenAIApiAdapter:
         }
         advisory_path.write_text(json.dumps(advisory_payload, indent=2) + "\n", encoding="utf-8")
 
-        record_call(
-            LedgerEntry(
-                decision_id=str(uuid.uuid4()),
-                provider="openaiapi",
-                task_type=task_type,
-                estimated_cost_usd=estimated_cost,
-                actual_cost_usd=estimated_cost if status == "SUCCESS" else None,
-                timestamp=datetime.now(UTC).isoformat(),
-                cycle=(cycle or "000").zfill(3),
-            )
+        entry = LedgerEntry(
+            decision_id=str(uuid.uuid4()),
+            provider="openaiapi",
+            task_type=task_type,
+            estimated_cost_usd=estimated_cost,
+            actual_cost_usd=estimated_cost if status == "SUCCESS" else None,
+            timestamp=datetime.now(UTC).isoformat(),
+            cycle=(cycle or "000").zfill(3),
         )
+        record_call(entry)
+        if status == "SUCCESS":
+            # Keep budget state aligned with each successful ledger write.
+            update_spend("openai_api", entry.estimated_cost_usd)
 
         return ProviderRunResult(
             status=status,

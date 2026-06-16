@@ -1,0 +1,12 @@
+{
+  "decisionid": "8364989e-58bf-41c7-82c7-9f0a90d2f142",
+  "cycle": "081",
+  "tasktype": "test_generation",
+  "selectedprovider": "cursorcli",
+  "reason": "DISPATCHCONFIRM",
+  "billingmode": "cursor_subscription",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T22:45:41.097241+00:00",
+  "decidedat": "2026-06-15T22:45:41.097241+00:00"
+}

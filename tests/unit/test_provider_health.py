@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 
 import pytest
-from automation.provider_health import ProviderHealth
+from automation.provider_health import (
+    ProviderHealth,
+    refresh_after_dispatch,
+    update_provider_status,
+)
 
 
 def _write_health(path: Path, payload: dict[str, object]) -> None:
@@ -121,3 +125,93 @@ def test_is_any_blocked_true_when_any_provider_blocked(tmp_path: Path) -> None:
         },
     )
     assert ProviderHealth(health_path=health_path).is_any_blocked() is True
+
+
+def test_update_provider_status_changes_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(
+        health_path,
+        {
+            "cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+            "claudesubscription": {"status": "READY"},
+            "openaiapi": {"status": "READY"},
+            "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+        },
+    )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    update_provider_status("cursorcli", "DEGRADED")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["cursorcli"]["status"] == "DEGRADED"
+
+
+def test_update_provider_status_invalid_status_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(health_path, {"cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"}})
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    with pytest.raises(ValueError):
+        update_provider_status("cursorcli", "UNKNOWN")
+
+
+def test_refresh_after_dispatch_success_stays_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(
+        health_path,
+        {
+            "cursorcli": {"status": "READY", "error_count": 1, "full_size_prompt_smoke": "PASS"},
+            "claudesubscription": {"status": "READY"},
+            "openaiapi": {"status": "READY"},
+            "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+        },
+    )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    refresh_after_dispatch("cursorcli", "SUCCESS", run_dir=tmp_path / "run_a")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["cursorcli"]["status"] == "READY"
+    assert payload["cursorcli"]["error_count"] == 0
+    assert payload["cursorcli"]["last_run_dir"] == str(tmp_path / "run_a")
+
+
+def test_refresh_after_dispatch_error_degrades(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(
+        health_path,
+        {
+            "cursorcli": {"status": "READY", "error_count": 0, "full_size_prompt_smoke": "PASS"},
+            "claudesubscription": {"status": "READY"},
+            "openaiapi": {"status": "READY"},
+            "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+        },
+    )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_b")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["cursorcli"]["status"] == "DEGRADED"
+    assert payload["cursorcli"]["error_count"] == 1
+
+
+def test_refresh_after_dispatch_repeated_error_blocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    health_path = tmp_path / "provider_health.json"
+    _write_health(
+        health_path,
+        {
+            "cursorcli": {"status": "READY", "error_count": 0, "full_size_prompt_smoke": "PASS"},
+            "claudesubscription": {"status": "READY"},
+            "openaiapi": {"status": "READY"},
+            "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+        },
+    )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_1")
+    refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_2")
+    refresh_after_dispatch("cursorcli", "ERROR", run_dir=tmp_path / "run_3")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["cursorcli"]["status"] == "BLOCKED"
+    assert payload["cursorcli"]["error_count"] == 3

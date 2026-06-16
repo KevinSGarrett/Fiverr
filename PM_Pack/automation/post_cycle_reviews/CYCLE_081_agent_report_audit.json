@@ -1,0 +1,12 @@
+{
+  "cycle": 81,
+  "agent_reports": {
+    "A": false,
+    "B": false,
+    "E": false,
+    "C": false,
+    "F": false,
+    "D": false
+  },
+  "all_present": false
+}

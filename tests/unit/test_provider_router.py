@@ -146,7 +146,7 @@ def test_validate_policy_fails_when_routes_dict_empty(tmp_path: Path) -> None:
 def test_advisory_only_mode_still_returns_provider_decision(router: ProviderRouter) -> None:
     decision = router.select_provider("officialpostcyclereview")
     assert isinstance(decision, ProviderDecision)
-    assert "ADVISORY_ONLY" in decision.reason
+    assert decision.reason == "ADVISORYONLYBLOCKED"
 
 
 def test_missing_policy_file_raises_policy_load_error_on_select(
@@ -172,12 +172,14 @@ def test_dispatch_returns_advisory_only_blocked_for_claude(router: ProviderRoute
     result = router.dispatch("official_post_cycle_review", cycle="080", agent="F")
     assert isinstance(result, ProviderRunResult)
     assert result.status == "ADVISORYONLYBLOCKED"
-    assert result.error_message == "ADVISORY_ONLY_BLOCKED"
+    assert result.error_message == "ADVISORYONLYBLOCKED"
 
 
-def test_dispatch_returns_success_for_implementation(router: ProviderRouter) -> None:
+def test_dispatch_returns_advisory_block_for_implementation_in_advisory_only(
+    router: ProviderRouter,
+) -> None:
     result = router.dispatch("implementation", cycle="080", agent="F")
-    assert result.status == "SUCCESS"
+    assert result.status == "ADVISORYONLYBLOCKED"
     assert result.provider == "cursorcli"
 
 
@@ -226,3 +228,127 @@ def test_cli_dry_run_returns_error_on_exception(monkeypatch: pytest.MonkeyPatch)
         lambda self: _Args(),
     )
     assert _cli() == 1
+
+
+def test_advisory_confirm_routes_cursor_tasks_to_dispatch_confirm(tmp_path: Path) -> None:
+    policy_path = tmp_path / "provider_policy.yml"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "global_rules": {
+                    "no_browser_automation_chatgpt": True,
+                    "advisory_only_provider_routing": False,
+                    "advisory_confirm_mode": True,
+                },
+                "providers": {
+                    "cursorcli": {"billing_mode": "cursor_subscription"},
+                    "claude_subscription": {"billing_mode": "claude_subscription_only"},
+                    "openai_api": {"billing_mode": "openai_api_key"},
+                    "codex_subscription": {"billing_mode": "codex_subscription"},
+                },
+                "routes": {
+                    "implementation": "cursorcli",
+                    "official_post_cycle_review": "claude_subscription",
+                    "merge_gate": "deterministic_controller",
+                    "jira_transition": "deterministic_controller",
+                    "prompt_lint": "deterministic_validator",
+                    "json_classification": "openai_api",
+                    "repair": "cursorcli",
+                    "test_generation": "cursorcli",
+                    "docs_agent_work": "cursorcli",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    test_router = ProviderRouter(policy_path=policy_path)
+    assert test_router.select_provider("implementation").reason == "DISPATCHCONFIRM"
+    assert test_router.select_provider("official_post_cycle_review").reason == "ADVISORYCONFIRMREQUIRED"
+
+
+def _advisory_confirm_router(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ProviderRouter:
+    policy_path = tmp_path / "provider_policy.yml"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "global_rules": {
+                    "no_browser_automation_chatgpt": True,
+                    "advisory_only_provider_routing": False,
+                    "advisory_confirm_mode": True,
+                },
+                "providers": {
+                    "cursorcli": {"billing_mode": "cursor_subscription"},
+                    "claude_subscription": {"billing_mode": "claude_subscription_only"},
+                    "openai_api": {"billing_mode": "openai_api_key"},
+                    "codex_subscription": {"billing_mode": "codex_subscription"},
+                },
+                "routes": {
+                    "implementation": "cursorcli",
+                    "repair": "cursorcli",
+                    "test_generation": "cursorcli",
+                    "docs_agent_work": "cursorcli",
+                    "prompt_lint": "deterministic_validator",
+                    "json_classification": "openai_api",
+                    "official_post_cycle_review": "claude_subscription",
+                    "merge_gate": "deterministic_controller",
+                    "jira_transition": "deterministic_controller",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    health_path = tmp_path / "provider_health.json"
+    health_path.write_text(
+        json.dumps(
+            {
+                "cursorcli": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+                "claudesubscription": {"status": "READY"},
+                "openaiapi": {"status": "READY"},
+                "codexsubscription": {"status": "READY", "full_size_prompt_smoke": "PASS"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(health_path))
+    monkeypatch.setattr("automation.provider_router.DECISION_DIR", tmp_path / "provider_decisions")
+    return ProviderRouter(policy_path=policy_path)
+
+
+def test_advisory_confirm_cursor_dispatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    decision = test_router.select_provider("implementation")
+    assert decision.provider == "cursorcli"
+    assert decision.reason == "DISPATCHCONFIRM"
+    assert decision.reason != "ADVISORYONLYBLOCKED"
+
+
+def test_advisory_confirm_claude_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    decision = test_router.select_provider("officialpostcyclereview")
+    assert decision.provider == "claudesubscription"
+    assert decision.reason == "ADVISORYCONFIRMREQUIRED"
+
+
+def test_advisory_confirm_deterministic_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    decision = test_router.select_provider("merge_gate")
+    assert decision.provider == "deterministiccontroller"
+    assert decision.reason.startswith("classified=")
+
+
+def test_route_dry_run_advisory_confirm_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_router = _advisory_confirm_router(tmp_path, monkeypatch)
+    payload = test_router.route_dryrun("implementation", cycle="081")
+    assert payload["provider"] == "cursorcli"
+    assert payload["reason"] == "DISPATCHCONFIRM"
+    assert payload["reason"] != "ADVISORYONLYBLOCKED"

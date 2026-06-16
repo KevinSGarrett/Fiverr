@@ -1,0 +1,44 @@
+{
+  "cycle": 80,
+  "mode": "POST_AGENT_CYCLE_REVIEW",
+  "result": "DRAFT_UNMERGED_PREVIEW",
+  "blocks_dispatch": false,
+  "errors": [
+    "cycle037_live.db mtime changed \u2014 baseline tampered"
+  ],
+  "warnings": [],
+  "facts": {
+    "cycle": 80,
+    "mode": "POST_AGENT_CYCLE_REVIEW",
+    "collected_at": "2026-06-15T18:50:27.594912+00:00",
+    "head_sha": "c3e18f3e8afbf9fb17aa0547f3ed03abe510aaed",
+    "develop_sha": "d2d5e60dd75baecaca5381fa5645bd5b4e1260a1",
+    "pr_number": null,
+    "pr_merged": false,
+    "merge_sha": "",
+    "ci_passed": false,
+    "codecov_project": "UNKNOWN",
+    "codecov_patch": "UNKNOWN",
+    "codex_threads_resolved": false,
+    "local_ruff": false,
+    "local_mypy": true,
+    "local_pytest": false,
+    "local_coverage_pct": 0.0,
+    "baseline_db_mtime_unchanged": false,
+    "scrapfly_enabled_false": true,
+    "cycle_control_done": false,
+    "next_cycle_control_created": false,
+    "agent_reports_present": {
+      "A": true,
+      "B": true,
+      "E": true,
+      "C": true,
+      "F": true,
+      "D": true
+    },
+    "score1_internal_pct": 0.0,
+    "score2_e2e_pct": 0.0,
+    "tierd2_stages": {}
+  },
+  "evaluated_at": "2026-06-15T18:50:29.742855+00:00"
+}

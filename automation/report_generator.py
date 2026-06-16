@@ -4,8 +4,10 @@ report_generator.py — Daily and weekly autonomy reports (OPS-022, OPS-023).
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 RUNNER_ROOT = Path("C:/AI_Runner")
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
@@ -35,6 +37,7 @@ def generate_daily_report(cycle: int | None = None) -> Path:
     notif_lines = _tail_log(notif_log, hours=24)
     blocked_count = sum(1 for line in notif_lines if '"BLOCKED"' in line or '"CRITICAL"' in line)
 
+    builder = ReportGenerator()
     lines = [
         "# Daily Autonomous Runner Report",
         f"Generated: {now.isoformat()}",
@@ -56,6 +59,17 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         f"- Claude billing: {cls.get('billing_mode', 'N/A')} [{cls.get('status', 'N/A')}]",
         f"- API key check : {'ABSENT' if not cls.get('anthropic_api_key_present') else 'PRESENT — REVIEW REQUIRED'}",
         "",
+    ]
+    lines.extend(builder._get_model_status_section().splitlines())
+    lines.extend(
+        [
+            "",
+        ]
+    )
+    lines.extend(builder._get_ci_timing_section().splitlines())
+    lines.extend(
+        [
+            "",
         "## Incidents (last 24h)",
         f"- Total incidents      : {incident_count}",
         f"- BLOCKED/CRITICAL     : {blocked_count}",
@@ -64,7 +78,8 @@ def generate_daily_report(cycle: int | None = None) -> Path:
         "- Next tick       : scheduled (every 5 min via watchdog)",
         "- Next snapshot   : 02:00 UTC daily",
         f"- Post-cycle gate : {'active' if cs.get('status') == 'POST_CYCLE_PASS' else 'pending cycle completion'}",
-    ]
+        ]
+    )
 
     path = REPORTS_DIR / "daily" / f"daily_report_{ts}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -153,3 +168,77 @@ def _tail_log(path: Path, hours: int = 24) -> list[str]:
         except Exception:
             pass
     return lines
+
+
+class ReportGenerator:
+    """Report helper methods for daily report extensions."""
+
+    def _get_model_status_section(self) -> str:
+        cursor_state = _load_json(Path("C:/AI_Runner/state/cursor_model_state.json"))
+        claude_state = _load_json(Path("C:/AI_Runner/state/claude_model_state.json"))
+        now = datetime.now(tz=UTC)
+
+        cursor_verified_at = _parse_iso(cursor_state.get("verified_at"))
+        cursor_age_days = _age_days(cursor_verified_at, now)
+        cursor_expires = (
+            (cursor_verified_at + timedelta(days=7)).date().isoformat() if cursor_verified_at else "unknown"
+        )
+        cursor_model = cursor_state.get("observed_model", cursor_state.get("model", "unknown"))
+        cursor_effort = cursor_state.get("effort", "unknown")
+
+        claude_model = claude_state.get("model", claude_state.get("observed_model", "unknown"))
+        claude_effort = claude_state.get("effort", "unknown")
+        claude_billing = claude_state.get("billing_mode", "unknown")
+
+        return (
+            "## Model Verification Status\n"
+            f"Cursor: {cursor_model} | effort: {cursor_effort} | age: {cursor_age_days} days | expires: {cursor_expires}\n"
+            f"Claude: {claude_model} | effort: {claude_effort} | billing: {claude_billing}"
+        )
+
+    def _get_ci_timing_section(self) -> str:
+        try:
+            result = subprocess.run(
+                ["gh", "run", "list", "--workflow=ci.yml", "--limit", "5", "--json", "conclusion,createdAt,updatedAt"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            runs = json.loads(result.stdout or "[]")
+        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+            return "## CI Timing\nLast 5 runs avg: N/A | last run: unavailable (0s)"
+
+        durations: list[float] = []
+        last_conclusion = "unknown"
+        last_duration = 0.0
+        for idx, run in enumerate(runs):
+            created = _parse_iso(run.get("createdAt"))
+            updated = _parse_iso(run.get("updatedAt"))
+            if not created or not updated:
+                continue
+            duration = max((updated - created).total_seconds(), 0.0)
+            durations.append(duration)
+            if idx == 0:
+                last_conclusion = str(run.get("conclusion", "unknown"))
+                last_duration = duration
+        avg = int(sum(durations) / len(durations)) if durations else 0
+        return f"## CI Timing\nLast 5 runs avg: {avg}s | last run: {last_conclusion} ({int(last_duration)}s)"
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _age_days(verified_at: datetime | None, now: datetime) -> int:
+    if verified_at is None:
+        return -1
+    return max((now - verified_at).days, 0)

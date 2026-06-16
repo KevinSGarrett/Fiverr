@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from automation.prompt_renderer import DEFAULT_DRAFTS_DIR, PromptRenderer
+from automation.prompt_renderer import DEFAULT_DRAFTS_DIR, PromptRenderer, render_with_overrides
 from automation.prompt_validator import validate
 
 
@@ -106,3 +106,46 @@ def test_rendered_draft_passes_prompt_validator_integration() -> None:
     prompt_path.write_text(draft_path.read_text(encoding="utf-8"), encoding="utf-8")
     result = validate(prompt_path=prompt_path, agent="F", cycle=80)
     assert result.passed is True
+
+
+def test_render_with_overrides_appends_extra_tasks() -> None:
+    rendered = render_with_overrides(
+        _contract(),
+        extra_tasks=[
+            {
+                "title": "Extra regression slice",
+                "jira_key": "SCRUM-999",
+                "description": "Add one more check",
+                "files": ["tests/unit/test_prompt_renderer.py"],
+                "validation": "pytest tests/unit/test_prompt_renderer.py -q",
+            }
+        ],
+    )
+    assert "Extra regression slice" in rendered
+    assert "SCRUM-999" in rendered
+
+
+def test_render_with_overrides_custom_stop_conditions() -> None:
+    rendered = render_with_overrides(
+        _contract(),
+        stop_conditions=["Stop when contract is invalid.", "Stop before blocked paths."],
+    )
+    assert "Stop when contract is invalid." in rendered
+    assert "Stop before blocked paths." in rendered
+    assert "Stop immediately if secrets/credentials are exposed" not in rendered
+
+
+def test_render_with_overrides_total_tasks_still_55plus() -> None:
+    rendered = render_with_overrides(
+        _contract(),
+        extra_tasks=[{"title": "Extra 1"}, {"title": "Extra 2"}],
+    )
+    assert rendered.count("### Task ") >= 55
+
+
+def test_render_with_empty_jira_scope() -> None:
+    contract = _contract()
+    contract["jirascope"] = []
+    rendered = render_with_overrides(contract)
+    assert "No Jira stories assigned" in rendered
+    assert rendered.count("### Task ") >= 55

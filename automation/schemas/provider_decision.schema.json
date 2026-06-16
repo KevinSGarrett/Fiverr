@@ -39,6 +39,9 @@
         "claudesubscription",
         "openaiapi",
         "codexsubscription",
+        "deterministiccontroller",
+        "deterministicpromptfactory",
+        "deterministicvalidator",
         "deterministic_controller",
         "deterministic_prompt_factory",
         "deterministic_validator"

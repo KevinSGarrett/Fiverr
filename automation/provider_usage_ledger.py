@@ -5,13 +5,16 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
+__version__ = "1.1.0"
+
 DEFAULT_LEDGER_PATH = Path("PM_Pack/automation/provider_usage_ledger.json")
 DEFAULT_DAILY_REPORT_DIR = Path("C:/AI_Runner/reports/provider_usage")
+SUMMARY_PROVIDERS = ("cursorcli", "claudesubscription", "openaiapi", "codexsubscription")
 
 
 @dataclass(frozen=True)
@@ -147,3 +150,34 @@ def get_monthly_spend(provider: str) -> float:
         payload = _read_json(daily_file)
         total += _sum_estimated(_read_entries(payload), provider)
     return float(total)
+
+
+def get_weekly_spend(provider: str) -> float:
+    report_dir = _daily_report_dir()
+    if not report_dir.exists():
+        return 0.0
+    today = _utc_now().date()
+    total = 0.0
+    for delta in range(7):
+        target_key = (today - timedelta(days=delta)).strftime("%Y%m%d")
+        payload = _read_json(_daily_path_for(target_key))
+        total += _sum_estimated(_read_entries(payload), provider)
+    return float(total)
+
+
+def get_ledger_summary() -> dict[str, dict[str, float]]:
+    summary: dict[str, dict[str, float]] = {}
+    for provider in SUMMARY_PROVIDERS:
+        summary[provider] = {
+            "daily": float(get_daily_spend(provider)),
+            "weekly": float(get_weekly_spend(provider)),
+            "monthly": float(get_monthly_spend(provider)),
+        }
+    return summary
+
+
+SCHEMA_PATH = Path(__file__).parent / "schemas" / "provider_usage_ledger.schema.json"
+
+
+def get_schema_path() -> Path:
+    return SCHEMA_PATH

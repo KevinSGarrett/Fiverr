@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from automation.provider_usage_ledger import get_daily_spend, get_monthly_spend
+
+__version__ = "1.1.0"
 
 DEFAULT_POLICY_PATH = Path("PM_Pack/automation/provider_policy.yml")
 DEFAULT_BUDGET_STATE_PATH = Path("C:/AI_Runner/state/openai_api_budget_state.json")
@@ -40,6 +45,10 @@ class CostGuard:
         self.monthly_limit = 150.0
         self.soft_warn = 5.0
         self._load_policy_limits()
+
+    @classmethod
+    def load_from_policy(cls, policy_path: Path) -> CostGuard:
+        return cls(policy_path=policy_path)
 
     def _load_policy_limits(self) -> None:
         if not self.policy_path.exists():
@@ -79,8 +88,13 @@ class CostGuard:
                 monthly_limit=self.monthly_limit,
             )
 
-        current_daily = _get_daily_spend("openai_api")
-        current_monthly = _get_monthly_spend("openai_api")
+        state = self._load_budget_state()
+        current_daily = max(0.0, float(state.get("dailyspendusd", 0.0)))
+        current_monthly = max(0.0, float(state.get("monthlyspendusd", 0.0)))
+        if current_daily == 0.0 and current_monthly == 0.0:
+            # Backward compatibility if state has not been initialized yet.
+            current_daily = max(0.0, _get_daily_spend("openai_api"))
+            current_monthly = max(0.0, _get_monthly_spend("openai_api"))
         projected_daily = current_daily + estimated_cost
         projected_monthly = current_monthly + estimated_cost
 
@@ -124,6 +138,27 @@ class CostGuard:
             "soft_warn": self.soft_warn,
         }
 
+    def _load_budget_state(self) -> dict[str, Any]:
+        if not self.budget_state_path.exists():
+            return _default_budget_state()
+        try:
+            payload = json.loads(self.budget_state_path.read_text(encoding="utf-8"))
+        except JSONDecodeError:
+            return _default_budget_state()
+        if not isinstance(payload, dict):
+            return _default_budget_state()
+        merged = _default_budget_state()
+        merged.update(payload)
+        if float(merged.get("dailyspendusd", 0.0)) < 0:
+            merged["dailyspendusd"] = 0.0
+        if float(merged.get("monthlyspendusd", 0.0)) < 0:
+            merged["monthlyspendusd"] = 0.0
+        return merged
+
+    def _write_budget_state(self, payload: dict[str, Any]) -> None:
+        self.budget_state_path.parent.mkdir(parents=True, exist_ok=True)
+        self.budget_state_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
 
 if __name__ == "__main__":
     guard = CostGuard()
@@ -144,3 +179,32 @@ def _get_daily_spend(provider: str) -> float:
 
 def _get_monthly_spend(provider: str) -> float:
     return get_monthly_spend(provider)
+
+
+def _default_budget_state() -> dict[str, Any]:
+    return {
+        "provider": "openai_api",
+        "dailyspendusd": 0.0,
+        "monthlyspendusd": 0.0,
+        "updatedat": datetime.now(tz=UTC).isoformat(),
+    }
+
+
+def update_spend(provider: str, actual_cost: float) -> None:
+    normalized = provider.strip().lower().replace("_", "")
+    if normalized != "openaiapi":
+        return
+    guard = CostGuard()
+    payload = guard._load_budget_state()
+    spend_value = max(0.0, float(actual_cost))
+    payload["dailyspendusd"] = max(0.0, float(payload.get("dailyspendusd", 0.0))) + spend_value
+    payload["monthlyspendusd"] = max(0.0, float(payload.get("monthlyspendusd", 0.0))) + spend_value
+    payload["updatedat"] = datetime.now(tz=UTC).isoformat()
+    guard._write_budget_state(payload)
+
+
+SCHEMA_PATH = Path(__file__).parent / "schemas" / "cost_guard.schema.json"
+
+
+def get_schema_path() -> Path:
+    return SCHEMA_PATH

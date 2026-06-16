@@ -1,0 +1,12 @@
+{
+  "decisionid": "215123bd-1b0d-4aca-a6e5-9981dac3e92c",
+  "cycle": "080",
+  "tasktype": "implementation",
+  "selectedprovider": "cursorcli",
+  "reason": "classified=implementation;primary=cursorcli;route=cursorcli;health=BLOCKED",
+  "billingmode": "cursor_subscription",
+  "estimatedcostusd": 0.0,
+  "approvedbypolicy": true,
+  "decided_at": "2026-06-15T21:10:18.429986+00:00",
+  "decidedat": "2026-06-15T21:10:18.429986+00:00"
+}

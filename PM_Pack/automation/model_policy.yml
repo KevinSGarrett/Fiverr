@@ -3,7 +3,7 @@ version: 1
 # Runtime state is in C:\AI_Runner\state\cursor_model_state.json
 
 cursor_worker:
-  model: "Codex 5.3"
+  model: "codex-5.3"
   accepted_labels:
     - "Codex 5.3"
     - "GPT-5.3 Codex"

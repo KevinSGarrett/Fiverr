@@ -1,0 +1,15 @@
+{
+  "schemas": [
+    "provider_decision",
+    "provider_usage_ledger",
+    "provider_health",
+    "provider_run_result",
+    "prompt_contract",
+    "dod_catalog",
+    "project_plan_catalog",
+    "todo_epic_catalog",
+    "github_governance_catalog"
+  ],
+  "version": "1.0",
+  "updated_cycle": "081"
+}

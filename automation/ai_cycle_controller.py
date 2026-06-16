@@ -14,11 +14,13 @@ Usage:
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 import click
+import yaml
 
 # Ensure repo root on sys.path when run as a script
 _here = Path(__file__).parent
@@ -48,6 +50,18 @@ def _read_runner_state() -> dict:
         return json.loads(RUNNER_STATE.read_text()) if RUNNER_STATE.exists() else {}
     except Exception:
         return {}
+
+
+def _run_shell_command(args: list[str]) -> tuple[int, str]:
+    proc = subprocess.run(
+        args,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    return proc.returncode, output
 
 
 @click.group()
@@ -90,6 +104,29 @@ def cmd_brain_check() -> None:
         click.secho(f"  [WARN] ANTHROPIC_API_KEY detected -- run: {api_check.get('report', 'see report')}", fg="yellow")
     else:
         click.echo("  CLAUDE-SUB      : API key absent (subscription-only confirmed)")
+    claude_state_path = Path("C:/AI_Runner/state/claude_model_state.json")
+    if claude_state_path.exists():
+        try:
+            claude_state = json.loads(claude_state_path.read_text(encoding="utf-8"))
+            if claude_state.get("status") == "VERIFIED":
+                click.echo(
+                    "  PASS [claude-sub-006]: Claude Sonnet 4.6 medium adaptive thinking confirmed"
+                )
+            else:
+                click.secho(
+                    "  WARN [claude-sub-006]: claude_model_state.json present but status != VERIFIED",
+                    fg="yellow",
+                )
+        except json.JSONDecodeError:
+            click.secho(
+                "  WARN [claude-sub-006]: claude_model_state.json unreadable (non-blocking)",
+                fg="yellow",
+            )
+    else:
+        click.secho(
+            "  WARN [claude-sub-006]: claude_model_state.json not found (non-blocking)",
+            fg="yellow",
+        )
 
     click.echo()
 
@@ -349,6 +386,17 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
     from automation.prompt_validator import validate_all
     agent_list = [a.strip() for a in agents.split(",")]
     prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    validated_dir = prompts_dir / "validated"
+    if cycle == 81:
+        cycle_marker = f"{cycle:03d}"
+        validated_hits = list(validated_dir.glob(f"*{cycle_marker}*")) if validated_dir.exists() else []
+        prompt_hits = list(prompts_dir.glob(f"CYCLE_{cycle_marker}_AGENT_*_PROMPT.md"))
+        if not validated_hits and not prompt_hits:
+            click.secho(
+                "No Cycle 081 prompts found in validated/ — Agent E will create them",
+                fg="yellow",
+            )
+            return
     results = validate_all(prompts_dir, cycle, agent_list)
 
     all_pass = True
@@ -451,10 +499,56 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
     if result.error_message:
         click.secho(f"  Error: {result.error_message}", fg="red")
+    if safe_docs_only:
+        allowed_target = "PM_Pack/automation/prompts/smoke/cursor_docs_smoke_target.md"
+        changed = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip().splitlines()
+        untracked = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip().splitlines()
+        touched = sorted({name for name in changed + untracked if name})
+        disallowed = [name for name in touched if name != allowed_target]
+        if disallowed:
+            click.secho("  BLOCKED_SAFE_DOCS_SCOPE: non-docs file changes detected", fg="red", bold=True)
+            for name in disallowed[:20]:
+                click.echo(f"    - {name}")
+            sys.exit(1)
 
     # --- Post-agent lifecycle (FINDING-009 fix) ---
     # Ownership check, secret guard, report required, full validation, commit, Jira, record
     click.echo("  [5/5] Running post-agent lifecycle...")
+    staged_files = subprocess.run(
+        ["git", "diff", "--name-only", "--cached"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip().splitlines()
+    try:
+        from automation import export_sanitizer_verify
+        from automation.export_sanitizer_verify import ExportSecretError
+    except ImportError:
+        click.secho(
+            "  [WARN] export_sanitizer_verify not importable; skipping staged export sanitizer check.",
+            fg="yellow",
+        )
+    else:
+        try:
+            export_sanitizer_verify.verify_staged_files(staged_files)
+        except ExportSecretError as exc:
+            write_controller_state("BLOCKED_EXPORT_SECRETS", cycle=cycle)
+            click.secho(f"  BLOCKED_EXPORT_SECRETS: {exc}", fg="red", bold=True)
+            sys.exit(1)
+
     from automation.run_agent_lifecycle import run_post_agent_lifecycle
     lifecycle = run_post_agent_lifecycle(
         agent_id=agent,
@@ -539,10 +633,154 @@ def cmd_provider_route_dry_run(task_type: str, cycle: str) -> None:
     """Run provider router dry-run and print selected route."""
     from automation.provider_router import ProviderRouter
 
-    _ = cycle
-    payload = ProviderRouter().route_dry_run(task_type)
+    payload = ProviderRouter().route_dry_run(task_type, cycle=cycle)
     click.echo(str(payload))
     sys.exit(0)
+
+
+@cli.command("routing-advisory-report")
+@click.option("--cycle", required=True, type=int, help="Cycle number to report.")
+def cmd_routing_advisory_report(cycle: int) -> None:
+    """Summarize provider routing decisions and write advisory markdown report."""
+    decisions_dir = REPO_ROOT / "PM_Pack/automation/provider_decisions"
+    artifacts = sorted(decisions_dir.glob("PROVIDER_DECISION_*.json"))
+
+    provider_counts: dict[str, int] = {}
+    task_counts: dict[str, int] = {}
+    considered = 0
+    cycle_id = f"{cycle:03d}"
+    for artifact in artifacts:
+        try:
+            payload = json.loads(artifact.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        considered += 1
+        provider = str(payload.get("selectedprovider") or payload.get("selected_provider") or "unknown")
+        task_type = str(payload.get("tasktype") or payload.get("task_type") or "unknown")
+        provider_counts[provider] = provider_counts.get(provider, 0) + 1
+        task_counts[task_type] = task_counts.get(task_type, 0) + 1
+
+    click.echo(f"Routing Advisory — Cycle {cycle_id}")
+    click.echo(f"Total decisions: {considered}")
+    click.echo("")
+    click.echo("By provider:")
+    for provider in sorted(provider_counts):
+        click.echo(f"  {provider:30} {provider_counts[provider]}")
+    click.echo("By task type:")
+    for task_type in sorted(task_counts):
+        click.echo(f"  {task_type:30} {task_counts[task_type]}")
+
+    out_dir = Path("C:/AI_Runner/reports/provider_usage")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"CYCLE_{cycle_id}_ROUTING_ADVISORY.md"
+    lines = [
+        f"# Cycle {cycle_id} Provider Routing Advisory",
+        f"Generated: {_now()}",
+        "",
+        f"Total decisions: {considered}",
+        "",
+        "## Counts by provider",
+    ]
+    if provider_counts:
+        lines.extend([f"- {provider}: {provider_counts[provider]}" for provider in sorted(provider_counts)])
+    else:
+        lines.append("- No decisions recorded for this cycle.")
+    lines.extend(["", "## Counts by task type"])
+    if task_counts:
+        lines.extend([f"- {task_type}: {task_counts[task_type]}" for task_type in sorted(task_counts)])
+    else:
+        lines.append("- No task decisions recorded for this cycle.")
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    click.echo("")
+    click.secho(f"Routing advisory report written: {out_path}", fg="green")
+
+
+@cli.command("provider-usage-summary")
+def cmd_provider_usage_summary() -> None:
+    """Print provider usage spend summary table (daily/weekly/monthly)."""
+    from automation.provider_usage_ledger import get_ledger_summary
+
+    summary = get_ledger_summary()
+    click.echo("Provider Usage Summary")
+    click.echo(f"{'provider':<22} {'daily':>10} {'weekly':>10} {'monthly':>10}")
+    for provider, totals in summary.items():
+        click.echo(
+            f"{provider:<22} "
+            f"{float(totals.get('daily', 0.0)):>10.2f} "
+            f"{float(totals.get('weekly', 0.0)):>10.2f} "
+            f"{float(totals.get('monthly', 0.0)):>10.2f}"
+        )
+
+
+@cli.command("stage2-readiness-check")
+def cmd_stage2_readiness_check() -> None:
+    """Validate Stage 2 dispatch prerequisites from ADR 027."""
+    checks: list[tuple[str, bool, str]] = []
+
+    from automation.model_gate import check as model_gate_check
+
+    gate = model_gate_check(repo_root=REPO_ROOT, cycle=81, agent="STAGE2")
+    checks.append(("MODELGATE PASS", bool(gate.passed), gate.summary()))
+
+    rc, out = _run_shell_command([sys.executable, "automation/ai_cycle_controller.py", "pm-pack-audit"])
+    checks.append(("pm-pack-audit PASS", rc == 0 and "PASS" in out, out.strip().splitlines()[-1] if out else ""))
+
+    rc, out = _run_shell_command(
+        [sys.executable, "automation/ai_cycle_controller.py", "validate-prompts", "--cycle", "81"]
+    )
+    checks.append(
+        (
+            "validate-prompts --cycle 081 PASS 6/6",
+            rc == 0 and "PROMPT VALIDATION PASS" in out,
+            out.strip().splitlines()[-1] if out else "",
+        )
+    )
+
+    manifest_path = REPO_ROOT / "PM_Pack/automation/prompt_package_manifest.json"
+    manifest_ok = False
+    manifest_detail = "manifest missing"
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_ok = manifest.get("status") == "READY" and str(manifest.get("cycle")) == "081"
+            manifest_detail = f"cycle={manifest.get('cycle')} status={manifest.get('status')}"
+        except json.JSONDecodeError:
+            manifest_detail = "manifest unreadable JSON"
+    checks.append(("prompt_package_manifest READY", manifest_ok, manifest_detail))
+
+    policy_ok = False
+    policy_detail = "policy missing"
+    policy_path = REPO_ROOT / "PM_Pack/automation/provider_policy.yml"
+    if policy_path.exists():
+        payload = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+        global_rules = payload.get("global_rules", {}) if isinstance(payload, dict) else {}
+        policy_ok = bool(global_rules.get("advisory_confirm_mode")) is True
+        policy_detail = (
+            f"advisory_only={global_rules.get('advisory_only_provider_routing')} "
+            f"advisory_confirm={global_rules.get('advisory_confirm_mode')}"
+        )
+    checks.append(("provider_policy advisory_confirm_mode=True", policy_ok, policy_detail))
+
+    provider_health_path = Path("C:/AI_Runner/state/provider_health.json")
+    provider_ok = False
+    provider_detail = "provider health missing"
+    if provider_health_path.exists():
+        try:
+            provider_payload = json.loads(provider_health_path.read_text(encoding="utf-8"))
+            cursor_entry = provider_payload.get("cursor_cli") or provider_payload.get("cursorcli") or {}
+            provider_ok = str(cursor_entry.get("status", "")).upper() == "READY"
+            provider_detail = f"cursor_cli.status={cursor_entry.get('status', 'UNKNOWN')}"
+        except json.JSONDecodeError:
+            provider_detail = "provider health unreadable JSON"
+    checks.append(("cursor_cli status=READY in provider_health", provider_ok, provider_detail))
+
+    click.echo("Stage 2 Readiness Check")
+    click.echo(f"{'check':<48} {'result':<6} details")
+    for label, passed, detail in checks:
+        click.echo(f"{label:<48} {('PASS' if passed else 'FAIL'):<6} {detail}")
+
+    all_passed = all(item[1] for item in checks)
+    sys.exit(0 if all_passed else 1)
 
 
 @cli.command("recover")

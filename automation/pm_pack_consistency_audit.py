@@ -67,17 +67,17 @@ def run_audit(repo_root: Path | None = None,
     result = AuditResult(checked_at=datetime.now(UTC).isoformat())
 
     # ── Load all sources ──────────────────────────────────────────────
-    def load_json(path: Path, key: str) -> dict:
+    def load_json(path: Path) -> dict:
         if not path.exists():
             result.missing_files.append(str(path))
             return {}
         try:
             return json.loads(path.read_text(encoding="utf-8", errors="replace"))
-        except Exception as e:
+        except (json.JSONDecodeError, OSError) as e:
             result.warnings.append(f"Could not parse {path}: {e}")
             return {}
 
-    def load_md_signals(path: Path, key: str) -> dict:
+    def load_md_signals(path: Path) -> dict:
         """Extract key cycle/status signals from a markdown file."""
         if not path.exists():
             result.missing_files.append(str(path))
@@ -104,22 +104,17 @@ def run_audit(repo_root: Path | None = None,
         return signals
 
     # Load sources
-    policy_snap = load_json(repo / "PM_Pack/automation/current_policy_snapshot.json",
-                            "policy_snapshot")
-    ctrl_state  = load_json(runner / "state/controller_state.json",
-                            "controller_state")
+    policy_snap = load_json(repo / "PM_Pack/automation/current_policy_snapshot.json")
+    ctrl_state = load_json(runner / "state/controller_state.json")
     current_status_txt = ""
     current_status_path = runner / "status/current_status.md"
     if current_status_path.exists():
         current_status_txt = current_status_path.read_text(encoding="utf-8",
                                                             errors="replace")
 
-    hydration_signals = load_md_signals(
-        repo / "PM_Pack/07_hydration/HYDRATION_HEADER.md", "hydration")
-    snapshot_signals  = load_md_signals(
-        repo / "PM_Pack/07_hydration/STATE_SNAPSHOT.md", "state_snapshot")
-    canonical_signals = load_md_signals(
-        repo / "PM_Pack/CURRENT_STATE_CANONICAL.md", "canonical")
+    hydration_signals = load_md_signals(repo / "PM_Pack/07_hydration/HYDRATION_HEADER.md")
+    snapshot_signals = load_md_signals(repo / "PM_Pack/07_hydration/STATE_SNAPSHOT.md")
+    canonical_signals = load_md_signals(repo / "PM_Pack/CURRENT_STATE_CANONICAL.md")
 
     result.sources = {
         "policy_snapshot_cycle":  policy_snap.get("cycle_current"),
@@ -195,6 +190,40 @@ def run_audit(repo_root: Path | None = None,
             "PROVIDERHEALTHMISSING: provider_health.json is missing while provider policy is present."
         )
 
+    # ── Check 8: post-cycle advisory-only result blocks dispatch ──────
+    active_cycle = ctrl_state.get("active_cycle")
+    reviews_dir = repo / "PM_Pack/automation/post_cycle_reviews"
+    if isinstance(active_cycle, int) and reviews_dir.exists():
+        cycle_marker = f"{active_cycle:03d}"
+        for review_file in reviews_dir.glob("*.json"):
+            try:
+                review_payload = json.loads(review_file.read_text(encoding="utf-8", errors="replace"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if str(review_payload.get("status", "")).upper() != "ADVISORY_ONLY":
+                continue
+            file_cycle = str(review_payload.get("cycle") or "")
+            if not file_cycle and cycle_marker in review_file.name:
+                file_cycle = cycle_marker
+            if str(file_cycle).zfill(3) != cycle_marker:
+                continue
+            result.passed = False
+            result.conflicts.append(
+                ConflictItem(
+                    code="POSTCYCLEADVISORYBLOCKS_DISPATCH",
+                    source_a="post_cycle_reviews",
+                    source_b="controller_state",
+                    field="post_cycle_status",
+                    value_a="ADVISORY_ONLY",
+                    value_b=ctrl_state.get("status"),
+                    severity="BLOCKING",
+                )
+            )
+            result.warnings.append(
+                "Post-cycle ADVISORY_ONLY result exists — dispatch is blocked until result is cleared or upgraded to PASS"
+            )
+            break
+
     # ── Check 6: autonomy freeze flag ────────────────────────────────
     freeze_path = repo / "PM_Pack/automation/policies/autonomy_freeze.yml"
     if not freeze_path.exists():
@@ -208,7 +237,7 @@ def run_audit(repo_root: Path | None = None,
                     f"Autonomy freeze is ACTIVE: {fp.get('reason', 'unknown')} — "
                     f"all dispatch blocked until freeze is lifted."
                 )
-        except Exception:
+        except (OSError, ImportError):
             pass
 
     # ── Write result artifact ─────────────────────────────────────────

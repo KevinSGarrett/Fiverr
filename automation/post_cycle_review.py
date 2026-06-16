@@ -209,6 +209,11 @@ def collect_facts(cycle: int, mode: ReviewMode,
     except Exception:
         pass
 
+    reviewer = PostCycleReview(cycle=cycle)
+    reviewer._verify_github_facts()
+    jira_facts = reviewer._verify_jira_facts()
+    if jira_facts.get("done_stories"):
+        facts.cycle_control_done = True
     return facts
 
 
@@ -429,3 +434,77 @@ def _run_check(cmd: list[str]) -> bool:
     r = subprocess.run(cmd, cwd=str(REPO_ROOT),
                        capture_output=True, text=True, check=False, timeout=120)
     return r.returncode == 0
+
+
+class JiraAuthError(Exception):
+    """Raised when Jira authentication fails for post-cycle collection."""
+
+
+class _JiraClientProxy:
+    def search_issues(self, jql: str) -> list[dict[str, Any]]:
+        import requests
+
+        from automation.jira_client import _base_url, _headers
+
+        response = requests.get(
+            f"{_base_url()}/rest/api/3/search/jql",
+            headers=_headers(),
+            params={"jql": jql, "maxResults": "100", "fields": "key"},
+            timeout=20,
+        )
+        if response.status_code in {401, 403}:
+            raise JiraAuthError("JIRA_AUTH_FAILED")
+        response.raise_for_status()
+        payload = response.json()
+        return payload.get("issues", [])
+
+
+class PostCycleReview:
+    """Post-cycle fact collector helpers for GitHub and Jira verification."""
+
+    def __init__(self, cycle: int | None = None, jira_client: Any | None = None) -> None:
+        self.cycle = cycle
+        self.jira_client = jira_client or _JiraClientProxy()
+        self.current_run_dir = REPO_ROOT / "PM_Pack/automation/post_cycle_reviews/current_run"
+
+    def collect_facts(self) -> dict[str, Any]:
+        github_facts = self._verify_github_facts()
+        jira_facts = self._verify_jira_facts()
+        return {"github": github_facts, "jira": jira_facts}
+
+    def _verify_github_facts(self) -> dict[str, Any]:
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "list", "--state", "merged", "--limit", "5", "--json", "number,title,mergedAt"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            merged_prs = json.loads(result.stdout or "[]")
+            payload = {"merged_prs": merged_prs, "collected_at": datetime.now(UTC).isoformat()}
+        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+            payload = {"merged_prs": [], "error": "gh_unavailable"}
+        self.current_run_dir.mkdir(parents=True, exist_ok=True)
+        (self.current_run_dir / "github_verification.json").write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return payload
+
+    def _verify_jira_facts(self) -> dict[str, Any]:
+        try:
+            issues = self.jira_client.search_issues(
+                "project=SCRUM AND status=Done AND sprint in openSprints()"
+            )
+            done_stories = [str(issue.get("key", "")) for issue in issues if issue.get("key")]
+            payload = {"done_stories": done_stories, "collected_at": datetime.now(UTC).isoformat()}
+        except (JiraAuthError, ConnectionError):
+            payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
+        except Exception:
+            payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
+        self.current_run_dir.mkdir(parents=True, exist_ok=True)
+        (self.current_run_dir / "jira_verification.json").write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return payload

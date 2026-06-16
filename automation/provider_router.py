@@ -13,7 +13,7 @@ from typing import Any
 
 import yaml
 
-from automation.provider_health import ProviderHealth
+from automation.provider_health import ProviderHealth, refresh_after_dispatch
 from automation.provider_task_classifier import classify
 
 POLICY_PATH = Path("PM_Pack/automation/provider_policy.yml")
@@ -100,8 +100,17 @@ class ProviderRouter:
         self.runner_config: dict[str, Any] = {}
         self.provider_health = ProviderHealth()
         self.advisory_only_mode = True
+        self.advisory_confirm_mode = False
         self._load_runner_config()
         self._load_policy()
+
+    def __repr__(self) -> str:
+        return (
+            "ProviderRouter("
+            f"advisory_only={self.advisory_only_mode}, "
+            f"advisory_confirm={self.advisory_confirm_mode}"
+            ")"
+        )
 
     def _load_runner_config(self) -> None:
         if not self.runner_config_path.exists():
@@ -127,6 +136,7 @@ class ProviderRouter:
         self.policy = payload
         global_rules = payload.get("global_rules", {})
         self.advisory_only_mode = bool(global_rules.get("advisory_only_provider_routing", True))
+        self.advisory_confirm_mode = bool(global_rules.get("advisory_confirm_mode", False))
 
     def _has_minimum_structure(self, payload: dict[str, Any]) -> bool:
         return (
@@ -141,7 +151,16 @@ class ProviderRouter:
         return self.policy
 
     def _normalize_task_type(self, task_type: str) -> str:
-        return task_type.strip().lower().replace("-", "_")
+        normalized = task_type.strip().lower().replace("-", "_")
+        aliases = {
+            "officialpostcyclereview": "official_post_cycle_review",
+            "officialpostcycle_review": "official_post_cycle_review",
+            "testgeneration": "test_generation",
+            "docsagentwork": "docs_agent_work",
+            "jsonclassification": "json_classification",
+            "cursorexecution": "cursor_execution",
+        }
+        return aliases.get(normalized, normalized)
 
     def _normalize_provider(self, provider: str) -> str:
         return provider.strip().lower().replace("-", "_")
@@ -225,16 +244,37 @@ class ProviderRouter:
         if health_provider:
             health_status = self.provider_health.get_status(health_provider)
 
-        reason = (
+        base_reason = (
             f"classified={classification.task_type};primary={classification.primary_route};"
             f"route={route_provider};health={health_status}"
         )
-        if self.advisory_only_mode and provider_decision_value not in {
+        deterministic_routes = {
             "deterministiccontroller",
             "deterministicpromptfactory",
             "deterministicvalidator",
-        }:
-            reason = "ADVISORY_ONLY"
+        }
+        cursor_dispatch_task_types = {
+            "implementation",
+            "repair",
+            "testgeneration",
+            "test_generation",
+            "docsagentwork",
+            "docs_agent_work",
+            "cursorexecution",
+            "cursor_execution",
+        }
+        reason = base_reason
+        if self.advisory_only_mode and provider_decision_value not in deterministic_routes:
+            reason = "ADVISORYONLYBLOCKED"
+        elif (
+            self.advisory_confirm_mode
+            and not self.advisory_only_mode
+            and provider_decision_value not in deterministic_routes
+        ):
+            if normalized_task in cursor_dispatch_task_types and provider_decision_value == "cursorcli":
+                reason = "DISPATCHCONFIRM"
+            else:
+                reason = "ADVISORYCONFIRMREQUIRED"
 
         return ProviderDecision(
             provider=provider_decision_value,
@@ -317,7 +357,18 @@ class ProviderRouter:
         }
         payload["provider"] = provider_alias.get(payload["provider"], payload["provider"])
         payload["decision_artifact_path"] = str(artifact_path)
-        print(f"DRYRUN: Would route {task_type} to {payload['provider']}. Artifact: {artifact_path}")
+        if decision.reason == "DISPATCHCONFIRM":
+            message = (
+                f"ADVISORYCONFIRM: Would route to {payload['provider']} - "
+                "confirm before dispatching"
+            )
+        elif decision.reason == "ADVISORYCONFIRMREQUIRED":
+            message = "ADVISORYCONFIRM_BLOCKED: requires human confirmation"
+        elif decision.reason == "ADVISORYONLYBLOCKED":
+            message = "ADVISORY_ONLY_BLOCKED: advisory-only mode blocks provider dispatch"
+        else:
+            message = f"DRYRUN: Would route {task_type} to {payload['provider']}"
+        print(f"{message}. Artifact: {artifact_path}")
         return payload
 
     def routedry_run(self, tasktype: str, cycle: str = "000") -> dict[str, Any]:
@@ -330,7 +381,7 @@ class ProviderRouter:
         started_at = datetime.now(UTC).isoformat()
         decision = self.select_provider(task_type=task_type, cycle=cycle, agent=agent)
         artifact_path = self.write_decision_artifact(decision, cycle=cycle)
-        if decision.provider == "claudesubscription" and self.advisory_only_mode:
+        if decision.reason in {"ADVISORYONLYBLOCKED", "ADVISORYCONFIRMREQUIRED"}:
             return ProviderRunResult(
                 status="ADVISORYONLYBLOCKED",
                 provider=decision.provider,
@@ -338,9 +389,10 @@ class ProviderRouter:
                 completed_at=datetime.now(UTC).isoformat(),
                 files_changed=[],
                 validation_required=True,
-                error_message="ADVISORY_ONLY_BLOCKED",
+                error_message=decision.reason,
                 decision_artifact_path=str(artifact_path),
             )
+        refresh_after_dispatch(decision.provider, "SUCCESS")
         return ProviderRunResult(
             status="SUCCESS",
             provider=decision.provider,
