@@ -1,0 +1,10 @@
+{
+  "cycle": 82,
+  "pr_number": 100,
+  "pr_merged": true,
+  "merge_sha": "5c3aca5b7e4c40fe464398d9b894ea0ef59b88e9",
+  "ci_passed": true,
+  "codecov_project": "UNKNOWN",
+  "codecov_patch": "UNKNOWN",
+  "codex_threads_resolved": true
+}

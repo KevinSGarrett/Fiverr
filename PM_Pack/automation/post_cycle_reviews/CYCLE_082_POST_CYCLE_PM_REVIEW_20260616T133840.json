@@ -1,0 +1,44 @@
+{
+  "cycle": 82,
+  "mode": "POST_CYCLE_PM_REVIEW",
+  "result": "FAIL",
+  "blocks_dispatch": true,
+  "errors": [
+    "cycle037_live.db mtime changed \u2014 baseline tampered"
+  ],
+  "warnings": [],
+  "facts": {
+    "cycle": 82,
+    "mode": "POST_CYCLE_PM_REVIEW",
+    "collected_at": "2026-06-16T13:38:35.987110+00:00",
+    "head_sha": "ebae4a9076b5e162ba3e1953a5a0a8090ce37233",
+    "develop_sha": "5c3aca5b7e4c40fe464398d9b894ea0ef59b88e9",
+    "pr_number": 100,
+    "pr_merged": true,
+    "merge_sha": "5c3aca5b7e4c40fe464398d9b894ea0ef59b88e9",
+    "ci_passed": false,
+    "codecov_project": "UNKNOWN",
+    "codecov_patch": "UNKNOWN",
+    "codex_threads_resolved": false,
+    "local_ruff": false,
+    "local_mypy": true,
+    "local_pytest": false,
+    "local_coverage_pct": 0.0,
+    "baseline_db_mtime_unchanged": false,
+    "scrapfly_enabled_false": true,
+    "cycle_control_done": false,
+    "next_cycle_control_created": false,
+    "agent_reports_present": {
+      "A": true,
+      "B": true,
+      "E": true,
+      "C": true,
+      "F": true,
+      "D": true
+    },
+    "score1_internal_pct": 0.0,
+    "score2_e2e_pct": 0.0,
+    "tierd2_stages": {}
+  },
+  "evaluated_at": "2026-06-16T13:38:40.694701+00:00"
+}
