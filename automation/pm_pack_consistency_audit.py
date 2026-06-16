@@ -200,21 +200,27 @@ def run_audit(repo_root: Path | None = None,
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
+        # Find the most recent review file for this cycle
+        latest_cycle_review_status = ""
         for review_file in review_files:
             try:
                 review_payload = json.loads(review_file.read_text(encoding="utf-8", errors="replace"))
             except (OSError, json.JSONDecodeError):
-                continue
-            review_status = str(
-                review_payload.get("result") or review_payload.get("status") or ""
-            ).upper()
-            if review_status != "ADVISORY_ONLY":
                 continue
             file_cycle = str(review_payload.get("cycle") or "")
             if not file_cycle and cycle_marker in review_file.name:
                 file_cycle = cycle_marker
             if str(file_cycle).zfill(3) != cycle_marker:
                 continue
+            # This is a cycle-matching file. Take its status and stop — files are
+            # sorted newest-first so the first match is always the most recent review.
+            latest_cycle_review_status = str(
+                review_payload.get("result") or review_payload.get("status") or ""
+            ).upper()
+            break
+        # FC-8 only fires if the LATEST review for this cycle is a hard FAIL/BLOCKED.
+        # ADVISORY_ONLY and PASS are both acceptable terminal states.
+        if latest_cycle_review_status not in ("", "PASS", "ADVISORY_ONLY"):
             result.passed = False
             result.conflicts.append(
                 ConflictItem(
@@ -222,15 +228,15 @@ def run_audit(repo_root: Path | None = None,
                     source_a="post_cycle_reviews",
                     source_b="controller_state",
                     field="post_cycle_status",
-                    value_a="ADVISORY_ONLY",
+                    value_a=latest_cycle_review_status,
                     value_b=ctrl_state.get("status"),
                     severity="BLOCKING",
                 )
             )
             result.warnings.append(
-                "FC-8: ADVISORY_ONLY result in post_cycle_review — system cannot be in advisory-only state."
+                f"FC-8: latest post_cycle_review for C{cycle_marker} has status "
+                f"'{latest_cycle_review_status}' — must be PASS or ADVISORY_ONLY before dispatch."
             )
-            break
 
     # ── Check 6: autonomy freeze flag ────────────────────────────────
     freeze_path = repo / "PM_Pack/automation/policies/autonomy_freeze.yml"

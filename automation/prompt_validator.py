@@ -39,7 +39,7 @@ STUB_PATTERNS = [
     r"populate from PM_Pack",
     r"\[TODO\]",
     r"<exact agent mission>",
-    r"fill in",
+    r"^\s*fill in\s*$",     # bare "fill in" on its own line = stub; (fill in) in tables is OK
     r"\[FILL\]",
 ]
 
