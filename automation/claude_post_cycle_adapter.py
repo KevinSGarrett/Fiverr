@@ -155,7 +155,7 @@ def run_post_cycle_review(
             "Respond with exactly one of: PASS, ADVISORY_ONLY, or BLOCKED, "
             "followed by a brief explanation."
         )
-        with open(request_path, "r", encoding="utf-8") as stdin_file:
+        with open(request_path, encoding="utf-8") as stdin_file:
             r = subprocess.run(
                 [claude_binary, "-p", review_query, "--output-format", "text",
                  "--model", "claude-sonnet-4-6"],
