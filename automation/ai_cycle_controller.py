@@ -526,7 +526,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
             click.secho("  MODEL_GATE FAILED — aborting dispatch.", fg="red", bold=True)
             write_controller_state("MODEL_BLOCKED", cycle=cycle)
             _record_nonblocking_error(f"run-agent model gate failed cycle={cycle} agent={agent}")
-            return
+            raise SystemExit(1)
 
     write_heartbeat("MODEL_GATE_PASSED", cycle=cycle, agent=agent)
     write_controller_state("AGENT_DISPATCH", cycle=cycle)
@@ -538,7 +538,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     if not prompt_path.exists():
         click.secho(f"  Prompt not found: {prompt_path}", fg="red")
         _record_nonblocking_error(f"run-agent prompt missing cycle={cycle} agent={agent}")
-        return
+        raise SystemExit(1)
     click.echo(f"  Prompt: {prompt_path}")
     docs_smoke_target = "PM_Pack/automation/prompts/smoke/cursor_docs_smoke_target.md"
     if safe_docs_only:
@@ -559,7 +559,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     if not pv.passed and not safe_docs_only:
         click.secho(pv.summary(), fg="red")
         _record_nonblocking_error(f"run-agent prompt validation failed cycle={cycle} agent={agent}")
-        return
+        raise SystemExit(1)
     elif not pv.passed:
         click.secho("  Prompt validation warnings (--safe-docs-only, continuing):", fg="yellow")
         click.echo(pv.summary())
@@ -1152,7 +1152,24 @@ def cmd_tick() -> None:
                 notify_info(f"Tick: awaiting dispatch signal for cycle {cycle}")
 
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING", "AGENT_COMPLETE"):
-        # Agent is running — monitor heartbeat freshness
+        # Agent is running — verify the branch exactly matches the active cycle.
+        expected_branch = f"cycle/{cycle:03d}/integration"
+        from automation.branch_guard import current_branch as _current_branch
+        actual_branch = _current_branch()
+        if actual_branch and actual_branch != expected_branch:
+            notify_blocked(
+                f"BRANCH_MISMATCH: active_cycle={cycle} but on branch '{actual_branch}' "
+                f"(expected '{expected_branch}'). Dispatcher is on the wrong branch.",
+                incident_code="BRANCH_MISMATCH", cycle=cycle,
+            )
+            click.secho(
+                f"  [ERROR] BRANCH_MISMATCH: on '{actual_branch}' but active_cycle={cycle} "
+                f"expects '{expected_branch}'. Blocking dispatch.",
+                fg="red", bold=True,
+            )
+            write_controller_state("BRANCH_MISMATCH_BLOCKED", cycle=cycle)
+            return
+        # Monitor heartbeat freshness
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
         if hb_path.exists():
             import json as _json

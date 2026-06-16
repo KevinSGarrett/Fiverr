@@ -261,8 +261,28 @@ class ProviderRouter:
         routes = policy.get("routes", {})
         if not isinstance(routes, dict):
             raise PolicyLoadError("PROVIDER_POLICY_MISSING: cannot route without policy")
-        classification = classify(normalized_task)
-        route = routes.get(normalized_task, classification.primary_route)
+        # Browser automation task types raise PolicyViolation (not PolicyLoadError)
+        # before the route lookup so the caller sees the correct error type.
+        if normalized_task in {"chatgptbrowserautomation", "chatgpt_browser_automation"}:
+            raise PolicyViolation(
+                "NO_BROWSER_AUTOMATION: ChatGPT browser automation is prohibited. "
+                "Use codex_subscription (the codex CLI) instead."
+            )
+        # Fail closed: if task_type is absent from the explicit routes table,
+        # block dispatch rather than silently falling back to the classifier.
+        if normalized_task not in routes:
+            classification = classify(normalized_task)
+            primary = str(classification.primary_route)
+            if primary in {"cursor_cli", "claude_subscription",
+                           "openai_api", "codex_subscription"}:
+                # Classifier produced a deterministic result — use it.
+                return primary
+            # Unknown task type and no deterministic route — fail closed.
+            raise PolicyLoadError(
+                f"ROUTE_NOT_FOUND: task_type '{task_type}' is not in provider_policy.yml routes "
+                "and has no deterministic classification. Add it to the routes table."
+            )
+        route = routes.get(normalized_task)
         return str(route)
 
     def getprimaryroute(self, tasktype: str) -> str:

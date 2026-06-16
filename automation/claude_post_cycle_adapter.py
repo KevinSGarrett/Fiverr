@@ -147,14 +147,24 @@ def run_post_cycle_review(
     try:
         # Claude Code defaults to Opus 4.8 — force Sonnet 4.6 for PM review
         # (per claude_model_state.json: observed_default_model = Opus 4.8)
-        r = subprocess.run(
-            [claude_binary, "-p", request_content, "--output-format", "text",
-             "--model", "claude-sonnet-4-6"],
-            cwd=str(REPO_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 min max for PM review
+        # Use a real query string with -p; pipe the full review content via stdin.
+        # This avoids OS argument-length limits and ensures Claude sees the prompt correctly.
+        review_query = (
+            "You are the official PM reviewer for the Fiverr Research System automation runner. "
+            "Review the post-cycle PM review request provided via stdin (facts JSON + review prompt). "
+            "Respond with exactly one of: PASS, ADVISORY_ONLY, or BLOCKED, "
+            "followed by a brief explanation."
         )
+        with open(request_path, "r", encoding="utf-8") as stdin_file:
+            r = subprocess.run(
+                [claude_binary, "-p", review_query, "--output-format", "text",
+                 "--model", "claude-sonnet-4-6"],
+                stdin=stdin_file,
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=600,  # 10 min max for PM review
+            )
         response_text = (r.stdout + r.stderr).strip()
     except subprocess.TimeoutExpired:
         result.status = "ADVISORY_ONLY"

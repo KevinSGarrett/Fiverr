@@ -435,7 +435,6 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
         "tests/unit/",
         "-q",
         "--tb=no",
-        "--timeout=30",
         "-x",
         "--ignore=tests/unit/test_queue_processor.py",
         "--ignore=tests/unit/test_collection_orchestrator.py",

@@ -161,10 +161,16 @@ class PromptRenderer:
             ]
         )
         lines.extend(_render_list(effective_stop_conditions))
+        # Only inject the additional tasks section for Agent B — not every agent.
+        if agent == "B":
+            lines.extend(
+                [
+                    "",
+                    ADDITIONAL_TASKS_SECTION,
+                ]
+            )
         lines.extend(
             [
-                "",
-                ADDITIONAL_TASKS_SECTION,
                 "",
                 "END OF PROMPT",
             ]

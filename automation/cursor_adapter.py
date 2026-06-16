@@ -54,7 +54,14 @@ def kill_cursor_process(pid: int) -> bool:
         except AttributeError:
             return False
         try:
-            os.killpg(os.getpgid(pid), sig_kill)  # type: ignore[attr-defined]
+            pgid = os.getpgid(pid)  # type: ignore[attr-defined]
+            # Safety: never kill the runner's own process group.
+            runner_pgid = os.getpgid(0)  # type: ignore[attr-defined]
+            if pgid == runner_pgid:
+                # Same group as the runner — only kill the specific process.
+                os.kill(pid, sig_kill)  # type: ignore[attr-defined]
+            else:
+                os.killpg(pgid, sig_kill)  # type: ignore[attr-defined]
             return True
         except (ProcessLookupError, PermissionError):
             return False
