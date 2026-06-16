@@ -123,15 +123,6 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        if: ${{ always() && secrets.CODECOV_TOKEN != '' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          verbose: true
-
   smoke-gates:
     name: CI / smoke-gates
     runs-on: ubuntu-latest
