@@ -477,10 +477,11 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     click.echo("  Building PM intelligence cycle brief...")
     from automation.pm_intelligence import build_cycle_brief
     cycle_brief = build_cycle_brief(jira_issues=jira_issues)
+    _snap = cycle_brief.snapshot
     click.echo(
-        f"  PM brief: Wave {cycle_brief.current_wave} ({cycle_brief.wave_name}) | "
-        f"{len(cycle_brief.current_wave_stories)} stories | "
-        f"{len(cycle_brief.already_built_in_src)} existing src files scanned"
+        f"  PM brief: Wave {_snap.current_wave} ({_snap.wave_name}) | "
+        f"{len(_snap.current_stories)} stories | "
+        f"{len(_snap.existing_src)} existing src files scanned"
     )
 
     prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
@@ -1193,7 +1194,7 @@ def cmd_tick() -> None:
         click.echo(f"  → Auto-running plan-cycle for cycle {cycle}...")
         rc, out = _run_shell_command(
             [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
-             "--cycle", str(cycle)]
+             "--live", "--cycle", str(cycle)]
         )
         if rc == 0:
             write_controller_state("PLANNED", cycle=cycle)
@@ -1339,7 +1340,7 @@ def cmd_tick() -> None:
         click.echo(f"  Retrying plan-cycle for cycle {cycle}...")
         rc, out = _run_shell_command(
             [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
-             "--cycle", str(cycle)]
+             "--live", "--cycle", str(cycle)]
         )
         if rc == 0:
             write_controller_state("PLANNED", cycle=cycle)

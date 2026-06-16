@@ -315,23 +315,35 @@ def _parse_jira_board(jira_issues: list[dict]) -> tuple[int, int, int, list[dict
     """
     Returns (total, done_count, pending_count, all_stories, pending_stories).
     `jira_issues` is the raw list from board_inventory() or board_inventory_all().
+    Handles dual-format: top-level 'status' key OR 'fields.status.name' dict.
     """
-    all_stories = [
-        i for i in jira_issues
-        if i.get("fields", {}).get("issuetype", {}).get("name", "") == "Story"
-    ]
-    done_count    = sum(1 for i in jira_issues
-                        if i.get("fields", {}).get("status", {}).get("name", "").lower() == "done")
+    def _status_name(issue: dict) -> str:
+        """Get status name from either top-level or fields dict."""
+        # Top-level (backward-compat from new normalise_issue)
+        top = issue.get("status", "")
+        if isinstance(top, str) and top:
+            return top
+        # Nested under fields
+        return issue.get("fields", {}).get("status", {}).get("name", "")
+
+    def _issuetype_name(issue: dict) -> str:
+        top = issue.get("issuetype", "")
+        if isinstance(top, str) and top:
+            return top
+        return issue.get("fields", {}).get("issuetype", {}).get("name", "")
+
+    all_stories = [i for i in jira_issues if _issuetype_name(i) == "Story"]
+    done_count    = sum(1 for i in jira_issues if _status_name(i).lower() == "done")
     pending_count = len(jira_issues) - done_count
     pending_stories = [
         {
-            "key":    i["key"],
-            "summary": i["fields"]["summary"],
-            "status":  i["fields"]["status"].get("name", ""),
-            "labels":  i["fields"].get("labels", []),
+            "key":     i["key"],
+            "summary": i.get("summary") or i.get("fields", {}).get("summary", ""),
+            "status":  _status_name(i),
+            "labels":  i.get("labels") or i.get("fields", {}).get("labels", []),
         }
         for i in all_stories
-        if i["fields"]["status"].get("name", "").lower() != "done"
+        if _status_name(i).lower() != "done"
     ]
     return len(jira_issues), done_count, pending_count, all_stories, pending_stories
 
@@ -339,20 +351,67 @@ def _parse_jira_board(jira_issues: list[dict]) -> tuple[int, int, int, list[dict
 def _resolve_wave11_story_statuses(jira_issues: list[dict]) -> list[WaveStory]:
     """
     Build the list of Wave 11 WaveStory objects with real Jira statuses.
-    Handles cases where Jira issues aren't fetched (defaults to To Do).
+
+    Priority order for status resolution:
+    1. Direct Jira fetch for SCRUM-205-211 (most accurate — bypasses board_inventory ordering issues)
+    2. Filesystem check — if the target file already exists, mark as Done
+    3. jira_issues list from board_inventory (may not include all Wave 11 stories)
+    4. Default: To Do
     """
     # Index raw Jira by key for quick lookup
     jira_by_key: dict[str, dict] = {i["key"]: i for i in jira_issues}
 
+    # Try to fetch Wave 11 stories directly from Jira
+    wave11_keys = list(WAVE11_STORY_TARGETS.keys())
+    live_statuses: dict[str, str] = {}
+    live_descriptions: dict[str, str] = {}
+    try:
+        from automation.jira_client import _search_all, _adf_to_text
+        jql = f"project = SCRUM AND key in ({','.join(wave11_keys)})"
+        raw_issues = _search_all(jql)
+        for raw in raw_issues:
+            key = raw.get("key", "")
+            fields = raw.get("fields", {})
+            live_statuses[key] = fields.get("status", {}).get("name", "To Do")
+            # Convert ADF description to plain text
+            raw_desc = fields.get("description")
+            if raw_desc and isinstance(raw_desc, dict):
+                live_descriptions[key] = _adf_to_text(raw_desc)
+            elif isinstance(raw_desc, str):
+                live_descriptions[key] = raw_desc
+            else:
+                live_descriptions[key] = ""
+    except Exception:
+        pass  # Fall back to jira_issues list
+
     stories: list[WaveStory] = []
     for jira_key, spec in WAVE11_STORY_TARGETS.items():
-        raw = jira_by_key.get(jira_key)
-        if raw:
+        # 1. Live Jira status (most accurate)
+        if jira_key in live_statuses:
+            status_name = live_statuses[jira_key]
+            description = live_descriptions.get(jira_key, "")
+        elif jira_key in jira_by_key:
+            raw = jira_by_key[jira_key]
             status_name = raw["fields"]["status"].get("name", "To Do")
             description = raw["fields"].get("description", "")
         else:
             status_name = "To Do"
             description = ""
+
+        # 2. Filesystem check — if target file already exists, it's effectively Done
+        # (even if Jira says To Do — Jira may be out of date)
+        target_path = REPO_ROOT / spec["target_file"]
+
+        # Also check alternate locations (e.g. src/playbook/ for S8.3)
+        alt_paths: list[Path] = []
+        if "analysis/seller_playbook" in spec["target_file"]:
+            alt_paths.append(REPO_ROOT / "src/playbook/generator.py")
+        if "analysis/seller_profile" in spec["target_file"]:
+            alt_paths.append(REPO_ROOT / "src/playbook/seed_guidance.py")
+
+        filesystem_done = target_path.exists() or any(p.exists() for p in alt_paths)
+        if filesystem_done and status_name == "To Do":
+            status_name = "In Progress (file exists)"
 
         stories.append(WaveStory(
             jira_key=jira_key,

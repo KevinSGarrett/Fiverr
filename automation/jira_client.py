@@ -81,24 +81,40 @@ def _search_all(jql: str, fields: str = ISSUE_FIELDS) -> list[dict[str, Any]]:
 
 
 def _normalise_issue(raw: dict[str, Any]) -> dict[str, Any]:
-    """Flatten a raw Jira issue into the shape the prompt generator expects."""
-    fields = raw.get("fields", {})
+    """
+    Flatten a raw Jira issue.
 
-    # Extract plain text from ADF description
+    Returns BOTH:
+    - Top-level keys (key, summary, status, priority, labels, issuetype)
+      for backward compatibility with prompt_generator.py and existing code.
+    - Full `fields` dict (including description, parent, etc.)
+      for pm_intelligence.py and new code that needs deeper data.
+    """
+    fields = raw.get("fields", {})
     description_text = _adf_to_text(fields.get("description") or {})
+    status_name = fields.get("status", {}).get("name", "")
+    priority_name = fields.get("priority", {}).get("name", "Medium")
+    issuetype_name = fields.get("issuetype", {}).get("name", "")
 
     return {
-        "key": raw["key"],
+        # ── Top-level (backward compatible) ─────────────────────────
+        "key":      raw["key"],
+        "summary":  fields.get("summary", ""),
+        "status":   status_name,
+        "priority": priority_name,
+        "labels":   fields.get("labels", []),
+        "issuetype": issuetype_name,
+        # ── Full fields dict (for PM intelligence + new code) ────────
         "fields": {
-            "summary": fields.get("summary", ""),
-            "status": fields.get("status", {}),
-            "priority": fields.get("priority", {}),
-            "assignee": fields.get("assignee"),
-            "labels": fields.get("labels", []),
-            "issuetype": fields.get("issuetype", {}),
+            "summary":     fields.get("summary", ""),
+            "status":      fields.get("status", {}),
+            "priority":    fields.get("priority", {}),
+            "assignee":    fields.get("assignee"),
+            "labels":      fields.get("labels", []),
+            "issuetype":   fields.get("issuetype", {}),
             "description": description_text,
-            "parent": fields.get("parent"),
-            "components": fields.get("components", []),
+            "parent":      fields.get("parent"),
+            "components":  fields.get("components", []),
             "fixVersions": fields.get("fixVersions", []),
         },
     }
@@ -131,10 +147,21 @@ def board_inventory(project_key: str = "SCRUM") -> dict[str, Any]:
         f"project = {project_key} "
         "AND status != Done "
         "AND status != Cancelled "
-        "ORDER BY created DESC"
+        "ORDER BY priority DESC, key ASC"
     )
     raw_issues = _search_all(jql)
-    normalised = [_normalise_issue(i) for i in raw_issues]
+
+    # Filter out [FIVERR-EX] implementation-slice stubs (auto-generated from previous cycles).
+    # Real Wave 11 stories look like "[PLAYBOOK] S8.1 Gig Visual Analysis".
+    import re as _re
+    _ex_pattern = _re.compile(r"\[FIVERR-E\d+\]\s+Story\s+\d+:", _re.IGNORECASE)
+    filtered = [r for r in raw_issues
+                if not _ex_pattern.search(r.get("fields", {}).get("summary", ""))]
+    if len(filtered) < len(raw_issues):
+        log.debug("board_inventory: removed %d FIVERR-EX stub stories",
+                  len(raw_issues) - len(filtered))
+
+    normalised = [_normalise_issue(i) for i in filtered]
     return {"total": len(normalised), "issues": normalised}
 
 
