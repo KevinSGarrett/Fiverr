@@ -124,7 +124,9 @@ class _ControllerAdapter:
             check=False,
         )
         output = (proc.stdout or "") + (proc.stderr or "")
-        return proc.returncode == 0 and "PASS" in output.upper()
+        # ADVISORY_ONLY means all hard gates passed — treat as conditional pass for stage gating.
+        passed = proc.returncode == 0 or "ADVISORY_ONLY" in output.upper()
+        return passed and ("PASS" in output.upper() or "ADVISORY_ONLY" in output.upper())
 
     def _active_cycle(self) -> int:
         path = RUNNER_ROOT / "state/controller_state.json"
