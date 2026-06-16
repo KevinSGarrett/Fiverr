@@ -503,15 +503,52 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     )
 
     prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
-    written = write_prompts(
-        cycle=next_cycle,
-        branch=branch,
-        run_id=run_id,
-        agents=manifest["agents"],
-        jira_issues=jira_issues,
-        prompts_dir=prompts_dir,
-        cycle_brief=cycle_brief,
-    )
+
+    # ── Claude-as-PM: generate prompts via Claude subscription ────────
+    # Claude acts as the intelligent Project Manager — reads all project plans,
+    # Jira AC/DOD, wave state, and generates rich context-aware agent prompts.
+    # This is the PRIMARY prompt generation path (matches original architecture).
+    # Falls back to template-based prompt_generator.py if Claude is unavailable.
+    written: dict[str, Path] | None = None
+    from automation.claude_prompt_creator import create_agent_prompts_via_claude
+
+    click.echo("  Attempting Claude-as-PM prompt generation (primary path)...")
+    try:
+        written = create_agent_prompts_via_claude(
+            cycle=next_cycle,
+            branch=branch,
+            jira_issues=jira_issues,
+            agents=manifest["agents"],
+            prompts_dir=prompts_dir,
+            wave=_snap.current_wave,
+        )
+        if written:
+            click.secho(
+                f"  Claude PM: generated {len(written)} prompts via Claude subscription",
+                fg="green"
+            )
+        else:
+            click.secho(
+                "  Claude PM unavailable — falling back to template-based generation",
+                fg="yellow"
+            )
+    except Exception as e:
+        click.secho(f"  Claude PM error ({e}) — falling back to template-based generation",
+                    fg="yellow")
+        written = None
+
+    # ── Template fallback: prompt_generator.py ────────────────────────
+    if not written:
+        from automation.prompt_generator import write_prompts
+        written = write_prompts(
+            cycle=next_cycle,
+            branch=branch,
+            run_id=run_id,
+            agents=manifest["agents"],
+            jira_issues=jira_issues,
+            prompts_dir=prompts_dir,
+            cycle_brief=cycle_brief,
+        )
 
     click.echo(f"  Cycle           : {next_cycle:03d}")
     click.echo(f"  Branch          : {branch}")
