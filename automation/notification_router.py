@@ -184,7 +184,7 @@ class NotificationRouter:
 
             from automation.config_loader import get_secret
 
-            webhook_url = get_secret("SLACK_WEBHOOK_URL", default=None)
+            webhook_url = get_secret("SLACK_WEBHOOK_URL", default="")
             if not webhook_url:
                 LOGGER.info("SLACK_WEBHOOK_NOT_CONFIGURED — skipping")
                 return
