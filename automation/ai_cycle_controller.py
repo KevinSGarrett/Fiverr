@@ -830,32 +830,43 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             click.secho("ERROR: no active_cycle in controller state — run plan-cycle first", fg="red")
             raise SystemExit(1)
         click.echo(f"  (auto-detected cycle={cycle} from controller state)")
-    click.echo("=" * 60)
-    click.echo(f"RUN CYCLE {cycle:03d}")
-    click.echo("=" * 60)
+
+    import automation.autopilot_logger as L
+
+    L.banner(f"RUN CYCLE {cycle:03d}")
     agents = ["A", "B", "E", "C", "F", "D"]
     failures: dict[str, str] = {}
-    for agent in agents:
+
+    for idx, agent in enumerate(agents, 1):
+        # Show prompt size so operator knows how large the instructions are
+        prompt_path = REPO_ROOT / f"PM_Pack/automation/prompts/CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
+        prompt_bytes = prompt_path.stat().st_size if prompt_path.exists() else 0
+        L.agent_start(agent, cycle, prompt_bytes, idx, len(agents))
+
         args = [
-            sys.executable,
-            "automation/ai_cycle_controller.py",
-            "run-agent",
-            "--agent",
-            agent,
-            "--cycle",
-            str(cycle),
+            sys.executable, "automation/ai_cycle_controller.py",
+            "run-agent", "--agent", agent, "--cycle", str(cycle),
         ]
         if safe_docs_only:
             args.append("--safe-docs-only")
-        rc, output = _run_shell_command(args)
-        click.echo(f"  Agent {agent}: {'PASS' if rc == 0 else 'FAIL'}")
-        if rc != 0:
-            failures[agent] = output.strip()[-400:]
 
+        import time as _t
+        t0 = _t.time()
+        # Show spinner while agent runs
+        with L.Spinner(f"Agent {agent} running (Cursor + Codex 5.3)"):
+            rc, output = _run_shell_command(args)
+        elapsed = _t.time() - t0
+
+        L.agent_done(agent, elapsed, rc == 0, idx, len(agents))
+        if rc != 0:
+            failures[agent] = output.strip()
+            L.agent_fail_detail(agent, output)
+
+    L.newline()
     if failures:
-        click.secho("RUN CYCLE FAILED", fg="red", bold=True)
+        L.error(f"RUN CYCLE {cycle:03d} FAILED — {len(failures)}/{len(agents)} agents failed: {list(failures.keys())}")
         for agent, detail in failures.items():
-            click.echo(f"  {agent}: {detail}")
+            L.info(f"Agent {agent} last output: {detail[-200:]}")
         raise SystemExit(1)
 
     from automation.stage_executor import StageExecutor
@@ -1329,27 +1340,44 @@ def cmd_tick() -> None:
                     write_controller_state("PLANNED", cycle=cycle)  # reset for retry
 
     elif status == "AGENT_COMPLETE":
-        # All agents finished — automatically trigger post-cycle-review.
-        # This is the critical handoff: AGENT_COMPLETE → POST_CYCLE_REVIEW → POST_CYCLE_PASS → IDLE
-        click.secho(f"  [TICK] AGENT_COMPLETE for cycle {cycle} — advancing to post-cycle-review...",
-                    fg="cyan", bold=True)
+        import automation.autopilot_logger as L
+        L.section(f"AGENT_COMPLETE — Cycle {cycle} — Running post-cycle review")
         write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
-        # Run post-cycle-review inline so the scheduled tick handles the full lifecycle
         from automation.post_cycle_review import run_review, ReviewMode
         try:
-            result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            with L.Spinner("Post-cycle review (lint + tests + coverage + Jira sync)"):
+                result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
             grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
-            click.echo(f"  Post-cycle-review grade: {grade}")
+            # Show every check so operator sees exactly what passed/failed
+            L.newline()
+            facts = result.facts if hasattr(result, "facts") else None
+            if facts:
+                L.section("Post-cycle check results")
+                L.post_cycle_check("Lint (ruff)", facts.local_ruff)
+                L.post_cycle_check("Type check (mypy)", facts.local_mypy)
+                L.post_cycle_check("Tests (pytest)", facts.local_pytest,
+                                   f"{facts.local_coverage_pct:.0f}% coverage" if facts.local_coverage_pct else "")
+                L.post_cycle_check("CI on develop", facts.ci_passed)
+                L.post_cycle_check("Codecov project gate", facts.codecov_project != "FAIL",
+                                   facts.codecov_project)
+                L.post_cycle_check("Jira cycle control Done", facts.cycle_control_done)
+                gh_score = getattr(facts, "github_health_score", None)
+                if gh_score is not None:
+                    L.post_cycle_check("GitHub health", gh_score >= 60, f"score={gh_score}/100")
+                blockers = getattr(facts, "github_blockers", [])
+                for b in blockers[:3]:
+                    L.warn(f"GitHub blocker: {b}")
+            L.post_cycle_grade(grade, cycle)
             if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY") or not result.blocks_dispatch:
                 write_controller_state("POST_CYCLE_PASS", cycle=cycle)
-                click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick will plan cycle {cycle + 1}.",
-                            fg="green", bold=True)
+                L.ok(f"Cycle {cycle} COMPLETE — next tick plans Cycle {cycle + 1}")
             else:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
-                click.secho(f"  POST_CYCLE_FAIL grade={grade} — review needed before cycle {cycle + 1}.",
-                            fg="red", bold=True)
+                L.error(f"POST_CYCLE_FAIL grade={grade} — review needed before Cycle {cycle + 1}")
         except Exception as exc:
-            click.secho(f"  [ERROR] post-cycle-review raised: {exc}", fg="red")
+            L.error(f"post-cycle-review raised: {exc}")
+            import traceback
+            L.info(traceback.format_exc()[-400:])
             write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
 
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
@@ -1845,53 +1873,62 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
         status = state.get("status", "IDLE")
         cycle  = state.get("active_cycle", 0)
 
-        click.secho(f"\n{'─' * 62}", fg="blue")
-        click.secho(
-            f"  TICK #{tick_count:04d}  status={status:<20}  cycle={cycle}",
-            fg="blue", bold=True,
-        )
-        click.secho(f"  {_now()}", fg="blue")
-        click.secho(f"{'─' * 62}", fg="blue")
+        import automation.autopilot_logger as L
+        L.tick_header(tick_count, status, cycle)
+
+        # Explain what each status means so operator is never confused
+        _STATUS_EXPLANATION = {
+            "PLANNED": "Prompts exist — validating before dispatch",
+            "READY_TO_DISPATCH": "All gates pass — dispatching Cursor agents now",
+            "DISPATCHING": "Launching run-cycle (6 Cursor agents)",
+            "AGENT_DISPATCH": "Cursor agents are writing code (10-40 min — this is normal)",
+            "AGENT_COMPLETE": "All agents done — running post-cycle review",
+            "POST_CYCLE_PENDING": "Running lint + tests + Jira sync + Claude PM review",
+            "POST_CYCLE_PASS": "Cycle passed — planning next cycle",
+            "POST_CYCLE_FAIL": "Cycle FAILED review — check details above",
+            "IDLE": "Idle — will compile policy and plan next cycle",
+            "MODEL_BLOCKED": "Cursor model gate failed — re-checking...",
+            "BRANCH_MISMATCH_BLOCKED": "Wrong git branch — auto-fixing...",
+            "PROMPT_VALIDATION_FAILED": "Prompts invalid — re-validating...",
+        }
+        explanation = _STATUS_EXPLANATION.get(status, f"Status: {status}")
+        L.info(explanation)
 
         # Detect a cycle just completing
         if status in ("POST_CYCLE_PASS",) and last_completed_cycle != cycle:
             last_completed_cycle = cycle
             cycles_completed += 1
-            click.secho(
-                f"\n  ✓ CYCLE {cycle:03d} COMPLETE  "
-                f"(session total: {cycles_completed})",
-                fg="green", bold=True,
-            )
+            L.ok(f"CYCLE {cycle:03d} COMPLETE  (session total: {cycles_completed})")
             if max_cycles > 0 and cycles_completed >= max_cycles:
-                click.secho(
-                    f"\n  [AUTOPILOT] Reached max-cycles={max_cycles}. Stopping.",
-                    fg="yellow",
-                )
+                L.warn(f"Reached max-cycles={max_cycles}. Stopping.")
                 break
 
-        # Execute tick — this now auto-dispatches agents when READY_TO_DISPATCH
+        # Execute tick (auto-dispatches agents when READY_TO_DISPATCH)
         try:
             _rc, _out = _run_shell_command(
                 [sys.executable, "automation/ai_cycle_controller.py", "tick"]
             )
             if _out:
                 for line in _out.splitlines():
-                    click.echo(f"  {line}")
+                    if line.strip():
+                        click.echo(f"  {line}")
+            if _rc != 0:
+                L.error(f"Tick exited with code {_rc}")
         except Exception as exc:
-            click.secho(f"  [ERROR] tick raised: {exc}", fg="red")
+            L.error(f"Tick raised exception: {exc}")
+            import traceback
+            L.info(traceback.format_exc()[-300:])
 
         if stop_flag["stop"]:
             break
 
-        # Countdown sleep — shows the system is alive
+        # Countdown to next tick
+        import time as _time2
         for remaining in range(interval, 0, -5):
             if stop_flag["stop"]:
                 break
-            mins, secs = divmod(remaining, 60)
-            label = f"{mins}m{secs:02d}s" if mins else f"{secs}s"
-            print(f"\r  Next tick in {label}...   ", end="", flush=True)
-            import time as _t
-            _t.sleep(min(5, remaining))
+            L.countdown(remaining)
+            _time2.sleep(min(5, remaining))
         click.echo("")  # newline after countdown
 
     # Summary on exit
