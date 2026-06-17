@@ -1269,6 +1269,22 @@ def cmd_tick() -> None:
     from automation.notification_router import notify_blocked, notify_info
     from automation.state_writer import write_controller_state, write_heartbeat
 
+    # Check pause flag — set by manual stop, respected by both local and CI runners
+    _pause_flag = Path("C:/AI_Runner/state/autopilot_paused.json")
+    if _pause_flag.exists():
+        import json as _pj
+        try:
+            _pdata = _pj.loads(_pause_flag.read_text(encoding='utf-8-sig'))
+            if _pdata.get("paused"):
+                click.secho(
+                    "[TICK PAUSED] System manually stopped. "
+                    "Delete C:/AI_Runner/state/autopilot_paused.json to resume.",
+                    fg="yellow",
+                )
+                return
+        except Exception:
+            pass
+
     state = _read_runner_state()
     status = state.get("status", "IDLE")
     cycle  = state.get("active_cycle")
