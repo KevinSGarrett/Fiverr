@@ -34,7 +34,7 @@ TODO_ROOT     = PM_PACK / "ref" / "todo"
 RUNNER_ROOT   = Path("C:/AI_Runner")
 
 CLAUDE_MODEL  = "claude-sonnet-4-6"
-CLAUDE_TIMEOUT = 180  # 3 min per agent prompt — fall back to template if Claude is slow
+CLAUDE_TIMEOUT = 480  # 8 min per agent — prompts are 3000-5000 lines
 
 
 def _find_claude_binary() -> str | None:
@@ -381,53 +381,65 @@ def create_agent_prompts_via_claude(
 
 def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
     """
-    Call Claude as PM. Tries Anthropic SDK first (fast), falls back to CLI.
-    Returns the generated prompt text or None on failure.
-    """
-    # Strategy 1: anthropic Python SDK (fast, no subprocess overhead)
-    try:
-        import anthropic  # type: ignore[import]
-        client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY or subscription
-        message = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=8096,
-            messages=[{"role": "user", "content": request_text}],
-        )
-        text = message.content[0].text if message.content else ""
-        if text and len(text) > 500:  # sanity check — real prompt should be substantial
-            return text
-    except ImportError:
-        pass  # SDK not installed
-    except Exception:
-        pass  # API error — try CLI
+    Call Claude CLI as PM to generate one agent prompt.
 
-    # Strategy 2: claude CLI subprocess
+    The Claude subscription (kevin.garrett@scentiment.com) is authenticated via
+    claude.ai OAuth in the CLI binary. No ANTHROPIC_API_KEY is needed or used.
+
+    The Anthropic Python SDK is NOT used here because it requires ANTHROPIC_API_KEY
+    which conflicts with the subscription-only billing mode.
+
+    Returns the generated prompt text (>500 chars) or None on failure.
+    """
     claude_binary = _find_claude_binary()
     if not claude_binary:
         return None
 
+    # Write request to temp file for reference, but send via stdin using Popen.communicate()
+    # (file-based stdin redirect can cause "no stdin data received" warnings)
     req_path = Path(f"C:/AI_Runner/tmp/claude_pm_agent_{agent_id}.md")
     req_path.parent.mkdir(parents=True, exist_ok=True)
     req_path.write_text(request_text, encoding="utf-8")
 
+    # Build the prompt instruction — request_text is piped via stdin
+    instruction = (
+        f"You are the Fiverr Research System Project Manager. "
+        f"Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cycle:03d}. "
+        f"The full PM context and requirements are in stdin. "
+        f"Output ONLY the agent prompt text — no preamble, no explanation."
+    )
+
     try:
-        with open(req_path, encoding="utf-8") as stdin_file:
-            r = subprocess.run(
-                [claude_binary, "-p",
-                 f"Generate the complete Cursor agent prompt for Agent {agent_id} "
-                 f"Cycle {cycle:03d}. Output ONLY the prompt text.",
-                 "--output-format", "text",
-                 "--model", CLAUDE_MODEL],
-                stdin=stdin_file,
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                timeout=CLAUDE_TIMEOUT,
-                env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
-            )
-        text = (r.stdout or "").strip()
-        return text if (text and r.returncode == 0 and len(text) > 500) else None
+        import os as _os
+        env = {**_os.environ, "PYTHONIOENCODING": "utf-8"}
+        proc = subprocess.Popen(
+            [claude_binary, "-p", instruction,
+             "--output-format", "text",
+             "--model", CLAUDE_MODEL],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=str(REPO_ROOT),
+            env=env,
+        )
+        stdout_bytes, stderr_bytes = proc.communicate(
+            input=request_text.encode("utf-8"),
+            timeout=CLAUDE_TIMEOUT,
+        )
+        text = (stdout_bytes or b"").decode("utf-8", errors="replace").strip()
+        # Strip any warning lines Claude CLI prints to stdout before actual response
+        lines = text.splitlines()
+        lines = [ln for ln in lines if not ln.startswith("Warning:")]
+        text = "\n".join(lines).strip()
+        if text and proc.returncode == 0 and len(text) > 500:
+            return text
+        # Log stderr for debugging
+        err = (stderr_bytes or b"").decode("utf-8", errors="replace").strip()
+        if err:
+            req_path.with_suffix(".err").write_text(err, encoding="utf-8")
+        return None
     except subprocess.TimeoutExpired:
+        proc.kill()
         return None
     except Exception:
         return None

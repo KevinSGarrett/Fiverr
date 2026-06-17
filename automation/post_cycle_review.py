@@ -195,7 +195,7 @@ def collect_facts(cycle: int, mode: ReviewMode,
          "--ignore=tests/unit/test_post_cycle_review_coverage.py",
          "--cov=src", "--cov=automation", "--cov-report=term-missing:skip-covered",
          "--cov-fail-under=0"],
-        capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=300,
+        capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=600,
     )
     facts.local_pytest = cov_result.returncode == 0
     import re as _re
