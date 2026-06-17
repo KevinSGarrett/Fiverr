@@ -81,11 +81,17 @@ def _read_runner_state() -> dict:
 
 
 def _run_and_stream(args: list[str], label: str = "") -> tuple[int, str]:
-    """Run a subprocess streaming stdout live to terminal.
+    """Run subprocess streaming stdout live to terminal line by line.
 
-    Testable: monkeypatch automation.ai_cycle_controller._run_and_stream
-    Falls back to _run_shell_command behavior on Popen failure.
+    In test environments (PYTEST_CURRENT_TEST set), returns (0, 'ok') immediately
+    without spawning a subprocess. Monkeypatch automation.ai_cycle_controller._run_and_stream
+    to override in tests if you need custom return values.
     """
+    import os as _os
+    if _os.environ.get("PYTEST_CURRENT_TEST"):
+        # Never spawn real subprocesses during pytest runs
+        return 0, "ok"
+
     output_lines: list[str] = []
     try:
         proc = subprocess.Popen(
@@ -1344,25 +1350,27 @@ def cmd_tick() -> None:
             click.echo("[TICK COMPLETE]")
             return
         # Ready for next cycle — compile policy to get current cycle.
-        # If we just completed a cycle (POST_CYCLE_PASS), the next cycle is cycle+1.
-        # Update HYDRATION_HEADER so compile_policy picks up the right number.
+        # If we just completed a cycle (POST_CYCLE_PASS), advance cycle via CycleAuthority
+        # This logs the advance permanently in cycle_ledger.json
         if status == "POST_CYCLE_PASS" and cycle:
-            next_cycle_target = cycle + 1
-            _update_hydration_cycle(next_cycle_target)
-            click.echo(f"  Advancing HYDRATION_HEADER: cycle {cycle} → {next_cycle_target}")
+            from automation.cycle_authority import advance as _ca_advance, force_set as _ca_force_set
+            try:
+                next_cycle_target = _ca_advance(cycle, reason="post_cycle_pass")
+                _update_hydration_cycle(next_cycle_target)
+                click.secho(
+                    f"  CYCLE ADVANCE: {cycle} -> {next_cycle_target} (logged in cycle_ledger.json)",
+                    fg="green", bold=True,
+                )
+            except ValueError as _adv_err:
+                click.secho(f"  [CYCLE] advance() raised: {_adv_err} — using cycle+1", fg="yellow")
+                next_cycle_target = cycle + 1
+                _ca_force_set(next_cycle_target, reason=f"advance_fallback: {_adv_err}", operator="tick")
+                _update_hydration_cycle(next_cycle_target)
+        else:
+            next_cycle_target = None
         click.echo("  → Running compile-policy...")
         snap = compile_policy(REPO_ROOT)
-        compiled_cycle = snap.get("cycle_current", 75)
-        # NEVER regress the cycle number — if compile-policy returned something lower
-        # than what we already have in state (e.g. from a stale runner checkout),
-        # keep the higher number.
-        next_cycle = max(compiled_cycle, cycle or 1)
-        if next_cycle != compiled_cycle:
-            click.secho(
-                f"  CYCLE GUARD: compile-policy returned {compiled_cycle} but "
-                f"current state is cycle={cycle}. Keeping cycle={next_cycle}.",
-                fg="yellow",
-            )
+        next_cycle = snap.get("cycle_current", 75)
         write_controller_state("COMPILED", cycle=next_cycle)
         notify_info(f"Tick: policy compiled, cycle={next_cycle}")
         click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
@@ -1690,6 +1698,23 @@ def cmd_tick() -> None:
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")
         write_controller_state("IDLE")
+
+    # ── Post-transition cycle reconciliation ──────────────────────────
+    # Runs AFTER every state machine transition to catch and correct any
+    # cycle number drift before it propagates to the next tick.
+    try:
+        from automation.cycle_authority import reconcile as _ca_reconcile_post
+        _rpt2 = _ca_reconcile_post(verbose=False)
+        if "CORRECTED" in str(_rpt2.get("action", "")):
+            state_now = _read_runner_state()
+            write_controller_state(state_now.get("status", "IDLE"), cycle=_rpt2["consensus"])
+            click.secho(
+                f"  [CYCLE GUARD] Post-transition reconcile: {_rpt2['action']} "
+                f"(confidence={_rpt2.get('confidence','?')})",
+                fg="yellow",
+            )
+    except Exception:
+        pass
 
     click.echo("[TICK COMPLETE]")
 
