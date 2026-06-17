@@ -1,0 +1,418 @@
+"""
+claude_prompt_creator.py — Claude-powered PM and Prompt Creator.
+
+This module IS the Project Manager. It:
+1. Reads the full project state (PM_Pack/ref, Jira board, wave tracker, existing src/)
+2. Reads every Jira story's AC, DOD, acceptance criteria, and existing comments
+3. Calls the Claude subscription (`claude` CLI) to act as an intelligent PM
+4. Claude generates rich, project-aware agent prompts equivalent to the C070 manual quality
+5. Returns the 6 agent prompt texts
+
+Design rationale:
+- Claude subscription handles the HEAVY PM work (context synthesis, intelligent tasking)
+- Cursor CLI + Codex 5.3 handles CODE EXECUTION (runs the prompts)
+- This preserves Cursor allowance for actual code writing
+- The template-based prompt_generator.py is used as a fallback only
+
+Architecture decision (from original design):
+  Claude = Project Manager / Prompt Creator
+  Cursor = Code Executor / Agent Runtime
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT     = Path("C:/Fiverr/Fiverr")
+PM_PACK       = REPO_ROOT / "PM_Pack"
+REF_ROOT      = PM_PACK / "ref" / "project_plan"
+DOD_ROOT      = PM_PACK / "ref" / "dod"
+TODO_ROOT     = PM_PACK / "ref" / "todo"
+RUNNER_ROOT   = Path("C:/AI_Runner")
+
+CLAUDE_MODEL  = "claude-sonnet-4-6"
+CLAUDE_TIMEOUT = 900  # 15 min per agent prompt
+
+
+def _find_claude_binary() -> str | None:
+    """Find the `claude` CLI binary — same logic as claude_post_cycle_adapter."""
+    import shutil
+    # Try full path first (verified location)
+    known = Path(r"C:\Users\Windows 11\.local\bin\claude.EXE")
+    if known.exists():
+        return str(known)
+    found = shutil.which("claude")
+    if found:
+        return found
+    # Common install locations on Windows
+    for candidate in [
+        Path.home() / ".local/bin/claude.EXE",
+        Path.home() / ".local/bin/claude",
+        Path(r"C:\Users\Windows 11\AppData\Local\anthropic\claude\claude.EXE"),
+    ]:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def _verify_claude_subscription() -> dict[str, Any]:
+    """Confirm no ANTHROPIC_API_KEY is set (must use subscription billing)."""
+    import os
+    for key in ["ANTHROPIC_API_KEY", "ANTHROPIC_API"]:
+        val = os.environ.get(key, "")
+        if val and not val.startswith("PLACEHOLDER"):
+            return {"passed": False, "reason": f"{key} present — must use subscription billing only"}
+    state = RUNNER_ROOT / "state/claude_model_state.json"
+    if state.exists():
+        s = json.loads(state.read_text())
+        if s.get("billing_mode") != "claude_subscription_only":
+            return {"passed": False, "reason": "claude_model_state billing_mode is not subscription_only"}
+    return {"passed": True}
+
+
+def _read(path: Path, max_chars: int = 10000) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return text[:max_chars] + ("...[truncated]" if len(text) > max_chars else "")
+    except Exception:
+        return ""
+
+
+def _build_pm_context(
+    cycle: int,
+    branch: str,
+    jira_issues: list[dict],
+    wave: int = 11,
+) -> str:
+    """
+    Build the full PM context document Claude reads to generate prompts.
+    This is the BRAIN of the PM — everything Claude needs to know.
+    """
+    lines = [
+        f"# FIVERR RESEARCH SYSTEM — PM CONTEXT — Cycle {cycle:03d}",
+        f"Generated: {datetime.now(UTC).isoformat()}",
+        f"Branch: {branch}",
+        f"Wave: {wave}",
+        "",
+        "=" * 70,
+        "## 1. PROJECT OVERVIEW",
+        "=" * 70,
+    ]
+
+    # Product vision
+    vision_path = REF_ROOT / "01_vision/PRODUCT_VISION.md"
+    if vision_path.exists():
+        lines += ["### Product Vision (excerpt)", _read(vision_path, 2000), ""]
+
+    # Development roadmap
+    roadmap = REF_ROOT / "08_roadmap/DEVELOPMENT_ROADMAP.md"
+    if roadmap.exists():
+        lines += ["### Development Roadmap", _read(roadmap, 3000), ""]
+
+    # Wave schedule
+    wave_sched = REF_ROOT / "00_meta/WAVE_SCHEDULE.md"
+    if wave_sched.exists():
+        lines += ["### Wave Schedule (current state)", _read(wave_sched, 2000), ""]
+
+    # Enhancement wave schedule
+    enh_sched = REF_ROOT / "00_meta/ENHANCEMENT_WAVE_SCHEDULE.md"
+    if enh_sched.exists():
+        lines += ["### Enhancement Waves", _read(enh_sched, 2000), ""]
+
+    lines += [
+        "",
+        "=" * 70,
+        f"## 2. CURRENT WAVE {wave} — DETAILED SPECIFICATIONS",
+        "=" * 70,
+    ]
+
+    # All spec docs for current wave
+    wave_folder_map = {11: "11_playbook", 12: "12_dashboard_ux"}
+    wave_folder = REF_ROOT / wave_folder_map.get(wave, "11_playbook")
+    if wave_folder.exists():
+        for spec_file in sorted(wave_folder.iterdir()):
+            if spec_file.suffix == ".md":
+                lines += [f"### SPEC: {spec_file.name}", _read(spec_file, 8000), ""]
+
+    # DOD for current wave
+    dod_map = {11: "DOD_EPIC_08.md", 12: "DOD_EPIC_09.md"}
+    dod_path = DOD_ROOT / dod_map.get(wave, "DOD_EPIC_08.md")
+    if dod_path.exists():
+        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 5000), ""]
+
+    # Epic TODO list
+    todo_map = {11: "EPIC_08_PLAYBOOK.md", 12: "EPIC_09_DASHBOARD.md"}
+    todo_path = TODO_ROOT / todo_map.get(wave, "EPIC_08_PLAYBOOK.md")
+    if todo_path.exists():
+        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 4000), ""]
+
+    lines += [
+        "",
+        "=" * 70,
+        "## 3. JIRA BOARD — FULL STORY LIST WITH AC/DOD",
+        "=" * 70,
+        "IMPORTANT: Every story has Acceptance Criteria and DOD.",
+        "Agents must satisfy ALL AC items. Stories cannot be marked Done unless ALL AC items are verified.",
+        "",
+    ]
+
+    # Current wave stories with full AC/DOD from Jira
+    playbook_stories = [i for i in jira_issues if "[PLAYBOOK]" in i.get("summary", "")]
+    other_stories = [i for i in jira_issues if i not in playbook_stories]
+
+    lines.append("### WAVE 11 TARGET STORIES (PRIMARY BUILD TARGET)")
+    for issue in playbook_stories:
+        key = issue["key"]
+        summary = issue.get("summary", "")
+        status = issue.get("status", "To Do")
+        desc = issue.get("fields", {}).get("description", "") or issue.get("description", "")
+        lines += [
+            f"#### {key}: {summary}",
+            f"Status: {status}",
+            "Acceptance Criteria & DOD:",
+            desc[:2000] if desc else "(see Jira for AC/DOD)",
+            "",
+        ]
+        # Add existing comments for PM context
+        try:
+            from automation.jira_sync import fetch_story_comments, build_comment_summary
+            comments = fetch_story_comments(key)
+            if comments:
+                lines += [
+                    f"Existing Jira comments ({len(comments)} total):",
+                    build_comment_summary(comments),
+                    "",
+                ]
+        except Exception:
+            pass
+
+    lines.append("### OTHER OPEN STORIES (supplemental context, lower priority)")
+    for issue in other_stories[:15]:
+        key = issue["key"]
+        summary = issue.get("summary", "")[:80]
+        status = issue.get("status", "To Do")
+        lines.append(f"- {key}: {summary} ({status})")
+    lines.append("")
+
+    lines += [
+        "",
+        "=" * 70,
+        "## 4. EXISTING CODE (what's already built — DO NOT REBUILD)",
+        "=" * 70,
+    ]
+    src = REPO_ROOT / "src"
+    if src.exists():
+        for cat_dir in sorted(src.iterdir()):
+            if cat_dir.is_dir() and cat_dir.name != "__pycache__":
+                py_files = sorted(cat_dir.rglob("*.py"))
+                real_files = [f for f in py_files if "__pycache__" not in str(f)]
+                if real_files:
+                    lines.append(f"- src/{cat_dir.name}/: {len(real_files)} files "
+                                 f"({', '.join(f.stem for f in real_files[:5])}{'...' if len(real_files)>5 else ''})")
+    lines.append("")
+
+    lines += [
+        "",
+        "=" * 70,
+        "## 5. CURRENT STATE",
+        "=" * 70,
+    ]
+
+    # Hydration header
+    hydration = PM_PACK / "07_hydration/HYDRATION_HEADER.md"
+    if hydration.exists():
+        lines += ["### Hydration Header (current cycle state)", _read(hydration, 1500), ""]
+
+    # Epic status tracker
+    tracker = PM_PACK / "08_task_queue/EPIC_STATUS_TRACKER.md"
+    if tracker.exists():
+        lines += ["### Epic Status Tracker", _read(tracker, 2000), ""]
+
+    return "\n".join(lines)
+
+
+def _build_agent_prompt_request(
+    agent_id: str,
+    cycle: int,
+    branch: str,
+    pm_context: str,
+) -> str:
+    """Build the request Claude sees to generate one agent's prompt."""
+    agent_roles = {
+        "A": "Planning & Architecture Agent — spec reading, handoff packages, Jira transitions, 14-track review, NO src/ changes",
+        "B": "Primary Implementation Agent — sole src/ author, creates all new Python files, >=1200 lines of real code",
+        "C": "Integration Gate Agent — verifies B's work imports cleanly, gates are met, tests pass, no regressions",
+        "D": "PR & Jira Steward — creates PR, verifies CI, transitions Jira stories to Done, squash SHA resolution",
+        "E": "Validation & Evidence Agent — runs live validation probes, surveys DB state, verifies golden anchor",
+        "F": "Test Coverage Agent — edge cases, regression expansion, coverage gate verification, error paths",
+    }
+    agent_role = agent_roles.get(agent_id, f"Agent {agent_id}")
+
+    return f"""You are the Project Manager for the Fiverr Research System autonomous build runner.
+
+Your job: Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cycle:03d}.
+
+## AGENT {agent_id} ROLE
+{agent_role}
+
+## REQUIREMENTS FOR THE PROMPT YOU GENERATE
+1. Include the INVOKE-EXE PowerShell helper at the top (standard for all agents)
+2. Include binary paths: $py, $git, $gh with exact Windows paths
+3. Include the 9 niche IDs: prd_ai_saas | support_kb_readiness | gumloop_lindy_workflow | mcp_ai_agent | python_automation | ai_tool_llm_integration | ai_agent_development | workflow_automation | python_web_scraping
+4. Include production readiness gates (G-A through G-D status)
+5. Generate EXACTLY 55-70 LARGE/XLARGE/XXLARGE tasks (policy floor = 55)
+6. Every task MUST have:
+   - The specific Jira key it addresses (SCRUM-XXX)
+   - Executable Python or PowerShell code to run
+   - Expected output / verification step
+   - The specific file path to create or modify
+   - The exact function signature or class definition from the spec
+   - Acceptance criteria items from the Jira story (must be verifiable)
+   - DOD checklist items the agent must complete before marking task done
+7. Tasks MUST reference PLAYBOOK stories (SCRUM-205, 206, 208, 209, 210, 211) FIRST
+8. SCRUM-207 is already Done — do NOT rebuild it
+9. Include a squash SHA placeholder: [C{cycle:03d}_SQUASH_SHA]
+10. Include base SHA, suite count, coverage % from the PM context
+11. Include the PERMANENT REGRESSION PACK (all must still pass)
+12. End with an authorization statement confirming policy v4.3 compliance
+
+## JIRA UPDATE REQUIREMENTS
+For Agent {agent_id}, include tasks to:
+- Transition the relevant Jira stories to IN PROGRESS when starting
+- Add detailed comments to Jira stories explaining what was built/verified
+- Only transition to Done after ALL acceptance criteria are verified with evidence
+- If any AC item cannot be verified, document exactly which item failed and why
+
+## PM CONTEXT (full project state — read every section)
+{pm_context[:40000]}
+
+## OUTPUT FORMAT
+Generate ONLY the agent prompt text. Start with the header line:
+# CYCLE {cycle:03d} — AGENT {agent_id} PROMPT
+# Wave 11 {branch}
+
+Do not add preamble. Do not add explanation after the prompt.
+The prompt should be 3,000-5,000 lines for implementation agents (B), 1,500-3,000 for others.
+"""
+
+
+def create_agent_prompts_via_claude(
+    cycle: int,
+    branch: str,
+    jira_issues: list[dict],
+    agents: list[str],
+    prompts_dir: Path,
+    wave: int = 11,
+) -> dict[str, Path] | None:
+    """
+    Call Claude (subscription) to generate all agent prompts as the intelligent PM.
+
+    Returns dict[agent_id -> Path] on success, None if Claude unavailable.
+    Falls back to template-based prompt_generator.py if Claude CLI not found.
+    """
+    # Verify subscription
+    preflight = _verify_claude_subscription()
+    if not preflight["passed"]:
+        return None
+
+    claude_binary = _find_claude_binary()
+    if not claude_binary:
+        return None
+
+    # Build the full PM context document
+    pm_context = _build_pm_context(cycle, branch, jira_issues, wave)
+
+    # Save PM context as artifact
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+    ctx_path = prompts_dir / f"CYCLE_{cycle:03d}_PM_CONTEXT.md"
+    ctx_path.write_text(pm_context, encoding="utf-8")
+
+    written: dict[str, Path] = {}
+
+    for agent_id in agents:
+        request_text = _build_agent_prompt_request(
+            agent_id=agent_id,
+            cycle=cycle,
+            branch=branch,
+            pm_context=pm_context,
+        )
+
+        # Write request file
+        req_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_REQUEST.md"
+        req_path.write_text(request_text, encoding="utf-8")
+
+        try:
+            with open(req_path, encoding="utf-8") as stdin_file:
+                r = subprocess.run(
+                    [claude_binary, "-p",
+                     f"Generate the complete Cursor agent prompt for Agent {agent_id} "
+                     f"of the Fiverr Research System Cycle {cycle:03d}. "
+                     f"Output ONLY the prompt text — no preamble, no explanation.",
+                     "--output-format", "text",
+                     "--model", CLAUDE_MODEL],
+                    stdin=stdin_file,
+                    cwd=str(REPO_ROOT),
+                    capture_output=True,
+                    text=True,
+                    timeout=CLAUDE_TIMEOUT,
+                    env={**__import__("os").environ,
+                         "PYTHONIOENCODING": "utf-8"},
+                )
+            prompt_text = (r.stdout or "").strip()
+            if not prompt_text or r.returncode != 0:
+                return None  # Signal fallback needed
+        except subprocess.TimeoutExpired:
+            return None
+        except Exception:
+            return None
+
+        # Write the generated prompt
+        prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_PROMPT.md"
+        prompt_path.write_text(prompt_text, encoding="utf-8")
+        written[agent_id] = prompt_path
+
+    return written
+
+
+def verify_jira_ac_completion(
+    issue: dict,
+    agent_report_text: str,
+) -> dict[str, Any]:
+    """
+    Check if all Jira story AC items appear to be addressed in the agent report.
+    Returns {passed: bool, missing_ac: list[str], verified_ac: list[str]}.
+    """
+    fields = issue.get("fields", {})
+    description = fields.get("description", "") or issue.get("description", "")
+    key = issue.get("key", "?")
+
+    if not description:
+        return {"passed": True, "key": key, "note": "No AC in Jira description"}
+
+    # Extract AC items (look for checklist patterns)
+    import re
+    ac_items = re.findall(
+        r"[-*•]\s*([^\n]{20,200})",
+        description
+    )
+
+    verified, missing = [], []
+    for ac in ac_items[:20]:  # check up to 20 AC items
+        # Check if the AC item's key concepts appear in the agent report
+        words = [w for w in ac.lower().split() if len(w) > 4][:5]
+        if words and any(all(w in agent_report_text.lower() for w in words[:3]) for _ in [1]):
+            verified.append(ac)
+        else:
+            missing.append(ac)
+
+    return {
+        "passed": len(missing) == 0,
+        "key": key,
+        "total_ac": len(ac_items),
+        "verified": len(verified),
+        "missing_count": len(missing),
+        "missing_ac": missing[:5],  # first 5 unverified items
+    }

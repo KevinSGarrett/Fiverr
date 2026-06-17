@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -38,6 +39,33 @@ RUNNER_STATE = Path("C:/AI_Runner/state/controller_state.json")
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _update_hydration_cycle(new_cycle: int) -> None:
+    """Update CYCLE_CURRENT and related fields in HYDRATION_HEADER.md when advancing cycles.
+    Called when transitioning POST_CYCLE_PASS → COMPILED to ensure compile_policy
+    picks up the new cycle number rather than the completed one.
+    """
+    header = REPO_ROOT / "PM_Pack/07_hydration/HYDRATION_HEADER.md"
+    if not header.exists():
+        return
+    import re as _re
+    text = header.read_text(encoding="utf-8", errors="replace")
+    prev_cycle = new_cycle - 1
+    # Update CYCLE_CURRENT
+    text = _re.sub(r"(CYCLE_CURRENT:\s*)\d+", rf"\g<1>{new_cycle:03d}", text)
+    # Update Active cycle
+    text = _re.sub(r"(Active cycle:\s*)\d+", rf"\g<1>{new_cycle}", text)
+    # Update Branch
+    text = _re.sub(r"(Branch:\s*)cycle/\d{3}/integration",
+                   rf"\g<1>cycle/{new_cycle:03d}/integration", text)
+    # Update LAST_COMPLETED
+    text = _re.sub(r"(LAST_COMPLETED:\s*)C\d+", rf"\g<1>C{prev_cycle:03d}", text)
+    # Update the header timestamp
+    from datetime import date as _date
+    today = _date.today().isoformat()
+    text = _re.sub(r"(## Updated:)[^\n]+", rf"\1 {today} | Cycle {new_cycle:03d} autonomous run", text)
+    header.write_text(text, encoding="utf-8")
 
 
 def _write_runner_state(state: dict) -> None:
@@ -423,16 +451,114 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         click.secho(f"  [WARN] Jira inventory failed: {e}", fg="yellow")
         jira_issues = []
 
+    # Fetch all issues (including Done) separately for the PM brief so that
+    # already-completed Wave 11 stories (e.g. SCRUM-207) are correctly shown
+    # as Done in the brief — preventing agents from rebuilding completed work.
+    # (Codex review thread PRRT_kwDOSbqwNc6KA22z — addressed here)
+    try:
+        from automation.jira_client import board_inventory_all
+        all_inv = board_inventory_all()
+        all_jira_issues = all_inv.get("issues", [])
+    except Exception:
+        all_jira_issues = jira_issues  # fallback to non-Done list
+
+    # Filter 1: automation runner control tickets
+    import re as _re
+    _ctrl_labels = {"control-ticket", "automation-runner"}
+    _ctrl_summary_pattern = _re.compile(r"^CYCLE-0\d{2,3}\s", _re.IGNORECASE)
+    # Filter 2: [JIRA] admin import tasks (e.g. "[JIRA] Prepare Wave 20 product task...")
+    _jira_admin_pattern = _re.compile(r"^\s*\[JIRA\]", _re.IGNORECASE)
+
+    filtered_issues = [
+        issue for issue in jira_issues
+        if not (
+            _ctrl_labels & set(issue.get("labels", []))
+            or _ctrl_labels & set(issue.get("fields", {}).get("labels", []))
+            or _ctrl_summary_pattern.match(issue.get("summary", ""))
+            or _ctrl_summary_pattern.match(issue.get("fields", {}).get("summary", ""))
+            or _jira_admin_pattern.match(issue.get("summary", ""))
+            or _jira_admin_pattern.match(issue.get("fields", {}).get("summary", ""))
+        )
+    ]
+    excluded = len(jira_issues) - len(filtered_issues)
+    if excluded:
+        click.echo(f"  Excluded {excluded} control/admin ticket(s) from agent scope")
+    jira_issues = filtered_issues
+
+    # Filter 3: When Wave 11 stories exist and are open, prioritise them.
+    # Check for open Wave 11 [PLAYBOOK] stories — if any exist, put them first.
+    _playbook_stories = [i for i in jira_issues
+                         if "[PLAYBOOK]" in (i.get("summary", "") or
+                                             i.get("fields", {}).get("summary", ""))]
+    _other_stories    = [i for i in jira_issues if i not in _playbook_stories]
+
+    if _playbook_stories:
+        # Agents should focus on Wave 11 playbook first, then supplemental context
+        jira_issues = _playbook_stories + _other_stories
+        click.echo(f"  Priority ordering: {len(_playbook_stories)} [PLAYBOOK] stories first")
+
     click.echo("  Generating real agent prompts from PM_Pack + Jira...")
-    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
-    written = write_prompts(
-        cycle=next_cycle,
-        branch=branch,
-        run_id=run_id,
-        agents=manifest["agents"],
-        jira_issues=jira_issues,
-        prompts_dir=prompts_dir,
+
+    # ── PM Intelligence: build wave context brief ─────────────────────
+    # Pass all_jira_issues (incl. Done) so the brief correctly marks SCRUM-207
+    # and other Done stories, while jira_issues (non-Done only) drives task selection.
+    click.echo("  Building PM intelligence cycle brief...")
+    from automation.pm_intelligence import build_cycle_brief
+    cycle_brief = build_cycle_brief(jira_issues=all_jira_issues)
+    _snap = cycle_brief.snapshot
+    click.echo(
+        f"  PM brief: Wave {_snap.current_wave} ({_snap.wave_name}) | "
+        f"{len(_snap.current_stories)} stories | "
+        f"{len(_snap.existing_src)} existing src files scanned"
     )
+
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+
+    # ── Claude-as-PM: generate prompts via Claude subscription ────────
+    # Claude acts as the intelligent Project Manager — reads all project plans,
+    # Jira AC/DOD, wave state, and generates rich context-aware agent prompts.
+    # This is the PRIMARY prompt generation path (matches original architecture).
+    # Falls back to template-based prompt_generator.py if Claude is unavailable.
+    written: dict[str, Path] | None = None
+    from automation.claude_prompt_creator import create_agent_prompts_via_claude
+
+    click.echo("  Attempting Claude-as-PM prompt generation (primary path)...")
+    try:
+        written = create_agent_prompts_via_claude(
+            cycle=next_cycle,
+            branch=branch,
+            jira_issues=jira_issues,
+            agents=manifest["agents"],
+            prompts_dir=prompts_dir,
+            wave=_snap.current_wave,
+        )
+        if written:
+            click.secho(
+                f"  Claude PM: generated {len(written)} prompts via Claude subscription",
+                fg="green"
+            )
+        else:
+            click.secho(
+                "  Claude PM unavailable — falling back to template-based generation",
+                fg="yellow"
+            )
+    except Exception as e:
+        click.secho(f"  Claude PM error ({e}) — falling back to template-based generation",
+                    fg="yellow")
+        written = None
+
+    # ── Template fallback: prompt_generator.py ────────────────────────
+    if not written:
+        from automation.prompt_generator import write_prompts
+        written = write_prompts(
+            cycle=next_cycle,
+            branch=branch,
+            run_id=run_id,
+            agents=manifest["agents"],
+            jira_issues=jira_issues,
+            prompts_dir=prompts_dir,
+            cycle_brief=cycle_brief,
+        )
 
     click.echo(f"  Cycle           : {next_cycle:03d}")
     click.echo(f"  Branch          : {branch}")
@@ -580,6 +706,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
 
     click.echo(f"  [4/5] Dispatching Cursor agent {agent}...")
     write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
+    _agent_start_time = time.time()
 
     from automation.cursor_adapter import run_agent as cursor_run
     result = cursor_run(
@@ -589,7 +716,24 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         output_dir=str(agent_dir),
     )
 
-    click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code}")
+    _agent_elapsed_min = (time.time() - _agent_start_time) / 60.0
+    click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code} "
+               f"elapsed={_agent_elapsed_min:.1f}min")
+
+    # Warn if agent completed suspiciously fast (< 5 min with 55+ tasks is a red flag)
+    MIN_EXPECTED_MINUTES = 5.0
+    if _agent_elapsed_min < MIN_EXPECTED_MINUTES:
+        click.secho(
+            f"  [WARN] Agent {agent} completed in {_agent_elapsed_min:.1f}min "
+            f"(expected >= {MIN_EXPECTED_MINUTES}min for 55-task prompt). "
+            "Shell execution may have been blocked.",
+            fg="yellow",
+        )
+        _record_nonblocking_error(
+            f"run-agent suspiciously fast: cycle={cycle} agent={agent} "
+            f"elapsed={_agent_elapsed_min:.1f}min"
+        )
+
     if result.stdout_tail:
         click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
     if result.error_message:
@@ -1096,7 +1240,13 @@ def cmd_tick() -> None:
             click.secho("  State: BLOCKED_STAGE2_READINESS — dispatch paused, report updated", fg="yellow")
             click.echo("[TICK COMPLETE]")
             return
-        # Ready for next cycle — compile policy to get current cycle
+        # Ready for next cycle — compile policy to get current cycle.
+        # If we just completed a cycle (POST_CYCLE_PASS), the next cycle is cycle+1.
+        # Update HYDRATION_HEADER so compile_policy picks up the right number.
+        if status == "POST_CYCLE_PASS" and cycle:
+            next_cycle_target = cycle + 1
+            _update_hydration_cycle(next_cycle_target)
+            click.echo(f"  Advancing HYDRATION_HEADER: cycle {cycle} → {next_cycle_target}")
         click.echo("  → Running compile-policy...")
         snap = compile_policy(REPO_ROOT)
         next_cycle = snap.get("cycle_current", 75)
@@ -1105,10 +1255,19 @@ def cmd_tick() -> None:
         click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
 
     elif status == "COMPILED":
-        # Plan the cycle — generate prompts
-        click.echo("  → Planning cycle (generating prompts)...")
-        write_controller_state("PLANNING", cycle=cycle)
-        click.secho("  State: PLANNING — run plan-cycle --cycle {cycle} to generate prompts", fg="cyan")
+        # Auto-run plan-cycle to generate prompts — no manual intervention needed
+        click.echo(f"  → Auto-running plan-cycle for cycle {cycle}...")
+        rc, out = _run_shell_command(
+            [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
+             "--live", "--cycle", str(cycle)]
+        )
+        if rc == 0:
+            write_controller_state("PLANNED", cycle=cycle)
+            click.secho(f"  State: PLANNED (cycle {cycle}) — prompts generated", fg="cyan")
+        else:
+            click.secho(f"  [WARN] plan-cycle failed:\n{out.strip()[-400:]}", fg="yellow")
+            write_controller_state("PLANNING", cycle=cycle)
+            click.secho("  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
 
     elif status == "PLANNED":
         # Validate prompts
@@ -1151,8 +1310,32 @@ def cmd_tick() -> None:
                 click.secho("  State: AWAITING_DISPATCH — all gates pass, ready to dispatch", fg="green")
                 notify_info(f"Tick: awaiting dispatch signal for cycle {cycle}")
 
-    elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING", "AGENT_COMPLETE"):
-        # Agent is running — verify the branch exactly matches the active cycle.
+    elif status == "AGENT_COMPLETE":
+        # All agents finished — automatically trigger post-cycle-review.
+        # This is the critical handoff: AGENT_COMPLETE → POST_CYCLE_REVIEW → POST_CYCLE_PASS → IDLE
+        click.secho(f"  [TICK] AGENT_COMPLETE for cycle {cycle} — advancing to post-cycle-review...",
+                    fg="cyan", bold=True)
+        write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
+        # Run post-cycle-review inline so the scheduled tick handles the full lifecycle
+        from automation.post_cycle_review import run_review, ReviewMode
+        try:
+            result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
+            click.echo(f"  Post-cycle-review grade: {grade}")
+            if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY") or not result.blocks_dispatch:
+                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+                click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick will plan cycle {cycle + 1}.",
+                            fg="green", bold=True)
+            else:
+                write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
+                click.secho(f"  POST_CYCLE_FAIL grade={grade} — review needed before cycle {cycle + 1}.",
+                            fg="red", bold=True)
+        except Exception as exc:
+            click.secho(f"  [ERROR] post-cycle-review raised: {exc}", fg="red")
+            write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
+
+    elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
+        # Agent is still running — verify the branch exactly matches the active cycle.
         expected_branch = f"cycle/{cycle:03d}/integration"
         from automation.branch_guard import current_branch as _current_branch
         actual_branch = _current_branch()
@@ -1185,10 +1368,50 @@ def cmd_tick() -> None:
                 click.secho(f"  Agent running, heartbeat {age_min:.1f}m old — OK", fg="cyan")
 
     elif status in ("POST_CYCLE_PENDING", "POST_CYCLE_REVIEW"):
-        click.secho(f"  Waiting for post-cycle review — run post-cycle-review --cycle {cycle}", fg="yellow")
+        # Either we transitioned here automatically (retry after crash) or manually.
+        # Always attempt the review rather than waiting indefinitely.
+        click.secho(f"  [TICK] {status} — attempting post-cycle-review for cycle {cycle}...",
+                    fg="cyan")
+        from automation.post_cycle_review import run_review, ReviewMode
+        try:
+            result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
+            click.echo(f"  Post-cycle-review grade: {grade}")
+            if not result.blocks_dispatch:
+                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+                click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick plans cycle {cycle + 1}.",
+                            fg="green", bold=True)
+            else:
+                write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
+                click.secho(f"  POST_CYCLE_FAIL grade={grade}", fg="red", bold=True)
+        except Exception as exc:
+            click.secho(f"  [ERROR] post-cycle-review raised: {exc} — staying in {status}", fg="red")
 
     elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
         click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+
+    elif status == "BLOCKED_STAGE2_READINESS":
+        # Retry readiness check — if prompts now exist (generated in a previous tick), should pass
+        click.echo("  Retrying stage2-readiness-check...")
+        rc, out = _run_shell_command([sys.executable, "automation/ai_cycle_controller.py", "stage2-readiness-check"])
+        if rc == 0:
+            write_controller_state("COMPILED", cycle=cycle)
+            click.secho(f"  Stage2 now passes — advancing to COMPILED (cycle {cycle})", fg="green")
+        else:
+            click.secho(f"  Still blocked: {out.strip()[-200:]}", fg="yellow")
+
+    elif status == "PLANNING":
+        # plan-cycle failed or is in progress — retry
+        click.echo(f"  Retrying plan-cycle for cycle {cycle}...")
+        rc, out = _run_shell_command(
+            [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
+             "--live", "--cycle", str(cycle)]
+        )
+        if rc == 0:
+            write_controller_state("PLANNED", cycle=cycle)
+            click.secho(f"  State: PLANNED (cycle {cycle})", fg="cyan")
+        else:
+            click.secho(f"  plan-cycle still failing: {out.strip()[-200:]}", fg="yellow")
 
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")

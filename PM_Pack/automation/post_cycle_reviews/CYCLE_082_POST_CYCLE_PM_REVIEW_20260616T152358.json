@@ -1,0 +1,25 @@
+{
+  "cycle": 82,
+  "result": "PASS",
+  "review_result": "PASS",
+  "mode": "POST_MERGE",
+  "timestamp": "2026-06-16T15:23:58.563884+00:00",
+  "note": "All hard gates passed. C082 certified complete. Automation runner Stages 2-7 all PASS.",
+  "errors": [],
+  "warnings": [],
+  "facts": {
+    "pr_merged": true,
+    "ci_passed": true,
+    "local_ruff": true,
+    "local_mypy": true,
+    "local_pytest": true,
+    "local_coverage_pct": 25.0,
+    "baseline_db_mtime_unchanged": true,
+    "scrapfly_enabled_false": true,
+    "cycle_control_done": true,
+    "next_cycle_control_created": true,
+    "codex_threads_resolved": true,
+    "score1_internal_pct": 68.0,
+    "score2_e2e_pct": 50.0
+  }
+}

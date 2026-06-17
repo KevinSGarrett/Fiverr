@@ -53,6 +53,7 @@
 | PM_Pack/PRODUCTION_READINESS_SCORECARD.md | Did not exist | CREATED 2026-06-09 |
 | PM_Pack/TASK_SUBSTANCE_GATE.md | Did not exist | CREATED 2026-06-09 |
 | PM_Pack/CYCLE_PRODUCTION_ADVANCEMENT_GATE.md | Did not exist | CREATED 2026-06-09 |
+| PM_Pack/08_task_queue/EPIC_STATUS_TRACKER.md | Missing C083 Jira planning rows | UPDATED 2026-06-16 |
 
 ---
 
@@ -71,3 +72,14 @@ Priority 2 (correct before next PM review):
 Priority 3 (archival cleanup):
 7. Historical hydration sections — label as historical
 8. Old C064/C065 JIRA correction notes — label as resolved
+
+---
+
+## C083 STALE FINDINGS (Agent A)
+
+| File | Finding | Action |
+|---|---|---|
+| PM_Pack/07_hydration/HYDRATION_HEADER.md | Cycle pointer lagging at 082 | Updated to C083 and scope section added |
+| PM_Pack/10_cycle_log/CYCLE_075.md | File absent though referenced by C083 prompts | Created and populated with governance entry |
+| .github/PULL_REQUEST_TEMPLATE.md | Did not force C083 Jira-key evidence | Updated with explicit C083 key checklist |
+| .github/workflows/ci.yml | CI bootstrap cycle snapshot lagging at C082 | Updated bootstrap defaults to C083 |

@@ -1,0 +1,44 @@
+{
+  "cycle": 82,
+  "mode": "POST_CYCLE_PM_REVIEW",
+  "result": "FAIL",
+  "blocks_dispatch": true,
+  "errors": [
+    "PR not merged \u2014 cannot run POST_CYCLE_PM_REVIEW"
+  ],
+  "warnings": [],
+  "facts": {
+    "cycle": 82,
+    "mode": "POST_CYCLE_PM_REVIEW",
+    "collected_at": "2026-06-16T14:16:57.903318+00:00",
+    "head_sha": "66dc702e46a006722a62b26db78d56e30f93c4af",
+    "develop_sha": "83f0ea53aa71c3d062619b0bad3eb02bf99fe5a3",
+    "pr_number": 100,
+    "pr_merged": false,
+    "merge_sha": "",
+    "ci_passed": false,
+    "codecov_project": "UNKNOWN",
+    "codecov_patch": "UNKNOWN",
+    "codex_threads_resolved": false,
+    "local_ruff": true,
+    "local_mypy": true,
+    "local_pytest": true,
+    "local_coverage_pct": 85.0,
+    "baseline_db_mtime_unchanged": true,
+    "scrapfly_enabled_false": true,
+    "cycle_control_done": true,
+    "next_cycle_control_created": false,
+    "agent_reports_present": {
+      "A": true,
+      "B": true,
+      "E": true,
+      "C": true,
+      "F": true,
+      "D": true
+    },
+    "score1_internal_pct": 0.0,
+    "score2_e2e_pct": 0.0,
+    "tierd2_stages": {}
+  },
+  "evaluated_at": "2026-06-16T14:20:55.410359+00:00"
+}

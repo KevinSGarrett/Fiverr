@@ -225,22 +225,26 @@ def _build_command(prompt_path: str, working_dir: str, model: str) -> list[str]:
     """
     Build Cursor CLI command. For short prompts uses -p flag.
     For long prompts (>CLI_ARG_CHAR_LIMIT chars), returns command for stdin delivery.
-    Returns (cmd_list, use_stdin, prompt_content).
+    --print: non-interactive scriptable mode (required for automation)
+    --force: allow shell command execution (without this, agents cannot run ruff/pytest/git)
     """
     binary = _resolve_binary()
     prompt_content = Path(prompt_path).read_text(encoding="utf-8", errors="replace")
 
     # Always use -p for now; for stdin delivery see run_agent which handles the file case
-    cmd = [binary, "-p", prompt_content, "--output-format", "text", "--trust"]
+    cmd = [binary, "-p", prompt_content, "--print", "--output-format", "text",
+           "--trust", "--force"]
     if model:
         cmd += ["--model", model]
     return cmd
 
 
 def _build_command_with_file(binary: str, prompt_file: str, model: str) -> list[str]:
-    """Build command that reads prompt from a file (for full-size prompts)."""
-    # For full-size prompts: pass content via stdin, no -p argument
-    cmd = [binary, "--output-format", "text", "--trust"]
+    """Build command that reads prompt from a file (for full-size prompts).
+    --print: non-interactive scriptable mode (required for automation)
+    --force: allow shell command execution (without this ruff/pytest/git are all blocked)
+    """
+    cmd = [binary, "--print", "--output-format", "text", "--trust", "--force"]
     if model:
         cmd += ["--model", model]
     return cmd

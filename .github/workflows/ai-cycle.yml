@@ -56,7 +56,7 @@ jobs:
           token: ${{ secrets.GH_AUTOMATION_TOKEN }}
 
       - name: Verify NOT running run-agent via workflow dispatch
-        shell: pwsh
+        shell: powershell
         run: |
           $mode = "${{ github.event.inputs.mode || '' }}"
           if ($mode -eq "run-agent") {
@@ -65,7 +65,7 @@ jobs:
           }
 
       - name: Set Cursor CLI path environment
-        shell: pwsh
+        shell: powershell
         run: |
           # Ensure standalone Cursor CLI (not Cursor Desktop) is on PATH
           $cliDir = "C:\Users\Windows 11\AppData\Local\cursor-agent"
@@ -80,7 +80,7 @@ jobs:
           & "$cliDir\agent.cmd" --version
 
       - name: Run AI cycle controller
-        shell: pwsh
+        shell: powershell
         env:
           GH_AUTOMATION_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
@@ -93,16 +93,25 @@ jobs:
           $ctrl  = "automation\ai_cycle_controller.py"
           $mode  = "${{ github.event.inputs.mode || 'tick' }}"
           $cycle = "${{ github.event.inputs.cycle || 'auto' }}"
+          $eventName = "${{ github.event_name }}"
 
-          Write-Host "Mode: $mode  Cycle: $cycle"
+          Write-Host "Mode: $mode  Cycle: $cycle  Event: $eventName"
 
           # Build arguments
           $args = @($ctrl, $mode)
           if ($cycle -ne "auto" -and $mode -in @("plan-cycle","validate-prompts","post-cycle-review","run-agent")) {
             $args += @("--cycle", $cycle)
           }
+          # plan-cycle: --live for scheduled/automatic runs; --dry-run only for explicit dispatch test
           if ($mode -eq "plan-cycle") {
-            $args += "--dry-run"
+            $dryRunRequested = "${{ github.event.inputs.mode }}" -eq "plan-cycle" -and "${{ github.event.inputs.cycle }}" -eq "dry"
+            if ($dryRunRequested) {
+              $args += "--dry-run"
+              Write-Host "plan-cycle: dry-run mode (manual dispatch with cycle=dry)"
+            } else {
+              $args += "--live"
+              Write-Host "plan-cycle: live mode (scheduled or standard dispatch)"
+            }
           }
 
           & $py @args
