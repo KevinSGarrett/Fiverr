@@ -337,7 +337,12 @@ def run_agent(
         cmd = _build_command_with_file(binary, prompt_path, model)
         stdin_source = prompt_content
     else:
-        cmd = [binary, "-p", prompt_content, "--output-format", "text", "--trust"]
+        # H3 FIX: --print and --force MUST be on BOTH paths.
+        # Without --force, agents cannot run ruff/pytest/git (shell exec blocked).
+        # Without --print, output is not captured in non-interactive mode.
+        # Route by length only for stdin-vs-arg delivery, NOT for flags.
+        cmd = [binary, "-p", prompt_content, "--print", "--output-format", "text",
+               "--trust", "--force"]
         if model:
             cmd += ["--model", model]
         stdin_source = None

@@ -76,10 +76,13 @@ class AgentLifecycle:
         jira_keys: list[str] | None = None,
         contract: dict[str, Any] | None = None,
         dry_run: bool = False,
+        pre_dispatch_sha: str | None = None,
     ) -> AgentLifecycleResult:
         result = AgentLifecycleResult(agent=agent_id, cycle=cycle, run_id=run_id, status="IN_PROGRESS")
         jira_keys = jira_keys or []
-        result.changed_files = _get_changed_files()
+        # C1 FIX: use pre_dispatch_sha so ownership checks only cover files
+        # changed by THIS agent, not the whole dirty tree.
+        result.changed_files = _get_changed_files(pre_dispatch_sha=pre_dispatch_sha)
 
         unauthorized = _check_ownership(agent_id, result.changed_files)
         if unauthorized:
@@ -207,7 +210,15 @@ def run_post_agent_lifecycle(
     jira_keys: list[str] | None = None,
     contract: dict | None = None,
     dry_run: bool = False,
+    pre_dispatch_sha: str | None = None,
 ) -> AgentLifecycleResult:
+    """Run post-agent lifecycle checks.
+
+    pre_dispatch_sha: git HEAD SHA snapshotted BEFORE the agent was dispatched.
+    When provided, _get_changed_files uses this to scope ownership checks to
+    only files changed by THIS agent run (C1 fix — stops cross-cycle leftovers
+    from causing OWNERSHIP_VIOLATION on every agent).
+    """
     return AgentLifecycle().run(
         agent_id=agent_id,
         cycle=cycle,
@@ -216,20 +227,56 @@ def run_post_agent_lifecycle(
         jira_keys=jira_keys,
         contract=contract,
         dry_run=dry_run,
+        pre_dispatch_sha=pre_dispatch_sha,
     )
 
 
-def _get_changed_files() -> list[str]:
-    """Get all modified/added files relative to HEAD."""
+def _get_changed_files(pre_dispatch_sha: str | None = None) -> list[str]:
+    """Get files changed by this agent run.
+
+    C1 FIX: When pre_dispatch_sha is provided, returns only files changed
+    SINCE that snapshot (committed OR uncommitted). This prevents cross-cycle
+    leftovers from prior failed agents from tripping the ownership check.
+
+    Without pre_dispatch_sha: falls back to git diff HEAD (all uncommitted),
+    which is the old (broken) behavior preserved for backward compatibility.
+    """
+    if pre_dispatch_sha:
+        # C1 FIX: diff only against the snapshot taken before dispatch.
+        # Files committed since snapshot + any new uncommitted files.
+        r_committed = subprocess.run(
+            ["git", "diff", "--name-only", f"{pre_dispatch_sha}..HEAD"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True,
+        )
+        committed_since = r_committed.stdout.strip().splitlines()
+
+        r_uncommitted = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True,
+        )
+        uncommitted = r_uncommitted.stdout.strip().splitlines()
+
+        r_untracked = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True,
+        )
+        untracked = [
+            line[3:].strip() for line in r_untracked.stdout.splitlines()
+            if line.startswith("?? ")
+        ]
+        return list(set(committed_since + uncommitted + untracked))
+
+    # Legacy path (no snapshot) — returns ALL uncommitted/untracked files.
+    # This is the bug that C1 fixes; kept here as fallback only.
     r = subprocess.run(
         ["git", "diff", "--name-only", "HEAD"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
     )
     uncommitted = r.stdout.strip().splitlines()
 
     r2 = subprocess.run(
         ["git", "status", "--short"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
     )
     untracked = [
         line[3:].strip() for line in r2.stdout.splitlines()

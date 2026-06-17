@@ -743,6 +743,16 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
     _agent_start_time = time.time()
 
+    # C1 FIX: snapshot HEAD before dispatching Cursor so the post-agent
+    # lifecycle ownership check covers only files changed by THIS agent,
+    # not accumulated leftovers from prior failed agents/cycles.
+    import subprocess as _subprocess_c1
+    _pre_sha_r = _subprocess_c1.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    )
+    pre_dispatch_sha = _pre_sha_r.stdout.strip() or None
+
     from automation.cursor_adapter import run_agent as cursor_run
     result = cursor_run(
         agent_id=agent,
@@ -820,16 +830,20 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         run_id=run_id,
         run_dir=run_dir,
         jira_keys=[],
+        pre_dispatch_sha=pre_dispatch_sha,  # C1 FIX: scope ownership to this run
     )
 
     write_heartbeat("AGENT_COMPLETE", cycle=cycle, agent=agent)
-    write_controller_state("AGENT_COMPLETE", cycle=cycle)
+    # C2 FIX: do NOT write AGENT_COMPLETE state here -- only write it after
+    # confirming lifecycle.status == "COMPLETE" below.
 
     click.echo(f"  Lifecycle: {lifecycle.status}")
     for err in lifecycle.errors:
         click.secho(f"  ERROR: {err}", fg="red")
 
     if lifecycle.status == "COMPLETE":
+        # Only write AGENT_COMPLETE when an agent actually committed real work.
+        write_controller_state("AGENT_COMPLETE", cycle=cycle)
         sha_info = f" commit={lifecycle.commit_sha}" if lifecycle.commit_sha else ""
         click.secho(f"Agent {agent} COMPLETE{sha_info}", fg="green", bold=True)
     elif lifecycle.status == "VALIDATION_FAILED":
@@ -839,13 +853,19 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         _record_nonblocking_error(
             f"run-agent lifecycle validation failed cycle={cycle} agent={agent}: {lifecycle.errors[:3]}"
         )
-        return
+        # C2 FIX: exit non-zero so run-cycle counts this as failed, not done
+        raise SystemExit(1)
     else:
-        click.secho(f"Agent {agent} lifecycle: {lifecycle.status}", fg="red", bold=True)
+        click.secho(
+            f"Agent {agent} lifecycle FAILED: {lifecycle.status} (errors: {lifecycle.errors[:3]})",
+            fg="red", bold=True,
+        )
         _record_nonblocking_error(
             f"run-agent lifecycle non-complete cycle={cycle} agent={agent} status={lifecycle.status}"
         )
-        return
+        # C2 FIX: OWNERSHIP_VIOLATION/NO_REPORT/SECRET_FOUND must NOT exit 0.
+        # Previously this returned (exit 0) making run-cycle count failures as DONE.
+        raise SystemExit(1)
 
 
 @cli.command("run-cycle")

@@ -93,7 +93,11 @@ def _normalise_issue(raw: dict[str, Any]) -> dict[str, Any]:
     fields = raw.get("fields", {})
     description_text = _adf_to_text(fields.get("description") or {})
     status_name = fields.get("status", {}).get("name", "")
-    priority_name = fields.get("priority", {}).get("name", "Medium")
+    # H1 FIX: (fields.get("priority") or {}) guards against priority=null
+    # Without this, fields.get("priority",{}) returns None on null-priority
+    # issues, then None.get("name","Medium") raises AttributeError, which
+    # crashes board_inventory_all() and causes plan-cycle to see Done:0/100.
+    priority_name = (fields.get("priority") or {}).get("name", "Medium")
     issuetype_name = fields.get("issuetype", {}).get("name", "")
 
     return {
