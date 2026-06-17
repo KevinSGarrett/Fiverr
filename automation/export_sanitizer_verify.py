@@ -1,23 +1,59 @@
-"""Export path sanitizer checks for staged files and ZIP artifacts."""
-
+"""Validation helpers that block secret-like files from exports."""
 from __future__ import annotations
 
-import fnmatch
 import re
 import sys
+from fnmatch import fnmatch
 from pathlib import Path
 from zipfile import ZipFile
 
 
 class ExportSecretError(Exception):
-    """Raised when sensitive paths are found in staged files or archive entries."""
+    """Raised when an export contains secret-like file paths."""
 
     def __init__(self, offending_paths: list[str]) -> None:
         self.offending_paths = offending_paths
-        super().__init__(f"Sensitive paths detected: {', '.join(offending_paths)}")
+        message = "Secret-like paths detected: " + ", ".join(offending_paths)
+        super().__init__(message)
 
 
-_PATH_PATTERNS = ("*.env", "runner.env", "*.credentials", "*.pem", "*.key")
+def _looks_secret(path_value: str) -> bool:
+    normalized_path = path_value.replace("\\", "/")
+    path_name = Path(normalized_path).name
+    full_path_lower = normalized_path.lower()
+    path_name_lower = path_name.lower()
+
+    if fnmatch(path_name_lower, "*.env"):
+        return True
+    if path_name_lower == "runner.env":
+        return True
+    if fnmatch(path_name_lower, "*.credentials"):
+        return True
+    if fnmatch(path_name_lower, "*.pem"):
+        return True
+    if fnmatch(path_name_lower, "*.key"):
+        return True
+    if "_token" in full_path_lower:
+        return True
+    if "secret" in full_path_lower:
+        return True
+    return False
+
+
+def verify_staged_files(staged_files: list[str]) -> None:
+    """Raise when staged files include secret-like names."""
+    offending_paths = [path for path in staged_files if _looks_secret(path)]
+    if offending_paths:
+        raise ExportSecretError(offending_paths)
+
+
+def verify_zip(zip_path: Path) -> None:
+    """Raise when a zip archive includes secret-like names."""
+    with ZipFile(zip_path) as archive:
+        members = archive.namelist()
+    verify_staged_files(members)
+
+
 _INLINE_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"OPENAI_API_KEY\s*=\s*sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"ANTHROPIC_API_KEY\s*=\s*sk-[A-Za-z0-9_-]{20,}"),
@@ -25,35 +61,8 @@ _INLINE_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _is_sensitive(path_value: str) -> bool:
-    normalized = path_value.replace("\\", "/")
-    lower = normalized.lower()
-    basename = Path(lower).name
-    if any(fnmatch.fnmatch(basename, pattern) for pattern in _PATH_PATTERNS):
-        return True
-    return "_token" in lower or "secret" in lower
-
-
-def verify_staged_files(staged_files: list[str]) -> None:
-    offending = [path for path in staged_files if _is_sensitive(path)]
-    if offending:
-        raise ExportSecretError(offending)
-
-
-def verify_zip(zip_path: Path) -> None:
-    offending_paths: list[str] = []
-    with ZipFile(zip_path, "r") as archive:
-        for member in archive.namelist():
-            if member.endswith("/"):
-                continue
-            if _is_sensitive(member):
-                offending_paths.append(member)
-    if offending_paths:
-        raise ExportSecretError(offending_paths)
-
-
 def scan_file_for_secrets(path: Path) -> list[str]:
-    """Return any inline secret-like matches found in a text file."""
+    """Return inline secret-like values found in a text file."""
     try:
         content = path.read_text(encoding="utf-8")
     except OSError:
@@ -65,7 +74,7 @@ def scan_file_for_secrets(path: Path) -> list[str]:
 
 
 def verify_repo_clean(repo_root: Path | None = None) -> tuple[bool, list[str]]:
-    """Scan automation Python files and report any secret-like findings."""
+    """Scan automation files for inline secret patterns."""
     root = repo_root or Path("C:/Fiverr/Fiverr")
     violations: list[str] = []
     for py_file in (root / "automation").rglob("*.py"):
@@ -74,7 +83,7 @@ def verify_repo_clean(repo_root: Path | None = None) -> tuple[bool, list[str]]:
         matches = scan_file_for_secrets(py_file)
         if matches:
             violations.append(str(py_file))
-    return len(violations) == 0, violations
+    return (len(violations) == 0, violations)
 
 
 if __name__ == "__main__":

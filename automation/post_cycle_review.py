@@ -254,8 +254,8 @@ def collect_facts(cycle: int, mode: ReviewMode,
     # ── GitHub health audit (full repo review for PM) ─────────────────
     try:
         from automation.github_reviewer import (
-            build_health_report,
             auto_fix_what_we_can,
+            build_health_report,
         )
         branch = f"cycle/{cycle:03d}/integration"
         health = build_health_report(cycle=cycle, branch=branch)
@@ -592,6 +592,10 @@ class PostCycleReview:
                 "collected_at": datetime.now(UTC).isoformat(),
             }
         except (JiraAuthError, ConnectionError, OSError):
+            payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
+        except Exception:
+            # requests.exceptions.ConnectionError and transport-level failures should
+            # never bubble; Jira closeout collection must be non-blocking.
             payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
         self.current_run_dir.mkdir(parents=True, exist_ok=True)
         (self.current_run_dir / "jira_verification.json").write_text(
