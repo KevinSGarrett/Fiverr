@@ -1412,7 +1412,8 @@ def cmd_tick() -> None:
         except Exception as exc:
             click.secho(f"  [ERROR] post-cycle-review raised: {exc} — staying in {status}", fg="red")
 
-    elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
+    elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED",
+                    "BRANCH_MISMATCH_BLOCKED"):
         # Re-check the gate before staying blocked — self-heal if it now passes
         if status == "MODEL_BLOCKED":
             from automation.cursor_adapter import check_model_gate_freshness
@@ -1438,6 +1439,16 @@ def cmd_tick() -> None:
                     click.secho(f"  BLOCKED ({status}) — prompts still failing, re-run plan-cycle", fg="red")
             except Exception as _ve:
                 click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+        elif status == "BRANCH_MISMATCH_BLOCKED":
+            # Auto-checkout the correct branch and reset to PLANNED
+            expected = f"cycle/{cycle:03d}/integration"
+            click.secho(f"  BRANCH_MISMATCH_BLOCKED — auto-switching to {expected}...", fg="yellow")
+            rc_sw, _ = _run_shell_command(["git", "checkout", expected])
+            if rc_sw != 0:
+                _run_shell_command(["git", "fetch", "origin", expected, "--quiet"])
+                _run_shell_command(["git", "checkout", "-b", expected, f"origin/{expected}"])
+            write_controller_state("PLANNED", cycle=cycle)
+            click.secho(f"  Branch fixed — reset to PLANNED cycle={cycle}", fg="green")
         else:
             click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
 
