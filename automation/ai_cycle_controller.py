@@ -837,11 +837,34 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     agents = ["A", "B", "E", "C", "F", "D"]
     failures: dict[str, str] = {}
 
+    import time as _t
+    import json as _json
+    _progress_path = Path("C:/AI_Runner/state/agent_progress.json")
+    _progress_path.parent.mkdir(parents=True, exist_ok=True)
+    _cycle_start = _t.time()
+
+    def _write_progress(current_agent: str, completed: list, failed: list, agent_elapsed: float = 0.0) -> None:
+        """Write agent progress so tick can show live status."""
+        prog = {
+            "cycle": cycle,
+            "current_agent": current_agent,
+            "agent_num": agents.index(current_agent) + 1 if current_agent in agents else 0,
+            "total_agents": len(agents),
+            "completed": completed,
+            "failed": failed,
+            "agent_elapsed_s": round(agent_elapsed),
+            "cycle_elapsed_s": round(_t.time() - _cycle_start),
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        _progress_path.write_text(_json.dumps(prog, indent=2))
+
+    completed_agents: list[str] = []
+
     for idx, agent in enumerate(agents, 1):
-        # Show prompt size so operator knows how large the instructions are
         prompt_path = REPO_ROOT / f"PM_Pack/automation/prompts/CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
         prompt_bytes = prompt_path.stat().st_size if prompt_path.exists() else 0
         L.agent_start(agent, cycle, prompt_bytes, idx, len(agents))
+        _write_progress(agent, completed_agents, list(failures.keys()))
 
         args = [
             sys.executable, "automation/ai_cycle_controller.py",
@@ -850,17 +873,29 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         if safe_docs_only:
             args.append("--safe-docs-only")
 
-        import time as _t
         t0 = _t.time()
-        # Show spinner while agent runs
         with L.Spinner(f"Agent {agent} running (Cursor + Codex 5.3)"):
             rc, output = _run_shell_command(args)
         elapsed = _t.time() - t0
 
         L.agent_done(agent, elapsed, rc == 0, idx, len(agents))
-        if rc != 0:
+        if rc == 0:
+            completed_agents.append(agent)
+        else:
             failures[agent] = output.strip()
             L.agent_fail_detail(agent, output)
+        _write_progress(agent, completed_agents, list(failures.keys()), elapsed)
+
+    # All agents done — write AGENT_COMPLETE so tick advances to post-cycle review
+    from automation.state_writer import write_controller_state as _wcs, write_heartbeat as _wh
+    _wcs("AGENT_COMPLETE", cycle=cycle)
+    _wh("AGENT_COMPLETE", cycle=cycle)
+    _progress_path.write_text(_json.dumps({
+        "cycle": cycle, "current_agent": "DONE",
+        "completed": completed_agents, "failed": list(failures.keys()),
+        "cycle_elapsed_s": round(_t.time() - _cycle_start),
+        "updated_at": datetime.now(UTC).isoformat(),
+    }, indent=2))
 
     L.newline()
     if failures:
@@ -1381,53 +1416,124 @@ def cmd_tick() -> None:
             write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
 
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
-        # Verify we are on the correct cycle branch — auto-fix if not.
+        import automation.autopilot_logger as L
+        import json as _json
+
+        # Auto-fix branch mismatch
         expected_branch = f"cycle/{cycle:03d}/integration"
         from automation.branch_guard import current_branch as _current_branch
         actual_branch = _current_branch()
         if actual_branch and actual_branch != expected_branch:
-            click.secho(
-                f"  [BRANCH] on '{actual_branch}' — switching to '{expected_branch}'...",
-                fg="yellow",
-            )
+            click.secho(f"  [BRANCH] on '{actual_branch}' — switching to '{expected_branch}'...", fg="yellow")
             rc_sw, _ = _run_shell_command(["git", "checkout", expected_branch])
             if rc_sw != 0:
                 _run_shell_command(["git", "fetch", "origin", expected_branch, "--quiet"])
-                _run_shell_command(
-                    ["git", "checkout", "-b", expected_branch, f"origin/{expected_branch}"]
-                )
+                _run_shell_command(["git", "checkout", "-b", expected_branch, f"origin/{expected_branch}"])
 
-        # Show live status so terminal proves the system is alive
+        # ── Read agent progress file ──────────────────────────────────
+        prog_path = Path("C:/AI_Runner/state/agent_progress.json")
+        prog: dict = {}
+        if prog_path.exists():
+            try:
+                prog = _json.loads(prog_path.read_text())
+            except Exception:
+                pass
+
+        all_agents = ["A", "B", "E", "C", "F", "D"]
+        current = prog.get("current_agent", "?")
+        completed = prog.get("completed", [])
+        failed = prog.get("failed", [])
+        total_agents = prog.get("total_agents", 6)
+        agent_elapsed = prog.get("agent_elapsed_s", 0)
+        cycle_elapsed = prog.get("cycle_elapsed_s", 0)
+        prog_cycle = prog.get("cycle", cycle)
+
+        # Show Cursor process count
+        cursor_count = "?"
+        try:
+            import subprocess as _sp
+            cr = _sp.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "(Get-Process -Name Cursor -ErrorAction SilentlyContinue).Count"],
+                capture_output=True, text=True, timeout=5,
+            )
+            cursor_count = (cr.stdout or "0").strip()
+        except Exception:
+            pass
+
+        # ── Display ───────────────────────────────────────────────────
+        if prog and prog_cycle == cycle and current != "DONE":
+            # We have live progress data
+            mins_cycle = cycle_elapsed // 60
+            secs_cycle = cycle_elapsed % 60
+            cycle_time = f"{mins_cycle}m{secs_cycle:02d}s" if mins_cycle else f"{secs_cycle}s"
+            click.echo(f"\n  Cycle {cycle:03d} agent progress — elapsed {cycle_time}")
+            click.echo(f"  {cursor_count} Cursor process(es) active")
+            click.echo("")
+            for i, ag in enumerate(all_agents, 1):
+                if ag in completed:
+                    icon = click.style("  DONE  ", fg="green")
+                    label = click.style(f"Agent {ag}", fg="green")
+                elif ag in failed:
+                    icon = click.style("  FAIL  ", fg="red", bold=True)
+                    label = click.style(f"Agent {ag}", fg="red", bold=True)
+                elif ag == current:
+                    mins_a = agent_elapsed // 60
+                    secs_a = agent_elapsed % 60
+                    t = f"{mins_a}m{secs_a:02d}s" if mins_a else f"{secs_a}s"
+                    icon = click.style("  RUN   ", fg="yellow", bold=True)
+                    label = click.style(f"Agent {ag}  (running {t})", fg="yellow", bold=True)
+                else:
+                    icon = click.style("  WAIT  ", fg="bright_black")
+                    label = click.style(f"Agent {ag}", fg="bright_black")
+                role = {"A": "Planning+Jira", "B": "Implementation", "E": "Review+Tests",
+                        "C": "Integration", "F": "Docs+Coverage", "D": "PR+Merge"}.get(ag, "")
+                click.echo(f"  [{i}/{total_agents}]{icon}{label}  {click.style(role, fg='bright_black')}")
+        elif prog and current == "DONE":
+            # run-cycle finished but state not yet AGENT_COMPLETE — write it now
+            click.secho(f"  All {len(completed)}/{total_agents} agents complete — advancing to review...", fg="green")
+            write_controller_state("AGENT_COMPLETE", cycle=cycle)
+        else:
+            # No progress file yet — dispatch just started
+            click.secho("  Agents dispatched — waiting for first agent to start...", fg="cyan")
+            click.secho(f"  {cursor_count} Cursor process(es) active", fg="cyan")
+
+        # ── Show what's being built (from prompt) ─────────────────────
+        click.echo("")
+        prompt_a = REPO_ROOT / f"PM_Pack/automation/prompts/CYCLE_{cycle:03d}_AGENT_A_PROMPT.md"
+        if prompt_a.exists():
+            lines = prompt_a.read_text(encoding="utf-8", errors="replace").splitlines()
+            # Find target stories line
+            for ln in lines[:80]:
+                if "SCRUM-" in ln and ("TO DO" in ln.upper() or "BUILD" in ln.upper() or "🔨" in ln):
+                    click.secho(f"  Target: {ln.strip()[:80]}", fg="bright_black")
+                    break
+
+        # ── Show files changed since last develop commit ───────────────
+        rc_diff, diff_out = _run_shell_command(
+            ["git", "diff", "origin/develop..HEAD", "--stat", "--compact-summary"]
+        )
+        if rc_diff == 0 and diff_out.strip():
+            lines_diff = [ln for ln in diff_out.strip().splitlines() if ln.strip()][-6:]
+            click.echo("")
+            click.secho("  Files changed vs develop:", fg="bright_black")
+            for ln in lines_diff:
+                click.secho(f"    {ln}", fg="bright_black")
+
+        # ── Heartbeat staleness check ─────────────────────────────────
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
         if hb_path.exists():
-            import json as _json
-            hb = _json.loads(hb_path.read_text())
-            from datetime import datetime as _dt
-            last = _dt.fromisoformat(hb.get("last_seen", _now()).replace("Z", "+00:00"))
-            age_min = (_dt.now(last.tzinfo) - last).total_seconds() / 60
-            if age_min > 45:
-                notify_blocked(f"Heartbeat stale {age_min:.0f}m — agent may be stuck",
-                               incident_code="AGENT_STUCK", cycle=cycle)
-                click.secho(f"  WARN: heartbeat stale {age_min:.0f}m — agents may be stuck",
-                            fg="yellow")
-            else:
-                try:
-                    import subprocess as _sp
-                    cr = _sp.run(
-                        ["powershell", "-NoProfile", "-Command",
-                         "(Get-Process -Name Cursor -ErrorAction SilentlyContinue).Count"],
-                        capture_output=True, text=True, timeout=5,
-                    )
-                    cursor_count = (cr.stdout or "0").strip()
-                except Exception:
-                    cursor_count = "?"
-                click.secho(
-                    f"  Agents running  heartbeat {age_min:.1f}m ago  "
-                    f"{cursor_count} Cursor process(es) active",
-                    fg="cyan",
-                )
-        else:
-            click.secho("  Agents dispatched — waiting for completion...", fg="cyan")
+            try:
+                hb = _json.loads(hb_path.read_text())
+                from datetime import datetime as _dt
+                last = _dt.fromisoformat(hb.get("last_seen", _now()).replace("Z", "+00:00"))
+                age_min = (_dt.now(last.tzinfo) - last).total_seconds() / 60
+                if age_min > 45:
+                    notify_blocked(f"Heartbeat stale {age_min:.0f}m — agents may be stuck",
+                                   incident_code="AGENT_STUCK", cycle=cycle)
+                    L.warn(f"Heartbeat stale {age_min:.0f}m — agents may be stuck!")
+            except Exception:
+                pass
 
     elif status in ("POST_CYCLE_PENDING", "POST_CYCLE_REVIEW"):
         # Either we transitioned here automatically (retry after crash) or manually.
@@ -1922,13 +2028,9 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
         if stop_flag["stop"]:
             break
 
-        # Countdown to next tick
+        # Countdown to next tick — use newline (not \r) since \r doesn't work in PowerShell
         import time as _time2
-        for remaining in range(interval, 0, -5):
-            if stop_flag["stop"]:
-                break
-            L.countdown(remaining)
-            _time2.sleep(min(5, remaining))
+        _time2.sleep(interval)
         click.echo("")  # newline after countdown
 
     # Summary on exit
