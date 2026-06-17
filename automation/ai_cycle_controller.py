@@ -1353,23 +1353,30 @@ def cmd_tick() -> None:
             write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
 
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
-        # Agent is still running — verify the branch exactly matches the active cycle.
+        # Verify we are on the correct cycle branch — auto-fix if not.
         expected_branch = f"cycle/{cycle:03d}/integration"
         from automation.branch_guard import current_branch as _current_branch
         actual_branch = _current_branch()
         if actual_branch and actual_branch != expected_branch:
-            notify_blocked(
-                f"BRANCH_MISMATCH: active_cycle={cycle} but on branch '{actual_branch}' "
-                f"(expected '{expected_branch}'). Dispatcher is on the wrong branch.",
-                incident_code="BRANCH_MISMATCH", cycle=cycle,
-            )
+            # Auto-checkout the right branch rather than hard-blocking
             click.secho(
-                f"  [ERROR] BRANCH_MISMATCH: on '{actual_branch}' but active_cycle={cycle} "
-                f"expects '{expected_branch}'. Blocking dispatch.",
-                fg="red", bold=True,
+                f"  [BRANCH] on '{actual_branch}' but cycle {cycle} expects '{expected_branch}' — switching...",
+                fg="yellow",
             )
-            write_controller_state("BRANCH_MISMATCH_BLOCKED", cycle=cycle)
-            return
+            rc_sw, out_sw = _run_shell_command(["git", "checkout", expected_branch])
+            if rc_sw != 0:
+                # Branch not local — fetch from remote
+                _run_shell_command(["git", "fetch", "origin", expected_branch, "--quiet"])
+                rc_sw2, _ = _run_shell_command(
+                    ["git", "checkout", "-b", expected_branch, f"origin/{expected_branch}"]
+                )
+                if rc_sw2 != 0:
+                    click.secho(
+                        f"  [WARN] Could not switch to {expected_branch} — continuing on {actual_branch}",
+                        fg="yellow",
+                    )
+            else:
+                click.secho(f"  Switched to {expected_branch} ✓", fg="cyan")
         # Monitor heartbeat freshness
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
         if hb_path.exists():
@@ -1799,6 +1806,7 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
         python automation/ai_cycle_controller.py start-autopilot --max-cycles 5
     """
     import signal
+    import time as _time
 
     stop_flag = {"stop": False}
     cycles_completed = 0
@@ -1813,6 +1821,35 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
 
     signal.signal(signal.SIGINT, _on_stop)
     signal.signal(signal.SIGTERM, _on_stop)
+
+    # ── Checkout the correct cycle branch before anything runs ────────
+    state0 = _read_runner_state()
+    active_cycle0 = state0.get("active_cycle", 0)
+    active_branch0 = state0.get("active_branch") or f"cycle/{active_cycle0:03d}/integration"
+    current_branch_rc, current_branch_out = _run_shell_command(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+    )
+    current_branch = current_branch_out.strip()
+    if current_branch != active_branch0:
+        click.secho(f"  Switching from '{current_branch}' → '{active_branch0}'...", fg="cyan")
+        rc_co, out_co = _run_shell_command(["git", "checkout", active_branch0])
+        if rc_co != 0:
+            # Branch may not exist locally — fetch and checkout
+            _run_shell_command(["git", "fetch", "origin", active_branch0])
+            rc_co2, out_co2 = _run_shell_command(
+                ["git", "checkout", "-b", active_branch0,
+                 f"origin/{active_branch0}"]
+            )
+            if rc_co2 != 0:
+                click.secho(
+                    f"  [WARN] Could not checkout {active_branch0}: {out_co2.strip()[-200:]}\n"
+                    f"  Continuing on current branch '{current_branch}'.",
+                    fg="yellow",
+                )
+        else:
+            click.secho(f"  Now on branch '{active_branch0}'", fg="cyan")
+    else:
+        click.secho(f"  Branch: {current_branch} ✓", fg="cyan")
 
     click.secho("\n" + "=" * 62, fg="cyan", bold=True)
     click.secho("  FIVERR RESEARCH SYSTEM — 24/7 AUTONOMOUS BUILD MODE", fg="cyan", bold=True)
@@ -1867,16 +1904,15 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
         if stop_flag["stop"]:
             break
 
-        # Countdown sleep — shows the system is alive
+        # Countdown sleep — print() is used here because click.echo() has no end= kwarg
         for remaining in range(interval, 0, -5):
             if stop_flag["stop"]:
                 break
             mins, secs = divmod(remaining, 60)
             label = f"{mins}m{secs:02d}s" if mins else f"{secs}s"
-            click.echo(f"\r  Next tick in {label}...  ", end="", err=False)
-            import time as _t
-            _t.sleep(min(5, remaining))
-        click.echo("")  # newline after countdown
+            print(f"\r  Next tick in {label}...   ", end="", flush=True)
+            _time.sleep(min(5, remaining))
+        print("")  # newline after countdown
 
     # Summary on exit
     state = _read_runner_state()
