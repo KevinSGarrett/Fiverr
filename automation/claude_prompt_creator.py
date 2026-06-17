@@ -34,7 +34,7 @@ TODO_ROOT     = PM_PACK / "ref" / "todo"
 RUNNER_ROOT   = Path("C:/AI_Runner")
 
 CLAUDE_MODEL  = "claude-sonnet-4-6"
-CLAUDE_TIMEOUT = 900  # 15 min per agent prompt
+CLAUDE_TIMEOUT = 180  # 3 min per agent prompt — fall back to template if Claude is slow
 
 
 def _find_claude_binary() -> str | None:
@@ -135,19 +135,19 @@ def _build_pm_context(
     if wave_folder.exists():
         for spec_file in sorted(wave_folder.iterdir()):
             if spec_file.suffix == ".md":
-                lines += [f"### SPEC: {spec_file.name}", _read(spec_file, 8000), ""]
+                lines += [f"### SPEC: {spec_file.name}", _read(spec_file, 2000), ""]
 
     # DOD for current wave
     dod_map = {11: "DOD_EPIC_08.md", 12: "DOD_EPIC_09.md"}
     dod_path = DOD_ROOT / dod_map.get(wave, "DOD_EPIC_08.md")
     if dod_path.exists():
-        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 5000), ""]
+        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 2000), ""]
 
     # Epic TODO list
     todo_map = {11: "EPIC_08_PLAYBOOK.md", 12: "EPIC_09_DASHBOARD.md"}
     todo_path = TODO_ROOT / todo_map.get(wave, "EPIC_08_PLAYBOOK.md")
     if todo_path.exists():
-        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 4000), ""]
+        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 2000), ""]
 
     lines += [
         "",
@@ -287,7 +287,7 @@ For Agent {agent_id}, include tasks to:
 - If any AC item cannot be verified, document exactly which item failed and why
 
 ## PM CONTEXT (full project state — read every section)
-{pm_context[:40000]}
+{pm_context[:8000]}
 
 ## OUTPUT FORMAT
 Generate ONLY the agent prompt text. Start with the header line:

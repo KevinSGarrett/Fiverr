@@ -172,7 +172,13 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
             result.errors.append(f"Safety gate triggered: {description}")
 
     # ── Cycle number must match ─────────────────────────────────────────
-    cycle_match = re.search(r"CYCLE[_ ]?0*(\d+)", text, re.IGNORECASE)
+    # Look for the canonical agent prompt header: "AGENT X -- CYCLE NNN PROMPT"
+    # This avoids false positives from references like "DO NOT create cycle_083_*"
+    # in PM_Pack Section 0 preambles that appear before the actual header.
+    header_match = re.search(
+        r"AGENT\s+\w+\s+--\s+CYCLE\s+0*(\d+)\s+PROMPT", text, re.IGNORECASE
+    )
+    cycle_match = header_match or re.search(r"CYCLE[_ ]?0*(\d+)", text, re.IGNORECASE)
     if cycle_match:
         found = int(cycle_match.group(1))
         if found != cycle:
