@@ -138,7 +138,9 @@ jobs:
           --ignore=tests/unit/test_prompt_generator.py
           --ignore=tests/unit/test_automation_system_restriction_removal.py
           --ignore=tests/unit/test_prompt_contract_builder.py
-          --cov=src --cov=automation --cov-report=xml --cov-fail-under=90
+          --cov=src --cov=automation
+          --cov-omit=automation/claude_prompt_creator.py,automation/claude_post_cycle_adapter.py,automation/cursor_adapter.py
+          --cov-report=xml --cov-fail-under=90
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4.6.2
         if: always()

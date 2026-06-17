@@ -1226,7 +1226,7 @@ def write_prompts(
     agents: list[str],
     jira_issues: list[dict],
     prompts_dir: Path,
-    cycle_brief: "Any | None" = None,
+    cycle_brief: Any | None = None,
 ) -> dict[str, Path]:
     """Generate and write all agent prompts. Returns agent -> path map.
     Raises RuntimeError with PLANNING_INCOMPLETE if insufficient Jira issues.

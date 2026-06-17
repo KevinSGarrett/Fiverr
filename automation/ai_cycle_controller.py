@@ -1257,7 +1257,7 @@ def cmd_tick() -> None:
         else:
             click.secho(f"  [WARN] plan-cycle failed:\n{out.strip()[-400:]}", fg="yellow")
             write_controller_state("PLANNING", cycle=cycle)
-            click.secho(f"  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
+            click.secho("  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
 
     elif status == "PLANNED":
         # Validate prompts
@@ -1307,7 +1307,7 @@ def cmd_tick() -> None:
                     fg="cyan", bold=True)
         write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
         # Run post-cycle-review inline so the scheduled tick handles the full lifecycle
-        from automation.post_cycle_review import run_review, ReviewMode, ReviewResult
+        from automation.post_cycle_review import run_review, ReviewMode
         try:
             result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
             grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
@@ -1362,7 +1362,7 @@ def cmd_tick() -> None:
         # Always attempt the review rather than waiting indefinitely.
         click.secho(f"  [TICK] {status} — attempting post-cycle-review for cycle {cycle}...",
                     fg="cyan")
-        from automation.post_cycle_review import run_review, ReviewMode, ReviewResult
+        from automation.post_cycle_review import run_review, ReviewMode
         try:
             result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
             grade = result.result.value if hasattr(result, "result") else "UNKNOWN"

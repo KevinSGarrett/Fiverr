@@ -131,7 +131,7 @@ def _build_pm_context(
 
     # All spec docs for current wave
     wave_folder_map = {11: "11_playbook", 12: "12_dashboard_ux"}
-    wave_folder = REF_ROOT / wave_folder_map.get(wave, f"11_playbook")
+    wave_folder = REF_ROOT / wave_folder_map.get(wave, "11_playbook")
     if wave_folder.exists():
         for spec_file in sorted(wave_folder.iterdir()):
             if spec_file.suffix == ".md":
@@ -172,7 +172,7 @@ def _build_pm_context(
         lines += [
             f"#### {key}: {summary}",
             f"Status: {status}",
-            f"Acceptance Criteria & DOD:",
+            "Acceptance Criteria & DOD:",
             desc[:2000] if desc else "(see Jira for AC/DOD)",
             "",
         ]
@@ -363,7 +363,6 @@ def create_agent_prompts_via_claude(
                 )
             prompt_text = (r.stdout or "").strip()
             if not prompt_text or r.returncode != 0:
-                stderr = (r.stderr or "")[:300]
                 return None  # Signal fallback needed
         except subprocess.TimeoutExpired:
             return None
