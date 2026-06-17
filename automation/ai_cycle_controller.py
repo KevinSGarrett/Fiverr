@@ -832,8 +832,11 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         click.echo(f"  (auto-detected cycle={cycle} from controller state)")
 
     import automation.autopilot_logger as L
+    from automation.live_events import emit as _ev, clear as _ev_clear
 
+    _ev_clear()
     L.banner(f"RUN CYCLE {cycle:03d}")
+    _ev("CYCLE", f"RUN CYCLE {cycle:03d} started -- 6 agents queued", cycle=cycle)
     agents = ["A", "B", "E", "C", "F", "D"]
     failures: dict[str, str] = {}
 
@@ -863,6 +866,7 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     for idx, agent in enumerate(agents, 1):
         prompt_path = REPO_ROOT / f"PM_Pack/automation/prompts/CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
         prompt_bytes = prompt_path.stat().st_size if prompt_path.exists() else 0
+        _ev("AGENT", f"Agent {agent} STARTING [{idx}/{len(agents)}] -- {prompt_bytes//1024}KB prompt", agent=agent, cycle=cycle, status="RUNNING")
         L.agent_start(agent, cycle, prompt_bytes, idx, len(agents))
         _write_progress(agent, completed_agents, list(failures.keys()))
 
@@ -874,15 +878,33 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             args.append("--safe-docs-only")
 
         t0 = _t.time()
-        with L.Spinner(f"Agent {agent} running (Cursor + Codex 5.3)"):
-            rc, output = _run_shell_command(args)
+        import subprocess as _subp2
+        output_lines: list[str] = []
+        try:
+            _aproc = _subp2.Popen(
+                args, stdout=_subp2.PIPE, stderr=_subp2.STDOUT,
+                text=True, encoding="utf-8", errors="replace", cwd=str(REPO_ROOT),
+            )
+            for _aline in _aproc.stdout:
+                _clean = _aline.rstrip()
+                if _clean:
+                    click.echo(f"    [Agent {agent}] {_clean}")
+                    output_lines.append(_clean)
+            _aproc.wait()
+            rc = _aproc.returncode
+            output = chr(10).join(output_lines[-50:])  # keep last 50 lines for fail detail
+        except Exception as _aexc:
+            rc = 1
+            output = str(_aexc)
         elapsed = _t.time() - t0
 
         L.agent_done(agent, elapsed, rc == 0, idx, len(agents))
         if rc == 0:
             completed_agents.append(agent)
+            _ev("AGENT", f"Agent {agent} DONE ({elapsed:.0f}s) [{idx}/{len(agents)}]", agent=agent, cycle=cycle, status="OK")
         else:
             failures[agent] = output.strip()
+            _ev("AGENT", f"Agent {agent} FAILED ({elapsed:.0f}s)", agent=agent, cycle=cycle, status="FAIL")
             L.agent_fail_detail(agent, output)
         _write_progress(agent, completed_agents, list(failures.keys()), elapsed)
 
@@ -1402,6 +1424,7 @@ def cmd_tick() -> None:
             # Show every check so operator sees exactly what passed/failed
             L.newline()
             facts = result.facts if hasattr(result, "facts") else None
+            from automation.live_events import emit as _ev2
             if facts:
                 L.section("Post-cycle check results")
                 L.post_cycle_check("Lint (ruff)", facts.local_ruff)
@@ -1418,6 +1441,8 @@ def cmd_tick() -> None:
                 blockers = getattr(facts, "github_blockers", [])
                 for b in blockers[:3]:
                     L.warn(f"GitHub blocker: {b}")
+                cov = f"{facts.local_coverage_pct:.0f}%" if facts.local_coverage_pct else "?"
+                _ev2("REVIEW", f"lint={'OK' if facts.local_ruff else 'FAIL'} tests={'OK' if facts.local_pytest else 'FAIL'} cov={cov} CI={'OK' if facts.ci_passed else 'FAIL'} jira={'OK' if facts.cycle_control_done else 'PEND'}", cycle=cycle)
             L.post_cycle_grade(grade, cycle)
             if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY") or not result.blocks_dispatch:
                 write_controller_state("POST_CYCLE_PASS", cycle=cycle)
@@ -2042,21 +2067,45 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
                 L.warn(f"Reached max-cycles={max_cycles}. Stopping.")
                 break
 
-        # Execute tick (auto-dispatches agents when READY_TO_DISPATCH)
+        # Execute tick with live streaming (not capture) so all output appears immediately
+        import subprocess as _subp
         try:
-            _rc, _out = _run_shell_command(
-                [sys.executable, "automation/ai_cycle_controller.py", "tick"]
+            _proc = _subp.Popen(
+                [sys.executable, "automation/ai_cycle_controller.py", "tick"],
+                stdout=_subp.PIPE, stderr=_subp.STDOUT,
+                text=True, encoding="utf-8", errors="replace",
+                cwd=str(REPO_ROOT),
             )
-            if _out:
-                for line in _out.splitlines():
-                    if line.strip():
-                        click.echo(f"  {line}")
-            if _rc != 0:
-                L.error(f"Tick exited with code {_rc}")
+            for _line in _proc.stdout:
+                _stripped = _line.rstrip()
+                if _stripped:
+                    click.echo(f"  {_stripped}")
+            _proc.wait()
+            if _proc.returncode != 0:
+                L.error(f"Tick exited with code {_proc.returncode}")
         except Exception as exc:
             L.error(f"Tick raised exception: {exc}")
             import traceback
             L.info(traceback.format_exc()[-300:])
+
+        # Show live event feed (events written by all stages across subprocess boundaries)
+        from automation.live_events import recent as _ev_recent
+        _events = _ev_recent(n=12)
+        if _events:
+            click.echo("")
+            click.secho("  ---- Pipeline events ----", fg="blue")
+            for _ev in _events:
+                _stage = _ev.get("stage", "?")
+                _msg = _ev.get("msg", "")
+                _ts = _ev.get("ts", "")
+                _agent = _ev.get("agent", "")
+                _st = _ev.get("status", "INFO")
+                _agent_str = f" [Agent {_agent}]" if _agent else ""
+                _color = {"OK": "green", "FAIL": "red", "WARN": "yellow", "RUNNING": "cyan"}.get(_st, "white")
+                click.secho(
+                    f"  {_ts}  {_stage:<10}{_agent_str:<10}  {_msg}",
+                    fg=_color
+                )
 
         if stop_flag["stop"]:
             break

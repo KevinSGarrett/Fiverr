@@ -362,14 +362,17 @@ def create_agent_prompts_via_claude(
     import time as _t
     import automation.autopilot_logger as L
 
+    from automation.live_events import emit as _emit
     L.section(f"Claude PM generating {len(agents)} agent prompts for Cycle {cycle:03d}")
     L.info(f"Model: {CLAUDE_MODEL}  Timeout: {CLAUDE_TIMEOUT}s per agent")
     L.info(f"Estimated time: {len(agents) * 3}-{len(agents) * 5} min total")
+    _emit("CLAUDE_PM", f"Starting prompt generation for Cycle {cycle:03d} ({len(agents)} agents)", cycle=cycle)
 
     for idx, agent_id in enumerate(agents, 1):
         request_text = _build_agent_prompt_request(
             agent_id=agent_id, cycle=cycle, branch=branch, pm_context=pm_context,
         )
+        _emit("CLAUDE_PM", f"Generating Agent {agent_id} prompt [{idx}/{len(agents)}]", agent=agent_id, cycle=cycle, status="RUNNING")
         L.claude_pm_start(agent_id, cycle, idx, len(agents))
 
         t0 = _t.time()
@@ -378,9 +381,11 @@ def create_agent_prompts_via_claude(
         elapsed = _t.time() - t0
 
         if not prompt_text:
+            _emit("CLAUDE_PM", f"Agent {agent_id} prompt FAILED -- template fallback", agent=agent_id, cycle=cycle, status="WARN")
             L.claude_pm_done(agent_id, elapsed, 0, False, idx, len(agents))
             return None  # Signal fallback needed
 
+        _emit("CLAUDE_PM", f"Agent {agent_id} prompt DONE ({elapsed:.0f}s, {len(prompt_text)//1024}KB)", agent=agent_id, cycle=cycle, status="OK")
         L.claude_pm_done(agent_id, elapsed, len(prompt_text), True, idx, len(agents))
         prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_PROMPT.md"
         prompt_path.write_text(prompt_text, encoding="utf-8")
