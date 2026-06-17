@@ -25,7 +25,6 @@ def test_stage_executor_called_after_run_cycle(monkeypatch) -> None:
             return 3
 
     monkeypatch.setattr("automation.ai_cycle_controller._run_shell_command", lambda args: (0, "ok"))
-    monkeypatch.setattr("automation.ai_cycle_controller._run_and_stream", lambda args, label="": (0, "ok"))
     monkeypatch.setattr("automation.stage_executor.StageExecutor", _FakeStageExecutor)
 
     result = CliRunner().invoke(cli, ["run-cycle", "--cycle", "82"])
@@ -47,7 +46,6 @@ def test_stage_advances_without_human_input(monkeypatch) -> None:
             return 4
 
     monkeypatch.setattr("automation.ai_cycle_controller._run_shell_command", lambda args: (0, "ok"))
-    monkeypatch.setattr("automation.ai_cycle_controller._run_and_stream", lambda args, label="": (0, "ok"))
     monkeypatch.setattr("automation.stage_executor.StageExecutor", _FakeStageExecutor)
 
     result = CliRunner().invoke(cli, ["run-cycle", "--cycle", "82"])
@@ -163,7 +161,8 @@ def test_safe_docs_only_invokes_cursor_adapter(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr("automation.state_writer.write_heartbeat", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         "automation.run_agent_lifecycle.run_post_agent_lifecycle",
-        lambda **kwargs: _Lifecycle(),
+        lambda agent_id, cycle, run_id, run_dir,
+               jira_keys=None, contract=None, dry_run=False, pre_dispatch_sha=None: _Lifecycle(),
     )
     monkeypatch.setattr(
         ctrl,
