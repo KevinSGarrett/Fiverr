@@ -80,6 +80,35 @@ def _read_runner_state() -> dict:
         return {}
 
 
+def _run_and_stream(args: list[str], label: str = "") -> tuple[int, str]:
+    """Run a subprocess streaming stdout live to terminal.
+
+    Testable: monkeypatch automation.ai_cycle_controller._run_and_stream
+    Falls back to _run_shell_command behavior on Popen failure.
+    """
+    output_lines: list[str] = []
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=str(REPO_ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        for line in proc.stdout:
+            clean = line.rstrip()
+            if clean:
+                prefix = f"  [{label}] " if label else "  "
+                click.echo(f"{prefix}{clean}")
+            output_lines.append(clean)
+        proc.wait()
+        return proc.returncode, "\n".join(output_lines[-80:])
+    except Exception as exc:
+        return 1, str(exc)
+
+
 def _run_shell_command(args: list[str]) -> tuple[int, str]:
     proc = subprocess.run(
         args,
@@ -878,24 +907,7 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             args.append("--safe-docs-only")
 
         t0 = _t.time()
-        import subprocess as _subp2
-        output_lines: list[str] = []
-        try:
-            _aproc = _subp2.Popen(
-                args, stdout=_subp2.PIPE, stderr=_subp2.STDOUT,
-                text=True, encoding="utf-8", errors="replace", cwd=str(REPO_ROOT),
-            )
-            for _aline in _aproc.stdout:
-                _clean = _aline.rstrip()
-                if _clean:
-                    click.echo(f"    [Agent {agent}] {_clean}")
-                    output_lines.append(_clean)
-            _aproc.wait()
-            rc = _aproc.returncode
-            output = chr(10).join(output_lines[-50:])  # keep last 50 lines for fail detail
-        except Exception as _aexc:
-            rc = 1
-            output = str(_aexc)
+        rc, output = _run_and_stream(args, label=f"Agent {agent}")
         elapsed = _t.time() - t0
 
         L.agent_done(agent, elapsed, rc == 0, idx, len(agents))
@@ -1340,7 +1352,17 @@ def cmd_tick() -> None:
             click.echo(f"  Advancing HYDRATION_HEADER: cycle {cycle} → {next_cycle_target}")
         click.echo("  → Running compile-policy...")
         snap = compile_policy(REPO_ROOT)
-        next_cycle = snap.get("cycle_current", 75)
+        compiled_cycle = snap.get("cycle_current", 75)
+        # NEVER regress the cycle number — if compile-policy returned something lower
+        # than what we already have in state (e.g. from a stale runner checkout),
+        # keep the higher number.
+        next_cycle = max(compiled_cycle, cycle or 1)
+        if next_cycle != compiled_cycle:
+            click.secho(
+                f"  CYCLE GUARD: compile-policy returned {compiled_cycle} but "
+                f"current state is cycle={cycle}. Keeping cycle={next_cycle}.",
+                fg="yellow",
+            )
         write_controller_state("COMPILED", cycle=next_cycle)
         notify_info(f"Tick: policy compiled, cycle={next_cycle}")
         click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
