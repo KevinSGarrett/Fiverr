@@ -112,7 +112,7 @@ def _setup_lifecycle_repo(tmp_path: Path, monkeypatch):
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("AGENT_COMPLETE\n", encoding="utf-8")
     monkeypatch.setattr(lifecycle, "REPO_ROOT", repo_root)
-    monkeypatch.setattr(lifecycle, "_get_changed_files", lambda: ["tests/unit/test_run_agent_lifecycle.py"])
+    monkeypatch.setattr(lifecycle, "_get_changed_files", lambda pre_dispatch_sha=None: ["tests/unit/test_run_agent_lifecycle.py"])
     monkeypatch.setattr(lifecycle, "_check_ownership", lambda agent, files: [])
     monkeypatch.setattr(lifecycle, "_scan_changed_files", lambda files: [])
     monkeypatch.setattr(lifecycle, "_run_validation", lambda agent: (True, "all passed"))

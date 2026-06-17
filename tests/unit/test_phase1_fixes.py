@@ -87,6 +87,7 @@ def _fake_cursor_result():
 def _mock_all(monkeypatch, lifecycle_status, lifecycle_errors=None):
     """Mock out all external calls in cmd_run_agent."""
     from automation.run_agent_lifecycle import AgentLifecycleResult
+    from automation.model_gate import ModelGateResult
 
     # Block real git rev-parse
     orig_run = subprocess.run
@@ -102,6 +103,11 @@ def _mock_all(monkeypatch, lifecycle_status, lifecycle_errors=None):
     monkeypatch.setattr("automation.ai_cycle_controller._run_and_stream", lambda *a, **k: (0, "ok"))
     monkeypatch.setattr("automation.ai_cycle_controller._run_shell_command", lambda *a, **k: (0, "ok"))
     monkeypatch.setattr("automation.cursor_adapter.run_agent", lambda *a, **k: _fake_cursor_result())
+    # Explicitly mock model_gate.check so CI never needs real state files or git remote
+    monkeypatch.setattr(
+        "automation.model_gate.check",
+        lambda **kwargs: ModelGateResult(passed=True),
+    )
     monkeypatch.setattr(
         "automation.run_agent_lifecycle.run_post_agent_lifecycle",
         lambda *a, **k: AgentLifecycleResult(
