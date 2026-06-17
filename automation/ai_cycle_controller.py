@@ -814,15 +814,22 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
 
 
 @cli.command("run-cycle")
-@click.option("--cycle", required=True, type=int, help="Cycle number.")
+@click.option("--cycle", required=False, type=int, default=None,
+              help="Cycle number (auto-detected from controller state if omitted).")
 @click.option(
     "--safe-docs-only",
     is_flag=True,
     default=False,
     help="Restrict run-agent scope to docs smoke target.",
 )
-def cmd_run_cycle(cycle: int, safe_docs_only: bool) -> None:
+def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     """Run the full 6-agent cycle then auto-advance stage when ready."""
+    if cycle is None:
+        cycle = int(_read_runner_state().get("active_cycle", 0))
+        if not cycle:
+            click.secho("ERROR: no active_cycle in controller state — run plan-cycle first", fg="red")
+            raise SystemExit(1)
+        click.echo(f"  (auto-detected cycle={cycle} from controller state)")
     click.echo("=" * 60)
     click.echo(f"RUN CYCLE {cycle:03d}")
     click.echo("=" * 60)
@@ -1307,8 +1314,19 @@ def cmd_tick() -> None:
                 click.secho("  State: CLAUDE_API_KEY_BLOCKED", fg="red")
             else:
                 write_controller_state("AWAITING_DISPATCH", cycle=cycle)
-                click.secho("  State: AWAITING_DISPATCH — all gates pass, ready to dispatch", fg="green")
-                notify_info(f"Tick: awaiting dispatch signal for cycle {cycle}")
+                click.secho("  All gates pass — dispatching agents now...", fg="green")
+                notify_info(f"Tick: dispatching cycle {cycle}")
+                # ── DISPATCH: call run-cycle directly ────────────────
+                write_controller_state("DISPATCHING", cycle=cycle)
+                rc, out = _run_shell_command(
+                    [sys.executable, "automation/ai_cycle_controller.py",
+                     "run-cycle", "--cycle", str(cycle)]
+                )
+                if rc == 0:
+                    click.secho(f"  Cycle {cycle} dispatched and complete.", fg="green", bold=True)
+                else:
+                    click.secho(f"  [WARN] run-cycle exited {rc}: {out.strip()[-300:]}", fg="yellow")
+                    write_controller_state("PLANNED", cycle=cycle)  # reset for retry
 
     elif status == "AGENT_COMPLETE":
         # All agents finished — automatically trigger post-cycle-review.
@@ -1755,6 +1773,122 @@ def cmd_pm_pack_audit() -> None:
         raise SystemExit(1)
     click.secho("PM_PACK_AUDIT PASS", fg="green", bold=True)
 
+
+# ---------------------------------------------------------------------------
+# 24/7 AUTOPILOT — single terminal command to run the full system forever
+# ---------------------------------------------------------------------------
+
+@cli.command("start-autopilot")
+@click.option("--interval", default=60, show_default=True,
+              help="Seconds between ticks.")
+@click.option("--max-cycles", default=0, show_default=True,
+              help="Stop after N cycles complete (0 = run until Ctrl+C).")
+def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
+    """Run the autonomous build loop in this terminal until Ctrl+C.
+
+    Each iteration:
+      1. Runs tick (auto-dispatches Cursor agents when prompts are ready)
+      2. Agents write code, open PRs, pass CI
+      3. Claude PM reviews the work and grades the cycle
+      4. Next cycle is planned and the loop repeats
+
+    \b
+    Usage:
+        python automation/ai_cycle_controller.py start-autopilot
+        python automation/ai_cycle_controller.py start-autopilot --interval 30
+        python automation/ai_cycle_controller.py start-autopilot --max-cycles 5
+    """
+    import signal
+
+    stop_flag = {"stop": False}
+    cycles_completed = 0
+    last_completed_cycle = None
+
+    def _on_stop(sig: int, _frame: object) -> None:
+        click.secho(
+            "\n\n  [AUTOPILOT] Ctrl+C — stopping after this tick completes...",
+            fg="yellow", bold=True,
+        )
+        stop_flag["stop"] = True
+
+    signal.signal(signal.SIGINT, _on_stop)
+    signal.signal(signal.SIGTERM, _on_stop)
+
+    click.secho("\n" + "=" * 62, fg="cyan", bold=True)
+    click.secho("  FIVERR RESEARCH SYSTEM — 24/7 AUTONOMOUS BUILD MODE", fg="cyan", bold=True)
+    click.secho("=" * 62, fg="cyan", bold=True)
+    click.secho(f"  Tick interval : every {interval}s", fg="cyan")
+    click.secho(f"  Max cycles    : {'unlimited (Ctrl+C to stop)' if max_cycles == 0 else max_cycles}", fg="cyan")
+    click.secho("=" * 62 + "\n", fg="cyan", bold=True)
+
+    tick_count = 0
+
+    while not stop_flag["stop"]:
+        tick_count += 1
+        state = _read_runner_state()
+        status = state.get("status", "IDLE")
+        cycle  = state.get("active_cycle", 0)
+
+        click.secho(f"\n{'─' * 62}", fg="blue")
+        click.secho(
+            f"  TICK #{tick_count:04d}  status={status:<20}  cycle={cycle}",
+            fg="blue", bold=True,
+        )
+        click.secho(f"  {_now()}", fg="blue")
+        click.secho(f"{'─' * 62}", fg="blue")
+
+        # Detect a cycle just completing
+        if status in ("POST_CYCLE_PASS",) and last_completed_cycle != cycle:
+            last_completed_cycle = cycle
+            cycles_completed += 1
+            click.secho(
+                f"\n  ✓ CYCLE {cycle:03d} COMPLETE  "
+                f"(session total: {cycles_completed})",
+                fg="green", bold=True,
+            )
+            if max_cycles > 0 and cycles_completed >= max_cycles:
+                click.secho(
+                    f"\n  [AUTOPILOT] Reached max-cycles={max_cycles}. Stopping.",
+                    fg="yellow",
+                )
+                break
+
+        # Execute tick — this now auto-dispatches agents when READY_TO_DISPATCH
+        try:
+            _rc, _out = _run_shell_command(
+                [sys.executable, "automation/ai_cycle_controller.py", "tick"]
+            )
+            if _out:
+                for line in _out.splitlines():
+                    click.echo(f"  {line}")
+        except Exception as exc:
+            click.secho(f"  [ERROR] tick raised: {exc}", fg="red")
+
+        if stop_flag["stop"]:
+            break
+
+        # Countdown sleep — shows the system is alive
+        for remaining in range(interval, 0, -5):
+            if stop_flag["stop"]:
+                break
+            mins, secs = divmod(remaining, 60)
+            label = f"{mins}m{secs:02d}s" if mins else f"{secs}s"
+            click.echo(f"\r  Next tick in {label}...  ", end="", err=False)
+            import time as _t
+            _t.sleep(min(5, remaining))
+        click.echo("")  # newline after countdown
+
+    # Summary on exit
+    state = _read_runner_state()
+    click.secho("\n" + "=" * 62, fg="cyan", bold=True)
+    click.secho("  AUTOPILOT STOPPED", fg="cyan", bold=True)
+    click.secho(f"  Total ticks run     : {tick_count}", fg="cyan")
+    click.secho(f"  Cycles completed    : {cycles_completed}", fg="cyan")
+    click.secho(
+        f"  Final state         : {state.get('status')}  cycle={state.get('active_cycle')}",
+        fg="cyan",
+    )
+    click.secho("=" * 62 + "\n", fg="cyan", bold=True)
 
 
 if __name__ == "__main__":
