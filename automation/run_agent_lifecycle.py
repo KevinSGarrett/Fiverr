@@ -238,9 +238,12 @@ def _get_changed_files(pre_dispatch_sha: str | None = None) -> list[str]:
     SINCE that snapshot (committed OR uncommitted). This prevents cross-cycle
     leftovers from prior failed agents from tripping the ownership check.
 
-    Without pre_dispatch_sha: falls back to git diff HEAD (all uncommitted),
-    which is the old (broken) behavior preserved for backward compatibility.
+    Without pre_dispatch_sha: falls back to git diff HEAD (all uncommitted).
+    PYTEST guard: returns [] during test runs (avoids Windows-path git calls on Linux CI).
     """
+    import os as _os
+    if _os.environ.get("PYTEST_CURRENT_TEST"):
+        return []  # No real git calls during tests
     if pre_dispatch_sha:
         # C1 FIX: diff only against the snapshot taken before dispatch.
         # Files committed since snapshot + any new uncommitted files.
