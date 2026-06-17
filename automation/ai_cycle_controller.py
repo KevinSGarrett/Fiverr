@@ -1388,7 +1388,33 @@ def cmd_tick() -> None:
             click.secho(f"  [ERROR] post-cycle-review raised: {exc} — staying in {status}", fg="red")
 
     elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
-        click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+        # Re-check the gate before staying blocked — self-heal if it now passes
+        if status == "MODEL_BLOCKED":
+            from automation.cursor_adapter import check_model_gate_freshness
+            gate = check_model_gate_freshness()
+            if gate.get("passed"):
+                click.secho("  MODEL gate now PASSES — auto-clearing MODEL_BLOCKED", fg="green")
+                write_controller_state("PLANNED", cycle=cycle)
+                click.secho("  Advanced to PLANNED — will dispatch on next tick", fg="green")
+            else:
+                reason = gate.get("reason", "model gate failed")
+                click.secho(f"  BLOCKED ({status}): {reason} — resolve and run recover to reset", fg="red")
+        elif status == "PROMPT_VALIDATION_FAILED":
+            # Re-validate prompts — auto-heal if they now pass
+            try:
+                from automation.prompt_validator import validate_all
+                _agents = ["A", "B", "E", "C", "F", "D"]  # standard agent set
+                prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+                vr = validate_all(prompts_dir, cycle=cycle, agents=_agents)
+                if vr.get("passed"):
+                    click.secho("  Prompts now PASS — auto-clearing PROMPT_VALIDATION_FAILED", fg="green")
+                    write_controller_state("PLANNED", cycle=cycle)
+                else:
+                    click.secho(f"  BLOCKED ({status}) — prompts still failing, re-run plan-cycle", fg="red")
+            except Exception as _ve:
+                click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
+        else:
+            click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
 
     elif status == "BLOCKED_STAGE2_READINESS":
         # Retry readiness check — if prompts now exist (generated in a previous tick), should pass
