@@ -56,7 +56,7 @@ jobs:
           token: ${{ secrets.GH_AUTOMATION_TOKEN }}
 
       - name: Verify NOT running run-agent via workflow dispatch
-        shell: powershell
+        shell: powershell -ExecutionPolicy Bypass -NoProfile {0}
         run: |
           $mode = "${{ github.event.inputs.mode || '' }}"
           if ($mode -eq "run-agent") {
@@ -65,7 +65,7 @@ jobs:
           }
 
       - name: Set Cursor CLI path environment
-        shell: powershell
+        shell: powershell -ExecutionPolicy Bypass -NoProfile {0}
         run: |
           # Ensure standalone Cursor CLI (not Cursor Desktop) is on PATH
           $cliDir = "C:\Users\Windows 11\AppData\Local\cursor-agent"
@@ -80,7 +80,7 @@ jobs:
           & "$cliDir\agent.cmd" --version
 
       - name: Run AI cycle controller
-        shell: powershell
+        shell: powershell -ExecutionPolicy Bypass -NoProfile {0}
         env:
           GH_AUTOMATION_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
