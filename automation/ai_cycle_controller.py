@@ -1329,6 +1329,27 @@ def cmd_tick() -> None:
     status = state.get("status", "IDLE")
     cycle  = state.get("active_cycle")
 
+    # ── Cycle integrity check BEFORE any transitions ──────────────────
+    # If the cycle in controller_state is wrong (stale CI run, regression, etc.)
+    # correct it NOW and ABORT this tick. The next tick will start with the
+    # correct cycle and run the right state machine transitions.
+    try:
+        from automation.cycle_authority import reconcile as _ca_pre
+        _pre_rpt = _ca_pre(verbose=False)
+        if "CORRECTED" in str(_pre_rpt.get("action", "")):
+            correct_cycle = _pre_rpt["consensus"]
+            write_controller_state(status, cycle=correct_cycle)
+            click.secho(
+                f"[CYCLE GUARD] Cycle corrected {cycle} -> {correct_cycle} "
+                f"(confidence={_pre_rpt.get('confidence','?')}). "
+                f"Aborting tick — next tick will use corrected cycle.",
+                fg="yellow", bold=True,
+            )
+            click.echo("[TICK COMPLETE]")
+            return  # ABORT — don't run any state transitions with wrong cycle
+    except Exception:
+        pass
+
     click.echo(f"[TICK] {_now()}  status={status}  cycle={cycle}")
 
     # Always write fresh heartbeat
