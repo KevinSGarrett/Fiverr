@@ -1509,16 +1509,30 @@ def cmd_tick() -> None:
                     click.secho(f"  Target: {ln.strip()[:80]}", fg="bright_black")
                     break
 
-        # ── Show files changed since last develop commit ───────────────
+        # ── Show files changed (committed + uncommitted) ─────────────
+        # Agents work in Cursor and may not commit until end of their run
+        # Check both committed vs develop AND unstaged local changes
         rc_diff, diff_out = _run_shell_command(
-            ["git", "diff", "origin/develop..HEAD", "--stat", "--compact-summary"]
+            ["git", "diff", "--stat", "HEAD"]
         )
-        if rc_diff == 0 and diff_out.strip():
-            lines_diff = [ln for ln in diff_out.strip().splitlines() if ln.strip()][-6:]
+        rc_diff2, diff_out2 = _run_shell_command(
+            ["git", "diff", "--stat", "--cached", "HEAD"]
+        )
+        rc_diff3, diff_out3 = _run_shell_command(
+            ["git", "diff", "origin/develop..HEAD", "--stat"]
+        )
+        combined = "\n".join(filter(None, [diff_out.strip(), diff_out2.strip(), diff_out3.strip()]))
+        if combined.strip():
+            all_lines = list(dict.fromkeys(
+                ln for ln in combined.splitlines() if ln.strip() and "changed" not in ln
+            ))[-8:]
+            summary_lines = [ln for ln in combined.splitlines() if "changed" in ln]
             click.echo("")
-            click.secho("  Files changed vs develop:", fg="bright_black")
-            for ln in lines_diff:
-                click.secho(f"    {ln}", fg="bright_black")
+            click.secho("  Code changes in progress:", fg="bright_black")
+            for ln in all_lines:
+                click.secho(f"    {ln.strip()}", fg="bright_black")
+            if summary_lines:
+                click.secho(f"    {summary_lines[-1].strip()}", fg="cyan")
 
         # ── Heartbeat staleness check ─────────────────────────────────
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
