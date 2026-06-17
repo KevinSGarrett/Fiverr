@@ -92,6 +92,20 @@ def verify_subscription_preflight() -> dict:
     return {"passed": True, "reason": "API_KEY_ABSENT_SUBSCRIPTION_ONLY"}
 
 
+def _get_review_model() -> str:
+    """Resolve review model from config; default strongest available (H6 fix)."""
+    try:
+        import yaml
+        from pathlib import Path
+        cfg = Path('C:/Fiverr/Fiverr') / 'config/autonomous_runner.yml'
+        if cfg.exists():
+            data = yaml.safe_load(cfg.read_text(encoding='utf-8')) or {}
+            return data.get('review_model', 'claude-opus-4-6') or 'claude-opus-4-6'
+    except Exception:
+        pass
+    return 'claude-opus-4-6'
+
+
 def run_post_cycle_review(
     cycle: int,
     run_dir: Path,
@@ -149,16 +163,22 @@ def run_post_cycle_review(
         # (per claude_model_state.json: observed_default_model = Opus 4.8)
         # Use a real query string with -p; pipe the full review content via stdin.
         # This avoids OS argument-length limits and ensures Claude sees the prompt correctly.
+        # H7 FIX: align instruction with parser on exact "VERDICT: X" token format
         review_query = (
             "You are the official PM reviewer for the Fiverr Research System automation runner. "
-            "Review the post-cycle PM review request provided via stdin (facts JSON + review prompt). "
-            "Respond with exactly one of: PASS, ADVISORY_ONLY, or BLOCKED, "
-            "followed by a brief explanation."
+            "Review the post-cycle facts and context provided via stdin. "
+            "Your FIRST LINE must be exactly one of these three options:\n"
+            "  VERDICT: PASS\n"
+            "  VERDICT: FAIL\n"
+            "  VERDICT: BLOCKED\n"
+            "followed by your brief explanation on subsequent lines. "
+            "PASS = all gates green; FAIL = one or more hard gates red; "
+            "BLOCKED = work incomplete or PR missing."
         )
         with open(request_path, encoding="utf-8") as stdin_file:
             r = subprocess.run(
                 [claude_binary, "-p", review_query, "--output-format", "text",
-                 "--model", "claude-sonnet-4-6"],
+                 "--model", _get_review_model()],
                 stdin=stdin_file,
                 cwd=str(REPO_ROOT),
                 capture_output=True,
@@ -213,17 +233,30 @@ def _find_claude_binary() -> str | None:
 
 
 def _parse_review_outcome(response_text: str) -> str:
-    """Parse Claude's response for PASS/FAIL/ADVISORY keywords."""
+    """Parse Claude response for PASS/FAIL/ADVISORY verdict.
+
+    H7 FIX: instruction now requires first-line VERDICT: token; parser recognizes it.
+    Legacy fallbacks maintained for prior-format responses.
+    Returns: PASS | FAIL | BLOCKED | ADVISORY_ONLY
+    """
     upper = response_text.upper()
-    # Check for explicit PASS
+    # Primary: VERDICT: X token (H7 fix -- instruction-aligned)
+    if "VERDICT: PASS" in upper:
+        return "PASS"
+    if "VERDICT: FAIL" in upper or "VERDICT: BLOCKED" in upper:
+        return "FAIL"
+    # Legacy fallbacks
     if "POST-CYCLE REVIEW: PASS" in upper or "REVIEW RESULT: PASS" in upper:
         return "PASS"
-    # Check for explicit blockers
     if "POST-CYCLE REVIEW: FAIL" in upper or "REVIEW RESULT: FAIL" in upper:
         return "FAIL"
     if "DISPATCH BLOCKED" in upper:
         return "BLOCKED"
-    # Default — treat as advisory if no clear verdict
+    # Bare PASS on first line
+    first_line = upper.split("\n")[0][:60].strip()
+    if first_line == "PASS":
+        return "PASS"
+    # ADVISORY_ONLY = unclear response -- treated as needing investigation
     return "ADVISORY_ONLY"
 
 

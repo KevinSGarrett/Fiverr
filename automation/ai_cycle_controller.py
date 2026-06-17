@@ -557,7 +557,57 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     written: dict[str, Path] | None = None
     from automation.claude_prompt_creator import create_agent_prompts_via_claude
 
-    click.echo("  Attempting Claude-as-PM prompt generation (primary path)...")
+    # PQ-4 FIX: Live subscription probe BEFORE attempting generation.
+    # Previously _verify_claude_subscription() only checked env vars and a flag file
+    # -- never actually invoked the CLI. A broken/logged-out/rate-limited subscription
+    # passed preflight then silently failed and fell back to templates.
+    click.echo("  [1/3] Probing Claude subscription (live liveness check)...")
+    import time as _tm
+    _probe_start = _tm.time()
+    try:
+        from automation.claude_prompt_creator import _find_claude_binary
+        _claude_bin = _find_claude_binary()
+        if not _claude_bin:
+            raise RuntimeError("claude binary not found — check installation")
+        import subprocess as _sub
+        _probe = _sub.run(
+            [_claude_bin, "-p", "Reply: OK", "--print", "--output-format", "text",
+             "--trust", "--force"],
+            capture_output=True, text=True, timeout=30,
+        )
+        _probe_latency_ms = int((_tm.time() - _probe_start) * 1000)
+        _probe_ok = _probe.returncode == 0 and len((_probe.stdout or "").strip()) > 0
+        if _probe_ok:
+            click.secho(
+                f"  CLAUDE SUBSCRIPTION: OK  (latency={_probe_latency_ms}ms, "
+                f"binary={_claude_bin})",
+                fg="green", bold=True,
+            )
+        else:
+            raise RuntimeError(
+                f"probe returned rc={_probe.returncode} "
+                f"stdout={(_probe.stdout or '').strip()[:100]} "
+                f"stderr={(_probe.stderr or '').strip()[:100]}"
+            )
+    except Exception as _probe_exc:
+        click.secho(
+            f"  CLAUDE SUBSCRIPTION: FAIL — {_probe_exc}",
+            fg="red", bold=True,
+        )
+        click.secho(
+            "  PQ-4: Claude subscription probe failed. Prompts will NOT be generated "
+            "via Claude. Marking cycle as DEGRADED and halting plan-cycle.",
+            fg="red",
+        )
+        # Pause the autopilot so the operator sees this and can investigate
+        from pathlib import Path as _P
+        _P("C:/AI_Runner/state/autopilot_paused.json").write_text(
+            '{"reason":"CLAUDE_SUBSCRIPTION_FAIL","ts":"' + _now() + '"}',
+            encoding="utf-8"
+        )
+        raise SystemExit(1)
+
+    click.echo("  [2/3] Attempting Claude-as-PM prompt generation (primary path)...")
     try:
         written = create_agent_prompts_via_claude(
             cycle=next_cycle,
@@ -573,14 +623,38 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
                 fg="green"
             )
         else:
+            # PQ-3 FIX: Claude PM returned None (timeout/short-output/error).
+            # Previously this silently fell back to templates with only a yellow line.
+            # Now it's a loud, explicit failure that pauses the autopilot.
             click.secho(
-                "  Claude PM unavailable — falling back to template-based generation",
-                fg="yellow"
+                "  ⚠  CLAUDE PM UNAVAILABLE — Claude returned None for this cycle.\n"
+                "  This means the subscription is reachable (probe passed) but the\n"
+                "  full PM call timed out, returned < 500 chars, or errored.\n"
+                "  Autopilot PAUSED. Check C:\\AI_Runner\\tmp\\claude_pm_agent_*.err",
+                fg="red", bold=True,
             )
+            from pathlib import Path as _P2
+            _P2("C:/AI_Runner/state/autopilot_paused.json").write_text(
+                '{"reason":"CLAUDE_PM_RETURNED_NONE","ts":"' + _now() + '"}',
+                encoding="utf-8"
+            )
+            raise SystemExit(1)
+    except SystemExit:
+        raise
     except Exception as e:
-        click.secho(f"  Claude PM error ({e}) — falling back to template-based generation",
-                    fg="yellow")
-        written = None
+        click.secho(
+            f"  ⚠  CLAUDE PM EXCEPTION: {e}\n"
+            "  Autopilot PAUSED. Investigate before resuming.",
+            fg="red", bold=True,
+        )
+        from pathlib import Path as _P3
+        _P3("C:/AI_Runner/state/autopilot_paused.json").write_text(
+            '{"reason":"CLAUDE_PM_EXCEPTION","detail":"' + str(e)[:200] + '","ts":"' + _now() + '"}',
+            encoding="utf-8"
+        )
+        raise SystemExit(1)
+
+    click.echo("  [3/3] Prompts generated via Claude subscription ✓")
 
     # ── Template fallback: prompt_generator.py ────────────────────────
     if not written:
@@ -765,19 +839,28 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code} "
                f"elapsed={_agent_elapsed_min:.1f}min")
 
-    # Warn if agent completed suspiciously fast (< 5 min with 55+ tasks is a red flag)
+    # H4 FIX: treat suspiciously fast runs as a FAILED dispatch, not just a warning.
+    # Sub-5-min completions mean --force was missing (shell blocked) or auth failed.
+    # Evidence: ledger shows 0.3-4.8 min across all agents repeatedly -- no real work.
+    # PYTEST guard: skip this check in test environments (fake Cursor completes in 0s).
+    import os as _os
     MIN_EXPECTED_MINUTES = 5.0
-    if _agent_elapsed_min < MIN_EXPECTED_MINUTES:
+    if (_agent_elapsed_min < MIN_EXPECTED_MINUTES
+            and result.exit_code == 0
+            and not _os.environ.get("PYTEST_CURRENT_TEST")):
         click.secho(
-            f"  [WARN] Agent {agent} completed in {_agent_elapsed_min:.1f}min "
-            f"(expected >= {MIN_EXPECTED_MINUTES}min for 55-task prompt). "
-            "Shell execution may have been blocked.",
-            fg="yellow",
+            f"  [FAIL] Agent {agent} completed in {_agent_elapsed_min:.1f}min "
+            f"(floor: {MIN_EXPECTED_MINUTES}min for 55-task prompt). "
+            "Treating as failed dispatch — shell execution was likely blocked. "
+            "Verify --print --force --trust flags and Cursor auth.",
+            fg="red", bold=True,
         )
         _record_nonblocking_error(
-            f"run-agent suspiciously fast: cycle={cycle} agent={agent} "
-            f"elapsed={_agent_elapsed_min:.1f}min"
+            f"run-agent fast-fail: cycle={cycle} agent={agent} "
+            f"elapsed={_agent_elapsed_min:.1f}min < {MIN_EXPECTED_MINUTES}min floor"
         )
+        # H4 FIX: exit non-zero so run-cycle counts this as a failure, not done
+        raise SystemExit(1)
 
     if result.stdout_tail:
         click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
@@ -1515,12 +1598,23 @@ def cmd_tick() -> None:
                 cov = f"{facts.local_coverage_pct:.0f}%" if facts.local_coverage_pct else "?"
                 _ev2("REVIEW", f"lint={'OK' if facts.local_ruff else 'FAIL'} tests={'OK' if facts.local_pytest else 'FAIL'} cov={cov} CI={'OK' if facts.ci_passed else 'FAIL'} jira={'OK' if facts.cycle_control_done else 'PEND'}", cycle=cycle)
             L.post_cycle_grade(grade, cycle)
-            if grade in ("PASS", "CONDITIONAL_PASS", "ADVISORY_ONLY") or not result.blocks_dispatch:
+            # C4/H7 FIX: ADVISORY_ONLY no longer counts as a pass.
+            # Previously: "PASS or CONDITIONAL_PASS or ADVISORY_ONLY or not blocks_dispatch"
+            # -- this let broken cycles (lint/tests/CI all red) advance because ADVISORY_ONLY
+            # was the default when verdict parsing failed.
+            # Now: only PASS advances. ADVISORY_ONLY and CONDITIONAL_PASS route to FAIL/review.
+            if grade == "PASS" and not result.blocks_dispatch:
                 write_controller_state("POST_CYCLE_PASS", cycle=cycle)
                 L.ok(f"Cycle {cycle} COMPLETE — next tick plans Cycle {cycle + 1}")
+            elif grade in ("CONDITIONAL_PASS",) and not result.blocks_dispatch:
+                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+                L.ok(f"Cycle {cycle} CONDITIONAL PASS — next tick plans Cycle {cycle + 1}")
             else:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
-                L.error(f"POST_CYCLE_FAIL grade={grade} — review needed before Cycle {cycle + 1}")
+                L.error(
+                    f"POST_CYCLE_FAIL grade={grade} blocks_dispatch={result.blocks_dispatch} "
+                    f"— review issues before advancing to Cycle {cycle + 1}"
+                )
         except Exception as exc:
             L.error(f"post-cycle-review raised: {exc}")
             import traceback
@@ -1988,12 +2082,30 @@ def cmd_status_tick() -> None:
     from automation.freeze_gate import is_frozen
     frozen = is_frozen(REPO_ROOT)
 
-    # Check dirty repo
+    # Check dirty repo — M-STATE-2 FIX: exclude known runtime artifact paths
+    # that the loop itself writes into the working tree, so we don't block
+    # ourselves with BLOCKED_DIRTY_REPO on every cycle.
     import subprocess as _sp
-    git_status = _sp.run(
+    git_status_raw = _sp.run(
         ["git", "status", "--short"], cwd=str(REPO_ROOT),
-        capture_output=True, text=True
+        capture_output=True, text=True,
     ).stdout.strip()
+
+    # Paths written by the runtime that should not block dispatch
+    _ARTIFACT_PREFIXES = (
+        "PM_Pack/automation/post_cycle_reviews/",
+        "PM_Pack/automation/runs/",
+        "PM_Pack/automation/ref_catalogs/",
+        "PM_Pack/automation/prompts/drafts/",
+        "PM_Pack/automation/current_policy_snapshot.json",
+        "PM_Pack/automation/prompt_package_manifest.json",
+    )
+    _artifact_only_lines = [
+        line for line in git_status_raw.splitlines()
+        if not any(line.strip().lstrip("?! MAD").strip().startswith(p)
+                   for p in _ARTIFACT_PREFIXES)
+    ]
+    git_status = "\n".join(_artifact_only_lines)
     repo_dirty = bool(git_status)
 
     # Determine next action

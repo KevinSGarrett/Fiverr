@@ -102,8 +102,25 @@ class PostCycleReviewResult:
 
     @property
     def blocks_dispatch(self) -> bool:
+        # C4 FIX: POST_AGENT mode was hardcoded to never block.
+        # Now it blocks when hard facts are red (lint/mypy/pytest/CI fail,
+        # or GH health below threshold) -- these signal the agent produced
+        # broken code even if the cycle state machine wants to advance.
+        # ADVISORY_ONLY still passes (conservative first step).
         if self.mode == ReviewMode.POST_AGENT:
-            return False
+            # Block on undeniable red facts even in POST_AGENT mode
+            if hasattr(self, "facts") and self.facts is not None:
+                f = self.facts
+                hard_fail = (
+                    (f.local_ruff is False) or
+                    (f.local_mypy is False) or
+                    (f.local_pytest is False) or
+                    (f.ci_passed is False) or
+                    (getattr(f, "github_health_score", 100) is not None and
+                     getattr(f, "github_health_score", 100) < 50)
+                )
+                return hard_fail
+            return False  # No facts available -- don't block
         return self.result != ReviewResult.PASS
 
     def summary(self) -> str:
@@ -194,7 +211,7 @@ def collect_facts(cycle: int, mode: ReviewMode,
          "--ignore=tests/unit/test_cycle062_smoke_aliases.py",
          "--ignore=tests/unit/test_post_cycle_review_coverage.py",
          "--cov=src", "--cov=automation", "--cov-report=term-missing:skip-covered",
-         "--cov-fail-under=0"],
+         "--cov-fail-under=80"],  # H8 FIX: enforce coverage floor (was 0 -- decorative).
         capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=600,
     )
     facts.local_pytest = cov_result.returncode == 0

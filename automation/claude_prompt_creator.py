@@ -33,7 +33,25 @@ DOD_ROOT      = PM_PACK / "ref" / "dod"
 TODO_ROOT     = PM_PACK / "ref" / "todo"
 RUNNER_ROOT   = Path("C:/AI_Runner")
 
-CLAUDE_MODEL  = "claude-sonnet-4-6"
+# H6 FIX: Use the strongest available subscription model for PM synthesis.
+# The manual PM that "worked flawlessly" was Opus-class. Sonnet was deliberately
+# weaker. Reading from config allows upgrading without code changes.
+# Fallback: claude-sonnet-4-6 if config not found.
+def _get_pm_model() -> str:
+    """Resolve PM model from policy config, defaulting to strongest available."""
+    try:
+        import yaml
+        cfg_path = REPO_ROOT / "PM_Pack/automation/codex_verifier.yml"
+        if not cfg_path.exists():
+            cfg_path = REPO_ROOT / "config/autonomous_runner.yml"
+        if cfg_path.exists():
+            cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+            return cfg.get("pm_model", "claude-opus-4-6") or "claude-opus-4-6"
+    except Exception:
+        pass
+    return "claude-opus-4-6"  # default: strongest
+
+CLAUDE_MODEL  = _get_pm_model()
 CLAUDE_TIMEOUT = 480  # 8 min per agent — prompts are 3000-5000 lines
 
 
@@ -318,12 +336,12 @@ For Agent {agent_id}, include tasks to:
 - If any AC item cannot be verified, document exactly which item failed and why
 
 ## PM CONTEXT (full project state — read every section)
-{pm_context[:8000]}
+{pm_context}
 
 ## OUTPUT FORMAT
 Generate ONLY the agent prompt text. Start with the header line:
 # CYCLE {cycle:03d} — AGENT {agent_id} PROMPT
-# Wave 11 {branch}
+# Branch: {branch}
 
 Do not add preamble. Do not add explanation after the prompt.
 The prompt should be 3,000-5,000 lines for implementation agents (B), 1,500-3,000 for others.
