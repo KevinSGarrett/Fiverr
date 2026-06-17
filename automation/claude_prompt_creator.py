@@ -147,25 +147,40 @@ def _build_pm_context(
         "=" * 70,
     ]
 
-    # All spec docs for current wave
-    wave_folder_map = {11: "11_playbook", 12: "12_dashboard_ux"}
-    wave_folder = REF_ROOT / wave_folder_map.get(wave, "11_playbook")
-    if wave_folder.exists():
+    # C6 FIX: Derive wave folder/DOD/TODO dynamically (was hardcoded to waves 11/12).
+    # Searches REF_ROOT for a directory prefixed by wave number (e.g. "13_analytics").
+    def _find_wave_dir(root: Path, wave_num: int) -> Path | None:  # type: ignore[name-defined]
+        prefix = f"{wave_num:02d}_"
+        if root.exists():
+            for d in sorted(root.iterdir()):
+                if d.is_dir() and d.name.startswith(prefix):
+                    return d
+        return None
+
+    wave_folder = _find_wave_dir(REF_ROOT, wave) or _find_wave_dir(REF_ROOT, 11)
+    if wave_folder and wave_folder.exists():
+        lines += [f"### SPEC: Wave {wave} ({wave_folder.name})"]
         for spec_file in sorted(wave_folder.iterdir()):
             if spec_file.suffix == ".md":
-                lines += [f"### SPEC: {spec_file.name}", _read(spec_file, 2000), ""]
+                lines += [_read(spec_file, 3000), ""]
 
-    # DOD for current wave
-    dod_map = {11: "DOD_EPIC_08.md", 12: "DOD_EPIC_09.md"}
-    dod_path = DOD_ROOT / dod_map.get(wave, "DOD_EPIC_08.md")
-    if dod_path.exists():
-        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 2000), ""]
+    # DOD: find DOD_EPIC_*.md for this wave, or most-recent DOD file
+    dod_path = None
+    if DOD_ROOT.exists():
+        wave_dod = sorted(DOD_ROOT.glob(f"DOD_EPIC_*{wave:02d}*.md"))
+        any_dod  = sorted(DOD_ROOT.glob("DOD_EPIC_*.md"))
+        dod_path = (wave_dod or any_dod or [None])[-1]
+    if dod_path and dod_path.exists():
+        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 3000), ""]
 
-    # Epic TODO list
-    todo_map = {11: "EPIC_08_PLAYBOOK.md", 12: "EPIC_09_DASHBOARD.md"}
-    todo_path = TODO_ROOT / todo_map.get(wave, "EPIC_08_PLAYBOOK.md")
-    if todo_path.exists():
-        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 2000), ""]
+    # TODO: find EPIC_*.md for this wave, or most-recent epic file
+    todo_path = None
+    if TODO_ROOT.exists():
+        wave_todo = sorted(TODO_ROOT.glob(f"*EPIC*{wave:02d}*.md"))
+        any_todo  = sorted(TODO_ROOT.glob("*EPIC*.md"))
+        todo_path = (wave_todo or any_todo or [None])[-1]
+    if todo_path and todo_path.exists():
+        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 3000), ""]
 
     lines += [
         "",
@@ -181,7 +196,7 @@ def _build_pm_context(
     playbook_stories = [i for i in jira_issues if "[PLAYBOOK]" in i.get("summary", "")]
     other_stories = [i for i in jira_issues if i not in playbook_stories]
 
-    lines.append("### WAVE 11 TARGET STORIES (PRIMARY BUILD TARGET)")
+    lines.append(f"### WAVE {wave} TARGET STORIES (PRIMARY BUILD TARGET)")
     for issue in playbook_stories:
         key = issue["key"]
         summary = issue.get("summary", "")
@@ -321,7 +336,7 @@ Your job: Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cy
    - The exact function signature or class definition from the spec
    - Acceptance criteria items from the Jira story (must be verifiable)
    - DOD checklist items the agent must complete before marking task done
-7. Tasks MUST reference PLAYBOOK stories (SCRUM-205, 206, 208, 209, 210, 211) FIRST
+7. Tasks MUST reference the IN-SCOPE PLAYBOOK stories listed in the PM CONTEXT above. Derive the target stories from the Jira board state, NOT a hardcoded list.
 8. SCRUM-207 is already Done — do NOT rebuild it
 9. Include a squash SHA placeholder: [C{cycle:03d}_SQUASH_SHA]
 10. Include base SHA, suite count, coverage % from the PM context

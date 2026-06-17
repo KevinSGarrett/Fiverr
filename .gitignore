@@ -111,3 +111,10 @@ go_live_phase3.ps1
 
 Fiverr*.zip
 other_directories*.zip
+
+# M-STATE-2: Runtime artifacts written by autonomous loop (never commit these)
+PM_Pack/automation/post_cycle_reviews/*.json
+PM_Pack/automation/ref_catalogs/*.json
+PM_Pack/automation/prompts/drafts/
+PM_Pack/automation/current_policy_snapshot.json
+PM_Pack/automation/prompt_package_manifest.json
