@@ -482,15 +482,45 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
         text = "\n".join(lines).strip()
         if text and proc.returncode == 0 and len(text) > 500:
             return text
-        # Log stderr for debugging
+        # H2 FIX: surface actual failure reason instead of silent return None
         err = (stderr_bytes or b"").decode("utf-8", errors="replace").strip()
+        err_tail = err[-400:] if err else ""
+        _failure_msg = (
+            f"_call_claude_pm FAIL agent={agent_id} cycle={cycle} "
+            f"rc={proc.returncode} output_len={len(text)} "
+            f"(need >500) stderr_tail={repr(err_tail[:200])}"
+        )
+        # H2 FIX: emit to terminal + logger (was silently returning None)
+        import click as _ck2; _ck2.secho(f"  H2: {_failure_msg}", fg="red")
+        try:
+            import automation.autopilot_logger as _apl2; _apl2.error(_failure_msg)
+        except Exception:
+            pass
         if err:
             req_path.with_suffix(".err").write_text(err, encoding="utf-8")
         return None
     except subprocess.TimeoutExpired:
         proc.kill()
+        # H2 FIX: log actual timeout (was silently swallowed)
+        _tmsg = (
+            f"_call_claude_pm TIMEOUT agent={agent_id} cycle={cycle} "
+            f"after {CLAUDE_TIMEOUT}s"
+        )
+        import click as _ck3; _ck3.secho(f"  H2 TIMEOUT: {_tmsg}", fg="red")
+        try:
+            import automation.autopilot_logger as _apl3; _apl3.error(_tmsg)
+        except Exception:
+            pass
         return None
-    except Exception:
+    except Exception as _exc:
+        # H2 FIX: log actual exception (was bare except: return None)
+        import click as _ck4
+        _emsg = f"_call_claude_pm EXCEPTION agent={agent_id} cycle={cycle}: {_exc!r}"
+        _ck4.secho(f"  H2 EXCEPTION: {_emsg}", fg="red")
+        try:
+            import automation.autopilot_logger as _apl4; _apl4.error(_emsg)
+        except Exception:
+            pass
         return None
 
 
