@@ -69,6 +69,11 @@ class PostCycleFacts:
     cycle_control_done: bool = False
     next_cycle_control_created: bool = False
 
+    # GitHub health audit (from github_reviewer.py)
+    github_health_score: int = 100
+    github_blockers: list[str] = field(default_factory=list)
+    github_action_items: list[str] = field(default_factory=list)
+
     # Agent report facts
     agent_reports_present: dict[str, bool] = field(default_factory=dict)
 
@@ -245,6 +250,24 @@ def collect_facts(cycle: int, mode: ReviewMode,
     jira_facts = reviewer.collect_jira_facts(merge_sha=facts.merge_sha)
     if jira_facts.get("all_done", False):
         facts.cycle_control_done = True
+
+    # ── GitHub health audit (full repo review for PM) ─────────────────
+    try:
+        from automation.github_reviewer import (
+            build_health_report,
+            auto_fix_what_we_can,
+        )
+        branch = f"cycle/{cycle:03d}/integration"
+        health = build_health_report(cycle=cycle, branch=branch)
+        # Auto-fix what the PM can handle without code changes
+        auto_fix_what_we_can(health)
+        # Attach summary to facts for review prompt
+        facts.github_health_score = health.health_score
+        facts.github_blockers = health.blockers
+        facts.github_action_items = health.action_items[:10]
+    except Exception:
+        pass
+
     return facts
 
 

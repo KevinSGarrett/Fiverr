@@ -231,6 +231,37 @@ def _build_pm_context(
     if tracker.exists():
         lines += ["### Epic Status Tracker", _read(tracker, 2000), ""]
 
+    lines += [
+        "",
+        "=" * 70,
+        "## 6. GITHUB HEALTH REPORT",
+        "=" * 70,
+        "CRITICAL: Read every item below. Fix issues directly or instruct agents to fix them.",
+        "",
+    ]
+
+    try:
+        from automation.github_reviewer import (
+            build_health_report,
+            format_report_for_pm,
+            auto_fix_what_we_can,
+        )
+        health = build_health_report(
+            cycle=cycle,
+            branch=f"cycle/{cycle:03d}/integration",
+            jira_issues=jira_issues,
+        )
+        # Auto-fix what the PM can resolve without code (stale issues, outdated threads)
+        auto_fixes = auto_fix_what_we_can(health)
+        if auto_fixes:
+            lines += ["### Auto-fixed by PM before prompt generation:"]
+            for fix in auto_fixes:
+                lines.append(f"  - {fix}")
+            lines.append("")
+        lines += [format_report_for_pm(health), ""]
+    except Exception as _ge:
+        lines += [f"(GitHub health check unavailable: {_ge})", ""]
+
     return "\n".join(lines)
 
 
@@ -308,18 +339,14 @@ def create_agent_prompts_via_claude(
     wave: int = 11,
 ) -> dict[str, Path] | None:
     """
-    Call Claude (subscription) to generate all agent prompts as the intelligent PM.
+    Call Claude (via Anthropic API) to act as intelligent PM and generate agent prompts.
 
+    Uses the claude Python SDK if available, falls back to CLI subprocess.
     Returns dict[agent_id -> Path] on success, None if Claude unavailable.
-    Falls back to template-based prompt_generator.py if Claude CLI not found.
     """
-    # Verify subscription
+    # Verify subscription billing mode
     preflight = _verify_claude_subscription()
     if not preflight["passed"]:
-        return None
-
-    claude_binary = _find_claude_binary()
-    if not claude_binary:
         return None
 
     # Build the full PM context document
@@ -340,34 +367,9 @@ def create_agent_prompts_via_claude(
             pm_context=pm_context,
         )
 
-        # Write request file
-        req_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_REQUEST.md"
-        req_path.write_text(request_text, encoding="utf-8")
-
-        try:
-            with open(req_path, encoding="utf-8") as stdin_file:
-                r = subprocess.run(
-                    [claude_binary, "-p",
-                     f"Generate the complete Cursor agent prompt for Agent {agent_id} "
-                     f"of the Fiverr Research System Cycle {cycle:03d}. "
-                     f"Output ONLY the prompt text — no preamble, no explanation.",
-                     "--output-format", "text",
-                     "--model", CLAUDE_MODEL],
-                    stdin=stdin_file,
-                    cwd=str(REPO_ROOT),
-                    capture_output=True,
-                    text=True,
-                    timeout=CLAUDE_TIMEOUT,
-                    env={**__import__("os").environ,
-                         "PYTHONIOENCODING": "utf-8"},
-                )
-            prompt_text = (r.stdout or "").strip()
-            if not prompt_text or r.returncode != 0:
-                return None  # Signal fallback needed
-        except subprocess.TimeoutExpired:
-            return None
-        except Exception:
-            return None
+        prompt_text = _call_claude_pm(agent_id, cycle, request_text)
+        if not prompt_text:
+            return None  # Signal fallback needed
 
         # Write the generated prompt
         prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_PROMPT.md"
@@ -375,6 +377,60 @@ def create_agent_prompts_via_claude(
         written[agent_id] = prompt_path
 
     return written
+
+
+def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
+    """
+    Call Claude as PM. Tries Anthropic SDK first (fast), falls back to CLI.
+    Returns the generated prompt text or None on failure.
+    """
+    # Strategy 1: anthropic Python SDK (fast, no subprocess overhead)
+    try:
+        import anthropic  # type: ignore[import]
+        client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY or subscription
+        message = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=8096,
+            messages=[{"role": "user", "content": request_text}],
+        )
+        text = message.content[0].text if message.content else ""
+        if text and len(text) > 500:  # sanity check — real prompt should be substantial
+            return text
+    except ImportError:
+        pass  # SDK not installed
+    except Exception:
+        pass  # API error — try CLI
+
+    # Strategy 2: claude CLI subprocess
+    claude_binary = _find_claude_binary()
+    if not claude_binary:
+        return None
+
+    req_path = Path(f"C:/AI_Runner/tmp/claude_pm_agent_{agent_id}.md")
+    req_path.parent.mkdir(parents=True, exist_ok=True)
+    req_path.write_text(request_text, encoding="utf-8")
+
+    try:
+        with open(req_path, encoding="utf-8") as stdin_file:
+            r = subprocess.run(
+                [claude_binary, "-p",
+                 f"Generate the complete Cursor agent prompt for Agent {agent_id} "
+                 f"Cycle {cycle:03d}. Output ONLY the prompt text.",
+                 "--output-format", "text",
+                 "--model", CLAUDE_MODEL],
+                stdin=stdin_file,
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=CLAUDE_TIMEOUT,
+                env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
+            )
+        text = (r.stdout or "").strip()
+        return text if (text and r.returncode == 0 and len(text) > 500) else None
+    except subprocess.TimeoutExpired:
+        return None
+    except Exception:
+        return None
 
 
 def verify_jira_ac_completion(
