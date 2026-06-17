@@ -1477,7 +1477,10 @@ def cmd_weekly_report() -> None:
               help="Review mode.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Collect facts only, do not write artifacts.")
-def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) -> None:
+@click.option("--skip-local-validation", is_flag=True, default=False,
+              help="Skip local ruff/pytest run (use when CI is already green and tests are confirmed passing).")
+def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool,
+                          skip_local_validation: bool) -> None:
     """Run post-cycle PM review. Blocks next dispatch until PASS."""
     click.echo("=" * 60)
     click.echo(f"POST-CYCLE REVIEW -- Cycle {cycle:03d} [{mode}]")
@@ -1499,7 +1502,8 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) 
         click.secho("DRY RUN COMPLETE", fg="cyan")
         return
 
-    result = run_review(cycle=cycle, mode=rev_mode, pr_number=pr)
+    result = run_review(cycle=cycle, mode=rev_mode, pr_number=pr,
+                        skip_local_validation=skip_local_validation)
     click.echo(result.summary())
     click.echo()
     for path in result.artifact_paths:
@@ -1507,6 +1511,19 @@ def cmd_post_cycle_review(cycle: int, pr: int | None, mode: str, dry_run: bool) 
 
     if result.result == ReviewResult.PASS:
         click.secho("POST-CYCLE REVIEW PASS -- next dispatch unlocked", fg="green", bold=True)
+        from automation.stage_executor import StageExecutor
+        from automation.state_writer import write_controller_state, write_heartbeat
+        write_heartbeat("POST_CYCLE_PASS", cycle=cycle)
+        write_controller_state("POST_CYCLE_PASS", cycle=cycle)
+        try:
+            advanced = StageExecutor(None, {}).advance_if_ready()
+            click.echo(f"  StageExecutor advance_if_ready: {advanced}")
+        except Exception as exc:  # pragma: no cover - defensive
+            _record_nonblocking_error(f"stage advance hook failed: {exc}")
+    elif result.result == ReviewResult.ADVISORY_ONLY:
+        # Hard gates passed; scoring corrections are advisory — treat as conditional PASS
+        click.secho("POST-CYCLE REVIEW ADVISORY_ONLY (conditional PASS) -- dispatch unlocked with advisory warnings",
+                    fg="yellow", bold=True)
         from automation.stage_executor import StageExecutor
         from automation.state_writer import write_controller_state, write_heartbeat
         write_heartbeat("POST_CYCLE_PASS", cycle=cycle)
