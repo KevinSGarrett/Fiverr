@@ -1,11 +1,11 @@
 {
-  "cycle": "083",
+  "cycle": "084",
   "status": "READY",
-  "validated_at": "2026-06-16T03:48:31.428573+00:00",
+  "validated_at": "2026-06-17T15:14:32.715115+00:00",
   "agent_count": 6,
   "all_agents_valid": true,
-  "manifest_ref": "PM_Pack/automation/prompts/validated/CYCLE_082_MANIFEST.json",
-  "generated_at": "2026-06-16T15:56:42.700757+00:00",
+  "manifest_ref": "PM_Pack/automation/prompts/validated/CYCLE_084_MANIFEST.json",
+  "generated_at": "2026-06-17T15:14:32.715115+00:00",
   "agents": [
     "A",
     "B",
@@ -15,11 +15,11 @@
     "D"
   ],
   "prompts": {
-    "A": "C:/Fiverr/Fiverr/PM_Pack/automation/prompts/CYCLE_083_AGENT_A_PROMPT.md",
-    "B": "C:/Fiverr/Fiverr/PM_Pack/automation/prompts/CYCLE_083_AGENT_B_PROMPT.md",
-    "E": "C:/Fiverr/Fiverr/PM_Pack/automation/prompts/CYCLE_083_AGENT_E_PROMPT.md",
-    "C": "C:/Fiverr/Fiverr/PM_Pack/automation/prompts/CYCLE_083_AGENT_C_PROMPT.md",
-    "F": "C:/Fiverr/Fiverr/PM_Pack/automation/prompts/CYCLE_083_AGENT_F_PROMPT.md",
-    "D": "C:/Fiverr/Fiverr/PM_Pack/automation/prompts/CYCLE_083_AGENT_D_PROMPT.md"
+    "A": "C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\prompts\\CYCLE_084_AGENT_A_PROMPT.md",
+    "B": "C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\prompts\\CYCLE_084_AGENT_B_PROMPT.md",
+    "E": "C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\prompts\\CYCLE_084_AGENT_E_PROMPT.md",
+    "C": "C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\prompts\\CYCLE_084_AGENT_C_PROMPT.md",
+    "F": "C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\prompts\\CYCLE_084_AGENT_F_PROMPT.md",
+    "D": "C:\\Fiverr\\Fiverr\\PM_Pack\\automation\\prompts\\CYCLE_084_AGENT_D_PROMPT.md"
   }
 }
