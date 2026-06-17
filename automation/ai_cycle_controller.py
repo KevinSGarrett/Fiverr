@@ -1494,9 +1494,12 @@ def cmd_tick() -> None:
             click.secho(f"  All {len(completed)}/{total_agents} agents complete — advancing to review...", fg="green")
             write_controller_state("AGENT_COMPLETE", cycle=cycle)
         else:
-            # No progress file yet — dispatch just started
-            click.secho("  Agents dispatched — waiting for first agent to start...", fg="cyan")
-            click.secho(f"  {cursor_count} Cursor process(es) active", fg="cyan")
+            # No progress file -- agents running with old code or dispatch just started
+            if cursor_count and cursor_count not in ("0", "?"):
+                click.secho(f"  Agents running ({cursor_count} Cursor processes active)", fg="cyan")
+                click.secho("  Per-agent progress board available next cycle", fg="bright_black")
+            else:
+                click.secho("  Agents dispatched -- waiting for Cursor to start...", fg="cyan")
 
         # ── Show what's being built (from prompt) ─────────────────────
         click.echo("")
@@ -1511,28 +1514,28 @@ def cmd_tick() -> None:
 
         # ── Show files changed (committed + uncommitted) ─────────────
         # Agents work in Cursor and may not commit until end of their run
-        # Check both committed vs develop AND unstaged local changes
-        rc_diff, diff_out = _run_shell_command(
-            ["git", "diff", "--stat", "HEAD"]
-        )
-        rc_diff2, diff_out2 = _run_shell_command(
-            ["git", "diff", "--stat", "--cached", "HEAD"]
-        )
+        rc_diff, diff_out = _run_shell_command(["git", "diff", "--stat", "HEAD"])
         rc_diff3, diff_out3 = _run_shell_command(
             ["git", "diff", "origin/develop..HEAD", "--stat"]
         )
-        combined = "\n".join(filter(None, [diff_out.strip(), diff_out2.strip(), diff_out3.strip()]))
-        if combined.strip():
-            all_lines = list(dict.fromkeys(
-                ln for ln in combined.splitlines() if ln.strip() and "changed" not in ln
-            ))[-8:]
-            summary_lines = [ln for ln in combined.splitlines() if "changed" in ln]
+        combined = "\n".join(filter(None, [diff_out.strip(), diff_out3.strip()]))
+        # Strip git warning lines (CRLF warnings etc) — only keep stat lines
+        stat_lines = [
+            ln for ln in combined.splitlines()
+            if ln.strip()
+            and not ln.startswith("warning:")
+            and not ln.startswith("hint:")
+            and not ln.startswith("error:")
+        ]
+        if stat_lines:
+            file_lines = [ln for ln in stat_lines if "|" in ln][-8:]
+            summary = [ln for ln in stat_lines if "changed" in ln]
             click.echo("")
             click.secho("  Code changes in progress:", fg="bright_black")
-            for ln in all_lines:
+            for ln in file_lines:
                 click.secho(f"    {ln.strip()}", fg="bright_black")
-            if summary_lines:
-                click.secho(f"    {summary_lines[-1].strip()}", fg="cyan")
+            if summary:
+                click.secho(f"    {summary[-1].strip()}", fg="cyan")
 
         # ── Heartbeat staleness check ─────────────────────────────────
         hb_path = Path("C:/AI_Runner/state/heartbeat.json")
