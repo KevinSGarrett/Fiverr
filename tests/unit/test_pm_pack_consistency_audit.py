@@ -67,6 +67,12 @@ def test_warns_when_provider_health_missing(tmp_path: Path) -> None:
 
 
 def test_fc8_postcycle_advisory_blocks_dispatch(tmp_path: Path) -> None:
+    """FC-8 fires for hard FAIL/BLOCKED status, NOT for ADVISORY_ONLY.
+
+    Code change (merged from develop): ADVISORY_ONLY is an acceptable terminal
+    state alongside PASS — it means Claude reviewed and issued a non-blocking
+    advisory. Hard FAIL and BLOCKED remain blocking conditions for FC-8.
+    """
     repo = tmp_path / "repo"
     runner = tmp_path / "runner"
     _write(
@@ -84,14 +90,27 @@ def test_fc8_postcycle_advisory_blocks_dispatch(tmp_path: Path) -> None:
         "version: 1\nglobal_rules: {}\nroutes: {}\nproviders: {}\n",
     )
     _write(runner / "state/controller_state.json", '{"active_cycle": 81, "status": "PLANNED"}')
+
+    # ADVISORY_ONLY does NOT trigger FC-8 (acceptable terminal state)
     _write(
         repo / "PM_Pack/automation/post_cycle_reviews/CYCLE_081_POST_CYCLE_PM_REVIEW.json",
         '{"cycle": 81, "status": "ADVISORY_ONLY"}',
     )
+    result_advisory = run_audit(repo_root=repo, runner_root=runner)
+    assert not any(c.code == "FC-8" for c in result_advisory.conflicts), (
+        "ADVISORY_ONLY should NOT trigger FC-8 — it is an acceptable terminal state"
+    )
 
-    result = run_audit(repo_root=repo, runner_root=runner)
-    assert any(c.code == "FC-8" for c in result.conflicts)
-    assert any("FC-8: ADVISORY_ONLY result in post_cycle_review" in w for w in result.warnings)
+    # Hard FAIL DOES trigger FC-8
+    _write(
+        repo / "PM_Pack/automation/post_cycle_reviews/CYCLE_081_POST_CYCLE_PM_REVIEW.json",
+        '{"cycle": 81, "status": "FAIL"}',
+    )
+    result_fail = run_audit(repo_root=repo, runner_root=runner)
+    assert any(c.code == "FC-8" for c in result_fail.conflicts), (
+        "Hard FAIL should trigger FC-8 (blocking condition)"
+    )
+    assert any("FC-8" in w for w in result_fail.warnings)
 
 
 def test_statesnapshot_stale_sets_blocking_conflict(tmp_path: Path) -> None:

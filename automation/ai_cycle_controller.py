@@ -451,6 +451,17 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         click.secho(f"  [WARN] Jira inventory failed: {e}", fg="yellow")
         jira_issues = []
 
+    # Fetch all issues (including Done) separately for the PM brief so that
+    # already-completed Wave 11 stories (e.g. SCRUM-207) are correctly shown
+    # as Done in the brief — preventing agents from rebuilding completed work.
+    # (Codex review thread PRRT_kwDOSbqwNc6KA22z — addressed here)
+    try:
+        from automation.jira_client import board_inventory_all
+        all_inv = board_inventory_all()
+        all_jira_issues = all_inv.get("issues", [])
+    except Exception:
+        all_jira_issues = jira_issues  # fallback to non-Done list
+
     # Filter 1: automation runner control tickets
     import re as _re
     _ctrl_labels = {"control-ticket", "automation-runner"}
@@ -489,12 +500,11 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     click.echo("  Generating real agent prompts from PM_Pack + Jira...")
 
     # ── PM Intelligence: build wave context brief ─────────────────────
-    # This prevents agents from building automation runner stubs instead of
-    # real Fiverr product features. The brief injects the full wave/story
-    # context from PM_Pack/ref into SECTION 0 of every agent prompt.
+    # Pass all_jira_issues (incl. Done) so the brief correctly marks SCRUM-207
+    # and other Done stories, while jira_issues (non-Done only) drives task selection.
     click.echo("  Building PM intelligence cycle brief...")
     from automation.pm_intelligence import build_cycle_brief
-    cycle_brief = build_cycle_brief(jira_issues=jira_issues)
+    cycle_brief = build_cycle_brief(jira_issues=all_jira_issues)
     _snap = cycle_brief.snapshot
     click.echo(
         f"  PM brief: Wave {_snap.current_wave} ({_snap.wave_name}) | "
