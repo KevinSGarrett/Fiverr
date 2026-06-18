@@ -224,22 +224,22 @@ def _build_pm_context(
     # Product vision
     vision_path = REF_ROOT / "01_vision/PRODUCT_VISION.md"
     if vision_path.exists():
-        lines += ["### Product Vision (excerpt)", _read(vision_path, 2000), ""]
+        lines += ["### Product Vision (excerpt)", _read(vision_path, 8000), ""]
 
     # Development roadmap
     roadmap = REF_ROOT / "08_roadmap/DEVELOPMENT_ROADMAP.md"
     if roadmap.exists():
-        lines += ["### Development Roadmap", _read(roadmap, 3000), ""]
+        lines += ["### Development Roadmap", _read(roadmap, 12000), ""]
 
     # Wave schedule
     wave_sched = REF_ROOT / "00_meta/WAVE_SCHEDULE.md"
     if wave_sched.exists():
-        lines += ["### Wave Schedule (current state)", _read(wave_sched, 2000), ""]
+        lines += ["### Wave Schedule (current state)", _read(wave_sched, 8000), ""]
 
     # Enhancement wave schedule
     enh_sched = REF_ROOT / "00_meta/ENHANCEMENT_WAVE_SCHEDULE.md"
     if enh_sched.exists():
-        lines += ["### Enhancement Waves", _read(enh_sched, 2000), ""]
+        lines += ["### Enhancement Waves", _read(enh_sched, 8000), ""]
 
     lines += [
         "",
@@ -282,7 +282,7 @@ def _build_pm_context(
         lines += [f"### SPEC: Wave {wave} ({wave_folder.name})"]
         for spec_file in sorted(wave_folder.iterdir()):
             if spec_file.suffix == ".md":
-                lines += [_read(spec_file, 3000), ""]
+                lines += [_read(spec_file, 10000), ""]
 
     # DOD: find DOD_EPIC_*.md for this wave, or most-recent DOD file
     dod_path = None
@@ -291,7 +291,7 @@ def _build_pm_context(
         any_dod  = sorted(DOD_ROOT.glob("DOD_EPIC_*.md"))
         dod_path = (wave_dod or any_dod or [None])[-1]
     if dod_path and dod_path.exists():
-        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 3000), ""]
+        lines += ["### DOD (Definition of Done — ALL criteria must be met)", _read(dod_path, 10000), ""]
 
     # TODO: find EPIC_*.md for this wave, or most-recent epic file
     todo_path = None
@@ -300,7 +300,7 @@ def _build_pm_context(
         any_todo  = sorted(TODO_ROOT.glob("*EPIC*.md"))
         todo_path = (wave_todo or any_todo or [None])[-1]
     if todo_path and todo_path.exists():
-        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 3000), ""]
+        lines += ["### Epic Task Breakdown (implementation checklist)", _read(todo_path, 10000), ""]
 
     lines += [
         "",
@@ -377,12 +377,12 @@ def _build_pm_context(
     # Hydration header
     hydration = PM_PACK / "07_hydration/HYDRATION_HEADER.md"
     if hydration.exists():
-        lines += ["### Hydration Header (current cycle state)", _read(hydration, 1500), ""]
+        lines += ["### Hydration Header (current cycle state)", _read(hydration, 6000), ""]
 
     # Epic status tracker
     tracker = PM_PACK / "08_task_queue/EPIC_STATUS_TRACKER.md"
     if tracker.exists():
-        lines += ["### Epic Status Tracker", _read(tracker, 2000), ""]
+        lines += ["### Epic Status Tracker", _read(tracker, 8000), ""]
 
     lines += [
         "",
