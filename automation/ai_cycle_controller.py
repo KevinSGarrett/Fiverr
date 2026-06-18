@@ -1073,7 +1073,26 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             "elapsed": elapsed,
             "exit_code": rc,
         }
-        if rc == 0:
+        # C2.2: Cross-check rc=0 against lifecycle run-record for true completion status
+        _effective_rc = rc
+        import os as _os_c22
+        if rc == 0 and not _os_c22.environ.get("PYTEST_CURRENT_TEST"):
+            try:
+                _rr_dir = (
+                    Path("C:/AI_Runner/runs") / f"CYCLE_{cycle:03d}" / "agent_runs" / agent
+                )
+                _rr_candidates = sorted(_rr_dir.rglob("run_record.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if _rr_candidates:
+                    import json as _json_c22
+                    _rr = _json_c22.loads(_rr_candidates[0].read_text(encoding="utf-8"))
+                    _rr_status = _rr.get("lifecycle_status", _rr.get("status", ""))
+                    if _rr_status in ("OWNERSHIP_VIOLATION", "SECRET_FOUND", "NO_REPORT", "VALIDATION_FAILED"):
+                        L.warn(f"C2.2: rc=0 but lifecycle record says {_rr_status} -- treating as FAILED")
+                        _effective_rc = 1
+            except Exception as _c22_exc:
+                pass  # run-record missing is fine; trust rc
+
+        if _effective_rc == 0:
             completed_agents.append(agent)
             _ev("AGENT", f"Agent {agent} DONE ({elapsed:.0f}s) [{idx}/{len(agents)}]", agent=agent, cycle=cycle, status="OK")
 
@@ -1124,10 +1143,13 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             failures[agent] = output.strip()
             _ev("AGENT", f"Agent {agent} FAILED ({elapsed:.0f}s)", agent=agent, cycle=cycle, status="FAIL")
             L.agent_fail_detail(agent, output)
+            # PQ-5: Surface failure detail to structured log
+            if rc != 0:
+                L.warn(f"PQ-5: Agent {agent} exit_code={rc} output_tail={output.strip()[-200:]!r}")
 
         # ICV: verify and repair after each agent (gated by ICV_DISABLED env var)
         import os as _os_icv
-        if rc == 0 and not _os_icv.environ.get("ICV_DISABLED") and not _os_icv.environ.get("PYTEST_CURRENT_TEST"):
+        if _effective_rc == 0 and not _os_icv.environ.get("ICV_DISABLED") and not _os_icv.environ.get("PYTEST_CURRENT_TEST"):
             try:
                 from automation.codex_verifier import verify_and_repair_agent as _icv_verify
                 _contract_path = (
@@ -1963,7 +1985,8 @@ def cmd_tick() -> None:
                 _agents = ["A", "B", "E", "C", "F", "D"]  # standard agent set
                 prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
                 vr = validate_all(prompts_dir, cycle=cycle, agents=_agents)
-                if vr.get("passed"):
+                # LV1.1: validate_all returns dict[str, PromptValidationResult]
+                if vr and all(getattr(r, "passed", False) for r in vr.values()):
                     click.secho("  Prompts now PASS — auto-clearing PROMPT_VALIDATION_FAILED", fg="green")
                     write_controller_state("PLANNED", cycle=cycle)
                 else:

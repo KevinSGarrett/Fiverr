@@ -101,11 +101,11 @@ jobs:
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/secrets').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state/controller_state.json').write_text(
-              json.dumps({'status': 'PLANNED', 'active_cycle': 83, 'last_merged_cycle': 82})
+              json.dumps({'status': 'PLANNED', 'active_cycle': 84, 'last_merged_cycle': 83})
           )
           Path('C:/AI_Runner/state/heartbeat.json').write_text(
               json.dumps(
-                  {'last_seen': '2026-06-16T00:00:00Z', 'status': 'OK', 'active_cycle': 83}
+                  {'last_seen': '2026-06-17T00:00:00Z', 'status': 'OK', 'active_cycle': 84}
               )
           )
           Path('C:/AI_Runner/state/provider_health.json').write_text(
@@ -120,7 +120,7 @@ jobs:
           )
           Path('PM_Pack/automation').mkdir(parents=True, exist_ok=True)
           Path('PM_Pack/automation/current_policy_snapshot.json').write_text(
-              json.dumps({'cycle_current': 83, 'last_completed_cycle': 'C082'})
+              json.dumps({'cycle_current': 84, 'last_completed_cycle': 'C083'})
           )
           Path('C:/AI_Runner/secrets/runner.env').write_text('JIRA_API_TOKEN=ci-placeholder')
           "
@@ -129,9 +129,7 @@ jobs:
           python -m pytest tests/unit/
           --ignore=tests/unit/test_queue_processor.py
           --ignore=tests/unit/test_collection_orchestrator.py
-          --ignore=tests/unit/test_cycle062_smoke_aliases.py
-          --ignore=tests/unit/test_post_cycle_review_coverage.py
-          --ignore=tests/unit/test_ai_cycle_controller_coverage.py
+          --ignore=tests/unit/test_cycle062_smoke_aliases.py          --ignore=tests/unit/test_ai_cycle_controller_coverage.py
           --ignore=tests/unit/test_cursor_adapter.py
           --ignore=tests/unit/test_openai_api_adapter.py
           --ignore=tests/unit/test_playbook_generator.py
@@ -168,16 +166,16 @@ jobs:
           from pathlib import Path
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state/controller_state.json').write_text(
-              json.dumps({'status': 'PLANNED', 'active_cycle': 83, 'last_merged_cycle': 82})
+              json.dumps({'status': 'PLANNED', 'active_cycle': 84, 'last_merged_cycle': 83})
           )
           Path('C:/AI_Runner/state/heartbeat.json').write_text(
               json.dumps(
-                  {'last_seen': '2026-06-16T00:00:00Z', 'status': 'OK', 'active_cycle': 83}
+                  {'last_seen': '2026-06-17T00:00:00Z', 'status': 'OK', 'active_cycle': 84}
               )
           )
           Path('PM_Pack/automation').mkdir(parents=True, exist_ok=True)
           Path('PM_Pack/automation/current_policy_snapshot.json').write_text(
-              json.dumps({'cycle_current': 83, 'last_completed_cycle': 'C082'})
+              json.dumps({'cycle_current': 84, 'last_completed_cycle': 'C083'})
           )
           Path('C:/AI_Runner/config').mkdir(parents=True, exist_ok=True)
           Path('C:/AI_Runner/state').mkdir(parents=True, exist_ok=True)
