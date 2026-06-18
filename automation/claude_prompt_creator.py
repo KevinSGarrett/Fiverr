@@ -491,9 +491,11 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
             f"(need >500) stderr_tail={repr(err_tail[:200])}"
         )
         # H2 FIX: emit to terminal + logger (was silently returning None)
-        import click as _ck2; _ck2.secho(f"  H2: {_failure_msg}", fg="red")
+        import click as _ck2
+        _ck2.secho(f"  H2: {_failure_msg}", fg="red")
         try:
-            import automation.autopilot_logger as _apl2; _apl2.error(_failure_msg)
+            import automation.autopilot_logger as _apl2
+            _apl2.error(_failure_msg)
         except Exception:
             pass
         if err:
@@ -506,9 +508,11 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
             f"_call_claude_pm TIMEOUT agent={agent_id} cycle={cycle} "
             f"after {CLAUDE_TIMEOUT}s"
         )
-        import click as _ck3; _ck3.secho(f"  H2 TIMEOUT: {_tmsg}", fg="red")
+        import click as _ck3
+        _ck3.secho(f"  H2 TIMEOUT: {_tmsg}", fg="red")
         try:
-            import automation.autopilot_logger as _apl3; _apl3.error(_tmsg)
+            import automation.autopilot_logger as _apl3
+            _apl3.error(_tmsg)
         except Exception:
             pass
         return None
@@ -518,7 +522,8 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
         _emsg = f"_call_claude_pm EXCEPTION agent={agent_id} cycle={cycle}: {_exc!r}"
         _ck4.secho(f"  H2 EXCEPTION: {_emsg}", fg="red")
         try:
-            import automation.autopilot_logger as _apl4; _apl4.error(_emsg)
+            import automation.autopilot_logger as _apl4
+            _apl4.error(_emsg)
         except Exception:
             pass
         return None
