@@ -471,7 +471,6 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
     # ── LIVE: Generate real prompts from PM_Pack + Jira ──────────────
     click.echo("  Fetching Jira board inventory...")
     from automation.jira_client import board_inventory
-    from automation.prompt_generator import write_prompts
 
     try:
         inv = board_inventory()
@@ -565,9 +564,10 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         if not _claude_bin:
             raise RuntimeError("claude binary not found — check installation")
         import subprocess as _sub
+        # Use only flags supported by the Claude subscription CLI
+        # --trust and --force are Cursor-specific flags; claude.EXE does not support them
         _probe = _sub.run(
-            [_claude_bin, "-p", "Reply: OK", "--print", "--output-format", "text",
-             "--trust", "--force"],
+            [_claude_bin, "--print", "-p", "Reply OK"],
             capture_output=True, text=True, timeout=30,
         )
         _probe_latency_ms = int((_tm.time() - _probe_start) * 1000)
@@ -612,26 +612,33 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             prompts_dir=prompts_dir,
             wave=_snap.current_wave,
         )
-        if written:
+        if written and set(written.keys()) == set(manifest["agents"]):
             click.secho(
-                f"  Claude PM: generated {len(written)} prompts via Claude subscription",
-                fg="green"
+                f"  Claude PM: ALL {len(written)}/{len(manifest['agents'])} agent prompts generated via Claude subscription",
+                fg="green", bold=True,
             )
-        else:
-            # PQ-3 FIX: Claude PM returned None (timeout/short-output/error).
-            # Previously this silently fell back to templates with only a yellow line.
-            # Now it's a loud, explicit failure that pauses the autopilot.
+        elif written:
+            # Partial: some agents failed -- still a hard failure
+            missing = set(manifest["agents"]) - set(written.keys())
             click.secho(
-                "  ⚠  CLAUDE PM UNAVAILABLE — Claude returned None for this cycle.\n"
-                "  This means the subscription is reachable (probe passed) but the\n"
-                "  full PM call timed out, returned < 500 chars, or errored.\n"
-                "  Autopilot PAUSED. Check C:\\AI_Runner\\tmp\\claude_pm_agent_*.err",
+                f"  CLAUDE PM PARTIAL: {len(written)}/{len(manifest['agents'])} agents OK, "
+                f"missing: {sorted(missing)}. Claude is a hard dependency -- all agents required. "
+                "Autopilot PAUSED.", fg="red", bold=True,
+            )
+            from pathlib import Path as _P2
+            _P2("C:/AI_Runner/state/autopilot_paused.json").write_text(
+                '{"reason":"CLAUDE_PM_PARTIAL","ts":"' + _now() + '"}', encoding="utf-8"
+            )
+            raise SystemExit(1) from None
+        else:
+            click.secho(
+                "  CLAUDE PM UNAVAILABLE -- Claude returned None (timeout/short-output/error). "
+                "Autopilot PAUSED. Check C:\AI_Runner\tmp\claude_pm_agent_*.err",
                 fg="red", bold=True,
             )
             from pathlib import Path as _P2
             _P2("C:/AI_Runner/state/autopilot_paused.json").write_text(
-                '{"reason":"CLAUDE_PM_RETURNED_NONE","ts":"' + _now() + '"}',
-                encoding="utf-8"
+                '{"reason":"CLAUDE_PM_RETURNED_NONE","ts":"' + _now() + '"}', encoding="utf-8"
             )
             raise SystemExit(1) from None
     except SystemExit:
@@ -650,19 +657,10 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         raise SystemExit(1) from e
 
     click.echo("  [3/3] Prompts generated via Claude subscription ✓")
-
-    # ── Template fallback: prompt_generator.py ────────────────────────
-    if not written:
-        from automation.prompt_generator import write_prompts
-        written = write_prompts(
-            cycle=next_cycle,
-            branch=branch,
-            run_id=run_id,
-            agents=manifest["agents"],
-            jira_issues=jira_issues,
-            prompts_dir=prompts_dir,
-            cycle_brief=cycle_brief,
-        )
+    # NOTE: There is NO template fallback. Claude is a hard dependency.
+    # If Claude is unavailable, the probe above already raised SystemExit(1)
+    # and paused the autopilot. If written is falsy, SystemExit(1) was also
+    # raised. This fallback block was removed to make that explicit.
 
     click.echo(f"  Cycle           : {next_cycle:03d}")
     click.echo(f"  Branch          : {branch}")

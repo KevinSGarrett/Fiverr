@@ -162,7 +162,7 @@ def _verify_claude_subscription() -> dict[str, Any]:
     _t0 = time.time()
     try:
         result = _sub.run(
-            [binary, "--print", "--no-cache", "-p", "Reply OK"],
+            [binary, "--print", "-p", "Reply OK"],
             capture_output=True, text=True, timeout=30,
         )
         latency_ms = int((time.time() - _t0) * 1000)
@@ -541,14 +541,17 @@ def create_agent_prompts_via_claude(
         elapsed = _t.time() - t0
 
         if not prompt_text:
-            _emit("CLAUDE_PM", f"Agent {agent_id} prompt FAILED -- template fallback", agent=agent_id, cycle=cycle, status="WARN")
+            # PQ-2 / PQ-3 FIX: No silent fallback. Claude is a hard dependency.
+            # Return whatever was written so far so the CALLER can decide.
+            # The caller (ai_cycle_controller) raises SystemExit(1) if any agent fails,
+            # so there is no silent template fallback anywhere in the stack.
+            _emit("CLAUDE_PM", f"Agent {agent_id} prompt FAILED (returned empty/short output)", agent=agent_id, cycle=cycle, status="FAIL")
             L.claude_pm_done(agent_id, elapsed, 0, False, idx, len(agents))
-            # PQ-2: Per-agent isolation -- return already-written prompts for
-            # successful agents; caller falls back to template only for this agent.
-            if written:
-                L.warn(f"PQ-2: Agent {agent_id} failed but {len(written)} agents already written -- partial return")
-                return written  # partial -- caller retries only failed agent
-            return None  # Signal full fallback needed (no agents written yet)
+            L.warn(
+                f"PQ-2: Agent {agent_id} returned empty/short output. "
+                f"{'Returning ' + str(len(written)) + ' already-written prompts to caller.' if written else 'No prompts written yet.'}"
+            )
+            return written if written else None  # caller halts on None or partial
 
         _emit("CLAUDE_PM", f"Agent {agent_id} prompt DONE ({elapsed:.0f}s, {len(prompt_text)//1024}KB)", agent=agent_id, cycle=cycle, status="OK")
         L.claude_pm_done(agent_id, elapsed, len(prompt_text), True, idx, len(agents))
