@@ -808,3 +808,58 @@ G-D closes when Wave 11 and Wave 12 are fully implemented and connected to live 
 
 ====================================================================
 END OF UNIVERSAL POST-CYCLE PM REVIEW PROMPT (v4.5)
+
+====================================================================
+PART 0.6 — CYCLE SYNTHESIS INTAKE  (run FIRST, before Part 5 scoring and before writing any N+1 prompt)
+
+You are given, in your request, a "## Last-Cycle Synthesis" block: an EVIDENCE-CHECKED, per-agent view of
+what cycle N actually did (verdict + discrepancies + delivered-vs-claimed + carryover), produced by the
+report-synthesis layer. Treat the agent report narratives as CLAIMS and this synthesis as the TRUTH.
+
+STEP 1 — LOAD. Read the synthesis. If it is "(synthesis unavailable)", STOP scoring/advancement, mark the
+         review SYNTHESIS_MISSING, fall back to the agent-report existence audit, and warn. Never proceed as
+         if the cycle delivered.
+STEP 2 — PER-AGENT TRUTH. For each agent A,B,E,C,F,D record: verdict
+         (DELIVERED|PARTIAL|CLAIMED_ONLY|FAILED|BLOCKED|NO_REPORT), discrepancy flags, delivered-vs-claimed
+         files/commits, unmet AC, explicit blockers.
+STEP 3 — SCORE HONESTLY (feeds Part 5.7). Count toward Score 1 (internal build) and Score 2 (E2E) ONLY work
+         with verdict DELIVERED. CLAIMED_ONLY / PARTIAL / FAILED contribute nothing and must be listed as
+         "claimed, not delivered". Respect the existing hard caps. Update CURRENT_STATE_CANONICAL.md to the
+         DELIVERED reality.
+STEP 4 — ADVANCEMENT (feeds CYCLE_PRODUCTION_ADVANCEMENT_GATE.md + POST_SRDI_BUILD_SEQUENCE_MAP.md). Advance the
+         wave ONLY if its stories are DELIVERED with evidence. A CLAIMED_ONLY/PARTIAL story does NOT advance and
+         is carried. Log any deviation in BUILD_SEQUENCE_EXCEPTION_LOG.md.
+STEP 5 — DERIVE NEXT SCOPE (feeds Part 6/8). Next scope = carryover + (next build-sequence item IF the current
+         one is delivered). A story carried >=2 cycles is a STUCK item — escalate it in the required-action block.
+STEP 6 — PRODUCE DIRECTIVES (see Part 9). For EACH carryover item and EACH discrepancy, emit a directive routed
+         to the responsible agent, with a corrective gate per the matrix (e.g. COMPLETION_CLAIMED_NO_COMMIT ->
+         mandatory commit/push gate) and provenance ("carried from cycle N because: <verdict/discrepancy>").
+STEP 7 — USE THEM. When you author each agent's N+1 prompt, you MUST keep that agent's carried directives as
+         numbered tasks (they are pre-injected into the prompt context). Do not treat a carried story as fresh;
+         reference what already exists and what specifically remained undone.
+====================================================================
+
+====================================================================
+PART 9 — NEXT-CYCLE DIRECTIVES  (mandatory output, v4.6)
+
+After your VERDICT, output a "NEXT-CYCLE DIRECTIVES" section: one bullet per carryover item and per
+discrepancy from Part 0.6, each as:
+  - [agent X][priority] <task to carry> | corrective gate: <gate> | why carried: <verdict/discrepancy> (cycle N)
+Then state the build-sequence decision: ADVANCE (next item) or REPEAT (carry undelivered), with the reason,
+and list any STUCK items (carried >=2 cycles). This section is parsed into
+runs/CYCLE_N/NEXT_CYCLE_DIRECTIVES.json and machine-injected into the next cycle's agent prompts; if you omit
+it, the next cycle loses the carryover.
+
+PART 5.3 WEAVE: Use the Part 0.6 synthesis as the delivered-evidence input for each track; a track is not
+"complete" on a CLAIMED_ONLY story.
+
+PART 5.7 WEAVE: Score inputs are DELIVERED verdicts only (Part 0.6 Step 3); list claimed-but-undelivered
+separately; caps unchanged.
+
+PART 8 WEAVE:
+[ ] Part 0.6 synthesis consumed (synthesis block present in request)?
+[ ] Part 9 directives produced (one per carryover/discrepancy)?
+[ ] Each carryover/discrepancy mapped to an agent task with a corrective gate?
+[ ] CLAIMED_ONLY agents: re-dispatch directive includes commit/push gate?
+[ ] STUCK items (>=2 cycles) escalated in required-action block?
+====================================================================

@@ -486,6 +486,23 @@ For Agent {agent_id}, include tasks to:
 ## PM CONTEXT (full project state — read every section)
 {pm_context}
 
+## REPORT STANDARD REQUIREMENT  (RSF-24/25)
+The prompt you generate MUST include, verbatim at the end, a section titled:
+
+## MANDATORY END-OF-RUN REPORT
+The Cursor agent MUST write its completed cycle report to:
+    docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md
+
+The report MUST follow the AGENT_CYCLE_REPORT_TEMPLATE.md standard (PM_Pack/09_templates/).
+Specifically:
+- Begin with an ARSF:MANIFEST JSON block (<!-- ARSF:MANIFEST v1 --> ```json {{ ... }} ```)
+- Include all 13 spine sections (§1 Final verdict through §13 Certification)
+- Include the role addendum for Agent {agent_id} (Addendum {agent_id})
+- Every claim must carry EVIDENCE (commit SHA, test count, file path, timestamp)
+- §11 Open blockers & explicit non-claims is REQUIRED — never omit it
+- Set "committed": true only if the agent actually ran git commit + git push
+- Populate tasks_total/tasks_done/tasks_partial/tasks_failed accurately
+
 ## OUTPUT FORMAT
 Generate ONLY the agent prompt text. Start with the header line:
 # CYCLE {cycle:03d} — AGENT {agent_id} PROMPT

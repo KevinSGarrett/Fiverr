@@ -966,6 +966,26 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     for err in lifecycle.errors:
         click.secho(f"  ERROR: {err}", fg="red")
 
+    # RSF-28: validate the agent's report against the report standard (warn mode)
+    try:
+        from automation.report_validator import validate_report
+        report_path = (
+            Path(__file__).resolve().parents[1]
+            / "docs/cycle_reports"
+            / f"CYCLE_{cycle:03d}_AGENT_{agent}.md"
+        )
+        if report_path.exists():
+            rpt_violations = validate_report(report_path, agent_role=agent)
+            if rpt_violations:
+                click.secho(
+                    f"  [ARSF WARN] Agent {agent} report violations: {rpt_violations}",
+                    fg="yellow",
+                )
+            else:
+                click.secho(f"  [ARSF] Agent {agent} report: conforming", fg="cyan")
+    except Exception as _rve:
+        click.secho(f"  [ARSF WARN] report validation error: {_rve}", fg="yellow")
+
     if lifecycle.status == "COMPLETE":
         # Only write AGENT_COMPLETE when an agent actually committed real work.
         write_controller_state("AGENT_COMPLETE", cycle=cycle)
@@ -1178,6 +1198,16 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     from automation.state_writer import write_controller_state as _wcs, write_heartbeat as _wh
     _wcs("AGENT_COMPLETE", cycle=cycle)
     _wh("AGENT_COMPLETE", cycle=cycle)
+
+    # RSF-19: synthesize agent reports (non-blocking, ARSF_DISABLED-gated)
+    import os as _os_arsf19
+    if not _os_arsf19.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            from automation.report_synthesis import synthesize_cycle as _arsf_synth
+            _cs = _arsf_synth(cycle)
+            L.info(f"ARSF: cycle {cycle:03d} verdict={_cs.cycle_verdict} format_health={_cs.format_health}")
+        except Exception as _arsf_exc:
+            L.warn(f"ARSF synthesis failed (non-blocking): {_arsf_exc}")
     _progress_path.write_text(_json.dumps({
         "cycle": cycle, "current_agent": "DONE",
         "completed": completed_agents, "failed": list(failures.keys()),
