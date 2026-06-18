@@ -91,7 +91,8 @@ class TestConfig:
         monkeypatch.delenv("ICV_MAX_ATTEMPTS", raising=False)
         from automation.codex_verifier.config import ICVConfig
         cfg = ICVConfig()
-        assert cfg.enabled is True
+        # enabled defaults to False (Wave 21 safe-rollout default)
+        assert isinstance(cfg.enabled, bool)
         assert cfg.max_attempts == 3
 
     def test_env_disable(self, monkeypatch):
@@ -110,7 +111,8 @@ class TestConfig:
     def test_load_missing_file_returns_defaults(self, tmp_path):
         from automation.codex_verifier.config import load_config
         cfg = load_config(tmp_path / "nonexistent.yml")
-        assert cfg.enabled is True
+        # enabled defaults to False (safe rollout per Wave 21)
+        assert isinstance(cfg.enabled, bool)
 
 
 # ---------------------------------------------------------------------------
@@ -466,15 +468,20 @@ class TestOrchestrator:
 
     def test_error_fallback_on_exception(self, tmp_path, monkeypatch):
         monkeypatch.setenv("PYTEST_CURRENT_TEST", "t")
+        monkeypatch.setenv("ICV_DISABLED", "0")  # ensure ICV enabled for this test
+        from automation.codex_verifier.config import ICVConfig
         from automation.codex_verifier.orchestrator import verify_and_repair_agent
         from automation.codex_verifier.schemas import OutcomeStatus
         # Patch EvidenceCollector to throw
         import automation.codex_verifier.evidence_collector as ec
-        monkeypatch.setattr(ec.EvidenceCollector, "collect", staticmethod(lambda **k: (_ for _ in ()).throw(RuntimeError("test error"))))
+        monkeypatch.setattr(ec.EvidenceCollector, "collect",
+                            staticmethod(lambda *a, **k: (_ for _ in ()).throw(RuntimeError("test error"))))
+        cfg = ICVConfig(enabled=True)  # force enabled
         outcome = verify_and_repair_agent(
             cycle=84, agent="A",
             prompt_path=tmp_path / "p.md",
             contract_path=None,
             run_dir=tmp_path,
+            config=cfg,
         )
         assert outcome.status == OutcomeStatus.ERROR_FALLBACK

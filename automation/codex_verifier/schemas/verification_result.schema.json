@@ -1,0 +1,26 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerificationResult",
+  "type": "object",
+  "required": ["completion_score", "status", "item_updates"],
+  "properties": {
+    "completion_score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "status": {"type": "string", "enum": ["PASS", "PARTIAL_PASS", "FAIL", "UNVERIFIABLE"]},
+    "reasoning": {"type": "string"},
+    "item_updates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"type": "string", "enum": ["satisfied", "partial", "missing", "failing", "unverifiable"]},
+          "classification": {"type": "string", "enum": ["FIXABLE_IN_SCOPE", "OUT_OF_SCOPE", "BLOCKED_EXTERNAL", "NON_ISSUE", "AMBIGUOUS"]},
+          "evidence": {"type": "string"},
+          "repair_hint": {"type": "string"},
+          "target_paths": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

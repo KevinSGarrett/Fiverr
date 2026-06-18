@@ -1,0 +1,63 @@
+﻿# codex_verifier.yml -- Inter-Agent Codex Verifier (ICV) configuration
+# Wave 13: All knobs with defaults and rationale.
+# Env-override: ICV_<UPPER_SNAKE> (e.g. ICV_ENABLED=1)
+version: 1
+
+# MASTER SWITCH. Default OFF for safe rollout. Enable after shadow-mode validation (Wave 21).
+enabled: false
+
+# Shadow mode: verify + record + notify, but DO NOT dispatch repairs or block the cycle.
+shadow_mode: true
+
+# OpenAI API model for verification (reasoning model recommended)
+review_model: "o3-mini"
+temperature: 0.1
+max_output_tokens: 4000
+api_retries: 2
+api_retry_base_delay_sec: 2
+
+# Loop governance (Wave 9)
+max_repair_attempts: 3
+min_progress_delta: 0.05
+no_progress_patience: 1
+pass_confidence_floor: 0.55
+max_agent_seconds: 1800
+oscillation_window: 8
+rollback_on_no_progress: false
+rollback_mode: revert
+
+# Deterministic checks (Wave 5)
+command_timeout_sec: 600
+flaky_reruns: 2
+attribute_preexisting_failures: true
+prompt_task_weight: 0.5
+
+# Evidence (Wave 4)
+max_evidence_chars: 24000
+diff_head_tail_lines: 400
+include_github: true
+include_jira: true
+
+# Budget (Waves 6/15)
+provider: openai_api
+per_cycle_usd_cap: 3.00
+per_agent_usd_cap: 0.75
+degrade_to_deterministic_on_softwarn: false
+
+# Cycle gating (Wave 12)
+cycle_deferral_threshold: 3
+cycle_min_score: 0.85
+blocked_agent_fails_agent_step: false
+
+# Reporting (Wave 11)
+agent_finalizes_report: false
+report_anchor: "<!-- ICV:{cycle}-{agent} -->"
+
+# Notifications (Wave 14)
+notify_on_blocked: true
+notify_on_budget_degrade: true
+
+# Security (Wave 17)
+allowed_report_globs:
+  - "docs/cycle_reports/**"
+sanitize_evidence: true

@@ -27,6 +27,29 @@ def _git(
         return ""
 
 
+
+
+def _sanitize_text(text: str) -> str:
+    """Wave 17.2: Strip secrets from text before it reaches the LLM verifier.
+    Delegates to the existing export sanitizer if available; otherwise applies
+    a simple regex-based redaction for common secret patterns.
+    """
+    if not text:
+        return text
+    try:
+        from automation.sanitizer import sanitize_export
+        return sanitize_export(text)
+    except Exception:
+        pass
+    # Fallback: redact common secret patterns
+    import re
+    # API keys, tokens, passwords in common formats
+    text = re.sub(r"(sk-ant-[A-Za-z0-9]{20,})", "[REDACTED_API_KEY]", text)
+    text = re.sub(r"(sk-[A-Za-z0-9]{20,})", "[REDACTED_API_KEY]", text)
+    text = re.sub(r"(gh[pousr]_[A-Za-z0-9]{36,})", "[REDACTED_GH_TOKEN]", text)
+    text = re.sub(r"(AKIA[A-Z0-9]{16})", "[REDACTED_AWS_KEY]", text)
+    return text
+
 class EvidenceCollector:
     """Gather all evidence for one agent's run before calling the verifier."""
 
@@ -95,7 +118,8 @@ class EvidenceCollector:
         report_path = REPO_ROOT / report_path_str
         if report_path.exists():
             bundle.report_exists = True
-            bundle.report_text = report_path.read_text(encoding="utf-8", errors="replace")
+            _raw_report = report_path.read_text(encoding="utf-8", errors="replace")
+            bundle.report_text = _sanitize_text(_raw_report)
             bundle.report_has_complete_marker = "AGENT_COMPLETE" in bundle.report_text
 
         # 5. Deliverables

@@ -491,7 +491,21 @@ def create_agent_prompts_via_claude(
     """
     # Verify subscription billing mode
     preflight = _verify_claude_subscription()
-    if not preflight["passed"]:
+    # OBS-4: Print Claude subscription health banner to terminal
+    import click as _ck_obs4
+    if preflight["passed"]:
+        _lat = preflight.get("latency_ms")
+        _lat_str = f" latency={_lat}ms" if _lat else ""
+        _probe_str = preflight.get("probe", "")
+        _ck_obs4.secho(
+            f"  CLAUDE SUBSCRIPTION: OK (model={CLAUDE_MODEL}{_lat_str})",
+            fg="green",
+        )
+    else:
+        _ck_obs4.secho(
+            f"  CLAUDE SUBSCRIPTION: FAIL -- {preflight.get('reason', 'unknown')}",
+            fg="red", bold=True,
+        )
         return None
     _announce_pm_model(CLAUDE_MODEL)  # H6.2: log model confirmation
 

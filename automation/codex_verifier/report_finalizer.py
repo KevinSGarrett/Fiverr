@@ -27,6 +27,14 @@ class ReportFinalizer:
         """Write a PASS verification record. Returns path written."""
         icv_dir = run_dir / "icv"
         icv_dir.mkdir(parents=True, exist_ok=True)
+        import subprocess as _sub_rf
+        try:
+            _head = _sub_rf.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd="C:/Fiverr/Fiverr", capture_output=True, text=True, timeout=10
+            ).stdout.strip()
+        except Exception:
+            _head = ""
         record = {
             "status": "VERIFIED_PASS",
             "completion_score": verdict.completion_score,
@@ -37,6 +45,7 @@ class ReportFinalizer:
             "cost_usd": verdict.cost_usd,
             "tokens_used": verdict.tokens_used,
             "generated_at": datetime.now(UTC).isoformat(),
+            "head_sha": _head,  # Wave 14.4: idempotency key
         }
         out_path = icv_dir / "verification.json"
         out_path.write_text(json.dumps(record, indent=2), encoding="utf-8")

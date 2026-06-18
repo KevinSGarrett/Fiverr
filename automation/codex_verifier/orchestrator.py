@@ -63,6 +63,32 @@ def verify_and_repair_agent(
         L.info(f"ICV skipped for agent {agent}: {outcome.skipped_reason}")
         return outcome
 
+    # ── Wave 14.4 idempotency: return cached outcome if HEAD unchanged ────
+    import subprocess as _sub_idem
+    _cur_head = ""
+    try:
+        _cur_head = _sub_idem.run(
+            ["git", "rev-parse", "HEAD"], cwd=str(REPO_ROOT),
+            capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+    except Exception:
+        pass
+    _verif_json = run_dir / "icv" / "verification.json"
+    if _verif_json.exists() and _cur_head:
+        try:
+            _cached = json.loads(_verif_json.read_text(encoding="utf-8"))
+            if _cached.get("head_sha") == _cur_head:
+                # Same HEAD -- return cached outcome, no re-spend
+                _cached_status = _cached.get("status", "ERROR_FALLBACK")
+                outcome.status = OutcomeStatus(_cached_status) if _cached_status in [e.value for e in OutcomeStatus] else OutcomeStatus.ERROR_FALLBACK
+                outcome.completion_score = _cached.get("completion_score", 0.0)
+                outcome.icv_report_path = str(_verif_json)
+                outcome.skipped_reason = "idempotent re-run: HEAD unchanged, returning cached outcome"
+                L.info(f"ICV idempotent: cached outcome {outcome.status.value} for agent {agent}")
+                return outcome
+        except Exception:
+            pass  # cache miss → proceed normally
+
     # ── Load contract ────────────────────────────────────────────────
     contract: dict = {}
     if contract_path:

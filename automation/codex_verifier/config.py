@@ -16,7 +16,8 @@ DEFAULT_CONFIG_PATH = REPO_ROOT / "PM_Pack/automation/codex_verifier.yml"
 
 @dataclass
 class ICVConfig:
-    enabled: bool = True
+    enabled: bool = False           # Wave 21 default OFF for safe rollout
+    shadow_mode: bool = True         # Wave 13: verify+record but no repairs/blocking
     max_attempts: int = 3                 # hard cap on repair loops per agent
     wall_clock_max_minutes: float = 30.0  # hard cap on total ICV time per agent
     openai_model: str = "o3-mini"         # reasoning model for verification
@@ -30,8 +31,11 @@ class ICVConfig:
 
     # Env var overrides applied in __post_init__
     def __post_init__(self) -> None:
-        if os.environ.get("ICV_DISABLED", "").lower() in ("1", "true", "yes"):
+        _icv_disabled = os.environ.get("ICV_DISABLED", "").lower()
+        if _icv_disabled in ("1", "true", "yes"):
             self.enabled = False
+        elif _icv_disabled in ("0", "false", "no"):
+            pass  # keep configured value (do not force False)
         if os.environ.get("ICV_MAX_ATTEMPTS"):
             try:
                 self.max_attempts = int(os.environ["ICV_MAX_ATTEMPTS"])
