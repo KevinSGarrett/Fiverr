@@ -83,6 +83,14 @@ class PostCycleFacts:
     # Agent report facts
     agent_reports_present: dict[str, bool] = field(default_factory=dict)
 
+    # ARSF: evidence-checked synthesis of the agent reports (content, not just existence)
+    per_agent_verdict: dict[str, str] = field(default_factory=dict)
+    agent_discrepancies: dict[str, list[str]] = field(default_factory=dict)
+    claimed_only_agents: list[str] = field(default_factory=list)
+    carryover: list[str] = field(default_factory=list)
+    unmet_ac: list[str] = field(default_factory=list)
+    report_format_health: str = ""
+
     # Scoring
     score1_internal_pct: float = 0.0
     score2_e2e_pct: float = 0.0
@@ -146,6 +154,21 @@ class PostCycleReviewResult:
                 icv_outcomes = getattr(f, "icv_blocked_agents", [])
                 if icv_outcomes:
                     return True
+                # ARSF (gated): block on hard discrepancies when enabled
+                try:
+                    import yaml as _y
+                    _cfg_path = __file__[: __file__.rindex("automation")] + "PM_Pack/automation/report_synthesis.yml"
+                    import os as _os
+                    if _os.path.exists(_cfg_path):
+                        _cfg = _y.safe_load(open(_cfg_path, encoding="utf-8").read()) or {}
+                        if _cfg.get("gate_on_discrepancies", False):
+                            _hard = set(_cfg.get("blocking_discrepancies",
+                                        ["COMPLETION_CLAIMED_NO_COMMIT", "TESTS_CLAIMED_PASS_CI_RED"]))
+                            for _flags in getattr(f, "agent_discrepancies", {}).values():
+                                if _hard.intersection(_flags):
+                                    return True
+                except Exception:
+                    pass
             return False  # No facts available -- don't block
         return self.result != ReviewResult.PASS
 
@@ -215,6 +238,20 @@ def collect_facts(cycle: int, mode: ReviewMode,
         pattern = f"CYCLE_{cycle:03d}_AGENT_{agent}.md"
         found = list(reports_dir.glob(pattern))
         facts.agent_reports_present[agent] = bool(found)
+
+    # ── ARSF synthesis (content of the reports, cross-checked) ────────
+    try:
+        from automation.report_synthesis import load_cycle_synthesis
+        cs = load_cycle_synthesis(cycle)
+        if cs is not None:
+            facts.per_agent_verdict = {a: s.verdict for a, s in cs.agents.items()}
+            facts.agent_discrepancies = {a: list(s.discrepancies) for a, s in cs.agents.items()}
+            facts.claimed_only_agents = [a for a, s in cs.agents.items() if s.verdict == "CLAIMED_ONLY"]
+            facts.carryover = list(cs.carryover)
+            facts.unmet_ac = [ac for s in cs.agents.values() for ac in s.unmet_ac]
+            facts.report_format_health = cs.format_health
+    except Exception:
+        pass  # non-blocking: existence audit (above) remains the floor
 
     # ── Local validation ──────────────────────────────────────────────
     py = str(REPO_ROOT / ".venv/Scripts/python.exe")
@@ -338,6 +375,9 @@ def run_review(cycle: int, mode: ReviewMode,
 
     # ── GATE 3: Collect deterministic facts ───────────────────────────
     result.facts = collect_facts(cycle, mode, pr_number)
+    # ARSF: next-cycle scope is driven by what was NOT delivered (carryover)
+    if result.facts.carryover:
+        result.next_scope_decision = "CARRYOVER: " + "; ".join(result.facts.carryover[:12])
 
     # ── GATE 4: Validate facts (POST_MERGE requires merge) ────────────
     if mode == ReviewMode.POST_MERGE and not result.facts.pr_merged:

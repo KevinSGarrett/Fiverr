@@ -135,7 +135,19 @@ def run_post_cycle_review(
 
     # Step 2: Write request artifact
     request_path = artifacts / "claude_request.md"
+    # ARSF: surface the evidence-checked per-agent synthesis to the PM reviewer (non-blocking).
+    synth_md = "(synthesis unavailable)"
+    try:
+        from automation.report_synthesis import load_cycle_synthesis
+        cs = load_cycle_synthesis(cycle)
+        if cs is not None:
+            synth_md = cs.pm_markdown
+    except Exception as _e:  # never block the review on synthesis
+        synth_md = f"(synthesis error: {_e})"
     request_content = f"""# POST-CYCLE PM REVIEW REQUEST — Cycle {cycle:03d}
+
+## Last-Cycle Synthesis (evidence-checked — per-agent verdicts, discrepancies, carryover)
+{synth_md}
 
 ## Facts
 ```json
@@ -166,14 +178,16 @@ def run_post_cycle_review(
         # H7 FIX: align instruction with parser on exact "VERDICT: X" token format
         review_query = (
             "You are the official PM reviewer for the Fiverr Research System automation runner. "
-            "Review the post-cycle facts and context provided via stdin. "
+            "Review the Last-Cycle Synthesis, the post-cycle facts, and the review prompt provided via stdin. "
             "Your FIRST LINE must be exactly one of these three options:\n"
             "  VERDICT: PASS\n"
             "  VERDICT: FAIL\n"
             "  VERDICT: BLOCKED\n"
-            "followed by your brief explanation on subsequent lines. "
-            "PASS = all gates green; FAIL = one or more hard gates red; "
-            "BLOCKED = work incomplete or PR missing."
+            "followed by your brief explanation. Then, per Part 0.6/Part 9 of the review prompt, output a "
+            "section beginning with the line 'NEXT-CYCLE DIRECTIVES' containing one bullet per carryover item "
+            "and per discrepancy, each as: - [agent X][priority] <task> | corrective gate: <gate> | why carried: "
+            "<verdict/discrepancy>. PASS = all gates green AND no hard discrepancies; FAIL = a hard gate red; "
+            "BLOCKED = work incomplete / PR missing / a CLAIMED_ONLY agent."
         )
         with open(request_path, encoding="utf-8") as stdin_file:
             r = subprocess.run(

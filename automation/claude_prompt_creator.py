@@ -248,6 +248,25 @@ def _build_pm_context(
         "=" * 70,
     ]
 
+    # ── ARSF Section 2: what actually happened last cycle ────────────────────
+    try:
+        from automation.report_synthesis import load_cycle_synthesis, load_next_cycle_directives
+        prev = load_cycle_synthesis(cycle - 1)
+        lines.append("\n## 2. LAST CYCLE — WHAT ACTUALLY HAPPENED (evidence-checked)\n")
+        lines.append(prev.pm_markdown if prev else "(no synthesis for the previous cycle — treat nothing as delivered)")
+        lines += [
+            "\n## 2A. HOW TO USE SECTION 2 (mandatory)",
+            "- Treat each agent's verdict + discrepancies as the TRUTH of last cycle.",
+            "- Every carried/blocked/claimed-only item is pre-injected into the relevant agent's task list below;",
+            "  KEEP those tasks and reference what already exists — do not treat them as fresh.",
+            "- Do NOT credit Score 1/2 or advance the wave for anything not marked DELIVERED.",
+        ]
+        d = load_next_cycle_directives(cycle - 1)
+        if d:
+            lines += ["\n## 2B. CARRIED DIRECTIVES (must appear as tasks)", d.pm_markdown]
+    except Exception:
+        pass  # non-blocking
+
     # C6 FIX: Derive wave folder/DOD/TODO dynamically (was hardcoded to waves 11/12).
     # Searches REF_ROOT for a directory prefixed by wave number (e.g. "13_analytics").
     def _find_wave_dir(root: Path, wave_num: int) -> Path | None:  # type: ignore[name-defined]
@@ -429,7 +448,7 @@ def _build_agent_prompt_request(
     }
     agent_role = agent_roles.get(agent_id, f"Agent {agent_id}")
 
-    return f"""You are the Project Manager for the Fiverr Research System autonomous build runner.
+    req = f"""You are the Project Manager for the Fiverr Research System autonomous build runner.
 
 Your job: Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cycle:03d}.
 
@@ -475,6 +494,26 @@ Generate ONLY the agent prompt text. Start with the header line:
 Do not add preamble. Do not add explanation after the prompt.
 The prompt should be 3,000-5,000 lines for implementation agents (B), 1,500-3,000 for others.
 """
+
+    # RSF-45: ARSF — inject this agent's carried directives as non-droppable tasks
+    try:
+        from automation.report_synthesis import load_next_cycle_directives
+        d = load_next_cycle_directives(cycle - 1)
+        mine = [x for x in (d.directives if d else []) if x.get("agent") == agent_id]
+        if mine:
+            carried_section = "\n\n## CARRIED TASKS FROM LAST CYCLE (non-droppable)\n"
+            for i, x in enumerate(mine, 1):
+                carried_section += (
+                    f"{i}. [{x.get('priority', 'P1')}] {x['task']}\n"
+                    f"   Corrective gate: {x.get('corrective_gate', '(none)')}\n"
+                    f"   Why carried: {x.get('origin', '')} (cycle {getattr(d, 'from_cycle', cycle - 1)})\n"
+                )
+            # Insert before the OUTPUT FORMAT section
+            req = req.replace("## OUTPUT FORMAT", carried_section + "\n## OUTPUT FORMAT")
+    except Exception:
+        pass  # non-blocking; if no directives, nothing is added
+
+    return req
 
 
 def create_agent_prompts_via_claude(

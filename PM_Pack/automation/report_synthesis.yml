@@ -1,0 +1,31 @@
+# PM_Pack/automation/report_synthesis.yml
+# RSF-20: ARSF configuration. All values have safe defaults.
+# Env-var overrides: ARSF_<KEY> (uppercase, underscore) override any value here.
+
+enabled: true
+
+# Inject prior-cycle synthesis into _build_pm_context §2
+inject_into_pm_context: true
+
+# Enforce the report standard: warn | block
+enforce_report_format: warn
+
+# Block cycle dispatch on hard discrepancies
+gate_on_discrepancies: false
+
+# Which discrepancy flags are hard-blocking (when gate_on_discrepancies=true)
+blocking_discrepancies:
+  - COMPLETION_CLAIMED_NO_COMMIT
+  - TESTS_CLAIMED_PASS_CI_RED
+
+# Max characters for the PM synthesis block in _build_pm_context
+max_pm_block_chars: 8000
+
+# Cross-check claimed files/commits against real git diff
+crosscheck_with_git: true
+
+# Include ICV per-agent outcomes in the synthesis
+fold_icv_outcomes: true
+
+# How many prior cycles of synthesis to retain in context
+history_depth: 3
