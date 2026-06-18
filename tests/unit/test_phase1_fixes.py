@@ -84,10 +84,21 @@ def _fake_cursor_result():
     )
 
 
-def _mock_all(monkeypatch, lifecycle_status, lifecycle_errors=None):
+def _mock_all(monkeypatch, lifecycle_status, lifecycle_errors=None, tmp_path=None):
     """Mock out all external calls in cmd_run_agent."""
+    import tempfile, pathlib
     from automation.run_agent_lifecycle import AgentLifecycleResult
     from automation.model_gate import ModelGateResult
+
+    # Create a fake repo root with a stub prompt file so CI file-existence check passes
+    if tmp_path is None:
+        tmp_path = pathlib.Path(tempfile.mkdtemp())
+    stub_prompt = tmp_path / "PM_Pack/automation/prompts/CYCLE_084_AGENT_A_PROMPT.md"
+    stub_prompt.parent.mkdir(parents=True, exist_ok=True)
+    stub_prompt.write_text("# Test prompt stub", encoding="utf-8")
+    stub_prompt_b = tmp_path / "PM_Pack/automation/prompts/CYCLE_084_AGENT_B_PROMPT.md"
+    stub_prompt_b.write_text("# Test prompt stub B", encoding="utf-8")
+    monkeypatch.setattr("automation.ai_cycle_controller.REPO_ROOT", tmp_path)
 
     # Block real git rev-parse
     orig_run = subprocess.run
@@ -108,6 +119,12 @@ def _mock_all(monkeypatch, lifecycle_status, lifecycle_errors=None):
         "automation.model_gate.check",
         lambda **kwargs: ModelGateResult(passed=True),
     )
+    # Mock prompt_validator.validate so stub prompt passes
+    class _PV:
+        passed = True
+        @staticmethod
+        def summary(): return "PROMPT PASS (mocked)"
+    monkeypatch.setattr("automation.prompt_validator.validate", lambda *a, **k: _PV())
     monkeypatch.setattr(
         "automation.run_agent_lifecycle.run_post_agent_lifecycle",
         lambda *a, **k: AgentLifecycleResult(
