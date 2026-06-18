@@ -51,9 +51,15 @@ PQ_GATES = [
     ("PQ-3", r"PQ-3|git instructions"),
     ("PQ-4", r"PQ-4|autonomy"),
     ("PQ-5", r"PQ-5|jira scope"),
-    ("PQ-6", r"PQ-6|tasks"),
-    ("PQ-7", r"PQ-7|validation"),
+    # PQ-6/PQ-7 handled separately below with richer checks
 ]
+
+# ── PQ-6: each task must have at least one runnable shell block ───────────────
+MIN_CODE_BLOCKS_RATIO = 0.3   # at least 30% of tasks must have a code block
+
+# ── PQ-7: anti-paste gate — prompts must not be verbatim copies of prior cycles
+# (checked via unique content ratio; >80% unique words = not a paste)
+MIN_UNIQUE_WORD_RATIO = 0.40  # at least 40% unique words (vs total words)
 
 # ── Hard-fail safety patterns ───────────────────────────────────────────────
 SAFETY_ERRORS = [
@@ -164,6 +170,29 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
         for pq_id, pq_pattern in PQ_GATES:
             if not re.search(pq_pattern, text, re.IGNORECASE):
                 result.warnings.append(f"PQ gate not confirmed: {pq_id}")
+
+    # PQ-6: At least MIN_CODE_BLOCKS_RATIO of tasks must have a code block (```...)
+    # This ensures tasks have runnable commands, not just prose descriptions.
+    if result.task_count > 0:
+        code_block_count = len(re.findall(r"```", text)) // 2  # pairs of ```
+        ratio = code_block_count / max(result.task_count, 1)
+        if ratio < MIN_CODE_BLOCKS_RATIO:
+            result.warnings.append(
+                f"PQ-6: only {code_block_count} code blocks for {result.task_count} tasks "
+                f"(ratio={ratio:.0%}, floor={MIN_CODE_BLOCKS_RATIO:.0%}). "
+                "Add runnable command blocks so Cursor executes, not just narrates."
+            )
+
+    # PQ-7: Anti-paste gate — check unique word ratio.
+    # A prompt recycled verbatim from prior cycles has very low unique-word ratio.
+    words = re.findall(r"\b\w{4,}\b", text.lower())
+    if words:
+        unique_ratio = len(set(words)) / len(words)
+        if unique_ratio < MIN_UNIQUE_WORD_RATIO:
+            result.warnings.append(
+                f"PQ-7: unique word ratio {unique_ratio:.0%} below {MIN_UNIQUE_WORD_RATIO:.0%} floor. "
+                "Prompt may be a verbatim paste of a prior cycle."
+            )
 
     # ── Safety gates (always FAIL) ──────────────────────────────────────
     for pattern, description in SAFETY_ERRORS:

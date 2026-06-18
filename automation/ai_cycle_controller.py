@@ -807,6 +807,11 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
     _agent_start_time = time.time()
 
+    # OBS-2: update current_activity so the operator can see which agent is running
+    import automation.autopilot_logger as _L_obs
+    _L_obs.set_activity("AGENT-RUN", cycle=cycle, agent=agent)
+    _L_obs.print_stage_matrix(current="AGENT-RUN", agents=["A", "B", "E", "C", "F", "D"])
+
     # C1 FIX: snapshot HEAD before dispatching Cursor so the post-agent
     # lifecycle ownership check covers only files changed by THIS agent,
     # not accumulated leftovers from prior failed agents/cycles.
@@ -818,12 +823,14 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     pre_dispatch_sha = _pre_sha_r.stdout.strip() or None
 
     from automation.cursor_adapter import run_agent as cursor_run
-    result = cursor_run(
-        agent_id=agent,
-        prompt_path=str(prompt_path),
-        working_dir=str(REPO_ROOT),
-        output_dir=str(agent_dir),
-    )
+    # OBS-6: heartbeat thread keeps terminal alive during long Cursor runs
+    with _L_obs.HeartbeatThread(f"AGENT-RUN agent={agent} cycle={cycle}", interval=60.0):
+        result = cursor_run(
+            agent_id=agent,
+            prompt_path=str(prompt_path),
+            working_dir=str(REPO_ROOT),
+            output_dir=str(agent_dir),
+        )
 
     _agent_elapsed_min = (time.time() - _agent_start_time) / 60.0
     click.echo(f"  Agent {agent} finished: status={result.status} exit={result.exit_code} "
@@ -1014,12 +1021,15 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         _progress_path.write_text(_json.dumps(prog, indent=2))
 
     completed_agents: list[str] = []
+    _agent_outcomes: dict[str, dict] = {}  # OBS-7
 
     for idx, agent in enumerate(agents, 1):
         prompt_path = REPO_ROOT / f"PM_Pack/automation/prompts/CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
         prompt_bytes = prompt_path.stat().st_size if prompt_path.exists() else 0
         _ev("AGENT", f"Agent {agent} STARTING [{idx}/{len(agents)}] -- {prompt_bytes//1024}KB prompt", agent=agent, cycle=cycle, status="RUNNING")
         L.agent_start(agent, cycle, prompt_bytes, idx, len(agents))
+        # OBS-13: show stage matrix so operator sees which agent is running
+        L.print_stage_matrix(current=agent, agents=agents)
         _write_progress(agent, completed_agents, list(failures.keys()))
 
         args = [
@@ -1034,9 +1044,59 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         elapsed = _t.time() - t0
 
         L.agent_done(agent, elapsed, rc == 0, idx, len(agents))
+        # OBS-7: accumulate per-agent outcome
+        _agent_outcomes[agent] = {
+            "status": "COMPLETE" if rc == 0 else "FAILED",
+            "elapsed": elapsed,
+            "exit_code": rc,
+        }
         if rc == 0:
             completed_agents.append(agent)
             _ev("AGENT", f"Agent {agent} DONE ({elapsed:.0f}s) [{idx}/{len(agents)}]", agent=agent, cycle=cycle, status="OK")
+
+            # C3 FIX: Completion gate -- verify AC items in agent report after each COMPLETE run.
+            # If AC items are missing, log a warning and attempt ONE re-dispatch (capped).
+            _C3_MAX_RETRIES = 1
+            try:
+                from automation.claude_prompt_creator import verify_jira_ac_completion
+                from automation.jira_client import board_inventory as _bi
+                _cycle_issues = _bi().get("issues", [])
+                _report_path = (REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent}.md")
+                _report_text = _report_path.read_text(encoding="utf-8") if _report_path.exists() else ""
+                _missing_stories = []
+                for issue in _cycle_issues[:30]:
+                    ac_result = verify_jira_ac_completion(issue, _report_text)
+                    if not ac_result.get("passed") and ac_result.get("missing"):
+                        _missing_stories.append(ac_result["key"])
+
+                import os as _os_c3
+                if _missing_stories and not _os_c3.environ.get("PYTEST_CURRENT_TEST"):
+                    L.warn(
+                        f"C3: Agent {agent} — {len(_missing_stories)} stories have unsatisfied AC: "
+                        f"{_missing_stories[:5]}"
+                    )
+                    _ev("AC_GATE", f"Agent {agent} missing AC for: {_missing_stories[:5]}",
+                        agent=agent, cycle=cycle, status="WARN")
+
+                    if _agent_outcomes[agent].get("c3_retry_count", 0) < _C3_MAX_RETRIES:
+                        L.warn(f"C3: Re-dispatching Agent {agent} (attempt 2/{_C3_MAX_RETRIES + 1})")
+                        _retry_args = [
+                            sys.executable, "automation/ai_cycle_controller.py",
+                            "run-agent", "--agent", agent, "--cycle", str(cycle),
+                        ]
+                        if safe_docs_only:
+                            _retry_args.append("--safe-docs-only")
+                        _t0_retry = _t.time()
+                        _rc_retry, _out_retry = _run_and_stream(_retry_args, label=f"Agent {agent} [C3-retry]")
+                        _elapsed_retry = _t.time() - _t0_retry
+                        _agent_outcomes[agent]["c3_retry_count"] = 1
+                        _agent_outcomes[agent]["c3_retry_exit_code"] = _rc_retry
+                        if _rc_retry != 0:
+                            L.warn(f"C3 re-dispatch of Agent {agent} also failed (rc={_rc_retry})")
+                        else:
+                            L.ok(f"C3 re-dispatch of Agent {agent} succeeded ({_elapsed_retry:.0f}s)")
+            except Exception as _c3_exc:
+                L.warn(f"C3 AC-gate check failed (non-blocking): {_c3_exc}")
         else:
             failures[agent] = output.strip()
             _ev("AGENT", f"Agent {agent} FAILED ({elapsed:.0f}s)", agent=agent, cycle=cycle, status="FAIL")
@@ -1059,7 +1119,13 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         L.error(f"RUN CYCLE {cycle:03d} FAILED — {len(failures)}/{len(agents)} agents failed: {list(failures.keys())}")
         for agent, detail in failures.items():
             L.info(f"Agent {agent} last output: {detail[-200:]}")
+        # OBS-7: summary even on failure
+        L.cycle_summary(cycle=cycle, agent_outcomes=_agent_outcomes, gate_result="FAILED",
+                        blocker_name=f"agents={list(failures.keys())}")
         raise SystemExit(1)
+
+    # OBS-7: summary on success (gate determined by post-cycle review later)
+    L.cycle_summary(cycle=cycle, agent_outcomes=_agent_outcomes, gate_result="AGENTS_COMPLETE")
 
     from automation.stage_executor import StageExecutor
 
@@ -1649,15 +1715,21 @@ def cmd_tick() -> None:
             if grade == "PASS" and not result.blocks_dispatch:
                 write_controller_state("POST_CYCLE_PASS", cycle=cycle)
                 L.ok(f"Cycle {cycle} COMPLETE — next tick plans Cycle {cycle + 1}")
+                # OBS-7: emit end-of-cycle summary
+                L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result="PASS")
+                L.clear_activity()
             elif grade in ("CONDITIONAL_PASS",) and not result.blocks_dispatch:
                 write_controller_state("POST_CYCLE_PASS", cycle=cycle)
                 L.ok(f"Cycle {cycle} CONDITIONAL PASS — next tick plans Cycle {cycle + 1}")
+                L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result="CONDITIONAL_PASS")
+                L.clear_activity()
             else:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
                 L.error(
                     f"POST_CYCLE_FAIL grade={grade} blocks_dispatch={result.blocks_dispatch} "
                     f"— review issues before advancing to Cycle {cycle + 1}"
                 )
+                L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result=f"FAIL:{grade}")
         except Exception as exc:
             L.error(f"post-cycle-review raised: {exc}")
             import traceback
