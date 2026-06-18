@@ -73,11 +73,11 @@ jira:
   allow_done_transition_only_after_merge: true
 
 validation:
-  coverage_floor: 90
+  coverage_floor: 80  # H8.3: matches CI --cov-fail-under=80
   commands:
     - "python -m ruff check ."
     - "python -m mypy src"
-    - "python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90"
+    - "python -m pytest -q --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=80"
     - "python run.py config-check"
     - "python run.py foundation-gate --database-url sqlite:///data/foundation_gate_runner.db"
     - "python run.py phase2-smoke"

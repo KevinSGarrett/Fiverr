@@ -805,6 +805,14 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
 
     click.echo(f"  [4/5] Dispatching Cursor agent {agent}...")
     write_heartbeat("CURSOR_RUNNING", cycle=cycle, agent=agent)
+    # OBS-14: display provider routing + daily budget before dispatch
+    import os as _os_obs14
+    if not _os_obs14.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            import automation.autopilot_logger as _L_obs14
+            _L_obs14.print_provider_budget(cycle=cycle)
+        except Exception:
+            pass
     _agent_start_time = time.time()
 
     # OBS-2: update current_activity so the operator can see which agent is running
@@ -816,11 +824,26 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     # lifecycle ownership check covers only files changed by THIS agent,
     # not accumulated leftovers from prior failed agents/cycles.
     import subprocess as _subprocess_c1
+    import os as _os_c1
     _pre_sha_r = _subprocess_c1.run(
         ["git", "rev-parse", "HEAD"],
         cwd=str(REPO_ROOT), capture_output=True, text=True,
     )
     pre_dispatch_sha = _pre_sha_r.stdout.strip() or None
+
+    # C1.2: Stash any uncommitted changes before dispatch so the working tree
+    # is clean and the agent starts from a known state.
+    if not _os_c1.environ.get("PYTEST_CURRENT_TEST"):
+        _stash_r = _subprocess_c1.run(
+            ["git", "stash", "push", "--include-untracked",
+             "-m", f"pre-agent-{agent}-cycle{cycle:03d}"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=30,
+        )
+        if _stash_r.returncode == 0 and "No local changes" not in _stash_r.stdout:
+            click.secho(
+                f"  [C1.2] Stashed working-tree changes before agent {agent} dispatch",
+                fg="yellow",
+            )
 
     from automation.cursor_adapter import run_agent as cursor_run
     # OBS-6: heartbeat thread keeps terminal alive during long Cursor runs

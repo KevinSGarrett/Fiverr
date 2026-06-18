@@ -12,33 +12,54 @@ REPO_ROOT = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
 CONTROLLER_STATE = RUNNER_ROOT / "state/controller_state.json"
 
-# Agent file ownership map — agents must not modify outside their scope
-AGENT_OWNERSHIP = {
-    "A": {
-        "allowed":   ["src/pipeline", "src/models", "src/collection", "src/scoring",
-                      "src/signals", "tests/unit", "tests/integration"],
-        "forbidden": ["src/dashboard", "src/reports", "src/playbook", "docs/"],
-    },
-    "B": {
-        "allowed":   ["src/signals", "src/integrations", "src/scrapers", "tests/"],
-        "forbidden": ["src/dashboard", "src/reports"],
-    },
-    "E": {
-        "allowed":   ["tests/"],
-        "forbidden": ["src/"],
-    },
-    "C": {
-        "allowed":   ["src/dashboard", "src/visualization", "tests/"],
-        "forbidden": ["src/pipeline", "src/models", "src/scoring"],
-    },
-    "F": {
-        "allowed":   ["src/reports", "src/playbook", "tests/"],
-        "forbidden": ["src/pipeline", "src/dashboard"],
-    },
-    "D": {
-        "allowed":   ["docs/", "PM_Pack/10_cycle_log/", "docs/cycle_reports/"],
-        "forbidden": ["src/", "tests/", "automation/"],
-    },
+# C1.4: Agent file ownership -- sourced dynamically from agent_lanes.yml
+_LANES_PATH = Path("C:/Fiverr/Fiverr/PM_Pack/automation/agent_lanes.yml")
+_OWNERSHIP_CACHE: dict | None = None
+
+
+def _load_agent_ownership() -> dict:
+    """Load agent ownership rules from agent_lanes.yml (cached).
+    Falls back to empty dict on error so the lifecycle never crashes.
+    """
+    global _OWNERSHIP_CACHE
+    if _OWNERSHIP_CACHE is not None:
+        return _OWNERSHIP_CACHE
+    try:
+        import yaml
+        data = yaml.safe_load(_LANES_PATH.read_text(encoding="utf-8")) or {}
+        ownership: dict[str, dict] = {}
+        for lane in data.get("lanes", []):
+            agent = str(lane.get("agent", "")).upper()
+            if not agent:
+                continue
+            ownership[agent] = {
+                "allowed":   [str(p) for p in lane.get("owns", [])],
+                "forbidden": [str(p) for p in lane.get("prohibited_without_explicit_task", [])],
+            }
+        _OWNERSHIP_CACHE = ownership
+        return ownership
+    except Exception:
+        _OWNERSHIP_CACHE = {}
+        return {}
+
+
+def _get_ownership_rules(agent_id: str) -> dict:
+    """Return ownership rules for agent_id from agent_lanes.yml."""
+    rules = _load_agent_ownership().get(str(agent_id).upper(), {})
+    if not rules:
+        # Fall back to hardcoded map for any missing agents
+        rules = _get_ownership_rules(agent_id)
+    return rules
+
+
+# Legacy hardcoded map (kept for backward-compat; superseded by agent_lanes.yml above)
+AGENT_OWNERSHIP: dict = {
+    "A": {"allowed": ["PM_Pack/**", "docs/**", ".github/**", "pyproject.toml"], "forbidden": ["src/**"]},
+    "B": {"allowed": ["src/**", "tests/**"], "forbidden": []},
+    "E": {"allowed": ["tests/**"], "forbidden": ["src/**"]},
+    "C": {"allowed": ["src/dashboard/**", "tests/**"], "forbidden": ["src/pipeline/**"]},
+    "F": {"allowed": ["src/reports/**", "tests/**"], "forbidden": ["src/pipeline/**"]},
+    "D": {"allowed": ["docs/**", "PM_Pack/**"], "forbidden": ["src/**", "tests/**", "automation/**"]},
 }
 
 

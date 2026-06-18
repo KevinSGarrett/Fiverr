@@ -693,3 +693,43 @@ class Spinner:
     def __exit__(self, *_: object) -> None:
         self._stop.set()
         self._thread.join(timeout=1)
+
+# ── OBS-14: Provider routing + budget visible at dispatch time ────────────
+def print_provider_budget(cycle: int | None = None) -> None:
+    """OBS-14: Print current provider routing and daily spend against budget caps.
+    Called at agent dispatch so the operator can see routing + cost in the terminal.
+    """
+    try:
+        from automation.provider_usage_ledger import get_daily_spend, SUMMARY_PROVIDERS
+        from automation.provider_health import load_provider_health
+
+        HARD_CAP = {"openaiapi": 10.0, "claudesubscription": 0.0, "cursorcli": 0.0, "codexsubscription": 0.0}
+        SOFT_CAP = {"openaiapi": 5.0}
+
+        lines = [f"  {'─'*55}"]
+        lines.append(f"  PROVIDER BUDGET — {'cycle ' + str(cycle) if cycle else 'today'}")
+        lines.append(f"  {'─'*55}")
+
+        health = load_provider_health()
+        for provider in SUMMARY_PROVIDERS:
+            spend = get_daily_spend(provider)
+            hard = HARD_CAP.get(provider, 0.0)
+            soft = SOFT_CAP.get(provider, 0.0)
+            status = (health.get(provider, {}) or {}).get("status", "UNKNOWN")
+            color_tag = ""
+            if hard > 0 and spend >= hard:
+                color_tag = " [HARD CAP HIT]"
+            elif soft > 0 and spend >= soft:
+                color_tag = " [soft cap]"
+            bar_width = 20
+            bar_fill = int(min(spend / hard, 1.0) * bar_width) if hard > 0 else 0
+            bar = "#" * bar_fill + "." * (bar_width - bar_fill)
+            lines.append(
+                f"  {provider:<22} [{bar}] ${spend:.3f}"
+                + (f"/${hard:.0f}" if hard > 0 else "       ")
+                + f"  {status}{color_tag}"
+            )
+        lines.append(f"  {'─'*55}")
+        _click.echo("\n".join(lines))
+    except Exception as _obs14_exc:
+        debug(f"OBS-14 provider budget display skipped: {_obs14_exc}")

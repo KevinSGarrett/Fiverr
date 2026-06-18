@@ -74,6 +74,12 @@ class PostCycleFacts:
     github_blockers: list[str] = field(default_factory=list)
     github_action_items: list[str] = field(default_factory=list)
 
+    # C4.3: PR expected flag (set when branch has commits not yet in develop)
+    pr_expected: bool = False
+
+    # C4.6: ICV blocked agents (populated from _agent_outcomes in cmd_run_cycle)
+    icv_blocked_agents: list[str] = field(default_factory=list)
+
     # Agent report facts
     agent_reports_present: dict[str, bool] = field(default_factory=dict)
 
@@ -102,24 +108,44 @@ class PostCycleReviewResult:
 
     @property
     def blocks_dispatch(self) -> bool:
-        # C4 FIX: POST_AGENT mode was hardcoded to never block.
-        # Now it blocks when hard facts are red (lint/mypy/pytest/CI fail,
-        # or GH health below threshold) -- these signal the agent produced
-        # broken code even if the cycle state machine wants to advance.
-        # ADVISORY_ONLY still passes (conservative first step).
+        # C4.2 (existing): POST_AGENT mode blocks on hard red facts.
+        # C4.3: blocks on missing branch/PR when expected.
+        # C4.4: blocks on coverage below configurable floor.
+        # C4.5: blocks on GitHub health below threshold.
+        # C4.6: blocks on unmet acceptance criteria (ICV BLOCKED outcomes).
         if self.mode == ReviewMode.POST_AGENT:
-            # Block on undeniable red facts even in POST_AGENT mode
             if hasattr(self, "facts") and self.facts is not None:
                 f = self.facts
-                hard_fail = (
-                    (f.local_ruff is False) or
-                    (f.local_mypy is False) or
-                    (f.local_pytest is False) or
-                    (f.ci_passed is False) or
-                    (getattr(f, "github_health_score", 100) is not None and
-                     getattr(f, "github_health_score", 100) < 50)
-                )
-                return hard_fail
+                # C4.2: Local tool failures
+                if f.local_ruff is False:
+                    return True
+                if f.local_mypy is False:
+                    return True
+                if f.local_pytest is False:
+                    return True
+                if f.ci_passed is False:
+                    return True
+                # C4.3: Missing PR when merge is expected
+                if getattr(f, "pr_expected", False) and not f.pr_number:
+                    return True
+                # H8.1/C4.4: Coverage floor from config (single source of truth)
+                try:
+                    import yaml as _yaml_h81
+                    _cfg_h81 = _yaml_h81.safe_load(
+                        open("automation/config/autonomous_runner.yml", encoding="utf-8").read()
+                    ) or {}
+                    _COV_FLOOR = float(_cfg_h81.get("coverage_floor", 80.0))
+                except Exception:
+                    _COV_FLOOR = 80.0
+                if f.local_coverage_pct > 0 and f.local_coverage_pct < _COV_FLOOR:
+                    return True
+                # C4.5: GitHub health below threshold
+                if getattr(f, "github_health_score", 100) < 50:
+                    return True
+                # C4.6: ICV BLOCKED outcomes on any agent
+                icv_outcomes = getattr(f, "icv_blocked_agents", [])
+                if icv_outcomes:
+                    return True
             return False  # No facts available -- don't block
         return self.result != ReviewResult.PASS
 
@@ -143,6 +169,9 @@ def collect_facts(cycle: int, mode: ReviewMode,
     # ── Git facts ─────────────────────────────────────────────────────
     facts.head_sha = _git("rev-parse", "HEAD")
     facts.develop_sha = _git("rev-parse", "origin/develop")
+    # C4.3: detect whether a PR is expected (HEAD differs from develop)
+    if facts.head_sha and facts.develop_sha and facts.head_sha != facts.develop_sha:
+        facts.pr_expected = True
 
     # ── PR merge state ────────────────────────────────────────────────
     if pr_number:
@@ -271,8 +300,8 @@ def collect_facts(cycle: int, mode: ReviewMode,
     # ── GitHub health audit (full repo review for PM) ─────────────────
     try:
         from automation.github_reviewer import (
-            auto_fix_what_we_can,
             build_health_report,
+            auto_fix_what_we_can,
         )
         branch = f"cycle/{cycle:03d}/integration"
         health = build_health_report(cycle=cycle, branch=branch)
@@ -609,10 +638,6 @@ class PostCycleReview:
                 "collected_at": datetime.now(UTC).isoformat(),
             }
         except (JiraAuthError, ConnectionError, OSError):
-            payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
-        except Exception:
-            # requests.exceptions.ConnectionError and transport-level failures should
-            # never bubble; Jira closeout collection must be non-blocking.
             payload = {"done_stories": [], "auth_error": "JIRA_AUTH_FAILED"}
         self.current_run_dir.mkdir(parents=True, exist_ok=True)
         (self.current_run_dir / "jira_verification.json").write_text(

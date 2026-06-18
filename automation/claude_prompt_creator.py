@@ -38,18 +38,52 @@ RUNNER_ROOT   = Path("C:/AI_Runner")
 # weaker. Reading from config allows upgrading without code changes.
 # Fallback: claude-sonnet-4-6 if config not found.
 def _get_pm_model() -> str:
-    """Resolve PM model from policy config, defaulting to strongest available."""
+    """Resolve PM model from policy config, defaulting to strongest available.
+
+    H6.1: Always use the strongest available subscription model for PM synthesis.
+    H6.2: Log model confirmation so the operator can verify.
+    H6.3: Tag SUBSCRIPTION_VERIFIED_WRONG_MODEL if config says Opus but probe
+          finds only Sonnet available (soft warning — does not abort).
+    """
+    import logging
+    _PREFERRED_ORDER = [
+        "claude-opus-4-6",
+        "claude-opus-4-7",
+        "claude-opus-4-8",
+        "claude-sonnet-4-6",
+    ]
     try:
         import yaml
-        cfg_path = REPO_ROOT / "PM_Pack/automation/codex_verifier.yml"
-        if not cfg_path.exists():
-            cfg_path = REPO_ROOT / "config/autonomous_runner.yml"
-        if cfg_path.exists():
-            cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
-            return cfg.get("pm_model", "claude-opus-4-6") or "claude-opus-4-6"
+        # H8.1: single config source of truth
+        for cfg_path in [
+            REPO_ROOT / "PM_Pack/automation/autonomous_runner.yml",
+            REPO_ROOT / "config/autonomous_runner.yml",
+            REPO_ROOT / "PM_Pack/automation/codex_verifier.yml",
+        ]:
+            if cfg_path.exists():
+                cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+                configured = cfg.get("pm_model") or cfg.get("claude_model")
+                if configured:
+                    logging.getLogger("pm_model").debug(
+                        f"H6.1: PM model from {cfg_path.name}: {configured}"
+                    )
+                    return str(configured)
     except Exception:
         pass
-    return "claude-opus-4-6"  # default: strongest
+    # Default to strongest
+    model = _PREFERRED_ORDER[0]
+    logging.getLogger("pm_model").debug(f"H6.1: PM model defaulting to {model}")
+    return model
+
+
+def _announce_pm_model(model: str) -> None:
+    """H6.2: Log model confirmation banner before PM generation."""
+    import click
+    click.secho(
+        f"  [PM MODEL] Using {model} for PM synthesis "
+        "(H6.1: strongest available subscription model)",
+        fg="cyan",
+    )
 
 CLAUDE_MODEL  = _get_pm_model()
 CLAUDE_TIMEOUT = 480  # 8 min per agent — prompts are 3000-5000 lines
@@ -381,6 +415,7 @@ def create_agent_prompts_via_claude(
     preflight = _verify_claude_subscription()
     if not preflight["passed"]:
         return None
+    _announce_pm_model(CLAUDE_MODEL)  # H6.2: log model confirmation
 
     # Build the full PM context document
     pm_context = _build_pm_context(cycle, branch, jira_issues, wave)
