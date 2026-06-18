@@ -1101,6 +1101,34 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             failures[agent] = output.strip()
             _ev("AGENT", f"Agent {agent} FAILED ({elapsed:.0f}s)", agent=agent, cycle=cycle, status="FAIL")
             L.agent_fail_detail(agent, output)
+
+        # ICV: verify and repair after each agent (gated by ICV_DISABLED env var)
+        import os as _os_icv
+        if rc == 0 and not _os_icv.environ.get("ICV_DISABLED") and not _os_icv.environ.get("PYTEST_CURRENT_TEST"):
+            try:
+                from automation.codex_verifier import verify_and_repair_agent as _icv_verify
+                _contract_path = (
+                    REPO_ROOT / f"PM_Pack/automation/prompt_contracts/"
+                    f"CYCLE_{cycle:03d}_AGENT_{agent}.contract.json"
+                )
+                _icv_outcome = _icv_verify(
+                    cycle=cycle,
+                    agent=agent,
+                    prompt_path=str(prompt_path),
+                    contract_path=str(_contract_path) if _contract_path.exists() else None,
+                    run_dir=str(Path("C:/AI_Runner/runs") / f"CYCLE_{cycle:03d}" / "agent_runs" / agent),
+                    dispatch_result=None,
+                    pre_dispatch_sha=None,
+                )
+                _agent_outcomes[agent]["icv_status"] = _icv_outcome.status.value
+                _agent_outcomes[agent]["icv_score"] = _icv_outcome.completion_score
+                L.info(
+                    f"ICV outcome for agent {agent}: "
+                    f"{_icv_outcome.status.value} score={_icv_outcome.completion_score:.2f}"
+                )
+            except Exception as _icv_exc:
+                L.warn(f"ICV skipped for agent {agent} (non-blocking): {_icv_exc}")
+
         _write_progress(agent, completed_agents, list(failures.keys()), elapsed)
 
     # All agents done — write AGENT_COMPLETE so tick advances to post-cycle review

@@ -296,7 +296,7 @@ def _check_ownership(agent_id: str, changed_files: list[str]) -> list[str]:
       (a) it matches a forbidden prefix, OR
       (b) it doesn't match any allowed prefix (and allowed list is non-empty)
     """
-    rules = AGENT_OWNERSHIP.get(agent_id, {})
+    rules = _get_ownership_rules(agent_id)
     allowed_prefixes = rules.get("allowed", [])
     forbidden_prefixes = rules.get("forbidden", [])
     violations = []
