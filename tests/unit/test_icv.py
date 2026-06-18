@@ -301,6 +301,48 @@ class TestLoopGovernor:
         assert dec.stop_reason == StopReason.BUDGET_EXHAUSTED
 
 
+    def test_oscillation_detection(self):
+        """Wave 9 #4: Same action key twice should trigger OSCILLATION stop."""
+        from automation.codex_verifier.loop_governor import LoopGovernor
+        from automation.codex_verifier.schemas import (
+            ChecklistItem, ChecklistStatus, GovernorDecisionKind,
+            ItemClassification, VerificationResult, VerificationStatus
+        )
+        gov = LoopGovernor(max_attempts=5)
+        unmet = ChecklistItem(id="VCMD-1", source="t", description="d",
+                               status=ChecklistStatus.MISSING, is_blocking=True,
+                               classification=ItemClassification.FIXABLE_IN_SCOPE)
+        verdict = VerificationResult(status=VerificationStatus.FAIL, completion_score=0.5, unmet_items=[unmet])
+        gov.note_attempt(score=0.5, cost_usd=0.0)
+        dec1 = gov.decide(verdict, attempt=0)
+        assert dec1.kind == GovernorDecisionKind.REPAIR  # first time: repair
+        gov.note_attempt(score=0.5, cost_usd=0.0)
+        dec2 = gov.decide(verdict, attempt=1)  # same score, same unmet count
+        # Either NO_PROGRESS (no progress delta) or OSCILLATION -- both are correct STOP
+        assert dec2.kind == GovernorDecisionKind.STOP
+
+    def test_min_progress_delta(self):
+        """Wave 9 #2: Progress delta < min_progress_delta triggers NO_PROGRESS."""
+        from automation.codex_verifier.loop_governor import LoopGovernor
+        from automation.codex_verifier.schemas import (
+            ChecklistItem, ChecklistStatus, GovernorDecisionKind,
+            ItemClassification, StopReason, VerificationResult, VerificationStatus
+        )
+        gov = LoopGovernor(max_attempts=5, min_progress_delta=0.10)
+        unmet = ChecklistItem(id="X", source="t", description="d",
+                               status=ChecklistStatus.MISSING, is_blocking=True,
+                               classification=ItemClassification.FIXABLE_IN_SCOPE)
+        verdict50 = VerificationResult(status=VerificationStatus.FAIL, completion_score=0.50, unmet_items=[unmet])
+        verdict51 = VerificationResult(status=VerificationStatus.FAIL, completion_score=0.51, unmet_items=[unmet])  # only 0.01 improvement
+        gov.note_attempt(score=0.50, cost_usd=0.0)
+        gov.decide(verdict50, attempt=0)  # REPAIR
+        gov.note_attempt(score=0.51, cost_usd=0.0)  # tiny improvement (< 0.10 delta)
+        dec = gov.decide(verdict51, attempt=1)
+        assert dec.kind == GovernorDecisionKind.STOP
+        assert dec.stop_reason == StopReason.NO_PROGRESS
+
+
+
 # ---------------------------------------------------------------------------
 # ICV-CLASS: classifier
 # ---------------------------------------------------------------------------

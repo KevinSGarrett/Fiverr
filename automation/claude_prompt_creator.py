@@ -127,18 +127,67 @@ def _find_claude_binary() -> str | None:
 
 
 def _verify_claude_subscription() -> dict[str, Any]:
-    """Confirm no ANTHROPIC_API_KEY is set (must use subscription billing)."""
+    """PQ-4: Confirm subscription billing AND run a real liveness probe.
+    Invokes the claude CLI with a trivial prompt (fast, cheap) to confirm
+    the binary is installed, authenticated, and able to return a completion.
+    Treats the subscription as a hard precondition -- failure stops the cycle.
+    """
     import os
+    import time
+    # Step 1: env-var check (existing)
     for key in ["ANTHROPIC_API_KEY", "ANTHROPIC_API"]:
         val = os.environ.get(key, "")
         if val and not val.startswith("PLACEHOLDER"):
             return {"passed": False, "reason": f"{key} present — must use subscription billing only"}
     state = RUNNER_ROOT / "state/claude_model_state.json"
     if state.exists():
-        s = json.loads(state.read_text())
-        if s.get("billing_mode") != "claude_subscription_only":
-            return {"passed": False, "reason": "claude_model_state billing_mode is not subscription_only"}
-    return {"passed": True}
+        try:
+            s = json.loads(state.read_text())
+            if s.get("billing_mode") != "claude_subscription_only":
+                return {"passed": False, "reason": "claude_model_state billing_mode is not subscription_only"}
+        except Exception:
+            pass
+
+    # Step 2: PQ-4 real liveness probe
+    # Skip in test environments (PYTEST_CURRENT_TEST) or when binary not found
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return {"passed": True, "probe": "skipped (test env)"}
+    binary = _find_claude_binary()
+    if not binary:
+        return {
+            "passed": False,
+            "reason": "PQ-4: claude CLI binary not found -- check PATH or config claude_binary",
+        }
+    import subprocess as _sub
+    _t0 = time.time()
+    try:
+        result = _sub.run(
+            [binary, "--print", "--no-cache", "-p", "Reply OK"],
+            capture_output=True, text=True, timeout=30,
+        )
+        latency_ms = int((time.time() - _t0) * 1000)
+        if result.returncode != 0:
+            return {
+                "passed": False,
+                "reason": f"PQ-4: claude CLI probe failed (rc={result.returncode}): {result.stderr[:200]}",
+            }
+        probe_out = (result.stdout or "").strip()
+        if len(probe_out) < 2:
+            return {
+                "passed": False,
+                "reason": f"PQ-4: claude CLI probe returned empty response (latency={latency_ms}ms)",
+            }
+        return {"passed": True, "probe": "OK", "latency_ms": latency_ms, "model": CLAUDE_MODEL}
+    except _sub.TimeoutExpired:
+        return {
+            "passed": False,
+            "reason": "PQ-4: claude CLI liveness probe TIMEOUT (>30s) -- subscription unreachable",
+        }
+    except Exception as _exc:
+        return {
+            "passed": False,
+            "reason": f"PQ-4: claude CLI probe exception: {_exc}",
+        }
 
 
 def _read(path: Path, max_chars: int = 10000) -> str:

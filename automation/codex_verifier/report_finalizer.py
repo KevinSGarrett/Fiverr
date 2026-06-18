@@ -4,6 +4,7 @@ report_finalizer.py -- Writes ICV verification records and report sections.
 ICV-REPORT-1..3: Writes verification.json + appends to agent report.
 """
 from __future__ import annotations
+import re
 
 import json
 from datetime import UTC, datetime
@@ -46,16 +47,29 @@ class ReportFinalizer:
             from pathlib import Path as _P
             rp = _P("C:/Fiverr/Fiverr") / report_path_str
             if rp.exists():
+                # Wave 11 §11.4: Idempotent -- replace existing ICV section (stable anchor)
+                _anchor = f"<!-- ICV:{agent} -->"
                 section = (
-                    f"\n\n## ICV Verification Result\n\n"
+                    f"\n\n{_anchor}\n"
+                    f"## ICV Verification Result\n\n"
                     f"**Status:** VERIFIED_PASS  \n"
                     f"**Completion Score:** {verdict.completion_score:.0%}  \n"
                     f"**Items:** {record['total_satisfied']}/{record['total_items']} satisfied  \n"
                     f"**Verified at:** {record['generated_at']}  \n"
                 )
                 try:
-                    with open(rp, "a", encoding="utf-8") as f:
-                        f.write(section)
+                    content = rp.read_text(encoding="utf-8")
+                    if _anchor in content:
+                        # Replace existing ICV section (idempotent re-run)
+                        import re as _re_rf
+                        content = _re_rf.sub(
+                            f"{re.escape(_anchor)}.*?(?=\n\n##|\Z)",
+                            section.strip(), content, flags=_re_rf.DOTALL
+                        )
+                        rp.write_text(content, encoding="utf-8")
+                    else:
+                        with open(rp, "a", encoding="utf-8") as f:
+                            f.write(section)
                 except Exception:
                     pass
 

@@ -351,16 +351,38 @@ def run_agent(
         with open(stdout_path, "w", encoding="utf-8", errors="replace") as fout, \
              open(stderr_path, "w", encoding="utf-8", errors="replace") as ferr:
 
+            # OBS-10: Stream stdout live to terminal with agent prefix so operator
+            # can see Cursor output in real time, not just after the run ends.
+            import sys as _sys_obs10
+            import os as _os_obs10
+            _stream_live = not _os_obs10.environ.get("PYTEST_CURRENT_TEST")
+
             proc = subprocess.Popen(
                 cmd,
                 cwd=working_dir,
                 stdin=subprocess.PIPE if use_stdin else None,
-                stdout=fout,
+                stdout=subprocess.PIPE if _stream_live else fout,
                 stderr=ferr,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
             )
+
+            # OBS-10: Tee proc.stdout to both terminal (with prefix) and file
+            if _stream_live and proc.stdout:
+                import threading as _thr_obs10
+                _prefix = f"[{agent_id}] "
+                def _tee_stdout() -> None:
+                    try:
+                        for _line in proc.stdout:
+                            fout.write(_line)
+                            fout.flush()
+                            _sys_obs10.stdout.write(_prefix + _line)
+                            _sys_obs10.stdout.flush()
+                    except Exception:
+                        pass
+                _tee_thread = _thr_obs10.Thread(target=_tee_stdout, daemon=True)
+                _tee_thread.start()
 
             # Feed stdin for full-size prompts
             if use_stdin and stdin_source and proc.stdin:

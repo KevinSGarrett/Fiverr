@@ -227,6 +227,29 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
         if "floor_check" not in text and "MIN_TASKS" not in text:
             result.warnings.append("Agent A Task 1 floor check script missing")
 
+
+
+    # PQ-11: C070 structural lint - INVOKE-EXE, niche IDs, gates, regression pack, authorization
+    # These mirror the manual C070 prompt structure requirements (non-blocking warnings)
+    _PQ11_CHECKS = [
+        (r"INVOKE.EXE|function Invoke-Exe|Invoke-Exe\b",
+         "PQ-11: INVOKE-EXE PowerShell helper missing"),
+        (r"\$py\s*=|\$git\s*=|\$gh\s*=",
+         "PQ-11: binary path variables ($py/$git/$gh) missing"),
+        (r"prd_ai_saas|gumloop_lindy|mcp_ai_agent|python_automation|workflow_automation|ai_agent_development",
+         "PQ-11: niche IDs missing (prd_ai_saas/mcp_ai_agent/workflow_automation)"),
+        (r"G-A|G-B|G-C|G-D",
+         "PQ-11: production readiness gates G-A..G-D missing"),
+        (r"PERMANENT REGRESSION|regression.*pack|permanent.*pack",
+         "PQ-11: PERMANENT REGRESSION PACK missing"),
+        (r"policy.*v4|v4.*compliance|authoriz.*statement|authorized.*policy",
+         "PQ-11: policy authorization statement missing"),
+        (r"SQUASH_SHA|squash_sha",
+         "PQ-11: squash SHA placeholder missing"),
+    ]
+    for _pq11_pattern, _pq11_msg in _PQ11_CHECKS:
+        if not re.search(_pq11_pattern, text, re.IGNORECASE):
+            result.warnings.append(_pq11_msg)
     return result
 
 
