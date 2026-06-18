@@ -183,17 +183,42 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
                 "Add runnable command blocks so Cursor executes, not just narrates."
             )
 
-    # PQ-7: Anti-paste gate — check unique word ratio.
-    # A prompt recycled verbatim from prior cycles has very low unique-word ratio.
+    # PQ-7: Anti-paste gate (REVISED for real Jira/spec paste detection).
+    # (a) unique-word ratio: catches verbatim cycle-to-cycle recycling
+    # (b) task substance: catches spec/Jira dump (task must have code+path+verify)
     words = re.findall(r"\b\w{4,}\b", text.lower())
     if words:
         unique_ratio = len(set(words)) / len(words)
         if unique_ratio < MIN_UNIQUE_WORD_RATIO:
             result.warnings.append(
-                f"PQ-7: unique word ratio {unique_ratio:.0%} below {MIN_UNIQUE_WORD_RATIO:.0%} floor. "
-                "Prompt may be a verbatim paste of a prior cycle."
+                f"PQ-7a: unique word ratio {unique_ratio:.0%} < {MIN_UNIQUE_WORD_RATIO:.0%}. "
+                "Prompt may be verbatim recycled from a prior cycle."
             )
 
+    # PQ-7b: Task substance check -- authored vs pasted tasks
+    # An authored task has: runnable code block + concrete file path + verification step.
+    # A spec-dump prompt has large pasted text blocks but few authored tasks.
+    task_blocks = re.findall(
+        r"###+\s+Task\s+\d+.*?(?=###+\s+Task\s+\d+|\Z)",
+        text, re.DOTALL | re.IGNORECASE,
+    )
+    if task_blocks:
+        authored_count = 0
+        for tb in task_blocks[:60]:
+            has_code = bool(re.search(r"```", tb))
+            has_path = bool(re.search(r"(?:src|automation|tests|docs)/[\w/]+\.py", tb))
+            has_verify = bool(re.search(
+                r"(?:expected output|assert|verify|PASS|exit.*0|\== )", tb, re.IGNORECASE
+            ))
+            if has_code and has_path and has_verify:
+                authored_count += 1
+        authored_ratio = authored_count / len(task_blocks)
+        MIN_AUTHORED_RATIO = 0.20  # at least 20% of tasks must be authored (not pasted)
+        if authored_ratio < MIN_AUTHORED_RATIO:
+            result.warnings.append(
+                f"PQ-7b: {authored_count}/{len(task_blocks)} tasks ({authored_ratio:.0%}) have "
+                "authored code+path+verify. Prompt may be a Jira/spec paste-dump."
+            )
     # ── Safety gates (always FAIL) ──────────────────────────────────────
     for pattern, description in SAFETY_ERRORS:
         if re.search(pattern, text, re.IGNORECASE | re.MULTILINE):
