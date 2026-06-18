@@ -600,7 +600,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             '{"reason":"CLAUDE_SUBSCRIPTION_FAIL","ts":"' + _now() + '"}',
             encoding="utf-8"
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from _probe_exc
 
     click.echo("  [2/3] Attempting Claude-as-PM prompt generation (primary path)...")
     try:
@@ -633,7 +633,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
                 '{"reason":"CLAUDE_PM_RETURNED_NONE","ts":"' + _now() + '"}',
                 encoding="utf-8"
             )
-            raise SystemExit(1)
+            raise SystemExit(1) from None
     except SystemExit:
         raise
     except Exception as e:
@@ -647,7 +647,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             '{"reason":"CLAUDE_PM_EXCEPTION","detail":"' + str(e)[:200] + '","ts":"' + _now() + '"}',
             encoding="utf-8"
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     click.echo("  [3/3] Prompts generated via Claude subscription ✓")
 

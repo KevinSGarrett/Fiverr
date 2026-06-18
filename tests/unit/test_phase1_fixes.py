@@ -3,7 +3,6 @@ test_phase1_fixes.py -- Regression tests for Phase 1 critical fixes (H1/H3/C1/C2
 """
 from __future__ import annotations
 import subprocess
-import pytest
 
 
 # H1 ---------------------------------------------------------
@@ -31,7 +30,8 @@ class TestH1NullPriorityFix:
 
 class TestH3CursorFlags:
     def _src(self):
-        import inspect, automation.cursor_adapter as ca
+        import inspect
+        import automation.cursor_adapter as ca
         return inspect.getsource(ca)
 
     def test_short_path_has_print(self):
@@ -86,7 +86,8 @@ def _fake_cursor_result():
 
 def _mock_all(monkeypatch, lifecycle_status, lifecycle_errors=None, tmp_path=None):
     """Mock out all external calls in cmd_run_agent."""
-    import tempfile, pathlib
+    import tempfile
+    import pathlib
     from automation.run_agent_lifecycle import AgentLifecycleResult
     from automation.model_gate import ModelGateResult
 
