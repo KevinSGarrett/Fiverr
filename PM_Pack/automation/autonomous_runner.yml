@@ -1,0 +1,19 @@
+﻿# PM_Pack/automation/autonomous_runner.yml
+# Autonomous runner configuration -- single source of truth for all model settings.
+version: 1
+
+# Claude model used by claude_prompt_creator.py (the PM) to generate agent prompts.
+# Must be Claude Sonnet 4.6 -- medium level, adaptive thinking.
+pm_model: claude-sonnet-4-6
+
+# Effort level passed into the agent prompt header (controls Cursor/Codex reasoning depth)
+cursor_effort: medium
+
+# Adaptive thinking: Cursor uses extended thinking at the medium level
+cursor_thinking: adaptive
+
+# Claude binary path (optional override; auto-detected if absent)
+# claude_binary: C:\Users\Windows 11\.local\bin\claude.EXE
+
+# Post-cycle review model
+review_model: claude-sonnet-4-6

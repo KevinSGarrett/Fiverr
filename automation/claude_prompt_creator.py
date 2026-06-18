@@ -46,11 +46,13 @@ def _get_pm_model() -> str:
           finds only Sonnet available (soft warning — does not abort).
     """
     import logging
+    # Per project config: Claude Sonnet 4.6 with medium effort + adaptive thinking.
+    # Sonnet 4.6 is the correct model for PM synthesis -- not Opus.
+    # (H6 fix was wrong direction: original manual PM used Sonnet-equivalent, not Opus)
     _PREFERRED_ORDER = [
-        "claude-opus-4-6",
-        "claude-opus-4-7",
-        "claude-opus-4-8",
         "claude-sonnet-4-6",
+        "claude-sonnet-4-7",
+        "claude-sonnet-4-8",
     ]
     try:
         import yaml
@@ -613,10 +615,22 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
     try:
         import os as _os
         env = {**_os.environ, "PYTHONIOENCODING": "utf-8"}
+        # Load effort level from config (default: medium = adaptive thinking)
+        _effort_level = "medium"
+        try:
+            import yaml as _yml
+            for _ep in [REPO_ROOT / "PM_Pack/automation/autonomous_runner.yml"]:
+                if _ep.exists():
+                    _ecfg = _yml.safe_load(_ep.read_text(encoding="utf-8")) or {}
+                    _effort_level = _ecfg.get("cursor_effort", "medium")
+        except Exception:
+            pass
+
         proc = subprocess.Popen(
             [claude_binary, "-p", instruction,
              "--output-format", "text",
-             "--model", CLAUDE_MODEL],
+             "--model", CLAUDE_MODEL,
+             "--effort", _effort_level],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
