@@ -44,11 +44,15 @@ def _load_agent_ownership() -> dict:
 
 
 def _get_ownership_rules(agent_id: str) -> dict:
-    """Return ownership rules for agent_id from agent_lanes.yml."""
+    """Return ownership rules for agent_id from agent_lanes.yml.
+    Falls back to the legacy hardcoded AGENT_OWNERSHIP dict.
+    """
     rules = _load_agent_ownership().get(str(agent_id).upper(), {})
     if not rules:
-        # Fall back to hardcoded map for any missing agents
-        rules = _get_ownership_rules(agent_id)
+        # Fall back to hardcoded dict (no recursive call)
+        # AGENT_OWNERSHIP is defined below this function; access via globals()
+        _legacy = globals().get("AGENT_OWNERSHIP", {})
+        rules = _legacy.get(agent_id, {})
     return rules
 
 
