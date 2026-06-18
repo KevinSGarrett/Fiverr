@@ -116,8 +116,25 @@ def _read_health_payload(path: Path) -> dict[str, Any]:
         return _default_health_payload()
     if not isinstance(payload, dict):
         return _default_health_payload()
+
+    # M-PROV-1 FIX: migrate alias keys to canonical keys and drop duplicates.
+    # The live file accumulated both "cursorcli" and "cursor_cli" (and similar) because
+    # some writers used snake_case and others used the canonical form.
+    # Resolution: canonical key wins; alias key value merged only if canonical absent.
+    migrated: dict[str, Any] = {}
+    for raw_key, value in payload.items():
+        canonical = _normalize_provider_name(raw_key)
+        if canonical in KNOWN_PROVIDERS or raw_key == "generated_at":
+            # For provider entries: canonical wins; alias fills only if canonical absent
+            if canonical not in migrated:
+                migrated[canonical] = value
+            elif raw_key != canonical:
+                pass  # alias already superseded by canonical -- discard
+        else:
+            migrated[raw_key] = value  # preserve non-provider fields (generated_at etc.)
+
     merged = _default_health_payload()
-    merged.update(payload)
+    merged.update(migrated)
     for provider in KNOWN_PROVIDERS:
         entry = merged.get(provider)
         if not isinstance(entry, dict):
