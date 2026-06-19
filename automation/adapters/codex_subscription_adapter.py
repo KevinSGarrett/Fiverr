@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from automation import runner_paths
+
 
 @dataclass(slots=True)
 class ProviderRunResult:
@@ -64,7 +66,7 @@ class CodexSubscriptionAdapter:
 
     def run_agent(self, prompt_path: Path, cycle: str, agent: str) -> ProviderRunResult:
         self.preflight(prompt_path, cycle, agent)
-        run_dir = Path(fr"C:\AI_Runner\runs\CYCLE_{cycle}\codex_{agent}")
+        run_dir = runner_paths.runs_dir() / f"CYCLE_{cycle}" / f"codex_{agent}"
         run_dir.mkdir(parents=True, exist_ok=True)
         prompt_copy = run_dir / f"CODEX_{cycle}_{agent}_PROMPT.txt"
         prompt_copy.write_text(prompt_path.read_text(encoding="utf-8"), encoding="utf-8")

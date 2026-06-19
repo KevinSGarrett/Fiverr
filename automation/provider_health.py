@@ -9,9 +9,11 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
+from automation import runner_paths
+
 __version__ = "1.1.0"
 
-DEFAULT_PROVIDER_HEALTH_PATH = Path("C:/AI_Runner/state/provider_health.json")
+DEFAULT_PROVIDER_HEALTH_PATH = runner_paths.state_dir() / "provider_health.json"
 KNOWN_PROVIDERS = ("cursorcli", "claudesubscription", "openaiapi", "codexsubscription")
 EDITING_PROVIDERS = {"cursorcli", "codexsubscription"}
 VALID_STATUSES = {"READY", "NOTVERIFIED", "DEGRADED", "BLOCKED"}

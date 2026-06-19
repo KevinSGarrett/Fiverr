@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from automation import model_gate
+from automation import model_gate, runner_paths
 from automation.cursor_adapter import _resolve_binary
 from automation.cursor_adapter import run_agent as cursor_run_agent
 from automation.provider_health import refresh_after_dispatch
@@ -76,7 +76,7 @@ class CursorWorkerAdapter:
         self.preflight(prompt_path=prompt_path, cycle=cycle, agent=agent)
 
         started_at = datetime.now(UTC).isoformat()
-        run_dir = Path(r"C:\AI_Runner\runs") / f"CYCLE_{(cycle or '000').zfill(3)}" / "agent_runs" / agent
+        run_dir = runner_paths.runs_dir() / f"CYCLE_{(cycle or '000').zfill(3)}" / "agent_runs" / agent
         result = cursor_run_agent(
             agent_id=agent,
             prompt_path=str(prompt_path),

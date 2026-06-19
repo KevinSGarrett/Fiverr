@@ -170,4 +170,9 @@ def test_report_is_valid_json(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_report_written_to_correct_path() -> None:
-    assert str(module.OUTPUT_PATH).lower() == str(Path("C:/AI_Runner/reports/DAILY_STAGE_REPORT.json")).lower()
+    # Under test isolation OUTPUT_PATH is redirected away from the live runner
+    # root (C:/AI_Runner) into a per-session tmp root. What must remain stable is
+    # the relative location within that root: reports/DAILY_STAGE_REPORT.json.
+    output_path = module.OUTPUT_PATH
+    assert output_path.name == "DAILY_STAGE_REPORT.json"
+    assert output_path.parent.name == "reports"

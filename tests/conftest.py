@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
+import os
+import pathlib
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -13,6 +16,206 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+# Subdirectories created under every isolated runner root.
+_RUNNER_SUBDIRS = (
+    "state",
+    "logs",
+    "runs",
+    "reports",
+    "config",
+    "secrets",
+    "locks",
+    "status",
+    "tmp",
+)
+
+
+def _real_runner_root() -> Path:
+    """Resolved production runner root (C:/AI_Runner) for write-guard comparison."""
+    from automation import runner_paths
+
+    return runner_paths.real_runner_root()
+
+
+def _is_under(path: Path, root: Path) -> bool:
+    """True when ``path`` resolves to somewhere under ``root`` (both resolved)."""
+    try:
+        resolved = path.resolve()
+    except (OSError, ValueError, RuntimeError):
+        # Unresolvable paths (e.g. bad chars) are never under the live root.
+        return False
+    try:
+        return resolved == root or resolved.is_relative_to(root)
+    except (ValueError, OSError):
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped isolation: one tmp runner root for the entire test session.
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="session", autouse=True)
+def _session_runner_root(tmp_path_factory: pytest.TempPathFactory):
+    """Create one per-session tmp runner root and point the env var at it.
+
+    Guarantees that any code resolving paths via ``automation.runner_paths`` (or
+    the legacy ``C:/AI_Runner`` constants re-pointed below) writes under tmp for
+    the whole session.
+    """
+    runner_root = tmp_path_factory.mktemp("AI_Runner_session")
+    for subdir in _RUNNER_SUBDIRS:
+        (runner_root / subdir).mkdir(parents=True, exist_ok=True)
+    os.environ["AUTOPILOT_RUNNER_ROOT"] = str(runner_root)
+    return runner_root
+
+
+def _repoint_module_path_constants(
+    monkeypatch: pytest.MonkeyPatch, tmp_root: Path, real_root: Path
+) -> None:
+    """Re-point already-imported ``automation.*`` Path constants at tmp_root.
+
+    Generic: for every loaded module under the ``automation`` package, inspect
+    module-level attributes that are ``pathlib.Path`` instances resolving under
+    the real runner root, and monkeypatch them to the tmp-root equivalent
+    (recomputing the sub-path after the root swap).
+    """
+    for mod_name, module in list(sys.modules.items()):
+        if module is None:
+            continue
+        if not (mod_name == "automation" or mod_name.startswith("automation.")):
+            continue
+        module_dict = getattr(module, "__dict__", None)
+        if module_dict is None:
+            continue
+        for attr_name, value in list(module_dict.items()):
+            if not isinstance(value, Path):
+                continue
+            if not _is_under(value, real_root):
+                continue
+            try:
+                rel = value.resolve().relative_to(real_root)
+            except (ValueError, OSError):
+                continue
+            monkeypatch.setattr(module, attr_name, tmp_root / rel, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_runner_writes(
+    monkeypatch: pytest.MonkeyPatch, _session_runner_root: Path
+) -> None:
+    """Autouse per-test isolation.
+
+    1. Ensure the env var points at the session tmp root.
+    2. Generically re-point already-imported ``automation.*`` Path constants.
+    3. Explicitly re-point the well-known constants in state_writer,
+       autopilot_logger and provider_health (mirroring isolated_runner_root).
+    """
+    tmp_root = _session_runner_root
+    real_root = _real_runner_root()
+
+    monkeypatch.setenv("AUTOPILOT_RUNNER_ROOT", str(tmp_root))
+
+    # (2) Generic re-point of every loaded automation.* Path constant.
+    _repoint_module_path_constants(monkeypatch, tmp_root, real_root)
+
+    # (3) Explicit re-point of the well-known constants (in case a module is
+    #     imported later or its attribute wasn't a Path under the real root).
+    state_tmp = tmp_root / "state"
+    runs_tmp = tmp_root / "runs"
+    logs_tmp = tmp_root / "logs"
+
+    if "automation.state_writer" in sys.modules:
+        sw = sys.modules["automation.state_writer"]
+        monkeypatch.setattr(sw, "RUNNER_STATE_DIR", state_tmp, raising=False)
+        monkeypatch.setattr(sw, "RUNNER_RUNS_DIR", runs_tmp, raising=False)
+        monkeypatch.setattr(
+            sw, "CONTROLLER_STATE_PATH", state_tmp / "controller_state.json",
+            raising=False,
+        )
+        monkeypatch.setattr(
+            sw, "HEARTBEAT_PATH", state_tmp / "heartbeat.json", raising=False
+        )
+
+    if "automation.autopilot_logger" in sys.modules:
+        al = sys.modules["automation.autopilot_logger"]
+        monkeypatch.setattr(al, "LOG_DIR", logs_tmp, raising=False)
+        monkeypatch.setattr(al, "RUNS_DIR", runs_tmp, raising=False)
+        monkeypatch.setattr(al, "STATE_DIR", state_tmp, raising=False)
+        monkeypatch.setattr(
+            al, "_ACTIVITY_FILE", state_tmp / "current_activity.json", raising=False
+        )
+
+    if "automation.provider_health" in sys.modules:
+        ph = sys.modules["automation.provider_health"]
+        monkeypatch.setattr(
+            ph, "DEFAULT_PROVIDER_HEALTH_PATH",
+            state_tmp / "provider_health.json", raising=False,
+        )
+    monkeypatch.setenv("PROVIDER_HEALTH_PATH", str(state_tmp / "provider_health.json"))
+
+
+# ---------------------------------------------------------------------------
+# WRITE-GUARD: fail any test that writes under the real runner root.
+# ---------------------------------------------------------------------------
+def _mode_is_write(mode: str) -> bool:
+    return any(ch in mode for ch in ("w", "a", "x", "+"))
+
+
+@pytest.fixture(autouse=True)
+def _write_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raise if any code writes a file under the real C:/AI_Runner root.
+
+    Wraps Path.mkdir / write_text / write_bytes / open and builtins.open. Allows
+    every other path (tmp, repo, pytest internals, coverage) through unchanged.
+    """
+    real_root = _real_runner_root()
+
+    orig_mkdir = pathlib.Path.mkdir
+    orig_write_text = pathlib.Path.write_text
+    orig_write_bytes = pathlib.Path.write_bytes
+    orig_path_open = pathlib.Path.open
+    orig_builtin_open = builtins.open
+
+    def _violation(path: object) -> RuntimeError:
+        return RuntimeError(
+            f"TEST ISOLATION VIOLATION: write to live runner root: {path}"
+        )
+
+    def _guarded_mkdir(self: pathlib.Path, *args: object, **kwargs: object):
+        if _is_under(self, real_root):
+            raise _violation(self)
+        return orig_mkdir(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    def _guarded_write_text(self: pathlib.Path, *args: object, **kwargs: object):
+        if _is_under(self, real_root):
+            raise _violation(self)
+        return orig_write_text(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    def _guarded_write_bytes(self: pathlib.Path, *args: object, **kwargs: object):
+        if _is_under(self, real_root):
+            raise _violation(self)
+        return orig_write_bytes(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    def _guarded_path_open(
+        self: pathlib.Path, mode: str = "r", *args: object, **kwargs: object
+    ):
+        if _mode_is_write(mode) and _is_under(self, real_root):
+            raise _violation(self)
+        return orig_path_open(self, mode, *args, **kwargs)  # type: ignore[arg-type]
+
+    def _guarded_builtin_open(
+        file: object, mode: str = "r", *args: object, **kwargs: object
+    ):
+        if isinstance(file, str | os.PathLike) and _mode_is_write(mode):
+            if _is_under(Path(os.fspath(file)), real_root):
+                raise _violation(file)
+        return orig_builtin_open(file, mode, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pathlib.Path, "mkdir", _guarded_mkdir, raising=False)
+    monkeypatch.setattr(pathlib.Path, "write_text", _guarded_write_text, raising=False)
+    monkeypatch.setattr(pathlib.Path, "write_bytes", _guarded_write_bytes, raising=False)
+    monkeypatch.setattr(pathlib.Path, "open", _guarded_path_open, raising=False)
+    monkeypatch.setattr(builtins, "open", _guarded_builtin_open, raising=False)
 
 
 @pytest.fixture

@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from automation import runner_paths
 from automation.codex_thread_reader import read_threads
 
 REPO = "KevinSGarrett/Fiverr"
@@ -245,7 +246,7 @@ def _execute_merge(pr_number: int, repo: str) -> str | None:
 
 
 def _write_result(result: MergeGateResult) -> None:
-    out_dir = Path("C:/AI_Runner/reports")
+    out_dir = runner_paths.reports_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     path = out_dir / f"merge_gate_pr{result.pr_number}_{ts}.json"

@@ -29,12 +29,13 @@ _repo_root = _here.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
+from automation import runner_paths  # noqa: E402
 from automation.config_loader import get_secret  # noqa: E402
 from automation.pm_pack_loader import brain_check  # noqa: E402
 from automation.policy_compiler import compile_policy  # noqa: E402
 
 REPO_ROOT = _repo_root
-RUNNER_STATE = Path("C:/AI_Runner/state/controller_state.json")
+RUNNER_STATE = runner_paths.state_dir() / "controller_state.json"
 
 
 def _now() -> str:
@@ -146,7 +147,7 @@ def _current_repo_touched_files() -> set[str]:
 
 
 def _record_nonblocking_error(message: str) -> None:
-    path = Path("C:/AI_Runner/reports/nonblocking_errors.json")
+    path = runner_paths.reports_dir() / "nonblocking_errors.json"
     payload: dict[str, object] = {"errors": []}
     if path.exists():
         try:
@@ -163,7 +164,7 @@ def _record_nonblocking_error(message: str) -> None:
 
 
 def _stage_state_path() -> Path:
-    return Path("C:/AI_Runner/state/stage_state.json")
+    return runner_paths.state_dir() / "stage_state.json"
 
 
 def _read_stage_state() -> dict:
@@ -223,7 +224,7 @@ def cmd_brain_check() -> None:
         click.secho(f"  [WARN] ANTHROPIC_API_KEY detected -- run: {api_check.get('report', 'see report')}", fg="yellow")
     else:
         click.echo("  CLAUDE-SUB      : API key absent (subscription-only confirmed)")
-    claude_state_path = Path("C:/AI_Runner/state/claude_model_state.json")
+    claude_state_path = runner_paths.state_dir() / "claude_model_state.json"
     if claude_state_path.exists():
         try:
             claude_state = json.loads(claude_state_path.read_text(encoding="utf-8"))
@@ -361,7 +362,7 @@ def cmd_status() -> None:
         click.echo("  No controller state found — controller has not run yet.")
 
     # Show model states
-    cursor_state_path = Path("C:/AI_Runner/state/cursor_model_state.json")
+    cursor_state_path = runner_paths.state_dir() / "cursor_model_state.json"
     if cursor_state_path.exists():
         cs = json.loads(cursor_state_path.read_text())
         click.echo(f"  Cursor model    : {cs.get('observed_model')} [{cs.get('status')}]")
@@ -595,8 +596,9 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             fg="red",
         )
         # Pause the autopilot so the operator sees this and can investigate
-        from pathlib import Path as _P
-        _P("C:/AI_Runner/state/autopilot_paused.json").write_text(
+        _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
+        _pause_path.parent.mkdir(parents=True, exist_ok=True)
+        _pause_path.write_text(
             '{"reason":"CLAUDE_SUBSCRIPTION_FAIL","ts":"' + _now() + '"}',
             encoding="utf-8"
         )
@@ -625,8 +627,9 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
                 f"missing: {sorted(missing)}. Claude is a hard dependency -- all agents required. "
                 "Autopilot PAUSED.", fg="red", bold=True,
             )
-            from pathlib import Path as _P2
-            _P2("C:/AI_Runner/state/autopilot_paused.json").write_text(
+            _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
+            _pause_path.parent.mkdir(parents=True, exist_ok=True)
+            _pause_path.write_text(
                 '{"reason":"CLAUDE_PM_PARTIAL","ts":"' + _now() + '"}', encoding="utf-8"
             )
             raise SystemExit(1) from None
@@ -636,8 +639,9 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
                 "Autopilot PAUSED. Check C:\AI_Runner\tmp\claude_pm_agent_*.err",
                 fg="red", bold=True,
             )
-            from pathlib import Path as _P2
-            _P2("C:/AI_Runner/state/autopilot_paused.json").write_text(
+            _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
+            _pause_path.parent.mkdir(parents=True, exist_ok=True)
+            _pause_path.write_text(
                 '{"reason":"CLAUDE_PM_RETURNED_NONE","ts":"' + _now() + '"}', encoding="utf-8"
             )
             raise SystemExit(1) from None
@@ -649,8 +653,9 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             "  Autopilot PAUSED. Investigate before resuming.",
             fg="red", bold=True,
         )
-        from pathlib import Path as _P3
-        _P3("C:/AI_Runner/state/autopilot_paused.json").write_text(
+        _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
+        _pause_path.parent.mkdir(parents=True, exist_ok=True)
+        _pause_path.write_text(
             '{"reason":"CLAUDE_PM_EXCEPTION","detail":"' + str(e)[:200] + '","ts":"' + _now() + '"}',
             encoding="utf-8"
         )
@@ -1042,7 +1047,7 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
 
     import time as _t
     import json as _json
-    _progress_path = Path("C:/AI_Runner/state/agent_progress.json")
+    _progress_path = runner_paths.state_dir() / "agent_progress.json"
     _progress_path.parent.mkdir(parents=True, exist_ok=True)
     _cycle_start = _t.time()
 
@@ -1097,7 +1102,7 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         if rc == 0 and not _os_c22.environ.get("PYTEST_CURRENT_TEST"):
             try:
                 _rr_dir = (
-                    Path("C:/AI_Runner/runs") / f"CYCLE_{cycle:03d}" / "agent_runs" / agent
+                    runner_paths.runs_dir() / f"CYCLE_{cycle:03d}" / "agent_runs" / agent
                 )
                 _rr_candidates = sorted(_rr_dir.rglob("run_record.json"), key=lambda p: p.stat().st_mtime, reverse=True)
                 if _rr_candidates:
@@ -1179,7 +1184,7 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
                     agent=agent,
                     prompt_path=str(prompt_path),
                     contract_path=str(_contract_path) if _contract_path.exists() else None,
-                    run_dir=str(Path("C:/AI_Runner/runs") / f"CYCLE_{cycle:03d}" / "agent_runs" / agent),
+                    run_dir=str(runner_paths.runs_dir() / f"CYCLE_{cycle:03d}" / "agent_runs" / agent),
                     dispatch_result=None,
                     pre_dispatch_sha=None,
                 )
@@ -1357,7 +1362,7 @@ def cmd_routing_advisory_report(cycle: int) -> None:
     for task_type in sorted(task_counts):
         click.echo(f"  {task_type:30} {task_counts[task_type]}")
 
-    out_dir = Path("C:/AI_Runner/reports/provider_usage")
+    out_dir = runner_paths.reports_dir() / "provider_usage"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"CYCLE_{cycle_id}_ROUTING_ADVISORY.md"
     lines = [
@@ -1447,7 +1452,7 @@ def cmd_stage2_readiness_check() -> None:
         policy_detail = f"advisory_only={global_rules.get('advisory_only_provider_routing')}"
     checks.append(("provider_policy unrestricted autonomous routing", policy_ok, policy_detail))
 
-    provider_health_path = Path("C:/AI_Runner/state/provider_health.json")
+    provider_health_path = runner_paths.state_dir() / "provider_health.json"
     provider_ok = False
     provider_detail = "provider health missing"
     if provider_health_path.exists():
@@ -1517,7 +1522,7 @@ def cmd_stage_advance(stage_num: int) -> None:
         click.secho("stage must be between 2 and 7", fg="red")
         raise SystemExit(1)
 
-    evidence_path = Path(f"C:/AI_Runner/reports/stages/STAGE{stage_num}_EVIDENCE.json")
+    evidence_path = runner_paths.reports_dir() / "stages" / f"STAGE{stage_num}_EVIDENCE.json"
     if not evidence_path.exists():
         click.secho(f"Missing evidence file: {evidence_path}", fg="red")
         raise SystemExit(1)
@@ -1599,7 +1604,7 @@ def cmd_tick() -> None:
     # If lock is stale (>10 min old), clear it and acquire fresh.
     import os as _os_c7
     import time as _time_c7
-    _lock_dir = Path("C:/AI_Runner/locks")
+    _lock_dir = runner_paths.locks_dir()
     _lock_dir.mkdir(parents=True, exist_ok=True)
     _lock_file = _lock_dir / "tick.lock"
     _lock_stale_s = 600  # 10 min
@@ -1623,7 +1628,7 @@ def cmd_tick() -> None:
         click.secho(f"  [C7] Lock error ({_lock_exc}), proceeding without lock.", fg="yellow")
 
     # Check pause flag — set by manual stop, respected by both local and CI runners
-    _pause_flag = Path("C:/AI_Runner/state/autopilot_paused.json")
+    _pause_flag = runner_paths.state_dir() / "autopilot_paused.json"
     if _pause_flag.exists():
         import json as _pj
         try:
@@ -1853,7 +1858,7 @@ def cmd_tick() -> None:
                 _run_shell_command(["git", "checkout", "-b", expected_branch, f"origin/{expected_branch}"])
 
         # ── Read agent progress file ──────────────────────────────────
-        prog_path = Path("C:/AI_Runner/state/agent_progress.json")
+        prog_path = runner_paths.state_dir() / "agent_progress.json"
         prog: dict = {}
         if prog_path.exists():
             try:
@@ -1960,7 +1965,7 @@ def cmd_tick() -> None:
                 click.secho(f"    {summary[-1].strip()}", fg="cyan")
 
         # ── Heartbeat staleness check ─────────────────────────────────
-        hb_path = Path("C:/AI_Runner/state/heartbeat.json")
+        hb_path = runner_paths.state_dir() / "heartbeat.json"
         if hb_path.exists():
             try:
                 hb = _json.loads(hb_path.read_text())
@@ -2090,7 +2095,7 @@ def cmd_tick() -> None:
     # Now: always reflects the current state so operator dashboards can be trusted.
     try:
         _st = _read_runner_state()
-        _status_dir = Path("C:/AI_Runner/status")
+        _status_dir = runner_paths.status_dir()
         _status_dir.mkdir(parents=True, exist_ok=True)
         _status_file = _status_dir / "current_status.md"
         _status_file.write_text(
@@ -2135,7 +2140,7 @@ def cmd_daily_stage_report() -> None:
         click.secho(f"Daily stage report written: {path}", fg="green")
     except Exception as exc:  # pragma: no cover - defensive no-blocking behavior
         _record_nonblocking_error(f"daily-stage-report failed: {exc}")
-        fallback_path = Path("C:/AI_Runner/reports/DAILY_STAGE_REPORT.json")
+        fallback_path = runner_paths.reports_dir() / "DAILY_STAGE_REPORT.json"
         fallback_payload = {
             "generated_at": _now(),
             "current_stage": 2,
@@ -2407,7 +2412,7 @@ def cmd_status_tick() -> None:
         "reason": reason,
         "source": "status-tick (read-only)",
     }
-    decision_path = Path("C:/AI_Runner/state/next_action_decision.json")
+    decision_path = runner_paths.state_dir() / "next_action_decision.json"
     decision_path.parent.mkdir(parents=True, exist_ok=True)
     import json as _json
     decision_path.write_text(_json.dumps(decision, indent=2))
