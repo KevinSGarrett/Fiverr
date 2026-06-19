@@ -42,6 +42,43 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _pause_file_path() -> Path:
+    """Resolve the autopilot pause sentinel path (lazy — honours test redirection)."""
+    return runner_paths.state_dir() / "autopilot_paused.json"
+
+
+def _write_pause(reason: str, detail: str | None = None) -> None:
+    """Write the autopilot pause sentinel (atomic) with paused:true + reason + ts.
+
+    Item 0.2 kill-switch: writers MUST go through here so the sentinel always
+    carries ``paused: true``. The reader pauses on file existence regardless,
+    but keeping ``paused: true`` preserves backward compatibility.
+    """
+    import json as _json
+    import os as _os
+
+    p = _pause_file_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {"paused": True, "reason": reason, "ts": _now()}
+    if detail:
+        payload["detail"] = detail[:200]
+    tmp = p.with_suffix(".json.tmp")
+    tmp.write_text(_json.dumps(payload, indent=2), encoding="utf-8")
+    _os.replace(tmp, p)
+
+    # Off-box alert hook (interim until 5.3): best-effort ERROR-level notification.
+    try:
+        from automation.notification_router import notify as _notify
+        _notify("BLOCKED", "AUTOPILOT_PAUSED", f"reason={reason}",
+                incident_code="AUTOPILOT_PAUSED")
+    except Exception:
+        # Notification must never block or fail the pause itself.
+        try:
+            click.secho(f"  [ALERT] AUTOPILOT_PAUSED reason={reason}", fg="red", bold=True)
+        except Exception:
+            pass
+
+
 def _update_hydration_cycle(new_cycle: int) -> None:
     """Update CYCLE_CURRENT and related fields in HYDRATION_HEADER.md when advancing cycles.
     Called when transitioning POST_CYCLE_PASS → COMPILED to ensure compile_policy
@@ -596,12 +633,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             fg="red",
         )
         # Pause the autopilot so the operator sees this and can investigate
-        _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
-        _pause_path.parent.mkdir(parents=True, exist_ok=True)
-        _pause_path.write_text(
-            '{"reason":"CLAUDE_SUBSCRIPTION_FAIL","ts":"' + _now() + '"}',
-            encoding="utf-8"
-        )
+        _write_pause("CLAUDE_SUBSCRIPTION_FAIL", detail=str(_probe_exc))
         raise SystemExit(1) from _probe_exc
 
     click.echo("  [2/3] Attempting Claude-as-PM prompt generation (primary path)...")
@@ -627,11 +659,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
                 f"missing: {sorted(missing)}. Claude is a hard dependency -- all agents required. "
                 "Autopilot PAUSED.", fg="red", bold=True,
             )
-            _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
-            _pause_path.parent.mkdir(parents=True, exist_ok=True)
-            _pause_path.write_text(
-                '{"reason":"CLAUDE_PM_PARTIAL","ts":"' + _now() + '"}', encoding="utf-8"
-            )
+            _write_pause("CLAUDE_PM_PARTIAL", detail=f"missing: {sorted(missing)}")
             raise SystemExit(1) from None
         else:
             click.secho(
@@ -639,11 +667,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
                 "Autopilot PAUSED. Check C:\AI_Runner\tmp\claude_pm_agent_*.err",
                 fg="red", bold=True,
             )
-            _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
-            _pause_path.parent.mkdir(parents=True, exist_ok=True)
-            _pause_path.write_text(
-                '{"reason":"CLAUDE_PM_RETURNED_NONE","ts":"' + _now() + '"}', encoding="utf-8"
-            )
+            _write_pause("CLAUDE_PM_RETURNED_NONE")
             raise SystemExit(1) from None
     except SystemExit:
         raise
@@ -653,12 +677,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
             "  Autopilot PAUSED. Investigate before resuming.",
             fg="red", bold=True,
         )
-        _pause_path = runner_paths.state_dir() / "autopilot_paused.json"
-        _pause_path.parent.mkdir(parents=True, exist_ok=True)
-        _pause_path.write_text(
-            '{"reason":"CLAUDE_PM_EXCEPTION","detail":"' + str(e)[:200] + '","ts":"' + _now() + '"}',
-            encoding="utf-8"
-        )
+        _write_pause("CLAUDE_PM_EXCEPTION", detail=str(e))
         raise SystemExit(1) from e
 
     click.echo("  [3/3] Prompts generated via Claude subscription ✓")
@@ -1601,12 +1620,33 @@ def cmd_tick() -> None:
     from automation.notification_router import notify_blocked, notify_info
     from automation.state_writer import write_controller_state, write_heartbeat
 
+    # Check pause flag FIRST — before acquiring the run lock, so a paused tick
+    # never acquires (and thus never leaks) tick.lock. Item 0.2 kill-switch fix:
+    # the PRESENCE of the sentinel pauses the loop. We read it only to surface
+    # the reason; a missing/legacy "paused" key or a corrupt file must STILL
+    # pause (fail-safe — presence means paused).
+    import os as _os_c7
+    import time as _time_c7
+    _pause_flag = _pause_file_path()
+    if _pause_flag.exists():
+        import json as _pj
+        _reason = "unknown"
+        try:
+            _pdata = _pj.loads(_pause_flag.read_text(encoding="utf-8-sig"))
+            _reason = str(_pdata.get("reason") or _pdata.get("paused") or "unknown")
+        except Exception:
+            _reason = "corrupt_pause_file"
+        click.secho(
+            f"[TICK PAUSED] reason={_reason}. "
+            "Run 'resume-autopilot' (or delete the autopilot_paused.json sentinel) to resume.",
+            fg="yellow",
+        )
+        return
+
     # C7 FIX: Global run lock — prevents GHA cron + local Scheduled Task running simultaneously.
     # Both write to the same controller_state.json; concurrent ticks corrupt it.
     # Lock file: C:\AI_Runner\locks\tick.lock (PID + start timestamp).
     # If lock is stale (>10 min old), clear it and acquire fresh.
-    import os as _os_c7
-    import time as _time_c7
     _lock_dir = runner_paths.locks_dir()
     _lock_dir.mkdir(parents=True, exist_ok=True)
     _lock_file = _lock_dir / "tick.lock"
@@ -1629,22 +1669,6 @@ def cmd_tick() -> None:
         )
     except Exception as _lock_exc:
         click.secho(f"  [C7] Lock error ({_lock_exc}), proceeding without lock.", fg="yellow")
-
-    # Check pause flag — set by manual stop, respected by both local and CI runners
-    _pause_flag = runner_paths.state_dir() / "autopilot_paused.json"
-    if _pause_flag.exists():
-        import json as _pj
-        try:
-            _pdata = _pj.loads(_pause_flag.read_text(encoding='utf-8-sig'))
-            if _pdata.get("paused"):
-                click.secho(
-                    "[TICK PAUSED] System manually stopped. "
-                    "Delete C:/AI_Runner/state/autopilot_paused.json to resume.",
-                    fg="yellow",
-                )
-                return
-        except Exception:
-            pass
 
     state = _read_runner_state()
     status = state.get("status", "IDLE")
@@ -2122,6 +2146,37 @@ def cmd_tick() -> None:
         pass
 
     click.echo("[TICK COMPLETE]")
+
+
+@cli.command("pause-autopilot")
+@click.option("--reason", default=None, help="Why the autopilot is being paused.")
+def cmd_pause_autopilot(reason: str | None) -> None:
+    """Pause the autopilot loop (item 0.2 kill-switch).
+
+    Writes the autopilot_paused.json sentinel with paused:true. The next tick
+    detects the sentinel by existence and returns without dispatching.
+    """
+    _write_pause(reason or "manual_operator")
+    click.secho(
+        f"AUTOPILOT PAUSED — sentinel written: {_pause_file_path()} "
+        f"(reason={reason or 'manual_operator'}). Run 'resume-autopilot' to resume.",
+        fg="yellow", bold=True,
+    )
+
+
+@cli.command("resume-autopilot")
+def cmd_resume_autopilot() -> None:
+    """Resume the autopilot loop by removing the pause sentinel (idempotent)."""
+    p = _pause_file_path()
+    existed = p.exists()
+    p.unlink(missing_ok=True)
+    if existed:
+        click.secho(f"AUTOPILOT RESUMED — sentinel removed: {p}", fg="green", bold=True)
+    else:
+        click.secho(
+            f"AUTOPILOT already running — no pause sentinel present at {p}.",
+            fg="green",
+        )
 
 
 @cli.command("daily-report")
