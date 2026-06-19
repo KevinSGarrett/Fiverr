@@ -162,6 +162,29 @@ def merged_pr_heads(cwd: Path = REPO_ROOT, repo: str = REPO_SLUG) -> set[str]:
     return {d.get("headRefName", "") for d in data if d.get("headRefName")}
 
 
+def _is_squash_merged(ref: str, base: str, cwd: Path = REPO_ROOT) -> bool:
+    """True if the entire diff of ``ref`` (vs its merge-base with ``base``) is
+    already present in ``base`` - i.e. ref was squash-merged and has no later
+    unmerged work. Authoritative: a mere branch-name match against a merged PR is
+    NOT sufficient, because a branch can be reused for new work after its PR
+    merged and that work must never be deleted.
+    """
+    rc, mb = _git(["merge-base", base, ref], cwd)
+    if rc != 0 or not mb.strip():
+        return False
+    rc, tree = _git(["rev-parse", f"{ref}^{{tree}}"], cwd)
+    if rc != 0 or not tree.strip():
+        return False
+    rc, synth = _git(["commit-tree", tree.strip(), "-p", mb.strip(), "-m", "squash-probe"], cwd)
+    if rc != 0 or not synth.strip():
+        return False
+    rc, out = _git(["cherry", base, synth.strip()], cwd)  # '-' prefix => already in base
+    if rc != 0:
+        return False
+    lines = [ln for ln in out.strip().splitlines() if ln.strip()]
+    return bool(lines) and all(ln.startswith("-") for ln in lines)
+
+
 # ── worktrees ─────────────────────────────────────────────────────────────
 def list_worktrees(cwd: Path = REPO_ROOT) -> list[dict]:
     _, out = _git(["worktree", "list", "--porcelain"], cwd)
@@ -237,7 +260,8 @@ def find_prunable_local_branches(cwd: Path = REPO_ROOT, base: str = DEFAULT_BASE
     for n in sorted(local & heads):
         if n in keep or n in ancestry:
             continue
-        result.append((n, "squash"))
+        if _is_squash_merged(n, base, cwd):  # authoritative: full diff already in base
+            result.append((n, "squash"))
     return result
 
 
@@ -265,13 +289,14 @@ def find_prunable_remote_cycle_branches(cwd: Path = REPO_ROOT, base: str = DEFAU
                                         pr_heads: set[str] | None = None) -> list[str]:
     _git(["fetch", "--prune", "origin"], cwd)
     heads = merged_pr_heads(cwd) if pr_heads is None else set(pr_heads)
+    ci = _ci_branches(cwd)  # never delete remotes still used by CI runner worktrees
 
     def _short(line: str) -> str | None:
         n = line.strip()
         if "->" in n or not n.startswith("origin/"):
             return None
         s = n[len("origin/"):]
-        if s in PROTECTED_BRANCHES or s == base or not CYCLE_BRANCH_RE.match(s):
+        if s in PROTECTED_BRANCHES or s == base or s in ci or not CYCLE_BRANCH_RE.match(s):
             return None
         return s
 
@@ -285,7 +310,10 @@ def find_prunable_remote_cycle_branches(cwd: Path = REPO_ROOT, base: str = DEFAU
     if rc == 0:
         remote_cycles = {s for s in (_short(ln) for ln in out.splitlines()) if s}
 
-    return sorted(ancestry | (remote_cycles & heads))
+    # squash-merged remotes: name matched a merged PR AND full diff already in base
+    squash = {s for s in (remote_cycles & heads)
+              if _is_squash_merged(f"origin/{s}", f"origin/{base}", cwd)}
+    return sorted(ancestry | squash)
 
 
 def prune_remote_branches(report: JanitorReport, cwd: Path = REPO_ROOT,
