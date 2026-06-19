@@ -140,3 +140,19 @@ def test_missing_section_is_error(tmp_path):
     assert any(e.startswith("PQ gate missing: PQ-3") for e in result.errors), (
         f"Expected a PQ-3 missing-section error. Errors: {result.errors}"
     )
+
+
+def test_large_authored_prompt_not_capped_pq7b(tmp_path):
+    """Codex P2 (#113): a >60-task fully-authored prompt must PASS PQ-7b.
+
+    With the old `task_blocks[:60]` cap over a full-count denominator, a large
+    authored prompt got an artificially low authored_ratio and was rejected.
+    """
+    from automation.prompt_validator import validate
+    from tests.unit._prompt_fixtures import build_known_good_prompt
+    p = tmp_path / "CYCLE_075_AGENT_A_PROMPT.md"
+    p.write_text(build_known_good_prompt(cycle=75, agent="A", tasks=120), encoding="utf-8")
+    r = validate(str(p), "A", 75)
+    pq7b = [e for e in r.errors if "PQ-7b" in e]
+    assert not pq7b, f"large authored prompt wrongly failed PQ-7b: {pq7b}"
+    assert r.passed, f"large known-good prompt should pass; errors={r.errors}"

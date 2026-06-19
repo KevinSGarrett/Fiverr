@@ -281,7 +281,10 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
     )
     if task_blocks:
         authored_count = 0
-        for tb in task_blocks[:60]:
+        # Assess ALL task blocks (no sample cap): a capped numerator over a full
+        # denominator would falsely reject large fully-authored prompts (Codex P2
+        # on #113). The per-block regex is cheap.
+        for tb in task_blocks:
             has_code = bool(re.search(r"```", tb))
             has_path = bool(re.search(r"(?:src|automation|tests|docs)/[\w/]+\.py", tb))
             has_verify = bool(re.search(
