@@ -1288,6 +1288,21 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         write_controller_state("AGENT_COMPLETE", cycle=cycle)
         sha_info = f" commit={lifecycle.commit_sha}" if lifecycle.commit_sha else ""
         click.secho(f"Agent {agent} COMPLETE{sha_info}", fg="green", bold=True)
+    elif lifecycle.status == "NO_WORK":
+        # ITEM 2.1: the agent ran clean but committed nothing and is not a
+        # justified no-op. This is NOT a hard failure — exit 0 so the run-cycle
+        # loop's work-proof cross-check (which reads the empty commit_sha from the
+        # run-record) classifies it as NO_WORK rather than FAILED. Do NOT write
+        # AGENT_COMPLETE here — a no-work agent has not earned completion.
+        click.secho(
+            f"Agent {agent} NO_WORK — rc=0 but committed nothing "
+            "(work-proof gate will hold the cycle)",
+            fg="yellow", bold=True,
+        )
+        _record_nonblocking_error(
+            f"run-agent NO_WORK cycle={cycle} agent={agent}: empty commit_sha, no justified-no-op"
+        )
+        raise SystemExit(0)
     elif lifecycle.status == "VALIDATION_FAILED":
         click.secho(f"Agent {agent} validation failed â€” routing to repair loop", fg="yellow")
         from automation.repair_loop import dispatch_repair
@@ -1376,6 +1391,8 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
 
     completed_agents: list[str] = []
     _agent_outcomes: dict[str, dict] = {}  # OBS-7
+    # ITEM 2.1: work-proof tracking — agents that committed real work (non-empty commit_sha).
+    _committed_agents: list[str] = []
 
     for idx, agent in enumerate(agents, 1):
         prompt_path = REPO_ROOT / f"PM_Pack/automation/prompts/CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
@@ -1404,15 +1421,35 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             "elapsed": elapsed,
             "exit_code": rc,
         }
-        # C2.2: Cross-check rc=0 against lifecycle run-record for true completion status
+        # C2.2 + ITEM 2.1: Cross-check rc=0 against lifecycle run-record for true
+        # completion status AND hard work-proof. This runs ALWAYS (incl. under
+        # tests) — the PYTEST_CURRENT_TEST guard was removed so the work-proof
+        # gate actually fires and is testable. A no-op cycle must never be
+        # silently reported as COMPLETE.
         _effective_rc = rc
-        import os as _os_c22
-        if rc == 0 and not _os_c22.environ.get("PYTEST_CURRENT_TEST"):
+        _agent_committed = False  # ITEM 2.1: did THIS agent commit real work?
+        _agent_no_work = False    # ITEM 2.1: rc==0 but zero committed work + no justified no-op
+        if rc == 0:
             try:
-                _rr_dir = (
-                    runner_paths.runs_dir() / f"CYCLE_{cycle:03d}" / "agent_runs" / agent
+                # Codex P1 (#115): search the WHOLE per-cycle dir, not a fixed
+                # agent_runs/<agent> subpath. A real run-agent dispatch writes the
+                # record under runs/CYCLE_NNN/<run_id>/ (make_run_dir), so rglob the
+                # cycle root (most-recent wins) — else a genuinely-committed cycle
+                # would be misread as zero-commit → wrongly marked CYCLE_NO_WORK.
+                _rr_dir = runner_paths.runs_dir() / f"CYCLE_{cycle:03d}"
+                # Glob the REAL filename written by run_agent_lifecycle._write_record
+                # (agent_<agent>_run_record.json). The old `run_record.json` glob
+                # matched NOTHING → dead cross-check.
+                _rr_candidates = sorted(
+                    _rr_dir.rglob(f"agent_{agent}_run_record.json"),
+                    key=lambda p: p.stat().st_mtime, reverse=True,
                 )
-                _rr_candidates = sorted(_rr_dir.rglob("run_record.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if not _rr_candidates:
+                    # Fall back to any agent run-record in the dir.
+                    _rr_candidates = sorted(
+                        _rr_dir.rglob("agent_*_run_record.json"),
+                        key=lambda p: p.stat().st_mtime, reverse=True,
+                    )
                 if _rr_candidates:
                     import json as _json_c22
                     _rr = _json_c22.loads(_rr_candidates[0].read_text(encoding="utf-8"))
@@ -1420,11 +1457,40 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
                     if _rr_status in ("OWNERSHIP_VIOLATION", "SECRET_FOUND", "NO_REPORT", "VALIDATION_FAILED"):
                         L.warn(f"C2.2: rc=0 but lifecycle record says {_rr_status} -- treating as FAILED")
                         _effective_rc = 1
-            except Exception as _c22_exc:
+                    else:
+                        # ITEM 2.1: hard work-proof. An agent that produced ZERO
+                        # file changes (empty commit_sha) is NOT complete unless it
+                        # carries an explicit justified-no-op flag.
+                        _commit_sha = str(_rr.get("commit_sha", "") or "").strip()
+                        _justified = bool(
+                            _rr.get("justified_no_op")
+                            or _rr.get("no_work_justified")
+                        )
+                        if _commit_sha:
+                            _agent_committed = True
+                        elif not _justified:
+                            _agent_no_work = True
+                            _effective_rc = 1
+            except Exception:
                 pass  # run-record missing is fine; trust rc
+
+        if _agent_no_work:
+            # ITEM 2.1: rc==0 but no committed work and no justified no-op → NO_WORK.
+            # Distinct from FAILED; NOT appended to completed_agents.
+            _agent_outcomes[agent]["status"] = "NO_WORK"
+            L.warn(
+                f"ITEM 2.1: Agent {agent} reported rc=0 but committed NO work "
+                f"(empty commit_sha, no justified-no-op flag) -- recording NO_WORK"
+            )
+            _ev("AGENT", f"Agent {agent} NO_WORK ({elapsed:.0f}s) [{idx}/{len(agents)}]",
+                agent=agent, cycle=cycle, status="NO_WORK")
+            _write_progress(agent, completed_agents, list(failures.keys()), elapsed)
+            continue
 
         if _effective_rc == 0:
             completed_agents.append(agent)
+            if _agent_committed:
+                _committed_agents.append(agent)
             _ev("AGENT", f"Agent {agent} DONE ({elapsed:.0f}s) [{idx}/{len(agents)}]", agent=agent, cycle=cycle, status="OK")
 
             # C3 FIX: Completion gate -- verify AC items in agent report after each COMPLETE run.
@@ -1507,11 +1573,59 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
 
         _write_progress(agent, completed_agents, list(failures.keys()), elapsed)
 
+    # ITEM 2.1 — HARD WORK-PROOF GATE.
+    # All agents finished without an outright failure. Before writing
+    # AGENT_COMPLETE we require PROOF that at least one agent committed real
+    # work (non-empty commit_sha). A cycle in which every agent changed nothing
+    # (all NO_WORK) must NEVER report AGENTS_COMPLETE — it must be surfaced as a
+    # recoverable CYCLE_NO_WORK state so a later tick can re-run real work.
+    from automation.state_writer import write_controller_state as _wcs, write_heartbeat as _wh
+    if not failures and not _committed_agents:
+        _no_work_agents = [
+            ag for ag, outc in _agent_outcomes.items()
+            if outc.get("status") == "NO_WORK"
+        ] or agents
+        L.error(
+            f"ITEM 2.1: RUN CYCLE {cycle:03d} produced NO committed work "
+            f"({len(_no_work_agents)} agent(s) NO_WORK, 0 commits) -- "
+            "refusing AGENT_COMPLETE; writing recoverable CYCLE_NO_WORK"
+        )
+        # Recoverable state: do NOT advance a do-nothing cycle. Preserve the
+        # authoritative active_cycle (omit cycle arg, same as AGENT_COMPLETE).
+        _wcs("CYCLE_NO_WORK")
+        _wh("CYCLE_NO_WORK", cycle=cycle)
+        try:
+            from automation.notification_router import notify_blocked
+            notify_blocked(
+                f"Cycle {cycle:03d} produced no committed work",
+                body=(
+                    f"All agents reported success (rc=0) but committed nothing. "
+                    f"NO_WORK agents: {_no_work_agents}. Cycle was NOT advanced; "
+                    "re-run with real work to proceed."
+                ),
+                incident_code="CYCLE_NO_WORK",
+                cycle=cycle,
+            )
+        except Exception as _nw_exc:
+            L.warn(f"CYCLE_NO_WORK notification failed (non-blocking): {_nw_exc}")
+        _ev("CYCLE", f"RUN CYCLE {cycle:03d} NO_WORK -- 0 commits, not advancing",
+            cycle=cycle, status="FAIL")
+        _progress_path.write_text(_json.dumps({
+            "cycle": cycle, "current_agent": "DONE",
+            "completed": completed_agents, "failed": list(failures.keys()),
+            "no_work": _no_work_agents,
+            "cycle_elapsed_s": round(_t.time() - _cycle_start),
+            "updated_at": datetime.now(UTC).isoformat(),
+        }, indent=2))
+        L.newline()
+        L.cycle_summary(cycle=cycle, agent_outcomes=_agent_outcomes,
+                        gate_result="NO_WORK", blocker_name="no_committed_work")
+        raise SystemExit(1)
+
     # All agents done — write AGENT_COMPLETE so tick advances to post-cycle review.
     # Do NOT re-stamp the cycle number here: omitting the `cycle` arg lets the
     # read-merge-write preserve the existing authoritative active_cycle and stops
     # the post-run re-stamp that drove the 82<->84 oscillation.
-    from automation.state_writer import write_controller_state as _wcs, write_heartbeat as _wh
     _wcs("AGENT_COMPLETE")
     _wh("AGENT_COMPLETE", cycle=cycle)
 
@@ -2542,6 +2656,24 @@ def cmd_tick() -> None:
         )
         # Stay in POST_CYCLE_FAIL — do not advance, do not reset to IDLE
 
+    elif status == "CYCLE_NO_WORK":
+        # ITEM 2.1: the previous run-cycle produced ZERO committed work. The
+        # cycle was NOT advanced (fail-closed). Surface it and route back to
+        # READY_TO_DISPATCH so a subsequent tick re-runs the model gate and can
+        # re-dispatch a real run. This is recoverable — a later real run proceeds.
+        import automation.autopilot_logger as L
+        L.warn(
+            f"CYCLE_NO_WORK (cycle {cycle}) — last run committed nothing. "
+            "Re-dispatching: routing to READY_TO_DISPATCH for a fresh run."
+        )
+        notify_blocked(
+            f"Cycle {cycle:03d} no-work — re-dispatching",
+            body="Previous run-cycle committed nothing; routing to READY_TO_DISPATCH.",
+            incident_code="CYCLE_NO_WORK",
+            cycle=cycle,
+        )
+        write_controller_state("READY_TO_DISPATCH", cycle=cycle)
+
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")
         write_controller_state("IDLE")
@@ -2929,6 +3061,9 @@ def cmd_status_tick() -> None:
     elif status in ("DISPATCHING", "AGENT_DISPATCH", "CURSOR_RUNNING"):
         next_action = "MONITOR_AGENT"
         reason = "Agent currently running — monitor heartbeat"
+    elif status == "CYCLE_NO_WORK":
+        next_action = "REDISPATCH_NO_WORK"
+        reason = "Last run committed nothing — re-dispatch a real run"
     elif status == "POST_CYCLE_PENDING":
         next_action = "POST_CYCLE_REVIEW"
         reason = "Awaiting post-cycle review"
@@ -3052,6 +3187,7 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
             "POST_CYCLE_PENDING": "Running lint + tests + Jira sync + Claude PM review",
             "POST_CYCLE_PASS": "Cycle passed — planning next cycle",
             "POST_CYCLE_FAIL": "Cycle FAILED review — check details above",
+            "CYCLE_NO_WORK": "Cycle produced no committed work — re-dispatching real work",
             "IDLE": "Idle — will compile policy and plan next cycle",
             "MODEL_BLOCKED": "Cursor model gate failed — re-checking...",
             "BRANCH_MISMATCH_BLOCKED": "Wrong git branch — auto-fixing...",

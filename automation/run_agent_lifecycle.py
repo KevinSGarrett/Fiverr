@@ -72,7 +72,7 @@ class AgentLifecycleResult:
     agent: str
     cycle: int
     run_id: str
-    status: str          # COMPLETE | VALIDATION_FAILED | OWNERSHIP_VIOLATION | NO_REPORT | SECRET_FOUND | REPAIR_NEEDED
+    status: str          # COMPLETE | NO_WORK | VALIDATION_FAILED | OWNERSHIP_VIOLATION | NO_REPORT | SECRET_FOUND | REPAIR_NEEDED
     commit_sha: str = ""
     changed_files: list[str] = field(default_factory=list)
     unauthorized_files: list[str] = field(default_factory=list)
@@ -84,6 +84,12 @@ class AgentLifecycleResult:
     errors: list[str] = field(default_factory=list)
     record_path: str = ""
     commit_blocked: bool = False
+    # ITEM 2.1: work-proof markers. ``no_work`` is True when the agent ran clean
+    # but committed nothing (empty commit_sha) and is not a justified no-op.
+    # ``justified_no_op`` lets a legitimately doc-only / nothing-to-do agent be
+    # treated as COMPLETE even with an empty commit_sha.
+    no_work: bool = False
+    justified_no_op: bool = False
 
     def to_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
@@ -220,6 +226,31 @@ class AgentLifecycle:
                 validation_passed=val_passed,
                 jira_keys=jira_keys,
             )
+
+        # ITEM 2.1 — HARD WORK-PROOF. An agent that committed nothing (empty
+        # commit_sha) is NOT a real completion unless it is a legitimately
+        # justified no-op (e.g. a doc-only agent whose contract allows it, or an
+        # explicit justified-no-op flag). Otherwise mark NO_WORK so the run-cycle
+        # work-proof gate refuses to report AGENTS_COMPLETE for a do-nothing run.
+        result.justified_no_op = bool(
+            contract
+            and (
+                contract.get("justified_no_op")
+                or contract.get("allow_no_op")
+                or contract.get("no_work_justified")
+            )
+        )
+        # Dry-run is a validation-only pass that never commits by design, so the
+        # work-proof NO_WORK gate must not apply to it.
+        if not dry_run and not result.commit_sha and not result.justified_no_op:
+            result.no_work = True
+            result.status = "NO_WORK"
+            result.errors.append(
+                "No committed work: commit_sha empty and no justified-no-op flag set"
+            )
+            if not dry_run:
+                result.record_path = str(_write_record(result, run_dir))
+            return result
 
         result.status = "COMPLETE"
         if not dry_run:
