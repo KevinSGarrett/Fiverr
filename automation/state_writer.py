@@ -6,11 +6,37 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from automation import runner_paths
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` atomically via a same-dir temp file + os.replace.
+
+    Writing to a temp file in the same directory and then ``os.replace`` makes
+    the swap atomic on the same filesystem, so a reader never sees a partial
+    file. The temp file is cleaned up on failure.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise
 
 # Resolved from runner_paths at import; kept as module attributes for backward
 # compatibility. Writes resolve the directory lazily (see write functions) so a
@@ -89,7 +115,16 @@ def write_controller_state(state: str, cycle: int | None = None,
                             branch: str | None = None,
                             pr: int | None = None,
                             run_id: str | None = None,
-                            last_successful: str | None = None) -> None:
+                            last_successful: str | None = None,
+                            *, allow_lower: bool = False) -> None:
+    """Read-merge-write controller_state.json atomically and monotonically.
+
+    The ``active_cycle`` is monotonic by default: a ``cycle`` arg lower than the
+    existing ``active_cycle`` is ignored (the existing value is kept) so a stale
+    reading can never roll the authoritative cycle backwards. All other field
+    updates still apply. Pass ``allow_lower=True`` to bypass the guard for an
+    explicit operator override (e.g. force_set).
+    """
     controller_state_path = _controller_state_path()
     controller_state_path.parent.mkdir(parents=True, exist_ok=True)
     existing = _load_json(controller_state_path)
@@ -102,14 +137,27 @@ def write_controller_state(state: str, cycle: int | None = None,
     if run_id:
         payload["last_run_id"] = run_id
     if cycle:
-        payload["active_cycle"] = cycle
+        existing_cycle = existing.get("active_cycle")
+        if (
+            not allow_lower
+            and existing_cycle is not None
+            and int(cycle) < int(existing_cycle)
+        ):
+            print(
+                f"[state_writer] monotonic guard: refusing to lower active_cycle "
+                f"{existing_cycle} -> {cycle}; keeping {existing_cycle}",
+                file=sys.stderr,
+            )
+            # keep existing active_cycle (carried over from **existing)
+        else:
+            payload["active_cycle"] = cycle
     if branch:
         payload["active_branch"] = branch
     if pr:
         payload["active_pr"] = pr
     if last_successful:
         payload["last_successful_state"] = last_successful
-    controller_state_path.write_text(json.dumps(payload, indent=2))
+    _atomic_write_text(controller_state_path, json.dumps(payload, indent=2))
 
 
 def write_agent_run_record(run_dir: Path, agent: str, cycle: int,

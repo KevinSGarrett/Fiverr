@@ -90,9 +90,20 @@ def _probe_runner_hydration() -> int | None:
     except Exception:
         return None
 
-def get_current() -> int:
+def get_active_cycle() -> int:
+    """Canonical accessor for the authoritative active cycle number.
+
+    Returns ``controller_state.active_cycle`` when present (it is the authority),
+    falling back to trust-ordered consensus only when controller_state has no
+    value. Never reads the ledger for the active number.
+    """
     cycle = _probe_controller_state()
     return cycle if cycle and cycle > 0 else determine_correct_cycle()["cycle"]
+
+
+def get_current() -> int:
+    """Thin alias for :func:`get_active_cycle` (backward compatibility)."""
+    return get_active_cycle()
 
 def determine_correct_cycle(verbose: bool = False) -> dict:  # noqa: ARG001
     probes = [("controller_state",_probe_controller_state),("git_branch",_probe_git_branches),
@@ -107,9 +118,14 @@ def determine_correct_cycle(verbose: bool = False) -> dict:  # noqa: ARG001
     valid = {k: v for k, v in readings.items() if v and v > 0}
     if not valid:
         return {"cycle":84,"confidence":"LOW","sources":readings,"conflicts":[],"method":"fallback","spread":0}
-    high = {k: v for k, v in valid.items() if _TRUST.get(k, 0) >= 7}
-    cycle = max(high.values()) if high else max(valid.values())
-    method = "high_trust_max" if high else "all_sources_max"
+    # Trust-ordered selection: the reading from the HIGHEST-trust source wins
+    # (controller_state trust=10 wins if present). This prevents a stale high
+    # value from a lower-trust source (e.g. a leftover remote git branch) from
+    # overriding the authoritative controller_state. NOT a max() of values.
+    cycle = next(
+        valid[k] for k in sorted(valid, key=lambda k: _TRUST.get(k, 0), reverse=True)
+    )
+    method = "trust_ordered"
     spread = max(valid.values()) - min(valid.values())
     conflicts = [{"source":k,"value":v,"trust":_TRUST.get(k,0),"delta":cycle-v}
                  for k, v in valid.items() if v != cycle]
@@ -129,6 +145,13 @@ def force_set(cycle: int, reason: str, operator: str = "system") -> None:
     current = _probe_controller_state() or 0
     _write_ledger({"ts":_now(),"event":"FORCE_SET","from":current,"to":cycle,
                    "reason":reason,"operator":operator})
+    # Persist the authority too, so the ledger and controller_state never
+    # diverge. force_set is an explicit override -> allow_lower=True so an
+    # operator can set ANY value (including a lower one). Preserve the existing
+    # status if present.
+    from automation.state_writer import write_controller_state as _wcs
+    status = _read_state().get("status") or "FORCE_SET"
+    _wcs(status, cycle=cycle, allow_lower=True)
 
 def reconcile(verbose: bool = True) -> dict:
     import os

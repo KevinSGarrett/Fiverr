@@ -1199,9 +1199,12 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
 
         _write_progress(agent, completed_agents, list(failures.keys()), elapsed)
 
-    # All agents done — write AGENT_COMPLETE so tick advances to post-cycle review
+    # All agents done — write AGENT_COMPLETE so tick advances to post-cycle review.
+    # Do NOT re-stamp the cycle number here: omitting the `cycle` arg lets the
+    # read-merge-write preserve the existing authoritative active_cycle and stops
+    # the post-run re-stamp that drove the 82<->84 oscillation.
     from automation.state_writer import write_controller_state as _wcs, write_heartbeat as _wh
-    _wcs("AGENT_COMPLETE", cycle=cycle)
+    _wcs("AGENT_COMPLETE")
     _wh("AGENT_COMPLETE", cycle=cycle)
 
     # RSF-19: synthesize agent reports (non-blocking, ARSF_DISABLED-gated)
