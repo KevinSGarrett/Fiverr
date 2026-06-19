@@ -10,10 +10,49 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-RUNNER_STATE_DIR = Path("C:/AI_Runner/state")
-RUNNER_RUNS_DIR = Path("C:/AI_Runner/runs")
+from automation import runner_paths
+
+# Resolved from runner_paths at import; kept as module attributes for backward
+# compatibility. Writes resolve the directory lazily (see write functions) so a
+# test that sets AUTOPILOT_RUNNER_ROOT redirects correctly.
+RUNNER_STATE_DIR = runner_paths.state_dir()
+RUNNER_RUNS_DIR = runner_paths.runs_dir()
 HEARTBEAT_PATH = RUNNER_STATE_DIR / "heartbeat.json"
 CONTROLLER_STATE_PATH = RUNNER_STATE_DIR / "controller_state.json"
+
+
+def _state_dir() -> Path:
+    """Lazy state dir: honour a monkeypatched RUNNER_STATE_DIR, else env-driven."""
+    return (
+        RUNNER_STATE_DIR
+        if RUNNER_STATE_DIR != runner_paths.state_dir()
+        else runner_paths.state_dir()
+    )
+
+
+def _runs_dir() -> Path:
+    """Lazy runs dir: honour a monkeypatched RUNNER_RUNS_DIR, else env-driven."""
+    return (
+        RUNNER_RUNS_DIR
+        if RUNNER_RUNS_DIR != runner_paths.runs_dir()
+        else runner_paths.runs_dir()
+    )
+
+
+def _heartbeat_path() -> Path:
+    """Honour a monkeypatched HEARTBEAT_PATH, else derive from the lazy state dir."""
+    default = RUNNER_STATE_DIR / "heartbeat.json"
+    return HEARTBEAT_PATH if HEARTBEAT_PATH != default else _state_dir() / "heartbeat.json"
+
+
+def _controller_state_path() -> Path:
+    """Honour a monkeypatched CONTROLLER_STATE_PATH, else derive lazily."""
+    default = RUNNER_STATE_DIR / "controller_state.json"
+    return (
+        CONTROLLER_STATE_PATH
+        if CONTROLLER_STATE_PATH != default
+        else _state_dir() / "controller_state.json"
+    )
 
 
 def _now() -> str:
@@ -23,7 +62,8 @@ def _now() -> str:
 def write_heartbeat(state: str, cycle: int | None = None,
                     agent: str | None = None) -> None:
     """Update the heartbeat file. Called frequently during active runs."""
-    RUNNER_STATE_DIR.mkdir(parents=True, exist_ok=True)
+    heartbeat_path = _heartbeat_path()
+    heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "last_seen": _now(),
         "state": state,
@@ -31,7 +71,7 @@ def write_heartbeat(state: str, cycle: int | None = None,
         "agent": agent,
         "pid": os.getpid(),
     }
-    HEARTBEAT_PATH.write_text(json.dumps(payload, indent=2))
+    heartbeat_path.write_text(json.dumps(payload, indent=2))
 
 
 def write_controller_state(state: str, cycle: int | None = None,
@@ -39,8 +79,9 @@ def write_controller_state(state: str, cycle: int | None = None,
                             pr: int | None = None,
                             run_id: str | None = None,
                             last_successful: str | None = None) -> None:
-    RUNNER_STATE_DIR.mkdir(parents=True, exist_ok=True)
-    existing = _load_json(CONTROLLER_STATE_PATH)
+    controller_state_path = _controller_state_path()
+    controller_state_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = _load_json(controller_state_path)
     payload = {
         **existing,
         "runner": "fiverr-runner-local-01",
@@ -57,7 +98,7 @@ def write_controller_state(state: str, cycle: int | None = None,
         payload["active_pr"] = pr
     if last_successful:
         payload["last_successful_state"] = last_successful
-    CONTROLLER_STATE_PATH.write_text(json.dumps(payload, indent=2))
+    controller_state_path.write_text(json.dumps(payload, indent=2))
 
 
 def write_agent_run_record(run_dir: Path, agent: str, cycle: int,
@@ -123,7 +164,7 @@ def write_run_summary(run_dir: Path, cycle: int, agents: list[str],
 
 def make_run_dir(cycle: int, run_id: str) -> Path:
     """Create and return the per-cycle run directory under C:\\AI_Runner\\runs."""
-    run_dir = RUNNER_RUNS_DIR / f"CYCLE_{cycle:03d}" / run_id
+    run_dir = _runs_dir() / f"CYCLE_{cycle:03d}" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     for subdir in ("prompts", "agent_runs", "validations", "github", "jira", "repair"):
         (run_dir / subdir).mkdir(exist_ok=True)

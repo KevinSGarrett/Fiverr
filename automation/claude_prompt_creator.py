@@ -26,6 +26,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from automation import runner_paths
+
 REPO_ROOT     = Path("C:/Fiverr/Fiverr")
 PM_PACK       = REPO_ROOT / "PM_Pack"
 REF_ROOT      = PM_PACK / "ref" / "project_plan"
@@ -746,7 +748,7 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str) -> str | None:
 
     # Write request to temp file for reference, but send via stdin using Popen.communicate()
     # (file-based stdin redirect can cause "no stdin data received" warnings)
-    req_path = Path(f"C:/AI_Runner/tmp/claude_pm_agent_{agent_id}.md")
+    req_path = runner_paths.tmp_dir() / f"claude_pm_agent_{agent_id}.md"
     req_path.parent.mkdir(parents=True, exist_ok=True)
     req_path.write_text(request_text, encoding="utf-8")
 

@@ -26,6 +26,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Generator
 
+from automation import runner_paths
+
 try:
     import click as _click
 
@@ -38,12 +40,35 @@ except ImportError:
 
 
 # -- Directories ---------------------------------------------------------------
-LOG_DIR   = Path("C:/AI_Runner/logs")
-RUNS_DIR  = Path("C:/AI_Runner/runs")
-STATE_DIR = Path("C:/AI_Runner/state")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-RUNS_DIR.mkdir(parents=True, exist_ok=True)
-STATE_DIR.mkdir(parents=True, exist_ok=True)
+# Resolved from runner_paths at import (so an env var set before import works).
+# These remain module attributes for backward compatibility; actual writes go
+# through the lazy resolvers below so a test that sets the env var (or
+# monkeypatches these constants) redirects correctly even if it imported this
+# module earlier. NO mkdir at import time -- directories are created lazily,
+# immediately before the first write.
+LOG_DIR   = runner_paths.logs_dir()
+RUNS_DIR  = runner_paths.runs_dir()
+STATE_DIR = runner_paths.state_dir()
+
+
+def _logs_dir() -> Path:
+    """Lazy log dir read at call time so env/monkeypatch redirection is honoured.
+
+    Returns the module-level ``LOG_DIR`` when it has been overridden away from
+    the current env-driven default (e.g. a test monkeypatches it); otherwise it
+    re-resolves from ``runner_paths`` so an env var set after import still wins.
+    """
+    return LOG_DIR if LOG_DIR != runner_paths.logs_dir() else runner_paths.logs_dir()
+
+
+def _runs_dir() -> Path:
+    """Lazy runs dir (see :func:`_logs_dir`)."""
+    return RUNS_DIR if RUNS_DIR != runner_paths.runs_dir() else runner_paths.runs_dir()
+
+
+def _state_dir() -> Path:
+    """Lazy state dir (see :func:`_logs_dir`)."""
+    return STATE_DIR if STATE_DIR != runner_paths.state_dir() else runner_paths.state_dir()
 
 # -- Log level (OBS-9) ---------------------------------------------------------
 _LEVELS = {"DEBUG": 10, "INFO": 20, "WARN": 30, "ERROR": 40}
@@ -56,7 +81,9 @@ _log_state: dict = {"path": None, "handle": None}
 
 def _log_file():
     today = datetime.now().strftime("%Y%m%d")
-    p = LOG_DIR / f"autopilot_{today}.log"
+    log_dir = _logs_dir()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    p = log_dir / f"autopilot_{today}.log"
     if p != _log_state["path"]:
         if _log_state["handle"] is not None:
             try:
@@ -80,7 +107,7 @@ _run_state: dict = {
 
 def init_run(run_id: str, cycle: int | None = None) -> Path:
     """Call once at run start; creates per-run transcript.log + events.jsonl."""
-    run_dir = RUNS_DIR / (run_id or "unknown")
+    run_dir = _runs_dir() / (run_id or "unknown")
     run_dir.mkdir(parents=True, exist_ok=True)
     for key in ("transcript", "jsonl"):
         h = _run_state.get(key)
@@ -180,15 +207,30 @@ def _write(line: str, plain: str | None = None, level: int = 20) -> None:
 
 
 # -- Current activity (OBS-2) --------------------------------------------------
+# Kept as a module attribute for backward compatibility; writes resolve the
+# target lazily via _activity_file() so env-var redirection is honoured.
 _ACTIVITY_FILE = STATE_DIR / "current_activity.json"
 _activity_lock = threading.Lock()
+
+
+def _activity_file() -> Path:
+    """Resolve current_activity.json lazily.
+
+    Honours a monkeypatched ``_ACTIVITY_FILE`` (existing tests set it directly);
+    otherwise derives it from the lazy state dir. The parent directory is created
+    immediately before use.
+    """
+    default = _state_dir() / "current_activity.json"
+    target = _ACTIVITY_FILE if _ACTIVITY_FILE != STATE_DIR / "current_activity.json" else default
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target
 
 
 def _write_activity(data: dict) -> None:
     data["last_heartbeat"] = _now_iso()
     with _activity_lock:
         try:
-            _ACTIVITY_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _activity_file().write_text(json.dumps(data, indent=2), encoding="utf-8")
         except Exception:
             pass
 
@@ -223,10 +265,11 @@ def bump_heartbeat() -> None:
     """Update last_heartbeat in current_activity.json without changing other fields."""
     with _activity_lock:
         try:
-            if _ACTIVITY_FILE.exists():
-                data = json.loads(_ACTIVITY_FILE.read_text(encoding="utf-8"))
+            activity_file = _activity_file()
+            if activity_file.exists():
+                data = json.loads(activity_file.read_text(encoding="utf-8"))
                 data["last_heartbeat"] = _now_iso()
-                _ACTIVITY_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                activity_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except Exception:
             pass
 
@@ -338,9 +381,10 @@ STALL_THRESHOLD_S: float = 300.0  # 5 min
 
 def _check_stall() -> None:
     try:
-        if not _ACTIVITY_FILE.exists():
+        activity_file = _activity_file()
+        if not activity_file.exists():
             return
-        data = json.loads(_ACTIVITY_FILE.read_text(encoding="utf-8"))
+        data = json.loads(activity_file.read_text(encoding="utf-8"))
         last_hb = data.get("last_heartbeat")
         if not last_hb:
             return
@@ -432,7 +476,7 @@ def cycle_summary(
         _write(_c(f"\n  BLOCKED BY: {blocker_name}", fg="red", bold=True), level=40)
     _write(sep, level=20)
 
-    run_dir = _run_state.get("run_dir") or RUNS_DIR / "latest"
+    run_dir = _run_state.get("run_dir") or _runs_dir() / "latest"
     Path(run_dir).mkdir(parents=True, exist_ok=True)
     summary_data: dict[str, Any] = {
         "cycle": cycle,
