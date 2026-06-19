@@ -195,9 +195,13 @@ def test_register_driver_execution_time_limit_unlimited(register_driver: str) ->
 
 
 def test_register_driver_battery_settings(register_driver: str) -> None:
-    assert "DisallowStartIfOnBatteries" in register_driver
-    assert "StopIfGoingOnBatteries" in register_driver
+    # Correct New-ScheduledTaskSettingsSet switch names (Codex P1 on #111).
+    assert "-AllowStartIfOnBatteries" in register_driver
+    assert "-DontStopIfGoingOnBatteries" in register_driver
     assert "StartWhenAvailable" in register_driver
+    # invalid param names gone (leading dash avoids DontStop... substring match)
+    assert "-DisallowStartIfOnBatteries" not in register_driver
+    assert "-StopIfGoingOnBatteries" not in register_driver
 
 
 def test_register_driver_deletes_duplicate_tasks(register_driver: str) -> None:
@@ -262,3 +266,17 @@ def test_deploy_targets_all_host_scripts(deploy_scripts: str) -> None:
         "register_driver.ps1",
     ):
         assert name in deploy_scripts
+
+
+# ── Codex P1 regressions (PR #111) ─────────────────────────────────────────
+def test_watchdog_stops_before_start(watchdog: str) -> None:
+    """Watchdog must Stop the hung IgnoreNew instance before demand-starting it (Codex P1).
+
+    Uses the actionable code strings (with -TaskName) so a comment mentioning
+    Start-ScheduledTask does not create a false ordering.
+    """
+    stop_i = watchdog.find("Stop-ScheduledTask -TaskName $DriverTaskName")
+    start_i = watchdog.find("Start-ScheduledTask -TaskName $DriverTaskName")
+    assert stop_i != -1, "watchdog must Stop the driver task in the relaunch path"
+    assert start_i != -1, "watchdog must Start the driver task in the relaunch path"
+    assert stop_i < start_i, "Stop-ScheduledTask must precede Start-ScheduledTask in relaunch"

@@ -58,6 +58,19 @@ function Start-Driver([string]$reason) {
 
     $task = Get-ScheduledTask -TaskName $DriverTaskName -ErrorAction SilentlyContinue
     if ($task) {
+        # The driver task is registered with -MultipleInstances IgnoreNew, so a
+        # demand Start-ScheduledTask is IGNORED while a hung instance is still
+        # Running. Stop the stale instance first (and kill any stale controller
+        # process), then start a fresh one.
+        Write-Host "[watchdog] Stopping any hung instance of '$DriverTaskName' before relaunch."
+        Stop-ScheduledTask -TaskName $DriverTaskName -ErrorAction SilentlyContinue
+        Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*ai_cycle_controller.py*" } |
+            ForEach-Object {
+                Write-Host "[watchdog] Killing stale controller PID $($_.ProcessId)."
+                Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+        Start-Sleep -Seconds 2
         Write-Host "[watchdog] Starting durable scheduled task '$DriverTaskName' directly."
         Start-ScheduledTask -TaskName $DriverTaskName -ErrorAction SilentlyContinue
         return

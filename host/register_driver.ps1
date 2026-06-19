@@ -86,7 +86,7 @@ foreach ($dup in $DuplicateTasks) {
 Write-Plan "Driver task '$DriverTaskName' -> run NON-INTERACTIVELY (whether logged on or not),"
 Write-Plan "  LogonType S4U, RunLevel Highest, triggers AtStartup + AtLogon,"
 Write-Plan "  RestartCount 999 / RestartInterval 1 min, ExecutionTimeLimit 0 (unlimited),"
-Write-Plan "  StartWhenAvailable, DisallowStartIfOnBatteries=`$false, StopIfGoingOnBatteries=`$false,"
+Write-Plan "  StartWhenAvailable, AllowStartIfOnBatteries, DontStopIfGoingOnBatteries,"
 Write-Plan "  Action: powershell -NoProfile -ExecutionPolicy Bypass -File $StartController"
 
 if ($DoIt) {
@@ -109,8 +109,8 @@ if ($DoIt) {
         -RestartCount 999 `
         -RestartInterval (New-TimeSpan -Minutes 1) `
         -StartWhenAvailable `
-        -DisallowStartIfOnBatteries:$false `
-        -StopIfGoingOnBatteries:$false `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
         -ExecutionTimeLimit ([TimeSpan]::Zero) `
         -MultipleInstances IgnoreNew
 
@@ -150,8 +150,8 @@ if ($DoIt) {
 
     $wdSettings = New-ScheduledTaskSettingsSet `
         -StartWhenAvailable `
-        -DisallowStartIfOnBatteries:$false `
-        -StopIfGoingOnBatteries:$false `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
         -MultipleInstances IgnoreNew
 
     Register-ScheduledTask `
