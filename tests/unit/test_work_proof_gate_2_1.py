@@ -278,32 +278,25 @@ def test_lifecycle_no_files_is_no_work(tmp_path, monkeypatch):
     and commit_sha stays empty — exactly the no-op case the gate must catch.
     """
     from automation.run_agent_lifecycle import AgentLifecycle
-
-    # Report must exist with the AGENT_COMPLETE marker so the lifecycle reaches
-    # the work-proof check (rather than bailing at NO_REPORT).
-    report = (
-        Path(ctrl.REPO_ROOT) / "docs/cycle_reports"
-        / "CYCLE_299_AGENT_B.md"
-    )
-    report.parent.mkdir(parents=True, exist_ok=True)
-    created = not report.exists()
-    if created:
-        report.write_text("# Cycle 299 Agent B\n\nAGENT_COMPLETE\n", encoding="utf-8")
-
-    # Avoid running the real ruff/mypy gate (offline + fast); zero files means
-    # the commit block is skipped anyway, but keep validation green.
     import automation.run_agent_lifecycle as ral
+
+    # Isolate REPO_ROOT to tmp — ral.REPO_ROOT is a hardcoded "C:/Fiverr/Fiverr"
+    # literal that is wrong on CI (ubuntu), which previously made the lifecycle
+    # report-lookup miss and bail at NO_REPORT. Write the report where the
+    # lifecycle actually reads it, and force zero changed files deterministically
+    # (no git in tmp). No repo-tree pollution.
+    monkeypatch.setattr(ral, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(ral, "_run_validation", lambda agent_id: (True, "ok"))
+    monkeypatch.setattr(ral, "_get_changed_files", lambda *a, **k: [])
+    report = tmp_path / "docs/cycle_reports" / "CYCLE_299_AGENT_B.md"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text("# Cycle 299 Agent B\n\nAGENT_COMPLETE\n", encoding="utf-8")
 
     run_dir = tmp_path / "agent_runs" / "B"
-    try:
-        result = AgentLifecycle().run(
-            agent_id="B", cycle=299, run_id="testrun",
-            run_dir=run_dir, jira_keys=[], contract=None, dry_run=False,
-        )
-    finally:
-        if created:
-            report.unlink(missing_ok=True)
+    result = AgentLifecycle().run(
+        agent_id="B", cycle=299, run_id="testrun",
+        run_dir=run_dir, jira_keys=[], contract=None, dry_run=False,
+    )
 
     assert result.status == "NO_WORK"
     assert result.no_work is True
@@ -319,30 +312,47 @@ def test_lifecycle_no_files_is_no_work(tmp_path, monkeypatch):
 def test_lifecycle_justified_no_op_stays_complete(tmp_path, monkeypatch):
     """A justified-no-op contract keeps status COMPLETE even with empty commit_sha."""
     from automation.run_agent_lifecycle import AgentLifecycle
-
-    report = (
-        Path(ctrl.REPO_ROOT) / "docs/cycle_reports"
-        / "CYCLE_298_AGENT_D.md"
-    )
-    report.parent.mkdir(parents=True, exist_ok=True)
-    created = not report.exists()
-    if created:
-        report.write_text("# Cycle 298 Agent D\n\nAGENT_COMPLETE\n", encoding="utf-8")
-
     import automation.run_agent_lifecycle as ral
+
+    monkeypatch.setattr(ral, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(ral, "_run_validation", lambda agent_id: (True, "ok"))
+    monkeypatch.setattr(ral, "_get_changed_files", lambda *a, **k: [])
+    report = tmp_path / "docs/cycle_reports" / "CYCLE_298_AGENT_D.md"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text("# Cycle 298 Agent D\n\nAGENT_COMPLETE\n", encoding="utf-8")
 
     run_dir = tmp_path / "agent_runs" / "D"
-    try:
-        result = AgentLifecycle().run(
-            agent_id="D", cycle=298, run_id="testrun",
-            run_dir=run_dir, jira_keys=[],
-            contract={"justified_no_op": True}, dry_run=False,
-        )
-    finally:
-        if created:
-            report.unlink(missing_ok=True)
+    result = AgentLifecycle().run(
+        agent_id="D", cycle=298, run_id="testrun",
+        run_dir=run_dir, jira_keys=[],
+        contract={"justified_no_op": True}, dry_run=False,
+    )
 
     assert result.status == "COMPLETE"
     assert result.no_work is False
     assert result.justified_no_op is True
+
+
+def test_crosscheck_finds_record_under_runid_subdir(offline, capture_notifications):
+    """Codex P1 (#115): a real run writes the record under runs/CYCLE_NNN/<run_id>/,
+    NOT runs/CYCLE_NNN/agent_runs/<agent>/. The broadened rglob over the whole cycle
+    dir must still find it, else a genuinely-committed cycle is misread as CYCLE_NO_WORK.
+    """
+    cycle = 205
+    cycle_dir = runner_paths.runs_dir() / f"CYCLE_{cycle:03d}"
+    for ag in AGENTS:
+        # Real make_run_dir layout: per-run-id subdir, not agent_runs/<agent>.
+        d = cycle_dir / f"20990101T0000{ord(ag) % 10}0" / "agent_runs" / ag
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"agent_{ag}_run_record.json").write_text(
+            json.dumps({"agent": ag, "cycle": cycle, "status": "COMPLETE",
+                        "commit_sha": f"sha_{ag}", "no_work": False,
+                        "justified_no_op": False}),
+            encoding="utf-8",
+        )
+    result = CliRunner().invoke(cli, ["run-cycle", "--cycle", str(cycle)])
+    assert result.exit_code == 0, result.output
+    state = json.loads((runner_paths.state_dir() / "controller_state.json").read_text())
+    assert state["status"] == "AGENT_COMPLETE", state
+    # Not a single CYCLE_NO_WORK notification.
+    assert not [c for c in capture_notifications if c["incident_code"] == "CYCLE_NO_WORK"]

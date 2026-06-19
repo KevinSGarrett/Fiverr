@@ -1431,12 +1431,15 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
         _agent_no_work = False    # ITEM 2.1: rc==0 but zero committed work + no justified no-op
         if rc == 0:
             try:
-                _rr_dir = (
-                    runner_paths.runs_dir() / f"CYCLE_{cycle:03d}" / "agent_runs" / agent
-                )
-                # ITEM 2.1: fix the glob to the REAL filename written by
-                # run_agent_lifecycle._write_record (agent_<agent>_run_record.json).
-                # The old `run_record.json` glob matched NOTHING → dead cross-check.
+                # Codex P1 (#115): search the WHOLE per-cycle dir, not a fixed
+                # agent_runs/<agent> subpath. A real run-agent dispatch writes the
+                # record under runs/CYCLE_NNN/<run_id>/ (make_run_dir), so rglob the
+                # cycle root (most-recent wins) — else a genuinely-committed cycle
+                # would be misread as zero-commit → wrongly marked CYCLE_NO_WORK.
+                _rr_dir = runner_paths.runs_dir() / f"CYCLE_{cycle:03d}"
+                # Glob the REAL filename written by run_agent_lifecycle._write_record
+                # (agent_<agent>_run_record.json). The old `run_record.json` glob
+                # matched NOTHING → dead cross-check.
                 _rr_candidates = sorted(
                     _rr_dir.rglob(f"agent_{agent}_run_record.json"),
                     key=lambda p: p.stat().st_mtime, reverse=True,
