@@ -269,3 +269,35 @@ def test_icv_config_not_force_disabled_by_pytest(monkeypatch):
     # Real defaults preserved (not forced to the old test values 1 / 0.0).
     assert cfg.max_attempts == 3
     assert cfg.openai_budget_usd == 2.0
+
+
+def test_run_agent_refuses_when_frozen(monkeypatch):
+    """Codex P1: direct run-agent (real dispatch) must fail closed when frozen."""
+    from click.testing import CliRunner
+    import automation.ai_cycle_controller as ctrl
+    monkeypatch.setattr(ctrl, "_is_frozen", lambda: (True, "test_freeze"))
+    r = CliRunner().invoke(ctrl.cli, ["run-agent", "--agent", "A", "--cycle", "82"])
+    assert r.exit_code != 0
+    assert "FROZEN" in r.output
+
+
+def test_run_agent_dry_run_allowed_when_frozen(monkeypatch):
+    """--dry-run is non-dispatching and is permitted while frozen (no FROZEN refuse)."""
+    from click.testing import CliRunner
+    import automation.ai_cycle_controller as ctrl
+    monkeypatch.setattr(ctrl, "_is_frozen", lambda: (True, "test_freeze"))
+    r = CliRunner().invoke(ctrl.cli, ["run-agent", "--agent", "A", "--cycle", "82", "--dry-run"])
+    # Dry-run must NOT be refused by the freeze guard (it may still fail later for
+    # missing prompt etc., but the FROZEN refuse must not fire).
+    assert "Autonomy freeze active" not in r.output
+
+
+def test_run_agent_refuses_on_leaked_pytest(monkeypatch):
+    """Direct run-agent refuses when PYTEST leaked without the test harness."""
+    from click.testing import CliRunner
+    import automation.ai_cycle_controller as ctrl
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "leaked")
+    monkeypatch.delenv("AUTOPILOT_TEST_HARNESS", raising=False)
+    r = CliRunner().invoke(ctrl.cli, ["run-agent", "--agent", "A", "--cycle", "82"])
+    assert r.exit_code != 0
+    assert "REFUSE" in r.output

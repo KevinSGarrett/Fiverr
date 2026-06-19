@@ -858,6 +858,22 @@ def cmd_validate_prompts(cycle: int, agents: str) -> None:
               help="Print what would run without executing Cursor.")
 def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -> None:
     """Run a single Cursor agent with MODEL_GATE + validation + commit."""
+    # ENTRY GUARDS (0.3): direct run-agent also dispatches real Cursor work, so it
+    # must honor the same fail-closed pytest-leak guard + autonomy-freeze as the
+    # loop (Codex P1 on #110). Skipped for --dry-run (non-dispatching; dry-run
+    # paths are permitted while frozen).
+    if not dry_run:
+        if _refuse_if_leaked_pytest():
+            raise SystemExit(1)
+        _frozen, _freeze_reason = _is_frozen()
+        if _frozen:
+            click.secho(
+                f"[FROZEN] reason={_freeze_reason}. Autonomy freeze active — "
+                "refusing run-agent dispatch. Run 'unfreeze' once cleared.",
+                fg="red", bold=True,
+            )
+            raise SystemExit(1)
+
     click.echo("=" * 60)
     click.echo(f"RUN AGENT {agent} — Cycle {cycle:03d} {'[DRY RUN]' if dry_run else ''}")
     click.echo("=" * 60)
