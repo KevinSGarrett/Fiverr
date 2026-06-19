@@ -118,3 +118,8 @@ PM_Pack/automation/ref_catalogs/*.json
 PM_Pack/automation/prompts/drafts/
 PM_Pack/automation/current_policy_snapshot.json
 PM_Pack/automation/prompt_package_manifest.json
+
+# ---- Top-level ARSF / runtime artifacts (regenerable; source of truth = reports + GitHub/Jira) ----
+runs/
+docs/cycle_reports/CYCLE_*_SYNTHESIS.md
+docs/cycle_reports/CYCLE_*_NEXT_CYCLE_DIRECTIVES.md
