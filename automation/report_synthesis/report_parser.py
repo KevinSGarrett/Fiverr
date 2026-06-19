@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Optional
 
 from automation.report_synthesis.schemas import (
     AgentVerdict,
@@ -41,7 +40,7 @@ _VALID_VERDICTS = {v.value for v in AgentVerdict}
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
-def parse_report(path: Path | str, prompt_task_ids: Optional[list[str]] = None) -> ClaimedAgentReport:
+def parse_report(path: Path | str, prompt_task_ids: list[str] | None = None) -> ClaimedAgentReport:
     """Parse an agent cycle report file; always returns a ClaimedAgentReport."""
     path = Path(path)
     if not path.exists():
@@ -72,7 +71,7 @@ _MANIFEST_RE = re.compile(
 )
 
 
-def _try_manifest_parse(raw: str) -> Optional[ClaimedAgentReport]:
+def _try_manifest_parse(raw: str) -> ClaimedAgentReport | None:
     m = _MANIFEST_RE.search(raw)
     if not m:
         return None
@@ -199,7 +198,7 @@ def _markdown_fallback_parse(raw: str) -> ClaimedAgentReport:
 
 # ── Violation detection (RSF-5) ───────────────────────────────────────────────
 
-def _detect_violations(r: ClaimedAgentReport, raw: str, prompt_task_ids: Optional[list[str]]) -> None:
+def _detect_violations(r: ClaimedAgentReport, raw: str, prompt_task_ids: list[str] | None) -> None:
     # Missing required headers
     raw_lower = raw.lower()
     missing = [h for h in REQUIRED_HEADERS if h.lower() not in raw_lower]

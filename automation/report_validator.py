@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 from automation.report_synthesis.report_parser import (
     V_NO_NON_CLAIMS, V_MISSING_HEADERS,
@@ -33,8 +32,8 @@ _ALLOWED_VERDICTS = {"PASS", "PARTIAL", "FAIL", "BLOCKED",
 
 def validate_report(
     path: Path | str,
-    prompt_task_ids: Optional[list[str]] = None,
-    agent_role: Optional[str] = None,
+    prompt_task_ids: list[str] | None = None,
+    agent_role: str | None = None,
 ) -> list[str]:
     """
     Validate a report. Returns a list of violation strings (empty = clean).

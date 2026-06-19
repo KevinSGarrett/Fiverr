@@ -9,7 +9,6 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from automation.report_synthesis.schemas import AgentVerdict, CycleSynthesis
 
@@ -75,7 +74,7 @@ class NextCycleDirectives:
 
 def generate_directives(
     cs: CycleSynthesis,
-    prev_directives: Optional[NextCycleDirectives] = None,
+    prev_directives: NextCycleDirectives | None = None,
 ) -> NextCycleDirectives:
     """Produce NextCycleDirectives from a CycleSynthesis (RSF-39)."""
     nd = NextCycleDirectives(from_cycle=cs.cycle)
@@ -131,7 +130,7 @@ def generate_directives(
     return nd
 
 
-def persist_directives(nd: NextCycleDirectives, runs_dir: Optional[Path] = None) -> None:
+def persist_directives(nd: NextCycleDirectives, runs_dir: Path | None = None) -> None:
     """RSF-40: Write JSON + MD artifacts."""
     cycle = nd.from_cycle
     runs_dir = runs_dir or (REPO_ROOT / "runs" / f"CYCLE_{cycle:03d}")
@@ -145,7 +144,7 @@ def persist_directives(nd: NextCycleDirectives, runs_dir: Optional[Path] = None)
     md_path.write_text(nd.pm_markdown, encoding="utf-8")
 
 
-def load_next_cycle_directives(cycle: int, runs_dir: Optional[Path] = None) -> Optional[NextCycleDirectives]:
+def load_next_cycle_directives(cycle: int, runs_dir: Path | None = None) -> NextCycleDirectives | None:
     """RSF-41: Load NEXT_CYCLE_DIRECTIVES.json → object; None if absent."""
     runs_dir = runs_dir or (REPO_ROOT / "runs" / f"CYCLE_{cycle:03d}")
     json_path = runs_dir / f"CYCLE_{cycle:03d}_NEXT_CYCLE_DIRECTIVES.json"
@@ -200,9 +199,9 @@ def _directives_from_dict(data: dict) -> NextCycleDirectives:
 def _render_directives_md(nd: NextCycleDirectives) -> str:
     lines = [
         f"# CYCLE_{nd.from_cycle:03d}_NEXT_CYCLE_DIRECTIVES",
-        f"",
+        "",
         f"Build-sequence advance: **{nd.build_sequence_advance}** — {nd.build_sequence_reason}",
-        f"",
+        "",
     ]
     if nd.stuck_items:
         lines += ["## Stuck items (carried ≥2 cycles)", ""] + [f"- {s}" for s in nd.stuck_items] + [""]

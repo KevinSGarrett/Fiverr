@@ -6,7 +6,6 @@ Covers RSF-1..RSF-52 and IVR-1/IVR-2/IVR-4/IVR-5 at L1 (unit) level.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from textwrap import dedent
@@ -39,12 +38,18 @@ def test_schemas_defaults():
     assert len(list(AgentVerdict)) == 6
     for v in ("DELIVERED", "PARTIAL", "CLAIMED_ONLY", "FAILED", "BLOCKED", "NO_REPORT"):
         assert AgentVerdict(v).value == v
-    t = TaskClaim(); assert t.id == ""
-    g = GateClaim(); assert g.result == ""
-    j = JiraActionClaim(); assert j.worklog == "none"
-    c = ClaimedAgentReport(); assert c.tasks == []
-    a = AgentReportSynthesis(); assert a.discrepancies == []
-    cs = CycleSynthesis(); assert cs.agents == {}
+    t = TaskClaim()
+    assert t.id == ""
+    g = GateClaim()
+    assert g.result == ""
+    j = JiraActionClaim()
+    assert j.worklog == "none"
+    c = ClaimedAgentReport()
+    assert c.tasks == []
+    a = AgentReportSynthesis()
+    assert a.discrepancies == []
+    cs = CycleSynthesis()
+    assert cs.agents == {}
 
 
 # ============================================================================
@@ -402,7 +407,6 @@ def test_verdict_matrix(tmp_path, committed, discrepancies, verdict_qualifier, e
 def test_synthesizer_cycle(tmp_path):
     """6 fixture reports → CycleSynthesis with correct per-agent verdicts."""
     from automation.report_synthesis.synthesizer import synthesize_cycle
-    from automation.report_synthesis.schemas import AgentVerdict
 
     # Create 6 minimal agent reports
     for agent in ["A", "B", "E", "C", "F", "D"]:
@@ -448,7 +452,7 @@ def test_synthesizer_missing_report(tmp_path):
 def test_summary_for_pm():
     """CLAIMED_ONLY agent → summary names the no-commit discrepancy."""
     from automation.report_synthesis.synthesizer import _make_summary
-    from automation.report_synthesis.schemas import AgentReportSynthesis, ClaimedAgentReport
+    from automation.report_synthesis.schemas import AgentReportSynthesis
 
     synth = AgentReportSynthesis(
         agent="B",
@@ -497,13 +501,13 @@ def test_synthesis_persist(tmp_path):
         (tmp_path / f"CYCLE_097_AGENT_{agent}.md").write_text(body, encoding="utf-8")
 
     runs = tmp_path / "runs"
-    docs = tmp_path / "docs"
+    _docs = tmp_path / "docs"
 
     with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path), \
          patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
         from automation.report_synthesis.evidence_crosscheck import ActualEvidence
         mock_ev.return_value = ActualEvidence(actual_commits=["abc1234"])
-        cs = synthesize_cycle(97, reports_dir=tmp_path, runs_dir=runs)
+        _cs = synthesize_cycle(97, reports_dir=tmp_path, runs_dir=runs)
 
     # JSON should exist in runs_dir
     json_path = runs / "CYCLE_097_SYNTHESIS.json"
@@ -879,7 +883,7 @@ def test_score_not_credited_claimed_only():
 def test_ac_verification_deterministic(tmp_path):
     """Word-overlap-only AC (no real evidence) → NOT verified."""
     from automation.report_synthesis.schemas import ClaimedAgentReport
-    from automation.report_synthesis.evidence_crosscheck import _check_ac_claims, FLAG_AC_UNMET
+    from automation.report_synthesis.evidence_crosscheck import _check_ac_claims
 
     from automation.report_synthesis.schemas import AgentReportSynthesis
     claimed = ClaimedAgentReport()
@@ -902,15 +906,15 @@ def test_prompt_paste_ratio():
     """Anti-paste gate concept: spec-dump → high ratio; authored → low ratio."""
     # Simplified paste-ratio check: overlap of prompt vs known spec text
     spec_text = "Implement visual analysis pipeline for Fiverr gigs using OpenCV and scikit-image"
-    
+
     # 084-style: mostly pasted spec
     prompt_084 = spec_text * 5 + "\nPlease do this."
     overlap_084 = sum(1 for w in spec_text.split() if w in prompt_084.split()) / len(spec_text.split())
-    
+
     # 070-style: authored
     prompt_070 = "Step 1: Create tests/unit/test_visual_analysis.py. Step 2: Add extract_features(). Step 3: Run pytest. Evidence required."
     overlap_070 = sum(1 for w in spec_text.split() if w in prompt_070.split()) / len(spec_text.split())
-    
+
     assert overlap_084 > overlap_070, "084-style spec-dump should have higher overlap than authored prompt"
 
 

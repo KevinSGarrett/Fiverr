@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Unit tests for the PMR (prompt-generation resilience) layer in
 automation/claude_prompt_creator.py.
@@ -21,6 +19,8 @@ These tests pin the resilience behavior that prevents recurrence:
 Claude is never invoked: _call_claude_pm is monkeypatched, and time.sleep is
 stubbed, so the suite is fast and hermetic.
 """
+
+from __future__ import annotations
 
 import sys
 from pathlib import Path
@@ -71,7 +71,8 @@ def _big(marker: str = "x", lines: int = 600) -> str:
 class TestResumeFromPartial:
     def test_existing_substantial_prompt_is_reused_not_regenerated(self, tmp_path, monkeypatch):
         cpc = _import_cpc()
-        pdir = tmp_path / "prompts"; pdir.mkdir()
+        pdir = tmp_path / "prompts"
+        pdir.mkdir()
         a_path = pdir / "CYCLE_085_AGENT_A_PROMPT.md"
         a_path.write_text("# CYCLE 085 — AGENT A PROMPT\n" + ("real content line\n" * 300), encoding="utf-8")
         a_before = a_path.read_text(encoding="utf-8")
@@ -94,21 +95,24 @@ class TestResumeFromPartial:
 
         assert cpc._pm_existing_prompt_ok(tmp_path / "missing.md") is False
 
-        short = tmp_path / "short.md"; short.write_text("tiny", encoding="utf-8")
+        short = tmp_path / "short.md"
+        short.write_text("tiny", encoding="utf-8")
         assert cpc._pm_existing_prompt_ok(short) is False
 
         stub = tmp_path / "stub.md"
         stub.write_text("# Cycle 085 Agent A Prompt\n\n[STUB — populate from PM_Pack ...]\n" + ("x" * 4000), encoding="utf-8")
         assert cpc._pm_existing_prompt_ok(stub) is False, "A long file that is still a [STUB] must not be reused"
 
-        real = tmp_path / "real.md"; real.write_text("# CYCLE 085 — AGENT A PROMPT\n" + ("real\n" * 1000), encoding="utf-8")
+        real = tmp_path / "real.md"
+        real.write_text("# CYCLE 085 — AGENT A PROMPT\n" + ("real\n" * 1000), encoding="utf-8")
         assert cpc._pm_existing_prompt_ok(real) is True
 
 
 class TestRetryWithBackoff:
     def test_transient_failure_is_retried_then_succeeds(self, tmp_path, monkeypatch):
         cpc = _import_cpc()
-        pdir = tmp_path / "prompts"; pdir.mkdir()
+        pdir = tmp_path / "prompts"
+        pdir.mkdir()
         monkeypatch.setattr(cpc, "PM_MAX_ATTEMPTS", 3)
 
         attempts = {"A": 0}
@@ -126,7 +130,8 @@ class TestRetryWithBackoff:
 
     def test_backoff_is_exponential_and_capped(self, tmp_path, monkeypatch):
         cpc = _import_cpc()
-        pdir = tmp_path / "prompts"; pdir.mkdir()
+        pdir = tmp_path / "prompts"
+        pdir.mkdir()
         monkeypatch.setattr(cpc, "PM_MAX_ATTEMPTS", 4)
         monkeypatch.setattr(cpc, "PM_RETRY_BACKOFF_BASE", 10)
         monkeypatch.setattr(cpc, "PM_RETRY_BACKOFF_CAP", 25)
@@ -146,7 +151,8 @@ class TestRetryWithBackoff:
 class TestInterAgentSpacing:
     def test_spacing_inserted_between_agents_not_before_first(self, tmp_path, monkeypatch):
         cpc = _import_cpc()
-        pdir = tmp_path / "prompts"; pdir.mkdir()
+        pdir = tmp_path / "prompts"
+        pdir.mkdir()
         monkeypatch.setattr(cpc, "PM_INTER_AGENT_DELAY", 7)
         monkeypatch.setattr(cpc, "PM_MAX_ATTEMPTS", 3)
 
@@ -166,7 +172,8 @@ class TestPartialContractPreserved:
         agent, the function STILL returns the partial dict (so ai_cycle_controller
         raises SystemExit(1) and pauses) rather than silently proceeding."""
         cpc = _import_cpc()
-        pdir = tmp_path / "prompts"; pdir.mkdir()
+        pdir = tmp_path / "prompts"
+        pdir.mkdir()
         monkeypatch.setattr(cpc, "PM_MAX_ATTEMPTS", 2)
         monkeypatch.setattr(cpc, "PM_INTER_AGENT_DELAY", 0)
 
@@ -185,7 +192,8 @@ class TestPartialContractPreserved:
 
     def test_none_returned_when_nothing_written(self, tmp_path, monkeypatch):
         cpc = _import_cpc()
-        pdir = tmp_path / "prompts"; pdir.mkdir()
+        pdir = tmp_path / "prompts"
+        pdir.mkdir()
         monkeypatch.setattr(cpc, "PM_MAX_ATTEMPTS", 2)
         monkeypatch.setattr(cpc, "PM_INTER_AGENT_DELAY", 0)
 

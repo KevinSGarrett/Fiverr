@@ -9,7 +9,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 from automation.report_synthesis.schemas import (
     AgentReportSynthesis,
@@ -40,8 +39,8 @@ _CYCLE_VERDICT_RANK = {
 def synthesize_cycle(
     cycle: int,
     *,
-    reports_dir: Optional[Path] = None,
-    runs_dir: Optional[Path] = None,
+    reports_dir: Path | None = None,
+    runs_dir: Path | None = None,
     _git_adapter=None,
     _ci_reader=None,
     _jira_client=None,
@@ -97,7 +96,7 @@ def synthesize_cycle(
     return cs
 
 
-def load_cycle_synthesis(cycle: int, runs_dir: Optional[Path] = None) -> Optional[CycleSynthesis]:
+def load_cycle_synthesis(cycle: int, runs_dir: Path | None = None) -> CycleSynthesis | None:
     """RSF-17: Load CYCLE_NNN_SYNTHESIS.json → CycleSynthesis; None if absent."""
     runs_dir = runs_dir or (REPO_ROOT / "runs" / f"CYCLE_{cycle:03d}")
     json_path = runs_dir / f"CYCLE_{cycle:03d}_SYNTHESIS.json"
@@ -285,14 +284,14 @@ def _synthesis_from_dict(data: dict) -> CycleSynthesis:
 def _synthesis_to_md(cs: CycleSynthesis) -> str:
     lines = [
         f"# CYCLE_{cs.cycle:03d}_SYNTHESIS",
-        f"",
+        "",
         f"**Cycle verdict:** {cs.cycle_verdict}  ",
         f"**Format health:** {cs.format_health}  ",
-        f"",
-        f"## Per-agent summary",
-        f"",
-        f"| Agent | Verdict | Discrepancies | Carryover |",
-        f"|---|---|---|---|",
+        "",
+        "## Per-agent summary",
+        "",
+        "| Agent | Verdict | Discrepancies | Carryover |",
+        "|---|---|---|---|",
     ]
     for agent in AGENT_ORDER:
         s = cs.agents.get(agent, AgentReportSynthesis(agent=agent, verdict=AgentVerdict.NO_REPORT.value))
