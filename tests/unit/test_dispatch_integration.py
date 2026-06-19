@@ -48,13 +48,33 @@ class TestFakeCursorDispatch:
         # Should not crash with unhandled exception
         assert result.exit_code in (0, 1)  # 1 is ok (lifecycle may flag issues)
 
-    def test_run_and_stream_pytest_guard(self, monkeypatch):
-        """PYTEST guard: _run_and_stream returns (0, ok) without spawning subprocess."""
-        monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_dispatch_integration")
+    def test_run_and_stream_fake_seam(self, monkeypatch):
+        """0.3: the autouse conftest fake makes _run_and_stream return (0, ok).
+
+        The production PYTEST short-circuit was REMOVED; tests rely on the
+        monkeypatched seam (autouse ``_fake_run_and_stream``) instead of an
+        in-process env-var branch. With that fake active, no subprocess spawns.
+        """
         import automation.ai_cycle_controller as ctrl
         rc, out = ctrl._run_and_stream(["echo", "hello"], label="test")
         assert rc == 0
         assert out == "ok"
+
+    def test_run_and_stream_has_no_pytest_shortcircuit(self):
+        """0.3 regression: the source must not READ PYTEST_CURRENT_TEST.
+
+        Comments/docstrings may name the var; we assert the code form
+        ``environ.get("PYTEST_CURRENT_TEST")`` is absent from the body.
+        """
+        import inspect
+        import automation.ai_cycle_controller as ctrl
+        src = inspect.getsource(ctrl)
+        marker = "def _run_and_stream("
+        start = src.index(marker)
+        nxt = src.index("\ndef ", start + 1)
+        body = src[start:nxt]
+        assert 'environ.get("PYTEST_CURRENT_TEST")' not in body
+        assert "environ.get('PYTEST_CURRENT_TEST')" not in body
 
     def test_cmd_run_cycle_smoke(self, tmp_path, monkeypatch):
         """cmd_run_cycle smoke: 6 agents, all fake dispatch."""

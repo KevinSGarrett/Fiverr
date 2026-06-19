@@ -101,12 +101,21 @@ class TestConfig:
         cfg = ICVConfig()
         assert cfg.enabled is False
 
-    def test_pytest_env_caps_attempts(self, monkeypatch):
+    def test_pytest_env_does_not_force_cap_attempts(self, monkeypatch):
+        """0.3: PYTEST_CURRENT_TEST must NOT force-disable/cap the ICV config.
+
+        The production short-circuit (lines 46-50) was removed. With PYTEST set
+        but no ICV_* overrides, the config must keep its real defaults — tests
+        cap cost/attempts via ICV_* env vars or an explicit ICVConfig, not via a
+        hidden env branch. (No real LLM calls happen because verifier_openai
+        falls back to deterministic-only under PYTEST.)
+        """
         monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_something")
+        monkeypatch.delenv("ICV_MAX_ATTEMPTS", raising=False)
         from automation.codex_verifier.config import ICVConfig
         cfg = ICVConfig()
-        assert cfg.max_attempts == 1
-        assert cfg.openai_budget_usd == 0.0
+        assert cfg.max_attempts == 3            # real default, not forced to 1
+        assert cfg.openai_budget_usd == 2.0     # real default, not forced to 0.0
 
     def test_load_missing_file_returns_defaults(self, tmp_path):
         from automation.codex_verifier.config import load_config

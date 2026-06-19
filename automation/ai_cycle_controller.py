@@ -47,6 +47,112 @@ def _pause_file_path() -> Path:
     return runner_paths.state_dir() / "autopilot_paused.json"
 
 
+def _autonomy_freeze_path() -> Path:
+    """Resolve the autonomy-freeze policy path (repo-root-relative).
+
+    NOTE: the policy lives under ``PM_Pack/automation/policies/`` — not the path
+    some older docs list. Reuse ``REPO_ROOT`` so it tracks the runner's checkout.
+    """
+    return REPO_ROOT / "PM_Pack/automation/policies/autonomy_freeze.yml"
+
+
+def _is_frozen() -> tuple[bool, str]:
+    """SAFE-01 kill-switch: read ``autonomy_freeze.yml`` and report frozen state.
+
+    Returns ``(frozen, reason)``. Fail-safe: a missing/unreadable/malformed
+    policy is treated as NOT frozen (returns ``(False, ...)``) but logs a
+    warning. We never BLOCK on a missing policy — only an explicit
+    ``frozen: true`` freezes the runner.
+    """
+    p = _autonomy_freeze_path()
+    if not p.exists():
+        try:
+            click.secho(
+                f"  [WARN] autonomy_freeze policy missing at {p} — treating as NOT frozen",
+                fg="yellow",
+            )
+        except Exception:
+            pass
+        return False, "policy_missing"
+    try:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        try:
+            click.secho(
+                f"  [WARN] autonomy_freeze policy unreadable ({exc}) — treating as NOT frozen",
+                fg="yellow",
+            )
+        except Exception:
+            pass
+        return False, "policy_unreadable"
+    if not isinstance(data, dict):
+        return False, "policy_malformed"
+    frozen = bool(data.get("frozen", False))
+    reason = str(data.get("reason") or "no_reason_recorded")
+    return frozen, reason
+
+
+def _refuse_if_leaked_pytest() -> bool:
+    """Fail-closed ENTRY GUARD against a leaked ``PYTEST_CURRENT_TEST`` var.
+
+    A real runner sets NEITHER ``PYTEST_CURRENT_TEST`` nor
+    ``AUTOPILOT_TEST_HARNESS`` → returns False (proceed normally).
+    The test harness (conftest) sets ``AUTOPILOT_TEST_HARNESS=1`` so the suite
+    can still exercise tick/run-cycle → returns False.
+    A leaked ``PYTEST_CURRENT_TEST`` with NO harness → prints a [REFUSE] line
+    and returns True so the caller fails closed (refuses live dispatch) rather
+    than silently no-op'ing.
+    """
+    import os as _os_guard
+
+    if _os_guard.environ.get("PYTEST_CURRENT_TEST") and not _os_guard.environ.get(
+        "AUTOPILOT_TEST_HARNESS"
+    ):
+        click.secho(
+            "[REFUSE] PYTEST_CURRENT_TEST present without test harness — "
+            "refusing live dispatch (fail-closed)",
+            fg="red",
+            bold=True,
+        )
+        return True
+    return False
+
+
+def _write_autonomy_freeze(frozen: bool, reason: str | None) -> Path:
+    """Atomically rewrite ``autonomy_freeze.yml`` setting ``frozen: true/false``.
+
+    Preserves all other keys; updates ``frozen``/``reason`` plus
+    ``frozen_at``/``frozen_by`` (when freezing) or
+    ``unfrozen_at``/``unfrozen_by`` (when unfreezing). Atomic via temp+os.replace.
+    """
+    import os as _os_fz
+
+    p = _autonomy_freeze_path()
+    data: dict[str, object] = {}
+    if p.exists():
+        try:
+            loaded = yaml.safe_load(p.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        except Exception:
+            data = {}
+    data["frozen"] = frozen
+    if reason:
+        data["reason"] = reason
+    today = datetime.now(UTC).date().isoformat()
+    if frozen:
+        data["frozen_at"] = today
+        data["frozen_by"] = "ai_cycle_controller freeze CLI"
+    else:
+        data["unfrozen_at"] = today
+        data["unfrozen_by"] = "ai_cycle_controller unfreeze CLI"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".yml.tmp")
+    tmp.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    _os_fz.replace(tmp, p)
+    return p
+
+
 def _write_pause(reason: str, detail: str | None = None) -> None:
     """Write the autopilot pause sentinel (atomic) with paused:true + reason + ts.
 
@@ -121,15 +227,12 @@ def _read_runner_state() -> dict:
 def _run_and_stream(args: list[str], label: str = "") -> tuple[int, str]:
     """Run subprocess streaming stdout live to terminal line by line.
 
-    In test environments (PYTEST_CURRENT_TEST set), returns (0, 'ok') immediately
-    without spawning a subprocess. Monkeypatch automation.ai_cycle_controller._run_and_stream
-    to override in tests if you need custom return values.
+    SAFE/0.3: this function ALWAYS spawns the real subprocess. There is NO
+    ``PYTEST_CURRENT_TEST`` short-circuit — a leaked env var must never turn a
+    live dispatch into a silent no-op. Tests inject a fake implementation via the
+    autouse fixture in ``tests/conftest.py`` (monkeypatching this symbol) rather
+    than relying on an in-process env-var branch.
     """
-    import os as _os
-    if _os.environ.get("PYTEST_CURRENT_TEST"):
-        # Never spawn real subprocesses during pytest runs
-        return 0, "ok"
-
     output_lines: list[str] = []
     try:
         proc = subprocess.Popen(
@@ -1048,6 +1151,22 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
 )
 def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     """Run the full 6-agent cycle then auto-advance stage when ready."""
+    # ENTRY GUARD (0.3 / fail-closed): refuse if PYTEST_CURRENT_TEST leaked in
+    # without the test harness (a real runner sets neither var → proceeds).
+    if _refuse_if_leaked_pytest():
+        raise SystemExit(1)
+
+    # SAFE-01 autonomy-freeze kill-switch — fail closed before any dispatch.
+    _frozen, _freeze_reason = _is_frozen()
+    if _frozen:
+        click.secho(
+            f"[FROZEN] reason={_freeze_reason}. Autonomy freeze active — "
+            "refusing run-cycle. Run 'unfreeze' once freeze conditions are cleared.",
+            fg="red",
+            bold=True,
+        )
+        raise SystemExit(1)
+
     if cycle is None:
         cycle = int(_read_runner_state().get("active_cycle", 0))
         if not cycle:
@@ -1620,6 +1739,13 @@ def cmd_tick() -> None:
     from automation.notification_router import notify_blocked, notify_info
     from automation.state_writer import write_controller_state, write_heartbeat
 
+    # ENTRY GUARD (0.3 / fail-closed): a leaked PYTEST_CURRENT_TEST without the
+    # test harness must REFUSE to run rather than silently no-op. A real runner
+    # sets neither var → proceeds. Done before pause/lock so a leak never even
+    # touches the sentinel or lock.
+    if _refuse_if_leaked_pytest():
+        return
+
     # Check pause flag FIRST — before acquiring the run lock, so a paused tick
     # never acquires (and thus never leaks) tick.lock. Item 0.2 kill-switch fix:
     # the PRESENCE of the sentinel pauses the loop. We read it only to surface
@@ -1640,6 +1766,18 @@ def cmd_tick() -> None:
             f"[TICK PAUSED] reason={_reason}. "
             "Run 'resume-autopilot' (or delete the autopilot_paused.json sentinel) to resume.",
             fg="yellow",
+        )
+        return
+
+    # SAFE-01 autonomy-freeze kill-switch — checked right after pause, BEFORE the
+    # run lock. If frozen, fail closed: no dispatch, no lock acquired, return.
+    _frozen, _freeze_reason = _is_frozen()
+    if _frozen:
+        click.secho(
+            f"[FROZEN] reason={_freeze_reason}. Autonomy freeze active — "
+            "no dispatch. Run 'unfreeze' once the freeze conditions are cleared.",
+            fg="red",
+            bold=True,
         )
         return
 
@@ -2161,6 +2299,37 @@ def cmd_pause_autopilot(reason: str | None) -> None:
         f"AUTOPILOT PAUSED — sentinel written: {_pause_file_path()} "
         f"(reason={reason or 'manual_operator'}). Run 'resume-autopilot' to resume.",
         fg="yellow", bold=True,
+    )
+
+
+@cli.command("freeze")
+@click.option("--reason", default=None, help="Why autonomy is being frozen.")
+def cmd_freeze(reason: str | None) -> None:
+    """Engage the SAFE-01 autonomy freeze (sets frozen: true).
+
+    Rewrites autonomy_freeze.yml atomically. While frozen, tick and run-cycle
+    fail closed and refuse to dispatch.
+    """
+    p = _write_autonomy_freeze(True, reason or "manual_operator_freeze")
+    click.secho(
+        f"AUTONOMY FROZEN — policy updated: {p} "
+        f"(reason={reason or 'manual_operator_freeze'}). Run 'unfreeze' to lift.",
+        fg="red", bold=True,
+    )
+
+
+@cli.command("unfreeze")
+@click.option("--reason", default=None, help="Why autonomy is being unfrozen.")
+def cmd_unfreeze(reason: str | None) -> None:
+    """Lift the SAFE-01 autonomy freeze (sets frozen: false).
+
+    Rewrites autonomy_freeze.yml atomically, preserving other keys.
+    """
+    p = _write_autonomy_freeze(False, reason or "manual_operator_unfreeze")
+    click.secho(
+        f"AUTONOMY UNFROZEN — policy updated: {p} "
+        f"(reason={reason or 'manual_operator_unfreeze'}). Dispatch re-enabled.",
+        fg="green", bold=True,
     )
 
 
