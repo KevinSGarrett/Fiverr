@@ -1,100 +1,32 @@
-"""Unit tests for prompt_validator.py — HARDENED gates."""
+"""Unit tests for prompt_validator.py — HARDENED gates.
+
+Item 1.3 promoted PQ-6/PQ-7a/PQ-7b/word-floor/PQ-0..5 from warnings to hard
+errors. The legacy ``_make_valid_prompt`` helper produced a substance-poor
+prompt (55 templated task headers, ~2 code blocks, <6000 words) that PASSED
+under the old warn-only gate but is exactly the degenerate shape the gate now
+fails. It therefore delegates to the genuinely-rich synthetic fixture in
+``_prompt_fixtures.build_known_good_prompt`` — the calibrated positive case.
+"""
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
+sys.path.insert(0, str(Path(__file__).parent))
+
+from _prompt_fixtures import build_known_good_prompt
 
 from automation.prompt_validator import validate, validate_all
 
 
 def _make_valid_prompt(cycle: int = 75, agent: str = "A", tasks: int = 55) -> str:
-    """Build a minimal valid prompt that passes all gates."""
-    task_lines = []
-    for i in range(1, tasks + 1):
-        task_lines.append(f"### Task {i}: SCRUM-{1000 + i} task description")
-        task_lines.append("")
+    """Build a genuinely-rich prompt that passes all (now-enforced) gates.
 
-    return f"""{'=' * 68}
-AGENT {agent} -- CYCLE {cycle:03d} PROMPT
-{'=' * 68}
-
-## 0. Model Policy (MANDATORY -- do not override)
-
-- **Model:** Codex 5.3
-- **Effort:** medium
-- **Auto model selection:** DISABLED -- use only Codex 5.3
-- **Fallback model:** DISABLED
-
-## 1. Identity
-
-You are Agent {agent} for Cycle {cycle:03d}.
-
-## 2. Project Context
-
-- Branch: `cycle/{cycle:03d}/integration`
-- Repo: C:/Fiverr/Fiverr
-- Cycle: {cycle:03d}
-
-## 3. Your Role
-
-File scope: src/pipeline
-
-## 4. Git Instructions
-
-Work on branch: cycle/{cycle:03d}/integration
-
-## 5. Autonomy Rule
-
-Proceed autonomously without confirmation.
-
-## 6. Jira Scope
-
-| Jira Key | Summary | Status |
-| SCRUM-100 | Example story | In Progress |
-
-## 7. Tasks
-
-{chr(10).join(task_lines)}
-
-## 8. Validation Steps
-
-Run these commands:
-
-```bash
-python -m ruff check src/ --output-format=text
-python -m mypy src/ --ignore-missing-imports
-python -m pytest tests/ -q
-```
-
-## 9. Files Summary
-
-| Action | File |
-| CREATE | src/example.py |
-
-## 10. Commit Instructions
-
-```bash
-git add .
-git commit -m "feat(cycle-{cycle:03d}): [Agent {agent}] description"
-```
-
-## 11. Report Requirements
-
-Write to: docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent}.md
-
-Include AGENT_COMPLETE on the final line.
-
-## 12. Branch Guardrails
-
-- Do NOT push directly to `main`
-- Do NOT force-push to any branch
-
-{'=' * 68}
-END OF PROMPT -- AGENT {agent} CYCLE {cycle:03d}
-{'=' * 68}
-"""
+    Delegates to the shared known-good fixture so the positive case stays
+    calibrated against the fail-closed quality floors.
+    """
+    return build_known_good_prompt(cycle=cycle, agent=agent, tasks=tasks)
 
 
 class TestValidatePass:

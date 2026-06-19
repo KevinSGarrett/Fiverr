@@ -148,9 +148,10 @@ class TestPQ7AntiPaste:
         p = tmp_path / "CYCLE_084_AGENT_A_PROMPT.md"
         p.write_text(prompt, encoding="utf-8")
         result = validate(str(p), "A", 84)
-        warns = " ".join(result.warnings)
-        # Should warn about task substance
-        assert "PQ-7" in warns or "authored" in warns.lower() or "paste" in warns.lower()
+        # Item 1.3: PQ-7b is now a HARD ERROR (fail-closed), no longer a warning.
+        assert result.passed is False
+        diagnostics = " ".join(result.errors + result.warnings).lower()
+        assert "pq-7" in diagnostics or "authored" in diagnostics or "paste" in diagnostics
 
     def test_authored_prompt_not_flagged(self, tmp_path):
         """PQ-7b: An authored prompt with code+path+verify is not flagged for paste."""
@@ -315,8 +316,10 @@ class TestPQ15ProvenanceInvestigation:
         p = tmp_path / "CYCLE_084_AGENT_A_PROMPT.md"
         p.write_text(prompt, encoding="utf-8")
         result = validate(str(p), "A", 84)
-        warns = " ".join(result.warnings)
-        # PQ-7b should flag this
-        assert "PQ-7" in warns or "authored" in warns.lower() or "paste" in warns.lower(), (
+        # Item 1.3: the spec-dump shape is now REJECTED (PQ-7b hard error),
+        # not merely warned. The gate fails closed on a degenerate 084-style prompt.
+        assert result.passed is False
+        diagnostics = " ".join(result.errors + result.warnings).lower()
+        assert "pq-7" in diagnostics or "authored" in diagnostics or "paste" in diagnostics, (
             "PQ-7b did NOT catch the spec-dump pattern. Gate is still insufficient."
         )

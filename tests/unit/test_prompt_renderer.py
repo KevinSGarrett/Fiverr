@@ -103,12 +103,29 @@ def test_render_to_draft_returns_expected_path_object() -> None:
     assert result == expected
 
 
-def test_rendered_draft_passes_prompt_validator_integration() -> None:
+def test_rendered_draft_is_rejected_by_enforced_quality_gate() -> None:
+    """Item 1.3: the current PromptRenderer output is substance-poor and is now
+    REJECTED by the fail-closed quality gate.
+
+    Empirically the rendered draft is ~2800 words with 55 task headers, ZERO
+    code blocks, and a tiny unique-word ratio — exactly the degenerate shape the
+    enforced gate exists to refuse. This test used to assert the draft PASSED
+    (the old warn-only behavior). It now asserts the correct fail-closed
+    behavior: a thin, code-free draft must NOT be dispatchable.
+
+    This is expected/honest, not a bug in the gate: it documents that a
+    generation-quality improvement to PromptRenderer (real code blocks,
+    concrete paths, verification per task, PQ-0..5 sections) is required before
+    its drafts can clear the gate. See item 1.3 report notes.
+    """
     draft_path = PromptRenderer().render_to_draft(_contract())
     prompt_path = DEFAULT_DRAFTS_DIR / "CYCLE_080_AGENT_F_PROMPT.md"
     prompt_path.write_text(draft_path.read_text(encoding="utf-8"), encoding="utf-8")
     result = validate(prompt_path=prompt_path, agent="F", cycle=80)
-    assert result.passed is True
+    assert result.passed is False
+    # The rejection must cite the substance floors, not some incidental gate.
+    joined = " ".join(result.errors)
+    assert "PQ-6" in joined or "PQ-7" in joined or "Word floor" in joined
 
 
 def test_render_with_overrides_appends_extra_tasks() -> None:
