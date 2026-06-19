@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from automation.report_synthesis.schemas import AgentVerdict, AgentReportSynthesis, ClaimedAgentReport
 
@@ -31,7 +30,7 @@ class ActualEvidence:
     actual_commits: list[str] = field(default_factory=list)
     actual_files: list[str] = field(default_factory=list)
     ci_status: str = "unknown"
-    coverage_pct: Optional[float] = None
+    coverage_pct: float | None = None
     jira_transitions: dict[str, list[str]] = field(default_factory=dict)
 
 
@@ -94,7 +93,7 @@ def crosscheck_agent(
     claimed: ClaimedAgentReport,
     cycle: int,
     *,
-    actual: Optional[ActualEvidence] = None,
+    actual: ActualEvidence | None = None,
     _git_adapter=None,
     _ci_reader=None,
     _jira_client=None,

@@ -91,6 +91,53 @@ CLAUDE_MODEL  = _get_pm_model()
 CLAUDE_TIMEOUT = 480  # 8 min per agent — prompts are 3000-5000 lines
 
 
+def _pm_int_env(name: str, default: int) -> int:
+    """Read a tunable integer knob from the environment, else use the default.
+
+    Lets operators tune prompt-generation resilience without code changes and
+    lets unit tests override the knobs deterministically.
+    """
+    import os
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+# ── PMR: prompt-generation resilience ────────────────────────────────────
+# Root cause of the 2026-06-18 15:31 CLAUDE_PM_PARTIAL pause: the six agent
+# prompts were generated one-shot with no retry, so a transient failure on a
+# single agent (a usage/rate-limit trip after several large generations, or a
+# per-call timeout) aborted the whole cycle at "partial". These knobs add
+# bounded retry + exponential backoff + inter-agent spacing + resume-from-
+# partial, so a transient blip no longer pauses the autopilot.
+PM_MAX_ATTEMPTS       = _pm_int_env("PM_MAX_ATTEMPTS", 3)         # attempts per agent
+PM_RETRY_BACKOFF_BASE = _pm_int_env("PM_RETRY_BACKOFF_BASE", 20)  # seconds; doubles each retry
+PM_RETRY_BACKOFF_CAP  = _pm_int_env("PM_RETRY_BACKOFF_CAP", 120)  # max backoff seconds
+PM_INTER_AGENT_DELAY  = _pm_int_env("PM_INTER_AGENT_DELAY", 5)    # seconds between agents
+PM_MIN_PROMPT_CHARS   = _pm_int_env("PM_MIN_PROMPT_CHARS", 2000)  # resume-reuse threshold
+
+
+def _pm_existing_prompt_ok(prompt_path: Path) -> bool:
+    """PMR resume-from-partial gate: True if a substantial, real prompt already
+    exists for this agent on disk, so it can be reused instead of regenerated.
+
+    Stub placeholders written by plan-cycle (~200 chars, containing "[STUB")
+    are deliberately NOT treated as reusable, so a fresh cycle still generates.
+    """
+    try:
+        if not prompt_path.exists():
+            return False
+        text = prompt_path.read_text(encoding="utf-8", errors="replace")
+        if len(text) < PM_MIN_PROMPT_CHARS:
+            return False
+        if "[STUB" in text or "populate from PM_Pack" in text:
+            return False
+        return True
+    except Exception:
+        return False
+
+
 def _find_claude_binary() -> str | None:
     """Find the claude CLI binary.
     LP1.1: Checks autonomous_runner.yml claude_binary config key first.
@@ -586,27 +633,70 @@ def create_agent_prompts_via_claude(
     L.info(f"Estimated time: {len(agents) * 3}-{len(agents) * 5} min total")
     _emit("CLAUDE_PM", f"Starting prompt generation for Cycle {cycle:03d} ({len(agents)} agents)", cycle=cycle)
 
+    _pm_generated_any = False  # PMR: gate inter-agent spacing (skip before first gen)
+
     for idx, agent_id in enumerate(agents, 1):
+        prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_PROMPT.md"
+
+        # PMR resume-from-partial: if a substantial prompt for this agent already
+        # exists (e.g. from a prior attempt that paused at partial), reuse it
+        # rather than spending another expensive generation on it.
+        if _pm_existing_prompt_ok(prompt_path):
+            written[agent_id] = prompt_path
+            _emit("CLAUDE_PM", f"Agent {agent_id} prompt REUSED (resume-from-partial)", agent=agent_id, cycle=cycle, status="OK")
+            L.info(f"PMR: Agent {agent_id} prompt already present ({prompt_path.stat().st_size} bytes) — reusing, skipping regeneration")
+            continue
+
+        # PMR inter-agent spacing: pause between successive generations to avoid
+        # bursting the subscription rate limit (skip before the first generation).
+        if _pm_generated_any and PM_INTER_AGENT_DELAY > 0:
+            _t.sleep(PM_INTER_AGENT_DELAY)
+
         request_text = _build_agent_prompt_request(
             agent_id=agent_id, cycle=cycle, branch=branch, pm_context=pm_context,
         )
         _emit("CLAUDE_PM", f"Generating Agent {agent_id} prompt [{idx}/{len(agents)}]", agent=agent_id, cycle=cycle, status="RUNNING")
         L.claude_pm_start(agent_id, cycle, idx, len(agents))
 
-        t0 = _t.time()
-        with L.Spinner(f"Claude PM -> Agent {agent_id} (timeout {CLAUDE_TIMEOUT//60}m)"):
-            prompt_text = _call_claude_pm(agent_id, cycle, request_text)
-        elapsed = _t.time() - t0
+        # PMR retry-with-backoff: _call_claude_pm returns None (never raises) on
+        # timeout / non-zero rc / short output — exactly the transient failures a
+        # rate/usage-limit trip produces. Retry instead of aborting the cycle.
+        prompt_text = None
+        elapsed = 0.0
+        for _attempt in range(1, PM_MAX_ATTEMPTS + 1):
+            t0 = _t.time()
+            with L.Spinner(
+                f"Claude PM -> Agent {agent_id} "
+                f"(attempt {_attempt}/{PM_MAX_ATTEMPTS}, timeout {CLAUDE_TIMEOUT//60}m)"
+            ):
+                prompt_text = _call_claude_pm(agent_id, cycle, request_text)
+            elapsed = _t.time() - t0
+            if prompt_text:
+                if _attempt > 1:
+                    L.ok(f"PMR: Agent {agent_id} succeeded on attempt {_attempt}/{PM_MAX_ATTEMPTS}")
+                break
+            if _attempt < PM_MAX_ATTEMPTS:
+                _backoff = min(
+                    PM_RETRY_BACKOFF_BASE * (2 ** (_attempt - 1)),
+                    PM_RETRY_BACKOFF_CAP,
+                )
+                _emit("CLAUDE_PM", f"Agent {agent_id} attempt {_attempt}/{PM_MAX_ATTEMPTS} failed — retry in {_backoff}s", agent=agent_id, cycle=cycle, status="RETRY")
+                L.warn(
+                    f"PMR: Agent {agent_id} attempt {_attempt}/{PM_MAX_ATTEMPTS} returned "
+                    f"empty/short — backing off {_backoff}s before retry"
+                )
+                _t.sleep(_backoff)
 
         if not prompt_text:
-            # PQ-2 / PQ-3 FIX: No silent fallback. Claude is a hard dependency.
-            # Return whatever was written so far so the CALLER can decide.
-            # The caller (ai_cycle_controller) raises SystemExit(1) if any agent fails,
-            # so there is no silent template fallback anywhere in the stack.
-            _emit("CLAUDE_PM", f"Agent {agent_id} prompt FAILED (returned empty/short output)", agent=agent_id, cycle=cycle, status="FAIL")
+            # PQ-2 / PQ-3 / PMR: Claude is a hard dependency and all retries are
+            # exhausted. Return whatever was written so far so the CALLER decides.
+            # The caller (ai_cycle_controller) raises SystemExit(1) on partial, so
+            # there is still no silent template fallback anywhere in the stack.
+            _emit("CLAUDE_PM", f"Agent {agent_id} prompt FAILED after {PM_MAX_ATTEMPTS} attempts", agent=agent_id, cycle=cycle, status="FAIL")
             L.claude_pm_done(agent_id, elapsed, 0, False, idx, len(agents))
             L.warn(
-                f"PQ-2: Agent {agent_id} returned empty/short output. "
+                f"PQ-2/PMR: Agent {agent_id} returned empty/short output after "
+                f"{PM_MAX_ATTEMPTS} attempts. "
                 f"{'Returning ' + str(len(written)) + ' already-written prompts to caller.' if written else 'No prompts written yet.'}"
             )
             return written if written else None  # caller halts on None or partial
@@ -624,9 +714,9 @@ def create_agent_prompts_via_claude(
             + f" context_chars={len(pm_context)}"
             + " -->\n"
         )
-        prompt_path = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_PROMPT.md"
         prompt_path.write_text(_pq14_stamp + prompt_text, encoding="utf-8")
         written[agent_id] = prompt_path
+        _pm_generated_any = True
         # PQ-13: Save request artifact for audit/replay
         try:
             _req_artifact = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent_id}_REQUEST.md"
