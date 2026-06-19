@@ -421,9 +421,14 @@ def _quarantine_failing_prompts(cycle: int, failing_agents: list[str]) -> list[s
     size check) and regeneration would be a no-op, leaving the wedge intact.
 
     Returns the list of agents whose prompt was actually moved (existing files).
+
+    The rejected copies are archived UNDER THE RUNNER STATE ROOT (outside the
+    repo worktree), not under PM_Pack/automation/prompts, so quarantining never
+    leaves untracked files in the working tree (which would otherwise trip the
+    dirty-repo guard / status-tick BLOCKED_DIRTY_REPO — Codex P2 on #114).
     """
     prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
-    rejected_dir = prompts_dir / ".rejected"
+    rejected_dir = runner_paths.state_dir() / "rejected_prompts" / f"CYCLE_{cycle:03d}"
     moved: list[str] = []
     for agent in failing_agents:
         src = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
@@ -461,7 +466,7 @@ def _force_regenerate_failing_prompts(cycle: int, failing_agents: list[str]) -> 
     moved = _quarantine_failing_prompts(cycle, failing_agents)
     click.secho(
         f"  Quarantined rejected prompts for agents {moved or failing_agents} "
-        "→ .rejected/ (resume-from-partial cannot reuse them)",
+        "→ runner-state rejected_prompts/ (out of worktree; resume cannot reuse them)",
         fg="yellow",
     )
     rc, out = _run_shell_command(

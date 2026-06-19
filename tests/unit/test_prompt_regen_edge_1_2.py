@@ -300,11 +300,16 @@ def test_failing_prompt_moved_not_reused(monkeypatch, tmp_path):
     assert moved == ["B"]
     # Canonical location no longer has the rejected file.
     assert not rejected_file.exists(), "rejected prompt was NOT removed/moved"
-    # It now lives under .rejected/.
-    rejected_dir = real_prompts / ".rejected"
+    # It now lives under the RUNNER STATE root (outside the repo worktree) — not
+    # under PM_Pack/automation/prompts — so quarantining never dirties the tree
+    # (Codex P2 on #114).
+    from automation import runner_paths
+    rejected_dir = runner_paths.state_dir() / "rejected_prompts" / "CYCLE_084"
     assert rejected_dir.exists()
     survivors = list(rejected_dir.glob("CYCLE_084_AGENT_B_PROMPT_*.md"))
-    assert survivors, "rejected prompt was not preserved under .rejected/"
+    assert survivors, "rejected prompt was not preserved under runner-state rejected_prompts/"
+    # And nothing was written into the repo worktree's prompts dir.
+    assert not (real_prompts / ".rejected").exists()
 
 
 def test_quarantine_missing_file_is_noop(monkeypatch, tmp_path):
