@@ -118,14 +118,27 @@ def determine_correct_cycle(verbose: bool = False) -> dict:  # noqa: ARG001
     valid = {k: v for k, v in readings.items() if v and v > 0}
     if not valid:
         return {"cycle":84,"confidence":"LOW","sources":readings,"conflicts":[],"method":"fallback","spread":0}
-    # Trust-ordered selection: the reading from the HIGHEST-trust source wins
-    # (controller_state trust=10 wins if present). This prevents a stale high
-    # value from a lower-trust source (e.g. a leftover remote git branch) from
-    # overriding the authoritative controller_state. NOT a max() of values.
-    cycle = next(
-        valid[k] for k in sorted(valid, key=lambda k: _TRUST.get(k, 0), reverse=True)
-    )
-    method = "trust_ordered"
+    # Selection: controller_state is the authority (trust=10). A single stale
+    # lower-trust reading (e.g. a leftover remote git branch) must NOT flip the
+    # active cycle -- that was the 82<->84 oscillation (old max()). NOT a max().
+    # Drift recovery (addresses the inverse risk): if controller_state is itself
+    # genuinely stale, a STRONG, UNANIMOUS consensus of >=3 OTHER sources on a
+    # single differing value overrides it so the runner can recover; a single
+    # (or non-unanimous) disagreement does not.
+    controller = valid.get("controller_state")
+    others = {k: v for k, v in valid.items() if k != "controller_state"}
+    other_vals = set(others.values())
+    if controller is None:
+        cycle = next(
+            valid[k] for k in sorted(valid, key=lambda k: _TRUST.get(k, 0), reverse=True)
+        )
+        method = "trust_ordered"
+    elif len(others) >= 3 and len(other_vals) == 1 and next(iter(other_vals)) != controller:
+        cycle = next(iter(other_vals))
+        method = "drift_recovery"
+    else:
+        cycle = controller
+        method = "controller_authority"
     spread = max(valid.values()) - min(valid.values())
     conflicts = [{"source":k,"value":v,"trust":_TRUST.get(k,0),"delta":cycle-v}
                  for k, v in valid.items() if v != cycle]

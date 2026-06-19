@@ -39,7 +39,34 @@ def test_trust_ordered_prefers_controller_state(monkeypatch: pytest.MonkeyPatch)
 
     result = cycle_authority.determine_correct_cycle()
     assert result["cycle"] == 82
-    assert result["method"] == "trust_ordered"
+    assert result["method"] == "controller_authority"
+
+
+def test_drift_recovery_on_unanimous_consensus(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codex P2: a genuinely stale controller_state is overridden ONLY by a strong,
+    unanimous consensus of >=3 other sources, so the runner can recover from drift."""
+    monkeypatch.setattr(cycle_authority, "_probe_controller_state", lambda: 82)
+    monkeypatch.setattr(cycle_authority, "_probe_git_branches", lambda: 84)
+    monkeypatch.setattr(cycle_authority, "_probe_prompt_files", lambda: 84)
+    monkeypatch.setattr(cycle_authority, "_probe_local_hydration", lambda: 84)
+    monkeypatch.setattr(cycle_authority, "_probe_policy_snapshot", lambda: 84)
+    monkeypatch.setattr(cycle_authority, "_probe_runner_hydration", lambda: None)
+    result = cycle_authority.determine_correct_cycle()
+    assert result["cycle"] == 84
+    assert result["method"] == "drift_recovery"
+
+
+def test_no_drift_recovery_on_non_unanimous(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A messy (non-unanimous) spread does NOT override controller_state -> no oscillation."""
+    monkeypatch.setattr(cycle_authority, "_probe_controller_state", lambda: 82)
+    monkeypatch.setattr(cycle_authority, "_probe_git_branches", lambda: 84)
+    monkeypatch.setattr(cycle_authority, "_probe_prompt_files", lambda: 82)
+    monkeypatch.setattr(cycle_authority, "_probe_local_hydration", lambda: 83)
+    monkeypatch.setattr(cycle_authority, "_probe_policy_snapshot", lambda: 83)
+    monkeypatch.setattr(cycle_authority, "_probe_runner_hydration", lambda: None)
+    result = cycle_authority.determine_correct_cycle()
+    assert result["cycle"] == 82
+    assert result["method"] == "controller_authority"
 
 
 def test_trust_ordered_falls_to_next_when_controller_absent(
