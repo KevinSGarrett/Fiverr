@@ -50,25 +50,29 @@ LOG_DIR   = runner_paths.logs_dir()
 RUNS_DIR  = runner_paths.runs_dir()
 STATE_DIR = runner_paths.state_dir()
 
+# Frozen import-time defaults. The lazy resolvers compare the public constants
+# against THESE (not against the live env-derived value) so that:
+#   * a test that monkeypatches the constant (constant != frozen original) is honoured, and
+#   * an unmodified constant defers to the live env -- so an AUTOPILOT_RUNNER_ROOT
+#     set AFTER import (any import order) is always respected (no stale live path).
+_ORIG_LOG_DIR   = LOG_DIR
+_ORIG_RUNS_DIR  = RUNS_DIR
+_ORIG_STATE_DIR = STATE_DIR
+
 
 def _logs_dir() -> Path:
-    """Lazy log dir read at call time so env/monkeypatch redirection is honoured.
-
-    Returns the module-level ``LOG_DIR`` when it has been overridden away from
-    the current env-driven default (e.g. a test monkeypatches it); otherwise it
-    re-resolves from ``runner_paths`` so an env var set after import still wins.
-    """
-    return LOG_DIR if LOG_DIR != runner_paths.logs_dir() else runner_paths.logs_dir()
+    """Lazy log dir: honour a monkeypatched ``LOG_DIR``; else resolve live env."""
+    return LOG_DIR if LOG_DIR != _ORIG_LOG_DIR else runner_paths.logs_dir()
 
 
 def _runs_dir() -> Path:
     """Lazy runs dir (see :func:`_logs_dir`)."""
-    return RUNS_DIR if RUNS_DIR != runner_paths.runs_dir() else runner_paths.runs_dir()
+    return RUNS_DIR if RUNS_DIR != _ORIG_RUNS_DIR else runner_paths.runs_dir()
 
 
 def _state_dir() -> Path:
     """Lazy state dir (see :func:`_logs_dir`)."""
-    return STATE_DIR if STATE_DIR != runner_paths.state_dir() else runner_paths.state_dir()
+    return STATE_DIR if STATE_DIR != _ORIG_STATE_DIR else runner_paths.state_dir()
 
 # -- Log level (OBS-9) ---------------------------------------------------------
 _LEVELS = {"DEBUG": 10, "INFO": 20, "WARN": 30, "ERROR": 40}
@@ -210,18 +214,21 @@ def _write(line: str, plain: str | None = None, level: int = 20) -> None:
 # Kept as a module attribute for backward compatibility; writes resolve the
 # target lazily via _activity_file() so env-var redirection is honoured.
 _ACTIVITY_FILE = STATE_DIR / "current_activity.json"
+_ORIG_ACTIVITY_FILE = _ACTIVITY_FILE
 _activity_lock = threading.Lock()
 
 
 def _activity_file() -> Path:
     """Resolve current_activity.json lazily.
 
-    Honours a monkeypatched ``_ACTIVITY_FILE`` (existing tests set it directly);
-    otherwise derives it from the lazy state dir. The parent directory is created
-    immediately before use.
+    Honours a monkeypatched ``_ACTIVITY_FILE`` (compared against its frozen
+    import-time value, so a late env change is not mistaken for a monkeypatch);
+    otherwise derives it from the live state dir. Parent dir created before use.
     """
-    default = _state_dir() / "current_activity.json"
-    target = _ACTIVITY_FILE if _ACTIVITY_FILE != STATE_DIR / "current_activity.json" else default
+    if _ACTIVITY_FILE != _ORIG_ACTIVITY_FILE:
+        target = _ACTIVITY_FILE
+    else:
+        target = _state_dir() / "current_activity.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
 

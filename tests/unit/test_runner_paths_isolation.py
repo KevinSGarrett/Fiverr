@@ -100,3 +100,38 @@ def test_write_guard_allows_tmp_writes(tmp_path: Path) -> None:
     """The guard must not interfere with legitimate tmp writes."""
     (tmp_path / "ok.txt").write_text("fine")
     assert (tmp_path / "ok.txt").read_text() == "fine"
+
+
+# ── P1 regression (Codex review on PR #107): late AUTOPILOT_RUNNER_ROOT must win ──
+def test_late_env_change_honored_logger(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """An unmodified module constant must defer to a LATE env change (no stale live path).
+
+    Simulates import-before-env-set: the public constant equals its frozen import
+    original, then AUTOPILOT_RUNNER_ROOT changes. The resolver must follow the env,
+    not return the stale default. (Codex P1 on PR #107.)
+    """
+    new_root = tmp_path / "late_root"
+    monkeypatch.setattr(autopilot_logger, "LOG_DIR", autopilot_logger._ORIG_LOG_DIR)
+    monkeypatch.setattr(autopilot_logger, "STATE_DIR", autopilot_logger._ORIG_STATE_DIR)
+    monkeypatch.setenv("AUTOPILOT_RUNNER_ROOT", str(new_root))
+    assert autopilot_logger._logs_dir() == new_root / "logs"
+    assert autopilot_logger._state_dir() == new_root / "state"
+
+
+def test_late_env_change_honored_state_writer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    new_root = tmp_path / "late_root_sw"
+    monkeypatch.setattr(state_writer, "RUNNER_STATE_DIR", state_writer._ORIG_RUNNER_STATE_DIR)
+    monkeypatch.setattr(state_writer, "HEARTBEAT_PATH", state_writer._ORIG_HEARTBEAT_PATH)
+    monkeypatch.setattr(state_writer, "CONTROLLER_STATE_PATH", state_writer._ORIG_CONTROLLER_STATE_PATH)
+    monkeypatch.setenv("AUTOPILOT_RUNNER_ROOT", str(new_root))
+    assert state_writer._state_dir() == new_root / "state"
+    assert state_writer._heartbeat_path() == new_root / "state" / "heartbeat.json"
+    assert state_writer._controller_state_path() == new_root / "state" / "controller_state.json"
+
+
+def test_monkeypatched_constant_still_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """An explicitly monkeypatched constant (!= frozen original) is honoured over env."""
+    forced = tmp_path / "forced_logs"
+    monkeypatch.setattr(autopilot_logger, "LOG_DIR", forced)
+    monkeypatch.setenv("AUTOPILOT_RUNNER_ROOT", str(tmp_path / "other"))
+    assert autopilot_logger._logs_dir() == forced

@@ -20,37 +20,48 @@ RUNNER_RUNS_DIR = runner_paths.runs_dir()
 HEARTBEAT_PATH = RUNNER_STATE_DIR / "heartbeat.json"
 CONTROLLER_STATE_PATH = RUNNER_STATE_DIR / "controller_state.json"
 
+# Frozen import-time defaults. Resolvers compare the public constants against
+# THESE (not the live env value) so a monkeypatched constant is honoured while
+# an unmodified constant defers to the live env -- making a late
+# AUTOPILOT_RUNNER_ROOT change (any import order) always win (no stale live path).
+_ORIG_RUNNER_STATE_DIR = RUNNER_STATE_DIR
+_ORIG_RUNNER_RUNS_DIR = RUNNER_RUNS_DIR
+_ORIG_HEARTBEAT_PATH = HEARTBEAT_PATH
+_ORIG_CONTROLLER_STATE_PATH = CONTROLLER_STATE_PATH
+
 
 def _state_dir() -> Path:
-    """Lazy state dir: honour a monkeypatched RUNNER_STATE_DIR, else env-driven."""
+    """Lazy state dir: honour a monkeypatched RUNNER_STATE_DIR, else live env."""
     return (
         RUNNER_STATE_DIR
-        if RUNNER_STATE_DIR != runner_paths.state_dir()
+        if RUNNER_STATE_DIR != _ORIG_RUNNER_STATE_DIR
         else runner_paths.state_dir()
     )
 
 
 def _runs_dir() -> Path:
-    """Lazy runs dir: honour a monkeypatched RUNNER_RUNS_DIR, else env-driven."""
+    """Lazy runs dir: honour a monkeypatched RUNNER_RUNS_DIR, else live env."""
     return (
         RUNNER_RUNS_DIR
-        if RUNNER_RUNS_DIR != runner_paths.runs_dir()
+        if RUNNER_RUNS_DIR != _ORIG_RUNNER_RUNS_DIR
         else runner_paths.runs_dir()
     )
 
 
 def _heartbeat_path() -> Path:
-    """Honour a monkeypatched HEARTBEAT_PATH, else derive from the lazy state dir."""
-    default = RUNNER_STATE_DIR / "heartbeat.json"
-    return HEARTBEAT_PATH if HEARTBEAT_PATH != default else _state_dir() / "heartbeat.json"
+    """Honour a monkeypatched HEARTBEAT_PATH, else derive from the live state dir."""
+    return (
+        HEARTBEAT_PATH
+        if HEARTBEAT_PATH != _ORIG_HEARTBEAT_PATH
+        else _state_dir() / "heartbeat.json"
+    )
 
 
 def _controller_state_path() -> Path:
-    """Honour a monkeypatched CONTROLLER_STATE_PATH, else derive lazily."""
-    default = RUNNER_STATE_DIR / "controller_state.json"
+    """Honour a monkeypatched CONTROLLER_STATE_PATH, else derive from live state dir."""
     return (
         CONTROLLER_STATE_PATH
-        if CONTROLLER_STATE_PATH != default
+        if CONTROLLER_STATE_PATH != _ORIG_CONTROLLER_STATE_PATH
         else _state_dir() / "controller_state.json"
     )
 
