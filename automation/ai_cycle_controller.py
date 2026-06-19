@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -322,6 +323,154 @@ def _write_stage_state(payload: dict) -> None:
     path = _stage_state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+# ── Item 1.2: bounded prompt-regeneration state ───────────────────────────────
+# Persisted attempt counter that stops the PROMPT_VALIDATION_FAILED self-heal
+# from wedging the loop forever. The 1.3 quality gate now fails degenerate
+# prompts, so re-validating the SAME bytes can never recover on its own — we need
+# a bounded edge back to regeneration, then fail-closed once exhausted.
+
+# Standard six-agent set used by plan-cycle / validate paths.
+_STD_AGENT_SET = ["A", "B", "E", "C", "F", "D"]
+
+
+def _prompt_regen_state_path() -> Path:
+    """Resolve the persisted prompt-regeneration attempt-counter path."""
+    return runner_paths.state_dir() / "prompt_regen_state.json"
+
+
+def _prompt_regen_max_attempts() -> int:
+    """Env-tunable max regenerate attempts per cycle (default 3)."""
+    raw = os.environ.get("PROMPT_REGEN_MAX_ATTEMPTS")
+    if raw is None or raw.strip() == "":
+        return 3
+    try:
+        value = int(raw)
+        return value if value >= 0 else 3
+    except (TypeError, ValueError):
+        return 3
+
+
+def _prompt_regen_backoff_s() -> float:
+    """Env-tunable in-tick backoff seconds (default 0).
+
+    The tick cadence already spaces attempts, so no long in-tick sleep is needed.
+    Kept env-tunable so an operator may add spacing without code edits.
+    """
+    raw = os.environ.get("PROMPT_REGEN_BACKOFF_S")
+    if raw is None or raw.strip() == "":
+        return 0.0
+    try:
+        value = float(raw)
+        return value if value >= 0 else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _read_prompt_regen_state(cycle: int | None) -> dict:
+    """Read the regen attempt counter, resetting attempts when the cycle changes.
+
+    Returns ``{"cycle": int|None, "attempts": int, "last_ts": str}``. A counter
+    recorded for a different cycle is treated as 0 attempts (fresh cycle starts
+    with a clean budget).
+    """
+    path = _prompt_regen_state_path()
+    default = {"cycle": cycle, "attempts": 0, "last_ts": ""}
+    if not path.exists():
+        return default
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return default
+    if not isinstance(data, dict):
+        return default
+    if data.get("cycle") != cycle:
+        # Cycle changed → reset the attempt budget for the new cycle.
+        return default
+    try:
+        attempts = int(data.get("attempts", 0))
+    except (TypeError, ValueError):
+        attempts = 0
+    return {
+        "cycle": cycle,
+        "attempts": max(0, attempts),
+        "last_ts": str(data.get("last_ts", "")),
+    }
+
+
+def _write_prompt_regen_state(cycle: int | None, attempts: int) -> None:
+    """Persist the regen attempt counter for ``cycle`` atomically-ish."""
+    path = _prompt_regen_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"cycle": cycle, "attempts": max(0, int(attempts)), "last_ts": _now()}
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _reset_prompt_regen_state(cycle: int | None = None) -> None:
+    """Reset the attempt counter to 0 (used by recover and the heal path)."""
+    _write_prompt_regen_state(cycle, 0)
+
+
+def _quarantine_failing_prompts(cycle: int, failing_agents: list[str]) -> list[str]:
+    """Move each failing agent's prompt file into a ``.rejected/`` subdir.
+
+    Removing the rejected bytes from the canonical location is what unblocks the
+    resume-from-partial gate in ``claude_prompt_creator`` — otherwise it would
+    happily REUSE the rejected prompt (it is "substantial" enough to pass the
+    size check) and regeneration would be a no-op, leaving the wedge intact.
+
+    Returns the list of agents whose prompt was actually moved (existing files).
+    """
+    prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+    rejected_dir = prompts_dir / ".rejected"
+    moved: list[str] = []
+    for agent in failing_agents:
+        src = prompts_dir / f"CYCLE_{cycle:03d}_AGENT_{agent}_PROMPT.md"
+        if not src.exists():
+            continue
+        rejected_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        dst = rejected_dir / f"{src.stem}_{ts}.md"
+        try:
+            src.rename(dst)
+            moved.append(agent)
+        except OSError:
+            # Last resort: unlink so the rejected bytes cannot be reused.
+            try:
+                src.unlink()
+                moved.append(agent)
+            except OSError:
+                pass
+    return moved
+
+
+def _force_regenerate_failing_prompts(cycle: int, failing_agents: list[str]) -> int:
+    """Force regeneration of only the FAILING agents and return the rc.
+
+    Reuses the 1.1 generation path: it quarantines the rejected prompts (so the
+    resume-from-partial gate cannot reuse them) and then shells out to the
+    canonical ``plan-cycle --live`` sub-command — the same pattern the
+    COMPILED / PLANNING / BLOCKED_STAGE2 self-heal branches use. ``plan-cycle``
+    re-validates every agent, but only the agents whose prompt we just moved
+    aside are actually regenerated (the rest are cheaply reused), so this is a
+    targeted regeneration of the failing agents while reusing the full path.
+
+    Mocked in tests so no real Claude is invoked.
+    """
+    moved = _quarantine_failing_prompts(cycle, failing_agents)
+    click.secho(
+        f"  Quarantined rejected prompts for agents {moved or failing_agents} "
+        "→ .rejected/ (resume-from-partial cannot reuse them)",
+        fg="yellow",
+    )
+    rc, out = _run_shell_command(
+        [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
+         "--live", "--cycle", str(cycle)]
+    )
+    if rc != 0:
+        click.secho(f"  plan-cycle (regen) rc={rc}: {out.strip()[-200:]}", fg="yellow")
+    return rc
 
 
 @click.group()
@@ -1632,7 +1781,11 @@ def cmd_stage2_readiness_check() -> None:
 
 
 @cli.command("recover")
-def cmd_recover() -> None:
+@click.option("--regen", "--reset-prompts", "regen", is_flag=True,
+              help="Reset the prompt-regenerate attempt counter and clear "
+                   "PROMPT_REGEN_EXHAUSTED back to COMPILED so the next tick "
+                   "re-attempts generation.")
+def cmd_recover(regen: bool) -> None:
     """Attempt safe recovery from stale lock or interrupted run."""
     click.echo("=" * 60)
     click.echo("RECOVER")
@@ -1650,6 +1803,31 @@ def cmd_recover() -> None:
                 lf.rename(stale_dir / f"{lf.stem}_{ts}.lock")
         else:
             click.echo("  No active locks found.")
+
+    # ── Item 1.2: reset the bounded prompt-regenerate edge ─────────────────
+    if regen:
+        from automation.state_writer import write_controller_state
+        state = _read_runner_state()
+        cycle = state.get("active_cycle")
+        _reset_prompt_regen_state(cycle)
+        click.secho(
+            f"  Prompt-regenerate attempt counter reset to 0 (cycle {cycle}).",
+            fg="green",
+        )
+        if state.get("status") == "PROMPT_REGEN_EXHAUSTED":
+            write_controller_state("COMPILED", cycle=cycle)
+            click.secho(
+                "  Cleared PROMPT_REGEN_EXHAUSTED → COMPILED — next tick re-attempts "
+                "generation.",
+                fg="green",
+            )
+        else:
+            click.secho(
+                f"  State is {state.get('status', 'UNKNOWN')} (not PROMPT_REGEN_EXHAUSTED) "
+                "— attempts reset only.",
+                fg="cyan",
+            )
+
     click.echo("  Run brain-check and compile-policy before restarting.")
     click.secho("RECOVER COMPLETE", fg="green")
 
@@ -2180,7 +2358,10 @@ def cmd_tick() -> None:
         except Exception as exc:
             click.secho(f"  [ERROR] post-cycle-review raised: {exc} — staying in {status}", fg="red")
 
-    elif status in ("MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED", "PROMPT_VALIDATION_FAILED"):
+    elif status in (
+        "MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED",
+        "PROMPT_VALIDATION_FAILED", "PROMPT_REGEN_EXHAUSTED",
+    ):
         # Re-check the gate before staying blocked — self-heal if it now passes
         if status == "MODEL_BLOCKED":
             from automation.cursor_adapter import check_model_gate_freshness
@@ -2193,18 +2374,124 @@ def cmd_tick() -> None:
                 reason = gate.get("reason", "model gate failed")
                 click.secho(f"  BLOCKED ({status}): {reason} — resolve and run recover to reset", fg="red")
         elif status == "PROMPT_VALIDATION_FAILED":
-            # Re-validate prompts — auto-heal if they now pass
+            # ── Item 1.2: bounded regenerate edge (stop the wedge) ────────
+            # (a) Re-validate the current prompts. If ALL pass (e.g. an external
+            #     fix landed) → PLANNED and reset the attempt counter.
+            # (b) Else, if under the per-cycle attempt budget, FORCE regeneration
+            #     of the failing agents (the rejected prompt bytes are moved aside
+            #     so resume-from-partial can't reuse them), re-validate, and either
+            #     heal to PLANNED or stay PROMPT_VALIDATION_FAILED (next tick
+            #     retries — bounded).
+            # (c) Else (budget exhausted) → fail closed to PROMPT_REGEN_EXHAUSTED
+            #     with an alert. No infinite auto-retry.
+            import automation.autopilot_logger as _L12
+            from automation.prompt_validator import validate_all
+            _agents = list(_STD_AGENT_SET)  # standard agent set
+            prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
             try:
-                from automation.prompt_validator import validate_all
-                _agents = ["A", "B", "E", "C", "F", "D"]  # standard agent set
-                prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
                 vr = validate_all(prompts_dir, cycle=cycle, agents=_agents)
-                # LV1.1: validate_all returns dict[str, PromptValidationResult]
                 if vr and all(getattr(r, "passed", False) for r in vr.values()):
                     click.secho("  Prompts now PASS — auto-clearing PROMPT_VALIDATION_FAILED", fg="green")
+                    _reset_prompt_regen_state(cycle)
                     write_controller_state("PLANNED", cycle=cycle)
+                    _L12.ok(f"Cycle {cycle} prompts auto-healed → PLANNED (external fix)")
                 else:
-                    click.secho(f"  BLOCKED ({status}) — prompts still failing, re-run plan-cycle", fg="red")
+                    failing = [a for a, r in (vr or {}).items()
+                               if not getattr(r, "passed", False)]
+                    regen_state = _read_prompt_regen_state(cycle)
+                    attempts = regen_state["attempts"]
+                    max_attempts = _prompt_regen_max_attempts()
+                    if attempts < max_attempts:
+                        next_attempt = attempts + 1
+                        click.secho(
+                            f"  REGENERATE attempt {next_attempt}/{max_attempts} "
+                            f"for agents {failing}",
+                            fg="yellow", bold=True,
+                        )
+                        _L12.info(
+                            f"PROMPT regenerate attempt {next_attempt}/{max_attempts} "
+                            f"for agents {failing} (cycle {cycle})"
+                        )
+                        notify_info(
+                            f"Prompt regenerate attempt {next_attempt}/{max_attempts} "
+                            f"for agents {failing}",
+                            cycle=cycle,
+                        )
+                        _backoff = _prompt_regen_backoff_s()
+                        if _backoff > 0:
+                            time.sleep(_backoff)
+                        # Persist the incremented counter BEFORE the (mockable)
+                        # regen call so a crash mid-regen still consumes budget
+                        # (fail-closed — never an unbounded retry).
+                        _write_prompt_regen_state(cycle, next_attempt)
+                        _force_regenerate_failing_prompts(cycle, failing)
+                        # Re-validate after regeneration.
+                        vr2 = validate_all(prompts_dir, cycle=cycle, agents=_agents)
+                        if vr2 and all(getattr(r, "passed", False) for r in vr2.values()):
+                            click.secho(
+                                "  Prompts now PASS after regenerate — advancing to PLANNED",
+                                fg="green",
+                            )
+                            _reset_prompt_regen_state(cycle)
+                            write_controller_state("PLANNED", cycle=cycle)
+                        else:
+                            still = [a for a, r in (vr2 or {}).items()
+                                     if not getattr(r, "passed", False)]
+                            click.secho(
+                                f"  Still failing after regenerate (agents {still}) — "
+                                f"staying PROMPT_VALIDATION_FAILED (attempt "
+                                f"{next_attempt}/{max_attempts}, next tick retries)",
+                                fg="yellow",
+                            )
+                            write_controller_state("PROMPT_VALIDATION_FAILED", cycle=cycle)
+                    else:
+                        # Budget exhausted → fail closed, alert, no further retry.
+                        click.secho(
+                            f"  PROMPT_REGEN_EXHAUSTED — {attempts}/{max_attempts} "
+                            f"regenerate attempts used for cycle {cycle}, agents "
+                            f"still failing {failing}. Failing closed.",
+                            fg="red", bold=True,
+                        )
+                        write_controller_state("PROMPT_REGEN_EXHAUSTED", cycle=cycle)
+                        notify_blocked(
+                            f"Prompt regeneration exhausted after {max_attempts} "
+                            f"attempts (agents {failing})",
+                            incident_code="PROMPT_REGEN_EXHAUSTED", cycle=cycle,
+                        )
+                        _L12.error(
+                            f"Cycle {cycle} PROMPT_REGEN_EXHAUSTED after {max_attempts} "
+                            "attempts — run 'recover --regen' or fix the generator."
+                        )
+            except Exception as _ve:
+                click.secho(
+                    f"  BLOCKED ({status}) — regenerate path raised: {_ve} — "
+                    "resolve and run recover to reset",
+                    fg="red",
+                )
+        elif status == "PROMPT_REGEN_EXHAUSTED":
+            # Fail-closed terminal-ish state: surfaced to the operator. Still
+            # auto-heal if a manual/external fix now makes validation pass.
+            import automation.autopilot_logger as _L12x
+            from automation.prompt_validator import validate_all
+            _agents = list(_STD_AGENT_SET)
+            prompts_dir = REPO_ROOT / "PM_Pack/automation/prompts"
+            try:
+                vr = validate_all(prompts_dir, cycle=cycle, agents=_agents)
+                if vr and all(getattr(r, "passed", False) for r in vr.values()):
+                    click.secho(
+                        "  Prompts now PASS — auto-clearing PROMPT_REGEN_EXHAUSTED",
+                        fg="green",
+                    )
+                    _reset_prompt_regen_state(cycle)
+                    write_controller_state("PLANNED", cycle=cycle)
+                    _L12x.ok(f"Cycle {cycle} recovered from PROMPT_REGEN_EXHAUSTED (external fix)")
+                else:
+                    click.secho(
+                        f"  BLOCKED ({status}) — regenerate budget exhausted. "
+                        "Run 'recover --regen' (resets attempts) or fix the prompt "
+                        "generator, then the next tick re-attempts.",
+                        fg="red",
+                    )
             except Exception as _ve:
                 click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
         else:
@@ -2763,7 +3050,8 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
             "IDLE": "Idle — will compile policy and plan next cycle",
             "MODEL_BLOCKED": "Cursor model gate failed — re-checking...",
             "BRANCH_MISMATCH_BLOCKED": "Wrong git branch — auto-fixing...",
-            "PROMPT_VALIDATION_FAILED": "Prompts invalid — re-validating...",
+            "PROMPT_VALIDATION_FAILED": "Prompts invalid — bounded regenerate + re-validate...",
+            "PROMPT_REGEN_EXHAUSTED": "Prompt regeneration exhausted — run 'recover --regen' or fix the generator",
         }
         explanation = _STATUS_EXPLANATION.get(status, f"Status: {status}")
         L.info(explanation)
