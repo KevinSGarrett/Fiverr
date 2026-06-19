@@ -8,6 +8,27 @@ from automation.stage_executor import AgentRunResult, StageExecutor, _Controller
 from click.testing import CliRunner
 
 
+def _seed_committed_run_records(cycle: int) -> None:
+    """ITEM 2.1: write per-agent run-records with a non-empty commit_sha so the
+    run-cycle work-proof gate sees real committed work and reaches AGENT_COMPLETE.
+
+    Without this, the hard work-proof gate (correctly) refuses to advance a
+    do-nothing cycle and writes CYCLE_NO_WORK instead.
+    """
+    from automation import runner_paths
+
+    for agent in ("A", "B", "E", "C", "F", "D"):
+        d = runner_paths.runs_dir() / f"CYCLE_{cycle:03d}" / "agent_runs" / agent
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"agent_{agent}_run_record.json").write_text(
+            json.dumps({
+                "agent": agent, "cycle": cycle,
+                "status": "COMPLETE", "commit_sha": f"sha_{agent}",
+            }),
+            encoding="utf-8",
+        )
+
+
 def test_stage_executor_called_after_run_cycle(monkeypatch) -> None:
     from automation.ai_cycle_controller import cli
 
@@ -27,6 +48,7 @@ def test_stage_executor_called_after_run_cycle(monkeypatch) -> None:
     monkeypatch.setattr("automation.ai_cycle_controller._run_shell_command", lambda args: (0, "ok"))
     monkeypatch.setattr("automation.stage_executor.StageExecutor", _FakeStageExecutor)
 
+    _seed_committed_run_records(82)
     result = CliRunner().invoke(cli, ["run-cycle", "--cycle", "82"])
     assert result.exit_code == 0
     assert calls["advance"] == 1
@@ -48,6 +70,7 @@ def test_stage_advances_without_human_input(monkeypatch) -> None:
     monkeypatch.setattr("automation.ai_cycle_controller._run_shell_command", lambda args: (0, "ok"))
     monkeypatch.setattr("automation.stage_executor.StageExecutor", _FakeStageExecutor)
 
+    _seed_committed_run_records(82)
     result = CliRunner().invoke(cli, ["run-cycle", "--cycle", "82"])
     assert result.exit_code == 0
     assert "Stage advanced automatically to 4" in result.output
