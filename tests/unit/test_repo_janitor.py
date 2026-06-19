@@ -1,11 +1,10 @@
 """Unit tests for automation/repo_janitor.py.
 
 Each test builds a real temp git repo so the janitor's git plumbing runs for
-real (no mocks). The merged-PR head set is injected via `pr_heads=` so the
-squash-merge path is exercised deterministically without touching the network.
-Covers: clean-tree detection, CI-path exclusion, ancestry vs squash branch
-selection, protected-branch safety, recovery-tagging on force-delete, stash
-allow-list + age gating, dry-run no-mutation, and execute semantics.
+real (no mocks). Squash-merges are simulated with `git merge --squash` so the
+authoritative squash detection (_is_squash_merged) is exercised the same way it
+behaves against GitHub squash-merges. The merged-PR head set is injected via
+`pr_heads=` for determinism.
 """
 from __future__ import annotations
 
@@ -19,6 +18,15 @@ from automation import repo_janitor as rj
 
 def _git(args, cwd):
     return subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True)
+
+
+def _squash_merge(repo, branch, base="develop"):
+    """Emulate a squash-merge of `branch` into `base`: base gains the branch's
+    changes as one new commit, so the branch's full diff is present in base while
+    the branch is NOT an ancestor of base (exactly like a GitHub squash-merge)."""
+    _git(["checkout", base], repo)
+    _git(["merge", "--squash", branch], repo)
+    _git(["commit", "-m", f"squash {branch}"], repo)
 
 
 @pytest.fixture
@@ -48,6 +56,22 @@ def test_is_ci_path():
     assert not rj._is_ci_path("C:/Fiverr/Fiverr_wt103")
 
 
+def test_is_squash_merged_true_and_false(repo):
+    _git(["checkout", "-b", "feat/done"], repo)
+    (repo / "d.txt").write_text("d")
+    _git(["add", "."], repo)
+    _git(["commit", "-m", "d"], repo)
+    _squash_merge(repo, "feat/done")
+    assert rj._is_squash_merged("feat/done", "develop", repo) is True
+
+    _git(["checkout", "-b", "feat/wip"], repo)
+    (repo / "w.txt").write_text("w")
+    _git(["add", "."], repo)
+    _git(["commit", "-m", "w"], repo)
+    _git(["checkout", "develop"], repo)
+    assert rj._is_squash_merged("feat/wip", "develop", repo) is False
+
+
 def test_find_prunable_local_ancestry(repo):
     _git(["branch", "cycle/077/integration"], repo)  # merged: points at develop tip
     _git(["checkout", "-b", "feature/x"], repo)
@@ -58,22 +82,32 @@ def test_find_prunable_local_ancestry(repo):
 
     res = dict(rj.find_prunable_local_branches(repo, base="develop", pr_heads=set()))
     assert res.get("cycle/077/integration") == "ancestry"
-    assert "feature/x" not in res   # unmerged AND not a merged-PR head
-    assert "develop" not in res
-    assert "main" not in res
+    assert "feature/x" not in res
+    assert "develop" not in res and "main" not in res
 
 
-def test_find_prunable_local_squash_via_pr_heads(repo):
-    # own commit -> NOT ancestry-merged; but listed as a merged-PR head -> squash
-    _git(["checkout", "-b", "feature/squashed"], repo)
+def test_find_prunable_local_squash_via_real_squash_merge(repo):
+    _git(["checkout", "-b", "cycle/078/integration"], repo)
     (repo / "s.txt").write_text("s")
     _git(["add", "."], repo)
     _git(["commit", "-m", "s"], repo)
-    _git(["checkout", "develop"], repo)
-
+    _squash_merge(repo, "cycle/078/integration")  # develop now contains s.txt
     res = dict(rj.find_prunable_local_branches(repo, base="develop",
-                                               pr_heads={"feature/squashed"}))
-    assert res.get("feature/squashed") == "squash"
+                                               pr_heads={"cycle/078/integration"}))
+    assert res.get("cycle/078/integration") == "squash"
+
+
+def test_unmerged_branch_in_pr_heads_is_NOT_pruned(repo):
+    # The pm-pack-secrets-fix scenario: branch name matches a merged PR, but the
+    # branch has unmerged work -> must NOT be deleted despite being in pr_heads.
+    _git(["checkout", "-b", "reused/branch"], repo)
+    (repo / "u.txt").write_text("unmerged work")
+    _git(["add", "."], repo)
+    _git(["commit", "-m", "u"], repo)
+    _git(["checkout", "develop"], repo)
+    res = dict(rj.find_prunable_local_branches(repo, base="develop",
+                                               pr_heads={"reused/branch"}))
+    assert "reused/branch" not in res
 
 
 def test_find_stale_stashes_allowlist_and_age(repo):
@@ -94,8 +128,7 @@ def test_run_dry_run_makes_no_changes(repo):
     before = _git(["branch"], repo).stdout
     rep = rj.run(execute=False, base="develop", cwd=repo, pr_heads=set())
     after = _git(["branch"], repo).stdout
-    assert before == after
-    assert rep.execute is False
+    assert before == after and rep.execute is False
     assert any(a.kind == "branch_local" and a.target == "cycle/077/integration"
                for a in rep.actions)
     assert all(a.executed is False for a in rep.actions)
@@ -117,17 +150,17 @@ def test_run_execute_deletes_ancestry_merged_only(repo):
 
 
 def test_run_execute_squash_delete_writes_recovery_tag(repo):
-    _git(["checkout", "-b", "cycle/078/integration"], repo)  # own commit -> squash path
+    _git(["checkout", "-b", "cycle/078/integration"], repo)
     (repo / "e.txt").write_text("e")
     _git(["add", "."], repo)
     _git(["commit", "-m", "e"], repo)
-    _git(["checkout", "develop"], repo)
+    _squash_merge(repo, "cycle/078/integration")  # leaves us on develop
 
     rep = rj.run(execute=True, base="develop", cwd=repo, do_stashes=False,
                  pr_heads={"cycle/078/integration"})
     branches = _git(["branch"], repo).stdout
     tags = _git(["tag"], repo).stdout
-    assert "cycle/078/integration" not in branches      # force-deleted (PR-confirmed)
+    assert "cycle/078/integration" not in branches      # force-deleted (squash-confirmed)
     assert "branch-janitor-backup-" in tags             # recoverable
     assert any(a.executed and a.target == "cycle/078/integration" and "squash" in a.detail
                for a in rep.actions)
@@ -158,13 +191,12 @@ def test_drop_stashes_execute_writes_recovery_tag(repo):
     _git(["stash", "push", "-m", "agent-a preflight auto"], repo)
     rep = rj.JanitorReport(execute=True, base="develop")
     rj.drop_stashes(rep, cwd=repo, min_age_h=0)
-    assert rj.list_stashes(repo) == []                              # dropped
-    assert "stash-janitor-backup-" in _git(["tag"], repo).stdout    # recoverable
+    assert rj.list_stashes(repo) == []
+    assert "stash-janitor-backup-" in _git(["tag"], repo).stdout
     assert any(a.kind == "stash" and a.executed for a in rep.actions)
 
 
 def test_merged_pr_heads_empty_on_gh_failure(repo):
-    # nonexistent repo -> gh errors -> graceful empty set (degrade to ancestry-only)
     assert rj.merged_pr_heads(repo, repo="KevinSGarrett/__no_such_repo__zzz") == set()
 
 
