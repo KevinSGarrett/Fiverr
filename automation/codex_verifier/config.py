@@ -43,11 +43,10 @@ class ICVConfig:
                 pass
         if os.environ.get("ICV_OPENAI_MODEL"):
             self.openai_model = os.environ["ICV_OPENAI_MODEL"]
-        if os.environ.get("PYTEST_CURRENT_TEST"):
-            # In test mode: disable LLM calls, cap at 1 attempt
-            self.openai_budget_usd = 0.0
-            self.max_attempts = 1
-            self.deterministic_only_fallback = True
+        # SAFE/0.3: NO PYTEST_CURRENT_TEST force-disable here. The config must
+        # reflect real values; tests cap LLM cost/attempts via ICV_* env vars or
+        # by passing an explicit ICVConfig. (verifier_openai still falls back to
+        # deterministic-only under PYTEST, so no real API calls happen in tests.)
 
 
 def load_config(config_path: Path | None = None) -> ICVConfig:

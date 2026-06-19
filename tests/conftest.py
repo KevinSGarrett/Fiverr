@@ -69,6 +69,51 @@ def _session_runner_root(tmp_path_factory: pytest.TempPathFactory):
     return runner_root
 
 
+# ---------------------------------------------------------------------------
+# 0.3 test-seam migration.
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="session", autouse=True)
+def _test_harness_optin():
+    """Item 0.3 (B5/C7): mark the whole session as the sanctioned test harness.
+
+    The fail-closed ENTRY GUARD in ai_cycle_controller refuses to run tick /
+    run-cycle when ``PYTEST_CURRENT_TEST`` is set without ``AUTOPILOT_TEST_HARNESS``.
+    pytest itself sets ``PYTEST_CURRENT_TEST`` for every test, so without this the
+    guard would refuse every controller invocation. Setting the opt-in here lets
+    the suite exercise tick/run-cycle while a leaked var in production (no harness)
+    still fails closed.
+    """
+    prev = os.environ.get("AUTOPILOT_TEST_HARNESS")
+    os.environ["AUTOPILOT_TEST_HARNESS"] = "1"
+    yield
+    if prev is None:
+        os.environ.pop("AUTOPILOT_TEST_HARNESS", None)
+    else:
+        os.environ["AUTOPILOT_TEST_HARNESS"] = prev
+
+
+@pytest.fixture(autouse=True)
+def _fake_run_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Item 0.3 (C8): never spawn a real agent subprocess during tests.
+
+    The production ``_run_and_stream`` PYTEST short-circuit was removed (a leaked
+    env var must not turn a live dispatch into a silent no-op). This autouse
+    fixture replaces that seam for the suite: it monkeypatches the controller's
+    ``_run_and_stream`` to a fake returning ``(0, "ok")`` WITHOUT a subprocess.
+
+    Tests that need the REAL implementation (e.g. proving the short-circuit is
+    gone) restore it explicitly via ``monkeypatch`` in the test body.
+    """
+    try:
+        import automation.ai_cycle_controller as ctrl
+    except Exception:
+        return
+    monkeypatch.setattr(
+        ctrl, "_run_and_stream",
+        lambda args, label="": (0, "ok"), raising=False,
+    )
+
+
 def _repoint_module_path_constants(
     monkeypatch: pytest.MonkeyPatch, tmp_root: Path, real_root: Path
 ) -> None:

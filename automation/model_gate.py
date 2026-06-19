@@ -5,7 +5,6 @@ Reads C:\\AI_Runner\\state\\cursor_model_state.json and validates against policy
 """
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,26 +45,22 @@ class ModelGateResult:
 def check(repo_root: Path | None = None,
           cycle: int | None = None,
           agent: str | None = None) -> ModelGateResult:
-    """Run all MODEL_GATE checks. Returns ModelGateResult."""
-    # PYTEST/CI guard: all model_gate checks require real files (cursor_model_state.json,
-    # claude_model_state.json) and a real git remote that only exist on the dev machine.
-    # On Linux CI the Windows paths don't exist -- skip and return PASS.
-    import os as _os
-    if _os.environ.get("PYTEST_CURRENT_TEST"):
-        r = ModelGateResult(passed=True)
-        r.summary = lambda: "MODEL_GATE: SKIPPED (test environment)"
-        return r
+    """Run all MODEL_GATE checks. Returns ModelGateResult.
 
+    SAFE/0.3: there is NO ``PYTEST_CURRENT_TEST`` auto-pass — the gate always
+    evaluates the real model state. Tests supply a real-ish state file (seeded
+    under the redirected runner root) or monkeypatch the gate.
+    """
     result = ModelGateResult(passed=True)
 
-    # 1. State file must exist
-    if not CURSOR_STATE_PATH.exists():
+    # 1. State must be present (loaded via the testable seam _load_cursor_state).
+    state = _load_cursor_state(CURSOR_STATE_PATH)
+    if not state:
         result.passed = False
-        result.failures.append(f"cursor_model_state.json missing: {CURSOR_STATE_PATH}")
+        result.failures.append(f"cursor_model_state.json missing/empty: {CURSOR_STATE_PATH}")
         _write_blocked_report(result, cycle, agent)
         return result
 
-    state = json.loads(CURSOR_STATE_PATH.read_text())
     result.observed_model = state.get("observed_model", "UNKNOWN")
     result.observed_effort = state.get("observed_effort", "UNKNOWN")
     result.auto_disabled = bool(state.get("auto_model_disabled", False))
@@ -126,10 +121,24 @@ def check(repo_root: Path | None = None,
     return result
 
 
+def _report_dir() -> Path:
+    """Resolve the blocked-report dir lazily via runner_paths.
+
+    Honours ``AUTOPILOT_RUNNER_ROOT`` so tests (and any relocated runner root)
+    write under the redirected root rather than the live ``C:/AI_Runner``.
+    """
+    try:
+        from automation import runner_paths
+        return runner_paths.reports_dir() / "model_verification"
+    except Exception:
+        return REPORT_DIR
+
+
 def _write_blocked_report(result: ModelGateResult, cycle: int | None, agent: str | None) -> None:
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    report_dir = _report_dir()
+    report_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    path = REPORT_DIR / f"BLOCKED_MODEL_VERIFICATION_{ts}.md"
+    path = report_dir / f"BLOCKED_MODEL_VERIFICATION_{ts}.md"
     lines = [
         "# BLOCKED_MODEL_VERIFICATION",
         f"Timestamp : {datetime.now(UTC).isoformat()}",
