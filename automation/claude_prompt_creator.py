@@ -90,7 +90,7 @@ def _announce_pm_model(model: str) -> None:
     )
 
 CLAUDE_MODEL  = _get_pm_model()
-CLAUDE_TIMEOUT = 480  # 8 min per agent — prompts are 3000-5000 lines
+# CLAUDE_TIMEOUT is defined below, after _pm_int_env, so it is env-tunable.
 
 
 def _pm_int_env(name: str, default: int) -> int:
@@ -118,6 +118,11 @@ PM_RETRY_BACKOFF_BASE = _pm_int_env("PM_RETRY_BACKOFF_BASE", 20)  # seconds; dou
 PM_RETRY_BACKOFF_CAP  = _pm_int_env("PM_RETRY_BACKOFF_CAP", 120)  # max backoff seconds
 PM_INTER_AGENT_DELAY  = _pm_int_env("PM_INTER_AGENT_DELAY", 5)    # seconds between agents
 PM_MIN_PROMPT_CHARS   = _pm_int_env("PM_MIN_PROMPT_CHARS", 2000)  # resume-reuse threshold
+# Item 1.1 (T4): per-agent generation budget. Raised from a hardcoded 480s
+# (live p100 was 469s — only a 1s margin, the proximate cause of timeout-driven
+# CLAUDE_PM_PARTIAL pauses) to a 900s default with real headroom, and made
+# env-tunable so operators can adjust without code changes.
+CLAUDE_TIMEOUT        = _pm_int_env("CLAUDE_PM_TIMEOUT", 900)     # seconds per agent
 
 
 def _pm_existing_prompt_ok(prompt_path: Path) -> bool:
