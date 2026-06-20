@@ -55,7 +55,20 @@ class AuditResult:
         for w in self.warnings:
             lines.append(f"  WARN: {w}")
         if self.passed:
-            lines.append("  All state files agree on cycle, branch, and status.")
+            # D-7 (Codex P2): do NOT advertise consensus when a cross-source
+            # DISAGREEMENT was found (e.g. an off-by-one cycle spread that passes
+            # non-blocking) — that is the exact false-consensus the audit must not
+            # print. Unrelated warnings (e.g. a missing freeze file) do not negate
+            # cycle/branch/status agreement, so they keep the consensus line.
+            _disagreement = (
+                any("DISAGREE" in w.upper() for w in self.warnings)
+                or any("DISAGREE" in c.code.upper() for c in self.conflicts)
+            )
+            if _disagreement:
+                lines.append("  PASS but state sources do NOT fully agree on cycle "
+                             "— reconcile the disagreement above before relying on consensus.")
+            else:
+                lines.append("  All state files agree on cycle, branch, and status.")
         return "\n".join(lines)
 
 

@@ -140,3 +140,15 @@ def test_audit_agreement_no_disagree_warning(tmp_path):
     _seed_audit(repo, runner, policy_cycle=83, ctrl_cycle=83)
     res = audit.run_audit(repo_root=repo, runner_root=runner)
     assert not any("CYCLESOURCESDISAGREE" in w for w in res.warnings)
+    assert "All state files agree" in res.summary()  # genuine consensus
+
+
+def test_audit_summary_does_not_advertise_consensus_on_warning(tmp_path):
+    # Codex P2: an off-by-one passes (non-blocking) but the summary must NOT say
+    # "all agree" — it must surface the non-consensus so plan-cycle isn't misled.
+    repo, runner = tmp_path / "repo", tmp_path / "runner"
+    _seed_audit(repo, runner, policy_cycle=82, ctrl_cycle=83)
+    res = audit.run_audit(repo_root=repo, runner_root=runner)
+    s = res.summary()
+    assert "All state files agree" not in s
+    assert "do NOT fully agree" in s
