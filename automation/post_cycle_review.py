@@ -259,18 +259,24 @@ def collect_facts(cycle: int, mode: ReviewMode,
                                    "--ignore", "I001,UP035,W605"])
     facts.local_mypy = _run_check([py, "-m", "mypy", "src"])
     # Run pytest with coverage — use same ignore set as CI
-    # CI-validity (item 3.3): loop-critical modules (cursor_adapter,
-    # prompt_generator, prompt_contract_builder, queue_processor,
-    # collection_orchestrator, openai_api_adapter) are NO LONGER ignored here so
-    # the live post-agent gate exercises the same loop-critical core as CI. The
-    # remaining ignores are genuinely product/legacy modules. Keep this list in
-    # sync with .github/workflows/ci.yml (plus test_post_cycle_review_coverage.py).
+    # CI-validity (item 3.3): loop-critical modules that run on a Python-only
+    # host (queue_processor, collection_orchestrator, openai_api_adapter) are NO
+    # LONGER ignored here so the live post-agent gate exercises the same
+    # loop-critical core as ubuntu CI. cursor_adapter / prompt_generator /
+    # prompt_contract_builder require the Cursor CLI binary and cannot run on
+    # ubuntu-hosted CI -- they stay ignored to mirror CI exactly (covered on the
+    # self-hosted runner via runner-smoke.yml). The remaining ignores are
+    # genuinely product/legacy modules. Keep this list in sync with
+    # .github/workflows/ci.yml (plus test_post_cycle_review_coverage.py).
     pytest_result = subprocess.run(
         [py, "-m", "pytest", "tests/unit/", "-q", "--no-header", "--tb=no",
          "--ignore=tests/unit/test_cycle062_smoke_aliases.py",
          "--ignore=tests/unit/test_playbook_generator.py",
          "--ignore=tests/unit/test_automation_system_restriction_removal.py",
          "--ignore=tests/unit/test_post_cycle_review_coverage.py",
+         "--ignore=tests/unit/test_cursor_adapter.py",
+         "--ignore=tests/unit/test_prompt_generator.py",
+         "--ignore=tests/unit/test_prompt_contract_builder.py",
          "--co", "-q"],  # collect-only first to count
         capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=30,
     )
@@ -278,11 +284,15 @@ def collect_facts(cycle: int, mode: ReviewMode,
     # Run with coverage to get pct
     cov_result = subprocess.run(
         [py, "-m", "pytest", "tests/unit/", "--no-header", "--tb=no", "-q",
-         # item 3.3: loop-critical modules un-ignored (keep in sync with ci.yml).
+         # item 3.3: loop-critical modules un-ignored (keep in sync with ci.yml);
+         # Cursor-CLI-dependent modules stay ignored to mirror ubuntu CI.
          "--ignore=tests/unit/test_cycle062_smoke_aliases.py",
          "--ignore=tests/unit/test_playbook_generator.py",
          "--ignore=tests/unit/test_automation_system_restriction_removal.py",
          "--ignore=tests/unit/test_post_cycle_review_coverage.py",
+         "--ignore=tests/unit/test_cursor_adapter.py",
+         "--ignore=tests/unit/test_prompt_generator.py",
+         "--ignore=tests/unit/test_prompt_contract_builder.py",
          "--cov=src", "--cov=automation", "--cov-report=term-missing:skip-covered",
          "--cov-fail-under=80"],  # H8 FIX: enforce coverage floor (was 0 -- decorative).
         capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=600,

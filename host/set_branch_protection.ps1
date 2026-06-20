@@ -5,8 +5,10 @@
 # Configures GitHub branch protection on the 'develop' branch so that a merge is
 # only possible when ALL loop-critical status checks are green. This closes the
 # SAFE-04 hole: protection must require the contexts produced by the workflows
-# that actually exist (CI, Security, PR Checks) rather than a stale/incomplete
-# set.
+# that actually exist -- the CI jobs (reported as "CI / <job>") plus the
+# security.yml jobs ("Secret Scan", "Dependency Audit") and the pr-checks.yml
+# job ("Validate PR") -- rather than a stale/incomplete or mis-named set. The
+# exact context strings below were verified empirically against live check-runs.
 #
 # *** GUARDED ***  By default this is a DRY-RUN: it only PRINTS the payload and
 # the gh api command it WOULD run. Pass -Execute to actually apply protection.
@@ -25,7 +27,7 @@
 [CmdletBinding()]
 param(
     [switch]$Execute,                       # actually apply protection; default = dry-run
-    [string]$Owner  = "scentiment",         # repo owner (override if forked)
+    [string]$Owner  = "KevinSGarrett",      # repo owner (canonical remote; override if forked)
     [string]$Repo   = "Fiverr",             # repo name
     [string]$Branch = "develop"             # branch to protect
 )
@@ -49,7 +51,9 @@ if (-not [string]::IsNullOrWhiteSpace($Token)) {
 # ---------------------------------------------------------------------------
 # Required status contexts -- the workflows/jobs that actually exist in this
 # repo. A PR to 'develop' must have ALL of these green before it can merge.
-#   CI workflow jobs (name: "CI / <job>"):
+# These strings are the EXACT check-run names GitHub reports (verified live):
+# CI jobs are namespaced "CI / <job>"; the security.yml and pr-checks.yml jobs
+# report as their bare job names (no workflow prefix).
 # ---------------------------------------------------------------------------
 $RequiredContexts = @(
     "CI / lint",
@@ -57,8 +61,9 @@ $RequiredContexts = @(
     "CI / tests-coverage",
     "CI / smoke-gates",
     "CI / codex-review-gate",
-    "Security",        # .github/workflows/security.yml  (name: Security)
-    "PR Checks"        # .github/workflows/pr-checks.yml (name: PR Checks)
+    "Secret Scan",       # .github/workflows/security.yml  job: Secret Scan
+    "Dependency Audit",  # .github/workflows/security.yml  job: Dependency Audit
+    "Validate PR"        # .github/workflows/pr-checks.yml job: Validate PR
 )
 
 Write-Host "============================================================"
