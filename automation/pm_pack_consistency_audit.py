@@ -167,6 +167,47 @@ def run_audit(repo_root: Path | None = None,
             f"Reconcile before dispatch."
         )
 
+    # ── Check 4b (D-7): cross-source cycle AGREEMENT — no false consensus ──
+    # The audit must NOT silently report "all agree" when the cycle sources
+    # disagree (e.g. policy_snapshot=82 vs controller_state=83). Existing checks
+    # only fire on large gaps (Check 1 > 10) or warn (Check 4 > 2), so an
+    # off-by-one passed as consensus. Gather every PRESENT (truthy int) cycle
+    # value and flag any disagreement: spread 1-2 = WARNING (likely mid-transition
+    # lag), spread > 2 = BLOCKING. This gates plan-cycle --live honestly.
+    _raw_cycles = {
+        "policy_snapshot": policy_snap.get("cycle_current"),
+        "controller_state": ctrl_state.get("active_cycle"),
+        "hydration_header": hydr_cycle or None,
+        "state_snapshot": snap_cycle or None,
+    }
+    _present_cycles: dict[str, int] = {}
+    for _src, _val in _raw_cycles.items():
+        try:
+            _iv = int(_val)
+        except (TypeError, ValueError):
+            continue
+        if _iv > 0:
+            _present_cycles[_src] = _iv
+    if len(set(_present_cycles.values())) > 1:
+        _lo, _hi = min(_present_cycles.values()), max(_present_cycles.values())
+        _detail = ", ".join(f"{k}={v}" for k, v in sorted(_present_cycles.items()))
+        if _hi - _lo > 2:
+            result.passed = False
+            result.conflicts.append(ConflictItem(
+                code="CYCLESOURCESDISAGREE",
+                source_a="cycle_sources", source_b="cycle_sources",
+                field="cycle", value_a=_hi, value_b=_lo, severity="BLOCKING",
+            ))
+            result.warnings.append(
+                f"CYCLESOURCESDISAGREE (BLOCKING): cycle sources disagree by "
+                f"{_hi - _lo}: {_detail}"
+            )
+        else:
+            result.warnings.append(
+                f"CYCLESOURCESDISAGREE: cycle sources disagree ({_detail}) — "
+                "reconcile before relying on consensus"
+            )
+
     # ── Check 5: CANONICAL says FROZEN — dispatch must be blocked ────
     if canonical_signals.get("status_keyword", "").upper() == "FROZEN":
         result.warnings.append(
