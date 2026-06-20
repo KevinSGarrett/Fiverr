@@ -99,6 +99,21 @@ def test_clean_post_agent_with_pr_goes_awaiting_ci(no_drift, monkeypatch):
     assert _state()["status"] == "AWAITING_CI_GREEN"  # 3.2 handoff, reached via 4.1
 
 
+def test_hard_errors_block_even_with_clean_facts(no_drift, monkeypatch):
+    # Codex P1: GATE 6/7 errors (baseline tampered / ScrapFly enabled) append to
+    # result.errors without early-return; with clean facts the POST_AGENT fact
+    # checks would otherwise pass. blocks_dispatch must honor errors -> FAIL.
+    rev = _review(507, blocking=False)
+    rev.errors.append("cycle037_live.db mtime changed — baseline tampered")
+    assert rev.blocks_dispatch is True  # real property now honors errors
+    _patch_review(monkeypatch, rev)
+    write_controller_state("AGENT_COMPLETE", cycle=507, pr=1507)  # PR open
+    result = CliRunner().invoke(cli, ["tick"])
+    assert result.exit_code == 0, result.output
+    # Must NOT advance to the merge path despite the open PR + clean facts.
+    assert _state()["status"] == "POST_CYCLE_FAIL"
+
+
 def test_blocking_review_does_not_advance(no_drift, monkeypatch):
     rev = _review(502, blocking=True)
     assert rev.blocks_dispatch is True  # real property, red pytest
