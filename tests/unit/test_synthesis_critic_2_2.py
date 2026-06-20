@@ -260,3 +260,34 @@ def test_markdown_cycle_format_health_low_but_parsed_full(tmp_path, monkeypatch)
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ── Codex P2 regressions (#116) ──────────────────────────────────────────────
+def test_root_level_abs_paths_normalize_to_repo_relative():
+    """Root-level abs Windows paths normalize to repo-relative regardless of the
+    current checkout (Codex P2: don't leave a Fiverr/Fiverr/ prefix)."""
+    from automation.report_synthesis.report_parser import _normalize_repo_path
+    assert _normalize_repo_path("`C:/Fiverr/Fiverr/.github/workflows/ci.yml`") == ".github/workflows/ci.yml"
+    assert _normalize_repo_path("C:\Fiverr\Fiverr\config.yaml") == "config.yaml"
+    assert _normalize_repo_path("`C:/Fiverr/Fiverr/pyproject.toml`") == "pyproject.toml"
+    # a path already under a known dir is unchanged
+    assert _normalize_repo_path("`src/foo/bar.py`") == "src/foo/bar.py"
+
+
+def test_evidence_only_mentions_not_claimed_as_modified(tmp_path):
+    """A report WITHOUT a Files section must NOT turn read-only 'Evidence Files
+    Reviewed' path mentions into modified-file claims (Codex P2 #116)."""
+    from automation.report_synthesis.report_parser import parse_report
+    md = (
+        "# CYCLE_205_AGENT_C REPORT\n\n"
+        "## Summary\nReviewed routing and control logic for SCRUM-1.\n\n"
+        "## Evidence Files Reviewed\n"
+        "- `automation/provider_router.py`\n"
+        "- `src/discovery/orchestrator.py`\n\n"
+        "AGENT_COMPLETE\n"
+    )
+    p = tmp_path / "CYCLE_205_AGENT_C.md"
+    p.write_text(md, encoding="utf-8")
+    r = parse_report(p)
+    assert r.files_created == [], r.files_created
+    assert r.files_modified == [], r.files_modified

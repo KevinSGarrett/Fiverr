@@ -155,6 +155,7 @@ _NEXT_HEADER_RE = re.compile(r"^#{1,4}\s+\S", re.MULTILINE)
 # Known repo top-level dirs — used to anchor stripping of an absolute prefix.
 _REPO_DIR_PREFIXES = (
     "src/", "tests/", "automation/", "docs/", "PM_Pack/", "data/", "scripts/",
+    ".github/", "host/",
 )
 
 # The repo-root directory name (".../Fiverr/Fiverr" → "Fiverr/Fiverr"), used to
@@ -200,10 +201,16 @@ def _normalize_repo_path(token: str) -> str:
         if s.startswith(prefix):
             break
     else:
-        # No known repo dir found. Drop a Windows/posix absolute drive prefix
-        # and a leading repo-root segment (e.g. "Fiverr/Fiverr/") if present.
+        # No known repo dir found. Drop a Windows/posix absolute drive prefix,
+        # then take what follows the report's CANONICAL repo root "Fiverr/Fiverr"
+        # (independent of the current checkout path) so root-level files
+        # (.github/..., config.yaml, pyproject.toml, run.py) normalize to
+        # repo-relative even when CI checked the repo out elsewhere (Codex P2 #116).
         s = re.sub(r"^[A-Za-z]:/", "", s)
-        if _REPO_TAIL and (s.startswith(_REPO_TAIL + "/") or s == _REPO_TAIL):
+        m_root = re.search(r"(?:^|/)Fiverr/Fiverr/(.+)$", s)
+        if m_root:
+            s = m_root.group(1)
+        elif _REPO_TAIL and (s.startswith(_REPO_TAIL + "/") or s == _REPO_TAIL):
             s = s[len(_REPO_TAIL):]
     s = s.lstrip("/")
     # Reject obvious non-paths (no slash and no file extension, or contains spaces).
@@ -337,15 +344,13 @@ def _markdown_fallback_parse(raw: str) -> ClaimedAgentReport:
                 r.files_modified.append(norm)
         r.files_created = list(dict.fromkeys(r.files_created))
         r.files_modified = list(dict.fromkeys(r.files_modified))
-    if not (r.files_created or r.files_modified):
-        # Last-resort fallback for free-form reports that reference files inline
-        # (e.g. "### Task 56 (`automation/foo.py`)") rather than in a dedicated
-        # section. Collect backtick-quoted tokens that normalize to a repo file
-        # anchored on a known top-level dir, and classify them as "modified"
-        # (we cannot tell created vs modified without a section annotation).
-        inline = _scan_inline_paths(raw)
-        if inline:
-            r.files_modified.extend(inline)
+    # NOTE (Codex P2 #116): we deliberately do NOT harvest arbitrary inline
+    # backticked paths as file-change claims. Reports without a dedicated Files
+    # section often list repo paths under "Evidence Files Reviewed" / "Key
+    # Implementation Notes" as READ-ONLY references; treating those as "modified"
+    # produced false CLAIMED_FILES_NOT_IN_DIFF downgrades. AGENT_COMPLETE / a
+    # parsed summary already prevents NO_REPORT, so only dedicated file sections
+    # and explicit `| created | path |` tables count as file-change claims.
 
     # Commits — §4 / "Git & commit attribution"
     r.commits = re.findall(r"`([0-9a-f]{7,40})`\s*[—–-]", raw)
