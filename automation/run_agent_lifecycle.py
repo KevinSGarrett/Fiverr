@@ -56,6 +56,49 @@ def _get_ownership_rules(agent_id: str) -> dict:
     return rules
 
 
+# ITEM 5.6 (Cursor blast-radius): control-plane / gate-defining paths that NO
+# autonomous Cursor agent may modify, REGARDLESS of its lane. The agents build
+# the Fiverr product (src/, tests/, docs/, PM_Pack content); they must never edit
+# the runner's own control plane, because doing so would let an agent weaken the
+# very gates that constrain it (CI workflows, the scheduled driver, its own
+# ownership lanes, the validators/merge-gate, the merge policy). A change touching
+# any of these is treated as an ownership violation -> excluded from the commit
+# and the agent run is BLOCKED. (Offline guard; the OS-level out-of-repo write
+# confinement is the separate DoD-RW step.)
+GLOBAL_PROTECTED_PREFIXES: tuple[str, ...] = (
+    "automation/",                         # the runner control plane itself
+    ".github/workflows/",                  # CI gate definitions (ci/security/pr-checks)
+    "host/",                               # scheduled driver / watchdog / branch-protection
+)
+
+# ITEM 5.6 (Codex P1): everything under PM_Pack/automation/ is runner policy/config
+# (agent_lanes.yml, merge_policy.yml, provider_policy.yml, current_policy_snapshot,
+# ...) and is protected — EXCEPT the runtime-artifact subdirs the runner itself
+# writes (run records, generated prompts, reviews, catalogs). Protecting only the
+# two named YAMLs left provider_policy.yml (provider/cost/git routing) editable by
+# an agent whose lane owns PM_Pack/**.
+_PM_AUTOMATION_PREFIX = "PM_Pack/automation/"
+_PM_AUTOMATION_ARTIFACT_SUBDIRS: tuple[str, ...] = (
+    "runs/", "prompts/", "post_cycle_reviews/", "ref_catalogs/", "drafts/",
+)
+
+
+def _is_protected_path(changed_file: str) -> bool:
+    """ITEM 5.6: True if a path is a control-plane / gate-defining file that no
+    agent may modify regardless of its lane."""
+    norm = changed_file.replace("\\", "/")
+    if norm.startswith("./"):   # strip a leading "./" PREFIX (not lstrip chars —
+        norm = norm[2:]         # lstrip("./") would eat the dot of ".github/")
+    if any(norm.startswith(p) for p in GLOBAL_PROTECTED_PREFIXES):
+        return True
+    # PM_Pack/automation policy/config is protected except runtime-artifact subdirs.
+    if norm.startswith(_PM_AUTOMATION_PREFIX):
+        rest = norm[len(_PM_AUTOMATION_PREFIX):]
+        if not any(rest.startswith(art) for art in _PM_AUTOMATION_ARTIFACT_SUBDIRS):
+            return True
+    return False
+
+
 # Legacy hardcoded map (kept for backward-compat; superseded by agent_lanes.yml above)
 AGENT_OWNERSHIP: dict = {
     "A": {"allowed": ["PM_Pack/**", "docs/**", ".github/**", "pyproject.toml"], "forbidden": ["src/**"]},
@@ -358,6 +401,13 @@ def _check_ownership(agent_id: str, changed_files: list[str]) -> list[str]:
     violations = []
 
     for changed_file in changed_files:
+        # ITEM 5.6: control-plane / gate-defining paths are forbidden for EVERY
+        # agent, regardless of its lane (an agent must not be able to weaken the
+        # CI gates, the driver, its own lanes, or the runner logic). Checked first.
+        if _is_protected_path(changed_file):
+            violations.append(changed_file)
+            continue
+
         # Check forbidden
         forbidden = any(changed_file.startswith(fp) for fp in forbidden_prefixes)
         if forbidden:
