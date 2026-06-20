@@ -125,17 +125,17 @@ jobs:
           Path('C:/AI_Runner/secrets/runner.env').write_text('JIRA_API_TOKEN=ci-placeholder')
           "
       - name: Pytest with coverage
+        # CI-validity (item 3.3): the loop-critical test modules
+        # (cursor_adapter, prompt_generator, prompt_contract_builder,
+        # queue_processor, collection_orchestrator, openai_api_adapter) are NO
+        # LONGER ignored -- green CI must mean the loop-critical core is tested.
+        # The remaining ignores are genuinely product/legacy modules tracked
+        # separately. Keep this list in sync with automation/post_cycle_review.py.
         run: >
           python -m pytest tests/unit/
-          --ignore=tests/unit/test_queue_processor.py
-          --ignore=tests/unit/test_collection_orchestrator.py
-          --ignore=tests/unit/test_cycle062_smoke_aliases.py          --ignore=tests/unit/test_ai_cycle_controller_coverage.py
-          --ignore=tests/unit/test_cursor_adapter.py
-          --ignore=tests/unit/test_openai_api_adapter.py
+          --ignore=tests/unit/test_cycle062_smoke_aliases.py
           --ignore=tests/unit/test_playbook_generator.py
-          --ignore=tests/unit/test_prompt_generator.py
           --ignore=tests/unit/test_automation_system_restriction_removal.py
-          --ignore=tests/unit/test_prompt_contract_builder.py
           --cov=src --cov=automation
           --cov-config=pyproject.toml
           --cov-report=xml --cov-fail-under=80
@@ -158,6 +158,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+      # CI-validity (item 3.3 / CICD-06): the state written below is a CI FIXTURE,
+      # NOT real runner state. brain-check/pm-pack-audit need runner state to exist
+      # on the ubuntu CI box, so we bootstrap a synthetic, internally-consistent
+      # snapshot. Because the fixture is always-consistent by construction, the
+      # smoke-gates here verify the gate *code paths* run -- they do NOT validate
+      # real state consistency. Genuine state-consistency validation (pm-pack-audit
+      # comparing against real recorded values) is tracked as deferred item D-7.
+      # Do not treat a green smoke-gates as proof that live runner state is sane.
       - name: CI state bootstrap
         run: |
           python -c "

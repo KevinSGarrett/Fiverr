@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from automation import runner_paths
 from automation.config_loader import load_secrets
 from automation.cost_guard import CostGuard, update_spend
 from automation.provider_router import ProviderRunResult
@@ -22,8 +23,12 @@ class AdapterBlockedError(RuntimeError):
 class OpenAIApiAdapter:
     """OpenAI adapter that only trusts runner.env secrets."""
 
-    RUNNER_ENV = Path(r"C:\AI_Runner\secrets\runner.env")
     APPROVED_TASK_TYPES = {"prompt_lint", "json_classification", "rubric_scoring", "summary_generation"}
+
+    @property
+    def RUNNER_ENV(self) -> Path:
+        """runner.env path resolved lazily via runner_paths (honours test root)."""
+        return runner_paths.secrets_dir() / "runner.env"
 
     def __init__(self) -> None:
         self.cost_guard = CostGuard()
@@ -87,7 +92,7 @@ class OpenAIApiAdapter:
             error_message = str(exc)
 
         cycle_folder = f"CYCLE_{(cycle or '000').zfill(3)}"
-        advisory_dir = Path(r"C:\AI_Runner\runs") / cycle_folder / "openai_advisory"
+        advisory_dir = runner_paths.runs_dir() / cycle_folder / "openai_advisory"
         advisory_dir.mkdir(parents=True, exist_ok=True)
         advisory_path = advisory_dir / f"openai_advisory_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
         advisory_payload = {
