@@ -46,6 +46,15 @@ claude:
   model_state_file: "C:/AI_Runner/state/claude_model_state.json"
   fail_if_api_key_present: true
 
+# ITEM 4.2: Claude PM review is ADVISORY on top of the deterministic POST_MERGE
+# verdict. These bound the advisory retry so a Claude flake can never strand or
+# hang the unattended closeout (the deterministic PASS already stands).
+claude_review:
+  max_attempts: 2      # bounded retry for TRANSIENT failures (hard cap 3 in code)
+  backoff_s: 5         # linear backoff between transient retries (cap 30s in code)
+  # per-attempt Claude subprocess timeout is fixed at 600s in the adapter; total
+  # advisory wall time is bounded by max_attempts (hard cap 3).
+
 github:
   repository: "KevinSGarrett/Fiverr"
   integration_branch: "develop"

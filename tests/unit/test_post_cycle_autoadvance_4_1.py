@@ -71,7 +71,8 @@ def _review(cycle: int, *, blocking: bool,
 
 def _patch_review(monkeypatch, review: PostCycleReviewResult):
     import automation.post_cycle_review as pcr
-    monkeypatch.setattr(pcr, "run_review", lambda cycle, mode: review)
+    monkeypatch.setattr(pcr, "run_review",
+                        lambda cycle, mode, **kwargs: review)
 
 
 def _state() -> dict:
