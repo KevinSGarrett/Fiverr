@@ -40,72 +40,123 @@ class CodexDispositionResult:
     blockers: list[CodexThread] = field(default_factory=list)
     all_resolved: bool = False
     merge_blocked: bool = False
+    read_error: str = ""
     disposition_table: list[dict] = field(default_factory=list)
 
     def summary(self) -> str:
+        if self.read_error:
+            return f"Codex disposition: READ ERROR ({self.read_error}) — MERGE BLOCKED"
         if not self.threads:
             return "Codex disposition: 0 threads — PASS"
         lines = [f"Codex threads: {len(self.threads)} total"]
         for t in self.threads:
-            lines.append(f"  [{t.classification}] {t.thread_id[:8]} resolved={t.is_resolved}")
+            lines.append(
+                f"  [{t.classification}] {t.thread_id[:8]} resolved={t.is_resolved} "
+                f"outdated={t.is_outdated}"
+            )
         if self.merge_blocked:
-            lines.append("MERGE BLOCKED by unresolved Codex findings")
+            lines.append("MERGE BLOCKED by unresolved review threads")
         return "\n".join(lines)
 
 
 def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
-    """Fetch review threads from a PR using gh CLI."""
+    """Fetch the PR's review THREADS (inline comment threads with GitHub's own
+    ``isResolved`` state) via the GraphQL ``reviewThreads`` connection.
+
+    The previous implementation read review SUBMISSIONS (``--json reviews``),
+    which does NOT contain the Codex bot's inline findings and silently passed in
+    the normal case. This now mirrors GitHub's ``required_conversation_resolution``
+    gate exactly: ``merge_blocked`` is True whenever ANY thread is unresolved.
+
+    FAIL-CLOSED: a gh/GraphQL failure sets ``read_error`` and ``merge_blocked=True``
+    (the caller's blocking ``codex_review_disposition`` check then fails) rather
+    than passing on missing data.
+    """
     result = CodexDispositionResult(pr_number=pr_number)
+    owner, _, name = repo.partition("/")
 
+    # Paginate ALL review threads (Codex P2): a PR with >100 threads would
+    # otherwise be truncated and an unresolved thread on page 2+ would be treated
+    # as nonexistent (too loose). Page through with the endCursor; fail closed if
+    # another page exists but no cursor is returned, or the page cap is hit.
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!,$cursor:String){"
+        "repository(owner:$owner,name:$name){"
+        "pullRequest(number:$number){"
+        "reviewThreads(first:100, after:$cursor){"
+        "pageInfo{hasNextPage endCursor} "
+        "nodes{id isResolved isOutdated comments(first:1){nodes{author{login} body}}}"
+        "}}}}"
+    )
+    nodes: list[dict] = []
+    cursor: str | None = None
+    _MAX_PAGES = 50  # 5000 threads — defensive bound against an infinite loop
     try:
-        # Use gh pr view to get review comments
-        r = subprocess.run(
-            ["gh", "pr", "view", str(pr_number), "--repo", repo,
-             "--json", "reviews,reviewDecision,statusCheckRollup"],
-            capture_output=True, text=True, timeout=30
-        )
-        if r.returncode != 0:
+        for _ in range(_MAX_PAGES):
+            args = ["gh", "api", "graphql",
+                    "-f", f"query={query}",
+                    "-f", f"owner={owner}",
+                    "-f", f"name={name}",
+                    "-F", f"number={int(pr_number)}"]
+            if cursor:
+                args += ["-f", f"cursor={cursor}"]
+            r = subprocess.run(args, capture_output=True, text=True, timeout=30)
+            if r.returncode != 0:
+                result.read_error = (r.stderr.strip() or "gh graphql failed")[:200]
+                result.merge_blocked = True
+                return result
+            data = json.loads(r.stdout)
+            conn = (
+                data.get("data", {}).get("repository", {}).get("pullRequest", {})
+                .get("reviewThreads", {})
+            ) or {}
+            nodes.extend(conn.get("nodes") or [])
+            page = conn.get("pageInfo") or {}
+            if not page.get("hasNextPage"):
+                break
+            cursor = page.get("endCursor")
+            if not cursor:  # more pages but no cursor — fail closed, don't truncate
+                result.read_error = "reviewThreads pagination cursor missing"
+                result.merge_blocked = True
+                return result
+        else:
+            # Hit the page cap with more pages remaining — fail closed.
+            result.read_error = f"reviewThreads exceeded {_MAX_PAGES} pages"
+            result.merge_blocked = True
             return result
-
-        data = json.loads(r.stdout)
-        reviews = data.get("reviews") or []
-
-        for review in reviews:
-            if review.get("author", {}).get("login", "") in ("github-actions", ""):
-                continue
-            body = review.get("body", "")
-            thread_id = review.get("id", "unknown")
-            # Classify based on body keywords
-            classification = _classify_body(body)
-            thread = CodexThread(
-                thread_id=str(thread_id),
-                is_resolved=review.get("state") == "DISMISSED",
-                is_outdated=False,
-                author=review.get("author", {}).get("login", ""),
-                body=body[:500],
-                classification=classification,
-            )
-            result.threads.append(thread)
-            if classification in BLOCKING_CATEGORIES:
-                result.blockers.append(thread)
-
     except Exception as e:
-        result.disposition_table.append({"error": str(e)})
+        result.read_error = str(e)[:200]
+        result.merge_blocked = True
+        return result
 
-    # Build disposition table
+    for node in nodes:
+        first = (node.get("comments", {}).get("nodes") or [{}])[0]
+        author = ((first.get("author") or {}).get("login")) or ""
+        body = first.get("body", "") or ""
+        thread = CodexThread(
+            thread_id=str(node.get("id", "unknown")),
+            is_resolved=bool(node.get("isResolved")),
+            is_outdated=bool(node.get("isOutdated")),
+            author=author,
+            body=body[:500],
+            classification=_classify_body(body),
+        )
+        result.threads.append(thread)
+        # Any unresolved thread blocks (matches required_conversation_resolution).
+        if not thread.is_resolved:
+            result.blockers.append(thread)
+
     for t in result.threads:
         result.disposition_table.append({
             "thread_id": t.thread_id[:12],
             "resolved": t.is_resolved,
+            "outdated": t.is_outdated,
             "category": t.classification,
-            "merge_blocking": t.classification in BLOCKING_CATEGORIES,
+            "merge_blocking": not t.is_resolved,
         })
 
     result.all_resolved = all(t.is_resolved for t in result.threads) if result.threads else True
-    result.merge_blocked = bool(result.blockers) or any(
-        not t.is_resolved and t.classification not in AUTO_RESOLVE_CATEGORIES
-        for t in result.threads
-    )
+    result.merge_blocked = bool(result.blockers)
     return result
 
 

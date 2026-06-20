@@ -225,6 +225,91 @@ def _read_runner_state() -> dict:
         return {}
 
 
+def _tick_counter(key: str, *, increment: bool = False, reset: bool = False) -> int:
+    """Small persistent per-key tick counter (item 3.2: bounded CI-wait / merge
+    retry across ticks). Stored under the runner state dir so it is test-isolated
+    via ``AUTOPILOT_RUNNER_ROOT``. Returns the current count.
+    """
+    from automation import runner_paths
+    path = runner_paths.state_dir() / "tick_counters.json"
+    try:
+        data = json.loads(path.read_text()) if path.exists() else {}
+    except Exception:
+        data = {}
+    n = int(data.get(key, 0))
+    if reset:
+        data.pop(key, None)
+        n = 0
+    elif increment:
+        n += 1
+        data[key] = n
+    if increment or reset:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data))
+        except Exception:
+            pass
+    return n
+
+
+def _finalize_post_cycle_pass(cycle: int | None) -> str:
+    """ITEM 3.2: single decision point for a PASSing post-cycle review.
+
+    If a PR is open (active_pr set) the cycle must NOT be marked complete — hand
+    off to AWAITING_CI_GREEN so the runner waits for CI and merges via the gate,
+    advancing only after a verified merge. With no open PR, fall back to the
+    legacy POST_CYCLE_PASS. Used by BOTH the AGENT_COMPLETE and POST_CYCLE_PENDING
+    tick branches so they can never diverge (an open PR must never be bypassed).
+
+    Returns the status that was written.
+    """
+    from automation.state_writer import write_controller_state as _w
+    active_pr = (_read_runner_state() or {}).get("active_pr")
+    if active_pr:
+        _w("AWAITING_CI_GREEN", cycle=cycle)
+        return "AWAITING_CI_GREEN"
+    _w("POST_CYCLE_PASS", cycle=cycle)
+    return "POST_CYCLE_PASS"
+
+
+def _attempt_merge(cycle: int | None, pr_int: int) -> str:
+    """ITEM 3.2: run the merge gate (execute) for an open PR and transition state.
+
+    Shared by the AWAITING_CI_GREEN green-path and the MERGING crash-recovery
+    branch. Idempotent — ``merge_gate.run`` treats an already-merged PR as success
+    (``merged`` flag), so re-invoking after a crash between the MERGING write and
+    the MERGED/MERGE_BLOCKED write resolves cleanly rather than double-merging.
+    Returns the new status written (``MERGED`` or ``MERGE_BLOCKED``).
+    """
+    import automation.autopilot_logger as L
+    from automation.notification_router import notify_blocked, notify_info
+    from automation.state_writer import write_controller_state as _w
+    try:
+        from automation.pr_builder import _ensure_gh_token
+        _ensure_gh_token()
+    except Exception:
+        pass
+    from automation.merge_gate import run as _gate_run
+    mg = _gate_run(pr_number=pr_int, dry_run=False, execute=True)
+    if mg.passed and (mg.merged or mg.merge_sha or mg.already_merged):
+        _tick_counter(f"ci_wait_pr{pr_int}", reset=True)
+        _tick_counter(f"merge_retry_pr{pr_int}", reset=True)
+        _w("MERGED", cycle=cycle)
+        L.ok(f"PR #{pr_int} MERGED {mg.merge_sha or '(already merged)'} "
+             f"— cycle {cycle} advances next tick")
+        notify_info(f"Cycle {cycle} merged PR #{pr_int}")
+        return "MERGED"
+    _w("MERGE_BLOCKED", cycle=cycle)
+    fails = ", ".join(c.name for c in mg.failed_checks()) or "unknown"
+    L.error(f"Merge gate FAILED for PR #{pr_int}: {fails}")
+    notify_blocked(
+        f"Cycle {cycle} merge gate failed (PR #{pr_int})",
+        body=f"Blocking failures: {fails}",
+        incident_code="MERGE_BLOCKED", cycle=cycle,
+    )
+    return "MERGE_BLOCKED"
+
+
 def _run_and_stream(args: list[str], label: str = "") -> tuple[int, str]:
     """Run subprocess streaming stdout live to terminal line by line.
 
@@ -2318,7 +2403,12 @@ def cmd_tick() -> None:
                     # would bypass their dedicated tick-recovery branches and
                     # redispatch the whole cycle. Only reset for generic failures.
                     _post_status = (_read_runner_state().get("status") or "")
-                    if _post_status in ("PR_CREATE_FAILED", "CYCLE_NO_WORK"):
+                    if _post_status in (
+                        "PR_CREATE_FAILED", "CYCLE_NO_WORK",
+                        # ITEM 3.2: merge-path states are recoverable by their own
+                        # tick branches — never clobber them into a full re-dispatch.
+                        "AWAITING_CI_GREEN", "MERGING", "MERGED", "MERGE_BLOCKED",
+                    ):
                         click.secho(
                             f"  Preserving {_post_status} for its recovery branch.",
                             fg="yellow",
@@ -2364,14 +2454,26 @@ def cmd_tick() -> None:
             # was the default when verdict parsing failed.
             # Now: only PASS advances. ADVISORY_ONLY and CONDITIONAL_PASS route to FAIL/review.
             if grade == "PASS" and not result.blocks_dispatch:
-                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
-                L.ok(f"Cycle {cycle} COMPLETE — next tick plans Cycle {cycle + 1}")
+                # ITEM 3.2: local review passed. If a PR is open the cycle must NOT
+                # advance yet — _finalize routes to AWAITING_CI_GREEN (merge path)
+                # vs POST_CYCLE_PASS (no PR). Shared with the POST_CYCLE_PENDING
+                # branch so an open PR can never be bypassed.
+                _new = _finalize_post_cycle_pass(cycle)
+                if _new == "AWAITING_CI_GREEN":
+                    L.ok(f"Cycle {cycle} local review PASS — PR open; "
+                         "waiting for CI to go green before merge")
+                else:
+                    L.ok(f"Cycle {cycle} COMPLETE — next tick plans Cycle {cycle + 1}")
                 # OBS-7: emit end-of-cycle summary
                 L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result="PASS")
                 L.clear_activity()
             elif grade in ("CONDITIONAL_PASS",) and not result.blocks_dispatch:
-                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
-                L.ok(f"Cycle {cycle} CONDITIONAL PASS — next tick plans Cycle {cycle + 1}")
+                _new = _finalize_post_cycle_pass(cycle)
+                if _new == "AWAITING_CI_GREEN":
+                    L.ok(f"Cycle {cycle} CONDITIONAL PASS — PR open; "
+                         "waiting for CI to go green before merge")
+                else:
+                    L.ok(f"Cycle {cycle} CONDITIONAL PASS — next tick plans Cycle {cycle + 1}")
                 L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result="CONDITIONAL_PASS")
                 L.clear_activity()
             else:
@@ -2535,9 +2637,17 @@ def cmd_tick() -> None:
             grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
             click.echo(f"  Post-cycle-review grade: {grade}")
             if not result.blocks_dispatch:
-                write_controller_state("POST_CYCLE_PASS", cycle=cycle)
-                click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick plans cycle {cycle + 1}.",
-                            fg="green", bold=True)
+                # ITEM 3.2: same merge-aware finalize as the AGENT_COMPLETE branch
+                # — an open PR routes to AWAITING_CI_GREEN, never straight to
+                # POST_CYCLE_PASS (which would advance the cycle past an unmerged
+                # PR and bypass the merge gate).
+                _new = _finalize_post_cycle_pass(cycle)
+                if _new == "AWAITING_CI_GREEN":
+                    click.secho(f"  PR open — cycle {cycle} waiting for CI green before merge.",
+                                fg="cyan", bold=True)
+                else:
+                    click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick plans cycle {cycle + 1}.",
+                                fg="green", bold=True)
             else:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
                 click.secho(f"  POST_CYCLE_FAIL grade={grade}", fg="red", bold=True)
@@ -2740,6 +2850,120 @@ def cmd_tick() -> None:
             cycle=cycle,
         )
         write_controller_state("READY_TO_DISPATCH", cycle=cycle)
+
+    elif status == "AWAITING_CI_GREEN":
+        # ITEM 3.2: a verified PR is open (active_pr) and local post-cycle review
+        # already PASSed. Poll the PR's required CI ONCE per tick (non-blocking —
+        # never wait_for_ci, which would hold the tick up to 30 min). All required
+        # checks green -> merge via the merge gate. Fail-closed to MERGE_BLOCKED on
+        # CI failure / missing PR / bounded wait timeout (all recoverable).
+        import automation.autopilot_logger as L
+        _active_pr = (state or {}).get("active_pr")
+        if not _active_pr:
+            L.error("AWAITING_CI_GREEN but no active_pr — failing closed (MERGE_BLOCKED)")
+            write_controller_state("MERGE_BLOCKED", cycle=cycle)
+            notify_blocked(
+                f"Cycle {cycle} merge blocked: no active_pr in AWAITING_CI_GREEN",
+                incident_code="MERGE_BLOCKED", cycle=cycle,
+            )
+        else:
+            from automation import required_checks as _rc
+            from automation.ci_status_reader import read_pr_ci_status
+            _pr_int = int(_active_pr)
+            cs = read_pr_ci_status(_pr_int)
+            disp = cs.disposition(_rc.get_required_contexts()) if cs.gh_ok else "PENDING"
+            click.secho(f"  PR #{_active_pr} required-CI disposition: {disp}", fg="cyan")
+            if disp == "GREEN":
+                # Required CI is green — merge via the gate (squash, no --admin).
+                # Persist MERGING first so a crash mid-merge is recoverable by the
+                # MERGING branch (idempotent re-invocation), then attempt the merge.
+                write_controller_state("MERGING", cycle=cycle)
+                _attempt_merge(cycle, _pr_int)
+            elif disp == "FAILED":
+                write_controller_state("MERGE_BLOCKED", cycle=cycle)
+                L.error(f"Required CI FAILED on PR #{_active_pr} — MERGE_BLOCKED")
+                notify_blocked(
+                    f"Cycle {cycle} CI failed on PR #{_active_pr}",
+                    body="A required check concluded non-success; a new push is needed.",
+                    incident_code="MERGE_BLOCKED", cycle=cycle,
+                )
+            else:  # PENDING (incl. gh read error) — bounded wait across ticks
+                _waited = _tick_counter(f"ci_wait_pr{_pr_int}", increment=True)
+                _cap = int(os.environ.get("AUTOPILOT_CI_WAIT_MAX_TICKS", "60"))
+                if _waited >= _cap:
+                    write_controller_state("MERGE_BLOCKED", cycle=cycle)
+                    L.error(f"CI still pending after {_waited} ticks (cap {_cap}) on "
+                            f"PR #{_active_pr} — MERGE_BLOCKED")
+                    notify_blocked(
+                        f"Cycle {cycle} CI-wait timeout on PR #{_active_pr}",
+                        incident_code="MERGE_BLOCKED", cycle=cycle,
+                    )
+                else:
+                    click.secho(
+                        f"  CI pending (tick {_waited}/{_cap}) — staying AWAITING_CI_GREEN",
+                        fg="yellow",
+                    )
+
+    elif status == "MERGING":
+        # ITEM 3.2: a previous tick wrote MERGING then crashed/was killed before
+        # recording the outcome (MERGED/MERGE_BLOCKED). Recover crash-safely:
+        # re-attempt the merge (idempotent — an already-merged PR resolves to
+        # MERGED) or fail-closed to MERGE_BLOCKED if the PR is gone.
+        import automation.autopilot_logger as L
+        _active_pr = (state or {}).get("active_pr")
+        if not _active_pr:
+            L.error("MERGING with no active_pr — failing closed (MERGE_BLOCKED)")
+            write_controller_state("MERGE_BLOCKED", cycle=cycle)
+            notify_blocked(
+                f"Cycle {cycle} stuck in MERGING with no active_pr",
+                incident_code="MERGE_BLOCKED", cycle=cycle,
+            )
+        else:
+            L.warn(f"Recovering from MERGING — re-attempting merge of PR #{_active_pr} (idempotent)")
+            _attempt_merge(cycle, int(_active_pr))
+
+    elif status == "MERGED":
+        # ITEM 3.2: the PR merged. This is the ONLY state allowed to advance the
+        # cycle. Clear active_pr and route into the existing POST_CYCLE_PASS
+        # advance machinery (handled by the IDLE/POST_CYCLE_PASS branch next tick).
+        import automation.autopilot_logger as L
+        _active_pr = (state or {}).get("active_pr")
+        if _active_pr:
+            _tick_counter(f"ci_wait_pr{int(_active_pr)}", reset=True)
+            _tick_counter(f"merge_retry_pr{int(_active_pr)}", reset=True)
+        write_controller_state("POST_CYCLE_PASS", cycle=cycle, clear_pr=True)
+        L.ok(f"Cycle {cycle} MERGED — advancing; next tick plans Cycle {cycle + 1}")
+
+    elif status == "MERGE_BLOCKED":
+        # ITEM 3.2: a merge attempt was blocked (CI failed / gate failed / wait
+        # timeout / missing PR). RECOVERABLE: re-enter AWAITING_CI_GREEN after a
+        # bounded number of retries so a transient red/pending self-heals; a
+        # persistent failure stays blocked + notifies (NEVER advances with an
+        # open PR). Idempotent: merge_gate treats an already-merged PR as success.
+        import automation.autopilot_logger as L
+        _active_pr = (state or {}).get("active_pr")
+        if not _active_pr:
+            L.error("MERGE_BLOCKED with no active_pr — operator action required")
+            click.secho("  MERGE_BLOCKED (no active_pr) — staying blocked", fg="red")
+        else:
+            _pr_int = int(_active_pr)
+            _retries = _tick_counter(f"merge_retry_pr{_pr_int}", increment=True)
+            _cap = int(os.environ.get("AUTOPILOT_MERGE_RETRY_MAX", "5"))
+            if _retries <= _cap:
+                L.warn(f"MERGE_BLOCKED retry {_retries}/{_cap} — re-checking CI on PR #{_active_pr}")
+                # Reset the CI-wait counter so the re-entered AWAITING_CI_GREEN
+                # gets a fresh bounded wait window (a transient pending/red can
+                # then self-heal instead of immediately re-timing-out).
+                _tick_counter(f"ci_wait_pr{_pr_int}", reset=True)
+                write_controller_state("AWAITING_CI_GREEN", cycle=cycle)
+            else:
+                L.error(f"MERGE_BLOCKED persistent ({_retries} > {_cap}) on PR #{_active_pr} "
+                        "— operator action required")
+                notify_blocked(
+                    f"Cycle {cycle} merge persistently blocked (PR #{_active_pr})",
+                    body=f"{_retries} retries exhausted; operator must resolve CI/gate.",
+                    incident_code="MERGE_BLOCKED", cycle=cycle,
+                )
 
     elif status == "PR_CREATE_FAILED":
         # ITEM 3.1: the previous run-cycle committed real work but the PR-create
@@ -3032,12 +3256,13 @@ def cmd_merge_gate(pr: int, do_dry_run: bool, execute_merge: bool) -> None:
     click.echo(f"MERGE GATE - PR #{pr} {'[LIVE]' if live else '[DRY RUN]'}")
     click.echo("=" * 60)
     from automation.merge_gate import run as gate_run
-    result = gate_run(pr_number=pr, dry_run=(not execute_merge))
+    # Item 3.2: run() is safe-by-default; the actual merge requires execute=True.
+    result = gate_run(pr_number=pr, dry_run=(not execute_merge), execute=execute_merge)
     click.echo(result.summary())
     click.echo()
     if result.passed:
-        if execute_merge and result.merge_sha:
-            click.secho(f"MERGED to develop: {result.merge_sha}", fg="green", bold=True)
+        if execute_merge and (result.merge_sha or result.already_merged):
+            click.secho(f"MERGED to develop: {result.merge_sha or '(already merged)'}", fg="green", bold=True)
         else:
             click.secho("MERGE GATE PASS - run with --execute-merge to merge", fg="green", bold=True)
     else:
@@ -3168,6 +3393,18 @@ def cmd_status_tick() -> None:
     elif status == "PR_CREATE_FAILED":
         next_action = "RETRY_PR_CREATE"
         reason = "Committed work but PR-create failed — re-attempt open_cycle_pr"
+    elif status == "AWAITING_CI_GREEN":
+        next_action = "WAIT_CI_GREEN"
+        reason = "PR open — waiting for required CI to go green before merge"
+    elif status == "MERGING":
+        next_action = "MERGING"
+        reason = "Required CI green — running merge gate to squash-merge the PR"
+    elif status == "MERGED":
+        next_action = "ADVANCE_CYCLE"
+        reason = "PR merged — advancing to the next cycle"
+    elif status == "MERGE_BLOCKED":
+        next_action = "RETRY_OR_OPERATOR_MERGE"
+        reason = "Merge blocked (CI/gate) — bounded retry then operator action"
     elif status == "POST_CYCLE_PENDING":
         next_action = "POST_CYCLE_REVIEW"
         reason = "Awaiting post-cycle review"
@@ -3293,6 +3530,10 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
             "POST_CYCLE_FAIL": "Cycle FAILED review — check details above",
             "CYCLE_NO_WORK": "Cycle produced no committed work — re-dispatching real work",
             "PR_CREATE_FAILED": "PR-create failed (token/push/verify) — re-attempting open_cycle_pr",
+            "AWAITING_CI_GREEN": "PR open — waiting for required CI to go green before merge",
+            "MERGING": "Required CI green — merge gate squash-merging the PR",
+            "MERGED": "PR merged — advancing to the next cycle",
+            "MERGE_BLOCKED": "Merge blocked (CI/gate) — bounded retry, then operator action",
             "IDLE": "Idle — will compile policy and plan next cycle",
             "MODEL_BLOCKED": "Cursor model gate failed — re-checking...",
             "BRANCH_MISMATCH_BLOCKED": "Wrong git branch — auto-fixing...",

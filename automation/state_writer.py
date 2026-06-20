@@ -116,7 +116,8 @@ def write_controller_state(state: str, cycle: int | None = None,
                             pr: int | None = None,
                             run_id: str | None = None,
                             last_successful: str | None = None,
-                            *, allow_lower: bool = False) -> None:
+                            *, allow_lower: bool = False,
+                            clear_pr: bool = False) -> None:
     """Read-merge-write controller_state.json atomically and monotonically.
 
     The ``active_cycle`` is monotonic by default: a ``cycle`` arg lower than the
@@ -124,6 +125,11 @@ def write_controller_state(state: str, cycle: int | None = None,
     reading can never roll the authoritative cycle backwards. All other field
     updates still apply. Pass ``allow_lower=True`` to bypass the guard for an
     explicit operator override (e.g. force_set).
+
+    ``active_pr`` is sticky once set (so a retry tick can re-read it). Item 3.2:
+    pass ``clear_pr=True`` to DROP ``active_pr`` after a PR has been merged, so
+    the next cycle does not inherit the previous cycle's PR number. ``clear_pr``
+    is applied after the ``pr`` set, so passing both is a no-op clear.
     """
     controller_state_path = _controller_state_path()
     controller_state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +161,8 @@ def write_controller_state(state: str, cycle: int | None = None,
         payload["active_branch"] = branch
     if pr:
         payload["active_pr"] = pr
+    if clear_pr:
+        payload.pop("active_pr", None)
     if last_successful:
         payload["last_successful_state"] = last_successful
     _atomic_write_text(controller_state_path, json.dumps(payload, indent=2))
