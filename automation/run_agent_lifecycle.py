@@ -69,8 +69,17 @@ GLOBAL_PROTECTED_PREFIXES: tuple[str, ...] = (
     "automation/",                         # the runner control plane itself
     ".github/workflows/",                  # CI gate definitions (ci/security/pr-checks)
     "host/",                               # scheduled driver / watchdog / branch-protection
-    "PM_Pack/automation/agent_lanes.yml",  # the ownership definition (no widening own lane)
-    "PM_Pack/automation/merge_policy.yml",  # merge policy
+)
+
+# ITEM 5.6 (Codex P1): everything under PM_Pack/automation/ is runner policy/config
+# (agent_lanes.yml, merge_policy.yml, provider_policy.yml, current_policy_snapshot,
+# ...) and is protected — EXCEPT the runtime-artifact subdirs the runner itself
+# writes (run records, generated prompts, reviews, catalogs). Protecting only the
+# two named YAMLs left provider_policy.yml (provider/cost/git routing) editable by
+# an agent whose lane owns PM_Pack/**.
+_PM_AUTOMATION_PREFIX = "PM_Pack/automation/"
+_PM_AUTOMATION_ARTIFACT_SUBDIRS: tuple[str, ...] = (
+    "runs/", "prompts/", "post_cycle_reviews/", "ref_catalogs/", "drafts/",
 )
 
 
@@ -80,7 +89,14 @@ def _is_protected_path(changed_file: str) -> bool:
     norm = changed_file.replace("\\", "/")
     if norm.startswith("./"):   # strip a leading "./" PREFIX (not lstrip chars —
         norm = norm[2:]         # lstrip("./") would eat the dot of ".github/")
-    return any(norm.startswith(p) for p in GLOBAL_PROTECTED_PREFIXES)
+    if any(norm.startswith(p) for p in GLOBAL_PROTECTED_PREFIXES):
+        return True
+    # PM_Pack/automation policy/config is protected except runtime-artifact subdirs.
+    if norm.startswith(_PM_AUTOMATION_PREFIX):
+        rest = norm[len(_PM_AUTOMATION_PREFIX):]
+        if not any(rest.startswith(art) for art in _PM_AUTOMATION_ARTIFACT_SUBDIRS):
+            return True
+    return False
 
 
 # Legacy hardcoded map (kept for backward-compat; superseded by agent_lanes.yml above)

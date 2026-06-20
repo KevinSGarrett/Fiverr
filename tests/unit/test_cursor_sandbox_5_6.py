@@ -25,6 +25,8 @@ def test_protected_paths_detected():
         "host/set_branch_protection.ps1",
         "PM_Pack/automation/agent_lanes.yml",
         "PM_Pack/automation/merge_policy.yml",
+        "PM_Pack/automation/provider_policy.yml",       # Codex P1: provider/cost/git policy
+        "PM_Pack/automation/current_policy_snapshot.json",  # compiled policy snapshot
     ):
         assert ral._is_protected_path(p) is True, p
 
@@ -37,6 +39,10 @@ def test_product_paths_not_protected():
         "PM_Pack/07_hydration/HYDRATION_HEADER.md",
         "pyproject.toml",
         ".github/ISSUE_TEMPLATE/bug.md",  # not under workflows/
+        # runtime-artifact subdirs the runner itself writes are NOT protected:
+        "PM_Pack/automation/runs/CYCLE_085/agent_runs/B/rec.json",
+        "PM_Pack/automation/prompts/CYCLE_085_AGENT_B_PROMPT.md",
+        "PM_Pack/automation/post_cycle_reviews/cycle_085.json",
     ):
         assert ral._is_protected_path(p) is False, p
 
