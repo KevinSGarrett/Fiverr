@@ -56,6 +56,33 @@ def _get_ownership_rules(agent_id: str) -> dict:
     return rules
 
 
+# ITEM 5.6 (Cursor blast-radius): control-plane / gate-defining paths that NO
+# autonomous Cursor agent may modify, REGARDLESS of its lane. The agents build
+# the Fiverr product (src/, tests/, docs/, PM_Pack content); they must never edit
+# the runner's own control plane, because doing so would let an agent weaken the
+# very gates that constrain it (CI workflows, the scheduled driver, its own
+# ownership lanes, the validators/merge-gate, the merge policy). A change touching
+# any of these is treated as an ownership violation -> excluded from the commit
+# and the agent run is BLOCKED. (Offline guard; the OS-level out-of-repo write
+# confinement is the separate DoD-RW step.)
+GLOBAL_PROTECTED_PREFIXES: tuple[str, ...] = (
+    "automation/",                         # the runner control plane itself
+    ".github/workflows/",                  # CI gate definitions (ci/security/pr-checks)
+    "host/",                               # scheduled driver / watchdog / branch-protection
+    "PM_Pack/automation/agent_lanes.yml",  # the ownership definition (no widening own lane)
+    "PM_Pack/automation/merge_policy.yml",  # merge policy
+)
+
+
+def _is_protected_path(changed_file: str) -> bool:
+    """ITEM 5.6: True if a path is a control-plane / gate-defining file that no
+    agent may modify regardless of its lane."""
+    norm = changed_file.replace("\\", "/")
+    if norm.startswith("./"):   # strip a leading "./" PREFIX (not lstrip chars —
+        norm = norm[2:]         # lstrip("./") would eat the dot of ".github/")
+    return any(norm.startswith(p) for p in GLOBAL_PROTECTED_PREFIXES)
+
+
 # Legacy hardcoded map (kept for backward-compat; superseded by agent_lanes.yml above)
 AGENT_OWNERSHIP: dict = {
     "A": {"allowed": ["PM_Pack/**", "docs/**", ".github/**", "pyproject.toml"], "forbidden": ["src/**"]},
@@ -358,6 +385,13 @@ def _check_ownership(agent_id: str, changed_files: list[str]) -> list[str]:
     violations = []
 
     for changed_file in changed_files:
+        # ITEM 5.6: control-plane / gate-defining paths are forbidden for EVERY
+        # agent, regardless of its lane (an agent must not be able to weaken the
+        # CI gates, the driver, its own lanes, or the runner logic). Checked first.
+        if _is_protected_path(changed_file):
+            violations.append(changed_file)
+            continue
+
         # Check forbidden
         forbidden = any(changed_file.startswith(fp) for fp in forbidden_prefixes)
         if forbidden:

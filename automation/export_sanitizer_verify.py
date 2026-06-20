@@ -74,7 +74,15 @@ def scan_file_for_secrets(path: Path) -> list[str]:
 
 
 def verify_repo_clean(repo_root: Path | None = None) -> tuple[bool, list[str]]:
-    """Scan automation files for inline secret patterns."""
+    """Scan automation files for inline secret patterns.
+
+    NOTE (ITEM 5.6): this is a static automation/-only scan. The COMPREHENSIVE
+    blast-radius scan of agent output across all dirs/types is handled by
+    run_agent_lifecycle's per-changed-file scan (_scan_changed_files) and
+    secret_guard.scan_staged (all staged files, broad pattern set) at the commit
+    gate — scanning the whole repo statically here would false-positive on test
+    fixtures that legitimately contain example secret strings.
+    """
     root = repo_root or Path("C:/Fiverr/Fiverr")
     violations: list[str] = []
     for py_file in (root / "automation").rglob("*.py"):
