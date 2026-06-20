@@ -19,6 +19,10 @@ WITHOUT weakening the gate's anti-degenerate purpose.
 """
 from __future__ import annotations
 
+import os
+import tempfile
+from pathlib import Path
+
 from automation import claude_prompt_creator as cpc
 from automation import prompt_validator
 
@@ -289,6 +293,47 @@ def test_hybrid_budget_exhausted_returns_none(tmp_path, monkeypatch):
         "B", 83, "cycle/083/integration", "PM CONTEXT SCRUM-210", [{"key": "SCRUM-210"}])
     assert out is None
     assert called["n"] == 0, "no batch should run once the budget is already spent"
+
+
+def test_pm_context_embedded_and_sanitized():
+    # Codex P2: the PM context must be embedded in the final prompt (PQ-1 points to
+    # it), and embedding must not corrupt the validator's structural counts — a stray
+    # "END OF PROMPT", "### Task N" heading, or [FILL] stub in the context is neutralized.
+    ctx = ("Wave 11 roadmap. SCRUM-210 AC: behavior.\n"
+           "### Task 3 leftover heading\n[FILL] placeholder\nEND OF PROMPT in notes\n")
+    head = cpc._build_scaffold_head("B", 83, "cycle/083/integration",
+                                    ["SCRUM-210"], pm_context=ctx)
+    tail = cpc._build_scaffold_tail("B", 83)
+    assert "## PM CONTEXT" in head
+    assert "Wave 11 roadmap" in head            # real content preserved
+    assert "END OF PROMPT" not in head          # neutralized in the embedded context
+    assert "### Task 3 leftover" not in head     # heading demoted, won't inflate count
+    assert "[FILL]" not in head                  # stub neutralized
+    # A full assembled prompt with this context still passes the gate.
+    body = "\n\n".join(_authored_task(n) for n in range(1, 61))
+    full = head + "\n" + body + "\n" + tail
+    fd, p = tempfile.mkstemp(suffix=".md")
+    os.close(fd)
+    Path(p).write_text(full, encoding="utf-8")
+    res = prompt_validator.validate(p, "B", 83)
+    assert res.passed is True, res.errors
+    assert res.task_count == 60
+    assert res.end_of_prompt_count == 1
+
+
+def test_batch_request_includes_correction():
+    # Codex P2: on a hybrid retry the exact validator errors are fed into the batch
+    # request so Claude fixes them (convergence parity with the legacy path).
+    lane = cpc._agent_lane_info("B")
+    correction = cpc._quality_correction_block(
+        ["PQ-7a: unique word ratio 5% < 8%", "Word floor violation: 4000 < 6000"])
+    req = cpc._build_task_batch_request(
+        "B", 83, lane, ["SCRUM-210"], 1, 15, "PM CTX", correction=correction)
+    assert "QUALITY GATE FAILURE" in req
+    assert "PQ-7a" in req
+    # Without a correction the block is absent.
+    req0 = cpc._build_task_batch_request("B", 83, lane, ["SCRUM-210"], 1, 15, "PM CTX")
+    assert "QUALITY GATE FAILURE" not in req0
 
 
 def test_renumber_tasks_sequential():

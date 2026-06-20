@@ -810,15 +810,43 @@ def _extract_scrum_keys(jira_issues: list[dict] | None, pm_context: str,
     return out[:limit] if out else ["SCRUM-207"]
 
 
+def _sanitize_context_for_embedding(text: str, max_chars: int = 40000) -> str:
+    """Neutralize tokens that would corrupt the validator's structural counts when the
+    raw PM context is embedded verbatim into a generated prompt: a stray END OF PROMPT
+    (must appear exactly once, in the tail), a ``### Task N`` heading (would inflate
+    task_count), or a stub pattern the gate hard-fails on. Content is preserved;
+    only these few control tokens are demoted. Bounded to ``max_chars``."""
+    t = (text or "")[:max_chars]
+    t = t.replace("END OF PROMPT", "END-OF-PROMPT")
+    # Demote any markdown "### Task N" heading so it is not counted as a real task.
+    t = re.sub(r"^\s*#{1,6}\s*Task\s+(\d+)", r"Task \1", t, flags=re.MULTILINE)
+    for a, b in (
+        ("[FILL]", "(fill)"), ("[TODO]", "(todo)"), ("[STUB", "(stub"),
+        ("populate from PM_Pack", "uses PM_Pack data"),
+        ("<exact agent mission>", "(agent mission)"),
+    ):
+        t = t.replace(a, b)
+    t = re.sub(r"(?im)^\s*fill in\s*$", "(fill in)", t)
+    return t
+
+
 def _build_scaffold_head(agent_id: str, cycle: int, branch: str,
-                         scrum_keys: list[str]) -> str:
-    """Deterministic prompt head: header, model block, and PQ-0..5 sections. Every
-    structural token the validator hard-requires is emitted here BY CONSTRUCTION, so
-    a generated prompt can never be 'missing required content' / 'PQ gate missing'."""
+                         scrum_keys: list[str], pm_context: str = "") -> str:
+    """Deterministic prompt head: header, model block, PQ-0..5 sections, and the
+    embedded PM CONTEXT. Every structural token the validator hard-requires is emitted
+    here BY CONSTRUCTION, so a generated prompt can never be 'missing required content'
+    / 'PQ gate missing'. The PM context (sanitized) is embedded so the prompt Cursor
+    receives actually contains the Jira AC/DOD, spec evidence and prior-cycle state the
+    PQ-1 section points to (Codex review: the hybrid prompt must not dangle that ref)."""
     lane = _agent_lane_info(agent_id)
     owns = "\n".join(f"  - `{p}`" for p in lane["owns"]) or "  - `docs/**`"
     prohibited = "\n".join(f"  - `{p}`" for p in lane["prohibited"]) or "  - (none)"
     keys_line = ", ".join(scrum_keys)
+    ctx_block = _sanitize_context_for_embedding(pm_context)
+    pm_context_section = (
+        f"\n## PM CONTEXT\n{ctx_block}\n" if ctx_block.strip()
+        else "\n## PM CONTEXT\n(No PM context was supplied for this cycle.)\n"
+    )
     return f"""AGENT {agent_id} -- CYCLE {cycle:03d} PROMPT
 # CYCLE {cycle:03d} — AGENT {agent_id} PROMPT
 # Branch: {branch}
@@ -871,7 +899,7 @@ In-scope Jira stories for Agent {agent_id} this cycle: {keys_line}.
 Transition a story to Done only with verifiable evidence (commit SHA, test output, \
 file path). SCRUM-207 is already Done — do NOT rebuild it. Each task below names the \
 specific SCRUM-NNN key it advances.
-
+{pm_context_section}
 ## TASKS
 Complete every task in order. Each follows the fixed skeleton (concrete title, Jira \
 key, real repo file, a runnable implementation fence, and a runnable verify line).
@@ -927,7 +955,8 @@ END OF PROMPT"""
 def _build_task_batch_request(agent_id: str, cycle: int, lane: dict,
                               scrum_keys: list[str], start_n: int, count: int,
                               pm_context: str,
-                              prior_titles: list[str] | None = None) -> str:
+                              prior_titles: list[str] | None = None,
+                              correction: str | None = None) -> str:
     """Build the focused request for ONE batch of task blocks. Claude authors only the
     task bodies (not the scaffold), so each call is small enough to finish under the
     timeout and produce DISTINCT, real, code-bearing tasks instead of padding."""
@@ -957,6 +986,12 @@ def _build_task_batch_request(agent_id: str, cycle: int, lane: dict,
             "\n\nAlready-authored task titles — author DISTINCT NEW work, do NOT "
             f"repeat or paraphrase these:\n{recent}"
         )
+    correct = ""
+    if correction:
+        # The prior assembled prompt failed the quality gate; surface the EXACT
+        # validator errors so this batch fixes them (hybrid convergence, mirroring
+        # the legacy single-shot correction loop).
+        correct = "\n" + correction
     end_n = start_n + count - 1
     return f"""You are the Project Manager authoring task blocks for Agent {agent_id}'s \
 Cycle {cycle:03d} Cursor prompt.
@@ -981,7 +1016,7 @@ specs/repo in PM CONTEXT — never an invented slug, never a placeholder like [F
 - Every task is DISTINCT — anchor each to a different spec section / signature / file. \
 Repeating the same task body fails the anti-paste gate.
 - Real code only: the implementation is the actual signature/logic from the spec, not \
-filler.{avoid}
+filler.{avoid}{correct}
 
 ## PM CONTEXT (specs, Jira board, existing src tree — derive REAL tasks from this)
 {pm_context}
@@ -1027,19 +1062,22 @@ def _count_authored_tasks(text: str) -> int:
 
 def _generate_agent_prompt_hybrid(agent_id: str, cycle: int, branch: str,
                                   pm_context: str,
-                                  jira_issues: list[dict] | None) -> str | None:
+                                  jira_issues: list[dict] | None,
+                                  correction: str | None = None) -> str | None:
     """GEN-QUALITY hybrid producer: deterministic scaffold + Claude-authored task
     batches. Returns the assembled prompt text (still validated by the caller), or
     None if no task blocks could be produced. Batches until the task target is hit or
     the round cap is reached, feeding already-authored titles back so each batch adds
-    DISTINCT work (keeps the anti-paste unique-word ratio healthy)."""
+    DISTINCT work (keeps the anti-paste unique-word ratio healthy). On a retry the
+    caller passes ``correction`` (the prior attempt's exact validator errors) so the
+    batch requests fix those specific deficiencies — hybrid convergence."""
     import time as _t
 
     import automation.autopilot_logger as L
 
     lane = _agent_lane_info(agent_id)
     scrum_keys = _extract_scrum_keys(jira_issues, pm_context)
-    head = _build_scaffold_head(agent_id, cycle, branch, scrum_keys)
+    head = _build_scaffold_head(agent_id, cycle, branch, scrum_keys, pm_context)
     tail = _build_scaffold_tail(agent_id, cycle)
 
     parts: list[str] = []
@@ -1060,7 +1098,7 @@ def _generate_agent_prompt_hybrid(agent_id: str, cycle: int, branch: str,
         count = min(GEN_BATCH_SIZE, GEN_TARGET_TASKS - ntasks)
         req = _build_task_batch_request(
             agent_id, cycle, lane, scrum_keys, next_n, count, pm_context,
-            prior_titles=titles,
+            prior_titles=titles, correction=correction,
         )
         instruction = (
             f"Author {count} Cursor task blocks for Agent {agent_id}, Cycle "
@@ -1180,7 +1218,8 @@ def create_agent_prompts_via_claude(
         prompt_text = None
         _accepted = False  # GEN-QUALITY: True only when the prompt PASSES the gate
         elapsed = 0.0
-        _req = request_text  # GEN-QUALITY: grows a correction block on retry
+        _req = request_text  # GEN-QUALITY: grows a correction block on retry (legacy)
+        _hybrid_correction: str | None = None  # GEN-QUALITY: hybrid retry correction
         for _attempt in range(1, PM_MAX_ATTEMPTS + 1):
             t0 = _t.time()
             with L.Spinner(
@@ -1193,6 +1232,7 @@ def create_agent_prompts_via_claude(
                     # authors distinct code-bearing task bodies in bounded batches.
                     _candidate = _generate_agent_prompt_hybrid(
                         agent_id, cycle, branch, pm_context, jira_issues,
+                        correction=_hybrid_correction,
                     )
                 else:
                     _candidate = _call_claude_pm(agent_id, cycle, _req)
@@ -1227,7 +1267,11 @@ def create_agent_prompts_via_claude(
                         f"after {PM_MAX_ATTEMPTS} attempts — downstream gate will halt the cycle"
                     )
                     break
-                _req = request_text + _quality_correction_block(_verrs)
+                # Feed the EXACT validator errors back to BOTH paths on retry: the
+                # legacy single-shot request and the hybrid batch requests.
+                _correction = _quality_correction_block(_verrs)
+                _req = request_text + _correction
+                _hybrid_correction = _correction
             if _attempt < PM_MAX_ATTEMPTS:
                 _backoff = min(
                     PM_RETRY_BACKOFF_BASE * (2 ** (_attempt - 1)),
