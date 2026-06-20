@@ -1646,7 +1646,10 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     # double-opens. On ANY failure (no token / push fail / not verified) we FAIL
     # CLOSED: write a recoverable PR_CREATE_FAILED + notify, and SystemExit(1) —
     # never silently proceed to post-cycle without a PR.
-    if _committed_agents:
+    # Gate on `not failures` (Codex P1 #118): if an earlier agent committed but a
+    # LATER agent failed, we must NOT publish a PR for a partial/failed cycle —
+    # fall through to the failure branch below (which SystemExit(1)s).
+    if _committed_agents and not failures:
         from automation import pr_builder
         _pr = pr_builder.open_cycle_pr(cycle)
         _pr_ok = bool(_pr.get("created")) or bool(_pr.get("existing"))
@@ -2309,7 +2312,19 @@ def cmd_tick() -> None:
                     click.secho(f"  Cycle {cycle} dispatched and complete.", fg="green", bold=True)
                 else:
                     click.secho(f"  [WARN] run-cycle exited {rc}: {out.strip()[-300:]}", fg="yellow")
-                    write_controller_state("PLANNED", cycle=cycle)  # reset for retry
+                    # Codex P1 #118: run-cycle may have deliberately set a
+                    # recoverable state (PR_CREATE_FAILED / CYCLE_NO_WORK) before
+                    # exiting non-zero. Do NOT clobber those with PLANNED — that
+                    # would bypass their dedicated tick-recovery branches and
+                    # redispatch the whole cycle. Only reset for generic failures.
+                    _post_status = (_read_runner_state().get("status") or "")
+                    if _post_status in ("PR_CREATE_FAILED", "CYCLE_NO_WORK"):
+                        click.secho(
+                            f"  Preserving {_post_status} for its recovery branch.",
+                            fg="yellow",
+                        )
+                    else:
+                        write_controller_state("PLANNED", cycle=cycle)  # reset for retry
 
     elif status == "AGENT_COMPLETE":
         import automation.autopilot_logger as L

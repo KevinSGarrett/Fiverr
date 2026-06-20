@@ -393,3 +393,59 @@ def test_pr_create_failed_tick_stays_on_repeat_failure(offline, capture_notifica
     state = json.loads((runner_paths.state_dir() / "controller_state.json").read_text())
     assert state["status"] == "PR_CREATE_FAILED"
     assert [c for c in capture_notifications if c["incident_code"] == "PR_CREATE_FAILED"]
+
+
+# ── Codex P1 regressions (#118) ──────────────────────────────────────────────
+def test_no_pr_when_an_agent_fails(offline, monkeypatch):
+    """Codex P1 #118: committed work + a FAILED agent must NOT open a PR."""
+    import automation.ai_cycle_controller as ctrl_mod
+    cycle = 302
+    for ag in ["A", "B", "E", "C", "D"]:
+        _write_record(cycle, ag, commit_sha=f"sha_{ag}")
+
+    def _rs(args, *a, **k):  # noqa: ANN001
+        if "--agent" in args and "F" in args:
+            return (1, "agent F boom")
+        return (0, "ok")
+
+    monkeypatch.setattr(ctrl_mod, "_run_and_stream", _rs)
+    called: list[int] = []
+    monkeypatch.setattr(
+        pr_builder, "open_cycle_pr",
+        lambda c, *a, **k: (called.append(c), {"created": True})[1],
+    )
+    result = CliRunner().invoke(cli, ["run-cycle", "--cycle", str(cycle)])
+    assert result.exit_code == 1, result.output
+    assert called == [], "no PR may be opened when any agent failed"
+
+
+def test_tick_preserves_pr_create_failed_state(offline, monkeypatch):
+    """Codex P1 #118: the tick dispatch wrapper must NOT clobber PR_CREATE_FAILED
+    (set by run-cycle on exit 1) with PLANNED — that would bypass the recovery branch."""
+    import automation.ai_cycle_controller as ctrl_mod
+    from automation.state_writer import write_controller_state
+    cycle = 303
+    write_controller_state("READY_TO_DISPATCH", cycle=cycle)
+
+    import automation.model_gate as mg
+
+    class _G:
+        passed = True
+
+        def summary(self):  # noqa: ANN201
+            return "ok"
+
+    monkeypatch.setattr(mg, "check", lambda *a, **k: _G())
+    import automation.claude_sub_gate as csg
+    monkeypatch.setattr(csg, "check_api_key_absent", lambda *a, **k: {"passed": True})
+
+    def _fake_shell(args, *a, **k):  # noqa: ANN001
+        if "run-cycle" in args:
+            write_controller_state("PR_CREATE_FAILED", cycle=cycle)
+            return (1, "pr create failed")
+        return (0, "")
+
+    monkeypatch.setattr(ctrl_mod, "_run_shell_command", _fake_shell)
+    CliRunner().invoke(cli, ["tick"])
+    state = json.loads((runner_paths.state_dir() / "controller_state.json").read_text())
+    assert state["status"] == "PR_CREATE_FAILED", state
