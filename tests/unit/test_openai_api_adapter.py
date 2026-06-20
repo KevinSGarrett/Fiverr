@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
+from automation import runner_paths
 from automation.adapters import openai_api_adapter as oaa
 from automation.adapters.openai_api_adapter import AdapterBlockedError, OpenAIApiAdapter
 
@@ -113,7 +113,9 @@ def test_send_prompt_writes_advisory_file(monkeypatch: pytest.MonkeyPatch, fake_
     )
     result = adapter.send_prompt("hello", task_type="prompt_lint", cycle="079")
     assert result.status in {"SUCCESS", "ERROR"}
-    advisory_root = Path("C:/AI_Runner/runs/CYCLE_079/openai_advisory")
+    # Advisory writes go under the active runner root (tmp during tests, never the
+    # live C:/AI_Runner root) -- see automation.runner_paths.runs_dir().
+    advisory_root = runner_paths.runs_dir() / "CYCLE_079" / "openai_advisory"
     assert advisory_root.exists()
     advisory_files = sorted(advisory_root.glob("openai_advisory_*.json"))
     assert advisory_files
