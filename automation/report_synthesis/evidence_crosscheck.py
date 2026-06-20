@@ -208,8 +208,11 @@ _HARD_DISCREPANCIES = {FLAG_NO_COMMIT, FLAG_CI_RED}
 
 def _compute_verdict(claimed: ClaimedAgentReport, discrepancies: list[str]) -> str:
     """Map (claims, discrepancies) → AgentVerdict per the documented ladder."""
-    # NO_REPORT: nothing was parsed at all
-    if not claimed.verdict and not claimed.tasks:
+    # NO_REPORT means "nothing parsed at all" — a missing file or a title-only
+    # stub. A real markdown report (claimed files / summary / tasks / verdict)
+    # is NOT NO_REPORT, even when it lacks an ARSF:MANIFEST block; its verdict
+    # comes from the evidence cross-check below. (Item 2.2)
+    if claimed.is_empty():
         return AgentVerdict.NO_REPORT.value
 
     # Any hard discrepancy that means the agent lied about completing

@@ -158,12 +158,19 @@ def _aggregate(cs: CycleSynthesis) -> None:
         for a, s in cs.agents.items()
         if s.verdict in (AgentVerdict.CLAIMED_ONLY.value, AgentVerdict.FAILED.value)
     ]
-    # format_health: how many reports have no MANIFEST violation
+    # format_health: how many reports have no MANIFEST violation (manifest-conforming)
     conforming = sum(
         1 for s in cs.agents.values()
         if s.claimed and not any("MANIFEST" in v for v in s.claimed.format_violations)
     )
     cs.format_health = f"{conforming}/{len(cs.agents)}"
+    # parsed_ok: how many reports parsed to real content (verdict != NO_REPORT).
+    # This is the CONTENT health the gate keys on — a markdown report with real
+    # claimed content counts here even without an ARSF:MANIFEST block. (Item 2.2)
+    parsed = sum(
+        1 for s in cs.agents.values() if s.verdict != AgentVerdict.NO_REPORT.value
+    )
+    cs.parsed_ok = f"{parsed}/{len(cs.agents)}"
 
 
 # ── ICV fold (RSF-22) ────────────────────────────────────────────────────────
@@ -186,16 +193,38 @@ def _fold_icv(cs: CycleSynthesis, agent: str, synth: AgentReportSynthesis) -> No
 # ── Persistence (RSF-15) ─────────────────────────────────────────────────────
 
 def _persist(cs: CycleSynthesis, runs_dir: Path) -> None:
+    """RSF-15 / Item 2.2: persist the synthesis durably.
+
+    Writes three places (best-effort; a failure on one does not block others):
+      1. ``runs_dir/CYCLE_NNN_SYNTHESIS.json``  — machine-readable, the path
+         ``load_cycle_synthesis`` reads back by default.
+      2. ``docs/cycle_reports/CYCLE_NNN_SYNTHESIS.{json,md}`` — tracked, so the
+         parsed verdict/content survives in the repo alongside the agent reports.
+      3. ``runner_root/runs/CYCLE_NNN/CYCLE_NNN_SYNTHESIS.json`` — mirrored to the
+         runner-state root so it survives branch switches / worktree resets.
+    """
+    payload = json.dumps(_synthesis_to_dict(cs), indent=2)
+    md_payload = _synthesis_to_md(cs)
+    stem = f"CYCLE_{cs.cycle:03d}_SYNTHESIS"
+
+    # (1) Primary runs_dir JSON (load_cycle_synthesis default location).
     runs_dir.mkdir(parents=True, exist_ok=True)
+    (runs_dir / f"{stem}.json").write_text(payload, encoding="utf-8")
 
-    # JSON (machine)
-    json_path = runs_dir / f"CYCLE_{cs.cycle:03d}_SYNTHESIS.json"
-    json_path.write_text(json.dumps(_synthesis_to_dict(cs), indent=2), encoding="utf-8")
+    # (2) Tracked docs/cycle_reports JSON + Markdown.
+    docs_dir = REPO_ROOT / "docs/cycle_reports"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (docs_dir / f"{stem}.json").write_text(payload, encoding="utf-8")
+    (docs_dir / f"{stem}.md").write_text(md_payload, encoding="utf-8")
 
-    # Markdown (human)
-    md_path = REPO_ROOT / "docs/cycle_reports" / f"CYCLE_{cs.cycle:03d}_SYNTHESIS.md"
-    md_path.parent.mkdir(parents=True, exist_ok=True)
-    md_path.write_text(_synthesis_to_md(cs), encoding="utf-8")
+    # (3) Mirror to the runner-state root (survives branch switches).
+    try:
+        from automation import runner_paths
+        mirror_dir = runner_paths.runs_dir() / f"CYCLE_{cs.cycle:03d}"
+        mirror_dir.mkdir(parents=True, exist_ok=True)
+        (mirror_dir / f"{stem}.json").write_text(payload, encoding="utf-8")
+    except Exception as exc:  # never block on the mirror
+        log.warning("ARSF: runner-root mirror failed: %s", exc)
 
     log.info("ARSF: persisted synthesis for cycle %d", cs.cycle)
 
@@ -208,7 +237,7 @@ def _emit_banner(cs: CycleSynthesis) -> None:
     banner = (
         f"ARSF: cycle {cs.cycle:03d} → {delivered}/6 DELIVERED"
         + (f", {','.join(claimed_only)}=CLAIMED_ONLY" if claimed_only else "")
-        + f"; reports {cs.format_health} conform"
+        + f"; reports {cs.format_health} conform, {cs.parsed_ok} parsed"
     )
     print(banner)
     log.info(banner)
@@ -232,12 +261,17 @@ def _synthesis_to_dict(cs: CycleSynthesis) -> dict:
         "cycle": cs.cycle,
         "cycle_verdict": cs.cycle_verdict,
         "format_health": cs.format_health,
+        "parsed_ok": cs.parsed_ok,
         "carryover": cs.carryover,
         "top_risks": cs.top_risks,
         "pm_markdown": cs.pm_markdown,
         "agents": {
             a: {
                 "verdict": s.verdict,
+                "parse_source": (s.claimed.parse_source if s.claimed else "none"),
+                "claimed_files": (
+                    (s.claimed.files_created + s.claimed.files_modified) if s.claimed else []
+                ),
                 "discrepancies": s.discrepancies,
                 "actual_commits": s.actual_commits,
                 "actual_files": s.actual_files,
@@ -259,6 +293,7 @@ def _synthesis_from_dict(data: dict) -> CycleSynthesis:
         cycle=int(data.get("cycle", 0)),
         cycle_verdict=data.get("cycle_verdict", ""),
         format_health=data.get("format_health", ""),
+        parsed_ok=data.get("parsed_ok", ""),
         carryover=list(data.get("carryover", [])),
         top_risks=list(data.get("top_risks", [])),
         pm_markdown=data.get("pm_markdown", ""),
@@ -287,6 +322,7 @@ def _synthesis_to_md(cs: CycleSynthesis) -> str:
         "",
         f"**Cycle verdict:** {cs.cycle_verdict}  ",
         f"**Format health:** {cs.format_health}  ",
+        f"**Parsed OK:** {cs.parsed_ok}  ",
         "",
         "## Per-agent summary",
         "",
