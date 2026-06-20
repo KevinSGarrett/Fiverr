@@ -573,6 +573,7 @@ def tick_header(num: int, status: str, cycle: int) -> None:
         "POST_CYCLE_PASS": "green",
         "POST_CYCLE_FAIL": "red",
         "CYCLE_NO_WORK": "yellow",
+        "PR_CREATE_FAILED": "red",
         "MODEL_BLOCKED": "red",
         "BRANCH_MISMATCH_BLOCKED": "red",
     }

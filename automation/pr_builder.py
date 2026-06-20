@@ -189,6 +189,146 @@ def update_pr(pr_number: int, body: str) -> dict:
     return {"updated": r.returncode == 0, "error": r.stderr.strip() if r.returncode != 0 else ""}
 
 
+def _ensure_gh_token() -> str:
+    """Export GH_TOKEN for the gh CLI from the first available token.
+
+    ``gh`` does NOT read ``GH_AUTOMATION_TOKEN`` — it only honours ``GH_TOKEN``
+    (and ``GITHUB_TOKEN``). We source a token from, in order:
+    ``GH_AUTOMATION_TOKEN`` → ``GH_TOKEN`` → ``GITHUB_TOKEN`` and, when found,
+    set ``os.environ["GH_TOKEN"]`` so every subsequent gh subprocess inherits it.
+
+    Returns the resolved token (empty string when none is available).
+    """
+    import os
+    token = (
+        os.environ.get("GH_AUTOMATION_TOKEN")
+        or os.environ.get("GH_TOKEN")
+        or os.environ.get("GITHUB_TOKEN")
+        or ""
+    ).strip()
+    if token:
+        os.environ["GH_TOKEN"] = token
+    return token
+
+
+def open_cycle_pr(cycle: int, base: str = "develop") -> dict:
+    """ITEM 3.1: deterministically open (or find) the cycle's PR — fail closed.
+
+    The autonomous loop calls this AFTER the work-proof gate confirms real
+    committed work. The Controller is the sole git authority (G1): the push +
+    PR-create live here, never in an agent.
+
+    Steps (all subprocess-based; no exception escapes — always returns a dict):
+      1. Resolve + export GH_TOKEN (gh ignores GH_AUTOMATION_TOKEN). No token →
+         ``{"created": False, "error": "no gh token"}`` (caller fails closed).
+      2. Push the cycle branch ``cycle/NNN/integration``. Push fail → error.
+      3. Duplicate guard: an existing OPEN PR for the head returns
+         ``{"created": False, "existing": True, "pr_number", "url"}`` — NOT an
+         error (idempotent; a retry tick must not double-open).
+      4. Otherwise ``create_pr`` then GitHub-VERIFY via ``gh pr view`` before
+         reporting success — never trust the self-reported create JSON alone.
+
+    Returns: ``{"created", "existing", "pr_number", "url", "verified", "error"}``.
+    """
+    import subprocess
+
+    branch = f"cycle/{cycle:03d}/integration"
+    result: dict = {
+        "created": False,
+        "existing": False,
+        "pr_number": None,
+        "url": "",
+        "verified": False,
+        "error": "",
+    }
+
+    # (1) Token — fail closed when absent (no gh/git calls at all).
+    token = _ensure_gh_token()
+    if not token:
+        result["error"] = "no gh token"
+        return result
+
+    # (2) Push the cycle branch. Controller is the only pusher (G1).
+    try:
+        push = subprocess.run(
+            ["git", "push", "-u", "origin", branch],
+            capture_output=True, text=True,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        result["error"] = f"git push raised: {exc}"
+        return result
+    if push.returncode != 0:
+        result["error"] = f"push failed: {push.stderr.strip() or push.stdout.strip()}"
+        return result
+
+    # (3) Duplicate-PR guard — query GitHub for an existing OPEN PR on the head.
+    try:
+        listing = subprocess.run(
+            ["gh", "pr", "list",
+             "--repo", "KevinSGarrett/Fiverr",
+             "--head", branch,
+             "--state", "open",
+             "--json", "number,url"],
+            capture_output=True, text=True,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        result["error"] = f"gh pr list raised: {exc}"
+        return result
+    if listing.returncode != 0:
+        result["error"] = f"gh pr list failed: {listing.stderr.strip()}"
+        return result
+    import json as _json
+    try:
+        existing_prs = _json.loads(listing.stdout.strip() or "[]")
+    except Exception:
+        existing_prs = []
+    if existing_prs:
+        first = existing_prs[0]
+        result["existing"] = True
+        result["pr_number"] = first.get("number")
+        result["url"] = first.get("url", "")
+        return result
+
+    # (4) Create the PR, then GitHub-VERIFY it exists before reporting success.
+    created = create_pr(cycle, branch, base=base)
+    if not created.get("created"):
+        result["error"] = created.get("error") or "create_pr failed"
+        return result
+
+    pr_number = created.get("pr_number")
+    result["pr_number"] = pr_number
+    result["url"] = created.get("url", "")
+
+    if pr_number is None:
+        result["error"] = "create_pr returned no pr_number"
+        return result
+
+    try:
+        view = subprocess.run(
+            ["gh", "pr", "view", str(pr_number),
+             "--repo", "KevinSGarrett/Fiverr",
+             "--json", "number,state"],
+            capture_output=True, text=True,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        result["error"] = f"gh pr view raised: {exc}"
+        return result
+    if view.returncode != 0:
+        result["error"] = f"verify failed: {view.stderr.strip()}"
+        return result
+    try:
+        viewed = _json.loads(view.stdout.strip() or "{}")
+    except Exception:
+        viewed = {}
+    if viewed.get("number") == pr_number:
+        result["created"] = True
+        result["verified"] = True
+        return result
+
+    result["error"] = "verify mismatch: gh pr view did not confirm the PR"
+    return result
+
+
 def validate_pr_body(body: str, jira_keys: list[str]) -> dict:
     """GJCI-017: Validate PR body has required sections and Jira keys."""
     errors = []
