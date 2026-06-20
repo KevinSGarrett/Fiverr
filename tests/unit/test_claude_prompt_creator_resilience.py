@@ -41,6 +41,12 @@ def _patch_common(monkeypatch, cpc, fake_call):
     monkeypatch.setattr(cpc, "_build_agent_prompt_request", lambda **k: f"REQ {k.get('agent_id')}")
     monkeypatch.setattr(cpc, "_call_claude_pm", fake_call)
     monkeypatch.setattr(cpc, "_announce_pm_model", lambda *a, **k: None, raising=False)
+    # GEN-QUALITY added an in-process validate()->regenerate loop; these tests pin
+    # the retry/reuse/spacing layer (not prompt quality), so accept any candidate
+    # so the validate step does not trigger an extra regeneration.
+    from types import SimpleNamespace as _SNS
+    monkeypatch.setattr(cpc, "_validate_generated_prompt",
+                        lambda *a, **k: _SNS(passed=True, errors=[]), raising=False)
 
     # Silence/avoid side effects from the live event bus (local import inside fn).
     import automation.live_events as _le

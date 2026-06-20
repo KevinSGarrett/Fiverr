@@ -125,12 +125,17 @@ PM_MIN_PROMPT_CHARS   = _pm_int_env("PM_MIN_PROMPT_CHARS", 2000)  # resume-reuse
 CLAUDE_TIMEOUT        = _pm_int_env("CLAUDE_PM_TIMEOUT", 900)     # seconds per agent
 
 
-def _pm_existing_prompt_ok(prompt_path: Path) -> bool:
+def _pm_existing_prompt_ok(prompt_path: Path, agent_id: str | None = None,
+                          cycle: int | None = None) -> bool:
     """PMR resume-from-partial gate: True if a substantial, real prompt already
     exists for this agent on disk, so it can be reused instead of regenerated.
 
     Stub placeholders written by plan-cycle (~200 chars, containing "[STUB")
     are deliberately NOT treated as reusable, so a fresh cycle still generates.
+
+    GEN-QUALITY: when agent_id and cycle are given, the existing prompt must ALSO
+    PASS the item-1.3 quality gate to be reused — otherwise a degenerate prompt
+    left on disk (e.g. by an older runner) would be silently resumed and dispatched.
     """
     try:
         if not prompt_path.exists():
@@ -140,6 +145,10 @@ def _pm_existing_prompt_ok(prompt_path: Path) -> bool:
             return False
         if "[STUB" in text or "populate from PM_Pack" in text:
             return False
+        if agent_id is not None and cycle is not None:
+            _vr = _validate_generated_prompt(prompt_path, agent_id, cycle)
+            if _vr is not None and not getattr(_vr, "passed", False):
+                return False  # on-disk prompt fails the quality gate — regenerate
         return True
     except Exception:
         return False
@@ -515,20 +524,81 @@ Your job: Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cy
 3. Include the 9 niche IDs: prd_ai_saas | support_kb_readiness | gumloop_lindy_workflow | mcp_ai_agent | python_automation | ai_tool_llm_integration | ai_agent_development | workflow_automation | python_web_scraping
 4. Include production readiness gates (G-A through G-D status)
 5. Generate EXACTLY 55-70 LARGE/XLARGE/XXLARGE tasks (policy floor = 55)
-6. Every task MUST have:
-   - The specific Jira key it addresses (SCRUM-XXX)
-   - Executable Python or PowerShell code to run
-   - Expected output / verification step
-   - The specific file path to create or modify
-   - The exact function signature or class definition from the spec
-   - Acceptance criteria items from the Jira story (must be verifiable)
-   - DOD checklist items the agent must complete before marking task done
+6. PER-TASK SKELETON — EVERY task MUST follow this EXACT shape (a downstream
+   validator parses it; deviating fails the quality gate and the prompt is
+   rejected). Each task block:
+     ### Task N: <concrete title>
+     - Jira: SCRUM-XXX  (the real key this task addresses)
+     - File: a CONCRETE repo path matching `(?:src|automation|tests|docs)/<name>.py`
+       — taken from the spec's stated target header or the EXISTING src/ tree in
+       the PM CONTEXT, NEVER an invented slug.
+     - Implementation (a runnable fenced block — ```python or ```bash):
+       ```python
+       # src/<module>.py  — the real signature/class from the spec
+       def <name>(...) -> ...:
+           ...
+       ```
+     - Verify (a runnable check whose line literally contains one of:
+       `assert` / `expected output:` / `PASS` / `exit 0` / `== `):
+       ```bash
+       python -c "import src.<module> as m; assert hasattr(m, '<name>')"  # expected output: exit 0
+       ```
+     - Acceptance criteria: the verifiable AC items from the Jira story.
+     - DOD: checklist items to complete before marking the task done.
+   QUALITY FLOORS the generated prompt MUST clear (the validator enforces these):
+     - >= 55 task blocks, >= 6000 words, >= 150 lines.
+     - >= 30% of tasks contain at least one ``` fenced code block.
+     - >= 20% of tasks contain ALL THREE co-located: a ``` fence + a
+       `(?:src|automation|tests|docs)/...py` path + a verify token.
+     - >= 40% unique-word ratio (do NOT paste the same task body repeatedly —
+       anchor each task to a DISTINCT spec section / signature / file).
+   AIM for ~100% of tasks to satisfy the full code+path+verify shape so the cycle
+   clears the floors with margin. The code/paths/verify MUST be REAL (drawn from
+   the specs and repo in the PM CONTEXT) — never filler invented to pad ratios.
 7. Tasks MUST reference the IN-SCOPE PLAYBOOK stories listed in the PM CONTEXT above. Derive the target stories from the Jira board state, NOT a hardcoded list.
 8. SCRUM-207 is already Done — do NOT rebuild it
 9. Include a squash SHA placeholder: [C{cycle:03d}_SQUASH_SHA]
 10. Include base SHA, suite count, coverage % from the PM context
 11. Include the PERMANENT REGRESSION PACK (all must still pass)
 12. End with an authorization statement confirming policy v4.3 compliance
+
+## MANDATORY PROMPT-WIDE REQUIREMENTS (a validator REJECTS the prompt if any is missing)
+The prompt you generate MUST contain ALL of the following — emit them or the cycle
+is refused (do not rely on the PM context having them; put them in the prompt):
+- A model block line, verbatim: `Model: Codex 5.3 (gpt-5.3-codex) at medium effort. Auto model DISABLED.`
+- These SIX section headers, each on its own line (verbatim tokens the validator scans):
+  `## PQ-0 identity`
+  `## PQ-1 project context`
+  `## PQ-2 your role / file ownership`
+  `## PQ-3 git instructions`
+  `## PQ-4 autonomy`
+  `## PQ-5 jira scope`
+- Under PQ-4, a line beginning `Autonomy rule:` stating the agent proceeds without asking.
+- The repo root `C:/Fiverr/Fiverr` and the integration branch `cycle/{cycle:03d}/integration`.
+- At least one Jira key in the form `SCRUM-NNN`.
+- The report path `docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md`.
+- A validation block containing all THREE commands:
+  `python -m ruff check automation/ src/ tests/`
+  `python -m mypy src`
+  `python -m pytest tests/unit/ -q`
+- >= 55 task blocks, >= 6000 words, >= 150 lines.
+- The prompt MUST END with a single final line exactly: `END OF PROMPT` (appearing EXACTLY ONCE, nowhere else).
+
+## GOLD EXAMPLE TASK (replicate this exact shape with REAL spec content)
+### Task 7: Add GIG_DETAIL_THUMBNAIL selector to the Fiverr selector registry
+- Jira: SCRUM-214
+- File: src/collection/fiverr_selectors.py
+- Implementation:
+```python
+# src/collection/fiverr_selectors.py
+GIG_DETAIL_THUMBNAIL = "div.gig-page-gallery img.thumbnail"  # primary gig hero image
+```
+- Verify:
+```bash
+python -c "import src.collection.fiverr_selectors as s; assert hasattr(s, 'GIG_DETAIL_THUMBNAIL')"  # expected output: exit 0
+```
+- Acceptance criteria: selector resolves on a saved gig fixture; no regression in existing selector tests.
+- DOD: code committed; `python -m pytest tests/unit/test_fiverr_selectors.py -q` passes (exit 0).
 
 ## JIRA UPDATE REQUIREMENTS
 For Agent {agent_id}, include tasks to:
@@ -564,6 +634,7 @@ Generate ONLY the agent prompt text. Start with the header line:
 
 Do not add preamble. Do not add explanation after the prompt.
 The prompt should be 3,000-5,000 lines for implementation agents (B), 1,500-3,000 for others.
+End the prompt with a single final line exactly: END OF PROMPT (exactly once, nothing after it).
 """
 
     # RSF-45: ARSF — inject this agent's carried directives as non-droppable tasks
@@ -585,6 +656,35 @@ The prompt should be 3,000-5,000 lines for implementation agents (B), 1,500-3,00
         pass  # non-blocking; if no directives, nothing is added
 
     return req
+
+
+def _validate_generated_prompt(prompt_path: Path, agent_id: str, cycle: int):
+    """GEN-QUALITY: run the item-1.3 quality gate in-process on a freshly
+    generated prompt. Returns the validation result, or None if the validator is
+    unavailable (caller then defers to the downstream validate_all gate)."""
+    try:
+        from automation import prompt_validator as _pv
+        return _pv.validate(prompt_path, agent_id, cycle)
+    except Exception:
+        return None
+
+
+def _quality_correction_block(errors: list[str]) -> str:
+    """GEN-QUALITY: correction block appended to the next regeneration request,
+    naming the EXACT quality-gate deficiencies so Claude fixes them and converges
+    on a gate-passing prompt (instead of emitting degenerate output rejected
+    downstream)."""
+    bullets = "\n".join(f"  - {e}" for e in (errors or [])[:12])
+    return (
+        "\n\n## QUALITY GATE FAILURE — REGENERATE TO FIX THESE EXACT DEFECTS\n"
+        "Your previous prompt was REJECTED by the validator. Fix EVERY item below "
+        "and regenerate the FULL prompt (not a diff):\n"
+        f"{bullets}\n"
+        "Honor the PER-TASK SKELETON and QUALITY FLOORS above: every task needs a "
+        "``` fenced code block + a concrete (?:src|automation|tests|docs)/...py path "
+        "+ a verify token (assert / expected output: / PASS / exit 0 / ==), built "
+        "from REAL spec/repo content. Aim for ~100% authored tasks for margin.\n"
+    )
 
 
 def create_agent_prompts_via_claude(
@@ -648,7 +748,7 @@ def create_agent_prompts_via_claude(
         # PMR resume-from-partial: if a substantial prompt for this agent already
         # exists (e.g. from a prior attempt that paused at partial), reuse it
         # rather than spending another expensive generation on it.
-        if _pm_existing_prompt_ok(prompt_path):
+        if _pm_existing_prompt_ok(prompt_path, agent_id, cycle):
             written[agent_id] = prompt_path
             _emit("CLAUDE_PM", f"Agent {agent_id} prompt REUSED (resume-from-partial)", agent=agent_id, cycle=cycle, status="OK")
             L.info(f"PMR: Agent {agent_id} prompt already present ({prompt_path.stat().st_size} bytes) — reusing, skipping regeneration")
@@ -669,28 +769,57 @@ def create_agent_prompts_via_claude(
         # timeout / non-zero rc / short output — exactly the transient failures a
         # rate/usage-limit trip produces. Retry instead of aborting the cycle.
         prompt_text = None
+        _accepted = False  # GEN-QUALITY: True only when the prompt PASSES the gate
         elapsed = 0.0
+        _req = request_text  # GEN-QUALITY: grows a correction block on retry
         for _attempt in range(1, PM_MAX_ATTEMPTS + 1):
             t0 = _t.time()
             with L.Spinner(
                 f"Claude PM -> Agent {agent_id} "
                 f"(attempt {_attempt}/{PM_MAX_ATTEMPTS}, timeout {CLAUDE_TIMEOUT//60}m)"
             ):
-                prompt_text = _call_claude_pm(agent_id, cycle, request_text)
+                _candidate = _call_claude_pm(agent_id, cycle, _req)
             elapsed = _t.time() - t0
-            if prompt_text:
-                if _attempt > 1:
-                    L.ok(f"PMR: Agent {agent_id} succeeded on attempt {_attempt}/{PM_MAX_ATTEMPTS}")
-                break
+            # GEN-QUALITY: accept only a candidate that PASSES the item-1.3 quality
+            # gate. Write it, validate in-process, and on failure feed the EXACT
+            # deficiencies back to Claude as a correction block and regenerate
+            # (bounded by PM_MAX_ATTEMPTS) so the generator converges on a
+            # gate-passing prompt instead of emitting degenerate output rejected
+            # downstream. An empty/short candidate is the existing transient case.
+            if _candidate:
+                prompt_path.write_text(_candidate, encoding="utf-8")
+                _vr = _validate_generated_prompt(prompt_path, agent_id, cycle)
+                if _vr is None or getattr(_vr, "passed", False):
+                    prompt_text = _candidate
+                    _accepted = True  # passed the gate (or validator unavailable)
+                    if _attempt > 1:
+                        L.ok(f"PMR: Agent {agent_id} succeeded on attempt {_attempt}/{PM_MAX_ATTEMPTS}")
+                    break
+                _verrs = list(getattr(_vr, "errors", []) or [])
+                L.warn(
+                    f"GEN-QUALITY: Agent {agent_id} prompt failed quality gate "
+                    f"(attempt {_attempt}/{PM_MAX_ATTEMPTS}): {'; '.join(_verrs[:3])}"
+                )
+                if _attempt >= PM_MAX_ATTEMPTS:
+                    # Best-effort: keep the last candidate; the downstream
+                    # validate_all gate rejects it and the caller halts (no
+                    # silent dispatch of a degenerate prompt).
+                    prompt_text = _candidate
+                    L.error(
+                        f"GEN-QUALITY: Agent {agent_id} still fails the quality gate "
+                        f"after {PM_MAX_ATTEMPTS} attempts — downstream gate will halt the cycle"
+                    )
+                    break
+                _req = request_text + _quality_correction_block(_verrs)
             if _attempt < PM_MAX_ATTEMPTS:
                 _backoff = min(
                     PM_RETRY_BACKOFF_BASE * (2 ** (_attempt - 1)),
                     PM_RETRY_BACKOFF_CAP,
                 )
-                _emit("CLAUDE_PM", f"Agent {agent_id} attempt {_attempt}/{PM_MAX_ATTEMPTS} failed — retry in {_backoff}s", agent=agent_id, cycle=cycle, status="RETRY")
+                _emit("CLAUDE_PM", f"Agent {agent_id} attempt {_attempt}/{PM_MAX_ATTEMPTS} regenerating — backoff {_backoff}s", agent=agent_id, cycle=cycle, status="RETRY")
                 L.warn(
-                    f"PMR: Agent {agent_id} attempt {_attempt}/{PM_MAX_ATTEMPTS} returned "
-                    f"empty/short — backing off {_backoff}s before retry"
+                    f"PMR: Agent {agent_id} attempt {_attempt}/{PM_MAX_ATTEMPTS} "
+                    f"empty/short or below quality — backing off {_backoff}s before retry"
                 )
                 _t.sleep(_backoff)
 
@@ -707,6 +836,21 @@ def create_agent_prompts_via_claude(
                 f"{'Returning ' + str(len(written)) + ' already-written prompts to caller.' if written else 'No prompts written yet.'}"
             )
             return written if written else None  # caller halts on None or partial
+
+        if not _accepted:
+            # GEN-QUALITY fail-closed: the prompt never passed the quality gate
+            # after all attempts. Do NOT add it to `written` (the caller sees an
+            # incomplete set and halts with CLAUDE_PM_PARTIAL), and remove the
+            # on-disk candidate so a later resume-from-partial cannot reuse a
+            # known-degenerate prompt. No silent dispatch of a sub-quality prompt.
+            try:
+                prompt_path.unlink()
+            except OSError:
+                pass
+            _pm_generated_any = True
+            L.claude_pm_done(agent_id, elapsed, len(prompt_text), False, idx, len(agents))
+            _emit("CLAUDE_PM", f"Agent {agent_id} prompt REJECTED by quality gate after {PM_MAX_ATTEMPTS} attempts", agent=agent_id, cycle=cycle, status="FAIL")
+            continue
 
         _emit("CLAUDE_PM", f"Agent {agent_id} prompt DONE ({elapsed:.0f}s, {len(prompt_text)//1024}KB)", agent=agent_id, cycle=cycle, status="OK")
         L.claude_pm_done(agent_id, elapsed, len(prompt_text), True, idx, len(agents))
