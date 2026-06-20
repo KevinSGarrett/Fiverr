@@ -2448,33 +2448,26 @@ def cmd_tick() -> None:
                 cov = f"{facts.local_coverage_pct:.0f}%" if facts.local_coverage_pct else "?"
                 _ev2("REVIEW", f"lint={'OK' if facts.local_ruff else 'FAIL'} tests={'OK' if facts.local_pytest else 'FAIL'} cov={cov} CI={'OK' if facts.ci_passed else 'FAIL'} jira={'OK' if facts.cycle_control_done else 'PEND'}", cycle=cycle)
             L.post_cycle_grade(grade, cycle)
-            # C4/H7 FIX: ADVISORY_ONLY no longer counts as a pass.
-            # Previously: "PASS or CONDITIONAL_PASS or ADVISORY_ONLY or not blocks_dispatch"
-            # -- this let broken cycles (lint/tests/CI all red) advance because ADVISORY_ONLY
-            # was the default when verdict parsing failed.
-            # Now: only PASS advances. ADVISORY_ONLY and CONDITIONAL_PASS route to FAIL/review.
-            if grade == "PASS" and not result.blocks_dispatch:
-                # ITEM 3.2: local review passed. If a PR is open the cycle must NOT
-                # advance yet — _finalize routes to AWAITING_CI_GREEN (merge path)
-                # vs POST_CYCLE_PASS (no PR). Shared with the POST_CYCLE_PENDING
-                # branch so an open PR can never be bypassed.
+            # ITEM 4.1: advance on `not result.blocks_dispatch` — the SINGLE,
+            # consistent predicate shared with the POST_CYCLE_PENDING branch (4.1-T2).
+            # POST_AGENT review ALWAYS returns DRAFT_UNMERGED_PREVIEW (never "PASS"),
+            # so the old `grade == "PASS"` gate dead-ended EVERY clean cycle at
+            # POST_CYCLE_FAIL. blocks_dispatch is the trustworthy signal here: for
+            # POST_AGENT it is fact-based (ruff/mypy/pytest/CI/coverage/health/ICV),
+            # and POST_AGENT never yields ADVISORY_ONLY, so the C4/H7
+            # anti-fabrication concern (ADVISORY_ONLY defaulting) does not apply to
+            # this path. A genuinely broken cycle still blocks (blocks_dispatch=True).
+            if not result.blocks_dispatch:
+                # If a PR is open the cycle must NOT advance yet — _finalize routes
+                # to AWAITING_CI_GREEN (merge path) vs POST_CYCLE_PASS (no PR).
                 _new = _finalize_post_cycle_pass(cycle)
                 if _new == "AWAITING_CI_GREEN":
-                    L.ok(f"Cycle {cycle} local review PASS — PR open; "
+                    L.ok(f"Cycle {cycle} local review clean ({grade}) — PR open; "
                          "waiting for CI to go green before merge")
                 else:
-                    L.ok(f"Cycle {cycle} COMPLETE — next tick plans Cycle {cycle + 1}")
+                    L.ok(f"Cycle {cycle} COMPLETE ({grade}) — next tick plans Cycle {cycle + 1}")
                 # OBS-7: emit end-of-cycle summary
-                L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result="PASS")
-                L.clear_activity()
-            elif grade in ("CONDITIONAL_PASS",) and not result.blocks_dispatch:
-                _new = _finalize_post_cycle_pass(cycle)
-                if _new == "AWAITING_CI_GREEN":
-                    L.ok(f"Cycle {cycle} CONDITIONAL PASS — PR open; "
-                         "waiting for CI to go green before merge")
-                else:
-                    L.ok(f"Cycle {cycle} CONDITIONAL PASS — next tick plans Cycle {cycle + 1}")
-                L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result="CONDITIONAL_PASS")
+                L.cycle_summary(cycle=cycle, agent_outcomes={}, gate_result=grade)
                 L.clear_activity()
             else:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)

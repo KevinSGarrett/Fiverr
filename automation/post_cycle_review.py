@@ -116,6 +116,15 @@ class PostCycleReviewResult:
 
     @property
     def blocks_dispatch(self) -> bool:
+        # ITEM 4.1 (Codex P1): hard errors recorded by run_review ALWAYS block
+        # dispatch, in EVERY mode. GATE 6/7 (baseline cycle037_live.db mtime
+        # tampered, config.yaml enabling ScrapFly) append to result.errors without
+        # early-returning, and the POST_AGENT fact checks below ignore errors — so
+        # without this, a tampered-but-otherwise-clean cycle would advance. Since
+        # blocks_dispatch is the single advance predicate (4.1), errors must gate
+        # here so every consumer (tick + manual command) is protected.
+        if self.errors:
+            return True
         # C4.2 (existing): POST_AGENT mode blocks on hard red facts.
         # C4.3: blocks on missing branch/PR when expected.
         # C4.4: blocks on coverage below configurable floor.
