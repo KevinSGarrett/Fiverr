@@ -413,7 +413,10 @@ def test_synthesizer_cycle(tmp_path):
         body = VALID_MANIFEST_REPORT.replace('"agent": "B"', f'"agent": "{agent}"')
         (tmp_path / f"CYCLE_099_AGENT_{agent}.md").write_text(body, encoding="utf-8")
 
-    with patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
+    # Item 2.2: _persist now also writes a tracked docs/cycle_reports JSON+MD;
+    # redirect REPO_ROOT to tmp so the live repo is never written.
+    with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path), \
+         patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
         from automation.report_synthesis.evidence_crosscheck import ActualEvidence
         mock_ev.return_value = ActualEvidence(actual_commits=["abc1234"])
         cs = synthesize_cycle(
@@ -437,7 +440,9 @@ def test_synthesizer_missing_report(tmp_path):
         body = VALID_MANIFEST_REPORT.replace('"agent": "B"', f'"agent": "{agent}"')
         (tmp_path / f"CYCLE_099_AGENT_{agent}.md").write_text(body, encoding="utf-8")
 
-    with patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
+    # Item 2.2: redirect REPO_ROOT to tmp (tracked-docs JSON+MD persistence).
+    with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path), \
+         patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
         from automation.report_synthesis.evidence_crosscheck import ActualEvidence
         mock_ev.return_value = ActualEvidence(actual_commits=["abc1234"])
         cs = synthesize_cycle(99, reports_dir=tmp_path, runs_dir=tmp_path / "runs")
@@ -478,7 +483,9 @@ def test_synthesizer_aggregate(tmp_path):
         body = VALID_MANIFEST_REPORT.replace('"agent": "B"', f'"agent": "{agent}"')
         (tmp_path / f"CYCLE_098_AGENT_{agent}.md").write_text(body, encoding="utf-8")
 
-    with patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
+    # Item 2.2: redirect REPO_ROOT to tmp (tracked-docs JSON+MD persistence).
+    with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path), \
+         patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
         from automation.report_synthesis.evidence_crosscheck import ActualEvidence
         mock_ev.return_value = ActualEvidence(actual_commits=["abc1234"])
         cs = synthesize_cycle(98, reports_dir=tmp_path, runs_dir=tmp_path / "runs")
@@ -613,7 +620,8 @@ def test_arsf_events(tmp_path):
         body = VALID_MANIFEST_REPORT.replace('"agent": "B"', f'"agent": "{agent}"')
         (tmp_path / f"CYCLE_096_AGENT_{agent}.md").write_text(body, encoding="utf-8")
 
-    with patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev, \
+    with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path), \
+         patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev, \
          patch("builtins.print") as mock_print:
         from automation.report_synthesis.evidence_crosscheck import ActualEvidence
         mock_ev.return_value = ActualEvidence(actual_commits=["abc1234"])
@@ -848,9 +856,12 @@ def test_arsf_nonblocking(tmp_path):
     """Synthesizer raising → cycle still completes (no exception propagated)."""
     from automation.report_synthesis.synthesizer import synthesize_cycle
 
-    # Reports dir doesn't exist at all — should not raise
+    # Reports dir doesn't exist at all — should not raise.
+    # Item 2.2: redirect REPO_ROOT to tmp (tracked-docs persistence) so the live
+    # repo is never written.
     nonexistent = tmp_path / "does_not_exist"
-    cs = synthesize_cycle(999, reports_dir=nonexistent, runs_dir=tmp_path / "runs")
+    with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path):
+        cs = synthesize_cycle(999, reports_dir=nonexistent, runs_dir=tmp_path / "runs")
     assert cs is not None
     assert cs.cycle == 999
 

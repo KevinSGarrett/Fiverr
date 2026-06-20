@@ -72,11 +72,15 @@ def test_report_validator_wired():
 
 def test_arsf_nonblocking_fault_injection(tmp_path):
     """synthesizer raising → cycle still completes (no exception propagated)."""
+    from unittest.mock import patch
+
     from automation.report_synthesis.synthesizer import synthesize_cycle
 
-    # Corrupt reports dir to ensure parsing raises
+    # Corrupt reports dir to ensure parsing raises.
+    # Item 2.2: redirect REPO_ROOT to tmp (tracked-docs persistence).
     bad_dir = tmp_path / "bad_dir_that_doesnt_exist"
-    cs = synthesize_cycle(998, reports_dir=bad_dir, runs_dir=tmp_path / "runs")
+    with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path):
+        cs = synthesize_cycle(998, reports_dir=bad_dir, runs_dir=tmp_path / "runs")
     assert cs is not None  # never raises
 
 
@@ -217,8 +221,14 @@ def test_impact_ledger_delivered():
 # RSF-52: Golden intake over C082–C084 (stability check)
 # ============================================================================
 
-def test_intake_golden_c082_c084():
-    """Synthesizing real cycle reports yields sane verdicts (stability)."""
+def test_intake_golden_c082_c084(tmp_path):
+    """Synthesizing real cycle reports yields sane verdicts (stability).
+
+    Item 2.2: these are real plain-markdown reports with NO ARSF:MANIFEST block.
+    They must now parse to populated reports (verdict != NO_REPORT), not collapse
+    to 0/6. The synthesis is read from the real docs/cycle_reports but PERSISTED
+    to tmp (REPO_ROOT + runs_dir redirected) so the live repo is never written.
+    """
     from automation.report_synthesis.synthesizer import synthesize_cycle
     from automation.report_synthesis.schemas import AgentVerdict
 
@@ -227,7 +237,8 @@ def test_intake_golden_c082_c084():
         pytest.skip("docs/cycle_reports not present")
 
     for cycle in [82, 83, 84]:
-        with patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
+        with patch("automation.report_synthesis.synthesizer.REPO_ROOT", tmp_path), \
+             patch("automation.report_synthesis.evidence_crosscheck.gather_actual_evidence") as mock_ev:
             from automation.report_synthesis.evidence_crosscheck import ActualEvidence
             # C084_AGENT_B has no commits — simulate that
             def fake_ev(cyc, branch, **kw):
@@ -235,9 +246,22 @@ def test_intake_golden_c082_c084():
                     return ActualEvidence(actual_commits=[])
                 return ActualEvidence(actual_commits=["abc1234"])
             mock_ev.side_effect = fake_ev
-            cs = synthesize_cycle(cycle, runs_dir=REPO_ROOT / f"runs/CYCLE_{cycle:03d}_test")
+            cs = synthesize_cycle(
+                cycle,
+                reports_dir=reports_dir,
+                runs_dir=tmp_path / f"runs/CYCLE_{cycle:03d}_test",
+            )
         assert cs.cycle == cycle
         assert cs.cycle_verdict != ""
+        # Item 2.2: real markdown reports must NOT collapse to NO_REPORT just
+        # because they carry no manifest. Every present report parses to content.
+        present = [a for a in ["A", "B", "E", "C", "F", "D"]
+                   if (reports_dir / f"CYCLE_{cycle:03d}_AGENT_{a}.md").exists()]
+        no_report = [a for a in present
+                     if cs.agents[a].verdict == AgentVerdict.NO_REPORT.value]
+        assert no_report == [], (
+            f"cycle {cycle}: present reports collapsed to NO_REPORT: {no_report}"
+        )
         # C084 should show at least one non-DELIVERED agent (B was CLAIMED_ONLY)
         if cycle == 84:
             non_delivered = [a for a, s in cs.agents.items() if s.verdict != AgentVerdict.DELIVERED.value]

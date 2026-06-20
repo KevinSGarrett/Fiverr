@@ -63,6 +63,7 @@ class ClaimedAgentReport:
     base_sha: str = ""
     verdict: str = ""
     verdict_qualifier: str = ""
+    summary: str = ""
     tasks: list[TaskClaim] = field(default_factory=list)
     tasks_total: int = 0
     tasks_done: int = 0
@@ -85,6 +86,21 @@ class ClaimedAgentReport:
     parse_source: str = "unknown"   # "manifest" | "markdown" | "none"
     format_violations: list[str] = field(default_factory=list)
     raw_text: str = ""
+
+    def is_empty(self) -> bool:
+        """True when the report carries no real claimed content.
+
+        A report is empty only when there are NO claimed files, NO summary,
+        NO task claims, and NO verdict. Used to decide NO_REPORT — a missing
+        file or a title-only stub is empty; a real markdown report is not.
+        """
+        return not (
+            self.files_created
+            or self.files_modified
+            or self.summary.strip()
+            or self.tasks
+            or self.verdict.strip()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -119,5 +135,6 @@ class CycleSynthesis:
     cycle_verdict: str = ""
     carryover: list[str] = field(default_factory=list)
     top_risks: list[str] = field(default_factory=list)
-    format_health: str = ""   # e.g. "5/6"
+    format_health: str = ""   # e.g. "5/6" (manifest-conforming reports)
+    parsed_ok: str = ""       # e.g. "6/6" (reports that parsed to real content, not NO_REPORT)
     pm_markdown: str = ""
