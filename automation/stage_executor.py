@@ -277,12 +277,13 @@ class StageExecutor:
         return evidence
 
     def _execute_stage_4(self) -> dict[str, Any]:
+        # Item 2.3 (interim): NEVER fabricate PASS. The real inject->repair->merge
+        # measurement is item 5.7. Until then this is unmeasured, so the go-live
+        # gate can never be rubber-stamped (advance requires a measured PASS).
         return {
             "stage": 4,
-            "status": "PASS",
-            "failure_injected": True,
-            "repair_succeeded": True,
-            "auto_merge_completed": True,
+            "status": "NOT_MEASURED",
+            "reason": "inject->repair->merge not yet measured (item 5.7)",
             "timestamp": iso_now(),
         }
 
@@ -298,23 +299,24 @@ class StageExecutor:
         }
 
     def _execute_stage_6(self) -> dict[str, Any]:
+        # Item 2.3 (interim): unmeasured. Real sustained-uptime measurement is 5.7.
         return {
             "stage": 6,
-            "status": "PASS",
-            "unattended_cycle_hours": 24,
-            "no_crashes": True,
-            "no_main_pushes": True,
-            "no_stuck_agents": True,
+            "status": "NOT_MEASURED",
+            "reason": "sustained unattended uptime not yet measured (item 5.7)",
             "timestamp": iso_now(),
         }
 
     def _execute_stage_7(self) -> dict[str, Any]:
+        # Item 2.3 (interim): surface the REAL daily-report count but NEVER PASS
+        # on it until real multi-day measurement (item 5.7). Previously this
+        # returned PASS even with daily_reports_collected == 0 (fabricated trial).
         daily_files = sorted(STAGE_EVIDENCE_DIR.glob("DAILY_STAGE6_*.json"))
         return {
             "stage": 7,
-            "status": "PASS",
+            "status": "NOT_MEASURED",
+            "reason": "multi-day clean-trial not yet measured (item 5.7)",
             "trial_days": 7,
             "daily_reports_collected": len(daily_files),
-            "aggregate_result": "CLEAN",
             "timestamp": iso_now(),
         }

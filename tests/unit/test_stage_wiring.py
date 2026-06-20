@@ -269,5 +269,7 @@ def test_stage_executor_error_branches(tmp_path: Path, monkeypatch) -> None:
         encoding="utf-8",
     )
     executor._apply_stage_transition(stage_num=2, status="PASS")
-    assert executor._execute_stage_4()["repair_succeeded"] is True
-    assert executor._execute_stage_6()["unattended_cycle_hours"] == 24
+    # Item 2.3: stages 4/6 no longer fabricate PASS — they report NOT_MEASURED
+    # until real measurement (item 5.7), so the go-live gate can't be faked.
+    assert executor._execute_stage_4()["status"] == "NOT_MEASURED"
+    assert executor._execute_stage_6()["status"] == "NOT_MEASURED"
