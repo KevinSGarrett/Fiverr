@@ -39,6 +39,13 @@ def _patch_common(monkeypatch, cpc, fake_call):
     monkeypatch.setattr(cpc, "_verify_claude_subscription", lambda: {"passed": True, "probe": "OK"})
     monkeypatch.setattr(cpc, "_build_pm_context", lambda *a, **k: "PMCTX")
     monkeypatch.setattr(cpc, "_build_agent_prompt_request", lambda **k: f"REQ {k.get('agent_id')}")
+    # These tests pin the SINGLE-SHOT resilience contract (a full prompt returned per
+    # _call_claude_pm call, retried/spaced by the shared outer loop). The hybrid
+    # generator (GEN_HYBRID, now default) authors task BATCHES instead, so pin the
+    # legacy path here; the hybrid path's own contract (assembly, fail-closed, batch
+    # budget) is covered in test_gen_quality.py. The retry/backoff/spacing/partial
+    # logic under test is in the shared outer loop, exercised faithfully either way.
+    monkeypatch.setattr(cpc, "GEN_HYBRID", False, raising=False)
     monkeypatch.setattr(cpc, "_call_claude_pm", fake_call)
     monkeypatch.setattr(cpc, "_announce_pm_model", lambda *a, **k: None, raising=False)
     # GEN-QUALITY added an in-process validate()->regenerate loop; these tests pin

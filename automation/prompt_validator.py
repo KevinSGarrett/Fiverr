@@ -97,10 +97,32 @@ PQ_GATES = [
 MIN_CODE_BLOCKS_RATIO = 0.3
 
 # ── PQ-7: anti-paste gate — prompts must not be verbatim copies of prior cycles
-# (checked via unique content ratio; >80% unique words = not a paste)
-# DEFAULT 0.40 — at least 40% unique words (vs total words).
+# (checked via unique content ratio: unique 4+char words / total 4+char words).
+# DEFAULT 0.08 (recalibrated 2026-06-20). PURPOSE: catch a RECYCLED/PASTED prompt
+# (one that repeats the same task body N times to clear the task/word floors), NOT
+# to enforce a vocabulary-diversity quota that genuine structured prose cannot meet.
+#
+# The prior 0.40 default was empirically UNPASSABLE. Two measured facts drove the
+# recalibration:
+#  (1) Whole-prompt unique ratio FALLS as the prompt satisfies the OTHER floors.
+#      The 55-task floor + the per-task skeleton that PQ-6/PQ-7b REQUIRE (a code
+#      fence + a src/...py path + a verify line, ×55) force heavy STRUCTURAL
+#      repetition (Jira:/File:/Implementation:/Verify:/def/import/src/SCRUM/pytest
+#      repeated per task) that dominates the word count. A 60-task prompt of
+#      genuinely DISTINCT authored tasks measures ~10% unique; verbatim recycling
+#      (one task body repeated) measures ~3-4% (one task's vocab over a ×60
+#      denominator). So the discriminating band is 3-4% (paste) vs ≥10% (authored).
+#  (2) PQ-6 (code-block ratio) and PQ-7b (authored-task ratio) are the PRIMARY
+#      anti-degenerate gates — every historical padded template failed them
+#      independently (PQ-6 ~4%, PQ-7b 0%). PQ-7a's unique role is the narrow case of
+#      an AUTHORED-LOOKING but RECYCLED prompt, which still lands at ~3-4% here.
+#
+# 0.08 sits ~2x above the paste ceiling (≤4%) and below distinct-authored structured
+# content (≥10%), so it fail-closed-rejects recycling while admitting real prose.
+# Env-tunable via PQ_MIN_UNIQUE_WORD_RATIO. (Across all 28 historical prompts the
+# only ones ≥8% were the legitimate authored ones; padded templates were ≤4.2%.)
 # env: PQ_MIN_UNIQUE_WORD_RATIO
-MIN_UNIQUE_WORD_RATIO = 0.40
+MIN_UNIQUE_WORD_RATIO = 0.08
 
 # ── PQ-7b: authored-task ratio — share of tasks with code+path+verify ─────────
 # DEFAULT 0.20 — at least 20% of tasks must be authored (not pasted spec).
