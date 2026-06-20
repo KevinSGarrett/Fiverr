@@ -75,33 +75,55 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
     result = CodexDispositionResult(pr_number=pr_number)
     owner, _, name = repo.partition("/")
 
+    # Paginate ALL review threads (Codex P2): a PR with >100 threads would
+    # otherwise be truncated and an unresolved thread on page 2+ would be treated
+    # as nonexistent (too loose). Page through with the endCursor; fail closed if
+    # another page exists but no cursor is returned, or the page cap is hit.
     query = (
-        "query($owner:String!,$name:String!,$number:Int!){"
+        "query($owner:String!,$name:String!,$number:Int!,$cursor:String){"
         "repository(owner:$owner,name:$name){"
         "pullRequest(number:$number){"
-        "reviewThreads(first:100){nodes{"
-        "id isResolved isOutdated "
-        "comments(first:1){nodes{author{login} body}}"
-        "}}}}}"
+        "reviewThreads(first:100, after:$cursor){"
+        "pageInfo{hasNextPage endCursor} "
+        "nodes{id isResolved isOutdated comments(first:1){nodes{author{login} body}}}"
+        "}}}}"
     )
+    nodes: list[dict] = []
+    cursor: str | None = None
+    _MAX_PAGES = 50  # 5000 threads — defensive bound against an infinite loop
     try:
-        r = subprocess.run(
-            ["gh", "api", "graphql",
-             "-f", f"query={query}",
-             "-f", f"owner={owner}",
-             "-f", f"name={name}",
-             "-F", f"number={int(pr_number)}"],
-            capture_output=True, text=True, timeout=30,
-        )
-        if r.returncode != 0:
-            result.read_error = (r.stderr.strip() or "gh graphql failed")[:200]
+        for _ in range(_MAX_PAGES):
+            args = ["gh", "api", "graphql",
+                    "-f", f"query={query}",
+                    "-f", f"owner={owner}",
+                    "-f", f"name={name}",
+                    "-F", f"number={int(pr_number)}"]
+            if cursor:
+                args += ["-f", f"cursor={cursor}"]
+            r = subprocess.run(args, capture_output=True, text=True, timeout=30)
+            if r.returncode != 0:
+                result.read_error = (r.stderr.strip() or "gh graphql failed")[:200]
+                result.merge_blocked = True
+                return result
+            data = json.loads(r.stdout)
+            conn = (
+                data.get("data", {}).get("repository", {}).get("pullRequest", {})
+                .get("reviewThreads", {})
+            ) or {}
+            nodes.extend(conn.get("nodes") or [])
+            page = conn.get("pageInfo") or {}
+            if not page.get("hasNextPage"):
+                break
+            cursor = page.get("endCursor")
+            if not cursor:  # more pages but no cursor — fail closed, don't truncate
+                result.read_error = "reviewThreads pagination cursor missing"
+                result.merge_blocked = True
+                return result
+        else:
+            # Hit the page cap with more pages remaining — fail closed.
+            result.read_error = f"reviewThreads exceeded {_MAX_PAGES} pages"
             result.merge_blocked = True
             return result
-        data = json.loads(r.stdout)
-        nodes = (
-            data.get("data", {}).get("repository", {}).get("pullRequest", {})
-            .get("reviewThreads", {}).get("nodes", [])
-        ) or []
     except Exception as e:
         result.read_error = str(e)[:200]
         result.merge_blocked = True
