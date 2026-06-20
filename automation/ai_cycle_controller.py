@@ -2422,8 +2422,17 @@ def cmd_tick() -> None:
         write_controller_state("POST_CYCLE_PENDING", cycle=cycle)
         from automation.post_cycle_review import run_review, ReviewMode
         try:
-            with L.Spinner("Post-cycle review (lint + tests + coverage + Jira sync)"):
-                result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            with L.Spinner("Post-cycle review (Jira sync + invariants; CI gated at merge)"):
+                # ITEM 4.2: skip the ~13-min local suite ONLY when a PR exists —
+                # then AWAITING_CI_GREEN gates the PR CI downstream. With NO PR
+                # (Codex P2: no downstream CI to compensate) run the local suite
+                # so local validation still gates the advance. pr_number satisfies
+                # the pr_expected invariant when a PR is present.
+                _ac_pr = (state or {}).get("active_pr")
+                result = run_review(
+                    cycle=cycle, mode=ReviewMode.POST_AGENT,
+                    pr_number=_ac_pr,
+                    skip_local_validation=bool(_ac_pr))
             grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
             # Show every check so operator sees exactly what passed/failed
             L.newline()
@@ -2626,7 +2635,14 @@ def cmd_tick() -> None:
                     fg="cyan")
         from automation.post_cycle_review import run_review, ReviewMode
         try:
-            result = run_review(cycle=cycle, mode=ReviewMode.POST_AGENT)
+            # ITEM 4.2: same merge-aware review as AGENT_COMPLETE — skip the local
+            # suite ONLY when a PR exists (CI gates downstream); with no PR, run
+            # the local suite so validation still gates (Codex P2).
+            _pc_pr = (state or {}).get("active_pr")
+            result = run_review(
+                cycle=cycle, mode=ReviewMode.POST_AGENT,
+                pr_number=_pc_pr,
+                skip_local_validation=bool(_pc_pr))
             grade = result.result.value if hasattr(result, "result") else "UNKNOWN"
             click.echo(f"  Post-cycle-review grade: {grade}")
             if not result.blocks_dispatch:

@@ -104,7 +104,7 @@ def test_agent_complete_with_pr_goes_to_awaiting_ci(no_drift, caps, monkeypatch)
     import automation.post_cycle_review as pcr
     monkeypatch.setattr(
         pcr, "run_review",
-        lambda cycle, mode: SimpleNamespace(
+        lambda cycle, mode, **kwargs: SimpleNamespace(
             result=SimpleNamespace(value="PASS"), blocks_dispatch=False, facts=None),
     )
     write_controller_state("AGENT_COMPLETE", cycle=410, pr=1410)
@@ -119,7 +119,7 @@ def test_agent_complete_without_pr_keeps_legacy_post_cycle_pass(no_drift, caps, 
     import automation.post_cycle_review as pcr
     monkeypatch.setattr(
         pcr, "run_review",
-        lambda cycle, mode: SimpleNamespace(
+        lambda cycle, mode, **kwargs: SimpleNamespace(
             result=SimpleNamespace(value="PASS"), blocks_dispatch=False, facts=None),
     )
     write_controller_state("AGENT_COMPLETE", cycle=411)  # no active_pr

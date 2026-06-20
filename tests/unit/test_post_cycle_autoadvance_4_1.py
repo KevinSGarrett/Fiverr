@@ -71,7 +71,8 @@ def _review(cycle: int, *, blocking: bool,
 
 def _patch_review(monkeypatch, review: PostCycleReviewResult):
     import automation.post_cycle_review as pcr
-    monkeypatch.setattr(pcr, "run_review", lambda cycle, mode: review)
+    monkeypatch.setattr(pcr, "run_review",
+                        lambda cycle, mode, **kwargs: review)
 
 
 def _state() -> dict:
@@ -134,6 +135,34 @@ def test_predicate_is_blocks_dispatch_not_grade(no_drift, monkeypatch):
     write_controller_state("AGENT_COMPLETE", cycle=503)
     CliRunner().invoke(cli, ["tick"])
     assert _state()["status"] == "POST_CYCLE_PASS"
+
+
+# ── 4.2 Codex P2: skip local validation ONLY when a PR exists ─────────────────
+@pytest.mark.parametrize("status", ["AGENT_COMPLETE", "POST_CYCLE_PENDING"])
+def test_skip_local_validation_conditional_on_pr(no_drift, status, monkeypatch):
+    import automation.post_cycle_review as pcr
+    captured = {}
+
+    def _fake(cycle, mode, pr_number=None, skip_local_validation=False):
+        captured["pr"] = pr_number
+        captured["skip"] = skip_local_validation
+        return PostCycleReviewResult(cycle=cycle, mode=mode,
+                                     result=ReviewResult.DRAFT_UNMERGED_PREVIEW,
+                                     facts=_clean_facts(cycle))
+
+    monkeypatch.setattr(pcr, "run_review", _fake)
+
+    # With a PR: skip the local suite (CI gates downstream).
+    write_controller_state(status, cycle=520, pr=1520)
+    CliRunner().invoke(cli, ["tick"])
+    assert captured["skip"] is True and captured["pr"] == 1520
+
+    # With NO PR: must NOT skip (run the local suite — no downstream CI to gate).
+    captured.clear()
+    (runner_paths.state_dir() / "controller_state.json").unlink()
+    write_controller_state(status, cycle=521)
+    CliRunner().invoke(cli, ["tick"])
+    assert captured["skip"] is False and not captured["pr"]
 
 
 # ── 4.1-T2: POST_CYCLE_PENDING branch uses the SAME predicate ─────────────────
