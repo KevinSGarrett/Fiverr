@@ -34,6 +34,43 @@ class BrainCheckResult:
         return len(self.failed) == 0
 
 
+# ITEM D-7: stub markers that mean a brain file is a placeholder, not real content.
+_BRAIN_STUB_MARKERS = ("[STUB", "[FILL]", "populate from PM_Pack",
+                       "<placeholder>", "TBD-PLACEHOLDER")
+
+
+def _brain_file_content_ok(path: Path) -> tuple[bool, str]:
+    """ITEM D-7: a brain file must carry REAL content, not merely exist. Returns
+    (ok, reason). Empty/whitespace-only or stub-placeholder files FAIL; structured
+    files (.json / .yml / .yaml) must additionally parse. Binary brain assets
+    (.db etc.) only need to be non-empty. Conservative: only the strongest stub
+    markers count, so incidental words don't false-fail a real doc."""
+    try:
+        suffix = path.suffix.lower()
+        if suffix in (".db", ".sqlite", ".sqlite3", ".png", ".jpg", ".jpeg", ".pdf", ".zip"):
+            return (path.stat().st_size > 0, "" if path.stat().st_size > 0 else "empty binary asset")
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if not text.strip():
+            return (False, "empty / whitespace-only")
+        low = text.lower()
+        for marker in _BRAIN_STUB_MARKERS:
+            if marker.lower() in low:
+                return (False, f"stub placeholder ({marker})")
+        if suffix == ".json":
+            try:
+                json.loads(text)
+            except Exception as e:
+                return (False, f"invalid JSON: {str(e)[:60]}")
+        elif suffix in (".yml", ".yaml"):
+            try:
+                yaml.safe_load(text)
+            except Exception as e:
+                return (False, f"invalid YAML: {str(e)[:60]}")
+        return (True, "")
+    except Exception as e:
+        return (False, f"unreadable: {str(e)[:60]}")
+
+
 def brain_check(repo_root: Path) -> BrainCheckResult:
     """Load all brain files and return a structured result."""
     result = BrainCheckResult()
@@ -46,15 +83,22 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
     registry = yaml.safe_load(registry_path.read_text()) or {}
     result.passed.append(f"BRAIN_REGISTRY.yml loaded: {registry_path}")
 
-    # Check all load_order files
+    # Check all load_order files. ITEM D-7: existence alone is NOT enough — a
+    # file that exists but is empty or a stub placeholder would let a structurally
+    # broken brain pass the gate (brain-check gates `plan-cycle --live`, so a false
+    # green poisons the milestone observation). Validate CONTENT, not just presence.
     load_order: dict[str, list[str]] = registry.get("load_order", {})
     for section, files in load_order.items():
         for rel_path in files:
             full = _resolve(rel_path, repo_root)
-            if full.exists():
+            if not full.exists():
+                result.failed.append(f"MISSING [{section}]: {rel_path}")
+                continue
+            ok, why = _brain_file_content_ok(full)
+            if ok:
                 result.passed.append(f"PASS [{section}]: {rel_path}")
             else:
-                result.failed.append(f"MISSING [{section}]: {rel_path}")
+                result.failed.append(f"INVALID [{section}]: {rel_path} — {why}")
 
     # Validate optional structured fiverr_project registry block when present.
     fiverr_registry = registry.get("fiverr_project", {})
@@ -66,12 +110,19 @@ def brain_check(repo_root: Path) -> BrainCheckResult:
             for filename in fiverr_files:
                 rel_path = f"{fiverr_base.rstrip('/')}/{filename}"
                 full = _resolve(rel_path, repo_root)
-                if full.exists():
+                if not full.exists():
+                    if required_for_build:
+                        result.failed.append(f"MISSING [fiverr_project]: {rel_path}")
+                    else:
+                        result.warnings.append(f"WARNING [fiverr_project]: {rel_path}")
+                    continue
+                ok, why = _brain_file_content_ok(full)
+                if ok:
                     result.passed.append(f"PASS [fiverr_project]: {rel_path}")
                 elif required_for_build:
-                    result.failed.append(f"MISSING [fiverr_project]: {rel_path}")
+                    result.failed.append(f"INVALID [fiverr_project]: {rel_path} — {why}")
                 else:
-                    result.warnings.append(f"WARNING [fiverr_project]: {rel_path}")
+                    result.warnings.append(f"WARNING [fiverr_project]: {rel_path} — {why}")
 
     # Parse hydration header for cycle/wave/blockers — use exact key lines
     hydration_path = repo_root / "PM_Pack/07_hydration/HYDRATION_HEADER.md"

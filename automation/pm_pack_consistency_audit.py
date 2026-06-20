@@ -55,7 +55,20 @@ class AuditResult:
         for w in self.warnings:
             lines.append(f"  WARN: {w}")
         if self.passed:
-            lines.append("  All state files agree on cycle, branch, and status.")
+            # D-7 (Codex P2): do NOT advertise consensus when a cross-source
+            # DISAGREEMENT was found (e.g. an off-by-one cycle spread that passes
+            # non-blocking) — that is the exact false-consensus the audit must not
+            # print. Unrelated warnings (e.g. a missing freeze file) do not negate
+            # cycle/branch/status agreement, so they keep the consensus line.
+            _disagreement = (
+                any("DISAGREE" in w.upper() for w in self.warnings)
+                or any("DISAGREE" in c.code.upper() for c in self.conflicts)
+            )
+            if _disagreement:
+                lines.append("  PASS but state sources do NOT fully agree on cycle "
+                             "— reconcile the disagreement above before relying on consensus.")
+            else:
+                lines.append("  All state files agree on cycle, branch, and status.")
         return "\n".join(lines)
 
 
@@ -166,6 +179,47 @@ def run_audit(repo_root: Path | None = None,
             f"HYDRATION_HEADER shows cycle ~{hydr_cycle} but controller_state shows cycle {ctrl_cycle}. "
             f"Reconcile before dispatch."
         )
+
+    # ── Check 4b (D-7): cross-source cycle AGREEMENT — no false consensus ──
+    # The audit must NOT silently report "all agree" when the cycle sources
+    # disagree (e.g. policy_snapshot=82 vs controller_state=83). Existing checks
+    # only fire on large gaps (Check 1 > 10) or warn (Check 4 > 2), so an
+    # off-by-one passed as consensus. Gather every PRESENT (truthy int) cycle
+    # value and flag any disagreement: spread 1-2 = WARNING (likely mid-transition
+    # lag), spread > 2 = BLOCKING. This gates plan-cycle --live honestly.
+    _raw_cycles = {
+        "policy_snapshot": policy_snap.get("cycle_current"),
+        "controller_state": ctrl_state.get("active_cycle"),
+        "hydration_header": hydr_cycle or None,
+        "state_snapshot": snap_cycle or None,
+    }
+    _present_cycles: dict[str, int] = {}
+    for _src, _val in _raw_cycles.items():
+        try:
+            _iv = int(_val)
+        except (TypeError, ValueError):
+            continue
+        if _iv > 0:
+            _present_cycles[_src] = _iv
+    if len(set(_present_cycles.values())) > 1:
+        _lo, _hi = min(_present_cycles.values()), max(_present_cycles.values())
+        _detail = ", ".join(f"{k}={v}" for k, v in sorted(_present_cycles.items()))
+        if _hi - _lo > 2:
+            result.passed = False
+            result.conflicts.append(ConflictItem(
+                code="CYCLESOURCESDISAGREE",
+                source_a="cycle_sources", source_b="cycle_sources",
+                field="cycle", value_a=_hi, value_b=_lo, severity="BLOCKING",
+            ))
+            result.warnings.append(
+                f"CYCLESOURCESDISAGREE (BLOCKING): cycle sources disagree by "
+                f"{_hi - _lo}: {_detail}"
+            )
+        else:
+            result.warnings.append(
+                f"CYCLESOURCESDISAGREE: cycle sources disagree ({_detail}) — "
+                "reconcile before relying on consensus"
+            )
 
     # ── Check 5: CANONICAL says FROZEN — dispatch must be blocked ────
     if canonical_signals.get("status_keyword", "").upper() == "FROZEN":
