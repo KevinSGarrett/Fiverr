@@ -114,6 +114,34 @@ def _fake_run_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _fake_open_cycle_pr(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Item 3.1: never push / open a real GitHub PR during tests.
+
+    ``cmd_run_cycle`` now calls ``pr_builder.open_cycle_pr`` after the work-proof
+    gate whenever a cycle committed real work. Without this seam, every existing
+    run-cycle test that seeds committed work (e.g. the 2.1 work-proof tests) would
+    try a real ``git push`` + ``gh pr create``. This autouse fixture replaces it
+    with a deterministic fake success (created+verified) WITHOUT any subprocess.
+
+    The dedicated 3.1 tests that exercise the REAL ``open_cycle_pr`` capture the
+    real implementation at import time and call it directly, bypassing this seam.
+    """
+    try:
+        from automation import pr_builder
+    except Exception:
+        return
+    monkeypatch.setattr(
+        pr_builder, "open_cycle_pr",
+        lambda cycle, *a, **k: {
+            "created": True, "existing": False,
+            "pr_number": 9000 + int(cycle), "url": f"https://example.test/pr/{cycle}",
+            "verified": True, "error": "",
+        },
+        raising=False,
+    )
+
+
 def _repoint_module_path_constants(
     monkeypatch: pytest.MonkeyPatch, tmp_root: Path, real_root: Path
 ) -> None:

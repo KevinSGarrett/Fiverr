@@ -1638,6 +1638,58 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
             L.info(f"ARSF: cycle {cycle:03d} verdict={_cs.cycle_verdict} format_health={_cs.format_health}")
         except Exception as _arsf_exc:
             L.warn(f"ARSF synthesis failed (non-blocking): {_arsf_exc}")
+    # ITEM 3.1 — DETERMINISTIC AUTONOMOUS PR-CREATE.
+    # Real committed work exists (_committed_agents non-empty; the CYCLE_NO_WORK
+    # path already SystemExit(1)'d above). The Controller is the sole git
+    # authority (G1) — open exactly ONE GitHub-verified PR from the cycle branch
+    # to develop. open_cycle_pr is idempotent (dup-guard) so a retry tick never
+    # double-opens. On ANY failure (no token / push fail / not verified) we FAIL
+    # CLOSED: write a recoverable PR_CREATE_FAILED + notify, and SystemExit(1) —
+    # never silently proceed to post-cycle without a PR.
+    if _committed_agents:
+        from automation import pr_builder
+        _pr = pr_builder.open_cycle_pr(cycle)
+        _pr_ok = bool(_pr.get("created")) or bool(_pr.get("existing"))
+        if _pr_ok:
+            _pr_num = _pr.get("pr_number")
+            _pr_url = _pr.get("url", "")
+            _pr_word = "exists" if _pr.get("existing") else "opened"
+            L.ok(
+                f"PR {_pr_word} for cycle {cycle:03d}: "
+                f"#{_pr_num} {_pr_url}".rstrip()
+            )
+            _ev("CYCLE", f"PR {_pr_word} #{_pr_num} for cycle {cycle:03d}",
+                cycle=cycle, status="OK")
+            # Record the PR in controller_state (active_pr) without re-stamping
+            # the cycle (preserve the monotonic active_cycle; keep AGENT_COMPLETE).
+            if _pr_num:
+                _wcs("AGENT_COMPLETE", pr=int(_pr_num))
+        else:
+            _pr_err = _pr.get("error") or "unknown PR-create failure"
+            L.error(
+                f"ITEM 3.1: PR-create FAILED for cycle {cycle:03d} ({_pr_err}) "
+                "-- failing closed (PR_CREATE_FAILED); not advancing to post-cycle"
+            )
+            _wcs("PR_CREATE_FAILED")
+            _wh("PR_CREATE_FAILED", cycle=cycle)
+            try:
+                from automation.notification_router import notify_blocked
+                notify_blocked(
+                    f"Cycle {cycle:03d} PR-create failed",
+                    body=(
+                        f"open_cycle_pr did not produce a verified PR: {_pr_err}. "
+                        "Committed work exists but no PR was opened; a retry tick "
+                        "will re-attempt (idempotent dup-guard)."
+                    ),
+                    incident_code="PR_CREATE_FAILED",
+                    cycle=cycle,
+                )
+            except Exception as _pr_nexc:
+                L.warn(f"PR_CREATE_FAILED notification failed (non-blocking): {_pr_nexc}")
+            _ev("CYCLE", f"PR-create FAILED for cycle {cycle:03d} -- {_pr_err}",
+                cycle=cycle, status="FAIL")
+            raise SystemExit(1)
+
     _progress_path.write_text(_json.dumps({
         "cycle": cycle, "current_agent": "DONE",
         "completed": completed_agents, "failed": list(failures.keys()),
@@ -2674,6 +2726,40 @@ def cmd_tick() -> None:
         )
         write_controller_state("READY_TO_DISPATCH", cycle=cycle)
 
+    elif status == "PR_CREATE_FAILED":
+        # ITEM 3.1: the previous run-cycle committed real work but the PR-create
+        # failed (no token / push fail / not verified). This is RECOVERABLE: the
+        # work is committed, only the PR is missing. Re-attempt open_cycle_pr —
+        # idempotent dup-guard means a half-created PR is found (existing) rather
+        # than double-opened. On success advance to AGENT_COMPLETE so the next
+        # tick runs the post-cycle review; on failure stay PR_CREATE_FAILED.
+        import automation.autopilot_logger as L
+        from automation import pr_builder
+        L.warn(
+            f"PR_CREATE_FAILED (cycle {cycle}) — re-attempting open_cycle_pr "
+            "(idempotent dup-guard)."
+        )
+        _pr_retry = pr_builder.open_cycle_pr(cycle) if cycle else {"created": False, "error": "no cycle"}
+        if _pr_retry.get("created") or _pr_retry.get("existing"):
+            _pr_num = _pr_retry.get("pr_number")
+            _word = "exists" if _pr_retry.get("existing") else "opened"
+            L.ok(f"PR {_word} on retry: #{_pr_num} {_pr_retry.get('url','')}".rstrip())
+            if _pr_num:
+                write_controller_state("AGENT_COMPLETE", cycle=cycle, pr=int(_pr_num))
+            else:
+                write_controller_state("AGENT_COMPLETE", cycle=cycle)
+            click.secho(f"  State: AGENT_COMPLETE — PR #{_pr_num} ({_word})", fg="green")
+        else:
+            _err = _pr_retry.get("error") or "unknown"
+            L.error(f"PR-create retry still failing ({_err}) — staying PR_CREATE_FAILED")
+            notify_blocked(
+                f"Cycle {cycle:03d} PR-create still failing",
+                body=f"open_cycle_pr retry failed: {_err}. Operator action may be required.",
+                incident_code="PR_CREATE_FAILED",
+                cycle=cycle,
+            )
+            click.secho(f"  PR_CREATE_FAILED (cycle {cycle}) — retry failed: {_err}", fg="red")
+
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")
         write_controller_state("IDLE")
@@ -3064,6 +3150,9 @@ def cmd_status_tick() -> None:
     elif status == "CYCLE_NO_WORK":
         next_action = "REDISPATCH_NO_WORK"
         reason = "Last run committed nothing — re-dispatch a real run"
+    elif status == "PR_CREATE_FAILED":
+        next_action = "RETRY_PR_CREATE"
+        reason = "Committed work but PR-create failed — re-attempt open_cycle_pr"
     elif status == "POST_CYCLE_PENDING":
         next_action = "POST_CYCLE_REVIEW"
         reason = "Awaiting post-cycle review"
@@ -3188,6 +3277,7 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
             "POST_CYCLE_PASS": "Cycle passed — planning next cycle",
             "POST_CYCLE_FAIL": "Cycle FAILED review — check details above",
             "CYCLE_NO_WORK": "Cycle produced no committed work — re-dispatching real work",
+            "PR_CREATE_FAILED": "PR-create failed (token/push/verify) — re-attempting open_cycle_pr",
             "IDLE": "Idle — will compile policy and plan next cycle",
             "MODEL_BLOCKED": "Cursor model gate failed — re-checking...",
             "BRANCH_MISMATCH_BLOCKED": "Wrong git branch — auto-fixing...",
