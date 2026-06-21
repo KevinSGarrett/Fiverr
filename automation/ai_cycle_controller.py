@@ -3330,6 +3330,47 @@ def cmd_create_labels() -> None:
     if failed == 0:
         click.secho("LABELS COMPLETE", fg="green", bold=True)
 
+def _porcelain_paths(line: str) -> list[str]:
+    """All file paths a ``git status --porcelain`` (v1) line refers to.
+
+    Item 5.4: the previous parse — ``line.strip().lstrip("?! MAD")`` — was a
+    character-SET strip, so it ate leading filename characters that happen to be in
+    {?,!,space,M,A,D} (e.g. ``" M Makefile"`` -> ``"akefile"``), and the upstream
+    ``.stdout.strip()`` destroyed the first line's leading status column. Porcelain
+    v1 has a FIXED layout — two status columns + one space, then the path — so the
+    path always begins at column 3. A rename/copy renders as ``old -> new`` and
+    touches BOTH paths (the source is a tracked non-artifact file that moved), so we
+    return both; otherwise a single path. Empty/short lines -> ``[]``.
+    """
+    if len(line) < 4:
+        return []
+    rest = line[3:]
+    if " -> " in rest:
+        old, new = rest.split(" -> ", 1)
+        return [p for p in (old.strip(), new.strip()) if p]
+    rest = rest.strip()
+    return [rest] if rest else []
+
+
+def _porcelain_status_path(line: str) -> str:
+    """Destination (last) path of a porcelain line; ``""`` if none. For a rename this
+    is the new path; for a plain change it is the only path."""
+    paths = _porcelain_paths(line)
+    return paths[-1] if paths else ""
+
+
+def _porcelain_is_artifact_only(line: str, prefixes: tuple[str, ...]) -> bool:
+    """True iff EVERY path the line touches is under a runtime-artifact prefix.
+
+    A rename whose source is a real (non-artifact) file is NOT artifact-only — its
+    moved source must still trip the dirty-repo gate (Codex review on #127), so the
+    line is suppressed only when both sides live under artifact prefixes."""
+    paths = _porcelain_paths(line)
+    return bool(paths) and all(
+        any(p.startswith(pref) for pref in prefixes) for p in paths
+    )
+
+
 @cli.command("status-tick")
 def cmd_status_tick() -> None:
     """Status-only tick — reads state and writes next_action_decision.json.
@@ -3355,10 +3396,13 @@ def cmd_status_tick() -> None:
     # that the loop itself writes into the working tree, so we don't block
     # ourselves with BLOCKED_DIRTY_REPO on every cycle.
     import subprocess as _sp
+    # Item 5.4: use --porcelain (stable, documented format) and DO NOT strip the
+    # raw output — a leading .strip() would destroy the first line's leading status
+    # column ("XY path") and misalign the fixed-width parse below.
     git_status_raw = _sp.run(
-        ["git", "status", "--short"], cwd=str(REPO_ROOT),
+        ["git", "status", "--porcelain"], cwd=str(REPO_ROOT),
         capture_output=True, text=True,
-    ).stdout.strip()
+    ).stdout
 
     # Paths written by the runtime that should not block dispatch
     _ARTIFACT_PREFIXES = (
@@ -3369,12 +3413,14 @@ def cmd_status_tick() -> None:
         "PM_Pack/automation/current_policy_snapshot.json",
         "PM_Pack/automation/prompt_package_manifest.json",
     )
-    _artifact_only_lines = [
+    # Keep only NON-artifact dirty lines; a remaining line blocks dispatch. A line
+    # is suppressed only when EVERY path it touches is a runtime artifact (so a
+    # rename moving a real file into an artifact dir still blocks).
+    _dirty_lines = [
         line for line in git_status_raw.splitlines()
-        if not any(line.strip().lstrip("?! MAD").strip().startswith(p)
-                   for p in _ARTIFACT_PREFIXES)
+        if line.strip() and not _porcelain_is_artifact_only(line, _ARTIFACT_PREFIXES)
     ]
-    git_status = "\n".join(_artifact_only_lines)
+    git_status = "\n".join(_dirty_lines)
     repo_dirty = bool(git_status)
 
     # Determine next action
