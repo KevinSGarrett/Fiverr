@@ -17,7 +17,7 @@ Analysis date: 2026-06-21 (static + dynamic + string import scan).
 """
 from __future__ import annotations
 
-import re
+import ast
 from pathlib import Path
 
 _AUTOMATION = Path(__file__).resolve().parents[2] / "automation"
@@ -49,32 +49,44 @@ _DEFERRED_ORPHANS = {
     "validation_runner",
 }
 
-_IMPORT_RE = re.compile(
-    r"from\s+automation\.(\w+)"
-    r"|from\s+automation\s+import\s+([\w,\s]+?)(?:\n|$|#)"
-    r"|import\s+automation\.(\w+)"
-)
-
-
 def _top_level_modules() -> set[str]:
     return {p.stem for p in _AUTOMATION.glob("*.py") if p.stem != "__init__"}
 
 
 def _imported_module_names() -> set[str]:
-    """Top-level automation module names imported anywhere under automation/ (any depth)."""
+    """Top-level automation module names REALLY imported anywhere under automation/.
+
+    Codex review (#128): parse the AST, not raw text — the repo keeps prompt snippets
+    containing `from automation.X import ...` inside string/docstring bodies, and a
+    raw-text scan would count those as imports, letting a real orphan hide behind a
+    text mention. ast.walk also catches deferred (function-level) imports. Relative
+    intra-package imports (`from . import X`, `from .X import ...`) are handled too.
+    """
     imported: set[str] = set()
     for py in _AUTOMATION.rglob("*.py"):
-        text = py.read_text(encoding="utf-8", errors="replace")
-        for m in _IMPORT_RE.finditer(text):
-            if m.group(1):
-                imported.add(m.group(1))
-            if m.group(3):
-                imported.add(m.group(3))
-            if m.group(2):
-                for name in m.group(2).split(","):
-                    nm = name.strip().split(" as ")[0].strip()
-                    if nm and nm.isidentifier():
-                        imported.add(nm)
+        try:
+            tree = ast.parse(py.read_text(encoding="utf-8", errors="replace"),
+                             filename=str(py))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                if node.level:  # relative: from . import X  /  from .X[.sub] import ...
+                    if mod:
+                        imported.add(mod.split(".", 1)[0])
+                    else:
+                        for alias in node.names:
+                            imported.add(alias.name)
+                elif mod == "automation":           # from automation import X, Y
+                    for alias in node.names:
+                        imported.add(alias.name)
+                elif mod.startswith("automation."):  # from automation.X[.sub] import ...
+                    imported.add(mod.split(".", 2)[1])
+            elif isinstance(node, ast.Import):
+                for alias in node.names:             # import automation.X[.sub]
+                    if alias.name.startswith("automation."):
+                        imported.add(alias.name.split(".", 2)[1])
     return imported
 
 
@@ -93,14 +105,26 @@ def test_no_unaccounted_orphan_core_module():
     )
 
 
-def test_deferred_orphans_and_entrypoints_still_exist():
-    # Keep the allowlists honest: a stale entry (module wired+deleted, or renamed)
-    # should be pruned so the guard reflects reality.
+def test_allowlisted_modules_still_exist():
+    # Keep the allowlists honest: a stale entry (module deleted or renamed) must be pruned.
     for m in _DEFERRED_ORPHANS | _ENTRYPOINTS:
         assert (_AUTOMATION / f"{m}.py").exists(), (
             f"'{m}' is allowlisted but automation/{m}.py no longer exists — "
             "remove it from the _DEFERRED_ORPHANS/_ENTRYPOINTS set."
         )
+
+
+def test_deferred_orphans_are_still_orphaned():
+    # Codex review (#128): force pruning. If a deferred module gets WIRED (a real
+    # import added), it drops out of _computed_orphans() and this fails — requiring it
+    # to be removed from _DEFERRED_ORPHANS. That prevents a stale allowlist from hiding
+    # a later re-orphaning. Combined with the no-unaccounted test, this pins
+    # _DEFERRED_ORPHANS == _computed_orphans() exactly (no drift in either direction).
+    now_wired = sorted(_DEFERRED_ORPHANS - _computed_orphans())
+    assert not now_wired, (
+        f"Deferred orphan(s) are now wired into the live path: {now_wired}. "
+        "Remove them from _DEFERRED_ORPHANS (they are accounted for by a real import)."
+    )
 
 
 def test_wired_core_modules_are_actually_imported():
