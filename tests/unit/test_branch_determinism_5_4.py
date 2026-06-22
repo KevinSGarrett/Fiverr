@@ -318,3 +318,62 @@ def test_sync_or_block_returns_action_string(monkeypatch):
                         lambda cycle: {"branch": f"cycle/{cycle:03d}/integration",
                                        "action": "fast_forwarded", "behind": 3, "ahead": 0})
     assert c._sync_or_block(83, "dispatch agents") == "fast_forwarded"
+
+
+# ── Item 5.4-T5: dirty-repo guard blocks only on uncommitted TRACKED source ───
+from automation.ai_cycle_controller import _dirty_blocking_lines as _dbl  # noqa: E402
+
+_PREFIXES_T5 = (
+    "PM_Pack/automation/runs/",
+    "PM_Pack/automation/post_cycle_reviews/",
+    "PM_Pack/10_cycle_log/",
+)
+
+
+def test_untracked_artifact_output_never_blocks():
+    # The exact wedge: untracked cycle-logs are exempt by PATH (prefix), tracked or not.
+    # (The synthesis json lives outside the prefixes and is handled by gitignore, so it
+    # never reaches porcelain — it is NOT relied on being guard-exempt here.)
+    raw = (
+        "?? PM_Pack/10_cycle_log/CYCLE_075.md\n"
+        "?? PM_Pack/10_cycle_log/CYCLE_075_scrum_1072_spec.md\n"
+    )
+    assert _dbl(raw, _PREFIXES_T5) == [], "untracked cycle-log output must not block"
+
+
+def test_tracked_source_change_still_blocks():
+    raw = " M src/pipeline/collector.py\n"
+    assert _dbl(raw, _PREFIXES_T5) == [" M src/pipeline/collector.py"]
+
+
+def test_tracked_cycle_log_modification_is_exempt():
+    # One of the 353 tracked cycle-log files modified -> exempt via the prefix.
+    raw = " M PM_Pack/10_cycle_log/00_index/MASTER_INDEX.md\n"
+    assert _dbl(raw, _PREFIXES_T5) == []
+
+
+def test_tracked_artifact_path_modification_is_exempt():
+    raw = " M PM_Pack/automation/runs/CYCLE_099/run.json\n"
+    assert _dbl(raw, _PREFIXES_T5) == []
+
+
+def test_mixed_only_tracked_source_blocks():
+    raw = (
+        "?? PM_Pack/10_cycle_log/CYCLE_075.md\n"          # untracked log -> ignore
+        " M PM_Pack/10_cycle_log/00_index/QUICK_NAV.md\n"  # tracked log -> exempt
+        " M PM_Pack/automation/runs/x.json\n"             # tracked artifact -> exempt
+        " M src/scoring/ranker.py\n"                       # tracked SOURCE -> blocks
+        "A  automation/new_real_module.py\n"               # tracked add SOURCE -> blocks
+    )
+    blocking = _dbl(raw, _PREFIXES_T5)
+    assert blocking == [" M src/scoring/ranker.py", "A  automation/new_real_module.py"]
+
+
+def test_untracked_source_file_BLOCKS():
+    # Codex review (#130): an untracked NON-artifact source file is a real uncommitted
+    # change and MUST still block — it must NOT be hidden from the dirty-repo guard
+    # just because it is untracked. Exemption is by artifact PATH, not tracked-status.
+    raw = "?? src/experimental/scratch.py\n?? automation/new_module.py\n"
+    assert _dbl(raw, _PREFIXES_T5) == [
+        "?? src/experimental/scratch.py", "?? automation/new_module.py",
+    ]

@@ -19,6 +19,7 @@ from automation.ai_cycle_controller import (
 _ARTIFACT_PREFIXES = (
     "PM_Pack/automation/post_cycle_reviews/",
     "PM_Pack/automation/runs/",
+    "PM_Pack/10_cycle_log/",
     "PM_Pack/automation/prompts/drafts/",
 )
 

@@ -25,6 +25,15 @@ coverage.xml
 htmlcov/
 
 # Runtime and generated data
+# Item 5.4-T5: leftover synthesis artifact (0 tracked; nothing in the runner writes
+# or commits it — the tracked deliverables are the per-agent CYCLE_NNN_AGENT_X.md
+# reports). Ignore so it can't trip the dirty-repo guard.
+# NOTE: PM_Pack/10_cycle_log/ is deliberately NOT ignored — agents OWN that lane and
+# COMMIT cycle-log entries there (gitignoring it would silently drop those commits,
+# since `git status --short` hides ignored files from the commit machinery). Instead
+# the dirty-repo guard EXEMPTS that path via _ARTIFACT_PREFIXES, so leftover/in-flight
+# cycle-logs never wedge dispatch while the entries still commit normally.
+docs/cycle_reports/*_SYNTHESIS.json
 artifacts/
 data/screenshots/
 data/checkpoints/
