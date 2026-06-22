@@ -155,12 +155,19 @@ CLAUDE_TIMEOUT        = _pm_int_env("CLAUDE_PM_TIMEOUT", 900)     # seconds per 
 GEN_HYBRID            = _pm_bool_env("GEN_HYBRID", True)          # hybrid on by default
 GEN_TARGET_TASKS      = _pm_int_env("GEN_TARGET_TASKS", 60)       # author to 60 (floor 55 + margin)
 GEN_BATCH_SIZE        = _pm_int_env("GEN_BATCH_SIZE", 15)         # tasks authored per Claude call
-GEN_MAX_BATCH_ROUNDS  = _pm_int_env("GEN_MAX_BATCH_ROUNDS", 8)    # safety cap on batch calls/agent
+GEN_MAX_BATCH_ROUNDS  = _pm_int_env("GEN_MAX_BATCH_ROUNDS", 10)   # safety cap on batch calls/agent
 # Aggregate wall-clock budget for ONE agent's batched generation. Bounds the tail
 # latency the per-batch CLAUDE_TIMEOUT alone does not: without it the per-attempt
-# worst case is GEN_MAX_BATCH_ROUNDS * CLAUDE_PM_TIMEOUT (~2h). 1800s (30m) lets the
-# happy path (~4 fast batches) finish with margin while capping a stalling agent.
-GEN_BATCH_BUDGET_S    = _pm_int_env("GEN_BATCH_BUDGET_S", 1800)   # seconds/agent across batches
+# worst case is GEN_MAX_BATCH_ROUNDS * CLAUDE_PM_TIMEOUT.
+# CALIBRATION (measured live, cycle-84): at today's REQUIRED per-task richness
+# (PQ-6 code fence + src path + verify line, ~511 words/task) Claude authors ~7
+# task blocks per ~450s batch call, so the 55-task floor needs ~8 rounds ≈ 3600s.
+# The prior 1800s budget only allowed ~4 rounds (~29 tasks) → it ALWAYS failed the
+# 55-task floor and burned 3 fruitless from-scratch retries (~90m/agent) without
+# ever producing a valid prompt. 4500s (75m) gives the 10-round cap real headroom to
+# reach the 55–60 floor on attempt 1. The fix is budget vs the (correct) floor — NOT
+# lowering PROMPT_MIN_TASKS or weakening the anti-degenerate PQ-6/PQ-7 gates.
+GEN_BATCH_BUDGET_S    = _pm_int_env("GEN_BATCH_BUDGET_S", 4500)   # seconds/agent across batches
 
 
 def _pm_existing_prompt_ok(prompt_path: Path, agent_id: str | None = None,
