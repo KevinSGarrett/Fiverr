@@ -428,24 +428,32 @@ def ensure_integration_branch_current(cycle: int) -> dict:
     info: dict = {"branch": branch, "action": None, "behind": None,
                   "ahead": None, "stashed": False}
 
-    # 0. Preserve uncommitted work by stashing (do NOT fail-closed on dirty — the
-    #    runner already stashes before dispatch; failing closed would block a
-    #    legitimate resume after a mid-run crash). Stash failure IS fatal.
+    # 0. Detect a dirty tree, but DEFER stashing until we actually MUTATE the branch.
+    #    Codex P1: at READY_TO_DISPATCH the dirty tree is the freshly-generated,
+    #    validated prompts (plan-cycle writes PM_Pack/automation/prompts/CYCLE_* and
+    #    does NOT commit them). The normal behind==0 path must leave them untouched,
+    #    so we only stash on a reset/merge/create-from-develop path (where the
+    #    uncommitted work is stale relative to the incoming develop anyway).
     rc, dirty = _git_cmd(["status", "--porcelain"])
     if rc != 0:
         raise BranchSyncError(f"git status failed: {dirty.strip()[-300:]}", transient=True)
-    if dirty.strip():
-        # Name avoids EVERY repo_janitor STALE_STASH_PATTERNS fragment (auto/temp/
-        # preserve/...) so the parked work is NOT garbage-collected after 72h.
-        _stash_name = f"BSYNC-RESUME-cycle-{cycle:03d}"
-        rc, out = _git_cmd(["stash", "push", "--include-untracked", "-m", _stash_name])
-        if rc != 0:
-            raise BranchSyncError(f"stash dirty tree failed: {out.strip()[-300:]}", transient=True)
+    _tree_dirty = bool(dirty.strip())
+
+    def _park_dirty() -> None:
+        """Stash uncommitted work ONCE into a recovery stash that does NOT match any
+        repo_janitor STALE_STASH_PATTERNS fragment (so it is not GC'd); recoverable
+        via ``git stash list``, NOT auto-reapplied. Called only on a mutating path."""
+        if not _tree_dirty or info["stashed"]:
+            return
+        _name = f"BSYNC-RESUME-cycle-{cycle:03d}"
+        rc2, out2 = _git_cmd(["stash", "push", "--include-untracked", "-m", _name])
+        if rc2 != 0:
+            raise BranchSyncError(f"stash dirty tree failed: {out2.strip()[-300:]}", transient=True)
         info["stashed"] = True
-        info["stash_name"] = _stash_name
+        info["stash_name"] = _name
         click.secho(
-            f"  [SYNC] parked uncommitted work in stash '{_stash_name}' before sync "
-            f"(recoverable: git stash list | grep {_stash_name}; NOT auto-reapplied).",
+            f"  [SYNC] parked uncommitted work in stash '{_name}' before branch "
+            f"mutation (recoverable: git stash list | grep {_name}; NOT auto-reapplied).",
             fg="yellow",
         )
 
@@ -464,17 +472,22 @@ def ensure_integration_branch_current(cycle: int) -> dict:
         _git_cmd(["fetch", "origin", branch, "--quiet"])
         rc_remote, _ = _git_cmd(["rev-parse", "--verify", f"refs/remotes/origin/{branch}"])
         if rc_remote == 0:
+            _park_dirty()  # checkout -B resets the working tree → preserve first
             rc, out = _git_cmd(["checkout", "-B", branch, f"origin/{branch}"])
             if rc != 0:
                 raise BranchSyncError(f"checkout remote {branch} failed: {out.strip()[-300:]}", transient=True)
             info["action"] = "resumed_from_remote"
         else:
+            _park_dirty()
             rc, out = _git_cmd(["checkout", "-B", branch, "origin/develop"])
             if rc != 0:
                 raise BranchSyncError(f"create {branch} from develop failed: {out.strip()[-300:]}", transient=True)
             info.update(action="created_from_develop", behind=0, ahead=0)
             return info  # cut from develop ⇒ already current
     else:
+        # Already on the integration branch at the guard points ⇒ a no-op that does
+        # NOT disturb a dirty tree (the validated prompts). A real branch switch is
+        # not expected here (DISPATCHING is deliberately not synced).
         rc, out = _git_cmd(["checkout", branch])
         if rc != 0:
             raise BranchSyncError(f"checkout {branch} failed: {out.strip()[-300:]}", transient=True)
@@ -490,13 +503,16 @@ def ensure_integration_branch_current(cycle: int) -> dict:
     ahead_n = _parse_git_count(ahead, "ahead")
     info["behind"], info["ahead"] = behind_n, ahead_n
 
-    # 4. Idempotent: already current.
+    # 4. Idempotent: already current — return WITHOUT stashing (P1: leave the
+    #    freshly-generated/validated prompts in the worktree untouched).
     if behind_n == 0:
         info["action"] = info["action"] or "already_current"
         return info
 
-    # 5. (b) behind, no agent work -> hard-align (safe: ahead==0 + tree clean post-stash).
+    # 5. (b) behind, no agent work -> hard-align. ahead==0 ⇒ no committed work to lose;
+    #    _park_dirty() preserves any uncommitted work before the hard reset.
     if ahead_n == 0:
+        _park_dirty()
         rc, out = _git_cmd(["reset", "--hard", dev_sha])
         if rc != 0:
             raise BranchSyncError(f"reset --hard to develop failed: {out.strip()[-300:]}", transient=True)
@@ -504,6 +520,7 @@ def ensure_integration_branch_current(cycle: int) -> dict:
         return info
 
     # 6. (c) behind WITH agent work -> merge develop in (preserve work); abort+block on conflict.
+    _park_dirty()
     rc, out = _git_cmd(["-c", "user.name=ai-runner", "-c", "user.email=ai-runner@local",
                         "merge", "--no-ff", "--no-edit", dev_sha])
     if rc != 0:
@@ -515,27 +532,32 @@ def ensure_integration_branch_current(cycle: int) -> dict:
     return info
 
 
-def _sync_or_block(cycle: int, phase: str) -> bool:
+def _sync_or_block(cycle: int, phase: str) -> str | None:
     """Make the integration branch current before consuming code; fail closed.
 
-    Returns True if current (safe to proceed). On a TRANSIENT git/network failure
-    the prior status is left UNCHANGED (the same tick re-runs next time, so
-    validated prompts are preserved) until ``_SYNC_MAX_TRANSIENT`` retries are
-    exhausted; a merge CONFLICT (or exhausted transients) writes the recoverable
-    DEVELOP_SYNC_BLOCKED state. Never proceeds on stale/conflicted code.
+    Returns the sync ACTION string on success (truthy: "already_current",
+    "fast_forwarded", "merged_develop", "created_from_develop", "resumed_from_remote",
+    "skipped_pytest"), or None when the caller must NOT proceed (transient retry or a
+    DEVELOP_SYNC_BLOCKED conflict). On a TRANSIENT git/network failure the prior status
+    is left UNCHANGED (the same tick re-runs next time, so validated prompts are
+    preserved) until ``_SYNC_MAX_TRANSIENT`` retries are exhausted; a merge CONFLICT
+    (or exhausted transients) writes the recoverable DEVELOP_SYNC_BLOCKED state. The
+    action lets a caller (READY_TO_DISPATCH) detect that the branch actually advanced
+    and regenerate prompts before dispatching (never dispatch stale-for-new-code).
     """
     key = f"develop_sync_retry_{cycle}"
     try:
         res = ensure_integration_branch_current(cycle)
         _tick_counter(key, reset=True)
-        if res.get("action") not in (None, "already_current", "skipped_pytest"):
+        action = res.get("action") or "already_current"
+        if action not in ("already_current", "skipped_pytest"):
             click.secho(
-                f"  [SYNC] {res['branch']} <- origin/develop ({res['action']}; "
+                f"  [SYNC] {res['branch']} <- origin/develop ({action}; "
                 f"behind={res.get('behind')} ahead={res.get('ahead')}"
-                f"{'; autostashed dirty tree' if res.get('stashed') else ''})",
+                f"{'; parked dirty tree' if res.get('stashed') else ''})",
                 fg="cyan",
             )
-        return True
+        return action
     except Exception as exc:
         # Catch EVERYTHING (not just BranchSyncError): an unexpected error must NOT
         # escape this guard and crash cmd_tick before the tick.lock release (which
@@ -557,7 +579,7 @@ def _sync_or_block(cycle: int, phase: str) -> bool:
                     f"(retry {n}/{_SYNC_MAX_TRANSIENT} in place, prompts preserved): {exc}",
                     fg="yellow",
                 )
-                return False  # status UNCHANGED → next tick re-enters and retries
+                return None  # status UNCHANGED → next tick re-enters and retries
             click.secho(f"  [SYNC] transient failures exhausted ({n}) — blocking", fg="red")
         # Entering the recoverable BLOCKED state — reset the transient counter so the
         # recovery arm's retries start fresh (the recovery ceiling is the real bound).
@@ -573,7 +595,7 @@ def _sync_or_block(cycle: int, phase: str) -> bool:
             f"branch.\n  {exc}",
             fg="red", bold=True,
         )
-        return False
+        return None
 
 
 def _current_repo_touched_files() -> set[str]:
@@ -2600,8 +2622,18 @@ def cmd_tick() -> None:
         # origin/develop immediately before dispatch (idempotent; also catches a
         # develop advance since COMPILED). On a sync block/transient-retry, do NOT
         # dispatch and fall through to the lock release (no early-return → no lock leak).
-        if cycle and not _sync_or_block(cycle, "dispatch agents"):
-            click.echo("  [SYNC] dispatch deferred this tick (branch not current with develop)")
+        _act = _sync_or_block(cycle, "dispatch agents") if cycle else "already_current"
+        if _act is None:
+            click.echo("  [SYNC] dispatch deferred this tick (branch sync blocked/retrying)")
+        elif _act != "already_current":
+            # Codex P2: the branch advanced onto newer develop AFTER prompts were
+            # generated/validated — they are now stale for the new code state.
+            # Regenerate before dispatching rather than run agents on stale instructions.
+            write_controller_state("COMPILED", cycle=cycle)
+            click.secho(
+                f"  [SYNC] branch advanced ({_act}) after prompt-gen — returning to "
+                "COMPILED to regenerate prompts on fresh develop.", fg="yellow",
+            )
         else:
             # Check model gate
             from automation.model_gate import check as model_gate_check

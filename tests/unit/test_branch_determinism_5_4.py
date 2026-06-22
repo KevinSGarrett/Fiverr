@@ -190,8 +190,9 @@ def test_stash_name_avoids_janitor_gc_patterns(monkeypatch):
         _dirty,
         (lambda a: a[1] == "stash" and (captured.update(name=a[-1]) or True), (0, "Saved")),
         _fetch_ok, _devsha, _local_exists, _checkout_ok,
-        (lambda a: a[1] == "rev-list" and f"HEAD..{DEV}" in _joined(a), (0, "0\n")),
+        (lambda a: a[1] == "rev-list" and f"HEAD..{DEV}" in _joined(a), (0, "2\n")),   # behind>0 -> mutates -> stashes
         (lambda a: a[1] == "rev-list" and f"{DEV}..HEAD" in _joined(a), (0, "0\n")),
+        (lambda a: a[1] == "reset", (0, "")),
     ]
     run = _runner(script)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
@@ -201,6 +202,27 @@ def test_stash_name_avoids_janitor_gc_patterns(monkeypatch):
     name = captured["name"].lower()
     assert not any(p in name for p in STALE_STASH_PATTERNS), \
         f"stash name '{name}' matches a janitor GC pattern -> would be silently dropped"
+
+
+def test_current_branch_with_dirty_tree_is_NOT_stashed(monkeypatch):
+    # Codex P1: at READY_TO_DISPATCH the dirty tree is the freshly-validated prompts.
+    # When already current (behind==0) the helper must NOT stash them (would break
+    # dispatch — run-agent would find no prompts).
+    stash_calls = []
+    script = [
+        _dirty,                                                  # tree dirty (the prompts)
+        (lambda a: a[1] == "stash" and (stash_calls.append(a) or True), (0, "Saved")),
+        _fetch_ok, _devsha, _local_exists, _checkout_ok,
+        (lambda a: a[1] == "rev-list" and f"HEAD..{DEV}" in _joined(a), (0, "0\n")),   # behind==0
+        (lambda a: a[1] == "rev-list" and f"{DEV}..HEAD" in _joined(a), (0, "0\n")),
+    ]
+    run = _runner(script)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(c, "_run_shell_command", run)
+    res = c.ensure_integration_branch_current(83)
+    assert res["action"] == "already_current"
+    assert res["stashed"] is False, "must NOT stash when already current"
+    assert not stash_calls, "no git stash when behind==0 (prompts preserved)"
 
 
 def test_sync_or_block_unexpected_exception_is_failclosed(monkeypatch):
@@ -213,8 +235,8 @@ def test_sync_or_block_unexpected_exception_is_failclosed(monkeypatch):
     monkeypatch.setattr("automation.notification_router.notify_blocked", lambda *a, **k: None)
     monkeypatch.setattr(c, "_SYNC_MAX_TRANSIENT", 2, raising=False)
     c._tick_counter("develop_sync_retry_55", reset=True)
-    assert c._sync_or_block(55, "dispatch agents") is False  # does not raise
-    assert c._sync_or_block(55, "dispatch agents") is False  # 2nd -> exhausted -> block, still no raise
+    assert c._sync_or_block(55, "dispatch agents") is None  # does not raise
+    assert c._sync_or_block(55, "dispatch agents") is None  # 2nd -> exhausted -> block, still no raise
 
 
 def test_transient_fetch_failure_raises_transient(monkeypatch):
@@ -250,7 +272,7 @@ def test_sync_or_block_conflict_writes_blocked(monkeypatch):
     monkeypatch.setattr("automation.notification_router.notify_blocked",
                         lambda *a, **k: None)
     ok = c._sync_or_block(83, "dispatch agents")
-    assert ok is False
+    assert ok is None  # conflict -> None (caller must not proceed)
     assert any(w[0] == "DEVELOP_SYNC_BLOCKED" for w in writes)
 
 
@@ -268,15 +290,21 @@ def test_sync_or_block_transient_retries_in_place_then_blocks(monkeypatch):
     c._tick_counter("develop_sync_retry_77", reset=True)  # isolate from prior tests
     r1 = c._sync_or_block(77, "generate prompts")
     r2 = c._sync_or_block(77, "generate prompts")
-    assert r1 is False and r2 is False
+    assert r1 is None and r2 is None
     assert "DEVELOP_SYNC_BLOCKED" not in writes, "transient retries must NOT block early"
     r3 = c._sync_or_block(77, "generate prompts")  # 3rd -> exhausted -> block
-    assert r3 is False
+    assert r3 is None
     assert "DEVELOP_SYNC_BLOCKED" in writes
 
 
-def test_sync_or_block_success_returns_true(monkeypatch):
+def test_sync_or_block_returns_action_string(monkeypatch):
+    # Returns the ACTION (truthy) on success so READY_TO_DISPATCH can tell apart
+    # "already_current" (dispatch) from an advance (regenerate — Codex P2).
     monkeypatch.setattr(c, "ensure_integration_branch_current",
                         lambda cycle: {"branch": f"cycle/{cycle:03d}/integration",
                                        "action": "already_current", "behind": 0, "ahead": 0})
-    assert c._sync_or_block(83, "dispatch agents") is True
+    assert c._sync_or_block(83, "dispatch agents") == "already_current"
+    monkeypatch.setattr(c, "ensure_integration_branch_current",
+                        lambda cycle: {"branch": f"cycle/{cycle:03d}/integration",
+                                       "action": "fast_forwarded", "behind": 3, "ahead": 0})
+    assert c._sync_or_block(83, "dispatch agents") == "fast_forwarded"
