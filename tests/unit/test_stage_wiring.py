@@ -185,7 +185,8 @@ def test_safe_docs_only_invokes_cursor_adapter(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr(
         "automation.run_agent_lifecycle.run_post_agent_lifecycle",
         lambda agent_id, cycle, run_id, run_dir,
-               jira_keys=None, contract=None, dry_run=False, pre_dispatch_sha=None: _Lifecycle(),
+               jira_keys=None, contract=None, dry_run=False,
+               pre_dispatch_sha=None, pre_existing_dirty=None, **_kw: _Lifecycle(),
     )
     monkeypatch.setattr(
         ctrl,
