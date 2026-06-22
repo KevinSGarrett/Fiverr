@@ -1257,7 +1257,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         else:
             click.secho(
                 "  CLAUDE PM UNAVAILABLE -- Claude returned None (timeout/short-output/error). "
-                "Autopilot PAUSED. Check C:\AI_Runner\tmp\claude_pm_agent_*.err",
+                r"Autopilot PAUSED. Check C:\AI_Runner\tmp\claude_pm_agent_*.err",
                 fg="red", bold=True,
             )
             _write_pause("CLAUDE_PM_RETURNED_NONE")
@@ -1462,19 +1462,62 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     )
     pre_dispatch_sha = _pre_sha_r.stdout.strip() or None
 
-    # C1.2: Stash any uncommitted changes before dispatch so the working tree
-    # is clean and the agent starts from a known state.
+    # C1.2: Stash any uncommitted leftovers before dispatch so the working tree is
+    # clean and the agent starts from a known state.
+    #   Fix #3 (prompt-clobber): EXCLUDE the prompts dir from the stash. The current
+    #     cycle's prompt is untracked at dispatch (plan-cycle writes but does not
+    #     commit it — the Codex-P1 invariant); a plain `--include-untracked` would
+    #     stash the agent's own input prompt away BEFORE cursor_run reads it -> empty
+    #     dispatch -> 0 commits.
+    #   Fix #2 (fail-closed): a non-zero stash means the tree is NOT clean; abort this
+    #     dispatch instead of silently running the agent on a dirty tree.
+    # Fix #1: pre_existing_dirty is the dirty set (uncommitted+untracked) AFTER the
+    # stash and BEFORE the agent runs — i.e. the input prompt plus anything the stash
+    # legitimately left. The lifecycle subtracts it so only the agent's own deltas are
+    # attributed for the ownership check (correct even if the stash is skipped/fails).
+    pre_existing_dirty: set[str] = set()
     if not _os_c1.environ.get("PYTEST_CURRENT_TEST"):
         _stash_r = _subprocess_c1.run(
             ["git", "stash", "push", "--include-untracked",
-             "-m", f"pre-agent-{agent}-cycle{cycle:03d}"],
+             "-m", f"pre-agent-{agent}-cycle{cycle:03d}",
+             "--", ".", ":(exclude)PM_Pack/automation/prompts/"],
             cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=30,
         )
-        if _stash_r.returncode == 0 and "No local changes" not in _stash_r.stdout:
+        _stash_out = (_stash_r.stdout or "") + (_stash_r.stderr or "")
+        if _stash_r.returncode != 0:
             click.secho(
-                f"  [C1.2] Stashed working-tree changes before agent {agent} dispatch",
+                f"  [C1.2] git stash FAILED before agent {agent} dispatch — aborting "
+                f"(fail-closed; working tree not clean): {_stash_out.strip()[-200:]}",
+                fg="red", bold=True,
+            )
+            _record_nonblocking_error(
+                f"run-agent stash-fail cycle={cycle} agent={agent}: {_stash_out.strip()[-200:]}"
+            )
+            raise SystemExit(1)
+        if "No local changes" not in _stash_out:
+            click.secho(
+                f"  [C1.2] Stashed working-tree leftovers before agent {agent} dispatch "
+                "(prompt dir preserved)",
                 fg="yellow",
             )
+
+        def _dirty_now() -> set[str]:
+            _u = _subprocess_c1.run(
+                ["git", "diff", "--name-only", "HEAD"],
+                cwd=str(REPO_ROOT), capture_output=True, text=True,
+            )
+            _s = _subprocess_c1.run(
+                ["git", "status", "--short"],
+                cwd=str(REPO_ROOT), capture_output=True, text=True,
+            )
+            paths = {ln.strip().replace("\\", "/") for ln in _u.stdout.splitlines() if ln.strip()}
+            paths |= {
+                ln[3:].strip().replace("\\", "/")
+                for ln in _s.stdout.splitlines() if ln.startswith("?? ")
+            }
+            return paths
+
+        pre_existing_dirty = _dirty_now()
 
     from automation.cursor_adapter import run_agent as cursor_run
     # OBS-6: heartbeat thread keeps terminal alive during long Cursor runs
@@ -1589,6 +1632,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         jira_keys=[],
         contract=_contract,                 # H5 FIX: pass loaded contract
         pre_dispatch_sha=pre_dispatch_sha,  # C1 FIX: scope ownership to this run
+        pre_existing_dirty=pre_existing_dirty,  # Fix #1: don't attribute leftovers/prompt
     )
 
     write_heartbeat("AGENT_COMPLETE", cycle=cycle, agent=agent)

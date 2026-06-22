@@ -32,9 +32,15 @@ def _load_agent_ownership() -> dict:
             agent = str(lane.get("agent", "")).upper()
             if not agent:
                 continue
+            # Fix #5: agent_lanes.yml uses BOTH `prohibited` (lanes E, C) and
+            # `prohibited_without_explicit_task` (lane A) for their denylists. The
+            # loader previously read only the latter, silently dropping E's and C's
+            # `src/**` denylist. Union both keys into the forbidden set.
+            forbidden = list(lane.get("prohibited_without_explicit_task", []) or [])
+            forbidden += list(lane.get("prohibited", []) or [])
             ownership[agent] = {
                 "allowed":   [str(p) for p in lane.get("owns", [])],
-                "forbidden": [str(p) for p in lane.get("prohibited_without_explicit_task", [])],
+                "forbidden": [str(p) for p in forbidden],
             }
         _OWNERSHIP_CACHE = ownership
         return ownership
@@ -80,7 +86,20 @@ GLOBAL_PROTECTED_PREFIXES: tuple[str, ...] = (
 _PM_AUTOMATION_PREFIX = "PM_Pack/automation/"
 _PM_AUTOMATION_ARTIFACT_SUBDIRS: tuple[str, ...] = (
     "runs/", "prompts/", "post_cycle_reviews/", "ref_catalogs/", "drafts/",
+    "current_run/", "provider_decisions/",
 )
+
+# Fix #4: runner-generated artifact paths that ownership must NEVER attribute to an
+# agent. These are written by the controller/PM layer (not the agent) and may be
+# regenerated mid-cycle; if attributed they cause a false OWNERSHIP_VIOLATION. This
+# set must stay in sync with the tick dirty-guard's _ARTIFACT_PREFIXES in
+# ai_cycle_controller.py — both exempt the same runner output, just at different gates.
+_OWNERSHIP_ARTIFACT_EXEMPT: tuple[str, ...] = (
+    "docs/cycle_reports/",
+    "PM_Pack/10_cycle_log/",
+    ".gitignore",
+    "README",
+) + tuple(_PM_AUTOMATION_PREFIX + sub for sub in _PM_AUTOMATION_ARTIFACT_SUBDIRS)
 
 
 def _is_protected_path(changed_file: str) -> bool:
@@ -151,12 +170,17 @@ class AgentLifecycle:
         contract: dict[str, Any] | None = None,
         dry_run: bool = False,
         pre_dispatch_sha: str | None = None,
+        pre_existing_dirty: set[str] | list[str] | None = None,
     ) -> AgentLifecycleResult:
         result = AgentLifecycleResult(agent=agent_id, cycle=cycle, run_id=run_id, status="IN_PROGRESS")
         jira_keys = jira_keys or []
-        # C1 FIX: use pre_dispatch_sha so ownership checks only cover files
-        # changed by THIS agent, not the whole dirty tree.
-        result.changed_files = _get_changed_files(pre_dispatch_sha=pre_dispatch_sha)
+        # C1 FIX + Fix #1: scope ownership to files changed by THIS agent only —
+        # snapshot SHA for committed work, and subtract the pre-existing dirty set
+        # (leftovers / regenerated artifacts / the input prompt) from uncommitted+untracked.
+        result.changed_files = _get_changed_files(
+            pre_dispatch_sha=pre_dispatch_sha,
+            pre_existing_dirty=pre_existing_dirty,
+        )
 
         unauthorized = _check_ownership(agent_id, result.changed_files)
         if unauthorized:
@@ -310,6 +334,7 @@ def run_post_agent_lifecycle(
     contract: dict | None = None,
     dry_run: bool = False,
     pre_dispatch_sha: str | None = None,
+    pre_existing_dirty: set[str] | list[str] | None = None,
 ) -> AgentLifecycleResult:
     """Run post-agent lifecycle checks.
 
@@ -317,6 +342,10 @@ def run_post_agent_lifecycle(
     When provided, _get_changed_files uses this to scope ownership checks to
     only files changed by THIS agent run (C1 fix — stops cross-cycle leftovers
     from causing OWNERSHIP_VIOLATION on every agent).
+    pre_existing_dirty: the set of uncommitted+untracked paths present IMMEDIATELY
+    before the agent ran (Fix #1). Subtracted from the changed-file set so a
+    leftover/regenerated artifact or the agent's own input prompt is never
+    mis-attributed to the agent.
     """
     return AgentLifecycle().run(
         agent_id=agent_id,
@@ -327,64 +356,71 @@ def run_post_agent_lifecycle(
         contract=contract,
         dry_run=dry_run,
         pre_dispatch_sha=pre_dispatch_sha,
+        pre_existing_dirty=pre_existing_dirty,
     )
 
 
-def _get_changed_files(pre_dispatch_sha: str | None = None) -> list[str]:
-    """Get files changed by this agent run.
+def _get_changed_files(
+    pre_dispatch_sha: str | None = None,
+    pre_existing_dirty: set[str] | list[str] | None = None,
+) -> list[str]:
+    """Get files changed by THIS agent run.
 
-    C1 FIX: When pre_dispatch_sha is provided, returns only files changed
-    SINCE that snapshot (committed OR uncommitted). This prevents cross-cycle
-    leftovers from prior failed agents from tripping the ownership check.
+    C1 FIX: When pre_dispatch_sha is provided, returns files changed SINCE that
+    snapshot (committed OR uncommitted OR new-untracked).
 
-    Without pre_dispatch_sha: falls back to git diff HEAD (all uncommitted).
+    Fix #1 (attribution scoping): the committed-since set is already snapshot-scoped
+    (``{sha}..HEAD``), but the uncommitted (``git diff HEAD``) and untracked
+    (``git status --short ??``) sets are NOT — they reflect the WHOLE working tree.
+    Any pre-existing dirty/untracked file (a leftover, a regenerated runner artifact,
+    or the agent's own input prompt) would otherwise be attributed to the agent and
+    trip a false OWNERSHIP_VIOLATION. ``pre_existing_dirty`` is the set of
+    uncommitted+untracked paths captured by the controller IMMEDIATELY before the
+    agent ran; we subtract it so only the agent's own deltas remain. This makes
+    attribution correct even when the pre-dispatch stash is skipped or fails.
+
+    Without pre_dispatch_sha: falls back to git diff HEAD (all uncommitted), still
+    minus ``pre_existing_dirty`` when supplied.
     PYTEST guard: returns [] during test runs (avoids Windows-path git calls on Linux CI).
     """
     import os as _os
     if _os.environ.get("PYTEST_CURRENT_TEST"):
         return []  # No real git calls during tests
+
+    def _norm(paths: object) -> set[str]:
+        return {str(p).replace("\\", "/").strip() for p in (paths or []) if str(p).strip()}
+
+    pre_existing = _norm(pre_existing_dirty)
+
+    r_uncommitted = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    )
+    uncommitted = _norm(r_uncommitted.stdout.strip().splitlines())
+
+    r_untracked = subprocess.run(
+        ["git", "status", "--short"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    )
+    untracked = _norm(
+        line[3:].strip() for line in r_untracked.stdout.splitlines()
+        if line.startswith("?? ")
+    )
+
     if pre_dispatch_sha:
-        # C1 FIX: diff only against the snapshot taken before dispatch.
-        # Files committed since snapshot + any new uncommitted files.
         r_committed = subprocess.run(
             ["git", "diff", "--name-only", f"{pre_dispatch_sha}..HEAD"],
             cwd=str(REPO_ROOT), capture_output=True, text=True,
         )
-        committed_since = r_committed.stdout.strip().splitlines()
+        committed_since = _norm(r_committed.stdout.strip().splitlines())
+        # Committed-since is genuinely the agent's work (snapshot-scoped) — keep all
+        # of it. Uncommitted/untracked are tree-wide — subtract anything that was
+        # already dirty before the agent ran.
+        agent_changes = committed_since | (uncommitted - pre_existing) | (untracked - pre_existing)
+        return sorted(agent_changes)
 
-        r_uncommitted = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD"],
-            cwd=str(REPO_ROOT), capture_output=True, text=True,
-        )
-        uncommitted = r_uncommitted.stdout.strip().splitlines()
-
-        r_untracked = subprocess.run(
-            ["git", "status", "--short"],
-            cwd=str(REPO_ROOT), capture_output=True, text=True,
-        )
-        untracked = [
-            line[3:].strip() for line in r_untracked.stdout.splitlines()
-            if line.startswith("?? ")
-        ]
-        return list(set(committed_since + uncommitted + untracked))
-
-    # Legacy path (no snapshot) — returns ALL uncommitted/untracked files.
-    # This is the bug that C1 fixes; kept here as fallback only.
-    r = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
-    )
-    uncommitted = r.stdout.strip().splitlines()
-
-    r2 = subprocess.run(
-        ["git", "status", "--short"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
-    )
-    untracked = [
-        line[3:].strip() for line in r2.stdout.splitlines()
-        if line.startswith("?? ")
-    ]
-    return list(set(uncommitted + untracked))
+    # Legacy path (no snapshot): all uncommitted/untracked minus pre-existing.
+    return sorted((uncommitted | untracked) - pre_existing)
 
 
 def _check_ownership(agent_id: str, changed_files: list[str]) -> list[str]:
@@ -420,12 +456,10 @@ def _check_ownership(agent_id: str, changed_files: list[str]) -> list[str]:
                 changed_file.startswith(ap.rstrip("*").rstrip("/"))
                 for ap in allowed_prefixes
             )
-            # Automation and docs files are always allowed for any agent
-            always_allowed = any(
-                changed_file.startswith(p)
-                for p in ("docs/cycle_reports/", "PM_Pack/automation/runs/",
-                          ".gitignore", "README")
-            )
+            # Fix #4: runner-generated artifacts (reports, prompts, reviews,
+            # catalogs, cycle-logs) are always allowed for any agent — they are the
+            # runner's own output, not the agent's, and must not trip ownership.
+            always_allowed = changed_file.replace("\\", "/").startswith(_OWNERSHIP_ARTIFACT_EXEMPT)
             if not in_allowed and not always_allowed:
                 violations.append(changed_file)
 
