@@ -55,6 +55,27 @@ def test_get_changed_files_subtracts_pre_existing_untracked(tmp_path, monkeypatc
     assert "leftover_artifact.json" not in changed, "pre-existing leftover must NOT be attributed"
 
 
+def test_get_changed_files_untracked_dir_not_collapsed(tmp_path, monkeypatch):
+    # Adversarial-review finding: a leftover and the agent's new file in the SAME
+    # fully-untracked dir must NOT collapse to one "?? dir/" entry (which would
+    # self-cancel against pre_existing_dirty and drop the agent's work). -uall lists
+    # them individually so subtraction works at file granularity.
+    repo = _init_repo(tmp_path)
+    head = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    (repo / "newpkg").mkdir()
+    (repo / "newpkg" / "leftover.py").write_text("a = 1\n")   # pre-existing
+    (repo / "newpkg" / "agent.py").write_text("b = 2\n")      # agent's own work
+
+    monkeypatch.setattr(ral, "REPO_ROOT", repo)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    changed = ral._get_changed_files(
+        pre_dispatch_sha=head, pre_existing_dirty={"newpkg/leftover.py"}
+    )
+    assert "newpkg/agent.py" in changed, "agent's file in a shared untracked dir must survive"
+    assert "newpkg/leftover.py" not in changed
+    assert "newpkg/" not in changed, "dir must not be reported wholesale"
+
+
 def test_get_changed_files_keeps_committed_since_snapshot(tmp_path, monkeypatch):
     repo = _init_repo(tmp_path)
     head = _git(repo, "rev-parse", "HEAD").stdout.strip()

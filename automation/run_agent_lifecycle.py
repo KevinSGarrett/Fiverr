@@ -398,8 +398,12 @@ def _get_changed_files(
     )
     uncommitted = _norm(r_uncommitted.stdout.strip().splitlines())
 
+    # -uall lists untracked files INDIVIDUALLY. Without it, a fully-untracked dir
+    # collapses to a single "?? dir/" entry; if a leftover and the agent's new file
+    # share that dir, the collapsed entry self-cancels against pre_existing_dirty and
+    # the agent's work is silently dropped (adversarial-review finding).
     r_untracked = subprocess.run(
-        ["git", "status", "--short"],
+        ["git", "status", "--short", "-uall"],
         cwd=str(REPO_ROOT), capture_output=True, text=True,
     )
     untracked = _norm(

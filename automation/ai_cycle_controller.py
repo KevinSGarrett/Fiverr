@@ -1507,7 +1507,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
                 cwd=str(REPO_ROOT), capture_output=True, text=True,
             )
             _s = _subprocess_c1.run(
-                ["git", "status", "--short"],
+                ["git", "status", "--short", "-uall"],  # list untracked individually (no dir collapse)
                 cwd=str(REPO_ROOT), capture_output=True, text=True,
             )
             paths = {ln.strip().replace("\\", "/") for ln in _u.stdout.splitlines() if ln.strip()}
