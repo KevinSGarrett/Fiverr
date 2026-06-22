@@ -212,7 +212,10 @@ def test_current_branch_with_dirty_tree_is_NOT_stashed(monkeypatch):
     script = [
         _dirty,                                                  # tree dirty (the prompts)
         (lambda a: a[1] == "stash" and (stash_calls.append(a) or True), (0, "Saved")),
-        _fetch_ok, _devsha, _local_exists, _checkout_ok,
+        _fetch_ok, _devsha, _local_exists,
+        # already ON the target branch -> the checkout is a no-op, no switch, no stash
+        (lambda a: a[1] == "rev-parse" and "--abbrev-ref" in a, (0, "cycle/083/integration\n")),
+        _checkout_ok,
         (lambda a: a[1] == "rev-list" and f"HEAD..{DEV}" in _joined(a), (0, "0\n")),   # behind==0
         (lambda a: a[1] == "rev-list" and f"{DEV}..HEAD" in _joined(a), (0, "0\n")),
     ]
@@ -223,6 +226,34 @@ def test_current_branch_with_dirty_tree_is_NOT_stashed(monkeypatch):
     assert res["action"] == "already_current"
     assert res["stashed"] is False, "must NOT stash when already current"
     assert not stash_calls, "no git stash when behind==0 (prompts preserved)"
+
+
+def test_switching_checkout_with_untracked_file_stashes_BEFORE_checkout(monkeypatch):
+    # Regression (observed live, cycle-84 run): switching onto the integration branch
+    # from another HEAD with a leftover untracked cycle-log failed the checkout with
+    # "untracked working tree files would be overwritten by checkout". The helper must
+    # PARK the dirty/untracked tree BEFORE the switching checkout so it can never wedge.
+    script = [
+        # untracked artifact present (the leftover CYCLE_075.md the live run tripped on)
+        (lambda a: a[1] == "status", (0, "?? PM_Pack/10_cycle_log/CYCLE_075.md")),
+        _fetch_ok, _devsha, _local_exists,
+        # currently on a DIFFERENT branch -> this is a real SWITCH, must stash first
+        (lambda a: a[1] == "rev-parse" and "--abbrev-ref" in a, (0, "develop\n")),
+        (lambda a: a[1] == "stash", (0, "Saved working directory")),
+        _checkout_ok,
+        (lambda a: a[1] == "rev-list" and f"HEAD..{DEV}" in _joined(a), (0, "3\n")),   # behind
+        (lambda a: a[1] == "rev-list" and f"{DEV}..HEAD" in _joined(a), (0, "0\n")),   # ahead
+        (lambda a: a[1] == "reset", (0, "")),
+    ]
+    run = _runner(script)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setattr(c, "_run_shell_command", run)
+    res = c.ensure_integration_branch_current(84)
+    assert res["stashed"] is True, "must park the dirty/untracked tree on a switch"
+    stash_idx = next(i for i, a in enumerate(run.calls) if a[1] == "stash")
+    checkout_idx = next(i for i, a in enumerate(run.calls)
+                        if a[1] == "checkout" and "-B" not in a)
+    assert stash_idx < checkout_idx, "stash must happen BEFORE the switching checkout"
 
 
 def test_sync_or_block_unexpected_exception_is_failclosed(monkeypatch):
