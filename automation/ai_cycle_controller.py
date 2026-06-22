@@ -1022,11 +1022,17 @@ def cmd_status() -> None:
 @click.option("--live", is_flag=True, default=False,
               help="Generate real prompts from PM_Pack + Jira (requires pm-pack-audit PASS).")
 @click.option("--cycle", default=None, type=int, help="Cycle number override.")
-def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
+@click.option("--agents", "agents_csv", default=None,
+              help="Comma-separated agent subset (e.g. 'B') to (re)generate. "
+                   "Default = all active lanes. Use to regenerate a single agent's "
+                   "prompt without redoing the others, or for a single-agent canary.")
+def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None,
+                   agents_csv: str | None) -> None:
     """Plan next cycle.
 
     --dry-run: Generates only a manifest and stub placeholders (safe).
     --live: Generates real prompts from PM_Pack + Jira (requires pm-pack-audit PASS + unfrozen).
+    --agents: optional comma-separated subset (e.g. 'B') to (re)generate only those.
 
     Default behavior (no flags): dry-run mode for safety.
     """
@@ -1061,11 +1067,25 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None) -> None:
         "base_branch": "develop",
         "agents": snap.get("active_agent_lanes", ["A", "B", "E", "C", "F", "D"]),
         "dry_run": dry_run,
+        # placeholder; possibly narrowed by --agents just below
+    }
+    # --agents subset: regenerate only the named agents (e.g. a single-agent canary).
+    if agents_csv:
+        _subset = [a.strip().upper() for a in agents_csv.split(",") if a.strip()]
+        _valid = [a for a in _subset if a in manifest["agents"]]
+        if not _valid:
+            click.secho(
+                f"  --agents {agents_csv!r} matched no active lanes "
+                f"{manifest['agents']}; nothing to do.", fg="red")
+            raise SystemExit(1)
+        click.secho(f"  Agent subset (--agents): {_valid}", fg="cyan")
+        manifest["agents"] = _valid
+    manifest.update({
         "planned_at": _now(),
         "quality_gates": snap.get("quality_gates", {}),
         "jira_policy": snap.get("jira_policy", {}),
         "status": "PLANNED_DRY_RUN" if dry_run else "PLANNED",
-    }
+    })
 
     manifest_path = out_dir / f"CYCLE_{next_cycle:03d}_MANIFEST.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))
