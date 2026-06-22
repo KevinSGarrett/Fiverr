@@ -485,9 +485,16 @@ def ensure_integration_branch_current(cycle: int) -> dict:
             info.update(action="created_from_develop", behind=0, ahead=0)
             return info  # cut from develop ⇒ already current
     else:
-        # Already on the integration branch at the guard points ⇒ a no-op that does
-        # NOT disturb a dirty tree (the validated prompts). A real branch switch is
-        # not expected here (DISPATCHING is deliberately not synced).
+        # Local branch exists. If we are ALREADY on it (the READY_TO_DISPATCH case),
+        # the checkout is a no-op that must NOT disturb the dirty tree — those are the
+        # freshly-validated prompts (Codex P1), so do not stash. If we must SWITCH to
+        # it (e.g. COMPILED, coming from develop or the prior cycle's branch), park any
+        # dirty/untracked tree FIRST — otherwise a leftover untracked file (e.g. an old
+        # cycle-log) fails the checkout with "untracked working tree files would be
+        # overwritten by checkout" (observed live on the cycle-84 run).
+        rc_cur, cur = _git_cmd(["rev-parse", "--abbrev-ref", "HEAD"])
+        if rc_cur == 0 and cur.strip() != branch:
+            _park_dirty()
         rc, out = _git_cmd(["checkout", branch])
         if rc != 0:
             raise BranchSyncError(f"checkout {branch} failed: {out.strip()[-300:]}", transient=True)
