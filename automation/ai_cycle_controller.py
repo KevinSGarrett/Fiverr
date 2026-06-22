@@ -3671,6 +3671,27 @@ def _porcelain_is_artifact_only(line: str, prefixes: tuple[str, ...]) -> bool:
     )
 
 
+def _dirty_blocking_lines(git_status_raw: str, prefixes: tuple[str, ...]) -> list[str]:
+    """Item 5.4-T5: the porcelain lines that should BLOCK dispatch = uncommitted
+    TRACKED source only. Two classes are NOT blocking and are filtered out:
+      - UNTRACKED files (``??``) — these are the runner's own output (cycle logs,
+        synthesis json, drafts, etc.), never tracked source. The dirty-repo guard
+        must not refuse to run because the loop wrote a log file.
+      - tracked changes whose every path is under a runtime-artifact prefix.
+    So the guard fail-closes ONLY on a real uncommitted tracked-source change, never
+    on cycle-log/artifact output (which would otherwise wedge an unattended runner)."""
+    blocking: list[str] = []
+    for line in git_status_raw.splitlines():
+        if not line.strip():
+            continue
+        if line.startswith("??"):  # untracked = runner output, not tracked source
+            continue
+        if _porcelain_is_artifact_only(line, prefixes):  # tracked artifact path
+            continue
+        blocking.append(line)
+    return blocking
+
+
 @cli.command("status-tick")
 def cmd_status_tick() -> None:
     """Status-only tick — reads state and writes next_action_decision.json.
@@ -3704,7 +3725,9 @@ def cmd_status_tick() -> None:
         capture_output=True, text=True,
     ).stdout
 
-    # Paths written by the runtime that should not block dispatch
+    # Tracked paths written by the runtime that should not block dispatch.
+    # Item 5.4-T5: PM_Pack/10_cycle_log/ is per-cycle log output (also gitignored) —
+    # exempt it so even a tracked-then-modified cycle-log file never blocks.
     _ARTIFACT_PREFIXES = (
         "PM_Pack/automation/post_cycle_reviews/",
         "PM_Pack/automation/runs/",
@@ -3712,14 +3735,12 @@ def cmd_status_tick() -> None:
         "PM_Pack/automation/prompts/drafts/",
         "PM_Pack/automation/current_policy_snapshot.json",
         "PM_Pack/automation/prompt_package_manifest.json",
+        "PM_Pack/10_cycle_log/",
     )
-    # Keep only NON-artifact dirty lines; a remaining line blocks dispatch. A line
-    # is suppressed only when EVERY path it touches is a runtime artifact (so a
-    # rename moving a real file into an artifact dir still blocks).
-    _dirty_lines = [
-        line for line in git_status_raw.splitlines()
-        if line.strip() and not _porcelain_is_artifact_only(line, _ARTIFACT_PREFIXES)
-    ]
+    # Item 5.4-T5: block ONLY on uncommitted tracked source — untracked output and
+    # tracked artifact-path changes never wedge the runner. (Was: counted untracked
+    # cycle-log/synthesis output as "dirty", refusing to run on the loop's own logs.)
+    _dirty_lines = _dirty_blocking_lines(git_status_raw, _ARTIFACT_PREFIXES)
     git_status = "\n".join(_dirty_lines)
     repo_dirty = bool(git_status)
 
