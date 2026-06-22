@@ -354,6 +354,228 @@ def _run_shell_command(args: list[str]) -> tuple[int, str]:
     return proc.returncode, output
 
 
+# ── Item 5.4 (determinism): integration branch must contain current develop ──
+# Root cause of the 2026-06-21 stale-code milestone run: when a cycle is RESUMED,
+# the tick checks out cycle/NNN/integration AS-IS (or recreates it from its own
+# stale remote tip) and never advances it onto current origin/develop. A branch
+# that predates merged develop commits therefore runs OLD code. This guard makes
+# "what runs == what's on develop" true before any prompt-gen or dispatch.
+_SYNC_MAX_TRANSIENT = 5   # transient git/network retries (in place) before blocking
+_SYNC_MAX_RECOVER = 10    # DEVELOP_SYNC_BLOCKED recovery attempts before operator escalation
+
+
+class BranchSyncError(RuntimeError):
+    """Integration branch could not be made current with origin/develop.
+
+    ``transient`` True  -> a git/network failure worth retrying in place (the prior
+                           state is kept so validated prompts are NOT discarded).
+    ``transient`` False -> a real merge CONFLICT needing human resolution.
+    Fail-closed signal: the caller MUST NOT generate prompts or dispatch agents.
+    """
+
+    def __init__(self, message: str, *, transient: bool = False) -> None:
+        super().__init__(message)
+        self.transient = transient
+
+
+def _git_cmd(args: list[str]) -> tuple[int, str]:
+    """Uniform git invocation (cwd=REPO_ROOT) for the branch-sync helper."""
+    return _run_shell_command(["git", *args])
+
+
+def _parse_git_count(output: str, what: str) -> int:
+    """Extract a `git rev-list --count` integer, tolerant of warning/advice text.
+
+    _run_shell_command concatenates stdout+stderr, and git may emit a warning/advice
+    line on stderr (rc still 0) — e.g. an ambiguous-refname warning — which would make
+    a bare int() raise ValueError and (uncaught) crash the tick before the lock
+    release. The count is the first all-digit token (stdout precedes stderr). Raise a
+    TRANSIENT BranchSyncError if no integer is present (retry in place, fail-closed)."""
+    for tok in (output or "").split():
+        if tok.isdigit():
+            return int(tok)
+    raise BranchSyncError(
+        f"could not parse {what} count from git output: {(output or '').strip()[-200:]}",
+        transient=True,
+    )
+
+
+def ensure_integration_branch_current(cycle: int) -> dict:
+    """Guarantee cycle/NNN/integration exists and contains current origin/develop.
+
+    Cases, all fail-closed:
+      (a) FRESH (branch absent local+remote)  -> create from origin/develop.
+      (b) RESUME, 0 commits ahead of develop  -> hard-align to origin/develop.
+      (c) RESUME with agent commits           -> merge origin/develop IN (--no-ff),
+                                                  preserving the agent work.
+      (d) merge CONFLICT                       -> abort + raise (transient=False).
+      transient git/network error             -> raise (transient=True).
+
+    Dirty tree: PARKED in a named recovery stash (--include-untracked) rather than
+    failing closed (matches the runner's stash-before-work pattern) — the sync then
+    proceeds on a clean tree. The work is NOT silently lost: the stash is named
+    ``BSYNC-RESUME-cycle-NNN`` (deliberately NOT matching repo_janitor's stale-stash
+    GC patterns) and is logged + recoverable via ``git stash list``. It is NOT
+    auto-reapplied (popping onto a reset/merged tree could conflict); recover it
+    manually if a crashed agent left real work. Idempotent: behind==0 -> no-op.
+    Skipped under PYTEST_CURRENT_TEST.
+    """
+    import os as _os
+    if _os.environ.get("PYTEST_CURRENT_TEST"):
+        return {"action": "skipped_pytest", "behind": 0, "ahead": 0, "stashed": False}
+
+    branch = f"cycle/{cycle:03d}/integration"
+    info: dict = {"branch": branch, "action": None, "behind": None,
+                  "ahead": None, "stashed": False}
+
+    # 0. Preserve uncommitted work by stashing (do NOT fail-closed on dirty — the
+    #    runner already stashes before dispatch; failing closed would block a
+    #    legitimate resume after a mid-run crash). Stash failure IS fatal.
+    rc, dirty = _git_cmd(["status", "--porcelain"])
+    if rc != 0:
+        raise BranchSyncError(f"git status failed: {dirty.strip()[-300:]}", transient=True)
+    if dirty.strip():
+        # Name avoids EVERY repo_janitor STALE_STASH_PATTERNS fragment (auto/temp/
+        # preserve/...) so the parked work is NOT garbage-collected after 72h.
+        _stash_name = f"BSYNC-RESUME-cycle-{cycle:03d}"
+        rc, out = _git_cmd(["stash", "push", "--include-untracked", "-m", _stash_name])
+        if rc != 0:
+            raise BranchSyncError(f"stash dirty tree failed: {out.strip()[-300:]}", transient=True)
+        info["stashed"] = True
+        info["stash_name"] = _stash_name
+        click.secho(
+            f"  [SYNC] parked uncommitted work in stash '{_stash_name}' before sync "
+            f"(recoverable: git stash list | grep {_stash_name}; NOT auto-reapplied).",
+            fg="yellow",
+        )
+
+    # 1. Fetch the AUTHORITATIVE base; pin its SHA (a name could move under us).
+    rc, out = _git_cmd(["fetch", "--prune", "origin", "develop"])
+    if rc != 0:
+        raise BranchSyncError(f"git fetch origin develop failed: {out.strip()[-300:]}", transient=True)
+    rc, dev_sha = _git_cmd(["rev-parse", "--verify", "origin/develop"])
+    if rc != 0:
+        raise BranchSyncError("origin/develop not found after fetch", transient=True)
+    dev_sha = dev_sha.strip()
+
+    # 2. Ensure the integration branch exists and is checked out.
+    rc_local, _ = _git_cmd(["rev-parse", "--verify", f"refs/heads/{branch}"])
+    if rc_local != 0:
+        _git_cmd(["fetch", "origin", branch, "--quiet"])
+        rc_remote, _ = _git_cmd(["rev-parse", "--verify", f"refs/remotes/origin/{branch}"])
+        if rc_remote == 0:
+            rc, out = _git_cmd(["checkout", "-B", branch, f"origin/{branch}"])
+            if rc != 0:
+                raise BranchSyncError(f"checkout remote {branch} failed: {out.strip()[-300:]}", transient=True)
+            info["action"] = "resumed_from_remote"
+        else:
+            rc, out = _git_cmd(["checkout", "-B", branch, "origin/develop"])
+            if rc != 0:
+                raise BranchSyncError(f"create {branch} from develop failed: {out.strip()[-300:]}", transient=True)
+            info.update(action="created_from_develop", behind=0, ahead=0)
+            return info  # cut from develop ⇒ already current
+    else:
+        rc, out = _git_cmd(["checkout", branch])
+        if rc != 0:
+            raise BranchSyncError(f"checkout {branch} failed: {out.strip()[-300:]}", transient=True)
+
+    # 3. Measure behind/ahead against the pinned develop SHA (exact, cheap).
+    rc, behind = _git_cmd(["rev-list", "--count", f"HEAD..{dev_sha}"])
+    if rc != 0:
+        raise BranchSyncError(f"rev-list behind failed: {behind.strip()[-200:]}", transient=True)
+    rc, ahead = _git_cmd(["rev-list", "--count", f"{dev_sha}..HEAD"])
+    if rc != 0:
+        raise BranchSyncError(f"rev-list ahead failed: {ahead.strip()[-200:]}", transient=True)
+    behind_n = _parse_git_count(behind, "behind")
+    ahead_n = _parse_git_count(ahead, "ahead")
+    info["behind"], info["ahead"] = behind_n, ahead_n
+
+    # 4. Idempotent: already current.
+    if behind_n == 0:
+        info["action"] = info["action"] or "already_current"
+        return info
+
+    # 5. (b) behind, no agent work -> hard-align (safe: ahead==0 + tree clean post-stash).
+    if ahead_n == 0:
+        rc, out = _git_cmd(["reset", "--hard", dev_sha])
+        if rc != 0:
+            raise BranchSyncError(f"reset --hard to develop failed: {out.strip()[-300:]}", transient=True)
+        info["action"] = "fast_forwarded"
+        return info
+
+    # 6. (c) behind WITH agent work -> merge develop in (preserve work); abort+block on conflict.
+    rc, out = _git_cmd(["-c", "user.name=ai-runner", "-c", "user.email=ai-runner@local",
+                        "merge", "--no-ff", "--no-edit", dev_sha])
+    if rc != 0:
+        _git_cmd(["merge", "--abort"])
+        raise BranchSyncError(
+            f"merge origin/develop into {branch} CONFLICTED (ahead={ahead_n}); "
+            f"manual resolution required:\n{out.strip()[-400:]}", transient=False)
+    info["action"] = "merged_develop"
+    return info
+
+
+def _sync_or_block(cycle: int, phase: str) -> bool:
+    """Make the integration branch current before consuming code; fail closed.
+
+    Returns True if current (safe to proceed). On a TRANSIENT git/network failure
+    the prior status is left UNCHANGED (the same tick re-runs next time, so
+    validated prompts are preserved) until ``_SYNC_MAX_TRANSIENT`` retries are
+    exhausted; a merge CONFLICT (or exhausted transients) writes the recoverable
+    DEVELOP_SYNC_BLOCKED state. Never proceeds on stale/conflicted code.
+    """
+    key = f"develop_sync_retry_{cycle}"
+    try:
+        res = ensure_integration_branch_current(cycle)
+        _tick_counter(key, reset=True)
+        if res.get("action") not in (None, "already_current", "skipped_pytest"):
+            click.secho(
+                f"  [SYNC] {res['branch']} <- origin/develop ({res['action']}; "
+                f"behind={res.get('behind')} ahead={res.get('ahead')}"
+                f"{'; autostashed dirty tree' if res.get('stashed') else ''})",
+                fg="cyan",
+            )
+        return True
+    except Exception as exc:
+        # Catch EVERYTHING (not just BranchSyncError): an unexpected error must NOT
+        # escape this guard and crash cmd_tick before the tick.lock release (which
+        # would leak the lock for the full stale window). Unexpected errors are
+        # treated as TRANSIENT (retry in place, then block) — always fail-closed.
+        from automation.notification_router import notify_blocked
+        from automation.state_writer import write_controller_state
+        transient = getattr(exc, "transient", True)  # non-BranchSyncError -> transient
+        if not isinstance(exc, BranchSyncError):
+            click.secho(
+                f"  [SYNC] UNEXPECTED error before {phase} (fail-closed, treated "
+                f"transient): {exc!r}", fg="red",
+            )
+        if transient:
+            n = _tick_counter(key, increment=True)
+            if n < _SYNC_MAX_TRANSIENT:
+                click.secho(
+                    f"  [SYNC] transient failure before {phase} "
+                    f"(retry {n}/{_SYNC_MAX_TRANSIENT} in place, prompts preserved): {exc}",
+                    fg="yellow",
+                )
+                return False  # status UNCHANGED → next tick re-enters and retries
+            click.secho(f"  [SYNC] transient failures exhausted ({n}) — blocking", fg="red")
+        # Entering the recoverable BLOCKED state — reset the transient counter so the
+        # recovery arm's retries start fresh (the recovery ceiling is the real bound).
+        _tick_counter(key, reset=True)
+        write_controller_state("DEVELOP_SYNC_BLOCKED", cycle=cycle)
+        notify_blocked(
+            f"Integration branch could not be made current with origin/develop "
+            f"before {phase}: {exc}",
+            incident_code="DEVELOP_SYNC_BLOCKED", cycle=cycle,
+        )
+        click.secho(
+            f"  State: DEVELOP_SYNC_BLOCKED — refusing to {phase} on stale/conflicted "
+            f"branch.\n  {exc}",
+            fg="red", bold=True,
+        )
+        return False
+
+
 def _current_repo_touched_files() -> set[str]:
     changed = subprocess.run(
         ["git", "diff", "--name-only", "HEAD"],
@@ -2333,19 +2555,25 @@ def cmd_tick() -> None:
         click.secho(f"  State: COMPILED (cycle {next_cycle})", fg="cyan")
 
     elif status == "COMPILED":
-        # Auto-run plan-cycle to generate prompts — no manual intervention needed
-        click.echo(f"  → Auto-running plan-cycle for cycle {cycle}...")
-        rc, out = _run_shell_command(
-            [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
-             "--live", "--cycle", str(cycle)]
-        )
-        if rc == 0:
-            write_controller_state("PLANNED", cycle=cycle)
-            click.secho(f"  State: PLANNED (cycle {cycle}) — prompts generated", fg="cyan")
-        else:
-            click.secho(f"  [WARN] plan-cycle failed:\n{out.strip()[-400:]}", fg="yellow")
-            write_controller_state("PLANNING", cycle=cycle)
-            click.secho("  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
+        # Item 5.4 determinism: plan-cycle's prompt generator reads the working
+        # tree, so the integration branch MUST contain current origin/develop FIRST
+        # (else a resumed stale branch regenerates prompts with old code). On a sync
+        # block/transient-retry, fall through (status already handled) to the lock
+        # release — do NOT early-return (that would leak tick.lock).
+        if (not cycle) or _sync_or_block(cycle, "generate prompts"):
+            # Auto-run plan-cycle to generate prompts — no manual intervention needed
+            click.echo(f"  → Auto-running plan-cycle for cycle {cycle}...")
+            rc, out = _run_shell_command(
+                [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
+                 "--live", "--cycle", str(cycle)]
+            )
+            if rc == 0:
+                write_controller_state("PLANNED", cycle=cycle)
+                click.secho(f"  State: PLANNED (cycle {cycle}) — prompts generated", fg="cyan")
+            else:
+                click.secho(f"  [WARN] plan-cycle failed:\n{out.strip()[-400:]}", fg="yellow")
+                write_controller_state("PLANNING", cycle=cycle)
+                click.secho("  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
 
     elif status == "PLANNED":
         # Validate prompts
@@ -2368,53 +2596,60 @@ def cmd_tick() -> None:
             click.secho("  No active cycle — run plan-cycle first", fg="yellow")
 
     elif status == "READY_TO_DISPATCH":
-        # Check model gate
-        from automation.model_gate import check as model_gate_check
-        gate = model_gate_check(repo_root=REPO_ROOT, cycle=cycle, agent="PRE_DISPATCH")
-        if not gate.passed:
-            write_controller_state("MODEL_BLOCKED", cycle=cycle)
-            notify_blocked("Model gate failed before dispatch", incident_code="MODEL_BLOCKED", cycle=cycle)
-            click.secho(f"  State: MODEL_BLOCKED — {gate.summary()}", fg="red")
+        # Item 5.4 determinism: re-assert the integration branch is current with
+        # origin/develop immediately before dispatch (idempotent; also catches a
+        # develop advance since COMPILED). On a sync block/transient-retry, do NOT
+        # dispatch and fall through to the lock release (no early-return → no lock leak).
+        if cycle and not _sync_or_block(cycle, "dispatch agents"):
+            click.echo("  [SYNC] dispatch deferred this tick (branch not current with develop)")
         else:
-            # Check ANTHROPIC_API_KEY absent
-            from automation.claude_sub_gate import check_api_key_absent
-            api = check_api_key_absent()
-            if not api["passed"]:
-                write_controller_state("CLAUDE_API_KEY_BLOCKED", cycle=cycle)
-                notify_blocked("ANTHROPIC_API_KEY detected", incident_code="BLOCKED_CLAUDE_API_KEY_PRESENT")
-                click.secho("  State: CLAUDE_API_KEY_BLOCKED", fg="red")
+            # Check model gate
+            from automation.model_gate import check as model_gate_check
+            gate = model_gate_check(repo_root=REPO_ROOT, cycle=cycle, agent="PRE_DISPATCH")
+            if not gate.passed:
+                write_controller_state("MODEL_BLOCKED", cycle=cycle)
+                notify_blocked("Model gate failed before dispatch", incident_code="MODEL_BLOCKED", cycle=cycle)
+                click.secho(f"  State: MODEL_BLOCKED — {gate.summary()}", fg="red")
             else:
-                write_controller_state("AWAITING_DISPATCH", cycle=cycle)
-                click.secho("  All gates pass — dispatching agents now...", fg="green")
-                notify_info(f"Tick: dispatching cycle {cycle}")
-                # ── DISPATCH: call run-cycle directly ────────────────
-                write_controller_state("DISPATCHING", cycle=cycle)
-                rc, out = _run_shell_command(
-                    [sys.executable, "automation/ai_cycle_controller.py",
-                     "run-cycle", "--cycle", str(cycle)]
-                )
-                if rc == 0:
-                    click.secho(f"  Cycle {cycle} dispatched and complete.", fg="green", bold=True)
+                # Check ANTHROPIC_API_KEY absent
+                from automation.claude_sub_gate import check_api_key_absent
+                api = check_api_key_absent()
+                if not api["passed"]:
+                    write_controller_state("CLAUDE_API_KEY_BLOCKED", cycle=cycle)
+                    notify_blocked("ANTHROPIC_API_KEY detected", incident_code="BLOCKED_CLAUDE_API_KEY_PRESENT")
+                    click.secho("  State: CLAUDE_API_KEY_BLOCKED", fg="red")
                 else:
-                    click.secho(f"  [WARN] run-cycle exited {rc}: {out.strip()[-300:]}", fg="yellow")
-                    # Codex P1 #118: run-cycle may have deliberately set a
-                    # recoverable state (PR_CREATE_FAILED / CYCLE_NO_WORK) before
-                    # exiting non-zero. Do NOT clobber those with PLANNED — that
-                    # would bypass their dedicated tick-recovery branches and
-                    # redispatch the whole cycle. Only reset for generic failures.
-                    _post_status = (_read_runner_state().get("status") or "")
-                    if _post_status in (
-                        "PR_CREATE_FAILED", "CYCLE_NO_WORK",
-                        # ITEM 3.2: merge-path states are recoverable by their own
-                        # tick branches — never clobber them into a full re-dispatch.
-                        "AWAITING_CI_GREEN", "MERGING", "MERGED", "MERGE_BLOCKED",
-                    ):
-                        click.secho(
-                            f"  Preserving {_post_status} for its recovery branch.",
-                            fg="yellow",
-                        )
+                    write_controller_state("AWAITING_DISPATCH", cycle=cycle)
+                    click.secho("  All gates pass — dispatching agents now...", fg="green")
+                    notify_info(f"Tick: dispatching cycle {cycle}")
+                    # ── DISPATCH: call run-cycle directly ────────────────
+                    write_controller_state("DISPATCHING", cycle=cycle)
+                    rc, out = _run_shell_command(
+                        [sys.executable, "automation/ai_cycle_controller.py",
+                         "run-cycle", "--cycle", str(cycle)]
+                    )
+                    if rc == 0:
+                        click.secho(f"  Cycle {cycle} dispatched and complete.", fg="green", bold=True)
                     else:
-                        write_controller_state("PLANNED", cycle=cycle)  # reset for retry
+                        click.secho(f"  [WARN] run-cycle exited {rc}: {out.strip()[-300:]}", fg="yellow")
+                        # Codex P1 #118: run-cycle may have deliberately set a
+                        # recoverable state (PR_CREATE_FAILED / CYCLE_NO_WORK) before
+                        # exiting non-zero. Do NOT clobber those with PLANNED — that
+                        # would bypass their dedicated tick-recovery branches and
+                        # redispatch the whole cycle. Only reset for generic failures.
+                        _post_status = (_read_runner_state().get("status") or "")
+                        if _post_status in (
+                            "PR_CREATE_FAILED", "CYCLE_NO_WORK",
+                            # ITEM 3.2: merge-path states are recoverable by their own
+                            # tick branches — never clobber them into a full re-dispatch.
+                            "AWAITING_CI_GREEN", "MERGING", "MERGED", "MERGE_BLOCKED",
+                        ):
+                            click.secho(
+                                f"  Preserving {_post_status} for its recovery branch.",
+                                fg="yellow",
+                            )
+                        else:
+                            write_controller_state("PLANNED", cycle=cycle)  # reset for retry
 
     elif status == "AGENT_COMPLETE":
         import automation.autopilot_logger as L
@@ -3008,6 +3243,39 @@ def cmd_tick() -> None:
             )
             click.secho(f"  PR_CREATE_FAILED (cycle {cycle}) — retry failed: {_err}", fg="red")
 
+    elif status == "DEVELOP_SYNC_BLOCKED":
+        # Item 5.4: bounded recovery from a failed develop-sync. Retry the sync; on
+        # success, return to COMPILED so prompts regenerate on fresh develop. A
+        # transient git/network error retries in place inside _sync_or_block; a
+        # persistent conflict escalates to the operator after _SYNC_MAX_RECOVER
+        # attempts (auto-retry halted — no infinite loop, notify exactly once).
+        _rec = _tick_counter(f"develop_sync_recover_{cycle}", increment=True)
+        if _rec > _SYNC_MAX_RECOVER:
+            if _rec == _SYNC_MAX_RECOVER + 1:
+                from automation.notification_router import notify_blocked as _nb_persist
+                _nb_persist(
+                    f"DEVELOP_SYNC_BLOCKED persists after {_SYNC_MAX_RECOVER} recovery "
+                    f"attempts (cycle {cycle}) — operator must resolve the develop "
+                    "divergence/conflict; auto-retry halted.",
+                    incident_code="DEVELOP_SYNC_BLOCKED_PERSISTENT", cycle=cycle,
+                )
+                click.secho(
+                    "  DEVELOP_SYNC_BLOCKED persistent — operator action required; "
+                    "auto-retry halted.", fg="red", bold=True,
+                )
+            else:
+                click.secho(
+                    "  DEVELOP_SYNC_BLOCKED — awaiting operator (auto-retry halted).",
+                    fg="yellow",
+                )
+        elif (not cycle) or _sync_or_block(cycle, "resync"):
+            _tick_counter(f"develop_sync_recover_{cycle}", reset=True)
+            write_controller_state("COMPILED", cycle=cycle)
+            click.secho(
+                "  Sync recovered — back to COMPILED (regenerate prompts on fresh develop).",
+                fg="green",
+            )
+
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")
         write_controller_state("IDLE")
@@ -3463,6 +3731,10 @@ def cmd_status_tick() -> None:
     elif status == "POST_CYCLE_PENDING":
         next_action = "POST_CYCLE_REVIEW"
         reason = "Awaiting post-cycle review"
+    elif status == "DEVELOP_SYNC_BLOCKED":
+        next_action = "RESYNC_DEVELOP_OR_OPERATOR"
+        reason = ("Integration branch could not be made current with origin/develop "
+                  "(conflict or git error) — bounded auto-retry, then operator")
     else:
         next_action = f"UNKNOWN_STATUS_{status}"
         reason = "Unknown status — check controller_state.json"
