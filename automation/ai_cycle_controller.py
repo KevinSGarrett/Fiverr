@@ -3672,24 +3672,19 @@ def _porcelain_is_artifact_only(line: str, prefixes: tuple[str, ...]) -> bool:
 
 
 def _dirty_blocking_lines(git_status_raw: str, prefixes: tuple[str, ...]) -> list[str]:
-    """Item 5.4-T5: the porcelain lines that should BLOCK dispatch = uncommitted
-    TRACKED source only. Two classes are NOT blocking and are filtered out:
-      - UNTRACKED files (``??``) — these are the runner's own output (cycle logs,
-        synthesis json, drafts, etc.), never tracked source. The dirty-repo guard
-        must not refuse to run because the loop wrote a log file.
-      - tracked changes whose every path is under a runtime-artifact prefix.
-    So the guard fail-closes ONLY on a real uncommitted tracked-source change, never
-    on cycle-log/artifact output (which would otherwise wedge an unattended runner)."""
-    blocking: list[str] = []
-    for line in git_status_raw.splitlines():
-        if not line.strip():
-            continue
-        if line.startswith("??"):  # untracked = runner output, not tracked source
-            continue
-        if _porcelain_is_artifact_only(line, prefixes):  # tracked artifact path
-            continue
-        blocking.append(line)
-    return blocking
+    """Item 5.4-T5: the porcelain lines that should BLOCK dispatch = any change (tracked
+    OR untracked) whose path is NOT a runtime artifact. Exemption is by PATH, not by
+    tracked-status: an artifact-path line (logs/runs/drafts/cycle-log) is exempt whether
+    tracked-modified or untracked, but an untracked NON-artifact SOURCE file (e.g.
+    ``?? src/new_feature.py``) STILL blocks — a new uncommitted source file must not be
+    hidden from the guard (Codex review on #130). The runner's known artifact outputs
+    (cycle logs, synthesis json) are additionally gitignored so they never reach
+    porcelain; this filter is the backstop for tracked artifact mods + the line that
+    keeps real source changes blocking."""
+    return [
+        line for line in git_status_raw.splitlines()
+        if line.strip() and not _porcelain_is_artifact_only(line, prefixes)
+    ]
 
 
 @cli.command("status-tick")

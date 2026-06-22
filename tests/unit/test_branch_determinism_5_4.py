@@ -330,15 +330,15 @@ _PREFIXES_T5 = (
 )
 
 
-def test_untracked_runner_output_never_blocks():
-    # The exact wedge: pre-existing untracked cycle-logs + a synthesis-json artifact
-    # must NOT trip BLOCKED_DIRTY_REPO (they are the loop's own output, not source).
+def test_untracked_artifact_output_never_blocks():
+    # The exact wedge: untracked cycle-logs are exempt by PATH (prefix), tracked or not.
+    # (The synthesis json lives outside the prefixes and is handled by gitignore, so it
+    # never reaches porcelain — it is NOT relied on being guard-exempt here.)
     raw = (
         "?? PM_Pack/10_cycle_log/CYCLE_075.md\n"
         "?? PM_Pack/10_cycle_log/CYCLE_075_scrum_1072_spec.md\n"
-        "?? docs/cycle_reports/CYCLE_083_SYNTHESIS.json\n"
     )
-    assert _dbl(raw, _PREFIXES_T5) == [], "untracked runner output must not block"
+    assert _dbl(raw, _PREFIXES_T5) == [], "untracked cycle-log output must not block"
 
 
 def test_tracked_source_change_still_blocks():
@@ -369,8 +369,11 @@ def test_mixed_only_tracked_source_blocks():
     assert blocking == [" M src/scoring/ranker.py", "A  automation/new_real_module.py"]
 
 
-def test_untracked_source_file_also_does_not_block():
-    # Even an untracked .py is the runner's transient output at the guard point
-    # (agents commit their work); only TRACKED uncommitted source blocks.
-    raw = "?? src/experimental/scratch.py\n"
-    assert _dbl(raw, _PREFIXES_T5) == []
+def test_untracked_source_file_BLOCKS():
+    # Codex review (#130): an untracked NON-artifact source file is a real uncommitted
+    # change and MUST still block — it must NOT be hidden from the dirty-repo guard
+    # just because it is untracked. Exemption is by artifact PATH, not tracked-status.
+    raw = "?? src/experimental/scratch.py\n?? automation/new_module.py\n"
+    assert _dbl(raw, _PREFIXES_T5) == [
+        "?? src/experimental/scratch.py", "?? automation/new_module.py",
+    ]

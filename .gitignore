@@ -30,6 +30,9 @@ htmlcov/
 # it keeps the runner's own logs out of `git status`, so they can never trip the
 # dirty-repo dispatch guard. (Already-tracked files under this dir stay tracked.)
 PM_Pack/10_cycle_log/
+# Synthesis-critic output artifact (0 tracked; the tracked deliverables are the
+# per-agent CYCLE_NNN_AGENT_X.md reports) — ignore so it can't trip the guard either.
+docs/cycle_reports/*_SYNTHESIS.json
 artifacts/
 data/screenshots/
 data/checkpoints/
