@@ -260,6 +260,16 @@ def test_pytest_guard_skips(monkeypatch):
     assert res["action"] == "skipped_pytest"
 
 
+def test_sync_or_block_returns_skipped_under_pytest_not_an_advance(monkeypatch):
+    # Regression (CI #129): under pytest the real _sync_or_block returns
+    # "skipped_pytest". READY_TO_DISPATCH must treat that like "already_current"
+    # (proceed to dispatch), NOT as a branch-advance that bounces back to COMPILED
+    # (which broke test_tick_preserves_pr_create_failed_state). Pin the value so the
+    # call site's membership check (already_current/skipped_pytest -> proceed) holds.
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "yes")
+    assert c._sync_or_block(83, "dispatch agents") == "skipped_pytest"
+
+
 # ── _sync_or_block policy ─────────────────────────────────────────────────────
 
 def test_sync_or_block_conflict_writes_blocked(monkeypatch):

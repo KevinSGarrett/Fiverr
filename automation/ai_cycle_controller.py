@@ -2625,7 +2625,7 @@ def cmd_tick() -> None:
         _act = _sync_or_block(cycle, "dispatch agents") if cycle else "already_current"
         if _act is None:
             click.echo("  [SYNC] dispatch deferred this tick (branch sync blocked/retrying)")
-        elif _act != "already_current":
+        elif _act not in ("already_current", "skipped_pytest"):
             # Codex P2: the branch advanced onto newer develop AFTER prompts were
             # generated/validated — they are now stale for the new code state.
             # Regenerate before dispatching rather than run agents on stale instructions.
