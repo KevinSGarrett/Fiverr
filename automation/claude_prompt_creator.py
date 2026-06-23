@@ -884,10 +884,14 @@ tree; never invent module slugs that are not in the specs or the repository.
 
 ## PQ-2 your role / file ownership
 Agent {agent_id} role: {lane['description']}.
-You own (create/modify ONLY these paths):
+Your IMPLEMENTATION lane (create/modify these paths):
 {owns}
 You must NOT modify these paths:
 {prohibited}
+REQUIRED EXCEPTION — you MUST ALSO write your end-of-run report at
+`docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md`, EVEN THOUGH it is outside your
+implementation lane above. This report is mandatory: the runner FAILS the entire run
+(status NO_REPORT) and commits NOTHING if it is missing or lacks the AGENT_COMPLETE marker.
 Control-plane paths (automation/, .github/workflows/, host/, and PM_Pack/automation \
 policy) are OFF-LIMITS to every agent regardless of lane.
 
@@ -952,6 +956,10 @@ workflow_automation | python_web_scraping
 ## MANDATORY END-OF-RUN REPORT
 Write your completed cycle report to:
     {report_path}
+This report is REQUIRED and is an EXPLICIT EXCEPTION to your file-ownership lane: write it
+even though docs/cycle_reports/ is outside the paths you own. A missing report — or one
+without the AGENT_COMPLETE marker — makes the runner FAIL the run (NO_REPORT) and commit
+NOTHING, discarding all your work. So write it before you finish.
 Follow AGENT_CYCLE_REPORT_TEMPLATE.md (PM_Pack/09_templates/): begin with an \
 ARSF:MANIFEST JSON block, include all 13 spine sections (§1 Final verdict through \
 §13 Certification) plus Addendum {agent_id}, attach EVIDENCE (commit SHA, test count, \
