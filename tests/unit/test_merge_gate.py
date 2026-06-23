@@ -66,6 +66,9 @@ def _happy_path(monkeypatch, *, pr_data=None, merge_returns="mergesha123"):
     monkeypatch.setattr(merge_gate, "_get_pr", lambda n, r: pr_data)
     monkeypatch.setattr(merge_gate, "read_threads",
                         lambda n, r: MagicMock(merge_blocked=False, threads=[], blockers=[]))
+    # The happy path includes a RECEIVED Codex review (zero open threads = clean,
+    # not "review pending"). Tests for the empty-threads race override this.
+    monkeypatch.setattr(merge_gate, "codex_has_reviewed", lambda n, r=None: True)
     monkeypatch.setattr(merge_gate.required_checks, "get_required_contexts",
                         lambda *a, **k: set(required_checks.REQUIRED_CONTEXTS))
 
@@ -193,6 +196,34 @@ def test_codex_unresolved_blocks(monkeypatch) -> None:
     result = merge_gate.run(pr_number=1, execute=True, dry_run=False)
     assert result.passed is False
     assert any(c.name == "codex_review_disposition" and not c.passed for c in result.checks)
+
+
+def test_codex_review_not_received_blocks(monkeypatch) -> None:
+    """Zero open threads but Codex has NOT reviewed yet → block (the empty-threads
+    race; merging now would ship UNREVIEWED code)."""
+    _happy_path(monkeypatch)
+    monkeypatch.setattr(merge_gate, "codex_has_reviewed", lambda n, r=None: False)
+    result = merge_gate.run(pr_number=1, execute=True, dry_run=False)
+    assert result.passed is False
+    assert any(c.name == "codex_review_received" and not c.passed for c in result.checks)
+
+
+def test_codex_review_read_error_fails_closed(monkeypatch) -> None:
+    """A read error (None) is treated as not-reviewed → block, not pass."""
+    _happy_path(monkeypatch)
+    monkeypatch.setattr(merge_gate, "codex_has_reviewed", lambda n, r=None: None)
+    result = merge_gate.run(pr_number=1, execute=True, dry_run=False)
+    assert result.passed is False
+
+
+def test_codex_review_requirement_env_disengage(monkeypatch) -> None:
+    """MERGE_REQUIRE_CODEX_REVIEW=0 removes the received-review gate (escape hatch)."""
+    _happy_path(monkeypatch)
+    monkeypatch.setenv("MERGE_REQUIRE_CODEX_REVIEW", "0")
+    monkeypatch.setattr(merge_gate, "codex_has_reviewed", lambda n, r=None: False)
+    result = merge_gate.run(pr_number=1, execute=True, dry_run=False)
+    assert result.passed is True
+    assert not any(c.name == "codex_review_received" for c in result.checks)
 
 
 # ── runner_paths isolation ───────────────────────────────────────────────────
@@ -325,6 +356,9 @@ def test_run_threads_head_sha_into_merge_command(monkeypatch) -> None:
     monkeypatch.setattr(merge_gate, "_get_pr", lambda n, r: pr_data)
     monkeypatch.setattr(merge_gate, "read_threads",
                         lambda n, r: MagicMock(merge_blocked=False, threads=[], blockers=[]))
+    # The happy path includes a RECEIVED Codex review (zero open threads = clean,
+    # not "review pending"). Tests for the empty-threads race override this.
+    monkeypatch.setattr(merge_gate, "codex_has_reviewed", lambda n, r=None: True)
     monkeypatch.setattr(merge_gate.required_checks, "get_required_contexts",
                         lambda *a, **k: set(required_checks.REQUIRED_CONTEXTS))
     _seed_model_verified()

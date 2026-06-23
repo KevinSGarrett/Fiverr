@@ -31,6 +31,10 @@ class CodexThread:
     classification: str = "UNCLASSIFIED"
     evidence_reply: str = ""
     jira_ticket: str = ""
+    # Codex P2: the inline review location (file + line). Many findings reference the
+    # spot only by position, so the autonomous repair needs this to target the edit.
+    path: str = ""
+    line: int | None = None
 
 
 @dataclass
@@ -85,7 +89,8 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
         "pullRequest(number:$number){"
         "reviewThreads(first:100, after:$cursor){"
         "pageInfo{hasNextPage endCursor} "
-        "nodes{id isResolved isOutdated comments(first:1){nodes{author{login} body}}}"
+        "nodes{id isResolved isOutdated path line "
+        "comments(first:1){nodes{author{login} body path line originalLine}}}"
         "}}}}"
     )
     nodes: list[dict] = []
@@ -133,6 +138,11 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
         first = (node.get("comments", {}).get("nodes") or [{}])[0]
         author = ((first.get("author") or {}).get("login")) or ""
         body = first.get("body", "") or ""
+        # Codex P2: capture the inline location. The thread carries path/line; fall
+        # back to the first comment's path/line/originalLine (an outdated thread keeps
+        # only originalLine). This is what the autonomous repair targets.
+        path = node.get("path") or first.get("path") or ""
+        line = node.get("line") or first.get("line") or first.get("originalLine")
         thread = CodexThread(
             thread_id=str(node.get("id", "unknown")),
             is_resolved=bool(node.get("isResolved")),
@@ -140,6 +150,8 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
             author=author,
             body=body[:500],
             classification=_classify_body(body),
+            path=str(path or ""),
+            line=int(line) if isinstance(line, int) else None,
         )
         result.threads.append(thread)
         # Any unresolved thread blocks (matches required_conversation_resolution).
@@ -158,6 +170,54 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
     result.all_resolved = all(t.is_resolved for t in result.threads) if result.threads else True
     result.merge_blocked = bool(result.blockers)
     return result
+
+
+def codex_has_reviewed(pr_number: int, repo: str = REPO) -> bool | None:
+    """Has the Codex second-reviewer actually reviewed this PR yet?
+
+    Closes the empty-threads-before-review RACE: ``read_threads`` returns zero
+    threads BOTH when Codex reviewed and found nothing AND when Codex has not run
+    yet. Treating the latter as "clean" would merge UNREVIEWED code. We confirm a
+    review exists by either (a) a submitted review, or (b) any inline thread, whose
+    author login contains ``codex``.
+
+    Returns True (reviewed), False (not yet), or None on read error. Callers that
+    gate merge should treat None as "not reviewed" (fail-closed) — bounded by the
+    loop's CI-wait cap so a persistent error escalates rather than hangs forever.
+    """
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!){"
+        "repository(owner:$owner,name:$name){pullRequest(number:$number){"
+        "reviews(first:50){nodes{author{login}}} "
+        "reviewThreads(first:20){nodes{comments(first:1){nodes{author{login}}}}}"
+        "}}}"
+    )
+    try:
+        r = subprocess.run(
+            ["gh", "api", "graphql",
+             "-f", f"query={query}", "-f", f"owner={owner}", "-f", f"name={name}",
+             "-F", f"number={int(pr_number)}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            return None
+        pr = (json.loads(r.stdout).get("data", {})
+              .get("repository", {}).get("pullRequest", {})) or {}
+    except Exception:
+        return None
+
+    def _is_codex(login: object) -> bool:
+        return "codex" in str(login or "").lower()
+
+    for rv in (pr.get("reviews", {}).get("nodes") or []):
+        if _is_codex((rv.get("author") or {}).get("login")):
+            return True
+    for th in (pr.get("reviewThreads", {}).get("nodes") or []):
+        c = (th.get("comments", {}).get("nodes") or [{}])[0]
+        if _is_codex((c.get("author") or {}).get("login")):
+            return True
+    return False
 
 
 def _classify_body(body: str) -> str:
