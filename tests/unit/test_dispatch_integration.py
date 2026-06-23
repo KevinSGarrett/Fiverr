@@ -76,6 +76,43 @@ class TestFakeCursorDispatch:
         assert 'environ.get("PYTEST_CURRENT_TEST")' not in body
         assert "environ.get('PYTEST_CURRENT_TEST')" not in body
 
+    def test_run_agent_honors_repaired_status(self):
+        """HIGH-5 regression: the VALIDATION_FAILED branch must HONOR a successful
+        repair (write AGENT_COMPLETE, no SystemExit) instead of the old form that
+        called dispatch_repair then unconditionally `raise SystemExit(1)` — which
+        threw away a genuinely-fixed, committed cycle and routed it to POST_CYCLE_FAIL.
+        """
+        import inspect
+
+        import automation.ai_cycle_controller as ctrl
+        src = inspect.getsource(ctrl.cmd_run_agent.callback)  # .callback = raw fn (Click wraps it)
+        i = src.index('lifecycle.status == "VALIDATION_FAILED"')
+        branch = src[i:i + 1600]
+        # The repair result is captured (not discarded) and REPAIRED is honored.
+        assert "repair = dispatch_repair(" in branch
+        assert '"REPAIRED"' in branch
+        assert 'write_controller_state("AGENT_COMPLETE"' in branch
+        # The `raise SystemExit(1)` must now live in the ELSE (failure) path, AFTER
+        # the REPAIRED success handling — not unconditionally as before.
+        repaired_idx = branch.index('"REPAIRED"')
+        assert branch.index("raise SystemExit(1)") > repaired_idx
+
+    def test_autopilot_has_circuit_breaker(self):
+        """HIGH-7 regression: start-autopilot must trip a circuit breaker on too many
+        CONSECUTIVE failed ticks (freeze + stop), not loop forever burning quota."""
+        import inspect
+
+        import automation.ai_cycle_controller as ctrl
+        src = inspect.getsource(ctrl.cmd_start_autopilot.callback)  # .callback = raw fn
+        assert "consecutive_tick_failures" in src
+        assert "AUTOPILOT_MAX_CONSECUTIVE_TICK_FAILURES" in src
+        # On reaching the cap it engages the autonomy freeze and breaks the loop.
+        assert "_write_autonomy_freeze(" in src
+        cb_idx = src.index("consecutive_tick_failures >= _breaker_cap")
+        assert "break" in src[cb_idx:cb_idx + 1200]
+        # A clean tick resets the counter (so only CONSECUTIVE failures count).
+        assert "consecutive_tick_failures = 0" in src
+
     def test_cmd_run_cycle_smoke(self, tmp_path, monkeypatch):
         """cmd_run_cycle smoke: 6 agents, all fake dispatch."""
         monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_dispatch_integration")
