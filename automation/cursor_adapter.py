@@ -500,6 +500,15 @@ def _repo_activity_mtime(working_dir: str) -> float:
         rel = line[3:].strip()
         if not rel:
             continue
+        # Porcelain-v1 renames/copies are "OLD -> NEW" (status R/C); stat the
+        # DESTINATION, which is the file that actually exists on disk. Otherwise a
+        # silent agent doing a rename refactor would never advance the liveness mtime
+        # (Codex #134 P2).
+        if " -> " in rel:
+            rel = rel.split(" -> ", 1)[1].strip()
+        # git quotes paths containing spaces/special chars: "src/a b.py".
+        if len(rel) >= 2 and rel.startswith('"') and rel.endswith('"'):
+            rel = rel[1:-1]
         try:
             latest = max(latest, (Path(working_dir) / rel).stat().st_mtime)
         except Exception:

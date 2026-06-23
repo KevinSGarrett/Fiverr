@@ -58,6 +58,20 @@ def test_activity_mtime_advances_on_further_writes(tmp_path):
     assert second >= first
 
 
+def test_rename_entry_stats_destination(tmp_path):
+    # Codex #134 P2: a rename (R "old -> new") must stat the DESTINATION so a silent
+    # agent doing a rename refactor still registers as live.
+    repo = _init_repo(tmp_path)
+    (repo / "old_name.py").write_text("k = 1\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "add old_name")
+    _git(repo, "mv", "old_name.py", "new_name.py")  # staged rename -> "R  old -> new"
+    # Sanity: porcelain shows the rename arrow.
+    porc = _git(repo, "status", "--porcelain", "-uall").stdout
+    assert "->" in porc
+    assert _repo_activity_mtime(str(repo)) > 0.0, "rename destination must register as activity"
+
+
 def test_bad_working_dir_returns_zero_not_raise(tmp_path):
     # Not a git repo / unreadable -> 0.0 (no false liveness, no crash in the monitor thread).
     assert _repo_activity_mtime(str(tmp_path / "does_not_exist")) == 0.0
