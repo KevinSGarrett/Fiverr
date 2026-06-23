@@ -51,8 +51,9 @@ class TestAgentLanes:
 
 
 class TestTaskFloor:
-    def test_task_floor_is_55(self):
-        assert TASK_FLOOR == 55
+    def test_task_floor_is_15(self):
+        # Recalibrated 2026-06-23 (55 -> 15); see AGENT_TASK_FLOOR_ENFORCEMENT.md.
+        assert TASK_FLOOR == 15
 
 
 class TestGeneratePrompt:
