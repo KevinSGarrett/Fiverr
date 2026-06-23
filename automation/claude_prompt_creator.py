@@ -662,6 +662,15 @@ The prompt you generate MUST include, verbatim at the end, a section titled:
 The Cursor agent MUST write its completed cycle report to:
     docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md
 
+!! LANE EXEMPTION — STATE THIS EXPLICITLY IN THE GENERATED PROMPT !!
+This report path is a MANDATORY deliverable and an EXPLICIT EXCEPTION to the agent's
+file-ownership lane. Even when PQ-2 restricts edits to (e.g.) src/** and tests/**, the
+agent MUST ALSO create/write docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md.
+The runner marks the entire run FAILED (status NO_REPORT) and commits NOTHING if this
+report is missing or omits the AGENT_COMPLETE marker — so writing it is not optional and
+is never "out of lane". The generated prompt's PQ-2 section MUST list this report path as
+an allowed/required output alongside the agent's implementation lane.
+
 The report MUST follow the AGENT_CYCLE_REPORT_TEMPLATE.md standard (PM_Pack/09_templates/).
 Specifically:
 - Begin with an ARSF:MANIFEST JSON block (<!-- ARSF:MANIFEST v1 --> ```json {{ ... }} ```)
