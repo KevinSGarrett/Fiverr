@@ -396,14 +396,28 @@ def run_agent(
 
             def _monitor() -> None:
                 last_sz = 0
+                last_activity = _repo_activity_mtime(working_dir)
                 while proc.poll() is None:
+                    bumped = False
                     try:
                         sz = stdout_path.stat().st_size + stderr_path.stat().st_size
                         if sz > last_sz:
                             last_sz = sz
-                            last_output_ts[0] = time.time()
+                            bumped = True
                     except Exception:
                         pass
+                    # File-writing liveness (the fix): a working agent that streams no
+                    # stdout still mutates the repo. Reset the no-output timer on repo
+                    # activity so a productively-building agent is not killed as no_output.
+                    try:
+                        act = _repo_activity_mtime(working_dir)
+                        if act > last_activity:
+                            last_activity = act
+                            bumped = True
+                    except Exception:
+                        pass
+                    if bumped:
+                        last_output_ts[0] = time.time()
                     time.sleep(30)
 
             threading.Thread(target=_monitor, daemon=True).start()
@@ -462,6 +476,35 @@ def run_agent(
             started_at=started, ended_at=datetime.now(UTC).isoformat(),
             exit_code=None, error_message=str(exc),
         )
+
+
+def _repo_activity_mtime(working_dir: str) -> float:
+    """Latest mtime among changed (tracked-modified + untracked) files in ``working_dir``.
+
+    A liveness signal for an agent that WRITES FILES but streams no stdout. cursor-agent
+    in ``--print`` mode buffers stdout (0 bytes observed) while productively writing
+    source, so stdout-size alone falsely trips the no-output watchdog — observed live:
+    agent B wrote 40 real src/tests files yet was killed at the no-output threshold as
+    'no_output'. Treating repo file mutation as progress fixes that without weakening
+    the hard deadline. Returns 0.0 on any error (callers treat that as "no new activity").
+    """
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain", "-uall"],
+            cwd=working_dir, capture_output=True, text=True, timeout=20,
+        )
+    except Exception:
+        return 0.0
+    latest = 0.0
+    for line in r.stdout.splitlines():
+        rel = line[3:].strip()
+        if not rel:
+            continue
+        try:
+            latest = max(latest, (Path(working_dir) / rel).stat().st_mtime)
+        except Exception:
+            pass
+    return latest
 
 
 def _tail(path: Path, n: int = 50) -> str:
