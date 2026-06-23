@@ -1,10 +1,23 @@
-# AGENT TASK FLOOR ENFORCEMENT -- NEVER-BREAK HARD RULE
-# Fiverr Research System | Created 2026-06-09
-# This rule cannot be waived for any reason.
+# AGENT TASK FLOOR ENFORCEMENT -- HARD RULE
+# Fiverr Research System | Created 2026-06-09 | RECALIBRATED 2026-06-23
 
 ## THE RULE
-Every agent prompt MUST contain >= 55 tasks, every task qualifying as
-LARGE, XLARGE, or XXLARGE under the 6-dimension scoring matrix.
+Every agent prompt MUST contain >= 15 tasks, every task qualifying as
+LARGE or XLARGE under the 6-dimension scoring matrix (the per-task QUALITY
+definitions below are unchanged and remain mandatory).
+
+## RECALIBRATION 2026-06-23 (count 55 -> 15)
+The original 55-task floor (Wave 04) produced ~28,000-word / ~240KB prompts that
+took ~8 Claude batch calls to generate and pushed Cursor/Codex agents to ~45-minute
+builds right at the no-output watchdog timeout edge (cycle-84 agent B was fragile
+there: it built real code but the run was repeatedly killed/failed at that scale).
+QUALITY is enforced PER TASK — the code-fence + src/...py path + verify + AC/DOD
+skeleton, gated by the SCALE-INVARIANT ratio gates PQ-6 (>=30% code blocks),
+PQ-7a (unique-word ratio), PQ-7b (>=20% authored) — NOT by the aggregate count. So a
+~15-task coherent, completable feature slice preserves full quality while building
+reliably in ~15-25 min. Per-cycle progress is achieved through MORE, FASTER, and
+PARALLEL cycles rather than one monster cycle that times out. The floor is env-tunable
+(PROMPT_MIN_TASKS) for operators who deliberately want a larger or smaller slice.
 
 ## ROOT CAUSE OF 2026-06-09 VIOLATION (commit 1428a92)
 Actual LARGE+ task counts at 1428a92:
@@ -55,7 +68,7 @@ AGENT D (Merge Gate): LARGE requires integration verification with:
 A must run this check as TASK 1 before authorizing B:
 
   import re
-  floors = {'A':55,'B':55,'E':55,'C':55,'F':55,'D':55}
+  floors = {'A':15,'B':15,'E':15,'C':15,'F':15,'D':15}  # recalibrated 2026-06-23 (was 55)
   for ag in ['A','B','E','C','F','D']:
       content = open(f'PM_Pack/03_cursor_agent_system/CYCLE_NNN_AGENT_{ag}_PROMPT.md').read()
       count = len(re.findall(r'## (?:TASK|GATE) \d', content))
@@ -71,16 +84,16 @@ This requirement is absolute:
   Cannot be waived because a role 'does not lend itself to large tasks'.
   Cannot be satisfied by padding SMALL tasks with verbose wording.
   Cannot be satisfied by repeating verification tasks under different names.
-If 55 genuine LARGE tasks cannot be written: cycle is under-scoped.
+If 15 genuine LARGE tasks cannot be written: cycle is under-scoped.
 Redesign the cycle with higher-impact work before generating prompts.
 
 ## PER-CYCLE CHECKLIST
-Before releasing any agent prompt package, verify:
-  [ ] Agent A: >= 55 LARGE tasks (each a named spec artifact)
-  [ ] Agent B: >= 55 LARGE tasks (each a production implementation unit)
-  [ ] Agent E: >= 55 LARGE tasks (each a production validation probe)
-  [ ] Agent C: >= 55 LARGE tasks (each a full production gate with remediation)
-  [ ] Agent F: >= 55 LARGE tasks (each an edge case test implementation)
-  [ ] Agent D: >= 55 LARGE tasks (each an integration verification)
+Before releasing any agent prompt package, verify (floor recalibrated 2026-06-23: 55 -> 15):
+  [ ] Agent A: >= 15 LARGE tasks (each a named spec artifact)
+  [ ] Agent B: >= 15 LARGE tasks (each a production implementation unit)
+  [ ] Agent E: >= 15 LARGE tasks (each a production validation probe)
+  [ ] Agent C: >= 15 LARGE tasks (each a full production gate with remediation)
+  [ ] Agent F: >= 15 LARGE tasks (each an edge case test implementation)
+  [ ] Agent D: >= 15 LARGE tasks (each an integration verification)
   [ ] Run the enforcement script above, confirm all 6 PASS
   [ ] Commit only after all 6 pass

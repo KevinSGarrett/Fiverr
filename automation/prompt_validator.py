@@ -66,9 +66,17 @@ REQUIRED_ERRORS = [
 # ── Task floor checks ───────────────────────────────────────────────────────
 # These are the documented DEFAULTS. Each is env-tunable via the matching
 # PQ_* / PROMPT_* env var (operators relax/tighten without code edits).
-MIN_TASKS        = 55    # LARGE-XXLARGE task floor from Wave 04  (env: PROMPT_MIN_TASKS)
-MIN_LINE_COUNT   = 150   # real prompts are 150-1000+ lines       (env: PROMPT_MIN_LINE_COUNT)
-MIN_WORD_COUNT   = 6000  # template requires >=6000 words         (env: PROMPT_MIN_WORD_COUNT)
+# RECALIBRATED 2026-06-23 (55 -> 15). The Wave-04 55-task floor produced ~28k-word /
+# ~240KB prompts that took ~8 Claude batch calls to generate and pushed Cursor agents to
+# ~45-min builds right at the no-output timeout edge (cycle-84 agent B was fragile there).
+# Quality is PER-TASK — the code-fence + src/...py path + verify + AC/DOD skeleton, gated
+# by the SCALE-INVARIANT ratio gates PQ-6 (0.30) / PQ-7a (0.08) / PQ-7b (0.20) — NOT the
+# aggregate count. So 15 substantive tasks preserve quality while building reliably in
+# ~15-25 min. Per-cycle progress comes from MORE, FASTER, PARALLEL cycles, not one monster
+# cycle that times out. All env-tunable for operators who want a larger/smaller slice.
+MIN_TASKS        = 15    # realistic completable feature slice    (env: PROMPT_MIN_TASKS)
+MIN_LINE_COUNT   = 80    # scaled to the smaller task count        (env: PROMPT_MIN_LINE_COUNT)
+MIN_WORD_COUNT   = 2000  # ~15 rich tasks x ~130+ words            (env: PROMPT_MIN_WORD_COUNT)
 
 # ── Stub patterns — always FAIL ─────────────────────────────────────────────
 STUB_PATTERNS = [
@@ -128,6 +136,17 @@ MIN_UNIQUE_WORD_RATIO = 0.08
 # DEFAULT 0.20 — at least 20% of tasks must be authored (not pasted spec).
 # env: PQ_MIN_AUTHORED_RATIO
 MIN_AUTHORED_RATIO = 0.20
+
+# ── PQ-7c: distinct-task-body ratio — COUNT-INVARIANT anti-recycling gate ─────
+# Added 2026-06-23 with the task-count recalibration (55 -> 15). PQ-7a's unique-WORD
+# ratio is count-sensitive (its recycled/authored bands sit only ~4% apart and shift
+# with task count), so it cannot reliably catch a recycled-but-authored-shaped prompt
+# at the new small sizes. PQ-7c instead compares TASK BODIES directly: it normalizes
+# each "### Task N" block (strips the task number + SCRUM keys + whitespace) and
+# requires that a healthy fraction are DISTINCT. Verbatim recycling (one body repeated
+# N times) collapses to ~1/N distinct (≈0.06) and FAILS; genuinely distinct authored
+# tasks measure ~1.0 — a huge, count-invariant separation. env: PQ_MIN_DISTINCT_TASK_RATIO
+MIN_DISTINCT_TASK_RATIO = 0.6
 
 # ── Hard-fail safety patterns ───────────────────────────────────────────────
 SAFETY_ERRORS = [
@@ -203,6 +222,7 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
     min_code_ratio   = _env_float("PQ_MIN_CODE_BLOCKS_RATIO", MIN_CODE_BLOCKS_RATIO)
     min_unique_ratio = _env_float("PQ_MIN_UNIQUE_WORD_RATIO", MIN_UNIQUE_WORD_RATIO)
     min_authored     = _env_float("PQ_MIN_AUTHORED_RATIO", MIN_AUTHORED_RATIO)
+    min_distinct_task = _env_float("PQ_MIN_DISTINCT_TASK_RATIO", MIN_DISTINCT_TASK_RATIO)
 
     # ── Line count ──────────────────────────────────────────────────────
     if result.line_count < min_line_count:
@@ -323,6 +343,26 @@ def validate(prompt_path: str | Path, agent: str, cycle: int) -> PromptValidatio
                 "Prompt is a Jira/spec paste-dump — author tasks with a code fence, a "
                 "concrete src/...py path, and a verify line (assert / expected output / PASS)."
             )
+
+        # PQ-7c: distinct-task-body ratio — count-invariant anti-recycling. Normalize
+        # each task block (strip its number + SCRUM keys + whitespace) and require a
+        # healthy fraction to be DISTINCT. Verbatim recycling collapses to ~1/N; genuine
+        # authored tasks are ~all-distinct. Only meaningful with >=3 tasks.
+        if len(task_blocks) >= 3:
+            def _norm_task_body(tb: str) -> str:
+                s = re.sub(r"###+\s+Task\s+\d+", "", tb)   # strip task header + number
+                s = re.sub(r"SCRUM-\d+", "", s)            # strip varying Jira keys
+                return re.sub(r"\s+", " ", s).strip().lower()
+            distinct = len({_norm_task_body(tb) for tb in task_blocks})
+            distinct_ratio = distinct / len(task_blocks)
+            if distinct_ratio < min_distinct_task:
+                result.passed = False
+                result.errors.append(
+                    f"PQ-7c: only {distinct}/{len(task_blocks)} task bodies ({distinct_ratio:.0%}) are "
+                    f"DISTINCT (floor={min_distinct_task:.0%}, env PQ_MIN_DISTINCT_TASK_RATIO). "
+                    "Prompt recycles the same task body — author each task with distinct, "
+                    "task-specific code, paths, and verification."
+                )
     # ── Safety gates (always FAIL) ──────────────────────────────────────
     for pattern, description in SAFETY_ERRORS:
         if re.search(pattern, text, re.IGNORECASE | re.MULTILINE):

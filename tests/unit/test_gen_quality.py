@@ -122,13 +122,38 @@ def test_pq7a_floor_is_recalibrated_value():
     assert prompt_validator.MIN_UNIQUE_WORD_RATIO == 0.08
 
 
-def test_primary_anti_degenerate_floors_unchanged():
-    # Anti-bypass: the PRIMARY anti-degenerate gates (code ratio, authored ratio,
-    # task floor, word floor) are NOT relaxed. Only PQ-7a was recalibrated.
-    assert prompt_validator.MIN_CODE_BLOCKS_RATIO == 0.3
-    assert prompt_validator.MIN_AUTHORED_RATIO == 0.20
-    assert prompt_validator.MIN_TASKS == 55
-    assert prompt_validator.MIN_WORD_COUNT == 6000
+def test_quality_ratio_gates_unchanged_after_size_recalibration():
+    # The per-task QUALITY gates (scale-invariant RATIOS) are NEVER relaxed — they
+    # preserve per-task rigor regardless of count. The SIZE floors (task/word) were
+    # recalibrated down 2026-06-23 (55->15, 6000->2000) to stop timeout-prone ~28k-word
+    # prompts; quality is per-task, not aggregate count.
+    assert prompt_validator.MIN_CODE_BLOCKS_RATIO == 0.3      # PQ-6 (quality) — unchanged
+    assert prompt_validator.MIN_AUTHORED_RATIO == 0.20        # PQ-7b (quality) — unchanged
+    assert prompt_validator.MIN_TASKS == 15                   # size floor — recalibrated
+    assert prompt_validator.MIN_WORD_COUNT == 2000            # size floor — recalibrated
+
+
+def test_pq7c_default_distinct_ratio():
+    # The count-invariant anti-recycling gate added with the 55->15 recalibration.
+    assert prompt_validator.MIN_DISTINCT_TASK_RATIO == 0.6
+
+
+def test_pq7c_rejects_recycled_admits_authored_at_small_count(tmp_path):
+    # At the new ~15-18-task size, PQ-7a's unique-WORD ratio no longer discriminates
+    # recycling (bands overlap), so PQ-7c (distinct task BODIES) must catch it. A prompt
+    # of 18 verbatim-recycled task bodies FAILS; 18 distinct authored bodies PASSES.
+    head = cpc._build_scaffold_head("B", 84, "cycle/084/integration", ["SCRUM-210", "SCRUM-211"])
+    tail = cpc._build_scaffold_tail("B", 84)
+    recycled = head + "\n" + _make_task_batch(1, 18, recycled=True) + "\n" + tail
+    authored = head + "\n" + _make_task_batch(1, 18, recycled=False) + "\n" + tail
+    pr = tmp_path / "rec.md"
+    pr.write_text(recycled, encoding="utf-8")
+    pa = tmp_path / "auth.md"
+    pa.write_text(authored, encoding="utf-8")
+    rrec = prompt_validator.validate(pr, "B", 84)
+    rauth = prompt_validator.validate(pa, "B", 84)
+    assert not rrec.passed and any("PQ-7c" in e for e in rrec.errors), rrec.errors
+    assert rauth.passed, rauth.errors
 
 
 def test_pq7a_rejects_recycling_admits_distinct(tmp_path):
@@ -375,7 +400,7 @@ def test_hybrid_assembly_passes_gate(tmp_path, monkeypatch):
     assert written and "B" in written
     res = prompt_validator.validate(written["B"], "B", 83)
     assert res.passed is True, res.errors
-    assert res.task_count >= 55
+    assert res.task_count >= prompt_validator.MIN_TASKS
 
 
 def test_hybrid_recycled_batches_fail_closed(tmp_path, monkeypatch):

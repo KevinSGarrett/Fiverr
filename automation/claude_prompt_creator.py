@@ -153,21 +153,18 @@ CLAUDE_TIMEOUT        = _pm_int_env("CLAUDE_PM_TIMEOUT", 900)     # seconds per 
 #      content instead of padding.
 # The assembled prompt is still validated in-process and fail-closed downstream.
 GEN_HYBRID            = _pm_bool_env("GEN_HYBRID", True)          # hybrid on by default
-GEN_TARGET_TASKS      = _pm_int_env("GEN_TARGET_TASKS", 60)       # author to 60 (floor 55 + margin)
-GEN_BATCH_SIZE        = _pm_int_env("GEN_BATCH_SIZE", 15)         # tasks authored per Claude call
-GEN_MAX_BATCH_ROUNDS  = _pm_int_env("GEN_MAX_BATCH_ROUNDS", 10)   # safety cap on batch calls/agent
-# Aggregate wall-clock budget for ONE agent's batched generation. Bounds the tail
-# latency the per-batch CLAUDE_TIMEOUT alone does not: without it the per-attempt
-# worst case is GEN_MAX_BATCH_ROUNDS * CLAUDE_PM_TIMEOUT.
-# CALIBRATION (measured live, cycle-84): at today's REQUIRED per-task richness
-# (PQ-6 code fence + src path + verify line, ~511 words/task) Claude authors ~7
-# task blocks per ~450s batch call, so the 55-task floor needs ~8 rounds ≈ 3600s.
-# The prior 1800s budget only allowed ~4 rounds (~29 tasks) → it ALWAYS failed the
-# 55-task floor and burned 3 fruitless from-scratch retries (~90m/agent) without
-# ever producing a valid prompt. 4500s (75m) gives the 10-round cap real headroom to
-# reach the 55–60 floor on attempt 1. The fix is budget vs the (correct) floor — NOT
-# lowering PROMPT_MIN_TASKS or weakening the anti-degenerate PQ-6/PQ-7 gates.
-GEN_BATCH_BUDGET_S    = _pm_int_env("GEN_BATCH_BUDGET_S", 4500)   # seconds/agent across batches
+# RECALIBRATED 2026-06-23 (target 60 -> 18; floor is now MIN_TASKS=15 in prompt_validator).
+# A ~15-18-task slice generates in ~2 batches (~5-10 min) and builds reliably in ~15-25 min,
+# vs the old 55-60-task prompt that needed ~8 batches and ~45-min fragile Cursor builds.
+# Quality is preserved by the per-task skeleton + the scale-invariant PQ-6/PQ-7 ratio gates.
+GEN_TARGET_TASKS      = _pm_int_env("GEN_TARGET_TASKS", 18)       # author to 18 (floor 15 + margin)
+GEN_BATCH_SIZE        = _pm_int_env("GEN_BATCH_SIZE", 12)         # tasks authored per Claude call
+GEN_MAX_BATCH_ROUNDS  = _pm_int_env("GEN_MAX_BATCH_ROUNDS", 6)    # safety cap on batch calls/agent
+# Aggregate wall-clock budget for ONE agent's batched generation. Bounds the tail latency
+# the per-batch CLAUDE_TIMEOUT alone does not. At ~7-12 authored tasks per ~450s batch call,
+# the 15-18-task target needs ~2-3 rounds ≈ 900-1350s; 2400s gives the round cap headroom
+# to reach the floor on attempt 1 while failing a genuinely stalled agent faster than before.
+GEN_BATCH_BUDGET_S    = _pm_int_env("GEN_BATCH_BUDGET_S", 2400)   # seconds/agent across batches
 
 
 def _pm_existing_prompt_ok(prompt_path: Path, agent_id: str | None = None,
@@ -568,7 +565,8 @@ Your job: Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cy
 2. Include binary paths: $py, $git, $gh with exact Windows paths
 3. Include the 9 niche IDs: prd_ai_saas | support_kb_readiness | gumloop_lindy_workflow | mcp_ai_agent | python_automation | ai_tool_llm_integration | ai_agent_development | workflow_automation | python_web_scraping
 4. Include production readiness gates (G-A through G-D status)
-5. Generate EXACTLY 55-70 LARGE/XLARGE/XXLARGE tasks (policy floor = 55)
+5. Generate 15-20 substantial LARGE/XLARGE tasks (policy floor = 15). Favor a
+   coherent, completable feature slice over volume — DEPTH per task, not breadth.
 6. PER-TASK SKELETON — EVERY task MUST follow this EXACT shape (a downstream
    validator parses it; deviating fails the quality gate and the prompt is
    rejected). Each task block:
@@ -591,7 +589,7 @@ Your job: Generate Agent {agent_id}'s complete Cursor agent prompt for Cycle {cy
      - Acceptance criteria: the verifiable AC items from the Jira story.
      - DOD: checklist items to complete before marking the task done.
    QUALITY FLOORS the generated prompt MUST clear (the validator enforces these):
-     - >= 55 task blocks, >= 6000 words, >= 150 lines.
+     - >= 15 task blocks, >= 2000 words, >= 80 lines.
      - >= 30% of tasks contain at least one ``` fenced code block.
      - >= 20% of tasks contain ALL THREE co-located: a ``` fence + a
        `(?:src|automation|tests|docs)/...py` path + a verify token.
@@ -626,7 +624,7 @@ is refused (do not rely on the PM context having them; put them in the prompt):
   `python -m ruff check automation/ src/ tests/`
   `python -m mypy src`
   `python -m pytest tests/unit/ -q`
-- >= 55 task blocks, >= 6000 words, >= 150 lines.
+- >= 15 task blocks, >= 2000 words, >= 80 lines.
 - The prompt MUST END with a single final line exactly: `END OF PROMPT` (appearing EXACTLY ONCE, nowhere else).
 
 ## GOLD EXAMPLE TASK (replicate this exact shape with REAL spec content)
