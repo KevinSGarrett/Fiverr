@@ -160,6 +160,54 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
     return result
 
 
+def codex_has_reviewed(pr_number: int, repo: str = REPO) -> bool | None:
+    """Has the Codex second-reviewer actually reviewed this PR yet?
+
+    Closes the empty-threads-before-review RACE: ``read_threads`` returns zero
+    threads BOTH when Codex reviewed and found nothing AND when Codex has not run
+    yet. Treating the latter as "clean" would merge UNREVIEWED code. We confirm a
+    review exists by either (a) a submitted review, or (b) any inline thread, whose
+    author login contains ``codex``.
+
+    Returns True (reviewed), False (not yet), or None on read error. Callers that
+    gate merge should treat None as "not reviewed" (fail-closed) — bounded by the
+    loop's CI-wait cap so a persistent error escalates rather than hangs forever.
+    """
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!){"
+        "repository(owner:$owner,name:$name){pullRequest(number:$number){"
+        "reviews(first:50){nodes{author{login}}} "
+        "reviewThreads(first:20){nodes{comments(first:1){nodes{author{login}}}}}"
+        "}}}"
+    )
+    try:
+        r = subprocess.run(
+            ["gh", "api", "graphql",
+             "-f", f"query={query}", "-f", f"owner={owner}", "-f", f"name={name}",
+             "-F", f"number={int(pr_number)}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            return None
+        pr = (json.loads(r.stdout).get("data", {})
+              .get("repository", {}).get("pullRequest", {})) or {}
+    except Exception:
+        return None
+
+    def _is_codex(login: object) -> bool:
+        return "codex" in str(login or "").lower()
+
+    for rv in (pr.get("reviews", {}).get("nodes") or []):
+        if _is_codex((rv.get("author") or {}).get("login")):
+            return True
+    for th in (pr.get("reviewThreads", {}).get("nodes") or []):
+        c = (th.get("comments", {}).get("nodes") or [{}])[0]
+        if _is_codex((c.get("author") or {}).get("login")):
+            return True
+    return False
+
+
 def _classify_body(body: str) -> str:
     """Heuristic classification of a review comment body."""
     body_lower = body.lower()

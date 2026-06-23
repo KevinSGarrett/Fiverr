@@ -27,6 +27,7 @@ Item 3.2 corrections vs the original:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -34,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from automation import required_checks, runner_paths
-from automation.codex_thread_reader import read_threads
+from automation.codex_thread_reader import codex_has_reviewed, read_threads
 
 REPO = "KevinSGarrett/Fiverr"
 REPO_ROOT = Path(__file__).resolve().parent.parent  # automation/ -> repo root
@@ -194,6 +195,18 @@ def run(pr_number: int, repo: str = REPO, *,
             passed=not codex_result.merge_blocked,
             detail=f"threads={len(codex_result.threads)} blockers={len(codex_result.blockers)}",
         ))
+
+        # 8b. Codex review RECEIVED — zero threads means "clean" ONLY if the reviewer
+        # has actually run. Otherwise the empty-thread set is "review pending" and
+        # merging now would ship UNREVIEWED code (the empty-threads race). Fail-closed
+        # on read error (None). Escape hatch: MERGE_REQUIRE_CODEX_REVIEW=0 disables.
+        if os.environ.get("MERGE_REQUIRE_CODEX_REVIEW", "1") not in ("0", "false", "no"):
+            reviewed = codex_has_reviewed(pr_number, repo)
+            result.checks.append(GateCheck(
+                "codex_review_received",
+                passed=(reviewed is True),
+                detail=f"reviewed={reviewed}",
+            ))
 
         # 9. Post-cycle gate — block only if controller explicitly says pending.
         ctrl_state = _load_json(_state_dir() / "controller_state.json")

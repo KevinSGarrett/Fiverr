@@ -76,6 +76,11 @@ def _fake_ci(monkeypatch, disposition: str, gh_ok: bool = True):
     # avoid the live gh call for the required set
     import automation.required_checks as rc
     monkeypatch.setattr(rc, "get_required_contexts", lambda *a, **k: set(rc.REQUIRED_CONTEXTS))
+    # The CODEX_DISPOSITION step runs before the CI/merge logic; force it CLEAN so
+    # these tests exercise the CI→merge path (its own behavior is tested separately
+    # in test_codex_disposition_wiring.py). Without this it would hit a live gh call.
+    import automation.ai_cycle_controller as _ctl
+    monkeypatch.setattr(_ctl, "_maybe_dispatch_codex_repair", lambda *a, **k: "CLEAN")
 
 
 def _fake_gate(monkeypatch, *, passed: bool, merge_sha="sha_merged", already=False,
@@ -207,6 +212,45 @@ def test_ci_wait_timeout_blocks(no_drift, caps, monkeypatch):
     # tick 2 -> count reaches cap -> MERGE_BLOCKED
     CliRunner().invoke(cli, ["tick"])
     assert _state()["status"] == "MERGE_BLOCKED"
+
+
+# ── CODEX_DISPOSITION (BLOCKER 2) tick wiring ─────────────────────────────────
+def _fake_codex(monkeypatch, value):
+    import automation.ai_cycle_controller as _ctl
+    monkeypatch.setattr(_ctl, "_maybe_dispatch_codex_repair", lambda *a, **k: value)
+
+
+def test_codex_repairing_stays_and_skips_merge(no_drift, caps, monkeypatch):
+    # A repair was dispatched + pushed this tick → stay AWAITING_CI_GREEN, never merge.
+    _fake_codex(monkeypatch, "REPAIRING")
+    calls = _fake_gate(monkeypatch, passed=True)
+    write_controller_state("AWAITING_CI_GREEN", cycle=440, pr=1440)
+    result = CliRunner().invoke(cli, ["tick"])
+    assert result.exit_code == 0, result.output
+    assert _state()["status"] == "AWAITING_CI_GREEN"
+    assert calls["n"] == 0, "merge gate must not run while a Codex repair is in flight"
+    assert "[TICK COMPLETE]" in result.output  # epilogue ran → tick lock released
+
+
+def test_codex_await_review_stays_and_skips_merge(no_drift, caps, monkeypatch):
+    _fake_codex(monkeypatch, "AWAIT_REVIEW")
+    calls = _fake_gate(monkeypatch, passed=True)
+    write_controller_state("AWAITING_CI_GREEN", cycle=441, pr=1441)
+    result = CliRunner().invoke(cli, ["tick"])
+    assert result.exit_code == 0, result.output
+    assert _state()["status"] == "AWAITING_CI_GREEN"
+    assert calls["n"] == 0, "never merge before the reviewer has reviewed"
+    assert "[TICK COMPLETE]" in result.output
+
+
+def test_codex_escalate_blocks(no_drift, caps, monkeypatch):
+    _fake_codex(monkeypatch, "ESCALATE")
+    write_controller_state("AWAITING_CI_GREEN", cycle=442, pr=1442)
+    result = CliRunner().invoke(cli, ["tick"])
+    assert result.exit_code == 0, result.output
+    assert _state()["status"] == "MERGE_BLOCKED"
+    assert any(b["incident_code"] == "MERGE_BLOCKED" for b in caps.blocked)
+    assert "[TICK COMPLETE]" in result.output
 
 
 # ── MERGING crash-recovery ────────────────────────────────────────────────────
