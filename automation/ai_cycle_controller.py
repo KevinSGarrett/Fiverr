@@ -1564,7 +1564,7 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
             and not _os.environ.get("PYTEST_CURRENT_TEST")):
         click.secho(
             f"  [FAIL] Agent {agent} completed in {_agent_elapsed_min:.1f}min "
-            f"(floor: {MIN_EXPECTED_MINUTES}min for 55-task prompt). "
+            f"(floor: {MIN_EXPECTED_MINUTES}min for a real multi-task build). "
             "Treating as failed dispatch — shell execution was likely blocked. "
             "Verify --print --force --trust flags and Cursor auth.",
             fg="red", bold=True,

@@ -20,8 +20,10 @@ import yaml
 REPO_ROOT = Path("C:/Fiverr/Fiverr")
 PM_PACK   = REPO_ROOT / "PM_Pack"
 
-# Minimum tasks per AGENT_TASK_FLOOR_ENFORCEMENT.md (2026-06-09 hard rule)
-TASK_FLOOR = 55
+# Minimum tasks (recalibrated 2026-06-23: 55 -> 15). The 55 floor produced ~28k-word
+# prompts that timed out Cursor agents; quality is per-task (skeleton + PQ ratio gates),
+# not aggregate count. Keep in sync with prompt_validator.MIN_TASKS.
+TASK_FLOOR = 15
 
 # Tasks generated per Jira issue per agent role
 TASKS_PER_ISSUE = {
@@ -1193,7 +1195,7 @@ import sys
 from pathlib import Path
 
 CYCLE = {cycle}
-MIN_TASKS = 55
+MIN_TASKS = 15
 prompt_dir = Path("PM_Pack/automation/prompts")
 
 total = 0
