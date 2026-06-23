@@ -13,7 +13,9 @@ import re
 
 import automation.run_agent_lifecycle as ral
 
-_CI_YML = pathlib.Path("C:/Fiverr/Fiverr/.github/workflows/ci.yml")
+# Repo-relative so the test runs on CI (ubuntu) as well as the Windows runner host:
+# tests/unit/test_*.py -> parents[2] is the repo root.
+_CI_YML = pathlib.Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
 
 
 def test_runner_ruff_args_match_ci_yml():
