@@ -88,12 +88,25 @@ def dispatch_repair(
         from automation.run_agent_lifecycle import _run_validation
         passed, details = _run_validation(agent_id)
         if passed:
-            result.status = "REPAIRED"
             # Commit
             from automation.run_agent_lifecycle import _commit_agent_work, _get_changed_files
             files = _get_changed_files()
             sha = _commit_agent_work(agent_id, cycle, files)
             result.commit_sha = sha
+            # Audit #15: REPAIRED requires a REAL commit. A re-validation that passes
+            # with NO file change yields an empty sha; calling that REPAIRED would
+            # report success with nothing committed (downstream then re-fails it).
+            if sha:
+                result.status = "REPAIRED"
+                # Audit #4 / Codex P1 (#141): the agent's ORIGINAL run-record still
+                # says VALIDATION_FAILED. run-agent now exits 0 on REPAIRED, but
+                # cmd_run_cycle's work-proof cross-check re-reads that record and
+                # treats VALIDATION_FAILED as a failed agent → POST_CYCLE_FAIL. Persist
+                # the repaired status to the run-record so the cross-check sees success.
+                _mark_run_record_repaired(agent_id, cycle, run_dir, sha)
+            else:
+                result.status = "FAILED"
+                result.errors_out = ["repair re-validation passed but produced no commit"]
         else:
             result.status = "FAILED"
             result.errors_out = [details]
@@ -114,6 +127,34 @@ def dispatch_repair(
         )
 
     return result
+
+
+def _mark_run_record_repaired(agent_id: str, cycle: int, run_dir: Path, sha: str) -> None:
+    """Rewrite the agent's run-record so its lifecycle status reflects the REPAIR.
+
+    The original record (written by run_agent_lifecycle._write_record at
+    ``run_dir/agent_<id>_run_record.json``) still carries VALIDATION_FAILED. The
+    controller's work-proof cross-check reads ``lifecycle_status`` (falling back to
+    ``status``) and treats VALIDATION_FAILED as a failed agent. After a successful
+    repair we set both to REPAIRED (NOT in the failed set) and stamp the commit_sha
+    so the cross-check counts the agent as completed. Best-effort: never raises.
+    """
+    try:
+        path = run_dir / f"agent_{agent_id}_run_record.json"
+        data: dict = {}
+        if path.exists():
+            try:
+                data = json.loads(path.read_text())
+            except Exception:
+                data = {}
+        data["lifecycle_status"] = "REPAIRED"
+        data["status"] = "REPAIRED"
+        data["commit_sha"] = sha
+        data["repaired"] = True
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass
 
 
 def _classify_failure(errors: list[str]) -> str:

@@ -106,3 +106,63 @@ class TestMaxAttempts:
         """MAX_REPAIR_ATTEMPTS must be 3."""
         from automation.repair_loop import MAX_REPAIR_ATTEMPTS
         assert MAX_REPAIR_ATTEMPTS == 3
+
+
+class TestMarkRunRecordRepaired:
+    """Audit #4 / Codex P1: a REPAIRED run must overwrite the agent's run-record so
+    cmd_run_cycle's cross-check (reads lifecycle_status, treats VALIDATION_FAILED as a
+    failed agent) sees success — otherwise a genuinely-fixed cycle is marked failed."""
+
+    def test_overwrites_validation_failed_to_repaired(self, tmp_path):
+        import json as _json
+
+        from automation.repair_loop import _mark_run_record_repaired
+        rec = tmp_path / "agent_B_run_record.json"
+        rec.write_text(_json.dumps({"agent": "B", "lifecycle_status": "VALIDATION_FAILED",
+                                    "status": "VALIDATION_FAILED", "commit_sha": ""}))
+        _mark_run_record_repaired("B", 84, tmp_path, "abc123")
+        data = _json.loads(rec.read_text())
+        # Both fields the controller may read must now be REPAIRED (not in the failed set).
+        assert data["lifecycle_status"] == "REPAIRED"
+        assert data["status"] == "REPAIRED"
+        assert data["commit_sha"] == "abc123"
+
+    def test_creates_record_if_missing_and_never_raises(self, tmp_path):
+        import json as _json
+
+        from automation.repair_loop import _mark_run_record_repaired
+        _mark_run_record_repaired("E", 84, tmp_path, "deadbeef")  # no pre-existing file
+        rec = tmp_path / "agent_E_run_record.json"
+        assert rec.exists()
+        assert _json.loads(rec.read_text())["lifecycle_status"] == "REPAIRED"
+
+
+class TestRepairedRequiresCommit:
+    """Audit #15: REPAIRED requires a real (non-empty) commit_sha; a re-validation that
+    passes with NO file change must be FAILED, not a hollow REPAIRED."""
+
+    def test_empty_commit_sha_is_not_repaired(self, tmp_path, monkeypatch):
+        import automation.repair_loop as rl
+
+        # Fresh attempt record.
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        # Cursor "completes", validation "passes", but the commit produces NO sha.
+        monkeypatch.setattr(rl, "_generate_repair_prompt", lambda *a, **k: "prompt")
+        # Silence the notifier (its real impl writes under the live runner root).
+        import automation.notification_router as nr
+        monkeypatch.setattr(nr, "notify_blocked", lambda *a, **k: None)
+        monkeypatch.setattr(nr, "notify_info", lambda *a, **k: None)
+        import types
+        fake_cursor = types.SimpleNamespace(status="complete")
+        monkeypatch.setattr("automation.cursor_adapter.run_agent", lambda **k: fake_cursor)
+        import automation.run_agent_lifecycle as ral
+        monkeypatch.setattr(ral, "_run_validation", lambda agent: (True, "ok"))
+        monkeypatch.setattr(ral, "_get_changed_files", lambda *a, **k: [])
+        monkeypatch.setattr(ral, "_commit_agent_work", lambda *a, **k: "")  # no commit
+        called = {"marked": False}
+        monkeypatch.setattr(rl, "_mark_run_record_repaired",
+                            lambda *a, **k: called.__setitem__("marked", True))
+        res = rl.dispatch_repair("B", 84, run_dir, ["pytest failed"])
+        assert res.status == "FAILED"
+        assert called["marked"] is False  # never claims repaired without a commit
