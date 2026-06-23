@@ -76,7 +76,19 @@ def test_escalate_when_repair_budget_exhausted(monkeypatch):
 
 
 def test_error_on_read_failure(monkeypatch):
+    # A transient read error returns ERROR (caller retries next tick).
     _wire(monkeypatch, threads=[], reviewed=True)
     monkeypatch.setattr(reader, "read_threads",
                         lambda pr, *a, **k: _disp([], read_error="gh down"))
     assert ctl._maybe_dispatch_codex_repair(84, 1) == "ERROR"
+
+
+def test_persistent_read_error_escalates(monkeypatch):
+    # Codex P2: a PERSISTENT read error must not loop forever — after the cap it
+    # escalates to MERGE_BLOCKED (ESCALATE) for operator handling.
+    monkeypatch.setenv("CODEX_READ_ERROR_MAX_TICKS", "3")
+    counters = {"codex_read_error_pr1": 3}  # already at cap; next increment exceeds it
+    _wire(monkeypatch, threads=[], reviewed=True, counters=counters)
+    monkeypatch.setattr(reader, "read_threads",
+                        lambda pr, *a, **k: _disp([], read_error="auth expired"))
+    assert ctl._maybe_dispatch_codex_repair(84, 1) == "ESCALATE"

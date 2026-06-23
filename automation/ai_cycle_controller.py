@@ -340,7 +340,29 @@ def _dispatch_codex_repair(cycle: int, prompt: str) -> bool:
     from automation.cursor_adapter import run_agent as cursor_run
     from automation.run_agent_lifecycle import _commit_agent_work, _get_changed_files
 
+    import automation.autopilot_logger as L
+
     branch = f"cycle/{cycle:03d}/integration"
+    # Codex P1: AWAITING_CI_GREEN has no branch guard, so the checkout could be on
+    # develop or a detached HEAD. cursor_run + _commit_agent_work commit to the
+    # CURRENT HEAD, but we push the named `branch` ref — if they differ, the commit
+    # lands on the wrong branch and `git push origin branch` (a no-op) returns 0 →
+    # we'd falsely report REPAIRING. Pin to the cycle branch first; bail if we can't.
+    _cur = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    ).stdout.strip()
+    if _cur != branch:
+        _co = subprocess.run(
+            ["git", "checkout", branch], cwd=str(REPO_ROOT), capture_output=True, text=True
+        )
+        if _co.returncode != 0:
+            L.error(
+                f"codex repair: not on {branch} (HEAD={_cur}) and checkout failed "
+                f"({_co.stderr.strip()[-160:]}) — refusing to commit to the wrong branch"
+            )
+            return False
+
     repair_dir = REPO_ROOT / "PM_Pack" / "automation" / "runs" / f"cycle_{cycle:03d}" / "codex_repair"
     repair_dir.mkdir(parents=True, exist_ok=True)
     prompt_path = repair_dir / "codex_repair_prompt.md"
@@ -360,7 +382,6 @@ def _dispatch_codex_repair(cycle: int, prompt: str) -> bool:
             completion_marker=str(report),
         )
     except Exception as exc:  # pragma: no cover - defensive
-        import automation.autopilot_logger as L
         L.error(f"codex repair cursor run raised: {exc}")
         return False
 
@@ -385,7 +406,9 @@ def _maybe_dispatch_codex_repair(cycle: int | None, pr_int: int) -> str:
       ``CLEAN``     — no actionable threads; safe to evaluate CI + merge.
       ``REPAIRING`` — dispatched a fix + pushed; stay AWAITING_CI_GREEN (CI re-runs).
       ``ESCALATE``  — round budget exhausted with findings still open → MERGE_BLOCKED.
-      ``ERROR``     — read/dispatch error; caller retries next tick (transient).
+      ``ERROR``     — transient read/dispatch error; caller retries next tick (BUT a
+                      persistent read error escalates after CODEX_READ_ERROR_MAX_TICKS
+                      so an auth/rate-limit/schema failure can't loop forever).
     """
     from automation.codex_thread_reader import codex_has_reviewed, read_threads
     from automation.codex_thread_resolver import (
@@ -394,14 +417,23 @@ def _maybe_dispatch_codex_repair(cycle: int | None, pr_int: int) -> str:
         build_codex_repair_prompt,
     )
 
+    def _on_read_error() -> str:
+        # Codex P2: a persistent gh/GraphQL read error (auth/rate-limit/schema) would
+        # otherwise loop forever on ERROR (the tick only logs + stays). Count it; after
+        # the cap, escalate to MERGE_BLOCKED for operator handling like the other paths.
+        _errs = _tick_counter(f"codex_read_error_pr{pr_int}", increment=True)
+        _cap = int(os.environ.get("CODEX_READ_ERROR_MAX_TICKS", "10"))
+        return "ESCALATE" if _errs > _cap else "ERROR"
+
     disp = read_threads(pr_int)
     if disp.read_error:
-        return "ERROR"
+        return _on_read_error()
     # Resolve any threads GitHub already outdated (a prior fix landed) before deciding.
     _resolve_already_fixed(disp.threads)
     disp = read_threads(pr_int)
     if disp.read_error:
-        return "ERROR"
+        return _on_read_error()
+    _tick_counter(f"codex_read_error_pr{pr_int}", reset=True)  # a clean read resets it
     actionable = _actionable(disp.threads)
     if not actionable:
         # Empty thread set is "clean" ONLY if Codex has actually reviewed; otherwise

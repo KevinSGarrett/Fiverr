@@ -45,6 +45,17 @@ def test_build_repair_prompt_includes_findings_and_report_path():
     assert "Do NOT dismiss" in prompt
 
 
+def test_build_repair_prompt_includes_location():
+    # Codex P2: a finding whose body does not name the file must still give the agent
+    # the file:line so it can target the edit (it was dropped before).
+    t = CodexThread(thread_id="T9", is_resolved=False, is_outdated=False,
+                    author="chatgpt-codex-connector", body="Null deref here",
+                    path="src/foo.py", line=42)
+    prompt = ctr.build_codex_repair_prompt(84, [t])
+    assert "**Location:** `src/foo.py:42`" in prompt
+    assert "Null deref here" in prompt
+
+
 # ── bounded resolve loop ────────────────────────────────────────────────────────
 def test_no_threads_resolves_immediately():
     res = ctr.resolve_pr_codex_threads(

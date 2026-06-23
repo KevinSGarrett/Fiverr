@@ -31,6 +31,10 @@ class CodexThread:
     classification: str = "UNCLASSIFIED"
     evidence_reply: str = ""
     jira_ticket: str = ""
+    # Codex P2: the inline review location (file + line). Many findings reference the
+    # spot only by position, so the autonomous repair needs this to target the edit.
+    path: str = ""
+    line: int | None = None
 
 
 @dataclass
@@ -85,7 +89,8 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
         "pullRequest(number:$number){"
         "reviewThreads(first:100, after:$cursor){"
         "pageInfo{hasNextPage endCursor} "
-        "nodes{id isResolved isOutdated comments(first:1){nodes{author{login} body}}}"
+        "nodes{id isResolved isOutdated path line "
+        "comments(first:1){nodes{author{login} body path line originalLine}}}"
         "}}}}"
     )
     nodes: list[dict] = []
@@ -133,6 +138,11 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
         first = (node.get("comments", {}).get("nodes") or [{}])[0]
         author = ((first.get("author") or {}).get("login")) or ""
         body = first.get("body", "") or ""
+        # Codex P2: capture the inline location. The thread carries path/line; fall
+        # back to the first comment's path/line/originalLine (an outdated thread keeps
+        # only originalLine). This is what the autonomous repair targets.
+        path = node.get("path") or first.get("path") or ""
+        line = node.get("line") or first.get("line") or first.get("originalLine")
         thread = CodexThread(
             thread_id=str(node.get("id", "unknown")),
             is_resolved=bool(node.get("isResolved")),
@@ -140,6 +150,8 @@ def read_threads(pr_number: int, repo: str = REPO) -> CodexDispositionResult:
             author=author,
             body=body[:500],
             classification=_classify_body(body),
+            path=str(path or ""),
+            line=int(line) if isinstance(line, int) else None,
         )
         result.threads.append(thread)
         # Any unresolved thread blocks (matches required_conversation_resolution).

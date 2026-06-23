@@ -104,6 +104,13 @@ def build_codex_repair_prompt(cycle: int, threads: list[CodexThread]) -> str:
     ]
     for i, t in enumerate(threads, 1):
         lines.append(f"### Finding {i}")
+        # Codex P2: lead with the file:line location so the agent edits the right
+        # place even when the finding body does not name the file explicitly.
+        loc = getattr(t, "path", "") or ""
+        if loc:
+            ln = getattr(t, "line", None)
+            loc = f"{loc}:{ln}" if ln else loc
+            lines.append(f"**Location:** `{loc}`")
         lines.append(t.body.strip())
         lines.append("")
     return "\n".join(lines)
