@@ -12,6 +12,16 @@ REPO_ROOT = Path("C:/Fiverr/Fiverr")
 RUNNER_ROOT = Path("C:/AI_Runner")
 CONTROLLER_STATE = RUNNER_ROOT / "state/controller_state.json"
 
+# The runner's pre-commit validation MUST mirror CI's authoritative gates EXACTLY
+# (.github/workflows/ci.yml). Otherwise it false-fails on rules CI ignores
+# (I001/UP035/W605) or mypy flags CI does not use (--ignore-missing-imports produced
+# spurious unused-"type: ignore" errors in files the agent never touched — cycle-84
+# agent B passed CI but was wrongly routed to the repair loop). Keep these in sync with
+# CI; a single source prevents drift between the two validation entry points below.
+_CI_RUFF_ARGS = ["ruff", "check", "automation/", "src/", "tests/",
+                 "--ignore", "I001,UP035,W605"]
+_CI_MYPY_ARGS = ["mypy", "src"]
+
 # C1.4: Agent file ownership -- sourced dynamically from agent_lanes.yml
 _LANES_PATH = Path("C:/Fiverr/Fiverr/PM_Pack/automation/agent_lanes.yml")
 _OWNERSHIP_CACHE: dict | None = None
@@ -534,8 +544,8 @@ def _run_validation(agent_id: str) -> tuple[bool, str]:
             passed = False
             details_parts.append(f"{name} FAIL: {((r.stdout or '') + (r.stderr or ''))[-200:]}")
 
-    _gate("ruff", [py, "-m", "ruff", "check", "automation/", "src/", "--output-format=text"], 180)
-    _gate("mypy", [py, "-m", "mypy", "src/", "--ignore-missing-imports"], 180)
+    _gate("ruff", [py, "-m", *_CI_RUFF_ARGS, "--output-format=text"], 180)
+    _gate("mypy", [py, "-m", *_CI_MYPY_ARGS], 180)
     # Pytest — only for code agents (not D). Sized for the full ~11-min unit suite with
     # margin (was 300s -> always crashed). Env-tunable for faster/slower environments.
     if agent_id != "D":
@@ -611,7 +621,7 @@ def _write_controller_state(status: str, cycle: int) -> None:
 def _run_pre_commit_gate() -> tuple[bool, str]:
     py = str(REPO_ROOT / ".venv/Scripts/python.exe")
     ruff_proc = subprocess.run(
-        [py, "-m", "ruff", "check", "automation/", "--output-format=concise", "--quiet"],
+        [py, "-m", *_CI_RUFF_ARGS, "--output-format=concise", "--quiet"],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -621,7 +631,7 @@ def _run_pre_commit_gate() -> tuple[bool, str]:
         print("DISPATCH-020: ruff failures detected - commit blocked")
         return (False, "DISPATCH-020: ruff failures detected — commit blocked")
     mypy_proc = subprocess.run(
-        [py, "-m", "mypy", "src/", "--ignore-missing-imports", "--no-error-summary"],
+        [py, "-m", *_CI_MYPY_ARGS, "--no-error-summary"],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
