@@ -662,6 +662,15 @@ The prompt you generate MUST include, verbatim at the end, a section titled:
 The Cursor agent MUST write its completed cycle report to:
     docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md
 
+!! LANE EXEMPTION — STATE THIS EXPLICITLY IN THE GENERATED PROMPT !!
+This report path is a MANDATORY deliverable and an EXPLICIT EXCEPTION to the agent's
+file-ownership lane. Even when PQ-2 restricts edits to (e.g.) src/** and tests/**, the
+agent MUST ALSO create/write docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md.
+The runner marks the entire run FAILED (status NO_REPORT) and commits NOTHING if this
+report is missing or omits the AGENT_COMPLETE marker — so writing it is not optional and
+is never "out of lane". The generated prompt's PQ-2 section MUST list this report path as
+an allowed/required output alongside the agent's implementation lane.
+
 The report MUST follow the AGENT_CYCLE_REPORT_TEMPLATE.md standard (PM_Pack/09_templates/).
 Specifically:
 - Begin with an ARSF:MANIFEST JSON block (<!-- ARSF:MANIFEST v1 --> ```json {{ ... }} ```)
@@ -875,10 +884,14 @@ tree; never invent module slugs that are not in the specs or the repository.
 
 ## PQ-2 your role / file ownership
 Agent {agent_id} role: {lane['description']}.
-You own (create/modify ONLY these paths):
+Your IMPLEMENTATION lane (create/modify these paths):
 {owns}
 You must NOT modify these paths:
 {prohibited}
+REQUIRED EXCEPTION — you MUST ALSO write your end-of-run report at
+`docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent_id}.md`, EVEN THOUGH it is outside your
+implementation lane above. This report is mandatory: the runner FAILS the entire run
+(status NO_REPORT) and commits NOTHING if it is missing or lacks the AGENT_COMPLETE marker.
 Control-plane paths (automation/, .github/workflows/, host/, and PM_Pack/automation \
 policy) are OFF-LIMITS to every agent regardless of lane.
 
@@ -943,6 +956,10 @@ workflow_automation | python_web_scraping
 ## MANDATORY END-OF-RUN REPORT
 Write your completed cycle report to:
     {report_path}
+This report is REQUIRED and is an EXPLICIT EXCEPTION to your file-ownership lane: write it
+even though docs/cycle_reports/ is outside the paths you own. A missing report — or one
+without the AGENT_COMPLETE marker — makes the runner FAIL the run (NO_REPORT) and commit
+NOTHING, discarding all your work. So write it before you finish.
 Follow AGENT_CYCLE_REPORT_TEMPLATE.md (PM_Pack/09_templates/): begin with an \
 ARSF:MANIFEST JSON block, include all 13 spine sections (§1 Final verdict through \
 §13 Certification) plus Addendum {agent_id}, attach EVIDENCE (commit SHA, test count, \
