@@ -439,9 +439,14 @@ def run_agent(
                 if completion_marker:
                     try:
                         cm = Path(completion_marker)
-                        if cm.exists() and "AGENT_COMPLETE" in cm.read_text(
-                            encoding="utf-8", errors="replace"
-                        ):
+                        # FRESHNESS (Codex P2): only honor a marker written AFTER this
+                        # dispatch started. On a retry/repair/manual rerun the
+                        # deterministic report path may already exist with AGENT_COMPLETE
+                        # from a PRIOR attempt; without the mtime guard the new run would
+                        # be killed on the first poll before doing any work.
+                        if (cm.exists() and cm.stat().st_mtime >= started_ts
+                                and "AGENT_COMPLETE" in cm.read_text(
+                                    encoding="utf-8", errors="replace")):
                             time.sleep(5)  # let any final write flush
                             kill_cursor_process(proc.pid)
                             return AgentRunResult(
