@@ -146,16 +146,30 @@ def write_pr_body(cycle: int, run_dir: Path, **kwargs: Any) -> Path:
 def create_pr(cycle: int, branch: str, base: str = "develop",
               body: str = "", title: str = "",
               labels: list[str] | None = None) -> dict:
-    """GJCI-015: Create PR from cycle branch to develop via gh CLI."""
+    """GJCI-015: Create PR from cycle branch to develop via gh CLI.
+
+    The title/body MUST satisfy the runner's own required 'Validate PR' check
+    (.github/workflows/pr-checks.yml): a conventional-commit title
+    `type(scope): desc` with scope [a-z0-9-]+ (no dots), <=72 chars, no trailing
+    period; and a body >=50 chars. The old defaults ("[C084] Autonomous runner
+    cycle 084" + a ~24-char body) FAILED both, so every autonomous PR was rejected
+    by Validate PR and could never merge — the runner could not self-merge at all.
+    """
     import subprocess
     if not title:
-        title = f"[C{cycle:03d}] Autonomous runner cycle {cycle:03d}"
+        title = f"chore(cycle-{cycle:03d}): autonomous runner cycle {cycle:03d} deliverables"
+    if not body:
+        body = (
+            f"Autonomous runner cycle {cycle:03d}: agent-built changes for this cycle's "
+            f"planned Jira stories, gated by local validation (ruff/mypy/pytest) + CI + "
+            f"Codex review before squash-merge to {base}. Generated with no human commits."
+        )
 
     args = [
         "gh", "pr", "create",
         "--repo", "KevinSGarrett/Fiverr",
         "--title", title,
-        "--body", body or f"Cycle {cycle:03d} runner cycle PR",
+        "--body", body,
         "--base", base,
         "--head", branch,
     ]
