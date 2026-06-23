@@ -502,38 +502,46 @@ def _scan_changed_files(changed_files: list[str]) -> list[str]:
 
 
 def _run_validation(agent_id: str) -> tuple[bool, str]:
-    """Run ruff + mypy. Pytest for code agents. Returns (passed, details)."""
+    """Run ruff + mypy. Pytest for code agents. Returns (passed, details).
+
+    Each gate is wrapped so a TimeoutExpired (or any subprocess error) is recorded as a
+    FAIL rather than an UNCAUGHT EXCEPTION that aborts the whole post-agent lifecycle.
+    Observed live (cycle-84 agent B): the pytest gate's 300s timeout always
+    TimeoutExpired-CRASHED the lifecycle (the unit suite runs ~11 min) even though the
+    agent's work was complete and committed — so the run was never credited. The pytest
+    timeout is now sized for the full suite with margin and env-tunable.
+    """
+    import os as _os
     py = str(REPO_ROOT / ".venv/Scripts/python.exe")
     passed = True
-    details_parts = []
+    details_parts: list[str] = []
 
-    # Ruff
-    r = subprocess.run(
-        [py, "-m", "ruff", "check", "automation/", "src/", "--output-format=text"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120
-    )
-    if r.returncode != 0:
-        passed = False
-        details_parts.append(f"ruff FAIL: {r.stdout[:200]}")
-
-    # Mypy
-    r = subprocess.run(
-        [py, "-m", "mypy", "src/", "--ignore-missing-imports"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120
-    )
-    if r.returncode != 0:
-        passed = False
-        details_parts.append(f"mypy FAIL: {r.stdout[-200:]}")
-
-    # Pytest — only for code agents (not D)
-    if agent_id != "D":
-        r = subprocess.run(
-            [py, "-m", "pytest", "tests/unit/", "-q", "--no-header", "--tb=no", "-x"],
-            cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=300
-        )
+    def _gate(name: str, cmd: list[str], timeout: int) -> None:
+        nonlocal passed
+        try:
+            r = subprocess.run(
+                cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=timeout
+            )
+        except subprocess.TimeoutExpired:
+            passed = False
+            details_parts.append(f"{name} TIMEOUT after {timeout}s")
+            return
+        except Exception as exc:  # never let a gate crash the lifecycle
+            passed = False
+            details_parts.append(f"{name} ERROR: {str(exc)[:160]}")
+            return
         if r.returncode != 0:
             passed = False
-            details_parts.append(f"pytest FAIL: {r.stdout[-200:]}")
+            details_parts.append(f"{name} FAIL: {((r.stdout or '') + (r.stderr or ''))[-200:]}")
+
+    _gate("ruff", [py, "-m", "ruff", "check", "automation/", "src/", "--output-format=text"], 180)
+    _gate("mypy", [py, "-m", "mypy", "src/", "--ignore-missing-imports"], 180)
+    # Pytest — only for code agents (not D). Sized for the full ~11-min unit suite with
+    # margin (was 300s -> always crashed). Env-tunable for faster/slower environments.
+    if agent_id != "D":
+        _pytest_timeout = int(_os.environ.get("AGENT_VALIDATION_PYTEST_TIMEOUT", "1200"))
+        _gate("pytest", [py, "-m", "pytest", "tests/unit/", "-q", "--no-header", "--tb=no", "-x"],
+              _pytest_timeout)
 
     return passed, " | ".join(details_parts) if details_parts else "all passed"
 

@@ -1547,6 +1547,12 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
             prompt_path=str(prompt_path),
             working_dir=str(REPO_ROOT),
             output_dir=str(agent_dir),
+            # End the run promptly once the agent writes its AGENT_COMPLETE report,
+            # instead of idling until the no-output watchdog (cursor-agent often does
+            # not exit cleanly in --print mode after finishing).
+            completion_marker=str(
+                REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_{agent}.md"
+            ),
         )
 
     _agent_elapsed_min = (time.time() - _agent_start_time) / 60.0

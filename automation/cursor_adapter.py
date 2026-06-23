@@ -303,6 +303,7 @@ def run_agent(
     model: str = "codex-5.3",
     timeout_minutes: int = DEFAULT_TIMEOUT_MIN,
     no_output_kill_minutes: int = NO_OUTPUT_KILL_MIN,
+    completion_marker: str | None = None,
 ) -> AgentRunResult:
     """
     Dispatch Cursor CLI agent.
@@ -429,6 +430,36 @@ def run_agent(
                 if retcode is not None:
                     break
                 now = time.time()
+                # Completion detection: cursor-agent in --print mode often does NOT exit
+                # cleanly after finishing — it idles, which the no_output watchdog then
+                # kills as a false 'no_output' (observed: cycle-84 agent B finished ~27m
+                # in, wrote its AGENT_COMPLETE report + committed, then idled 45m -> killed).
+                # If the agent's completion marker (its report with AGENT_COMPLETE) has
+                # appeared, the work is DONE: terminate promptly and report success.
+                if completion_marker:
+                    try:
+                        cm = Path(completion_marker)
+                        # FRESHNESS (Codex P2): only honor a marker written AFTER this
+                        # dispatch started. On a retry/repair/manual rerun the
+                        # deterministic report path may already exist with AGENT_COMPLETE
+                        # from a PRIOR attempt; without the mtime guard the new run would
+                        # be killed on the first poll before doing any work.
+                        if (cm.exists() and cm.stat().st_mtime >= started_ts
+                                and "AGENT_COMPLETE" in cm.read_text(
+                                    encoding="utf-8", errors="replace")):
+                            time.sleep(5)  # let any final write flush
+                            kill_cursor_process(proc.pid)
+                            return AgentRunResult(
+                                agent=agent_id, status="complete",
+                                started_at=started, ended_at=datetime.now(UTC).isoformat(),
+                                exit_code=0, stdout_path=str(stdout_path),
+                                stderr_path=str(stderr_path), prompt_path=prompt_path,
+                                output_dir=output_dir,
+                                error_message="completed via AGENT_COMPLETE marker",
+                                stdout_tail=_tail(stdout_path), stderr_tail=_tail(stderr_path),
+                            )
+                    except Exception:
+                        pass
                 if now > hard_deadline:
                     kill_cursor_process(proc.pid)
                     return AgentRunResult(
