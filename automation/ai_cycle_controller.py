@@ -310,6 +310,152 @@ def _attempt_merge(cycle: int | None, pr_int: int) -> str:
     return "MERGE_BLOCKED"
 
 
+def _codex_dirty_now() -> set[str]:
+    """Tree-wide uncommitted+untracked paths (mirror of the dispatch _dirty_now), so a
+    codex repair attributes only the files IT changed."""
+    _u = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    )
+    _s = subprocess.run(
+        ["git", "status", "--short", "-uall"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    )
+    paths = {ln.strip().replace("\\", "/") for ln in _u.stdout.splitlines() if ln.strip()}
+    paths |= {
+        ln[3:].strip().replace("\\", "/")
+        for ln in _s.stdout.splitlines() if ln.startswith("?? ")
+    }
+    return paths
+
+
+def _dispatch_codex_repair(cycle: int, prompt: str) -> bool:
+    """Run a scoped Cursor repair addressing Codex review findings, commit, and push.
+
+    Returns True iff the repair produced a NEW commit pushed to the cycle branch (so
+    CI + Codex re-run on the fix). Fix-don't-dismiss: we change code to ADDRESS the
+    findings; GitHub then outdates the threads and the disposition step resolves them.
+    The Controller stays the sole git authority (G1): the commit + push live here.
+    """
+    from automation.cursor_adapter import run_agent as cursor_run
+    from automation.run_agent_lifecycle import _commit_agent_work, _get_changed_files
+
+    import automation.autopilot_logger as L
+
+    branch = f"cycle/{cycle:03d}/integration"
+    # Codex P1: AWAITING_CI_GREEN has no branch guard, so the checkout could be on
+    # develop or a detached HEAD. cursor_run + _commit_agent_work commit to the
+    # CURRENT HEAD, but we push the named `branch` ref — if they differ, the commit
+    # lands on the wrong branch and `git push origin branch` (a no-op) returns 0 →
+    # we'd falsely report REPAIRING. Pin to the cycle branch first; bail if we can't.
+    _cur = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True,
+    ).stdout.strip()
+    if _cur != branch:
+        _co = subprocess.run(
+            ["git", "checkout", branch], cwd=str(REPO_ROOT), capture_output=True, text=True
+        )
+        if _co.returncode != 0:
+            L.error(
+                f"codex repair: not on {branch} (HEAD={_cur}) and checkout failed "
+                f"({_co.stderr.strip()[-160:]}) — refusing to commit to the wrong branch"
+            )
+            return False
+
+    repair_dir = REPO_ROOT / "PM_Pack" / "automation" / "runs" / f"cycle_{cycle:03d}" / "codex_repair"
+    repair_dir.mkdir(parents=True, exist_ok=True)
+    prompt_path = repair_dir / "codex_repair_prompt.md"
+    prompt_path.write_text(prompt, encoding="utf-8")
+
+    pre_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=str(REPO_ROOT), capture_output=True, text=True
+    ).stdout.strip()
+    pre_dirty = _codex_dirty_now()
+    report = REPO_ROOT / f"docs/cycle_reports/CYCLE_{cycle:03d}_AGENT_B.md"
+    try:
+        cursor_run(
+            agent_id="B",
+            prompt_path=str(prompt_path),
+            working_dir=str(REPO_ROOT),
+            output_dir=str(repair_dir),
+            completion_marker=str(report),
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        L.error(f"codex repair cursor run raised: {exc}")
+        return False
+
+    changed = _get_changed_files(pre_sha, pre_dirty)
+    if not changed:
+        return False
+    sha = _commit_agent_work("B", cycle, changed)
+    if not sha:
+        return False
+    push = subprocess.run(
+        ["git", "push", "origin", branch], cwd=str(REPO_ROOT), capture_output=True, text=True
+    )
+    return push.returncode == 0
+
+
+def _maybe_dispatch_codex_repair(cycle: int | None, pr_int: int) -> str:
+    """CODEX_DISPOSITION (audit BLOCKER 2): before merge, autonomously address
+    unresolved Codex review threads instead of dead-ending at MERGE_BLOCKED → operator.
+
+    One round per tick (the cursor repair is minutes-long; the push re-triggers CI),
+    bounded by ``CODEX_REPAIR_MAX_ROUNDS``. Returns:
+      ``CLEAN``     — no actionable threads; safe to evaluate CI + merge.
+      ``REPAIRING`` — dispatched a fix + pushed; stay AWAITING_CI_GREEN (CI re-runs).
+      ``ESCALATE``  — round budget exhausted with findings still open → MERGE_BLOCKED.
+      ``ERROR``     — transient read/dispatch error; caller retries next tick (BUT a
+                      persistent read error escalates after CODEX_READ_ERROR_MAX_TICKS
+                      so an auth/rate-limit/schema failure can't loop forever).
+    """
+    from automation.codex_thread_reader import codex_has_reviewed, read_threads
+    from automation.codex_thread_resolver import (
+        _actionable,
+        _resolve_already_fixed,
+        build_codex_repair_prompt,
+    )
+
+    def _on_read_error() -> str:
+        # Codex P2: a persistent gh/GraphQL read error (auth/rate-limit/schema) would
+        # otherwise loop forever on ERROR (the tick only logs + stays). Count it; after
+        # the cap, escalate to MERGE_BLOCKED for operator handling like the other paths.
+        _errs = _tick_counter(f"codex_read_error_pr{pr_int}", increment=True)
+        _cap = int(os.environ.get("CODEX_READ_ERROR_MAX_TICKS", "10"))
+        return "ESCALATE" if _errs > _cap else "ERROR"
+
+    disp = read_threads(pr_int)
+    if disp.read_error:
+        return _on_read_error()
+    # Resolve any threads GitHub already outdated (a prior fix landed) before deciding.
+    _resolve_already_fixed(disp.threads)
+    disp = read_threads(pr_int)
+    if disp.read_error:
+        return _on_read_error()
+    _tick_counter(f"codex_read_error_pr{pr_int}", reset=True)  # a clean read resets it
+    actionable = _actionable(disp.threads)
+    if not actionable:
+        # Empty thread set is "clean" ONLY if Codex has actually reviewed; otherwise
+        # this is "review pending" and merging would ship unreviewed code. Wait
+        # (bounded) rather than letting _attempt_merge fail-closed prematurely.
+        if codex_has_reviewed(pr_int) is not True:
+            waited = _tick_counter(f"codex_review_wait_pr{pr_int}", increment=True)
+            cap = int(os.environ.get("CODEX_REVIEW_WAIT_MAX_TICKS", "30"))
+            return "ESCALATE" if waited > cap else "AWAIT_REVIEW"
+        _tick_counter(f"codex_review_wait_pr{pr_int}", reset=True)
+        _tick_counter(f"codex_repair_pr{pr_int}", reset=True)
+        return "CLEAN"
+
+    rounds = _tick_counter(f"codex_repair_pr{pr_int}", increment=True)
+    cap = int(os.environ.get("CODEX_REPAIR_MAX_ROUNDS", "3"))
+    if rounds > cap:
+        return "ESCALATE"
+    prompt = build_codex_repair_prompt(cycle or 0, actionable)
+    ok = _dispatch_codex_repair(cycle or 0, prompt)
+    return "REPAIRING" if ok else "ERROR"
+
+
 def _run_and_stream(args: list[str], label: str = "") -> tuple[int, str]:
     """Run subprocess streaming stdout live to terminal line by line.
 
@@ -3223,39 +3369,80 @@ def cmd_tick() -> None:
             from automation import required_checks as _rc
             from automation.ci_status_reader import read_pr_ci_status
             _pr_int = int(_active_pr)
-            cs = read_pr_ci_status(_pr_int)
-            disp = cs.disposition(_rc.get_required_contexts()) if cs.gh_ok else "PENDING"
-            click.secho(f"  PR #{_active_pr} required-CI disposition: {disp}", fg="cyan")
-            if disp == "GREEN":
-                # Required CI is green — merge via the gate (squash, no --admin).
-                # Persist MERGING first so a crash mid-merge is recoverable by the
-                # MERGING branch (idempotent re-invocation), then attempt the merge.
-                write_controller_state("MERGING", cycle=cycle)
-                _attempt_merge(cycle, _pr_int)
-            elif disp == "FAILED":
+            # CODEX_DISPOSITION (BLOCKER 2): before evaluating CI/merge, autonomously
+            # address unresolved Codex review threads (fix-don't-dismiss). A fresh P1/P2
+            # finding would otherwise fail the required codex-review-gate → MERGE_BLOCKED
+            # → operator. One repair round per tick; the push re-triggers CI.
+            try:
+                _codex = _maybe_dispatch_codex_repair(cycle, _pr_int)
+            except Exception as _exc:  # pragma: no cover - defensive; never crash the tick
+                L.warn(f"codex disposition raised ({_exc}) — retrying next tick")
+                _codex = "ERROR"
+            # NOTE: every branch below must FALL THROUGH to the tick epilogue (which
+            # releases the tick lock) — never `return` from here, or the lock leaks and
+            # all future ticks deadlock. Non-CLEAN dispositions skip the merge logic.
+            if _codex == "REPAIRING":
+                click.secho(
+                    f"  PR #{_active_pr}: dispatched Codex-finding repair + pushed — "
+                    "staying AWAITING_CI_GREEN (CI re-runs on the fix)",
+                    fg="yellow",
+                )
+            elif _codex == "ESCALATE":
                 write_controller_state("MERGE_BLOCKED", cycle=cycle)
-                L.error(f"Required CI FAILED on PR #{_active_pr} — MERGE_BLOCKED")
+                L.error(f"Codex threads unresolved after repair budget on PR #{_active_pr}")
                 notify_blocked(
-                    f"Cycle {cycle} CI failed on PR #{_active_pr}",
-                    body="A required check concluded non-success; a new push is needed.",
+                    f"Cycle {cycle} Codex review threads unresolved after auto-repair budget "
+                    f"(PR #{_active_pr})",
+                    body="Auto-repair could not clear the reviewer's findings; operator review needed.",
                     incident_code="MERGE_BLOCKED", cycle=cycle,
                 )
-            else:  # PENDING (incl. gh read error) — bounded wait across ticks
-                _waited = _tick_counter(f"ci_wait_pr{_pr_int}", increment=True)
-                _cap = int(os.environ.get("AUTOPILOT_CI_WAIT_MAX_TICKS", "60"))
-                if _waited >= _cap:
+            elif _codex == "AWAIT_REVIEW":
+                click.secho(
+                    f"  PR #{_active_pr}: Codex has not reviewed yet — waiting "
+                    "(bounded) before merge so we never ship unreviewed code",
+                    fg="yellow",
+                )
+            elif _codex == "ERROR":
+                click.secho(
+                    f"  PR #{_active_pr}: Codex thread read/dispatch transient error — "
+                    "retrying next tick",
+                    fg="yellow",
+                )
+            else:
+                # _codex == CLEAN — no actionable Codex threads; evaluate CI + merge.
+                cs = read_pr_ci_status(_pr_int)
+                disp = cs.disposition(_rc.get_required_contexts()) if cs.gh_ok else "PENDING"
+                click.secho(f"  PR #{_active_pr} required-CI disposition: {disp}", fg="cyan")
+                if disp == "GREEN":
+                    # Required CI is green — merge via the gate (squash, no --admin).
+                    # Persist MERGING first so a crash mid-merge is recoverable by the
+                    # MERGING branch (idempotent re-invocation), then attempt the merge.
+                    write_controller_state("MERGING", cycle=cycle)
+                    _attempt_merge(cycle, _pr_int)
+                elif disp == "FAILED":
                     write_controller_state("MERGE_BLOCKED", cycle=cycle)
-                    L.error(f"CI still pending after {_waited} ticks (cap {_cap}) on "
-                            f"PR #{_active_pr} — MERGE_BLOCKED")
+                    L.error(f"Required CI FAILED on PR #{_active_pr} — MERGE_BLOCKED")
                     notify_blocked(
-                        f"Cycle {cycle} CI-wait timeout on PR #{_active_pr}",
+                        f"Cycle {cycle} CI failed on PR #{_active_pr}",
+                        body="A required check concluded non-success; a new push is needed.",
                         incident_code="MERGE_BLOCKED", cycle=cycle,
                     )
-                else:
-                    click.secho(
-                        f"  CI pending (tick {_waited}/{_cap}) — staying AWAITING_CI_GREEN",
-                        fg="yellow",
-                    )
+                else:  # PENDING (incl. gh read error) — bounded wait across ticks
+                    _waited = _tick_counter(f"ci_wait_pr{_pr_int}", increment=True)
+                    _cap = int(os.environ.get("AUTOPILOT_CI_WAIT_MAX_TICKS", "60"))
+                    if _waited >= _cap:
+                        write_controller_state("MERGE_BLOCKED", cycle=cycle)
+                        L.error(f"CI still pending after {_waited} ticks (cap {_cap}) on "
+                                f"PR #{_active_pr} — MERGE_BLOCKED")
+                        notify_blocked(
+                            f"Cycle {cycle} CI-wait timeout on PR #{_active_pr}",
+                            incident_code="MERGE_BLOCKED", cycle=cycle,
+                        )
+                    else:
+                        click.secho(
+                            f"  CI pending (tick {_waited}/{_cap}) — staying AWAITING_CI_GREEN",
+                            fg="yellow",
+                        )
 
     elif status == "MERGING":
         # ITEM 3.2: a previous tick wrote MERGING then crashed/was killed before
