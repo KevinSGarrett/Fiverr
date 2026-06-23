@@ -1858,12 +1858,24 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     elif lifecycle.status == "VALIDATION_FAILED":
         click.secho(f"Agent {agent} validation failed â€” routing to repair loop", fg="yellow")
         from automation.repair_loop import dispatch_repair
-        dispatch_repair(agent, cycle, run_dir, lifecycle.errors)
-        _record_nonblocking_error(
-            f"run-agent lifecycle validation failed cycle={cycle} agent={agent}: {lifecycle.errors[:3]}"
-        )
-        # C2 FIX: exit non-zero so run-cycle counts this as failed, not done
-        raise SystemExit(1)
+        repair = dispatch_repair(agent, cycle, run_dir, lifecycle.errors)
+        # HIGH-5: HONOR a SUCCESSFUL repair. dispatch_repair re-runs validation AND
+        # commits the fix on REPAIRED, so the old unconditional SystemExit(1) routed a
+        # genuinely-FIXED cycle to POST_CYCLE_FAIL (the repair loop's whole point was
+        # being thrown away). A REPAIRED agent has earned completion.
+        if getattr(repair, "status", "") == "REPAIRED":
+            write_controller_state("AGENT_COMPLETE", cycle=cycle)
+            _rsha = f" commit={repair.commit_sha}" if getattr(repair, "commit_sha", "") else ""
+            click.secho(
+                f"Agent {agent} REPAIRED{_rsha} — validation now passes", fg="green", bold=True
+            )
+        else:
+            _record_nonblocking_error(
+                f"run-agent lifecycle validation failed cycle={cycle} agent={agent} "
+                f"repair={getattr(repair, 'status', '?')}: {lifecycle.errors[:3]}"
+            )
+            # exit non-zero so run-cycle counts this as failed, not done
+            raise SystemExit(1)
     else:
         click.secho(
             f"Agent {agent} lifecycle FAILED: {lifecycle.status} (errors: {lifecycle.errors[:3]})",
@@ -3316,21 +3328,49 @@ def cmd_tick() -> None:
             click.secho(f"  plan-cycle still failing: {out.strip()[-200:]}", fg="yellow")
 
     elif status == "POST_CYCLE_FAIL":
-        # M-TICK-1 FIX: POST_CYCLE_FAIL was falling through to 'Unknown status -> IDLE'
-        # silently resetting a failing cycle. Now it surfaces explicitly and waits.
+        # BLOCKER 3: a genuinely-broken cycle (post-cycle review found blocking gate
+        # failures: ruff/mypy/pytest/CI/coverage/health). The prior M-TICK-1 fix kept
+        # this from the 'Unknown status -> IDLE' silent reset, but it then DEAD-ENDED
+        # waiting for an operator — defeating unattended 24/7 autonomy. Now: BOUNDED
+        # re-dispatch so the agents get another attempt to produce passing work (a
+        # transient gate flake or a repair can self-heal), then escalate to the
+        # operator after the cap and halt auto-retry. Mirrors the MERGE_BLOCKED /
+        # DEVELOP_SYNC_BLOCKED recovery pattern; falls through to the lock-release
+        # epilogue (never returns).
         import automation.autopilot_logger as L
-        L.error(
-            f"Cycle {cycle} POST_CYCLE_FAIL — review gate blocked dispatch. "
-            "Check post_cycle_reviews/ for details. Operator action required."
-        )
-        click.secho(
-            f"  POST_CYCLE_FAIL (cycle {cycle}) — review the gate failures above\n"
-            "  and either fix the issues or force-advance via:\n"
-            "    python automation/ai_cycle_controller.py force-state --status IDLE\n"
-            "  Tick will stay in this state until resolved.",
-            fg="red",
-        )
-        # Stay in POST_CYCLE_FAIL — do not advance, do not reset to IDLE
+        _pcf = _tick_counter(f"post_cycle_fail_recover_{cycle}", increment=True)
+        _pcf_cap = int(os.environ.get("AUTOPILOT_POST_CYCLE_FAIL_MAX", "3"))
+        if _pcf <= _pcf_cap:
+            L.warn(
+                f"POST_CYCLE_FAIL recovery {_pcf}/{_pcf_cap} (cycle {cycle}) — review gate "
+                "blocked dispatch; re-dispatching for another attempt at passing work"
+            )
+            write_controller_state("READY_TO_DISPATCH", cycle=cycle)
+            click.secho(
+                f"  POST_CYCLE_FAIL → READY_TO_DISPATCH (recovery {_pcf}/{_pcf_cap})",
+                fg="yellow",
+            )
+        else:
+            L.error(
+                f"POST_CYCLE_FAIL persistent ({_pcf} > {_pcf_cap}) on cycle {cycle} — "
+                "the cycle's gates still fail after bounded re-dispatch; operator action "
+                "required (auto-retry halted)."
+            )
+            notify_blocked(
+                f"Cycle {cycle} post-cycle review persistently failing",
+                body=(
+                    f"{_pcf - 1} recovery re-dispatches exhausted; gates "
+                    "(ruff/mypy/pytest/CI/coverage) still fail. Check post_cycle_reviews/ "
+                    "and either fix the issues or force-advance via "
+                    "'force-state --status IDLE'."
+                ),
+                incident_code="POST_CYCLE_FAIL", cycle=cycle,
+            )
+            click.secho(
+                f"  POST_CYCLE_FAIL persistent (cycle {cycle}) — operator action required",
+                fg="red", bold=True,
+            )
+        # Stay-or-redispatch decided above; fall through to the epilogue.
 
     elif status == "CYCLE_NO_WORK":
         # ITEM 2.1: the previous run-cycle produced ZERO committed work. The
@@ -4147,6 +4187,13 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
     click.secho("=" * 62 + "\n", fg="cyan", bold=True)
 
     tick_count = 0
+    # HIGH-7: circuit breaker. A tick that fails (non-zero exit or exception) every
+    # iteration would otherwise spin forever every `interval`s, burning the Cursor/
+    # Claude quota and hammering GitHub with no human ever noticing. Count CONSECUTIVE
+    # failed ticks; after the cap, engage the SAFE-01 autonomy freeze (so a scheduled-
+    # task restart won't just resume the runaway) and stop. A single success resets it.
+    consecutive_tick_failures = 0
+    _breaker_cap = int(os.environ.get("AUTOPILOT_MAX_CONSECUTIVE_TICK_FAILURES", "10"))
 
     while not stop_flag["stop"]:
         tick_count += 1
@@ -4207,10 +4254,42 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
             _proc.wait()
             if _proc.returncode != 0:
                 L.error(f"Tick exited with code {_proc.returncode}")
+                consecutive_tick_failures += 1
+            else:
+                consecutive_tick_failures = 0  # a clean tick resets the breaker
         except Exception as exc:
             L.error(f"Tick raised exception: {exc}")
             import traceback
             L.info(traceback.format_exc()[-300:])
+            consecutive_tick_failures += 1
+
+        # HIGH-7 circuit breaker: too many CONSECUTIVE failed ticks → freeze + stop.
+        if consecutive_tick_failures >= _breaker_cap:
+            L.error(
+                f"CIRCUIT BREAKER: {consecutive_tick_failures} consecutive failed ticks "
+                f"(cap {_breaker_cap}) — engaging autonomy freeze and stopping autopilot"
+            )
+            try:
+                _write_autonomy_freeze(
+                    True,
+                    f"circuit_breaker: {consecutive_tick_failures} consecutive failed ticks",
+                )
+            except Exception as _frz_exc:  # pragma: no cover - defensive
+                L.warn(f"freeze-write failed in circuit breaker: {_frz_exc}")
+            try:
+                from automation.notification_router import notify_blocked as _nb_cb
+                _nb_cb(
+                    "Autopilot circuit breaker tripped — autonomy frozen",
+                    body=(
+                        f"{consecutive_tick_failures} consecutive ticks failed. Autonomy "
+                        "is now frozen (run 'unfreeze' after fixing the root cause). "
+                        "Autopilot stopped to avoid a runaway loop."
+                    ),
+                    incident_code="AUTOPILOT_CIRCUIT_BREAKER",
+                )
+            except Exception as _nb_exc:  # pragma: no cover - defensive
+                L.warn(f"circuit-breaker notification failed: {_nb_exc}")
+            break
 
         # Show live event feed (events written by all stages across subprocess boundaries)
         from automation.live_events import recent as _ev_recent

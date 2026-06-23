@@ -165,6 +165,33 @@ def test_skip_local_validation_conditional_on_pr(no_drift, status, monkeypatch):
     assert captured["skip"] is False and not captured["pr"]
 
 
+# ── BLOCKER 3: POST_CYCLE_FAIL is recoverable, not a silent dead-end ───────────
+def test_post_cycle_fail_redispatches_bounded(no_drift, monkeypatch):
+    # Previously POST_CYCLE_FAIL had NO tick branch → fell to "Unknown status →
+    # IDLE" → silent UNBOUNDED re-dispatch with no escalation. Now the first
+    # recovery routes to READY_TO_DISPATCH so the agents get another attempt.
+    write_controller_state("POST_CYCLE_FAIL", cycle=540)
+    result = CliRunner().invoke(cli, ["tick"])
+    assert result.exit_code == 0, result.output
+    assert _state()["status"] == "READY_TO_DISPATCH"
+    counters = json.loads((runner_paths.state_dir() / "tick_counters.json").read_text())
+    assert counters.get("post_cycle_fail_recover_540") == 1
+
+
+def test_post_cycle_fail_escalates_after_cap(no_drift, monkeypatch):
+    # After the bounded budget, it must STAY POST_CYCLE_FAIL (operator action),
+    # never silently restart forever.
+    monkeypatch.setenv("AUTOPILOT_POST_CYCLE_FAIL_MAX", "1")
+    # Pre-seed the recovery counter at the cap so the next increment exceeds it.
+    sd = runner_paths.state_dir()
+    sd.mkdir(parents=True, exist_ok=True)
+    (sd / "tick_counters.json").write_text(json.dumps({"post_cycle_fail_recover_541": 1}))
+    write_controller_state("POST_CYCLE_FAIL", cycle=541)
+    result = CliRunner().invoke(cli, ["tick"])
+    assert result.exit_code == 0, result.output
+    assert _state()["status"] == "POST_CYCLE_FAIL"  # escalated, not re-dispatched
+
+
 # ── 4.1-T2: POST_CYCLE_PENDING branch uses the SAME predicate ─────────────────
 def test_post_cycle_pending_clean_advances(no_drift, monkeypatch):
     rev = _review(504, blocking=False)
