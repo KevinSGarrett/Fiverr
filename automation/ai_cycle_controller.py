@@ -3323,7 +3323,10 @@ def cmd_tick() -> None:
             _rerr = _tick_counter(f"post_cycle_review_err_{cycle}", increment=True)
             _rcap = int(os.environ.get("AUTOPILOT_POST_CYCLE_REVIEW_ERR_MAX", "3"))
             click.secho(f"  [ERROR] post-cycle-review raised ({_rerr}/{_rcap}): {exc}", fg="red")
-            if _rerr > _rcap:
+            # Codex P2: honor the cap EXACTLY — route to FAIL ON the Nth exception
+            # (>=), not the (N+1)th. With `>`, a cap of 3 logs "3/3" yet still loops
+            # once more; with N=1 it would allow two failures before escalating.
+            if _rerr >= _rcap:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
                 click.secho(
                     f"  post-cycle-review failed {_rerr}x — routing to POST_CYCLE_FAIL "

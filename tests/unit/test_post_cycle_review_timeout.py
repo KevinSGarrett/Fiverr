@@ -63,5 +63,9 @@ def test_controller_bounds_post_cycle_review_errors():
     i = src.index("AUTOPILOT_POST_CYCLE_REVIEW_ERR_MAX")
     seg = src[i:i + 600]
     assert 'write_controller_state("POST_CYCLE_FAIL"' in seg
+    # Codex P2: the cap must be honored EXACTLY — escalate on the Nth exception
+    # (>=), never the (N+1)th (`>` would let a cap of 3 loop a 4th time).
+    assert "_rerr >= _rcap" in seg
+    assert "_rerr > _rcap" not in seg
     # A clean review resets the counter (only CONSECUTIVE failures count).
     assert "reset=True" in src
