@@ -4594,8 +4594,25 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
                 L.warn(f"Reached max-cycles={max_cycles}. Stopping.")
                 break
 
-        # Execute tick with live streaming (not capture) so all output appears immediately
+        # Execute tick with live streaming (not capture) so all output appears immediately.
+        # rank-6 (observed-live): a hung tick child (e.g. a stalled Claude prompt-gen) blocks
+        # the `for _line in _proc.stdout` read FOREVER — the parent never reaches _proc.wait(),
+        # the tick never "fails", and the circuit breaker can't trip → the whole autopilot
+        # wedges with no recovery (seen live: a plan-cycle stalled 37min+). Guard with a
+        # hard-timeout watchdog that kills the tick's PROCESS TREE; the closed pipe ends the
+        # read loop and the killed tick counts as a failed tick (so the breaker CAN trip on
+        # repeated wedges). State-aware: a DISPATCHING tick legitimately runs Cursor agents up
+        # to the adapter's ~180m cap, while planning/review/merge ticks are far shorter.
         import subprocess as _subp
+        import threading as _thr
+        _DISPATCH_STATES = {"READY_TO_DISPATCH", "DISPATCHING", "AGENT_DISPATCH"}
+        _tick_timeout = (
+            int(os.environ.get("AUTOPILOT_DISPATCH_TICK_TIMEOUT_SEC", "12600"))
+            if status in _DISPATCH_STATES
+            else int(os.environ.get("AUTOPILOT_TICK_TIMEOUT_SEC", "3600"))
+        )
+        _proc = None
+        _tick_timed_out = {"v": False}
         try:
             _proc = _subp.Popen(
                 [sys.executable, "automation/ai_cycle_controller.py", "tick"],
@@ -4603,12 +4620,36 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
                 text=True, encoding="utf-8", errors="replace",
                 cwd=str(REPO_ROOT),
             )
-            for _line in _proc.stdout:
-                _stripped = _line.rstrip()
-                if _stripped:
-                    click.echo(f"  {_stripped}")
-            _proc.wait()
-            if _proc.returncode != 0:
+
+            def _tick_watchdog(_p=_proc, _flag=_tick_timed_out):
+                _flag["v"] = True
+                try:
+                    from automation.claude_prompt_creator import _kill_process_tree
+                    _kill_process_tree(_p.pid)
+                except Exception:
+                    try:
+                        _p.kill()
+                    except Exception:
+                        pass
+
+            _wd = _thr.Timer(_tick_timeout, _tick_watchdog)
+            _wd.daemon = True
+            _wd.start()
+            try:
+                for _line in _proc.stdout:
+                    _stripped = _line.rstrip()
+                    if _stripped:
+                        click.echo(f"  {_stripped}")
+                _proc.wait()
+            finally:
+                _wd.cancel()
+            if _tick_timed_out["v"]:
+                L.error(
+                    f"Tick HARD-TIMEOUT after {_tick_timeout}s (status={status}) — killed "
+                    "tick tree; counting as a failed tick (circuit-breaker eligible)"
+                )
+                consecutive_tick_failures += 1
+            elif _proc.returncode != 0:
                 L.error(f"Tick exited with code {_proc.returncode}")
                 consecutive_tick_failures += 1
             else:
