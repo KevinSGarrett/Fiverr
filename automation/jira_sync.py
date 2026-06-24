@@ -306,6 +306,18 @@ def on_cycle_merged(
         unverified = ac_result.get("unverified", [])
         verified   = ac_result.get("verified", [])
 
+        # SAFETY (Codex P2): an EMPTY result — `{"verified": [], "unverified": []}`, the
+        # shape verify_ac_against_evidence returns when NO AC items were extracted — is a
+        # truthy dict, so it slips past the `not ac_result` guard above. With an empty
+        # `unverified` it would otherwise be treated as success ("all 0 AC verified") and
+        # close the story. A story with zero confirmed AC is NOT Done. Require at least
+        # one ACTUALLY-VERIFIED AC item to transition; otherwise skip (re-checked later).
+        if not verified and not unverified:
+            results.append({
+                "key": key, "action": "skip_no_ac_items", "status": "skipped",
+            })
+            continue
+
         if unverified:
             # BLOCK Done transition — unverified AC items
             try:
