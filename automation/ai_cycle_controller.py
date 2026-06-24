@@ -310,6 +310,64 @@ def _attempt_merge(cycle: int | None, pr_int: int) -> str:
     return "MERGE_BLOCKED"
 
 
+def _update_pr_branch_if_behind(pr_int: int) -> bool:
+    """If the PR head is BEHIND its base (develop moved under it), update it via
+    ``gh pr update-branch`` so CI re-runs on the merged result. Returns True iff an
+    update was performed.
+
+    Audit BLOCKER #2: branch protection requires up-to-date branches, so once any
+    cycle merges to develop, every OTHER open cycle PR becomes BEHIND and
+    ``gh pr merge`` fails identically every retry → the gate dead-ends → operator.
+    This is routine in a multi-cycle run (each cycle advances develop). Idempotent +
+    fail-safe: only updates when state is exactly ``BEHIND``; never raises.
+    """
+    import json as _json
+    import subprocess as _sp
+    try:
+        from automation.pr_builder import _ensure_gh_token
+        _ensure_gh_token()
+    except Exception:
+        pass
+    try:
+        view = _sp.run(
+            ["gh", "pr", "view", str(pr_int), "--repo", "KevinSGarrett/Fiverr",
+             "--json", "mergeStateStatus,headRefName"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if view.returncode != 0:
+            return False
+        _vd = _json.loads(view.stdout or "{}")
+        if _vd.get("mergeStateStatus", "") != "BEHIND":
+            return False
+        branch = _vd.get("headRefName", "") or ""
+        upd = _sp.run(
+            ["gh", "pr", "update-branch", str(pr_int), "--repo", "KevinSGarrett/Fiverr"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if upd.returncode != 0:
+            return False
+        # Codex P2 (#143): update-branch advanced the REMOTE head, but the LOCAL cycle
+        # branch is now stale. A later _dispatch_codex_repair commits locally then
+        # `git push origin branch` — which would be REJECTED non-fast-forward, escalating
+        # the repair. Align the local branch to the refreshed remote head. The per-cycle
+        # branch's source of truth IS the remote PR, so a hard align is correct here.
+        if branch:
+            _sp.run(["git", "fetch", "origin", branch],
+                    cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60)
+            _cur = _sp.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                           cwd=str(REPO_ROOT), capture_output=True, text=True).stdout.strip()
+            if _cur == branch:
+                _sp.run(["git", "reset", "--hard", f"origin/{branch}"],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True)
+            else:
+                # Move the local branch ref to the remote head without a checkout.
+                _sp.run(["git", "branch", "-f", branch, f"origin/{branch}"],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True)
+        return True
+    except Exception:
+        return False
+
+
 def _codex_dirty_now() -> set[str]:
     """Tree-wide uncommitted+untracked paths (mirror of the dispatch _dirty_now), so a
     codex repair attributes only the files IT changed."""
@@ -3548,6 +3606,12 @@ def cmd_tick() -> None:
             _retries = _tick_counter(f"merge_retry_pr{_pr_int}", increment=True)
             _cap = int(os.environ.get("AUTOPILOT_MERGE_RETRY_MAX", "5"))
             if _retries <= _cap:
+                # Audit #2: if develop moved under the PR (BEHIND), the merge keeps
+                # failing "not up to date" every retry. Update the branch so CI re-runs
+                # on the merged result — otherwise the gate dead-ends here. Routine in a
+                # multi-cycle run (every prior merge advances develop).
+                if _update_pr_branch_if_behind(_pr_int):
+                    L.warn(f"PR #{_active_pr} was BEHIND develop — updated branch; CI will re-run")
                 L.warn(f"MERGE_BLOCKED retry {_retries}/{_cap} — re-checking CI on PR #{_active_pr}")
                 # Reset the CI-wait counter so the re-entered AWAITING_CI_GREEN
                 # gets a fresh bounded wait window (a transient pending/red can
