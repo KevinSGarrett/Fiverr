@@ -134,6 +134,22 @@ class TestFakeCursorDispatch:
         # A clean tick resets the counter (so only CONSECUTIVE failures count).
         assert "consecutive_tick_failures = 0" in src
 
+    def test_entrypoint_forces_utf8_io(self):
+        """Observed-live regression: on Windows, stdout defaults to cp1252 and the tick's
+        em-dash/emoji output crashed start-autopilot with UnicodeEncodeError EVERY tick.
+        The __main__ entrypoint must force UTF-8 so the autopilot + tick subprocesses +
+        the production scheduled task never crash on non-ASCII output."""
+        import inspect
+
+        import automation.ai_cycle_controller as ctrl
+        # The helper exists and runs without raising.
+        ctrl._force_utf8_io()
+        src = inspect.getsource(ctrl)
+        i = src.index('if __name__ == "__main__":')
+        assert "_force_utf8_io()" in src[i:], "the entrypoint must call _force_utf8_io() before cli()"
+        body = inspect.getsource(ctrl._force_utf8_io)
+        assert 'encoding="utf-8"' in body and 'errors="replace"' in body
+
     def test_cmd_run_cycle_smoke(self, tmp_path, monkeypatch):
         """cmd_run_cycle smoke: 6 agents, all fake dispatch."""
         monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_dispatch_integration")
