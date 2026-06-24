@@ -9,7 +9,6 @@ best-effort (a Jira/verify failure never blocks the post-merge advance).
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
@@ -76,10 +75,15 @@ def _state() -> dict:
 
 
 def test_merged_feeds_ac_results_then_advances(monkeypatch):
-    import automation.pm_intelligence as pmi
+    import automation.jira_client as jc
     captured = {}
-    monkeypatch.setattr(pmi, "build_cycle_brief", lambda *a, **k: SimpleNamespace(
-        snapshot=SimpleNamespace(current_stories=[SimpleNamespace(jira_key="SCRUM-1", status="In Progress")])))
+    # Codex P1: keys now come from the board's active (In Progress/In Review) stories,
+    # NOT a hard-coded wave. Done stories are excluded; only active scope is synced.
+    monkeypatch.setattr(jc, "board_inventory_all", lambda *a, **k: {"issues": [
+        {"key": "SCRUM-1", "status": "In Review"},
+        {"key": "SCRUM-2", "status": "Done"},        # excluded (not active)
+        {"key": "SCRUM-3", "status": "To Do"},       # excluded (not active)
+    ]})
     monkeypatch.setattr(js, "build_ac_verification_for_cycle",
                         lambda keys, ev: {"SCRUM-1": {"verified": ["AC1"], "unverified": []}})
 
@@ -99,9 +103,9 @@ def test_merged_feeds_ac_results_then_advances(monkeypatch):
 
 
 def test_merged_advances_even_if_jira_raises(monkeypatch):
-    import automation.pm_intelligence as pmi
-    monkeypatch.setattr(pmi, "build_cycle_brief", lambda *a, **k: SimpleNamespace(
-        snapshot=SimpleNamespace(current_stories=[SimpleNamespace(jira_key="SCRUM-9", status="In Progress")])))
+    import automation.jira_client as jc
+    monkeypatch.setattr(jc, "board_inventory_all", lambda *a, **k: {"issues": [
+        {"key": "SCRUM-9", "status": "In Progress"}]})
     monkeypatch.setattr(js, "build_ac_verification_for_cycle",
                         lambda keys, ev: {"SCRUM-9": {"verified": [], "unverified": ["AC1"]}})
 

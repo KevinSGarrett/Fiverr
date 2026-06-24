@@ -3600,7 +3600,6 @@ def cmd_tick() -> None:
                 build_ac_verification_for_cycle as _bacv,
                 on_cycle_merged as _ocm,
             )
-            from automation.pm_intelligence import build_cycle_brief as _bcb
             _merge_sha = ""
             if _active_pr:
                 try:
@@ -3608,8 +3607,19 @@ def cmd_tick() -> None:
                     _merge_sha = (_rr(int(_active_pr)) or {}).get("merge_sha", "") or ""
                 except Exception:
                     pass
-            _keys = [s.jira_key for s in _bcb().snapshot.current_stories
-                     if getattr(s, "status", "") != "Done"]
+            # Codex P1: derive the cycle's ACTUAL Jira scope from the board — the stories
+            # the runner moved to In Progress (on_cycle_planned) / In Review (on_pr_opened)
+            # — NOT a hard-coded wave set. Otherwise a non-Wave-11 cycle (e.g. SCRUM-1088)
+            # would skip the very stories it just merged. on_cycle_merged AC-gates each, so
+            # passing the active set is safe (only AC-verified stories close).
+            from automation import jira_client as _jc
+            _active_status = {"In Progress", "In Review"}
+            try:
+                _board = (_jc.board_inventory_all().get("issues", [])) or []
+            except Exception:
+                _board = []
+            _keys = [i.get("key") for i in _board
+                     if i.get("status") in _active_status and i.get("key")]
             if _keys and cycle:
                 # Evidence = the cycle's agent-report files (what each agent reported building).
                 _ev_parts = []
