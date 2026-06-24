@@ -93,6 +93,55 @@ def test_ahead_zero_for_no_cycle(monkeypatch):
     assert ctrl._integration_branch_ahead_of_develop(None) == (0, "")
 
 
+def test_ahead_tolerates_git_warning_on_stderr(monkeypatch):
+    """Codex P1 regression: _git_cmd folds stderr into stdout, so a successful
+    rev-list that also emits a warning yields e.g. 'warning: ...\\n2'. A bare int()
+    would raise and (old code) return 0 → silent-abandon. Must parse the digit (2)."""
+    def fake_git(args):
+        if args[:2] == ["rev-parse", "--verify"]:
+            return (0, "ok")
+        if args[0] == "rev-parse":
+            return (0, "warning: refname is ambiguous\nabc123def456\n")  # contaminated sha
+        if args[0] == "rev-list":
+            return (0, "warning: refname 'develop' is ambiguous\n2\n")   # contaminated count
+        return (0, "")
+    monkeypatch.setattr(ctrl, "_git_cmd", fake_git)
+    ahead, sha = ctrl._integration_branch_ahead_of_develop(84)
+    assert ahead == 2, "must extract the count despite a stderr warning, not return 0"
+    assert sha == "abc123def456", "must extract the hex sha despite a stderr warning"
+
+
+def test_ahead_fails_closed_on_rev_list_error(monkeypatch):
+    """If the ahead-count can't be measured (rev-list errors), FAIL CLOSED — return
+    >0 so we route to recovery, never silently advance and abandon possible work."""
+    def fake_git(args):
+        if args[:2] == ["rev-parse", "--verify"]:
+            return (0, "ok")
+        if args[0] == "rev-parse":
+            return (0, "abc123def456\n")
+        if args[0] == "rev-list":
+            return (128, "fatal: bad revision")
+        return (0, "")
+    monkeypatch.setattr(ctrl, "_git_cmd", fake_git)
+    ahead, _ = ctrl._integration_branch_ahead_of_develop(84)
+    assert ahead > 0, "unmeasurable ahead-count must fail closed (route to recovery)"
+
+
+def test_ahead_fails_closed_on_unparseable_count(monkeypatch):
+    """rev-list succeeds but output has no integer at all → fail closed (>0)."""
+    def fake_git(args):
+        if args[:2] == ["rev-parse", "--verify"]:
+            return (0, "ok")
+        if args[0] == "rev-parse":
+            return (0, "abc123def456\n")
+        if args[0] == "rev-list":
+            return (0, "no digits here at all")
+        return (0, "")
+    monkeypatch.setattr(ctrl, "_git_cmd", fake_git)
+    ahead, _ = ctrl._integration_branch_ahead_of_develop(84)
+    assert ahead > 0, "unparseable count must fail closed, not advance"
+
+
 # ---- rank-5: gh pr list timeout is non-fatal --------------------------------
 
 def test_github_facts_gh_timeout_degrades(monkeypatch, tmp_path):

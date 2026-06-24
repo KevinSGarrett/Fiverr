@@ -269,15 +269,30 @@ def _integration_branch_ahead_of_develop(cycle: int | None) -> tuple[int, str]:
     rc_local, _ = _git_cmd(["rev-parse", "--verify", f"refs/heads/{branch}"])
     if rc_local != 0:
         return 0, ""  # no local integration branch ⇒ no committed work to lose here
-    rc_sha, sha = _git_cmd(["rev-parse", f"refs/heads/{branch}"])
-    head_sha = sha.strip() if rc_sha == 0 else ""
+    # Extract the HEAD sha robustly: _git_cmd concatenates stdout+stderr, so a git
+    # warning/advice line can contaminate a bare .strip(). Pick the first hex token.
+    rc_sha, sha_out = _git_cmd(["rev-parse", f"refs/heads/{branch}"])
+    head_sha = ""
+    if rc_sha == 0:
+        for tok in (sha_out or "").split():
+            t = tok.strip()
+            if len(t) >= 7 and all(c in "0123456789abcdef" for c in t.lower()):
+                head_sha = t
+                break
     rc, ahead = _git_cmd(["rev-list", "--count", f"origin/develop..refs/heads/{branch}"])
+    # Codex P1: a successful rev-list can still emit warning/advice on stderr, which
+    # _git_cmd folds into the output — so a bare int() would raise and (old code)
+    # return 0, RECREATING the silent-abandon bug this guard prevents. Parse with the
+    # warning-tolerant _parse_git_count, and FAIL CLOSED (assume work → route to the
+    # bounded PR_CREATE_FAILED recovery) if the count can't be measured at all, never
+    # fail open to a silent advance. The recovery no-ops safely if the branch turns
+    # out to have nothing to PR.
     if rc != 0:
-        return 0, head_sha
+        return 1, head_sha
     try:
-        return int(ahead.strip()), head_sha
-    except ValueError:
-        return 0, head_sha
+        return _parse_git_count(ahead, "ahead"), head_sha
+    except BranchSyncError:
+        return 1, head_sha
 
 
 def _preserve_cycle_work_tag(cycle: int | None, head_sha: str) -> str:
