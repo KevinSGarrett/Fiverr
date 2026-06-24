@@ -11,6 +11,7 @@ Two modes:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -846,13 +847,20 @@ class PostCycleReview:
                 capture_output=True,
                 text=True,
                 check=True,
+                # Audit rank-5: a bare gh call with no timeout can HANG (network stall /
+                # auth prompt) → run_review never returns → the post-cycle tick wedges
+                # forever with no exception for the controller's error-counter to bound.
+                # Bound it; a hang degrades to the same gh_unavailable fact as other gh
+                # failures. Env-tunable for slow links.
+                timeout=int(os.environ.get("POST_CYCLE_GH_TIMEOUT", "30")),
             )
             merged_prs = json.loads(result.stdout or "[]")
             payload: dict[str, Any] = {
                 "merged_prs": merged_prs,
                 "collected_at": datetime.now(UTC).isoformat(),
             }
-        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+        except (subprocess.CalledProcessError, FileNotFoundError,
+                json.JSONDecodeError, subprocess.TimeoutExpired):
             payload = {"merged_prs": [], "error": "gh_unavailable"}
         self.current_run_dir.mkdir(parents=True, exist_ok=True)
         (self.current_run_dir / "github_verification.json").write_text(
