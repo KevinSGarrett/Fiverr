@@ -110,7 +110,13 @@ class TestFakeCursorDispatch:
         gate = src.index('!= "complete"')
         lifecycle = src.index("run_post_agent_lifecycle")
         assert gate < lifecycle, "the non-complete status gate must precede the lifecycle"
-        assert "raise SystemExit(1)" in src[gate:gate + 900], "the gate must fail the dispatch"
+        seg = src[gate:gate + 2600]
+        assert "raise SystemExit(1)" in seg, "the gate must fail the dispatch"
+        # Codex P1: the kill-gate must run the secret guard BEFORE failing, so a killed
+        # agent's staged secrets can't be hidden by the next dispatch's stash.
+        assert "verify_staged_files" in seg
+        assert 'write_controller_state("BLOCKED_EXPORT_SECRETS"' in seg
+        assert seg.index("verify_staged_files") < seg.index("raise SystemExit(1)")
 
     def test_autopilot_has_circuit_breaker(self):
         """HIGH-7 regression: start-autopilot must trip a circuit breaker on too many

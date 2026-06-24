@@ -1795,6 +1795,37 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
     # re-dispatch via POST_CYCLE_FAIL recovery) instead of a misleading lifecycle verdict.
     if (str(getattr(result, "status", "")).lower() != "complete"
             and not _os.environ.get("PYTEST_CURRENT_TEST")):
+        # Codex P1: a killed agent may have left STAGED/dirty files — run the secret
+        # guard BEFORE failing, else the next dispatch could STASH the dirty tree and
+        # hide an unsafe artifact. A secret-like file routes to BLOCKED_EXPORT_SECRETS
+        # (operator halt) exactly like the normal lifecycle path; otherwise fail clean.
+        try:
+            _chg = subprocess.run(
+                ["git", "status", "--porcelain", "-uall"],
+                cwd=str(REPO_ROOT), capture_output=True, text=True,
+            ).stdout
+            _changed_paths = []
+            for _ln in _chg.splitlines():
+                _p = _ln[3:].strip() if len(_ln) > 3 else ""
+                if " -> " in _p:  # rename entry — scan the destination path
+                    _p = _p.split(" -> ", 1)[1].strip()
+                if _p:
+                    _changed_paths.append(_p)
+            from automation import export_sanitizer_verify
+            from automation.export_sanitizer_verify import ExportSecretError
+            export_sanitizer_verify.verify_staged_files(_changed_paths)
+        except ExportSecretError as _sec:
+            write_controller_state("BLOCKED_EXPORT_SECRETS", cycle=cycle)
+            click.secho(
+                f"  BLOCKED_EXPORT_SECRETS: killed agent {agent} left secret-like file(s): {_sec}",
+                fg="red", bold=True,
+            )
+            _record_nonblocking_error(
+                f"run-agent killed-agent export-secret block cycle={cycle} agent={agent}: {_sec}"
+            )
+            return
+        except Exception:
+            pass  # scanner unavailable — fall through to the clean fail
         click.secho(
             f"  [FAIL] Agent {agent} did NOT complete: status={result.status} "
             f"(exit={result.exit_code}). Terminated before finishing — failing the "
