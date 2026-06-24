@@ -154,8 +154,12 @@ def test_open_cycle_pr_no_token_fails_closed(monkeypatch):
 
     assert res["created"] is False
     assert res["error"] == "no gh token"
-    # No git/gh subprocess ran at all (fail closed before any call).
-    assert calls == []
+    # _ensure_gh_token now probes gh's keyring (`gh auth token`) as a last resort when
+    # no token env var is set; the router returns rc=1 (not logged in) so we still fail
+    # closed. The keyring probe is the ONLY subprocess — NO git push / PR op ran.
+    assert calls == [["gh", "auth", "token"]]
+    assert ["git", "push", "-u"] not in [c[:3] for c in calls]
+    assert ["gh", "pr", "create"] not in [c[:3] for c in calls]
 
 
 def test_open_cycle_pr_push_failure(monkeypatch):
