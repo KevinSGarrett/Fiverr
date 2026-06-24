@@ -2653,6 +2653,22 @@ def cmd_stage_advance(stage_num: int) -> None:
     raise SystemExit(0)
 
 
+def _release_tick_lock(lock_file: Path) -> None:
+    """Release the tick lock. MUST run on EVERY exit path from cmd_tick.
+
+    Audit BLOCKER (cluster A): the release in the tick epilogue is NOT inside a
+    ``finally``, so any early ``return`` between lock-acquire and the epilogue skips
+    it and LEAKS the lock — every subsequent tick then hits the held-lock guard and
+    exits for up to ``_lock_stale_s`` (600s), freezing the state machine. Call this
+    immediately before any early return. Best-effort; never raises.
+    """
+    try:
+        if lock_file.exists():
+            lock_file.unlink()
+    except Exception:
+        pass
+
+
 @cli.command("tick")
 def cmd_tick() -> None:
     """
@@ -2760,6 +2776,7 @@ def cmd_tick() -> None:
                 f"Aborting tick — next tick will use corrected cycle.",
                 fg="yellow", bold=True,
             )
+            _release_tick_lock(_lock_file)  # cluster A: never leak the lock on early return
             click.echo("[TICK COMPLETE]")
             return  # ABORT — don't run any state transitions with wrong cycle
     except Exception:
@@ -2783,6 +2800,7 @@ def cmd_tick() -> None:
                 _record_nonblocking_error(f"daily-stage-report update failed after readiness error: {exc}")
             write_controller_state("BLOCKED_STAGE2_READINESS", cycle=cycle)
             click.secho("  State: BLOCKED_STAGE2_READINESS — dispatch paused, report updated", fg="yellow")
+            _release_tick_lock(_lock_file)  # cluster A: never leak the lock on early return
             click.echo("[TICK COMPLETE]")
             return
         # Ready for next cycle — compile policy to get current cycle.
@@ -3554,30 +3572,50 @@ def cmd_tick() -> None:
         # tick runs the post-cycle review; on failure stay PR_CREATE_FAILED.
         import automation.autopilot_logger as L
         from automation import pr_builder
-        L.warn(
-            f"PR_CREATE_FAILED (cycle {cycle}) — re-attempting open_cycle_pr "
-            "(idempotent dup-guard)."
-        )
-        _pr_retry = pr_builder.open_cycle_pr(cycle) if cycle else {"created": False, "error": "no cycle"}
-        if _pr_retry.get("created") or _pr_retry.get("existing"):
-            _pr_num = _pr_retry.get("pr_number")
-            _word = "exists" if _pr_retry.get("existing") else "opened"
-            L.ok(f"PR {_word} on retry: #{_pr_num} {_pr_retry.get('url','')}".rstrip())
-            if _pr_num:
-                write_controller_state("AGENT_COMPLETE", cycle=cycle, pr=int(_pr_num))
-            else:
-                write_controller_state("AGENT_COMPLETE", cycle=cycle)
-            click.secho(f"  State: AGENT_COMPLETE — PR #{_pr_num} ({_word})", fg="green")
-        else:
-            _err = _pr_retry.get("error") or "unknown"
-            L.error(f"PR-create retry still failing ({_err}) — staying PR_CREATE_FAILED")
-            notify_blocked(
-                f"Cycle {cycle:03d} PR-create still failing",
-                body=f"open_cycle_pr retry failed: {_err}. Operator action may be required.",
-                incident_code="PR_CREATE_FAILED",
-                cycle=cycle,
+        # Audit #5: BOUND the retry. Previously this re-attempted open_cycle_pr EVERY
+        # tick with no cap — an expired GH token returns the same 401 forever (no PR,
+        # no CI, no escalation). Mirror the DEVELOP_SYNC_BLOCKED bounded-recovery: after
+        # the cap, escalate once + halt auto-retry (operator must refresh the token).
+        _pcf_n = _tick_counter(f"pr_create_retry_{cycle}", increment=True)
+        _pcf_cap = int(os.environ.get("AUTOPILOT_PR_CREATE_RETRY_MAX", "5"))
+        if _pcf_n > _pcf_cap:
+            if _pcf_n == _pcf_cap + 1:
+                notify_blocked(
+                    f"Cycle {cycle:03d} PR-create persistently failing after {_pcf_cap} retries",
+                    body="open_cycle_pr keeps failing (likely an expired/invalid GH token). "
+                         "Operator must refresh GH_AUTOMATION_TOKEN; auto-retry halted.",
+                    incident_code="PR_CREATE_FAILED_PERSISTENT", cycle=cycle,
+                )
+            click.secho(
+                f"  PR_CREATE_FAILED persistent (cycle {cycle}) — operator action required; "
+                "auto-retry halted.", fg="red", bold=True,
             )
-            click.secho(f"  PR_CREATE_FAILED (cycle {cycle}) — retry failed: {_err}", fg="red")
+        else:
+            L.warn(
+                f"PR_CREATE_FAILED recovery {_pcf_n}/{_pcf_cap} (cycle {cycle}) — "
+                "re-attempting open_cycle_pr (idempotent dup-guard)."
+            )
+            _pr_retry = pr_builder.open_cycle_pr(cycle) if cycle else {"created": False, "error": "no cycle"}
+            if _pr_retry.get("created") or _pr_retry.get("existing"):
+                _pr_num = _pr_retry.get("pr_number")
+                _word = "exists" if _pr_retry.get("existing") else "opened"
+                L.ok(f"PR {_word} on retry: #{_pr_num} {_pr_retry.get('url','')}".rstrip())
+                _tick_counter(f"pr_create_retry_{cycle}", reset=True)
+                if _pr_num:
+                    write_controller_state("AGENT_COMPLETE", cycle=cycle, pr=int(_pr_num))
+                else:
+                    write_controller_state("AGENT_COMPLETE", cycle=cycle)
+                click.secho(f"  State: AGENT_COMPLETE — PR #{_pr_num} ({_word})", fg="green")
+            else:
+                _err = _pr_retry.get("error") or "unknown"
+                L.error(f"PR-create retry still failing ({_err}) — staying PR_CREATE_FAILED")
+                notify_blocked(
+                    f"Cycle {cycle:03d} PR-create still failing",
+                    body=f"open_cycle_pr retry failed: {_err}. Operator action may be required.",
+                    incident_code="PR_CREATE_FAILED",
+                    cycle=cycle,
+                )
+                click.secho(f"  PR_CREATE_FAILED (cycle {cycle}) — retry failed: {_err}", fg="red")
 
     elif status == "DEVELOP_SYNC_BLOCKED":
         # Item 5.4: bounded recovery from a failed develop-sync. Retry the sync; on
@@ -3611,6 +3649,37 @@ def cmd_tick() -> None:
                 "  Sync recovered — back to COMPILED (regenerate prompts on fresh develop).",
                 fg="green",
             )
+
+    elif status == "BLOCKED_EXPORT_SECRETS":
+        # Audit #16 (security): run-agent writes this when a staged file would export
+        # secrets. There was NO handler → it fell to the `else` → silent reset to IDLE
+        # → re-dispatch WITH the secret still staged + no alert. HOLD here (do NOT
+        # auto-clear): notify once, stay blocked until an operator removes the staged
+        # secret and force-advances. Never auto-resets to IDLE.
+        import automation.autopilot_logger as L
+        if _tick_counter(f"export_secret_block_{cycle}", increment=True) == 1:
+            notify_blocked(
+                f"Cycle {cycle} BLOCKED_EXPORT_SECRETS — staged file would export a secret",
+                body="A staged file tripped the export-sanitizer. Auto-dispatch is halted "
+                     "to avoid committing the secret. Operator: scrub the staged file, then "
+                     "force-advance. The runner will NOT auto-clear this state.",
+                incident_code="BLOCKED_EXPORT_SECRETS", cycle=cycle,
+            )
+        L.error(f"BLOCKED_EXPORT_SECRETS (cycle {cycle}) — held for operator; not re-dispatching")
+        click.secho(
+            f"  BLOCKED_EXPORT_SECRETS (cycle {cycle}) — operator must scrub staged secret",
+            fg="red", bold=True,
+        )
+
+    elif status == "AWAITING_DISPATCH":
+        # Audit #21: a transient state written immediately before DISPATCHING; a crash
+        # in that microsecond window would leave it with no handler → `else` → IDLE
+        # re-plan. Treat it as DISPATCHING-equivalent: route to READY_TO_DISPATCH so the
+        # next tick re-runs the model gate and dispatches cleanly (recoverable, bounded
+        # by the normal dispatch path).
+        import automation.autopilot_logger as L
+        L.warn(f"AWAITING_DISPATCH (cycle {cycle}) — recovering to READY_TO_DISPATCH")
+        write_controller_state("READY_TO_DISPATCH", cycle=cycle)
 
     else:
         click.echo(f"  Unknown status: {status} — treating as IDLE")
@@ -3654,12 +3723,8 @@ def cmd_tick() -> None:
     except Exception:
         pass
 
-    # C7: Release tick lock
-    try:
-        if _lock_file.exists():
-            _lock_file.unlink()
-    except Exception:
-        pass
+    # C7: Release tick lock (cluster A: shared helper used on every exit path)
+    _release_tick_lock(_lock_file)
 
     click.echo("[TICK COMPLETE]")
 
