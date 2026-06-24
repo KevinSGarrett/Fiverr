@@ -97,6 +97,21 @@ class TestFakeCursorDispatch:
         repaired_idx = branch.index('"REPAIRED"')
         assert branch.index("raise SystemExit(1)") > repaired_idx
 
+    def test_run_agent_fails_clean_on_non_complete_status(self):
+        """Audit #7: a non-'complete' cursor status (timeout/no_output/error/model_blocked
+        = the agent was KILLED before finishing) must fail the dispatch BEFORE the
+        post-agent lifecycle — otherwise a killed run gets a misleading NO_REPORT/
+        OWNERSHIP verdict with no retry, instead of a clean failed-agent that the cycle
+        can re-dispatch."""
+        import inspect
+
+        import automation.ai_cycle_controller as ctrl
+        src = inspect.getsource(ctrl.cmd_run_agent.callback)
+        gate = src.index('!= "complete"')
+        lifecycle = src.index("run_post_agent_lifecycle")
+        assert gate < lifecycle, "the non-complete status gate must precede the lifecycle"
+        assert "raise SystemExit(1)" in src[gate:gate + 900], "the gate must fail the dispatch"
+
     def test_autopilot_has_circuit_breaker(self):
         """HIGH-7 regression: start-autopilot must trip a circuit breaker on too many
         CONSECUTIVE failed ticks (freeze + stop), not loop forever burning quota."""

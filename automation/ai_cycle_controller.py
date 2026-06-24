@@ -1786,6 +1786,27 @@ def cmd_run_agent(agent: str, cycle: int, safe_docs_only: bool, dry_run: bool) -
         # H4 FIX: exit non-zero so run-cycle counts this as a failure, not done
         raise SystemExit(1)
 
+    # Audit #7: "complete" is the ONLY success status (cursor_adapter: complete|timeout|
+    # no_output|error|model_blocked). A non-complete status means cursor was TERMINATED
+    # before finishing (hard timeout, no-output watchdog kill, spawn error, model gate) —
+    # the agent did NOT finish its work/report. Running the post-agent lifecycle on a
+    # killed run mislabels it (NO_REPORT / spurious OWNERSHIP) and buries the real cause,
+    # with no retry. Fail CLEANLY here so run-cycle counts a failed agent (→ bounded
+    # re-dispatch via POST_CYCLE_FAIL recovery) instead of a misleading lifecycle verdict.
+    if (str(getattr(result, "status", "")).lower() != "complete"
+            and not _os.environ.get("PYTEST_CURRENT_TEST")):
+        click.secho(
+            f"  [FAIL] Agent {agent} did NOT complete: status={result.status} "
+            f"(exit={result.exit_code}). Terminated before finishing — failing the "
+            "dispatch (skipping lifecycle to avoid a misleading NO_REPORT verdict).",
+            fg="red", bold=True,
+        )
+        _record_nonblocking_error(
+            f"run-agent non-complete cycle={cycle} agent={agent} "
+            f"status={result.status} exit={result.exit_code}"
+        )
+        raise SystemExit(1)
+
     if result.stdout_tail:
         click.echo(f"  stdout tail:\n{result.stdout_tail[-300:]}")
     if result.error_message:
