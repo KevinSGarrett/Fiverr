@@ -252,6 +252,64 @@ def _tick_counter(key: str, *, increment: bool = False, reset: bool = False) -> 
     return n
 
 
+def _integration_branch_ahead_of_develop(cycle: int | None) -> tuple[int, str]:
+    """Audit rank-1: measure committed-but-un-merged agent work on the cycle's
+    integration branch.
+
+    Returns ``(ahead_count, head_sha)`` where ahead_count is the number of commits
+    ``cycle/NNN/integration`` has that ``origin/develop`` does not (i.e. agent work
+    that has NOT reached develop). Returns ``(0, "")`` when the branch is missing or
+    git can't measure it — those cases have no recoverable local work to protect, so
+    advancing is safe. Cheap: one fetch + two rev-parse/rev-list.
+    """
+    if not cycle:
+        return 0, ""
+    branch = f"cycle/{cycle:03d}/integration"
+    _git_cmd(["fetch", "--quiet", "origin", "develop"])  # compare against the real tip
+    rc_local, _ = _git_cmd(["rev-parse", "--verify", f"refs/heads/{branch}"])
+    if rc_local != 0:
+        return 0, ""  # no local integration branch ⇒ no committed work to lose here
+    # Extract the HEAD sha robustly: _git_cmd concatenates stdout+stderr, so a git
+    # warning/advice line can contaminate a bare .strip(). Pick the first hex token.
+    rc_sha, sha_out = _git_cmd(["rev-parse", f"refs/heads/{branch}"])
+    head_sha = ""
+    if rc_sha == 0:
+        for tok in (sha_out or "").split():
+            t = tok.strip()
+            if len(t) >= 7 and all(c in "0123456789abcdef" for c in t.lower()):
+                head_sha = t
+                break
+    rc, ahead = _git_cmd(["rev-list", "--count", f"origin/develop..refs/heads/{branch}"])
+    # Codex P1: a successful rev-list can still emit warning/advice on stderr, which
+    # _git_cmd folds into the output — so a bare int() would raise and (old code)
+    # return 0, RECREATING the silent-abandon bug this guard prevents. Parse with the
+    # warning-tolerant _parse_git_count, and FAIL CLOSED (assume work → route to the
+    # bounded PR_CREATE_FAILED recovery) if the count can't be measured at all, never
+    # fail open to a silent advance. The recovery no-ops safely if the branch turns
+    # out to have nothing to PR.
+    if rc != 0:
+        return 1, head_sha
+    try:
+        return _parse_git_count(ahead, "ahead"), head_sha
+    except BranchSyncError:
+        return 1, head_sha
+
+
+def _preserve_cycle_work_tag(cycle: int | None, head_sha: str) -> str:
+    """Audit rank-1/2: create a DURABLE recovery tag at the integration-branch HEAD so
+    committed agent work can NEVER be silently lost when a cycle can't produce a PR.
+
+    The tag name embeds the short SHA so distinct work stays distinct; ``-f`` makes a
+    re-run idempotent. Returns the tag name (or "" if there's nothing to tag / git
+    fails — tagging is best-effort preservation, never a hard gate).
+    """
+    if not head_sha:
+        return ""
+    tag = f"cycle-{cycle:03d}-checkpoint-{head_sha[:8]}"
+    _git_cmd(["tag", "-f", tag, head_sha])
+    return tag
+
+
 def _finalize_post_cycle_pass(cycle: int | None) -> str:
     """ITEM 3.2: single decision point for a PASSing post-cycle review.
 
@@ -268,6 +326,25 @@ def _finalize_post_cycle_pass(cycle: int | None) -> str:
     if active_pr:
         _w("AWAITING_CI_GREEN", cycle=cycle)
         return "AWAITING_CI_GREEN"
+    # Audit rank-1 (BLOCKER): no active PR. Silently writing POST_CYCLE_PASS here marks
+    # the cycle DONE and advances — but if the integration branch holds committed agent
+    # work that never reached develop, that work is ABANDONED with no signal (the exact
+    # state cycle 84 is in). Guard it: if the branch is ahead of develop, preserve the
+    # work durably (recovery tag) and route to the bounded PR_CREATE_FAILED recovery,
+    # which re-attempts open_cycle_pr and escalates to the operator only if a PR genuinely
+    # can't be made after N tries. Never a silent loss; never a hard human-only dead-end
+    # (the work is tagged + recoverable even if every PR attempt fails).
+    ahead, head_sha = _integration_branch_ahead_of_develop(cycle)
+    if ahead > 0:
+        import automation.autopilot_logger as _L
+        tag = _preserve_cycle_work_tag(cycle, head_sha)
+        _L.warn(
+            f"Cycle {cycle:03d}: integration branch has {ahead} un-PR'd commit(s) but no "
+            f"active PR — preserved as tag {tag or '(none)'}; routing to PR_CREATE_FAILED "
+            "recovery (open_cycle_pr) rather than silently advancing and losing the work."
+        )
+        _w("PR_CREATE_FAILED", cycle=cycle)
+        return "PR_CREATE_FAILED"
     _w("POST_CYCLE_PASS", cycle=cycle)
     return "POST_CYCLE_PASS"
 
@@ -3125,6 +3202,9 @@ def cmd_tick() -> None:
                 if _new == "AWAITING_CI_GREEN":
                     L.ok(f"Cycle {cycle} local review clean ({grade}) — PR open; "
                          "waiting for CI to go green before merge")
+                elif _new == "PR_CREATE_FAILED":
+                    L.warn(f"Cycle {cycle} review clean ({grade}) but has un-PR'd work — "
+                           "routing to PR-create recovery before advancing")
                 else:
                     L.ok(f"Cycle {cycle} COMPLETE ({grade}) — next tick plans Cycle {cycle + 1}")
                 # OBS-7: emit end-of-cycle summary
@@ -3306,6 +3386,10 @@ def cmd_tick() -> None:
                 if _new == "AWAITING_CI_GREEN":
                     click.secho(f"  PR open — cycle {cycle} waiting for CI green before merge.",
                                 fg="cyan", bold=True)
+                elif _new == "PR_CREATE_FAILED":
+                    click.secho(f"  Cycle {cycle} has un-PR'd committed work — routing to "
+                                "PR-create recovery (work preserved) instead of advancing.",
+                                fg="yellow", bold=True)
                 else:
                     click.secho(f"  POST_CYCLE_PASS — cycle {cycle} complete. Next tick plans cycle {cycle + 1}.",
                                 fg="green", bold=True)
