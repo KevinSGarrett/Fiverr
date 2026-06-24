@@ -212,14 +212,31 @@ def _ensure_gh_token() -> str:
     set ``os.environ["GH_TOKEN"]`` so every subsequent gh subprocess inherits it.
 
     Returns the resolved token (empty string when none is available).
+
+    Autonomy hardening: when NO token env var is set, fall back to ``gh auth token``
+    (gh's own keyring/oauth credential from ``gh auth login``). Without this the 24/7
+    runner would fail-closed on every PR/merge op unless an operator exported a PAT into
+    the environment first — even though ``gh`` itself is authenticated. The fallback lets
+    the runner operate on gh's native auth with zero credential injection.
     """
     import os
+    import subprocess
     token = (
         os.environ.get("GH_AUTOMATION_TOKEN")
         or os.environ.get("GH_TOKEN")
         or os.environ.get("GITHUB_TOKEN")
         or ""
     ).strip()
+    if not token:
+        try:
+            r = subprocess.run(
+                ["gh", "auth", "token"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if r.returncode == 0:
+                token = (r.stdout or "").strip()
+        except Exception:
+            token = ""  # gh missing/hung → stay empty; caller fails closed cleanly
     if token:
         os.environ["GH_TOKEN"] = token
     return token
