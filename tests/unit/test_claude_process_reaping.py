@@ -40,13 +40,31 @@ def test_kill_tree_windows_uses_taskkill_T(monkeypatch):
     assert "4321" in a
 
 
-def test_kill_tree_posix_uses_oskill(monkeypatch):
-    """On POSIX, fall back to os.kill on the pid."""
+def test_kill_tree_posix_uses_killpg(monkeypatch):
+    """Codex P1: on POSIX, kill the whole process GROUP (not just the pid) so claude/
+    node grandchildren die too."""
     monkeypatch.setattr(os, "name", "posix")
+    monkeypatch.setattr(os, "getpgid", lambda pid: pid, raising=False)
     killed = {}
-    monkeypatch.setattr(os, "kill", lambda pid, sig: killed.update(pid=pid, sig=sig))
-    cpc._kill_process_tree(999)
-    assert killed.get("pid") == 999
+    monkeypatch.setattr(os, "killpg",
+                        lambda pgid, sig: killed.update(pgid=pgid), raising=False)
+    monkeypatch.setattr(os, "kill",
+                        lambda *a: killed.update(fellback=True), raising=False)
+    cpc._kill_process_tree(777)
+    assert killed.get("pgid") == 777, "must killpg the process group"
+    assert not killed.get("fellback"), "killpg succeeded → must not fall back to os.kill"
+
+
+def test_kill_tree_posix_falls_back_to_kill(monkeypatch):
+    """If the pid isn't a group leader (getpgid/killpg fail), fall back to os.kill."""
+    monkeypatch.setattr(os, "name", "posix")
+    def _no_pgid(pid):
+        raise ProcessLookupError()
+    monkeypatch.setattr(os, "getpgid", _no_pgid, raising=False)
+    killed = {}
+    monkeypatch.setattr(os, "kill", lambda pid, sig: killed.update(pid=pid), raising=False)
+    cpc._kill_process_tree(555)
+    assert killed.get("pid") == 555
 
 
 def test_kill_tree_never_raises(monkeypatch):
@@ -75,6 +93,16 @@ def test_call_claude_pm_timeout_reaps_tree():
 
 # ---- autopilot tick hard-timeout watchdog --------------------------------
 
+def test_subprocesses_lead_new_session_on_posix():
+    """Codex P1: both the claude prompt-gen and the tick subprocess must launch with
+    start_new_session=True (POSIX) so killpg can reap their whole tree."""
+    import automation.ai_cycle_controller as ctrl
+    csrc = inspect.getsource(cpc._call_claude_pm)
+    assert "start_new_session" in csrc
+    tsrc = inspect.getsource(ctrl.cmd_start_autopilot.callback)
+    assert "start_new_session" in tsrc
+
+
 def test_autopilot_tick_has_hard_timeout_watchdog():
     import automation.ai_cycle_controller as ctrl
     src = inspect.getsource(ctrl.cmd_start_autopilot.callback)
@@ -84,8 +112,8 @@ def test_autopilot_tick_has_hard_timeout_watchdog():
     # watchdog kills the tick TREE
     assert "_tick_watchdog" in src
     assert "_kill_process_tree" in src
-    # a timed-out tick is counted as a failed tick so the breaker can trip
-    wi = src.index("_tick_timed_out")
-    seg = src[wi:wi + 1600]
-    assert "HARD-TIMEOUT" in seg
+    # a timed-out tick is counted as a failed tick so the breaker can trip: the
+    # HARD-TIMEOUT branch must increment consecutive_tick_failures.
+    hi = src.index("HARD-TIMEOUT")
+    seg = src[hi:hi + 400]
     assert "consecutive_tick_failures += 1" in seg

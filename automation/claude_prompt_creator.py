@@ -1411,9 +1411,19 @@ def _kill_process_tree(pid: int | None) -> None:
             return
     except Exception:
         pass
+    # POSIX (Codex P1): a bare os.kill(pid) reaps only the parent — claude/node
+    # grandchildren survive and keep the pipe open. Kill the whole process GROUP so the
+    # descendants die too (the child is launched with start_new_session=True, so it leads
+    # its own group); fall back to a bare kill if the pid isn't a group leader.
+    import signal as _sig
+    _sigkill = getattr(_sig, "SIGKILL", _sig.SIGTERM)
     try:
-        import signal as _sig
-        _o.kill(pid, getattr(_sig, "SIGKILL", _sig.SIGTERM))
+        _o.killpg(_o.getpgid(pid), _sigkill)
+        return
+    except Exception:
+        pass
+    try:
+        _o.kill(pid, _sigkill)
     except Exception:
         pass
 
@@ -1477,6 +1487,9 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str,
             stderr=subprocess.PIPE,
             cwd=str(REPO_ROOT),
             env=env,
+            # POSIX: lead a new session/process group so _kill_process_tree can killpg
+            # the whole tree (claude + node grandchildren) on timeout — no orphans.
+            **({"start_new_session": True} if _os.name != "nt" else {}),
         )
         stdout_bytes, stderr_bytes = proc.communicate(
             input=request_text.encode("utf-8"),

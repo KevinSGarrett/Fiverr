@@ -4619,6 +4619,10 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
                 stdout=_subp.PIPE, stderr=_subp.STDOUT,
                 text=True, encoding="utf-8", errors="replace",
                 cwd=str(REPO_ROOT),
+                # POSIX: lead a new session/process group so the watchdog's
+                # _kill_process_tree can killpg the whole tick tree (incl. any Claude/
+                # Cursor grandchildren) on hard-timeout, rather than orphaning them.
+                **({"start_new_session": True} if os.name != "nt" else {}),
             )
 
             def _tick_watchdog(_p=_proc, _flag=_tick_timed_out):
