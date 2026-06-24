@@ -1085,7 +1085,8 @@ def _count_authored_tasks(text: str) -> int:
 def _generate_agent_prompt_hybrid(agent_id: str, cycle: int, branch: str,
                                   pm_context: str,
                                   jira_issues: list[dict] | None,
-                                  correction: str | None = None) -> str | None:
+                                  correction: str | None = None,
+                                  brief_section: str = "") -> str | None:
     """GEN-QUALITY hybrid producer: deterministic scaffold + Claude-authored task
     batches. Returns the assembled prompt text (still validated by the caller), or
     None if no task blocks could be produced. Batches until the task target is hit or
@@ -1100,6 +1101,13 @@ def _generate_agent_prompt_hybrid(agent_id: str, cycle: int, branch: str,
     lane = _agent_lane_info(agent_id)
     scrum_keys = _extract_scrum_keys(jira_issues, pm_context)
     head = _build_scaffold_head(agent_id, cycle, branch, scrum_keys, pm_context)
+    # Audit [D]: prepend the PM intelligence brief (SECTION 0 — built/done/next +
+    # the existing-src list) so agents DON'T rebuild completed stories. It carries no
+    # "### Task N" markers and no ``` code fences, so the task floor and PQ-6
+    # (code-fences ÷ tasks) are UNAFFECTED; it only adds ground-truth context (and
+    # helps the word/line floors). The brief was previously built then DISCARDED.
+    if brief_section:
+        head = brief_section.rstrip() + "\n\n" + head
     tail = _build_scaffold_tail(agent_id, cycle)
 
     parts: list[str] = []
@@ -1163,6 +1171,7 @@ def create_agent_prompts_via_claude(
     agents: list[str],
     prompts_dir: Path,
     wave: int = 11,
+    brief_section: str = "",
 ) -> dict[str, Path] | None:
     """
     Call Claude (via Anthropic API) to act as intelligent PM and generate agent prompts.
@@ -1255,6 +1264,7 @@ def create_agent_prompts_via_claude(
                     _candidate = _generate_agent_prompt_hybrid(
                         agent_id, cycle, branch, pm_context, jira_issues,
                         correction=_hybrid_correction,
+                        brief_section=brief_section,
                     )
                 else:
                     _candidate = _call_claude_pm(agent_id, cycle, _req)
