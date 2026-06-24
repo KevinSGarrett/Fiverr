@@ -352,6 +352,42 @@ def on_cycle_merged(
     return results
 
 
+def build_ac_verification_for_cycle(
+    jira_keys: list[str],
+    evidence_text: str,
+) -> dict[str, dict]:
+    """Audit [B]: compute the per-story AC-verification feed for ``on_cycle_merged``.
+
+    For each story key, fetch its description, extract the AC items, and check them
+    against ``evidence_text`` (the cycle's accumulated agent-report evidence) via
+    ``verify_ac_against_evidence``. Returns ``{key: {"verified": [...],
+    "unverified": [...]}}`` — exactly the shape ``on_cycle_merged`` expects.
+
+    CONSERVATIVE BY DESIGN: a story converges to Done only when ALL its AC items are
+    matched in the evidence (any unmatched → blocked → stays In Review, re-checked
+    next cycle). A story with no extractable AC yields an empty result, which
+    ``on_cycle_merged`` now SKIPS (never false-Done). On a per-key error the story is
+    marked fully unverified (blocked), never silently passed. Best-effort: never raises.
+    """
+    from automation.jira_client import get_issue
+    results: dict[str, dict] = {}
+    for key in jira_keys:
+        try:
+            issue = get_issue(key)
+            description = (issue.get("fields", {}) or {}).get("description", "") or ""
+            if isinstance(description, dict):
+                def _t(n: dict) -> str:
+                    return n.get("text", "") if n.get("type") == "text" else \
+                           " ".join(_t(c) for c in n.get("content", []))
+                description = _t(description)
+            ac_items = extract_ac_items(description)
+            results[key] = verify_ac_against_evidence(ac_items, evidence_text)
+        except Exception:
+            # Fail-closed: cannot verify → treat as unverified (blocked), never Done.
+            results[key] = {"verified": [], "unverified": ["(AC verification unavailable)"]}
+    return results
+
+
 def read_all_story_comments_for_pm_context(
     jira_keys: list[str],
 ) -> dict[str, str]:
