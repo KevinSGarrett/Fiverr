@@ -38,8 +38,21 @@ def test_validator_task_count_unchanged_by_brief():
 def test_brief_threaded_through_generator_and_caller():
     import automation.claude_prompt_creator as cpc
     h = inspect.getsource(cpc._generate_agent_prompt_hybrid)
-    assert "brief_section" in h and "brief_section.rstrip()" in h, \
-        "the hybrid producer must prepend brief_section to the scaffold head"
+    assert "_sanitize_brief_for_prompt(brief_section)" in h, \
+        "the hybrid producer must prepend the SANITIZED brief to the scaffold head"
     c = inspect.getsource(cpc.create_agent_prompts_via_claude)
     assert "brief_section=brief_section" in c, \
         "create_agent_prompts_via_claude must thread brief_section into the hybrid call"
+    # Codex P2: the legacy GEN_HYBRID=0 path must also carry the brief.
+    assert "_sanitize_brief_for_prompt(brief_section)" in c, \
+        "the legacy _call_claude_pm path must also prepend the (sanitized) brief"
+
+
+def test_sanitizer_neutralizes_code_fences():
+    # Codex P1: a brief with ``` fences (even unmatched, from truncated ref excerpts)
+    # must contribute ZERO ``` after sanitizing, so it can't skew PQ-6 or wrap content.
+    from automation.claude_prompt_creator import _sanitize_brief_for_prompt
+    fenced = "## spec\nhere is code:\n" + chr(96) * 3 + "python\nx=1\n"  # UNMATCHED fence
+    out = _sanitize_brief_for_prompt(fenced)
+    assert chr(96) * 3 not in out, "all triple-backtick fences must be neutralized"
+    assert _sanitize_brief_for_prompt("") == ""  # safe on empty

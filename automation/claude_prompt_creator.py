@@ -1082,6 +1082,18 @@ def _count_authored_tasks(text: str) -> int:
     return n
 
 
+def _sanitize_brief_for_prompt(brief: str) -> str:
+    """Neutralize fenced-code markers in the injected SECTION 0 brief (Codex P1).
+
+    CycleBrief embeds truncated PM_Pack ref excerpts that can contain ``` fences,
+    sometimes UNMATCHED after truncation. Prepended raw, an odd fence would (a) render
+    the scaffold/tasks that follow INSIDE a code block, and (b) skew the validator's
+    code-fence count (PQ-6 = fences ÷ tasks). Replacing ``` with a non-fence marker
+    makes the brief contribute ZERO code fences — safe to prepend before the scaffold.
+    """
+    return (brief or "").replace("```", "'''")
+
+
 def _generate_agent_prompt_hybrid(agent_id: str, cycle: int, branch: str,
                                   pm_context: str,
                                   jira_issues: list[dict] | None,
@@ -1101,13 +1113,15 @@ def _generate_agent_prompt_hybrid(agent_id: str, cycle: int, branch: str,
     lane = _agent_lane_info(agent_id)
     scrum_keys = _extract_scrum_keys(jira_issues, pm_context)
     head = _build_scaffold_head(agent_id, cycle, branch, scrum_keys, pm_context)
-    # Audit [D]: prepend the PM intelligence brief (SECTION 0 — built/done/next +
-    # the existing-src list) so agents DON'T rebuild completed stories. It carries no
-    # "### Task N" markers and no ``` code fences, so the task floor and PQ-6
-    # (code-fences ÷ tasks) are UNAFFECTED; it only adds ground-truth context (and
-    # helps the word/line floors). The brief was previously built then DISCARDED.
+    # Audit [D]: prepend the PM intelligence brief (SECTION 0 — built/done/next + the
+    # existing-src list) so agents DON'T rebuild completed stories. SANITIZED first
+    # (Codex P1): the brief embeds truncated PM_Pack ref excerpts that can contain ```
+    # fences (possibly UNMATCHED after truncation) — left raw, an odd fence would render
+    # the scaffold/tasks INSIDE a code block AND skew PQ-6 (fences ÷ tasks). After
+    # _sanitize_brief_for_prompt the brief contributes ZERO `### Task` markers and ZERO
+    # ``` fences, so the task floor + PQ-6 are unaffected; it only adds context.
     if brief_section:
-        head = brief_section.rstrip() + "\n\n" + head
+        head = _sanitize_brief_for_prompt(brief_section).rstrip() + "\n\n" + head
     tail = _build_scaffold_tail(agent_id, cycle)
 
     parts: list[str] = []
@@ -1268,6 +1282,11 @@ def create_agent_prompts_via_claude(
                     )
                 else:
                     _candidate = _call_claude_pm(agent_id, cycle, _req)
+                    # Audit [D] (Codex P2): the legacy GEN_HYBRID=0 path must ALSO carry
+                    # SECTION 0, else operators on that path lose the anti-rebuild brief.
+                    if _candidate and brief_section:
+                        _candidate = (_sanitize_brief_for_prompt(brief_section).rstrip()
+                                      + "\n\n" + _candidate)
             elapsed = _t.time() - t0
             # GEN-QUALITY: accept only a candidate that PASSES the item-1.3 quality
             # gate. Write it, validate in-process, and on failure feed the EXACT
