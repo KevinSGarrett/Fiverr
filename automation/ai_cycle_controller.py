@@ -3648,6 +3648,56 @@ def cmd_tick() -> None:
         if _active_pr:
             _tick_counter(f"ci_wait_pr{int(_active_pr)}", reset=True)
             _tick_counter(f"merge_retry_pr{int(_active_pr)}", reset=True)
+        # Audit [B]: the PR merged — converge the Jira board so cycle N+1 plans NEW work
+        # instead of re-planning this cycle's stories. Build the per-story AC-verification
+        # feed from the cycle's agent-report evidence and pass it to on_cycle_merged, which
+        # is AC-GATED + empty-AC-safe (#146): it marks Done ONLY stories whose AC are all
+        # verified in the evidence; ambiguous ones stay In Review and are re-checked next
+        # cycle (conservative — never false-Done). BEST-EFFORT: a Jira/verify failure must
+        # never block the post-merge advance (we're past the irreversible merge); the next
+        # cycle's call re-checks still-open stories (self-healing).
+        try:
+            from automation.jira_sync import (
+                build_ac_verification_for_cycle as _bacv,
+                on_cycle_merged as _ocm,
+            )
+            _merge_sha = ""
+            if _active_pr:
+                try:
+                    from automation.merge_gate import _read_receipt as _rr
+                    _merge_sha = (_rr(int(_active_pr)) or {}).get("merge_sha", "") or ""
+                except Exception:
+                    pass
+            # Codex P1: derive the cycle's ACTUAL Jira scope from the board — the stories
+            # the runner moved to In Progress (on_cycle_planned) / In Review (on_pr_opened)
+            # — NOT a hard-coded wave set. Otherwise a non-Wave-11 cycle (e.g. SCRUM-1088)
+            # would skip the very stories it just merged. on_cycle_merged AC-gates each, so
+            # passing the active set is safe (only AC-verified stories close).
+            from automation import jira_client as _jc
+            _active_status = {"In Progress", "In Review"}
+            try:
+                _board = (_jc.board_inventory_all().get("issues", [])) or []
+            except Exception:
+                _board = []
+            _keys = [i.get("key") for i in _board
+                     if i.get("status") in _active_status and i.get("key")]
+            if _keys and cycle:
+                # Evidence = the cycle's agent-report files (what each agent reported building).
+                _ev_parts = []
+                for _rep in sorted((REPO_ROOT / "docs" / "cycle_reports").glob(
+                        f"CYCLE_{cycle:03d}_AGENT_*.md")):
+                    try:
+                        _ev_parts.append(_rep.read_text(encoding="utf-8", errors="replace"))
+                    except Exception:
+                        pass
+                _evidence = "\n\n".join(_ev_parts)
+                _ac = _bacv(_keys, _evidence)
+                _res = _ocm(cycle, _merge_sha, _keys, ac_verification_results=_ac)
+                _doneN = sum(1 for r in _res if r.get("status") == "ok")
+                L.ok(f"Jira sync (cycle {cycle}): {_doneN}/{len(_keys)} stories -> Done "
+                     "(AC-verified against agent evidence); rest held for re-check")
+        except Exception as _jx:
+            L.warn(f"Jira Done-sync after merge failed (non-blocking; retried next cycle): {_jx}")
         write_controller_state("POST_CYCLE_PASS", cycle=cycle, clear_pr=True)
         L.ok(f"Cycle {cycle} MERGED — advancing; next tick plans Cycle {cycle + 1}")
 
