@@ -3529,6 +3529,35 @@ def cmd_tick() -> None:
         if _active_pr:
             _tick_counter(f"ci_wait_pr{int(_active_pr)}", reset=True)
             _tick_counter(f"merge_retry_pr{int(_active_pr)}", reset=True)
+        # Audit BLOCKER [B]: the PR merged — mark the cycle's COMPLETED Jira stories
+        # Done. `on_cycle_merged` is AC-GATED (it BLOCKS the Done transition for any
+        # story whose acceptance criteria aren't verified against the merged work), so
+        # this can never close incomplete stories. Previously it was DEAD CODE (zero
+        # call sites) → the board never converged → the next cycle re-planned
+        # In-Review stories → duplicate/rebuild work. BEST-EFFORT: a Jira outage must
+        # NOT block the loop's advance (we're past the irreversible merge); the next
+        # cycle's on_cycle_merged re-checks any still-open story (self-healing). We are
+        # in the MERGED branch, so this is never "Done without a merge".
+        try:
+            from automation.jira_sync import on_cycle_merged as _ocm
+            from automation.pm_intelligence import build_cycle_brief as _bcb
+            _merge_sha = ""
+            if _active_pr:
+                try:
+                    from automation.merge_gate import _read_receipt as _rr
+                    _merge_sha = (_rr(int(_active_pr)) or {}).get("merge_sha", "") or ""
+                except Exception:
+                    pass
+            _keys = [s.jira_key for s in _bcb().snapshot.current_stories
+                     if getattr(s, "status", "") != "Done"]
+            if _keys:
+                _res = _ocm(cycle or 0, _merge_sha, _keys)
+                _ok = sum(1 for r in _res if r.get("status") == "ok")
+                _blk = sum(1 for r in _res if r.get("status") == "blocked")
+                L.ok(f"Jira sync (cycle {cycle}): {_ok} story(ies) -> Done, {_blk} held "
+                     f"(AC-incomplete), of {len(_keys)} candidates")
+        except Exception as _jx:
+            L.warn(f"Jira Done-sync after merge failed (non-blocking; retried next cycle): {_jx}")
         write_controller_state("POST_CYCLE_PASS", cycle=cycle, clear_pr=True)
         L.ok(f"Cycle {cycle} MERGED — advancing; next tick plans Cycle {cycle + 1}")
 
