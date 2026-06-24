@@ -282,30 +282,26 @@ def on_cycle_merged(
     BLOCKS Done transition if any AC item is unverified.
     This is the critical gate — stories cannot be marked Done without full AC verification.
     """
-    from automation.jira_client import add_comment, transition_issue, get_issue
+    from automation.jira_client import add_comment, transition_issue
     results = []
     now = datetime.now(UTC).isoformat()
 
     for key in jira_keys:
-        # Final AC check if not provided
         ac_result = (ac_verification_results or {}).get(key, {})
 
-        # If no verification was done, do it now
+        # SAFETY (Codex P1): if NO real AC-verification result was supplied for this
+        # story, we CANNOT mark it Done. The old default read the description and set
+        # `unverified=[]` ("assume all AC met if tests pass") — which closed EVERY
+        # passed story regardless of whether its acceptance criteria were actually met
+        # by the merged work. A passing CI run is NOT per-story AC verification. So with
+        # no real result, SKIP the transition (the story stays in its current state and
+        # is re-checked on a later merge once verification exists). Done requires
+        # explicit, real verification passed in by the caller.
         if not ac_result:
-            try:
-                issue = get_issue(key)
-                fields = issue.get("fields", {})
-                description = fields.get("description", "") or ""
-                if isinstance(description, dict):
-                    def _t(n: dict) -> str:
-                        return n.get("text", "") if n.get("type") == "text" else \
-                               " ".join(_t(c) for c in n.get("content", []))
-                    description = _t(description)
-                ac_items = extract_ac_items(description)
-                # For merge: assume all AC met if tests pass (CI already verified)
-                ac_result = {"verified": ac_items, "unverified": []}
-            except Exception:
-                ac_result = {}
+            results.append({
+                "key": key, "action": "skip_no_ac_verification", "status": "skipped",
+            })
+            continue
 
         unverified = ac_result.get("unverified", [])
         verified   = ac_result.get("verified", [])
