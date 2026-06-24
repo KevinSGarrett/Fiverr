@@ -6,7 +6,7 @@ Reads C:\\AI_Runner\\state\\cursor_model_state.json and validates against policy
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 CURSOR_STATE_PATH = Path("C:/AI_Runner/state/cursor_model_state.json")
@@ -204,7 +204,14 @@ def refresh_verified_at_if_verified(state_path: Path | None = None) -> bool:
         return False
     if not bool(state.get("auto_model_disabled", False)):
         return False
-    state["verified_at"] = datetime.now(UTC).isoformat()
+    now = datetime.now(UTC)
+    state["verified_at"] = now.isoformat()
+    # Codex P2: cursor_adapter.check_model_gate_freshness + check_dev_auto_readiness
+    # gate on `valid_until` (= verified_at + window), NOT verified_at. Refresh it too,
+    # else those checks still see the original expiry and keep returning MODEL_BLOCKED
+    # despite the bumped verified_at. Only touch it when present (keep the schema as-is).
+    if state.get("valid_until"):
+        state["valid_until"] = (now + timedelta(days=MAX_VERIFICATION_AGE_DAYS)).isoformat()
     state["freshness_refreshed_by"] = "successful_forced_model_dispatch"
     try:
         p.write_text(_json.dumps(state, indent=2), encoding="utf-8")

@@ -38,6 +38,18 @@ def test_refreshes_when_already_verified(tmp_path):
     assert new.get("freshness_refreshed_by")
 
 
+def test_refreshes_valid_until_too(tmp_path):
+    # Codex P2: cursor_adapter + check_dev_auto_readiness gate on valid_until, so the
+    # refresh must move it forward too (else MODEL_BLOCKED persists despite verified_at).
+    p = _write(tmp_path, valid_until=(datetime.now(UTC) - timedelta(days=1)).isoformat())  # expired
+    assert refresh_verified_at_if_verified(p) is True
+    new = json.loads(p.read_text())
+    vt = datetime.fromisoformat(new["verified_at"])
+    vu = datetime.fromisoformat(new["valid_until"])
+    assert vu > datetime.now(UTC), "valid_until must be refreshed to a future time"
+    assert vu > vt, "valid_until must be ahead of the new verified_at"
+
+
 def test_no_refresh_when_not_verified(tmp_path):
     p = _write(tmp_path, status="UNVERIFIED")
     old = json.loads(p.read_text())["verified_at"]
