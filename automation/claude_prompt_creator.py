@@ -1391,6 +1391,43 @@ def create_agent_prompts_via_claude(
     return written
 
 
+def _kill_process_tree(pid: int | None) -> None:
+    """Kill a process AND its entire descendant tree (best-effort, never raises).
+
+    Observed-live: a hung ``claude`` CLI call timed out and the old ``proc.kill()`` killed
+    only the DIRECT child — the claude CLI's grandchildren (node workers) ORPHANED and kept
+    running, accumulating across runs (10+ runaway claude procs seen, ~29h old, hours of CPU
+    each). On Windows the reliable tree-kill is ``taskkill /PID <pid> /T /F``; POSIX falls
+    back to ``os.kill``. Without this, every prompt-gen timeout leaks a claude process tree.
+    """
+    if not pid:
+        return
+    import os as _o
+    import subprocess as _sp
+    try:
+        if _o.name == "nt":
+            _sp.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                    capture_output=True, timeout=20)
+            return
+    except Exception:
+        pass
+    # POSIX (Codex P1): a bare os.kill(pid) reaps only the parent — claude/node
+    # grandchildren survive and keep the pipe open. Kill the whole process GROUP so the
+    # descendants die too (the child is launched with start_new_session=True, so it leads
+    # its own group); fall back to a bare kill if the pid isn't a group leader.
+    import signal as _sig
+    _sigkill = getattr(_sig, "SIGKILL", _sig.SIGTERM)
+    try:
+        _o.killpg(_o.getpgid(pid), _sigkill)
+        return
+    except Exception:
+        pass
+    try:
+        _o.kill(pid, _sigkill)
+    except Exception:
+        pass
+
+
 def _call_claude_pm(agent_id: str, cycle: int, request_text: str,
                     instruction: str | None = None) -> str | None:
     """
@@ -1425,6 +1462,7 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str,
             f"Output ONLY the agent prompt text — no preamble, no explanation."
         )
 
+    proc = None
     try:
         import os as _os
         env = {**_os.environ, "PYTHONIOENCODING": "utf-8"}
@@ -1449,6 +1487,9 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str,
             stderr=subprocess.PIPE,
             cwd=str(REPO_ROOT),
             env=env,
+            # POSIX: lead a new session/process group so _kill_process_tree can killpg
+            # the whole tree (claude + node grandchildren) on timeout — no orphans.
+            **({"start_new_session": True} if _os.name != "nt" else {}),
         )
         stdout_bytes, stderr_bytes = proc.communicate(
             input=request_text.encode("utf-8"),
@@ -1481,7 +1522,14 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str,
             req_path.with_suffix(".err").write_text(err, encoding="utf-8")
         return None
     except subprocess.TimeoutExpired:
-        proc.kill()
+        # Observed-live: proc.kill() reaped only the direct child; the claude CLI's
+        # grandchildren (node workers) orphaned and kept running across runs. Kill the
+        # whole tree so a timed-out prompt-gen leaves NO orphans.
+        _kill_process_tree(proc.pid)
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            pass
         # H2 FIX: log actual timeout (was silently swallowed)
         _tmsg = (
             f"_call_claude_pm TIMEOUT agent={agent_id} cycle={cycle} "
@@ -1496,6 +1544,9 @@ def _call_claude_pm(agent_id: str, cycle: int, request_text: str,
             pass
         return None
     except Exception as _exc:
+        # Reap any spawned claude tree so a mid-call failure can't orphan node workers.
+        if proc is not None:
+            _kill_process_tree(proc.pid)
         # H2 FIX: log actual exception (was bare except: return None)
         import click as _ck4
         _emsg = f"_call_claude_pm EXCEPTION agent={agent_id} cycle={cycle}: {_exc!r}"
