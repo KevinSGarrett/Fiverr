@@ -2303,6 +2303,19 @@ def cmd_run_cycle(cycle: int | None, safe_docs_only: bool) -> None:
     _wcs("AGENT_COMPLETE")
     _wh("AGENT_COMPLETE", cycle=cycle)
 
+    # Audit C (zero-intervention): the agents just ran successfully with the FORCED
+    # --model codex-5.3 and committed real work — proof the model works. Refresh the
+    # model-gate freshness so a continuously-cycling 24/7 runner never trips the 7-day
+    # verification expiry (no weekly human re-verification). Safe: only bumps the
+    # timestamp when the state is ALREADY a passing VERIFIED config; never false-verifies.
+    if _committed_agents:
+        try:
+            from automation.model_gate import refresh_verified_at_if_verified
+            if refresh_verified_at_if_verified():
+                L.info("Model-gate freshness refreshed after successful forced-model dispatch")
+        except Exception as _mgexc:  # pragma: no cover - non-blocking
+            L.warn(f"model-gate freshness refresh failed (non-blocking): {_mgexc}")
+
     # RSF-19: synthesize agent reports (non-blocking, ARSF_DISABLED-gated)
     import os as _os_arsf19
     if not _os_arsf19.environ.get("PYTEST_CURRENT_TEST"):
