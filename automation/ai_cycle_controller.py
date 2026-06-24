@@ -4584,5 +4584,23 @@ def cmd_start_autopilot(interval: int, max_cycles: int) -> None:
     click.secho("=" * 62 + "\n", fg="cyan", bold=True)
 
 
+def _force_utf8_io() -> None:
+    """Make stdout/stderr UTF-8 so the runner never crashes on non-ASCII output.
+
+    Windows defaults console/pipe encoding to cp1252. The tick prints em-dashes/emoji
+    (and Claude's review text), and start-autopilot echoes the tick's stdout into a
+    redirected log — on cp1252 that raised UnicodeEncodeError EVERY tick, crashing the
+    autopilot loop (observed live: \\ufffd not encodable). reconfigure() to UTF-8 with
+    errors='replace' fixes it for the autopilot, the tick subprocesses, AND the
+    production scheduled task. Best-effort (older Pythons / non-reconfigurable streams).
+    """
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
+    _force_utf8_io()
     cli()
