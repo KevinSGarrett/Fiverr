@@ -331,19 +331,39 @@ def _update_pr_branch_if_behind(pr_int: int) -> bool:
     try:
         view = _sp.run(
             ["gh", "pr", "view", str(pr_int), "--repo", "KevinSGarrett/Fiverr",
-             "--json", "mergeStateStatus"],
+             "--json", "mergeStateStatus,headRefName"],
             capture_output=True, text=True, timeout=30,
         )
         if view.returncode != 0:
             return False
-        ms = (_json.loads(view.stdout or "{}")).get("mergeStateStatus", "")
-        if ms != "BEHIND":
+        _vd = _json.loads(view.stdout or "{}")
+        if _vd.get("mergeStateStatus", "") != "BEHIND":
             return False
+        branch = _vd.get("headRefName", "") or ""
         upd = _sp.run(
             ["gh", "pr", "update-branch", str(pr_int), "--repo", "KevinSGarrett/Fiverr"],
             capture_output=True, text=True, timeout=60,
         )
-        return upd.returncode == 0
+        if upd.returncode != 0:
+            return False
+        # Codex P2 (#143): update-branch advanced the REMOTE head, but the LOCAL cycle
+        # branch is now stale. A later _dispatch_codex_repair commits locally then
+        # `git push origin branch` — which would be REJECTED non-fast-forward, escalating
+        # the repair. Align the local branch to the refreshed remote head. The per-cycle
+        # branch's source of truth IS the remote PR, so a hard align is correct here.
+        if branch:
+            _sp.run(["git", "fetch", "origin", branch],
+                    cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60)
+            _cur = _sp.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                           cwd=str(REPO_ROOT), capture_output=True, text=True).stdout.strip()
+            if _cur == branch:
+                _sp.run(["git", "reset", "--hard", f"origin/{branch}"],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True)
+            else:
+                # Move the local branch ref to the remote head without a checkout.
+                _sp.run(["git", "branch", "-f", branch, f"origin/{branch}"],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True)
+        return True
     except Exception:
         return False
 

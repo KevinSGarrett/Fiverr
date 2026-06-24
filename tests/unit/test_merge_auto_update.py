@@ -52,12 +52,43 @@ def test_update_pr_branch_if_behind_updates_when_behind(monkeypatch):
     def fake_run(args, **k):
         calls.append(list(args))
         if "view" in args:
-            return SimpleNamespace(returncode=0, stdout='{"mergeStateStatus":"BEHIND"}', stderr="")
-        return SimpleNamespace(returncode=0, stdout="", stderr="")  # update-branch
+            return SimpleNamespace(
+                returncode=0,
+                stdout='{"mergeStateStatus":"BEHIND","headRefName":"cycle/084/integration"}',
+                stderr="")
+        if args[:2] == ["git", "rev-parse"]:
+            return SimpleNamespace(returncode=0, stdout="develop\n", stderr="")  # not on branch
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("subprocess.run", fake_run)
     assert ctl._update_pr_branch_if_behind(140) is True
     assert any("update-branch" in c for c in calls), "must call gh pr update-branch when BEHIND"
+    # Codex P2: after update-branch, the local branch must be aligned to the remote.
+    assert any(c[:2] == ["git", "fetch"] for c in calls), "must fetch after update-branch"
+    assert any(c[:3] == ["git", "branch", "-f"] for c in calls), \
+        "must move the local branch ref to origin when not checked out"
+
+
+def test_update_pr_branch_resets_when_on_branch(monkeypatch):
+    # When the cycle branch IS checked out, align via reset --hard (not branch -f).
+    import automation.ai_cycle_controller as ctl
+    calls = []
+
+    def fake_run(args, **k):
+        calls.append(list(args))
+        if "view" in args:
+            return SimpleNamespace(
+                returncode=0,
+                stdout='{"mergeStateStatus":"BEHIND","headRefName":"cycle/084/integration"}',
+                stderr="")
+        if args[:2] == ["git", "rev-parse"]:
+            return SimpleNamespace(returncode=0, stdout="cycle/084/integration\n", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    assert ctl._update_pr_branch_if_behind(140) is True
+    assert any(c[:3] == ["git", "reset", "--hard"] for c in calls), \
+        "must hard-align the working tree when on the cycle branch"
 
 
 def test_update_pr_branch_noop_when_clean(monkeypatch):
