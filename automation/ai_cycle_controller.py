@@ -1454,6 +1454,14 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None,
         raise SystemExit(1) from _probe_exc
 
     click.echo("  [2/3] Attempting Claude-as-PM prompt generation (primary path)...")
+    # Audit [D]: render the PM intelligence brief (SECTION 0 — built/done/next +
+    # existing src) ONCE and inject it into every agent prompt so agents don't rebuild
+    # completed work. Previously the brief was built (cycle_brief) then DISCARDED.
+    try:
+        _brief_section = cycle_brief.to_prompt_section()
+    except Exception as _bexc:
+        click.secho(f"  [WARN] cycle_brief.to_prompt_section failed ({_bexc}) — no SECTION 0", fg="yellow")
+        _brief_section = ""
     try:
         written = create_agent_prompts_via_claude(
             cycle=next_cycle,
@@ -1462,6 +1470,7 @@ def cmd_plan_cycle(dry_run: bool, live: bool, cycle: int | None,
             agents=manifest["agents"],
             prompts_dir=prompts_dir,
             wave=_snap.current_wave,
+            brief_section=_brief_section,
         )
         if written and set(written.keys()) == set(manifest["agents"]):
             click.secho(
