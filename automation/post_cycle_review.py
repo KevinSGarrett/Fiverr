@@ -664,13 +664,27 @@ def _run_local_suite(facts: PostCycleFacts) -> None:
         "--ignore=tests/unit/test_prompt_generator.py",
         "--ignore=tests/unit/test_prompt_contract_builder.py",
     ]
-    cov_result = subprocess.run(
-        [py, "-m", "pytest", "tests/unit/", "--no-header", "--tb=no", "-q",
-         *_IGNORES,
-         "--cov=src", "--cov=automation", "--cov-report=term-missing:skip-covered",
-         "--cov-fail-under=80"],
-        capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=900,
-    )
+    # Observed-live FIX: a TimeoutExpired here used to PROPAGATE out of run_review →
+    # the controller caught it and stayed POST_CYCLE_PENDING → the next tick re-ran the
+    # same slow suite → INFINITE loop (the tick "succeeds" by catching the error, so the
+    # autopilot circuit breaker never trips). The suite grew (+coverage instrumentation)
+    # past the old 900s on a loaded runner. Now: the timeout is env-tunable (default 1800s)
+    # AND a timeout is treated as a NON-fatal red fact (local_pytest=False) instead of an
+    # exception — so the review always yields a verdict and the loop can advance/escalate.
+    import os as _os
+    _pytest_timeout = int(_os.environ.get("POST_CYCLE_PYTEST_TIMEOUT", "1800"))
+    try:
+        cov_result = subprocess.run(
+            [py, "-m", "pytest", "tests/unit/", "--no-header", "--tb=no", "-q",
+             *_IGNORES,
+             "--cov=src", "--cov=automation", "--cov-report=term-missing:skip-covered",
+             "--cov-fail-under=80"],
+            capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=_pytest_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # Hung/over-budget suite → red fact, NOT an exception (no infinite PENDING loop).
+        facts.local_pytest = False
+        return
     facts.local_pytest = cov_result.returncode == 0
     import re as _re
     m = _re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", cov_result.stdout + cov_result.stderr)

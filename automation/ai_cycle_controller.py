@@ -3312,8 +3312,27 @@ def cmd_tick() -> None:
             else:
                 write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
                 click.secho(f"  POST_CYCLE_FAIL grade={grade}", fg="red", bold=True)
+            _tick_counter(f"post_cycle_review_err_{cycle}", reset=True)  # clean review → reset
         except Exception as exc:
-            click.secho(f"  [ERROR] post-cycle-review raised: {exc} — staying in {status}", fg="red")
+            # Observed-live FIX: a review that RAISES leaves us in POST_CYCLE_PENDING and
+            # the next tick re-runs it — but the tick "succeeds" (we catch here), so the
+            # autopilot circuit breaker never trips → INFINITE loop (seen with the pytest
+            # timeout). Bound it: after N consecutive review exceptions, route to the
+            # bounded POST_CYCLE_FAIL recovery (re-dispatch then operator-escalate) instead
+            # of looping forever on the same failing review.
+            _rerr = _tick_counter(f"post_cycle_review_err_{cycle}", increment=True)
+            _rcap = int(os.environ.get("AUTOPILOT_POST_CYCLE_REVIEW_ERR_MAX", "3"))
+            click.secho(f"  [ERROR] post-cycle-review raised ({_rerr}/{_rcap}): {exc}", fg="red")
+            # Codex P2: honor the cap EXACTLY — route to FAIL ON the Nth exception
+            # (>=), not the (N+1)th. With `>`, a cap of 3 logs "3/3" yet still loops
+            # once more; with N=1 it would allow two failures before escalating.
+            if _rerr >= _rcap:
+                write_controller_state("POST_CYCLE_FAIL", cycle=cycle)
+                click.secho(
+                    f"  post-cycle-review failed {_rerr}x — routing to POST_CYCLE_FAIL "
+                    "(bounded recovery) instead of looping forever in POST_CYCLE_PENDING",
+                    fg="red", bold=True,
+                )
 
     elif status in (
         "MODEL_BLOCKED", "CLAUDE_API_KEY_BLOCKED",
