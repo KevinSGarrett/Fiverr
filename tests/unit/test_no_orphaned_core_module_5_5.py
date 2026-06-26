@@ -31,6 +31,7 @@ _ENTRYPOINTS = {
     "check_dev_auto_readiness",  # operator CLI
     "prompt_renderer",          # operator CLI
     "ref_catalog_builder",      # operator CLI
+    "autopilot_supervisor",     # scheduled task "FiverrAutopilot" (setup_autopilot_task.ps1)
 }
 
 # Exist but imported by NOTHING in the live path as of the analysis date. Tracked for
