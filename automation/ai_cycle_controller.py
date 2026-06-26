@@ -333,8 +333,16 @@ def _handle_plan_cycle_result(rc: int, out: str, cycle: int | None) -> None:
         return
     _n = _tick_counter(f"planning_retry_{cycle}", increment=True)
     _cap = int(os.environ.get("AUTOPILOT_PLANNING_MAX", "5"))
-    if _n > _cap:
+    # Codex P2: honor the cap EXACTLY — escalate ON the Nth failed plan-cycle (>=), not the
+    # (N+1)th, so AUTOPILOT_PLANNING_MAX is the real max number of Claude calls per window.
+    if _n >= _cap:
         _tick_counter(f"planning_retry_{cycle}", reset=True)
+        # Codex P1: mark this exhaustion as PLANNING-origin so its handler may periodically
+        # auto-retry. The OTHER route into PROMPT_REGEN_EXHAUSTED — the regenerate-budget
+        # exhaustion from PROMPT_VALIDATION_FAILED — must stay fail-closed (no auto-retry),
+        # so it does NOT set this marker and the EXHAUSTED handler won't auto-retry it.
+        _tick_counter(f"regen_planning_origin_{cycle}", reset=True)
+        _tick_counter(f"regen_planning_origin_{cycle}", increment=True)
         _w("PROMPT_REGEN_EXHAUSTED", cycle=cycle)
         try:
             from automation.notification_router import notify_blocked
@@ -3586,33 +3594,45 @@ def cmd_tick() -> None:
                     )
                     _reset_prompt_regen_state(cycle)
                     _tick_counter(f"prompt_regen_hold_{cycle}", reset=True)
+                    _tick_counter(f"regen_planning_origin_{cycle}", reset=True)
                     write_controller_state("PLANNED", cycle=cycle)
                     _L12x.ok(f"Cycle {cycle} recovered from PROMPT_REGEN_EXHAUSTED (external fix)")
-                else:
-                    # rank-7: periodic AUTO-RETRY so a TRANSIENT plan-cycle/Claude failure
-                    # self-heals with no operator. This branch only re-validates (no Claude
-                    # calls), so holding is cheap; every AUTOPILOT_PROMPT_REGEN_RETRY_TICKS
-                    # ticks, reset the counters and route back to COMPILED to re-attempt
-                    # plan-cycle. Bounds the burn (a retry only every N ticks) while never
-                    # dead-ending on a transient failure.
+                elif _tick_counter(f"regen_planning_origin_{cycle}") > 0:
+                    # rank-7 (Codex P1): periodic AUTO-RETRY ONLY for PLANNING-origin
+                    # exhaustion (plan-cycle kept failing). The OTHER origin — the
+                    # regenerate-BUDGET exhaustion from PROMPT_VALIDATION_FAILED — is
+                    # deliberately fail-closed and must NOT be auto-retried (handled in the
+                    # else below). This branch only re-validates (no Claude calls), so holding
+                    # is cheap; every AUTOPILOT_PROMPT_REGEN_RETRY_TICKS ticks, reset the
+                    # counters and route back to COMPILED to re-attempt plan-cycle — so a
+                    # TRANSIENT failure self-heals with no operator, never dead-ending.
                     _hold = _tick_counter(f"prompt_regen_hold_{cycle}", increment=True)
                     _retry_every = int(os.environ.get("AUTOPILOT_PROMPT_REGEN_RETRY_TICKS", "30"))
                     if _hold >= _retry_every:
                         _tick_counter(f"prompt_regen_hold_{cycle}", reset=True)
                         _tick_counter(f"planning_retry_{cycle}", reset=True)
+                        _tick_counter(f"regen_planning_origin_{cycle}", reset=True)
                         write_controller_state("COMPILED", cycle=cycle)
                         click.secho(
-                            f"  PROMPT_REGEN_EXHAUSTED held {_hold} ticks → COMPILED "
-                            "(periodic auto-retry of plan-cycle; transient failures self-heal)",
+                            f"  PROMPT_REGEN_EXHAUSTED (planning-origin) held {_hold} ticks → "
+                            "COMPILED (periodic auto-retry; transient failures self-heal)",
                             fg="yellow",
                         )
                     else:
                         click.secho(
-                            f"  BLOCKED ({status}) — regenerate budget exhausted "
-                            f"({_hold}/{_retry_every} ticks to auto-retry). 'recover --regen' "
-                            "or fix the generator to recover sooner.",
+                            f"  BLOCKED ({status}, planning-origin) — {_hold}/{_retry_every} "
+                            "ticks to auto-retry plan-cycle. 'recover --regen' to recover sooner.",
                             fg="red",
                         )
+                else:
+                    # regenerate-budget exhaustion (validation origin) — FAIL CLOSED, no
+                    # auto-retry (preserve the deliberate budget; operator fixes the generator).
+                    click.secho(
+                        f"  BLOCKED ({status}) — regenerate budget exhausted. "
+                        "Run 'recover --regen' (resets attempts) or fix the prompt "
+                        "generator, then the next tick re-attempts.",
+                        fg="red",
+                    )
             except Exception as _ve:
                 click.secho(f"  BLOCKED ({status}) — resolve and run recover to reset", fg="red")
         else:

@@ -42,23 +42,25 @@ def test_success_routes_to_planned_and_resets(monkeypatch):
 def test_failure_under_cap_retries_planning(monkeypatch):
     written, counts = _capture_state(monkeypatch)
     monkeypatch.setenv("AUTOPILOT_PLANNING_MAX", "5")
-    for _ in range(5):
+    # Codex P2 (>=): with cap 5, failures 1..4 retry via PLANNING; the 5th escalates.
+    for _ in range(4):
         ctrl._handle_plan_cycle_result(1, "boom", 84)
-    assert written == ["PLANNING"] * 5, "under the cap, keep retrying via PLANNING"
+    assert written == ["PLANNING"] * 4, "below the cap, keep retrying via PLANNING"
 
 
-def test_failure_over_cap_holds_exhausted_no_more_claude(monkeypatch):
+def test_failure_at_cap_holds_exhausted_no_more_claude(monkeypatch):
     written, counts = _capture_state(monkeypatch)
     monkeypatch.setenv("AUTOPILOT_PLANNING_MAX", "3")
     # neutralize notify
     import automation.notification_router as nr
     monkeypatch.setattr(nr, "notify_blocked", lambda *a, **k: None, raising=False)
     seq = []
-    for _ in range(4):  # 1,2,3 = PLANNING; 4 > cap → EXHAUSTED
+    for _ in range(3):  # Codex P2 (>=): 1,2 = PLANNING; the 3rd (==cap) → EXHAUSTED
         ctrl._handle_plan_cycle_result(1, "boom", 84)
         seq.append(written[-1])
-    assert seq == ["PLANNING", "PLANNING", "PLANNING", "PROMPT_REGEN_EXHAUSTED"]
+    assert seq == ["PLANNING", "PLANNING", "PROMPT_REGEN_EXHAUSTED"], "cap honored exactly"
     assert counts["planning_retry_84"] == 0, "counter reset on escalation so retry window restarts"
+    assert counts.get("regen_planning_origin_84", 0) > 0, "planning-origin marker set (Codex P1)"
 
 
 def test_handler_stops_burning_claude_past_cap():
@@ -83,3 +85,10 @@ def test_exhausted_has_periodic_auto_retry():
     assert "AUTOPILOT_PROMPT_REGEN_RETRY_TICKS" in seg
     assert "prompt_regen_hold_" in seg
     assert 'write_controller_state("COMPILED"' in seg
+    # Codex P1: the auto-retry must be GATED to PLANNING-origin exhaustion — the
+    # regenerate-budget (validation-origin) exhaustion must stay fail-closed.
+    assert "regen_planning_origin" in seg
+    # the COMPILED auto-retry sits under the planning-origin gate, before the fail-closed else
+    gate_i = seg.index("regen_planning_origin")
+    retry_i = seg.index('write_controller_state("COMPILED"')
+    assert gate_i < retry_i, "the COMPILED auto-retry must be gated by the planning-origin check"
