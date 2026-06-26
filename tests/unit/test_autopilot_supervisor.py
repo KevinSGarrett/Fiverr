@@ -136,6 +136,18 @@ def test_manual_freeze_is_respected(monkeypatch, tmp_path):
     assert sleeps == [300, 300, 300], "idle on each loop, re-checking for unfreeze"
 
 
+def test_run_once_polls_stop_sentinel_while_child_runs():
+    """Codex P1: the autopilot child runs forever (--max-cycles 0), so run_autopilot_once
+    must poll the stop sentinel WHILE the child runs and reap its tree — otherwise --stop
+    can't stop the active autopilot."""
+    import inspect
+    src = inspect.getsource(sup.run_autopilot_once)
+    assert "_stop_path()" in src, "must check the stop sentinel inside the run"
+    assert "_kill_tree(proc.pid)" in src
+    # the check must run concurrently with the blocking stdout read (a daemon poller)
+    assert "threading" in src and "daemon=True" in src
+
+
 def test_is_breaker_freeze_classifier():
     assert sup.is_breaker_freeze("circuit_breaker: 10 consecutive failed ticks") is True
     assert sup.is_breaker_freeze("CIRCUIT_BREAKER: x") is True

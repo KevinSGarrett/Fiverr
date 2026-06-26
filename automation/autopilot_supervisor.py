@@ -166,7 +166,14 @@ def run_autopilot_once(cmd: list[str], env: dict) -> int:
 
     Launched in its own session/process group (POSIX) so we can reap the whole tree on
     stop; Windows uses taskkill /T via _kill_process_tree.
+
+    Codex P1: the autopilot runs ``--max-cycles 0`` (forever), so the stdout read below
+    would block indefinitely and ``supervise()`` would never re-check ``supervisor.stop``
+    — the documented graceful stop wouldn't actually stop the running autopilot. A daemon
+    poller watches the stop sentinel WHILE the child runs and reaps the child's tree when
+    it appears (closing the pipe → ending the read loop → returning to ``supervise``).
     """
+    import threading
     popen_kw: dict = {}
     if os.name != "nt":
         popen_kw["start_new_session"] = True
@@ -175,6 +182,18 @@ def run_autopilot_once(cmd: list[str], env: dict) -> int:
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, encoding="utf-8", errors="replace", **popen_kw,
     )
+    done = threading.Event()
+
+    def _stop_poller():
+        # poll the stop sentinel every few seconds while the long-lived child runs
+        while not done.wait(3):
+            if _stop_path().exists():
+                _log("stop sentinel detected — reaping running autopilot tree")
+                _kill_tree(proc.pid)
+                return
+
+    poller = threading.Thread(target=_stop_poller, daemon=True)
+    poller.start()
     try:
         for line in proc.stdout:  # type: ignore[union-attr]
             s = line.rstrip()
@@ -184,6 +203,8 @@ def run_autopilot_once(cmd: list[str], env: dict) -> int:
     except KeyboardInterrupt:
         _kill_tree(proc.pid)
         raise
+    finally:
+        done.set()
     return int(proc.returncode or 0)
 
 
