@@ -310,6 +310,60 @@ def _preserve_cycle_work_tag(cycle: int | None, head_sha: str) -> str:
     return tag
 
 
+def _handle_plan_cycle_result(rc: int, out: str, cycle: int | None) -> None:
+    """Audit rank-7: BOUND the COMPILED/PLANNING → plan-cycle retry.
+
+    plan-cycle calls Claude to author the agent prompts, so re-running it every tick on a
+    persistently-failing generator would burn Claude quota FOREVER — the tick "succeeds"
+    (exit 0) each time, so neither the per-tick hard-timeout (the call isn't hung, just
+    failing) nor the circuit breaker (no failed tick) ever catches it. This is the same
+    "tick succeeds but no progress" silent-loop class as the post-cycle-review timeout bug.
+
+    Bound it: after AUTOPILOT_PLANNING_MAX consecutive failures, STOP re-running plan-cycle
+    and hold in PROMPT_REGEN_EXHAUSTED — a CHEAP state that only re-validates prompts
+    locally (no Claude calls, no quota burn), auto-heals if prompts become valid, and is
+    periodically retried by its own handler so a TRANSIENT failure still self-heals with no
+    human. A successful plan-cycle resets the counter.
+    """
+    from automation.state_writer import write_controller_state as _w
+    if rc == 0:
+        _tick_counter(f"planning_retry_{cycle}", reset=True)
+        _w("PLANNED", cycle=cycle)
+        click.secho(f"  State: PLANNED (cycle {cycle}) — prompts generated", fg="cyan")
+        return
+    _n = _tick_counter(f"planning_retry_{cycle}", increment=True)
+    _cap = int(os.environ.get("AUTOPILOT_PLANNING_MAX", "5"))
+    # Codex P2: honor the cap EXACTLY — escalate ON the Nth failed plan-cycle (>=), not the
+    # (N+1)th, so AUTOPILOT_PLANNING_MAX is the real max number of Claude calls per window.
+    if _n >= _cap:
+        _tick_counter(f"planning_retry_{cycle}", reset=True)
+        # Codex P1: mark this exhaustion as PLANNING-origin so its handler may periodically
+        # auto-retry. The OTHER route into PROMPT_REGEN_EXHAUSTED — the regenerate-budget
+        # exhaustion from PROMPT_VALIDATION_FAILED — must stay fail-closed (no auto-retry),
+        # so it does NOT set this marker and the EXHAUSTED handler won't auto-retry it.
+        _tick_counter(f"regen_planning_origin_{cycle}", reset=True)
+        _tick_counter(f"regen_planning_origin_{cycle}", increment=True)
+        _w("PROMPT_REGEN_EXHAUSTED", cycle=cycle)
+        try:
+            from automation.notification_router import notify_blocked
+            notify_blocked(
+                f"Cycle {cycle} plan-cycle failed {_cap}x — holding (no further Claude calls)",
+                body=(out or "").strip()[-300:],
+                incident_code="PLANNING_EXHAUSTED", cycle=cycle,
+            )
+        except Exception:
+            pass
+        click.secho(
+            f"  plan-cycle failed > cap {_cap} → PROMPT_REGEN_EXHAUSTED (bounded; stops the "
+            "Claude-quota burn; auto-retries on a cooldown / auto-heals if prompts validate)",
+            fg="red", bold=True,
+        )
+    else:
+        _w("PLANNING", cycle=cycle)
+        click.secho(f"  [WARN] plan-cycle failed ({_n}/{_cap}):\n{(out or '').strip()[-300:]}",
+                    fg="yellow")
+
+
 def _finalize_post_cycle_pass(cycle: int | None) -> str:
     """ITEM 3.2: single decision point for a PASSing post-cycle review.
 
@@ -3051,13 +3105,9 @@ def cmd_tick() -> None:
                 [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
                  "--live", "--cycle", str(cycle)]
             )
-            if rc == 0:
-                write_controller_state("PLANNED", cycle=cycle)
-                click.secho(f"  State: PLANNED (cycle {cycle}) — prompts generated", fg="cyan")
-            else:
-                click.secho(f"  [WARN] plan-cycle failed:\n{out.strip()[-400:]}", fg="yellow")
-                write_controller_state("PLANNING", cycle=cycle)
-                click.secho("  State: PLANNING (plan-cycle failed — will retry next tick)", fg="yellow")
+            # rank-7: bounded handling — success→PLANNED(+reset); failure→PLANNING up to a
+            # cap, then hold in PROMPT_REGEN_EXHAUSTED instead of burning Claude quota forever.
+            _handle_plan_cycle_result(rc, out, cycle)
 
     elif status == "PLANNED":
         # Validate prompts
@@ -3543,9 +3593,40 @@ def cmd_tick() -> None:
                         fg="green",
                     )
                     _reset_prompt_regen_state(cycle)
+                    _tick_counter(f"prompt_regen_hold_{cycle}", reset=True)
+                    _tick_counter(f"regen_planning_origin_{cycle}", reset=True)
                     write_controller_state("PLANNED", cycle=cycle)
                     _L12x.ok(f"Cycle {cycle} recovered from PROMPT_REGEN_EXHAUSTED (external fix)")
+                elif _tick_counter(f"regen_planning_origin_{cycle}") > 0:
+                    # rank-7 (Codex P1): periodic AUTO-RETRY ONLY for PLANNING-origin
+                    # exhaustion (plan-cycle kept failing). The OTHER origin — the
+                    # regenerate-BUDGET exhaustion from PROMPT_VALIDATION_FAILED — is
+                    # deliberately fail-closed and must NOT be auto-retried (handled in the
+                    # else below). This branch only re-validates (no Claude calls), so holding
+                    # is cheap; every AUTOPILOT_PROMPT_REGEN_RETRY_TICKS ticks, reset the
+                    # counters and route back to COMPILED to re-attempt plan-cycle — so a
+                    # TRANSIENT failure self-heals with no operator, never dead-ending.
+                    _hold = _tick_counter(f"prompt_regen_hold_{cycle}", increment=True)
+                    _retry_every = int(os.environ.get("AUTOPILOT_PROMPT_REGEN_RETRY_TICKS", "30"))
+                    if _hold >= _retry_every:
+                        _tick_counter(f"prompt_regen_hold_{cycle}", reset=True)
+                        _tick_counter(f"planning_retry_{cycle}", reset=True)
+                        _tick_counter(f"regen_planning_origin_{cycle}", reset=True)
+                        write_controller_state("COMPILED", cycle=cycle)
+                        click.secho(
+                            f"  PROMPT_REGEN_EXHAUSTED (planning-origin) held {_hold} ticks → "
+                            "COMPILED (periodic auto-retry; transient failures self-heal)",
+                            fg="yellow",
+                        )
+                    else:
+                        click.secho(
+                            f"  BLOCKED ({status}, planning-origin) — {_hold}/{_retry_every} "
+                            "ticks to auto-retry plan-cycle. 'recover --regen' to recover sooner.",
+                            fg="red",
+                        )
                 else:
+                    # regenerate-budget exhaustion (validation origin) — FAIL CLOSED, no
+                    # auto-retry (preserve the deliberate budget; operator fixes the generator).
                     click.secho(
                         f"  BLOCKED ({status}) — regenerate budget exhausted. "
                         "Run 'recover --regen' (resets attempts) or fix the prompt "
@@ -3568,17 +3649,15 @@ def cmd_tick() -> None:
             click.secho(f"  Still blocked: {out.strip()[-200:]}", fg="yellow")
 
     elif status == "PLANNING":
-        # plan-cycle failed or is in progress — retry
+        # plan-cycle failed or is in progress — retry, BOUNDED (rank-7): the shared handler
+        # caps consecutive Claude-burning retries and holds in PROMPT_REGEN_EXHAUSTED past
+        # the cap rather than looping forever.
         click.echo(f"  Retrying plan-cycle for cycle {cycle}...")
         rc, out = _run_shell_command(
             [sys.executable, "automation/ai_cycle_controller.py", "plan-cycle",
              "--live", "--cycle", str(cycle)]
         )
-        if rc == 0:
-            write_controller_state("PLANNED", cycle=cycle)
-            click.secho(f"  State: PLANNED (cycle {cycle})", fg="cyan")
-        else:
-            click.secho(f"  plan-cycle still failing: {out.strip()[-200:]}", fg="yellow")
+        _handle_plan_cycle_result(rc, out, cycle)
 
     elif status == "POST_CYCLE_FAIL":
         # BLOCKER 3: a genuinely-broken cycle (post-cycle review found blocking gate
