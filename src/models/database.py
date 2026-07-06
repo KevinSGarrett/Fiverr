@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -14,6 +15,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from src import models as _models  # noqa: F401 - ensures table modules are imported
 from src.models.base import Base
 from src.models.registry import get_registered_table_names
+
+_log = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_URL = "sqlite:///data/fiverr_research.db"
 
@@ -510,6 +513,18 @@ def initialize_database(database_url: str | None = None, engine: Engine | None =
     _ensure_saturation_scores_table(active_engine)
     _ensure_recommendation_columns(active_engine)
     _ensure_external_signal_tc1_columns(active_engine)
+    # Apply the full SRDI R8 migration set (idempotent add-if-missing) so the schema is
+    # COMPLETE on init — including the table-creating migrations (price analysis, S7.6
+    # discovery feedback) that create_all()/the _ensure_* helpers above don't cover.
+    # Previously initialize_database never ran migrations, so production DBs were missing
+    # schema. Lazy import breaks the database<->migrations import cycle; logged + non-fatal
+    # so a migration hiccup degrades gracefully rather than bricking DB init.
+    try:
+        from src.migrations.srdi_r8.run_srdi_r8_migrations import run_srdi_r8_migrations
+
+        run_srdi_r8_migrations(engine=active_engine)
+    except Exception as exc:  # noqa: BLE001 - schema init must degrade, not crash
+        _log.warning("SRDI R8 migrations did not fully apply during init: %s", exc)
     return active_engine
 
 

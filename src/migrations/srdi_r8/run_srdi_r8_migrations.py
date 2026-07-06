@@ -22,6 +22,11 @@ from . import (
     migration_13_ladder_revenue_llm_observability,
 )
 
+# migration_14 lives at the top level (src/migrations/), not in this srdi_r8 package.
+# It was ORPHANED — never registered here — so its S7.6 discovery-feedback tables were
+# never created even though discovery code depends on them. Register it as the final step.
+from src.migrations import migration_14_s76_discovery_feedback
+
 
 def run_srdi_r8_migrations(database_url: str | None = None, engine: Engine | None = None) -> None:
     """Apply all SRDI R8 migrations in-order."""
@@ -39,3 +44,4 @@ def run_srdi_r8_migrations(database_url: str | None = None, engine: Engine | Non
     migration_11_external_signal_tc1_cols.apply(active_engine)
     migration_12_price_analysis_tables.apply(active_engine)
     migration_13_ladder_revenue_llm_observability.apply(active_engine)
+    migration_14_s76_discovery_feedback.apply(active_engine)
