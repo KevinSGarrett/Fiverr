@@ -173,6 +173,16 @@ def test_openai_provider_embed_returns_vectors() -> None:
     assert out["usage"]["prompt_tokens"] == 5
 
 
+def test_llm_result_exposes_token_properties_for_usage_logging() -> None:
+    """Codex P2: consumers (pricing_llm_task) read token counts as top-level attributes;
+    LLMResult must surface them from metadata so usage logs aren't zero."""
+    client = LLMClient(provider=MockLLMProvider(completion_text="hello world"))
+    res = client.complete("hi there", model="gpt-4o-mini")
+    assert res.prompt_tokens == res.metadata["prompt_tokens"] > 0
+    assert res.completion_tokens == res.metadata["completion_tokens"] >= 0
+    assert res.total_tokens == res.prompt_tokens + res.completion_tokens
+
+
 def test_llm_client_retries_transient_then_succeeds() -> None:
     """LLMClient now applies LLMRetryPolicy: a transient provider error is retried."""
     from src.llm.retry import LLMTransientError

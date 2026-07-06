@@ -26,6 +26,21 @@ class LLMResult:
         keys = ", ".join(sorted(self.metadata.keys()))
         return f"LLMResult(text_len={len(self.text)}, metadata_keys=[{keys}])"
 
+    # Token counts live under metadata, but several consumers (e.g. pricing_llm_task's
+    # usage logging) read them as top-level attributes. Expose them so usage rows record
+    # real token counts instead of defaulting to zero (Codex P2).
+    @property
+    def prompt_tokens(self) -> int:
+        return int(self.metadata.get("prompt_tokens", 0) or 0)
+
+    @property
+    def completion_tokens(self) -> int:
+        return int(self.metadata.get("completion_tokens", 0) or 0)
+
+    @property
+    def total_tokens(self) -> int:
+        return int(self.metadata.get("total_tokens", 0) or 0)
+
 
 class LLMClient:
     """LLM wrapper that supports injected providers and cache metadata."""
@@ -191,12 +206,13 @@ class LLMClient:
         temperature: float,
         response_format: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        if self._provider is None:
+        provider = self._provider
+        if provider is None:
             raise RuntimeError("LLM provider is not configured.")
 
-        if hasattr(self._provider, "complete"):
+        if hasattr(provider, "complete"):
             payload = self._with_retry(
-                lambda: self._provider.complete(
+                lambda: provider.complete(
                     prompt=prompt,
                     model=model,
                     temperature=temperature,
@@ -208,11 +224,12 @@ class LLMClient:
         raise TypeError("Provider must define a complete() method.")
 
     def _call_provider_embed(self, texts: list[str], model: str) -> dict[str, Any]:
-        if self._provider is None:
+        provider = self._provider
+        if provider is None:
             raise RuntimeError("LLM provider is not configured.")
 
-        if hasattr(self._provider, "embed"):
-            payload = self._with_retry(lambda: self._provider.embed(texts=texts, model=model))
+        if hasattr(provider, "embed"):
+            payload = self._with_retry(lambda: provider.embed(texts=texts, model=model))
             return payload if isinstance(payload, dict) else {"embeddings": payload}
 
         raise TypeError("Provider must define an embed() method for embedding requests.")
