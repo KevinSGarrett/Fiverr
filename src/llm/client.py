@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from collections.abc import Callable
+
 from src.llm.cache import CachePolicy, LLMCache, build_cache_key
 from src.llm.costs import estimate_llm_cost
 from src.llm.provider import LLMProviderProtocol, OpenAIProvider
+from src.llm.retry import LLMRetryPolicy
 
 
 @dataclass(slots=True)
@@ -22,6 +26,21 @@ class LLMResult:
         keys = ", ".join(sorted(self.metadata.keys()))
         return f"LLMResult(text_len={len(self.text)}, metadata_keys=[{keys}])"
 
+    # Token counts live under metadata, but several consumers (e.g. pricing_llm_task's
+    # usage logging) read them as top-level attributes. Expose them so usage rows record
+    # real token counts instead of defaulting to zero (Codex P2).
+    @property
+    def prompt_tokens(self) -> int:
+        return int(self.metadata.get("prompt_tokens", 0) or 0)
+
+    @property
+    def completion_tokens(self) -> int:
+        return int(self.metadata.get("completion_tokens", 0) or 0)
+
+    @property
+    def total_tokens(self) -> int:
+        return int(self.metadata.get("total_tokens", 0) or 0)
+
 
 class LLMClient:
     """LLM wrapper that supports injected providers and cache metadata."""
@@ -33,6 +52,8 @@ class LLMClient:
         cache_policy: CachePolicy | None = None,
         use_openai_provider: bool = False,
         openai_api_key: str | None = None,
+        retry_policy: LLMRetryPolicy | None = None,
+        sleep_fn: Callable[[float], None] | None = None,
     ) -> None:
         if provider is not None and use_openai_provider:
             raise ValueError("Provide either 'provider' or 'use_openai_provider=True', not both.")
@@ -41,6 +62,30 @@ class LLMClient:
         self._provider = provider
         self._cache = cache
         self._cache_policy = cache_policy or CachePolicy()
+        self._retry_policy = retry_policy or LLMRetryPolicy()
+        if sleep_fn is not None:
+            self._sleep = sleep_fn
+        else:
+            import time as _time
+
+            self._sleep = _time.sleep
+
+    def _with_retry(self, call: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+        """Run a provider call under the retry policy (rate-limit/transient/validation).
+
+        The provider raises LLMRateLimitError/LLMTransientError on retryable failures;
+        the policy decides whether/when to retry with capped exponential backoff.
+        """
+        attempt = 1
+        while True:
+            try:
+                return call()
+            except Exception as exc:  # noqa: BLE001 — policy decides retryability
+                decision = self._retry_policy.build_retry_decision(attempt=attempt, error=exc)
+                if not decision.should_retry or decision.next_attempt is None:
+                    raise
+                self._sleep(decision.delay_seconds)
+                attempt = decision.next_attempt
 
     def complete(
         self,
@@ -161,40 +206,49 @@ class LLMClient:
         temperature: float,
         response_format: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        if self._provider is None:
+        provider = self._provider
+        if provider is None:
             raise RuntimeError("LLM provider is not configured.")
 
-        if hasattr(self._provider, "complete"):
-            payload = self._provider.complete(
-                prompt=prompt,
-                model=model,
-                temperature=temperature,
-                response_format=response_format,
+        if hasattr(provider, "complete"):
+            payload = self._with_retry(
+                lambda: provider.complete(
+                    prompt=prompt,
+                    model=model,
+                    temperature=temperature,
+                    response_format=response_format,
+                )
             )
             return payload if isinstance(payload, dict) else {"text": str(payload)}
 
         raise TypeError("Provider must define a complete() method.")
 
     def _call_provider_embed(self, texts: list[str], model: str) -> dict[str, Any]:
-        if self._provider is None:
+        provider = self._provider
+        if provider is None:
             raise RuntimeError("LLM provider is not configured.")
 
-        if hasattr(self._provider, "embed"):
-            payload = self._provider.embed(texts=texts, model=model)
+        if hasattr(provider, "embed"):
+            payload = self._with_retry(lambda: provider.embed(texts=texts, model=model))
             return payload if isinstance(payload, dict) else {"embeddings": payload}
 
         raise TypeError("Provider must define an embed() method for embedding requests.")
 
 
-def build_llm_client(config: dict[str, Any]) -> Any | None:
-    """Build AsyncOpenAI client from OPENAI_API_KEY; return None when unavailable."""
+def build_llm_client(config: dict[str, Any] | None = None) -> LLMClient | None:
+    """Build a ready-to-use (sync) LLMClient backed by the live OpenAI provider.
+
+    Returns None when no OPENAI_API_KEY is configured or the SDK is unavailable, so
+    callers can degrade gracefully. Previously returned a raw ``AsyncOpenAI`` — a
+    sync/async mismatch with the synchronous ``LLMClient``/provider stack; now it
+    returns the same synchronous client the rest of the code uses.
+    """
     _ = config
-    api_key = __import__("os").getenv("OPENAI_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return None
     try:
-        from openai import AsyncOpenAI
-
-        return AsyncOpenAI(api_key=api_key)
+        import openai  # noqa: F401 — presence check only
     except ImportError:
         return None
+    return LLMClient(use_openai_provider=True, openai_api_key=api_key)

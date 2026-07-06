@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -113,12 +114,131 @@ def test_llm_client_rejects_conflicting_provider_configuration() -> None:
         LLMClient(provider=MockLLMProvider(), use_openai_provider=True)
 
 
-def test_openai_provider_shell_methods_raise_not_implemented() -> None:
-    provider = OpenAIProvider(api_key="sk-local-test-key")
-    with pytest.raises(NotImplementedError):
-        provider.complete(prompt="hello", model="gpt-4o-mini", temperature=0.2)
-    with pytest.raises(NotImplementedError):
-        provider.embed(texts=["hello"], model="text-embedding-3-small")
+class _FakeChatCompletions:
+    def __init__(self, holder: dict) -> None:
+        self._holder = holder
+
+    def create(self, **kwargs):
+        from types import SimpleNamespace
+        self._holder["kwargs"] = kwargs
+        return SimpleNamespace(
+            model=kwargs["model"],
+            choices=[SimpleNamespace(
+                message=SimpleNamespace(content="real answer"),
+                finish_reason="stop",
+            )],
+            usage=SimpleNamespace(prompt_tokens=11, completion_tokens=7),
+        )
+
+
+class _FakeEmbeddings:
+    def create(self, **kwargs):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            data=[SimpleNamespace(embedding=[0.1, 0.2, 0.3]) for _ in kwargs["input"]],
+            usage=SimpleNamespace(prompt_tokens=5),
+        )
+
+
+class _FakeOpenAIClient:
+    def __init__(self) -> None:
+        from types import SimpleNamespace
+        self._holder: dict = {}
+        self.chat = SimpleNamespace(completions=_FakeChatCompletions(self._holder))
+        self.embeddings = _FakeEmbeddings()
+
+
+def test_openai_provider_complete_returns_normalised_payload() -> None:
+    """The provider now makes real calls (via an injected client) and normalises the
+    response to the {text, usage, metadata} contract — not a NotImplementedError shell."""
+    fake = _FakeOpenAIClient()
+    provider = OpenAIProvider(client=fake)
+    out = provider.complete(
+        prompt="hello", model="gpt-4o-mini", temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+    assert out["text"] == "real answer"
+    assert out["usage"] == {"prompt_tokens": 11, "completion_tokens": 7}
+    assert out["metadata"]["model"] == "gpt-4o-mini"
+    assert out["metadata"]["finish_reason"] == "stop"
+    kw = fake._holder["kwargs"]
+    assert kw["messages"] == [{"role": "user", "content": "hello"}]
+    assert kw["response_format"] == {"type": "json_object"}
+
+
+def test_openai_provider_embed_returns_vectors() -> None:
+    provider = OpenAIProvider(client=_FakeOpenAIClient())
+    out = provider.embed(texts=["a", "b"], model="text-embedding-3-small")
+    assert out["embeddings"] == [[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]]
+    assert out["usage"]["prompt_tokens"] == 5
+
+
+def test_llm_result_exposes_token_properties_for_usage_logging() -> None:
+    """Codex P2: consumers (pricing_llm_task) read token counts as top-level attributes;
+    LLMResult must surface them from metadata so usage logs aren't zero."""
+    client = LLMClient(provider=MockLLMProvider(completion_text="hello world"))
+    res = client.complete("hi there", model="gpt-4o-mini")
+    assert res.prompt_tokens == res.metadata["prompt_tokens"] > 0
+    assert res.completion_tokens == res.metadata["completion_tokens"] >= 0
+    assert res.total_tokens == res.prompt_tokens + res.completion_tokens
+
+
+def test_llm_client_retries_transient_then_succeeds() -> None:
+    """LLMClient now applies LLMRetryPolicy: a transient provider error is retried."""
+    from src.llm.retry import LLMTransientError
+    calls = {"n": 0}
+
+    class _Flaky:
+        provider_name = "flaky"
+
+        def complete(self, *, prompt, model, temperature, response_format=None):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise LLMTransientError("temporary blip")
+            return {"text": "ok", "usage": {"prompt_tokens": 1, "completion_tokens": 1}}
+
+    client = LLMClient(
+        provider=_Flaky(),
+        retry_policy=LLMRetryPolicy(max_attempts=3),
+        sleep_fn=lambda _s: None,
+    )
+    res = client.complete("hi")
+    assert res.text == "ok"
+    assert calls["n"] == 3
+
+
+def test_llm_client_gives_up_after_max_attempts() -> None:
+    from src.llm.retry import LLMTransientError
+
+    class _AlwaysFails:
+        provider_name = "bad"
+
+        def complete(self, *, prompt, model, temperature, response_format=None):
+            raise LLMTransientError("always")
+
+    client = LLMClient(
+        provider=_AlwaysFails(),
+        retry_policy=LLMRetryPolicy(max_attempts=2),
+        sleep_fn=lambda _s: None,
+    )
+    with pytest.raises(LLMTransientError):
+        client.complete("hi")
+
+
+@pytest.mark.skipif(
+    not os.getenv("OPENAI_LIVE"),
+    reason="live OpenAI test — set OPENAI_LIVE=1 with a real OPENAI_API_KEY to run",
+)
+def test_openai_provider_live_smoke() -> None:  # pragma: no cover - network/live
+    """Real OpenAI call (opt-in). Proves the live path end-to-end with a real key."""
+    provider = OpenAIProvider()
+    out = provider.complete(
+        prompt="Reply with the single word: pong", model="gpt-4o-mini", temperature=0.0,
+    )
+    assert isinstance(out["text"], str) and out["text"].strip()
+    assert out["usage"]["completion_tokens"] >= 1
+    emb = provider.embed(texts=["hello world"], model="text-embedding-3-small")
+    assert len(emb["embeddings"]) == 1 and len(emb["embeddings"][0]) > 100
 
 
 def test_prompt_text_not_in_result_repr_or_metadata_dump() -> None:
