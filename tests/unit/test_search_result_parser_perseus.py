@@ -39,6 +39,11 @@ class TestPerseusRealFixture:
         assert result.total_result_count == 23397
 
     def test_first_card_fields_are_fully_populated(self, real_search_html: str) -> None:
+        """Values cross-checked against the rendered DOM (not just the JSON blob):
+        the card literally renders 'From $495' and a '(5)' review count — price_i
+        is already dollars (not cents) and the visible count is
+        buying_review_rating_count, not the seller's aggregate seller_rating.count
+        (116 for this seller)."""
         card = parse_search_results_from_html(real_search_html, max_cards=48).gig_cards[0]
         assert card == SearchGigCard(
             position=1,
@@ -49,8 +54,8 @@ class TestPerseusRealFixture:
             gig_title="build ai automation workflows using n8n, zapier, claude hermes",
             seller_username="shahzadali08",
             seller_level="top_rated_seller",
-            review_count_visible=116,
-            starting_price=4.95,
+            review_count_visible=5,
+            starting_price=495.0,
             sponsored_flag=True,
         )
 

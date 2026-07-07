@@ -184,19 +184,21 @@ def _perseus_total_result_count(props: dict[str, Any]) -> int | None:
 
 
 def _perseus_gig_price(gig: dict[str, Any]) -> float | None:
-    price_cents = gig.get("price_i")
-    if not isinstance(price_cents, int | float):
+    # price_i / packages.recommended.price are already the displayed dollar amount
+    # (e.g. price_i=495 renders as "From $495"), NOT cents — do not divide by 100.
+    price = gig.get("price_i")
+    if not isinstance(price, int | float):
         packages = gig.get("packages")
         recommended = packages.get("recommended") if isinstance(packages, dict) else None
-        price_cents = recommended.get("price") if isinstance(recommended, dict) else None
-    if not isinstance(price_cents, int | float):
-        return None
-    return round(price_cents / 100, 2)
+        price = recommended.get("price") if isinstance(recommended, dict) else None
+    return float(price) if isinstance(price, int | float) else None
 
 
 def _perseus_review_count(gig: dict[str, Any]) -> int | None:
-    rating = gig.get("seller_rating")
-    count = rating.get("count") if isinstance(rating, dict) else None
+    # The gig card's visible review count is buying_review_rating_count, e.g. "(5)" —
+    # seller_rating.count is the seller's aggregate across ALL their gigs and can be
+    # far larger than what's shown on this specific card.
+    count = gig.get("buying_review_rating_count")
     return int(count) if isinstance(count, int | float) else None
 
 
