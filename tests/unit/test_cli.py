@@ -92,6 +92,68 @@ def test_seed_niches_inserts_9_rows_from_config(tmp_path: Path) -> None:
         assert int(db.query(Niche).count()) == 9
 
 
+def test_seed_niches_also_populates_niche_config_record_depth(tmp_path: Path) -> None:
+    """Codex finding on PR #166 (SCRUM-1111): the real seeding CLI never wrote
+    NicheConfigRecord rows at all, so src.pricing.analysis._resolve_keyword_depth's
+    lookup always missed and silently fell back to "standard" for every real seeded
+    niche - the depth-tier fix never actually applied outside of hand-built unit test
+    fixtures. seed-niches must now keep NicheConfigRecord in sync with config.yaml's
+    real per-niche depth values."""
+    from src.models.database import create_session_factory, get_session, initialize_database
+    from src.models.niche import NicheConfigRecord
+
+    runner = CliRunner()
+    db_path = tmp_path / "seed_niches_depth.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+
+    result = runner.invoke(cli, ["seed-niches", "--database-url", db_url])
+    assert result.exit_code == 0
+
+    engine = initialize_database(database_url=db_url)
+    session_factory = create_session_factory(engine)
+    with get_session(session_factory) as db:
+        configs = {row.niche_id: row.depth for row in db.query(NicheConfigRecord).all()}
+
+    assert configs["prd_ai_saas"] == "full"
+    assert configs["support_kb_readiness"] == "keyword_only"
+    assert configs["mcp_ai_agent"] == "feasibility"
+
+
+def test_seed_niches_is_idempotent_and_updates_changed_depth(tmp_path: Path, monkeypatch) -> None:
+    """Re-running seed-niches must not duplicate rows, and must pick up a depth change
+    in config.yaml rather than leaving the first-seeded value stuck forever."""
+    from src.models.database import create_session_factory, get_session, initialize_database
+    from src.models.niche import Niche, NicheConfigRecord
+
+    runner = CliRunner()
+    db_path = tmp_path / "seed_niches_idempotent.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+
+    first = runner.invoke(cli, ["seed-niches", "--database-url", db_url])
+    assert first.exit_code == 0
+    assert "niches seeded: 9 (9 new)" in first.output
+
+    monkeypatch.setattr(
+        run_module,
+        "_load_recommendation_config",
+        lambda *_a, **_k: {
+            "niches": [
+                {"niche_id": "prd_ai_saas", "name": "PRD / AI SaaS MVP Roadmap", "depth": "feasibility"},
+            ]
+        },
+    )
+    second = runner.invoke(cli, ["seed-niches", "--database-url", db_url])
+    assert second.exit_code == 0
+    assert "niches seeded: 9 (0 new)" in second.output  # no duplicate insert
+
+    engine = initialize_database(database_url=db_url)
+    session_factory = create_session_factory(engine)
+    with get_session(session_factory) as db:
+        assert int(db.query(Niche).count()) == 9
+        updated = db.query(NicheConfigRecord).filter(NicheConfigRecord.niche_id == "prd_ai_saas").one()
+        assert updated.depth == "feasibility"  # picked up the change, not stuck on "full"
+
+
 def test_export_recommendation_command_exists() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["export-recommendation", "--help"])

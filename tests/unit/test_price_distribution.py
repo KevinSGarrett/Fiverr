@@ -54,7 +54,7 @@ def _gig(prices: dict[str, float] | list[dict[str, float]] | str | None, reviews
 def test_analyze_price_distribution_with_normal_data() -> None:
     gigs = [_gig({"basic": {"price": 50 + i * 10}, "standard": {"price": 90 + i * 10}, "premium": {"price": 140 + i * 10}}) for i in range(6)]
     values = analyze_price_distribution.__globals__["get_gigs_for_keyword"]
-    analyze_price_distribution.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db: gigs
+    analyze_price_distribution.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db, limit=20: gigs
     try:
         output = analyze_price_distribution(1, object())
     finally:
@@ -66,7 +66,7 @@ def test_analyze_price_distribution_with_normal_data() -> None:
 def test_analyze_price_distribution_sparse_data_no_crash() -> None:
     gigs = [_gig({"basic": {"price": 50}}), _gig({"basic": {"price": 60}})]
     original = analyze_price_distribution.__globals__["get_gigs_for_keyword"]
-    analyze_price_distribution.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db: gigs
+    analyze_price_distribution.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db, limit=20: gigs
     try:
         output = analyze_price_distribution(1, object())
     finally:
@@ -100,7 +100,7 @@ def test_detect_price_gaps_no_significant_gap() -> None:
 def test_calculate_price_review_correlation_strong_positive() -> None:
     gigs = [_gig({"basic": {"price": 20 + i * 20}}, reviews=i * 20) for i in range(1, 7)]
     original = calculate_price_review_correlation.__globals__["get_gigs_for_keyword"]
-    calculate_price_review_correlation.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db: gigs
+    calculate_price_review_correlation.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db, limit=20: gigs
     try:
         output = calculate_price_review_correlation(1, object())
     finally:
@@ -111,7 +111,7 @@ def test_calculate_price_review_correlation_strong_positive() -> None:
 def test_calculate_price_review_correlation_weak() -> None:
     gigs = [_gig({"basic": {"price": 100}}, reviews=i * 10) for i in range(1, 8)]
     original = calculate_price_review_correlation.__globals__["get_gigs_for_keyword"]
-    calculate_price_review_correlation.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db: gigs
+    calculate_price_review_correlation.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db, limit=20: gigs
     try:
         output = calculate_price_review_correlation(1, object())
     finally:
@@ -122,7 +122,7 @@ def test_calculate_price_review_correlation_weak() -> None:
 def test_calculate_price_review_correlation_insufficient_data() -> None:
     gigs = [_gig({"basic": {"price": 100}}, reviews=5) for _ in range(3)]
     original = calculate_price_review_correlation.__globals__["get_gigs_for_keyword"]
-    calculate_price_review_correlation.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db: gigs
+    calculate_price_review_correlation.__globals__["get_gigs_for_keyword"] = lambda keyword_id, db, limit=20: gigs
     try:
         output = calculate_price_review_correlation(1, object())
     finally:
@@ -164,6 +164,73 @@ def test_extract_tier_prices_excludes_non_positive_prices() -> None:
 def test_price_distribution_dataclass_fields_present() -> None:
     dist = PriceDistribution(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, [], [], 0.0)
     assert dist.coefficient_of_variation == 0.0
+
+
+def test_analyze_price_distribution_samples_top_n_for_feasibility_depth() -> None:
+    """Rank-9 (gap-audit-2 P1, SCRUM-1111): get_gigs_for_keyword was always called with
+    the default limit=20 regardless of the niche's configured collection depth. A
+    "feasibility" depth niche should sample only the top 5 gigs (per the project plan's
+    depth-tier sample sizes), not the full top-20."""
+    from src.models.niche import NicheConfigRecord
+
+    session = _session()
+    niche, keyword = _seed_keyword(session, "feasibility_niche")
+    session.add(
+        NicheConfigRecord(
+            niche_id=niche.slug,
+            name=niche.name,
+            depth="feasibility",
+            category_path="Programming & Tech",
+        )
+    )
+    for i in range(8):
+        session.add(
+            Gig(
+                keyword_id=keyword.id,
+                seller_username=f"s{i}",
+                gig_url=f"u://feasibility/{i}",
+                position=i,
+                packages={"basic": {"price": 50 + i * 10}},
+            )
+        )
+    session.commit()
+
+    distributions = analyze_price_distribution(keyword.id, session)
+    assert distributions["basic"].n_gigs == 5  # feasibility depth = top 5, not the 8 seeded
+    session.close()
+
+
+def test_analyze_price_distribution_samples_top_n_for_full_depth() -> None:
+    """Same niche/gig count as above but with "full" depth configured - all 8 gigs
+    (fewer than the top-20 cap) must be sampled, proving depth actually changes the
+    outcome rather than always defaulting to one value."""
+    from src.models.niche import NicheConfigRecord
+
+    session = _session()
+    niche, keyword = _seed_keyword(session, "full_depth_niche")
+    session.add(
+        NicheConfigRecord(
+            niche_id=niche.slug,
+            name=niche.name,
+            depth="full",
+            category_path="Programming & Tech",
+        )
+    )
+    for i in range(8):
+        session.add(
+            Gig(
+                keyword_id=keyword.id,
+                seller_username=f"s{i}",
+                gig_url=f"u://full/{i}",
+                position=i,
+                packages={"basic": {"price": 50 + i * 10}},
+            )
+        )
+    session.commit()
+
+    distributions = analyze_price_distribution(keyword.id, session)
+    assert distributions["basic"].n_gigs == 8
+    session.close()
 
 
 def test_analyze_niche_pricing_returns_correct_niche_id() -> None:

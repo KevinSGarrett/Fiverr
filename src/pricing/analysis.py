@@ -166,9 +166,10 @@ def detect_price_gaps(prices: np.ndarray, min_gap_pct: float = 0.20) -> list[dic
     return gaps
 
 
-def calculate_price_review_correlation(keyword_id: int, db: Any) -> dict[str, Any]:
+def calculate_price_review_correlation(keyword_id: int, db: Any, depth: str | None = None) -> dict[str, Any]:
     """Calculate relationship between basic-tier price and review count."""
-    gigs = get_gigs_for_keyword(keyword_id, db)
+    resolved_depth = depth if depth is not None else _resolve_keyword_depth(keyword_id, db)
+    gigs = get_gigs_for_keyword(keyword_id, db, limit=_sample_limit_for_depth(resolved_depth))
     data_points: list[dict[str, float]] = []
     for gig in gigs:
         basic_price = extract_tier_prices([gig], "basic")
@@ -273,9 +274,10 @@ def extract_extras_pricing(gigs: list[Any]) -> dict[str, Any]:
     }
 
 
-def analyze_price_distribution(keyword_id: int, db: Any) -> dict[str, PriceDistribution]:
+def analyze_price_distribution(keyword_id: int, db: Any, depth: str | None = None) -> dict[str, PriceDistribution]:
     """Compute per-tier pricing distribution statistics for one keyword."""
-    gigs = get_gigs_for_keyword(keyword_id, db)
+    resolved_depth = depth if depth is not None else _resolve_keyword_depth(keyword_id, db)
+    gigs = get_gigs_for_keyword(keyword_id, db, limit=_sample_limit_for_depth(resolved_depth))
     results: dict[str, PriceDistribution] = {}
     for tier in ("basic", "standard", "premium"):
         prices = extract_tier_prices(gigs, tier)
@@ -312,13 +314,18 @@ def analyze_niche_pricing(niche_id: str, db: Any) -> dict[str, Any]:
     if not keywords:
         return {}
 
+    # All keywords in this loop share one niche, so resolve depth once rather than
+    # per-keyword (SCRUM-1111).
+    depth = _resolve_keyword_depth(int(keywords[0].id), db)
+    sample_limit = _sample_limit_for_depth(depth)
+
     tier_prices: dict[str, list[float]] = {"basic": [], "standard": [], "premium": []}
     all_correlations: list[float] = []
     for keyword in keywords:
-        keyword_gigs = get_gigs_for_keyword(int(keyword.id), db)
+        keyword_gigs = get_gigs_for_keyword(int(keyword.id), db, limit=sample_limit)
         for tier in ("basic", "standard", "premium"):
             tier_prices[tier].extend(extract_tier_prices(keyword_gigs, tier))
-        corr = calculate_price_review_correlation(int(keyword.id), db)
+        corr = calculate_price_review_correlation(int(keyword.id), db, depth=depth)
         if corr.get("pearson_correlation") is not None:
             all_correlations.append(float(corr["pearson_correlation"]))
 
@@ -400,13 +407,14 @@ def extract_raw_price_data_from_db(keyword_id: int, run_id: str, db: Any) -> Raw
 
 def persist_keyword_pricing(keyword_id: int, run_id: str, db: Any) -> tuple[PriceAnalysis | None, PricingSnapshot | None]:
     """Persist `PriceAnalysis` row for keyword and return placeholder snapshot slot."""
-    distributions = analyze_price_distribution(keyword_id, db)
+    depth = _resolve_keyword_depth(keyword_id, db)
+    distributions = analyze_price_distribution(keyword_id, db, depth=depth)
     if "basic" not in distributions:
         return None, None
     niche_id = _resolve_keyword_niche_id(keyword_id, db)
-    corr = calculate_price_review_correlation(keyword_id, db)
+    corr = calculate_price_review_correlation(keyword_id, db, depth=depth)
     dispersion = analyze_price_dispersion(distributions["basic"])
-    extras = extract_extras_pricing(get_gigs_for_keyword(keyword_id, db))
+    extras = extract_extras_pricing(get_gigs_for_keyword(keyword_id, db, limit=_sample_limit_for_depth(depth)))
     row = PriceAnalysis(
         keyword_id=keyword_id,
         niche_id=niche_id,
@@ -571,6 +579,39 @@ def _resolve_keyword_niche_id(keyword_id: int, db: Any) -> str:
     if niche is not None and niche.slug:
         return str(niche.slug)
     return str(keyword.niche_id)
+
+
+# Project plan depth tiers: top-20 for "full", top-10 for "standard", top-5 for
+# "feasibility" (matches the identical mapping in
+# src/collection/workflows/fiverr_search.py's _queue_gig_detail_jobs).
+_DEPTH_SAMPLE_LIMITS = {"full": 20, "standard": 10, "feasibility": 5}
+_DEFAULT_PRICING_SAMPLE_LIMIT = _DEPTH_SAMPLE_LIMITS["standard"]
+
+
+def _sample_limit_for_depth(depth: str | None) -> int:
+    return _DEPTH_SAMPLE_LIMITS.get(depth or "standard", _DEFAULT_PRICING_SAMPLE_LIMIT)
+
+
+def _resolve_niche_depth(niche_slug: str, db: Any) -> str:
+    if not isinstance(db, Session):
+        return "standard"
+    try:
+        from src.models.niche import NicheConfigRecord
+
+        config = db.query(NicheConfigRecord).filter(NicheConfigRecord.niche_id == niche_slug).first()
+    except Exception:  # noqa: BLE001 - depth resolution must degrade, not crash pricing
+        return "standard"
+    return config.depth if config is not None and config.depth else "standard"
+
+
+def _resolve_keyword_depth(keyword_id: int, db: Any) -> str:
+    """Resolve the collection depth tier configured for this keyword's niche, so
+    pricing sample sizes match the depth-tier-dependent sizes the plan promises
+    (SCRUM-1111) instead of always using the "full" top-20 sample."""
+    niche_slug = _resolve_keyword_niche_id(keyword_id, db)
+    if niche_slug == "unknown":
+        return "standard"
+    return _resolve_niche_depth(niche_slug, db)
 
 
 def _to_positive_float(value: Any) -> float | None:
