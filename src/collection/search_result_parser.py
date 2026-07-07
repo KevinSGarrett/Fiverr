@@ -9,9 +9,11 @@ so downstream DB writes are identical regardless of which backend fetched the pa
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 # ---------------------------------------------------------------------------
@@ -143,6 +145,91 @@ def _fallback_cards_from_hrefs(html: str, max_cards: int) -> list[dict[str, str 
 
 def _as_str(value: str | bool | None) -> str | None:
     return value if isinstance(value, str) else None
+
+
+# ---------------------------------------------------------------------------
+# perseus-initial-props JSON extraction
+#
+# Fiverr's search SPA embeds the full result set (gig objects, seller stats,
+# pricing, pagination) as JSON in a `perseus-initial-props` script tag. It is
+# the authoritative, complete data source — the rendered `data-testid`
+# markup the _CardCollector below scans for has been removed from current
+# Fiverr search pages, which is why that path degrades to the href-only
+# fallback (no title/price/rating) in production today.
+# ---------------------------------------------------------------------------
+
+_PERSEUS_SCRIPT_RE = re.compile(
+    r'<script[^>]*\bid=["\']perseus-initial-props["\'][^>]*>(.*?)</script>',
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _extract_perseus_props(html: str) -> dict[str, Any] | None:
+    """Locate and parse the perseus-initial-props JSON blob. Never raises."""
+    match = _PERSEUS_SCRIPT_RE.search(html)
+    if not match:
+        return None
+    try:
+        props = json.loads(match.group(1).strip())
+    except (ValueError, TypeError):
+        return None
+    return props if isinstance(props, dict) else None
+
+
+def _perseus_total_result_count(props: dict[str, Any]) -> int | None:
+    app_data = props.get("appData")
+    pagination = app_data.get("pagination") if isinstance(app_data, dict) else None
+    total = pagination.get("total") if isinstance(pagination, dict) else None
+    return total if isinstance(total, int) else None
+
+
+def _perseus_gig_price(gig: dict[str, Any]) -> float | None:
+    # price_i / packages.recommended.price are already the displayed dollar amount
+    # (e.g. price_i=495 renders as "From $495"), NOT cents — do not divide by 100.
+    price = gig.get("price_i")
+    if not isinstance(price, int | float):
+        packages = gig.get("packages")
+        recommended = packages.get("recommended") if isinstance(packages, dict) else None
+        price = recommended.get("price") if isinstance(recommended, dict) else None
+    return float(price) if isinstance(price, int | float) else None
+
+
+def _perseus_review_count(gig: dict[str, Any]) -> int | None:
+    # The gig card's visible review count is buying_review_rating_count, e.g. "(5)" —
+    # seller_rating.count is the seller's aggregate across ALL their gigs and can be
+    # far larger than what's shown on this specific card.
+    count = gig.get("buying_review_rating_count")
+    return int(count) if isinstance(count, int | float) else None
+
+
+def _gig_cards_from_perseus(props: dict[str, Any], max_cards: int) -> list[SearchGigCard]:
+    listings = props.get("listings")
+    raw_gigs: list[Any] = []
+    if isinstance(listings, list) and listings and isinstance(listings[0], dict):
+        candidate = listings[0].get("gigs")
+        if isinstance(candidate, list):
+            raw_gigs = candidate
+
+    cards: list[SearchGigCard] = []
+    for index, gig in enumerate(raw_gigs[:max_cards]):
+        if not isinstance(gig, dict):
+            continue
+        raw_pos = gig.get("pos")
+        position = raw_pos + 1 if isinstance(raw_pos, int) else index + 1
+        title = gig.get("title")
+        cards.append(
+            SearchGigCard(
+                position=position,
+                gig_url=_normalise_gig_url(_as_str(gig.get("gig_url"))),
+                gig_title=title.strip() if isinstance(title, str) and title.strip() else None,
+                seller_username=_as_str(gig.get("seller_name")),
+                seller_level=_as_str(gig.get("seller_level")),
+                review_count_visible=_perseus_review_count(gig),
+                starting_price=_perseus_gig_price(gig),
+                sponsored_flag=gig.get("type") == "promoted_gigs",
+            )
+        )
+    return cards
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +404,19 @@ def parse_search_results_from_html(
             total_result_count=None,
             gig_cards=[],
             warnings=["Search HTML is empty or contains no tags."],
+        )
+
+    perseus_props = _extract_perseus_props(html)
+    if perseus_props is not None:
+        perseus_cards = _gig_cards_from_perseus(perseus_props, max_cards)
+        if perseus_cards:
+            return SearchParseResult(
+                total_result_count=_perseus_total_result_count(perseus_props),
+                gig_cards=perseus_cards,
+                warnings=warnings,
+            )
+        warnings.append(
+            "perseus-initial-props JSON found but contained zero gigs; falling back to HTML card scan."
         )
 
     collector = _CardCollector()
