@@ -188,9 +188,12 @@ discovery:
   max_cost_per_run: 7.5
   min_confidence: 0.6
   gold_threshold: 0.82
-  enabled_modes:
-    - full
-    - collect-only
+  # Empty = no override; stage16._select_modes() runs its built-in defaults
+  # (adjacent_keyword, gap_exploit, trend_chase, + adjacent_niche every 3rd run).
+  # Previously listed pipeline-stage mode names ("full", "collect-only") by mistake,
+  # which matched none of the real Stage-16 generator names and silently zeroed out
+  # every discovery cycle (SCRUM-1107).
+  enabled_modes: []
   skill_profile:
     primary_skills:
       - market_research

@@ -546,6 +546,80 @@ def test_run_pipeline_cluster_only_returns_error_on_failure(
     assert "Cluster-only run failed: cluster boom" in capsys.readouterr().out
 
 
+def test_run_pipeline_discovery_only_calls_run_discovery_cycle(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Rank-6 (gap-audit-2 P1, SCRUM-1107): `discovery-only` used to unconditionally
+    fall through to the generic "not wired yet" stub message, even though a fully
+    working discovery cycle (run.py's `discover` command) already existed - the mode
+    dispatcher just never called it. Now it must actually run Stage 16."""
+
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    def _fake_run_discovery_cycle(**kwargs: Any) -> Any:
+        assert "db" in kwargs
+        return SimpleNamespace(hypotheses_accepted=3)
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.discovery.stage16.run_discovery_cycle", _fake_run_discovery_cycle)
+
+    assert orchestrator.run_pipeline("discovery-only", config_path="config.yaml", database_url=None) == 0
+    assert "Discovery complete: 3 keywords inserted" in capsys.readouterr().out
+
+
+def test_run_pipeline_discovery_only_returns_error_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    def _broken_run_discovery_cycle(**_kwargs: Any) -> Any:
+        raise RuntimeError("discovery boom")
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr("src.discovery.stage16.run_discovery_cycle", _broken_run_discovery_cycle)
+
+    assert orchestrator.run_pipeline("discovery-only", config_path="config.yaml", database_url=None) == 1
+    assert "Discovery cycle failed: discovery boom" in capsys.readouterr().out
+
+
 def test_resolve_existing_run_id_prefers_search_result_run() -> None:
     class _FakeQuery:
         def __init__(self, value: Any) -> None:

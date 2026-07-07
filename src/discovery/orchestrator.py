@@ -1,9 +1,19 @@
-"""Discovery orchestrator stub.
+"""Discovery orchestrator — SRDI-legacy, NOT the production discovery path.
 
-Coordinates the discovery core loop, hypothesis mode dispatch,
-scoring/feedback, keyword integration, and Stage 16 wiring.
+`run_cycle()` below implements a real pre-insertion relevance gate (ghost-market /
+contamination checks via `DiscoveryPreValidator`, requiring a live `provisional_result_set`
+per candidate), but no production entrypoint calls it — the wired path is
+`src/discovery/stage16.py::run_discovery_cycle`, which uses a different, POST-hoc
+evaluation design instead (`evaluate_discovery_results()` in `src/discovery/feedback.py`
+scores discovery keywords once they have real collected/scored data, rather than
+requiring a synchronous provisional search at hypothesis-generation time — stage16.py's
+rule-based generators derive candidates purely from existing DB data and have no live
+search results available to gate against here).
 
-Status: Scaffolded (SCRUM-273). Full implementation in SCRUM-195 through SCRUM-204.
+Kept for its dedicated test coverage (tests/unit/test_discovery_relevance_gates.py) and
+as a reference implementation of the pre-insertion gating pattern, but do not assume this
+class runs in production, and do not add new production wiring to it without first
+reconciling it with stage16.py's design (see SCRUM-1105).
 """
 
 from __future__ import annotations
@@ -33,10 +43,12 @@ DISCOVERY_STATUS_MISS = "MISS"
 
 
 class DiscoveryOrchestrator:
-    """Orchestrate discovery cycle runs across hypothesis modes.
+    """Pre-insertion relevance-gate reference implementation - NOT wired into production.
 
-    This is a stub that will be fully implemented in SCRUM-195 through SCRUM-204.
-    Currently provides the interface contract and defers execution.
+    See the module docstring: the live discovery cycle is
+    `src/discovery/stage16.py::run_discovery_cycle`, which does not use this class.
+    `generate_hypotheses()`/`score_and_filter()`/`promote_keywords()` below remain stubs;
+    `run_cycle()` is a real, tested implementation but has no production caller.
     """
 
     def __init__(

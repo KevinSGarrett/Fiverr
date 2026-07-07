@@ -53,7 +53,7 @@ STAGE_AVAILABILITY = {
     "analyze-only": "Analysis persistence foundation exists; analysis runner is not wired yet.",
     "price-analysis": "Run Stage 10.5 pricing analysis and recommendation calculations.",
     "recommendations-only": "Re-run Stage 13 for all eligible keywords using existing scores.",
-    "discovery-only": "Discovery storage exists; discovery orchestration is not wired yet.",
+    "discovery-only": "Discovery-only mode runs Stage 16 discovery cycle orchestration.",
     "discovery-collect": "Discovery-collect mode: runs collection then discovery stage. Pending full wiring.",
     "resume": "Resume mode placeholder is active; checkpoint resume flow is pending.",
 }
@@ -448,6 +448,22 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             print(f"Collection dry run failed: {exc}")
             return 1
         print(f"Collection dry run complete: {result}")
+        return 0
+
+    if mode == "discovery-only":
+        from src.discovery.stage16 import run_discovery_cycle
+
+        session_factory = create_session_factory(engine)
+        try:
+            with get_session(session_factory) as db_session:
+                cycle_log = run_discovery_cycle(
+                    db=db_session,
+                    config=config_payload if isinstance(config_payload, dict) else {},
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Discovery cycle failed: {exc}")
+            return 1
+        print(f"Discovery complete: {cycle_log.hypotheses_accepted} keywords inserted")
         return 0
 
     if mode == "cluster-only":
