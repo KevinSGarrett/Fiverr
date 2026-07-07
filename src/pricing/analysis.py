@@ -485,6 +485,8 @@ def _apply_distribution_to_row(row: PriceAnalysis, tier: str, distribution: Pric
     if distribution is None:
         return
     setattr(row, f"{tier}_n", distribution.n_gigs)
+    setattr(row, f"{tier}_min", distribution.min_price)
+    setattr(row, f"{tier}_max", distribution.max_price)
     setattr(row, f"{tier}_median", distribution.median_price)
     setattr(row, f"{tier}_mean", distribution.mean_price)
     setattr(row, f"{tier}_mode", distribution.mode_price)

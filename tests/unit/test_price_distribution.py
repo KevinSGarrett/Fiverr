@@ -288,6 +288,14 @@ def test_run_price_distribution_analysis_persists_row() -> None:
     row = run_price_distribution_analysis(raw, session)
     session.commit()
     assert row.basic_n == 5 and row.market_type is not None
+    # Rank-8 (gap-audit-2 P1, SCRUM-1109): true min/max must reach the DB row, not just
+    # the in-memory PriceDistribution dataclass - previously silently dropped.
+    assert row.basic_min == 50.0
+    assert row.basic_max == 90.0
+    assert row.standard_min == 90.0
+    assert row.standard_max == 160.0
+    assert row.premium_min == 150.0
+    assert row.premium_max == 270.0
     session.close()
 
 
