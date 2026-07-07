@@ -79,9 +79,9 @@ async def run_gig_detail_collection(
             {"tier_index": i + 1, "price_text": pkg.price}
             for i, pkg in enumerate(parsed.packages)
         ]
-        tags: list[str] | None = None
-        faq_text: str | None = None
-        video_present: bool | None = None
+        tags = parsed.tags
+        faq_text = parsed.faq_text
+        video_present = parsed.video_present
         portfolio_count = parsed.image_count
         review_count = parsed.review_count
         rating = parsed.rating

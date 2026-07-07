@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -433,3 +434,38 @@ async def test_fetcher_none_falls_through_to_playwright_path(
     )
 
     session_manager.new_page.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_scrapfly_path_persists_real_tags_faq_and_video_from_perseus_json() -> None:
+    """Rank-5 (gap-audit-2 P0, SCRUM-1093): the ScrapFly path used to hardcode
+    tags/faq_text/video_present to None regardless of what the fetched page contained.
+    With a real ScrapFly-fetched gig page (perseus-initial-props present), these must
+    now flow through to the persisted Gig row."""
+    real_html = (
+        Path(__file__).resolve().parents[1] / "fixtures" / "live" / "fiverr_gig_detail_real_2.html"
+    ).read_text(encoding="utf-8")
+    db = _in_memory_session()
+    gig_url = "https://www.fiverr.com/wp_monkey/flutter-app-development-for-android-and-ios-mobile-app-figma-to-flutter"
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_fetch_result(real_html, url=gig_url)))
+
+    await run_gig_detail_collection(
+        gig_url=gig_url,
+        keyword_id=222,
+        niche_id="automation",
+        depth="keyword_only",
+        run_id="run-sf-real-detail",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    gig = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+    assert gig.tags == ["n8n workflow", "n8n automation", "workflow automation", "n8n ai agent", "ai agent"]
+    assert gig.faq_text is not None
+    assert "Q: Do you provide any support once the project is done?" in gig.faq_text
+    assert gig.video_present is False
+    assert gig.portfolio_count == 1  # not the old wildly-inflated <img>-tag count
