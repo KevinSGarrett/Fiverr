@@ -1853,3 +1853,23 @@ def test_orchestrator_error_entries_rank_below_real_results(monkeypatch) -> None
     grouped = result.grouped_rankings
     assert [kw["keyword_id"] for kw in grouped.get("ERROR", [])] == [1302]
     assert all(kw["keyword_id"] != 1302 for kw in grouped.get("PASS", []))
+
+
+def test_orchestrator_score_wrapper_survives_calculator_failure(monkeypatch) -> None:
+    """Codex finding on PR #169: the legacy score()/score_batch() wrapper ran
+    float(final_payload["final_score"]) - with failed entries now carrying
+    final_score=None, a calculator crash would raise TypeError instead of returning
+    an ERROR ScoringOutput. The wrapper must coerce to a safe 0.0 composite while
+    preserving the ERROR verdict."""
+    orchestrator = ScoringOrchestrator()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("calculator exploded")
+
+    monkeypatch.setattr(orchestrator._demand_calculator, "calculate", _boom)  # noqa: SLF001
+    output = orchestrator.score(ScoringInput(run_id=1, keyword_id=1401, profile_name="default"))
+
+    assert output.verdict == "ERROR"
+    assert output.composite_score == 0.0
+    assert output.raw_json["scoring_failed"] is True
+    assert "calculator exploded" in output.explanation

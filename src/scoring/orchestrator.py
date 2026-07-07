@@ -225,8 +225,12 @@ class ScoringOrchestrator:
             profile=scoring_input.profile_name,
         )
         first_result = run_result.ranked_keywords[0] if run_result.ranked_keywords else {}
+        # final_score is None for failed (tag="ERROR") entries - coerce to a safe 0.0
+        # composite while preserving the ERROR verdict, instead of float(None) raising
+        # (Codex review, PR #169).
         final_payload = first_result.get("final_payload", {})
-        final_score = float(final_payload.get("final_score", 0.0))
+        raw_final_score = final_payload.get("final_score", 0.0)
+        final_score = float(raw_final_score) if raw_final_score is not None else 0.0
         tag = str(final_payload.get("tag", "UNSCORED"))
         return ScoringOutput(
             run_id=scoring_input.run_id,
