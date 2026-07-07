@@ -139,6 +139,13 @@ class TestBuildSeedData:
         assert result["trend_signals"] == []
 
     def test_build_seed_data_with_rows(self) -> None:
+        """Rank-6 (gap-audit-2 P1, SCRUM-1103/SCRUM-1104): mock KeywordScore rows use
+        the REAL 0-100 scale (see src/scoring/demand.py:709, trend.py:140) and the
+        REAL score_components shape (no "trend_velocity" key - that never existed at
+        the persisted-row level; see calculate_weighted_composite in
+        src/scoring/pipeline.py). The previous version of this test used 0-1 scale
+        mocks and a fictional trend_velocity key, which happened to satisfy the
+        (buggy) production code's wrong assumptions and hid the scale-mismatch bug."""
         from src.discovery.stage16 import _build_seed_data
 
         db = MagicMock()
@@ -146,13 +153,17 @@ class TestBuildSeedData:
         gap_rows = [
             (
                 SimpleNamespace(keyword="python automation"),
-                SimpleNamespace(demand_score=0.9, competition_score=0.2, opportunity_score=0.8, score_components={}),
+                SimpleNamespace(demand_score=90.0, competition_score=20.0, opportunity_score=80.0, score_components={}),
             )
         ]
         trend_rows = [
             (
                 SimpleNamespace(keyword="ai workflows"),
-                SimpleNamespace(trend_score=0.7, opportunity_score=0.8, score_components={"trend_velocity": 0.6}),
+                SimpleNamespace(
+                    trend_score=70.0,
+                    opportunity_score=80.0,
+                    score_components={"trend_score": {"value": 70.0, "weight": 0.1, "contribution": 7.0}},
+                ),
             )
         ]
         db.query.return_value.filter.return_value.limit.return_value.all.side_effect = [
@@ -167,6 +178,81 @@ class TestBuildSeedData:
         with patch("src.discovery.stage16._resolve_niche_pk", return_value=1):
             result = _build_seed_data("python_automation", db, ["gap_exploit", "trend_chase"])
         assert result["seed_keywords"][:2] == ["python automation", "ai workflows"]
+
+        gap_signal = result["gap_signals"][0]
+        assert gap_signal["demand_score"] == pytest.approx(0.9)
+        assert gap_signal["competition_score"] == pytest.approx(0.2)
+        assert gap_signal["opportunity_score"] == pytest.approx(0.8)
+
+        trend_signal = result["trend_signals"][0]
+        assert trend_signal["trend_score"] == pytest.approx(0.7)
+        assert trend_signal["trend_velocity"] == pytest.approx(0.7)
+
+    def test_gap_signals_from_real_scale_scores_pass_hypothesis_thresholds(self) -> None:
+        """The actual bug: with real 0-100 KeywordScore values, hypothesis.py's
+        gap-exploit filter (demand >= 0.60 and competition <= 0.40 on a 0-1 scale)
+        must actually be reachable - before this fix, competition_score=45.0 (a
+        perfectly ordinary, not-even-low real value) always failed the filter
+        because it was compared unnormalized against 0.40."""
+        from src.discovery.hypothesis import (
+            GAP_COMPETITION_THRESHOLD,
+            GAP_DEMAND_THRESHOLD,
+            _identify_gap_keywords,
+        )
+        from src.discovery.stage16 import _build_seed_data
+
+        db = MagicMock()
+        keyword_rows = [SimpleNamespace(keyword="ai chatbot")]
+        gap_rows = [
+            (
+                SimpleNamespace(keyword="ai chatbot"),
+                # Realistic real-world values: solid demand, ordinary (not lucky-low)
+                # competition - the kind of row that SHOULD surface as a gap opportunity.
+                SimpleNamespace(demand_score=75.3, competition_score=35.8, opportunity_score=68.0, score_components={}),
+            )
+        ]
+        db.query.return_value.filter.return_value.limit.return_value.all.side_effect = [keyword_rows, gap_rows]
+        db.query.return_value.join.return_value.filter.return_value.limit.return_value.all.side_effect = [gap_rows]
+        with patch("src.discovery.stage16._resolve_niche_pk", return_value=1):
+            seed_data = _build_seed_data("python_automation", db, ["gap_exploit"])
+
+        assert seed_data["gap_signals"][0]["demand_score"] >= GAP_DEMAND_THRESHOLD
+        assert seed_data["gap_signals"][0]["competition_score"] <= GAP_COMPETITION_THRESHOLD
+        accepted = _identify_gap_keywords(seed_data["gap_signals"])
+        assert len(accepted) == 1
+        assert accepted[0]["keyword"] == "ai chatbot"
+
+    def test_trend_signals_from_real_scale_scores_pass_hypothesis_thresholds(self) -> None:
+        """The actual bug: trend_velocity was read from a score_components key that
+        never exists on a real persisted KeywordScore row, so it always fell back to
+        the hardcoded 0.3 constant - which always fails TREND_VELOCITY_THRESHOLD=0.40,
+        meaning trend_chase silently produced zero hypotheses regardless of real
+        Google Trends/Reddit momentum."""
+        from src.discovery.hypothesis import (
+            TREND_SCORE_THRESHOLD,
+            TREND_VELOCITY_THRESHOLD,
+            _identify_trending_keywords,
+        )
+        from src.discovery.stage16 import _build_seed_data
+
+        db = MagicMock()
+        keyword_rows = [SimpleNamespace(keyword="n8n automation")]
+        trend_rows = [
+            (
+                SimpleNamespace(keyword="n8n automation"),
+                SimpleNamespace(trend_score=82.0, opportunity_score=70.0, score_components={}),
+            )
+        ]
+        db.query.return_value.filter.return_value.limit.return_value.all.side_effect = [keyword_rows, trend_rows]
+        db.query.return_value.join.return_value.filter.return_value.limit.return_value.all.side_effect = [trend_rows]
+        with patch("src.discovery.stage16._resolve_niche_pk", return_value=1):
+            seed_data = _build_seed_data("python_automation", db, ["trend_chase"])
+
+        assert seed_data["trend_signals"][0]["trend_score"] >= TREND_SCORE_THRESHOLD
+        assert seed_data["trend_signals"][0]["trend_velocity"] >= TREND_VELOCITY_THRESHOLD
+        accepted = _identify_trending_keywords(seed_data["trend_signals"])
+        assert len(accepted) == 1
+        assert accepted[0]["keyword"] == "n8n automation"
 
 
 class TestGenerateAllHypotheses:

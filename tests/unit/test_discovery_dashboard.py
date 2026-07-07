@@ -615,7 +615,9 @@ class TestS79CoverageUplift:
         assert DEFAULT_MIN_CONFIDENCE == 0.5
         assert DEFAULT_MAX_HYPOTHESES == 15
         line_count = len(Path("src/discovery/stage16.py").read_text(encoding="utf-8").splitlines())
-        assert 295 <= line_count <= 310
+        # Widened for the rank-6 real-scale normalization fix (SCRUM-1103/SCRUM-1104) -
+        # this guard exists to catch accidental truncation, not to block legitimate growth.
+        assert 295 <= line_count <= 340
 
     def test_hypothesis_mode_inventory_preserved(self) -> None:
         from src.discovery.contracts import HypothesisMode
