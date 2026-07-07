@@ -497,6 +497,15 @@ def test_context_price_distribution_populated(monkeypatch: Any) -> None:
     assert context.price_distribution is not None
     assert context.price_distribution["basic"]["median"] == 100.0
     assert context.price_distribution["basic"]["gaps"] == [{"gap_midpoint": 90}]
+    # Rank-8 (gap-audit-2 P1, SCRUM-1108): "max" previously read basic_p90 (mislabeled as
+    # the market maximum) instead of the real basic_max - this mock set basic_max=180.0
+    # but the prior test never asserted on it, so the mislabeling went uncaught.
+    assert context.price_distribution["basic"]["min"] == 70.0
+    assert context.price_distribution["basic"]["max"] == 180.0
+    assert context.price_distribution["standard"]["min"] == 120.0
+    assert context.price_distribution["standard"]["max"] == 300.0
+    assert context.price_distribution["premium"]["min"] == 250.0
+    assert context.price_distribution["premium"]["max"] == 550.0
 
 
 def test_context_market_type_populated(monkeypatch: Any) -> None:

@@ -22,6 +22,8 @@ class PriceAnalysis(IntegerPrimaryKeyMixin, Base):
     run_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
 
     basic_n: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    basic_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    basic_max: Mapped[float | None] = mapped_column(Float, nullable=True)
     basic_median: Mapped[float | None] = mapped_column(Float, nullable=True)
     basic_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
     basic_mode: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -36,6 +38,8 @@ class PriceAnalysis(IntegerPrimaryKeyMixin, Base):
     basic_gaps: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
 
     standard_n: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    standard_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    standard_max: Mapped[float | None] = mapped_column(Float, nullable=True)
     standard_median: Mapped[float | None] = mapped_column(Float, nullable=True)
     standard_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
     standard_mode: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -50,6 +54,8 @@ class PriceAnalysis(IntegerPrimaryKeyMixin, Base):
     standard_gaps: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
 
     premium_n: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    premium_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    premium_max: Mapped[float | None] = mapped_column(Float, nullable=True)
     premium_median: Mapped[float | None] = mapped_column(Float, nullable=True)
     premium_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
     premium_mode: Mapped[float | None] = mapped_column(Float, nullable=True)

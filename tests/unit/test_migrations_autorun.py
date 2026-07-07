@@ -40,6 +40,28 @@ def test_runner_is_idempotent() -> None:
     assert "discovery_cycle_logs" in set(list_tables(eng))
 
 
+def test_initialize_database_creates_migration15_price_min_max_columns() -> None:
+    """Rank-8 (gap-audit-2 P1, SCRUM-1109): basic/standard/premium _min/_max columns
+    must exist on a freshly-initialized DB — previously the PriceAnalysis model didn't
+    have them at all, so true min/max price data was silently dropped before it ever
+    reached the database."""
+    from sqlalchemy import inspect as sa_inspect
+
+    eng = initialize_database("sqlite:///:memory:")
+    columns = {c["name"] for c in sa_inspect(eng).get_columns("price_analysis")}
+    for tier in ("basic", "standard", "premium"):
+        assert f"{tier}_min" in columns, f"{tier}_min missing — migration_15 not auto-run"
+        assert f"{tier}_max" in columns, f"{tier}_max missing — migration_15 not auto-run"
+
+
+def test_runner_registers_migration_15() -> None:
+    from src.migrations.srdi_r8 import run_srdi_r8_migrations as mod
+
+    src = inspect.getsource(mod)
+    assert "migration_15_price_analysis_min_max" in src
+    assert "migration_15_price_analysis_min_max.apply(" in src
+
+
 def test_initialize_database_migration_failure_is_non_fatal(monkeypatch) -> None:
     """A migration hiccup must degrade (log) rather than brick DB init — the create_all
     schema must still come up."""
