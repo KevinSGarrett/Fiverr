@@ -396,6 +396,48 @@ async def test_gig_detail_fetcher_does_not_overwrite_existing_optional_fields() 
 
 
 @pytest.mark.asyncio
+async def test_gig_detail_perseus_recrawl_clears_stale_faq_and_video() -> None:
+    """Codex finding on PR #162: unlike the legacy fallback (above), a perseus-JSON
+    recrawl is AUTHORITATIVE - if the real page now reports no FAQ/video, that must
+    overwrite stale faq_text/video_present left over from a previous crawl, not be
+    silently skipped by the "don't clobber unknowns" guard."""
+    real_html = (Path(__file__).resolve().parents[1] / "fixtures" / "live" / "fiverr_gig_detail_real.html").read_text(
+        encoding="utf-8"
+    )
+    db = _in_memory_session()
+    gig_url = "https://www.fiverr.com/shahzadali08/provide-office-365-solution-custom-power-apps-automate-bi-and-azure-functions"
+    db.add(
+        Gig(
+            gig_url=gig_url,
+            seller_username="shahzadali08",
+            faq_text="Stale FAQ from a previous crawl",
+            video_present=True,
+        )
+    )
+    db.commit()
+
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_fetch_result(real_html, url=gig_url)))
+
+    await run_gig_detail_collection(
+        gig_url=gig_url,
+        keyword_id=333,
+        niche_id="automation",
+        depth="keyword_only",
+        run_id="run-sf-real-clear",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    refreshed = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+    assert refreshed.faq_text is None  # real page has no FAQ - stale text must be cleared
+    assert refreshed.video_present is False  # real page has no video - stale True must be cleared
+
+
+@pytest.mark.asyncio
 async def test_fetcher_none_falls_through_to_playwright_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -469,3 +511,6 @@ async def test_scrapfly_path_persists_real_tags_faq_and_video_from_perseus_json(
     assert "Q: Do you provide any support once the project is done?" in gig.faq_text
     assert gig.video_present is False
     assert gig.portfolio_count == 1  # not the old wildly-inflated <img>-tag count
+    # Codex finding: delivery_days must survive persistence, not just parsing.
+    assert [p["delivery_days"] for p in gig.packages] == [3, 7, 14]
+    assert [p["price_cents"] for p in gig.packages] == [8000, 45000, 95000]
