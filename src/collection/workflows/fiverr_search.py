@@ -394,7 +394,12 @@ def _queue_gig_detail_jobs(
                 niche_id=niche_id,
                 priority="STANDARD",
                 status="QUEUED",
-                payload={"gig_url": gig_url, "keyword_id": keyword_id},
+                payload={
+                    "gig_url": gig_url,
+                    "keyword_id": keyword_id,
+                    "niche_id": niche_id,
+                    "depth": depth,
+                },
                 created_at=datetime.now(UTC),
             )
         )
