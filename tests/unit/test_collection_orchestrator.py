@@ -12,8 +12,11 @@ from urllib.parse import urlparse
 import pytest
 import run as run_module
 from click.testing import CliRunner
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from src.collection import orchestrator as collection_orchestrator
 from src.collection.workflows.fiverr_search import build_fiverr_search_url
+from src.models.job import Job
 
 
 def _run(coro: Any) -> Any:
@@ -714,3 +717,203 @@ def test_run_collection_pipeline_queue_error_is_recorded(monkeypatch: pytest.Mon
         )
     )
     assert any("Queue processing error: queue failed" in error for error in result["errors"])
+
+
+def _build_real_jobs_session() -> Any:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Job.__table__.create(bind=engine, checkfirst=True)
+    maker = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    return maker()
+
+
+def test_run_collection_pipeline_real_db_fans_out_one_search_job_per_keyword(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rank-4 (gap-audit-2 P0, SCRUM-1094/1095): before this fix, run_collection_pipeline
+    always wired QueueProcessor to a hardcoded 3-job in-memory FAKE queue, even with a
+    real DB session and dry_run=False - only ONE search/gig/seller job ever ran per
+    pipeline invocation, and any real jobs the workflows wrote to the real `jobs` table
+    were permanently stranded QUEUED. This proves: (1) multiple real keywords each get a
+    real, drained FIVERR_SEARCH job, and (2) jobs created MID-DRAIN — simulating the real
+    cascade search -> gig detail -> seller profile — are picked up automatically because
+    QueueProcessor re-queries the live `jobs` table each loop iteration."""
+    session = _build_real_jobs_session()
+    try:
+        monkeypatch.setattr(
+            "src.collection.workflows.niche_init.run_niche_initialization",
+            AsyncMock(
+                return_value={
+                    "niches_processed": 1,
+                    "niche_specs": [
+                        {"niche_id": "ai_automation", "seeds": ["ai chatbot", "seo audit"], "depth": "standard"}
+                    ],
+                }
+            ),
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.keyword_expansion.run_keyword_expansion",
+            AsyncMock(
+                return_value={
+                    "niche_id": "ai_automation",
+                    "keywords_queued": 2,
+                    "keywords": [
+                        {"keyword_id": 101, "keyword_text": "ai chatbot"},
+                        {"keyword_id": 102, "keyword_text": "seo audit"},
+                    ],
+                }
+            ),
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.result_set_validation_workflow.run_stage_3_5_validation",
+            Mock(return_value={"skipped": True}),
+        )
+
+        async def _fake_stage3(**kwargs: Any) -> dict[str, Any]:
+            # Simulate the real fiverr_search workflow enqueuing a real follow-on job
+            # into the SAME live jobs table used by this pipeline run.
+            session.add(
+                Job(
+                    job_id=f"gig_detail_{kwargs['keyword_id']}",
+                    run_id=kwargs["run_id"],
+                    job_type="GIG_DETAIL",
+                    stage=4,
+                    niche_id=kwargs["niche_id"],
+                    priority="STANDARD",
+                    status="QUEUED",
+                    payload={
+                        "gig_url": f"https://www.fiverr.com/seller/gig-{kwargs['keyword_id']}",
+                        "keyword_id": kwargs["keyword_id"],
+                        "niche_id": kwargs["niche_id"],
+                        "depth": kwargs["depth"],
+                    },
+                )
+            )
+            session.commit()
+            return {}
+
+        async def _fake_stage4(**kwargs: Any) -> dict[str, Any]:
+            session.add(
+                Job(
+                    job_id=f"seller_{kwargs['keyword_id']}",
+                    run_id=kwargs["run_id"],
+                    job_type="SELLER_PROFILE",
+                    stage=5,
+                    niche_id=kwargs["niche_id"],
+                    priority="STANDARD",
+                    status="QUEUED",
+                    payload={"seller_username": f"seller_{kwargs['keyword_id']}", "niche_id": kwargs["niche_id"]},
+                )
+            )
+            session.commit()
+            return {}
+
+        stage3_mock = AsyncMock(side_effect=_fake_stage3)
+        stage4_mock = AsyncMock(side_effect=_fake_stage4)
+        stage5_mock = AsyncMock(return_value={})
+        monkeypatch.setattr("src.collection.workflows.fiverr_search.run_fiverr_search_collection", stage3_mock)
+        monkeypatch.setattr("src.collection.workflows.gig_detail.run_gig_detail_collection", stage4_mock)
+        monkeypatch.setattr("src.collection.workflows.seller_profile.run_seller_profile_collection", stage5_mock)
+        monkeypatch.setattr(
+            "src.collection.workflows.autocomplete.run_autocomplete_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.google_trends.run_google_trends_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.reddit_signals.run_reddit_signals_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.youtube_count.run_youtube_count_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.analysis.keyword_clusterer.run_clustering_for_niche", AsyncMock(return_value={"clustered": False})
+        )
+        monkeypatch.setattr(
+            "src.analysis.competitor_profiler.run_competitor_profiling_for_niche", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", AsyncMock(return_value={}))
+        monkeypatch.setattr(
+            "src.analysis.saturation_model.run_saturation_analysis_for_niche", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", Mock(return_value=object()))
+
+        result = _run(
+            collection_orchestrator.run_collection_pipeline(
+                run_id="run-real-fanout",
+                db=session,
+                config={
+                    "niches": [
+                        {"niche_id": "ai_automation", "seeds": ["ai chatbot", "seo audit"], "depth": "standard"}
+                    ]
+                },
+                session_manager=None,
+                dry_run=False,
+            )
+        )
+
+        # Core fix: 2 keywords -> 2 real search jobs actually ran (not 1 hardcoded).
+        assert result["search_jobs_run"] == 2
+        # Cascade: each search's side-effect enqueued a real GIG_DETAIL job, and the real
+        # QueueProcessor picked both up mid-drain — proving it queries the live jobs
+        # table, not a static 3-job snapshot.
+        assert result["gig_detail_jobs_run"] == 2
+        assert result["seller_profile_jobs_run"] == 2
+
+        all_jobs = session.query(Job).filter(Job.run_id == "run-real-fanout").all()
+        assert len(all_jobs) == 6  # 2 search + 2 gig_detail + 2 seller_profile
+        assert {job.job_type for job in all_jobs} == {"FIVERR_SEARCH", "GIG_DETAIL", "SELLER_PROFILE"}
+        # Every real job got fully drained — none stranded QUEUED forever.
+        assert all(job.status == "COMPLETE" for job in all_jobs)
+    finally:
+        session.close()
+
+
+def test_run_collection_pipeline_fake_db_still_uses_dry_run_demo_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Guard rail: when db is NOT a real Session (CLI `collect-only`, most existing unit
+    tests), dry_run=False must still fall back to the lightweight in-memory demo queue —
+    never crash trying to run raw SQL against a non-Session object."""
+    monkeypatch.setattr(
+        "src.collection.workflows.niche_init.run_niche_initialization",
+        AsyncMock(
+            return_value={
+                "niches_processed": 1,
+                "niche_specs": [{"niche_id": "python_automation", "seeds": ["python automation"]}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion.run_keyword_expansion",
+        AsyncMock(return_value={"niche_id": "python_automation", "keywords_queued": 0, "keywords": []}),
+    )
+    monkeypatch.setattr("src.collection.workflows.fiverr_search.run_fiverr_search_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.gig_detail.run_gig_detail_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.seller_profile.run_seller_profile_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.autocomplete.run_autocomplete_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.google_trends.run_google_trends_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.reddit_signals.run_reddit_signals_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.workflows.youtube_count.run_youtube_count_collection", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", AsyncMock(return_value={"clustered": False}))
+    monkeypatch.setattr("src.analysis.competitor_profiler.run_competitor_profiling_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.analysis.saturation_model.run_saturation_analysis_for_niche", AsyncMock(return_value={}))
+    monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", Mock(return_value=object()))
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-fake-db-not-dry-run",
+            db={},
+            config={"niches": []},
+            session_manager=None,
+            dry_run=False,
+        )
+    )
+    assert result["errors"] == []
+    assert result["search_jobs_run"] == 1
+    assert result["gig_detail_jobs_run"] == 1
+    assert result["seller_profile_jobs_run"] == 1

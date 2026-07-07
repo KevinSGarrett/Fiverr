@@ -633,6 +633,26 @@ def test_w3_real_queues_gig_detail_jobs() -> None:
         session.close()
 
 
+def test_w3_real_gig_detail_job_payload_includes_niche_id_and_depth() -> None:
+    """Rank-4 support fix (gap-audit-2 P1): the real GIG_DETAIL payload must include
+    niche_id and depth - orchestrator.py's _handle_stage4 reads job.payload["niche_id"]
+    and job.payload["depth"], which KeyError'd once real jobs actually flowed through
+    the queue (previously masked because the queue never drained real jobs at all)."""
+    from src.models.job import Job
+
+    session = _make_job_test_session()
+    try:
+        gig_cards = [{"gig_url": "https://www.fiverr.com/gig/0"}]
+        _queue_gig_detail_jobs(10, "ai_saas", "run-queue", gig_cards, "standard", session)
+        job = session.query(Job).filter(Job.job_type == "GIG_DETAIL").one()
+        assert job.payload["niche_id"] == "ai_saas"
+        assert job.payload["depth"] == "standard"
+        assert job.payload["keyword_id"] == 10
+        assert job.payload["gig_url"] == "https://www.fiverr.com/gig/0"
+    finally:
+        session.close()
+
+
 def test_w3_real_keyword_only_no_jobs() -> None:
     session = _make_job_test_session()
     try:

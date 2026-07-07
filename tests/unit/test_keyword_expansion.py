@@ -32,6 +32,7 @@ from src.collection.workflows.keyword_expansion import (
     _llm_generate_keywords,
     _llm_relevance_filter,
     _normalize_embedding_vector,
+    _resolve_keyword_records,
     _resolve_maybe_await,
     _resolve_niche_pk,
     _safe_pacing_wait,
@@ -644,6 +645,48 @@ def test_write_keywords_to_db_skips_existing_duplicates() -> None:
         session.commit()
         inserted = _write_keywords_to_db("ai_saas", ["ai chatbot", "AI Chatbot", "AI prompt engineer"], session)
         assert inserted == 1
+    finally:
+        session.close()
+
+
+def test_resolve_keyword_records_includes_existing_and_newly_inserted() -> None:
+    """Rank-4 support fix: stage-3 job fan-out needs id+text for EVERY keyword expanded
+    this run, including ones that already existed from a prior run - not just the ones
+    _write_keywords_to_db newly inserted (which alone would silently under-queue search
+    jobs on any niche re-run)."""
+    session, niche = _build_keyword_session()
+    try:
+        session.add(
+            Keyword(
+                niche_id=niche.id,
+                keyword="AI Chatbot",
+                normalized_keyword="ai chatbot",
+                external_source="seed",
+            )
+        )
+        session.commit()
+
+        keyword_list = ["ai chatbot", "AI prompt engineer"]
+        inserted = _write_keywords_to_db("ai_saas", keyword_list, session)
+        assert inserted == 1  # only "AI prompt engineer" is new
+
+        records = _resolve_keyword_records("ai_saas", keyword_list, session)
+        assert len(records) == 2
+        texts = {r["keyword_text"] for r in records}
+        assert texts == {"AI Chatbot", "AI prompt engineer"}
+        assert all(isinstance(r["keyword_id"], int) for r in records)
+    finally:
+        session.close()
+
+
+def test_resolve_keyword_records_non_session_returns_empty() -> None:
+    assert _resolve_keyword_records("ai_saas", ["AI chatbot"], db=object()) == []
+
+
+def test_resolve_keyword_records_empty_keyword_list_returns_empty() -> None:
+    session, _niche = _build_keyword_session()
+    try:
+        assert _resolve_keyword_records("ai_saas", [], session) == []
     finally:
         session.close()
 

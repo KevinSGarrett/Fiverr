@@ -122,6 +122,16 @@ class _InMemoryQueueDb:
         return None
 
 
+def _is_real_db_session(db: Any) -> bool:
+    """True when ``db`` is a real SQLAlchemy Session (the live production path) rather
+    than the dry-run/test double (``{}``, ``None``, a Mock, ...)."""
+    try:
+        from sqlalchemy.orm import Session
+    except Exception:  # noqa: BLE001
+        return False
+    return isinstance(db, Session)
+
+
 def _validate_collection_url_payload(niche_id: str | None, gig_url: str) -> None:
     normalized_niche_id = (niche_id or "").strip()
     if normalized_niche_id == "dry_run" or "dry-run-test.invalid" in gig_url:
@@ -246,12 +256,15 @@ async def run_collection_pipeline(
     finally:
         summary["stages_run"].append("stage01_niche_init")
 
+    niche_keyword_records: list[dict[str, Any]] = []
     for niche_spec in stage1_result.get("niche_specs", []):
+        niche_id_for_stage2 = str(niche_spec.get("niche_id", ""))
+        depth_for_stage2 = str(niche_spec.get("depth", "standard"))
         try:
             stage2_result = await run_keyword_expansion(
-                niche_id=str(niche_spec.get("niche_id", "")),
+                niche_id=niche_id_for_stage2,
                 seeds=list(niche_spec.get("seeds", [])),
-                depth=str(niche_spec.get("depth", "standard")),
+                depth=depth_for_stage2,
                 run_id=run_id,
                 db=db,
                 session_manager=session_manager,
@@ -259,6 +272,17 @@ async def run_collection_pipeline(
                 dry_run=dry_run,
             )
             summary["keywords_queued"] += int(stage2_result.get("keywords_queued", 0))
+            for record in stage2_result.get("keywords", []):
+                if not isinstance(record, dict) or record.get("keyword_id") is None:
+                    continue
+                niche_keyword_records.append(
+                    {
+                        "niche_id": niche_id_for_stage2,
+                        "depth": depth_for_stage2,
+                        "keyword_id": record["keyword_id"],
+                        "keyword_text": record.get("keyword_text", ""),
+                    }
+                )
         except Exception as exc:  # noqa: BLE001
             summary["errors"].append(f"Stage 2 error ({niche_spec.get('niche_id')}): {exc}")
     summary["stages_run"].append("stage02_keyword_expansion")
@@ -293,52 +317,93 @@ async def run_collection_pipeline(
     if not dry_run and queue_niche_id != "dry_run":
         queue_gig_url = f"https://www.fiverr.com/search/gigs?query={quote(queue_keyword_text, safe='')}"
 
-    queue_db = _InMemoryQueueDb(
-        [
-            _DryRunJob(
-                id=1,
-                run_id=run_id,
-                job_type="FIVERR_SEARCH",
-                stage=3,
-                payload={
-                    "keyword_id": 0,
-                    "keyword_text": queue_keyword_text,
-                    "niche_id": queue_niche_id,
-                    "depth": "standard",
-                },
-            ),
-            _DryRunJob(
-                id=2,
-                run_id=run_id,
-                job_type="GIG_DETAIL",
-                stage=4,
-                payload={
-                    "gig_url": queue_gig_url,
-                    "keyword_id": 0,
-                    "niche_id": queue_niche_id,
-                    "depth": "standard",
-                },
-            ),
-            _DryRunJob(
-                id=3,
-                run_id=run_id,
-                job_type="SELLER_PROFILE",
-                stage=5,
-                payload={
-                    "seller_username": "dry_run_seller_profile",
-                    "niche_id": queue_niche_id,
-                },
-            ),
-        ]
-    )
-    queue_processor = QueueProcessor(
-        db=queue_db,  # type: ignore[arg-type]
-        config=config,
-        session_manager=session_manager,
-        pacing_manager=pacing,
-    )
+    use_real_queue = (not dry_run) and _is_real_db_session(db)
 
-    async def _handle_stage3(job: _DryRunJob, **_kwargs: Any) -> None:
+    if use_real_queue:
+        # Live path: seed the REAL jobs table with one FIVERR_SEARCH job per keyword
+        # actually expanded in stage 2, then drain the REAL QueueProcessor against it.
+        # GIG_DETAIL/SELLER_PROFILE jobs that stage 3/4 enqueue land in this same table
+        # under the same run_id, so QueueProcessor's re-query-per-iteration loop picks
+        # them up automatically as the run cascades — no extra plumbing needed.
+        from src.models.job import Job
+
+        for record in niche_keyword_records:
+            db.add(
+                Job(
+                    job_id=f"fiverr_search_{uuid4().hex[:12]}",
+                    run_id=run_id,
+                    job_type="FIVERR_SEARCH",
+                    stage=3,
+                    niche_id=record["niche_id"],
+                    priority="STANDARD",
+                    status="QUEUED",
+                    payload={
+                        "keyword_id": record["keyword_id"],
+                        "keyword_text": record["keyword_text"],
+                        "niche_id": record["niche_id"],
+                        "depth": record["depth"],
+                    },
+                    created_at=datetime.now(UTC),
+                )
+            )
+        if niche_keyword_records:
+            db.commit()
+        queue_processor = QueueProcessor(
+            db=db,
+            config=config,
+            session_manager=session_manager,
+            pacing_manager=pacing,
+        )
+    else:
+        # dry_run / no real DB session (CLI collect-only, unit tests with a fake `db`):
+        # keep the lightweight in-memory smoke-test demo — one hardcoded job per stage,
+        # no browser/network/DB side effects.
+        queue_db = _InMemoryQueueDb(
+            [
+                _DryRunJob(
+                    id=1,
+                    run_id=run_id,
+                    job_type="FIVERR_SEARCH",
+                    stage=3,
+                    payload={
+                        "keyword_id": 0,
+                        "keyword_text": queue_keyword_text,
+                        "niche_id": queue_niche_id,
+                        "depth": "standard",
+                    },
+                ),
+                _DryRunJob(
+                    id=2,
+                    run_id=run_id,
+                    job_type="GIG_DETAIL",
+                    stage=4,
+                    payload={
+                        "gig_url": queue_gig_url,
+                        "keyword_id": 0,
+                        "niche_id": queue_niche_id,
+                        "depth": "standard",
+                    },
+                ),
+                _DryRunJob(
+                    id=3,
+                    run_id=run_id,
+                    job_type="SELLER_PROFILE",
+                    stage=5,
+                    payload={
+                        "seller_username": "dry_run_seller_profile",
+                        "niche_id": queue_niche_id,
+                    },
+                ),
+            ]
+        )
+        queue_processor = QueueProcessor(
+            db=queue_db,  # type: ignore[arg-type]
+            config=config,
+            session_manager=session_manager,
+            pacing_manager=pacing,
+        )
+
+    async def _handle_stage3(job: Any, **_kwargs: Any) -> None:
         await run_fiverr_search_collection(
             keyword_id=int(job.payload["keyword_id"]),
             keyword_text=str(job.payload["keyword_text"]),
@@ -353,7 +418,7 @@ async def run_collection_pipeline(
         )
         summary["search_jobs_run"] += 1
 
-    async def _handle_stage4(job: _DryRunJob, **_kwargs: Any) -> None:
+    async def _handle_stage4(job: Any, **_kwargs: Any) -> None:
         gig_url = str(job.payload["gig_url"])
         niche_id = str(job.payload["niche_id"])
         if not dry_run:
@@ -374,7 +439,7 @@ async def run_collection_pipeline(
         )
         summary["gig_detail_jobs_run"] += 1
 
-    async def _handle_stage5(job: _DryRunJob, **_kwargs: Any) -> None:
+    async def _handle_stage5(job: Any, **_kwargs: Any) -> None:
         await run_seller_profile_collection(
             seller_username=str(job.payload["seller_username"]),
             niche_id=str(job.payload["niche_id"]),

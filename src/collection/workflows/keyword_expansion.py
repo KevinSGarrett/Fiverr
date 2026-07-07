@@ -739,6 +739,47 @@ def _write_keywords_to_db(
     return inserted
 
 
+def _resolve_keyword_records(niche_id: str, keyword_list: list[str], db: Any) -> list[dict[str, Any]]:
+    """Look up id+text for every keyword in ``keyword_list`` that now exists in the DB
+    for this niche (after ``_write_keywords_to_db`` has upserted new ones) — used by the
+    stage-2 caller to fan out one real stage-3 job per keyword, including keywords that
+    already existed from a prior run (not just the ones inserted this call)."""
+    if not _is_session(db) or not keyword_list:
+        return []
+
+    niche_pk = _resolve_niche_pk(niche_id, db)
+    if niche_pk is None:
+        return []
+
+    from src.collection.keyword_expansion import normalize_keyword
+    from src.models.market import Keyword
+
+    normalized_wanted = {normalize_keyword(k) for k in keyword_list if isinstance(k, str)}
+    normalized_wanted.discard("")
+    if not normalized_wanted:
+        return []
+
+    try:
+        rows = (
+            db.query(Keyword.id, Keyword.keyword, Keyword.normalized_keyword)
+            .filter(Keyword.niche_id == niche_pk, Keyword.normalized_keyword.in_(normalized_wanted))
+            .all()
+        )
+    except Exception:
+        db.rollback()
+        logger.warning("Keyword lookup for job fan-out failed for niche '%s'.", niche_id)
+        return []
+
+    seen: set[str] = set()
+    records: list[dict[str, Any]] = []
+    for keyword_id, keyword_text, normalized in rows:
+        if not isinstance(normalized, str) or normalized in seen:
+            continue
+        seen.add(normalized)
+        records.append({"keyword_id": int(keyword_id), "keyword_text": str(keyword_text)})
+    return records
+
+
 async def run_keyword_expansion(
     niche_id: str,
     seeds: list[str],
@@ -857,6 +898,7 @@ async def run_keyword_expansion(
         embedding_map = {}
 
     keywords_queued = len(deduplicated_keywords)
+    keyword_records: list[dict[str, Any]] = []
     if _is_session(db):
         keywords_queued = _write_keywords_to_db(
             niche_id,
@@ -865,10 +907,15 @@ async def run_keyword_expansion(
             intent_map=intent_map,
             embedding_map=embedding_map,
         )
+        # id+text for every keyword expanded this run (new AND pre-existing) — the
+        # caller uses this to fan out one real stage-3 job per keyword. Newly-inserted
+        # count above stays "new rows only" for backward compatibility.
+        keyword_records = _resolve_keyword_records(niche_id, deduplicated_keywords, db)
 
     return {
         "niche_id": niche_id,
         "keywords_queued": keywords_queued,
+        "keywords": keyword_records,
         "sources": {
             "fiverr_autocomplete": autocomplete_count,
             "google_suggest": google_suggest_count,
