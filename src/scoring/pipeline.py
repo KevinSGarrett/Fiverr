@@ -977,6 +977,19 @@ def _build_auto_recommendation_context(
                 keyword_id,
                 exc_info=True,
             )
+            # A failed query leaves a real Session in pending-rollback state, which
+            # would poison the fallback path's own generate/write calls on the same
+            # session - roll back before continuing (Codex review, PR #168).
+            rollback = getattr(db, "rollback", None)
+            if callable(rollback):
+                try:
+                    rollback()
+                except Exception:
+                    logger.debug(
+                        "Session rollback after context failure also failed for keyword=%s",
+                        keyword_id,
+                        exc_info=True,
+                    )
 
     return RecommendationContext(**minimal_fields)
 

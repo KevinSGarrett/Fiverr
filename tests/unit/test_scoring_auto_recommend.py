@@ -378,3 +378,53 @@ def test_auto_recommendation_falls_back_to_minimal_context_on_builder_failure(mo
     assert context.tag == "STRONG_GO"
     assert context.final_score == result["final_score"]
     assert context.price_distribution is None  # minimal fallback has no pricing data
+
+
+def test_auto_recommendation_rolls_back_session_after_builder_failure(monkeypatch) -> None:
+    """Codex finding on PR #168: a failed context query leaves a real Session in
+    pending-rollback state, which would poison the fallback path's own
+    generate/write calls on the same session - the helper must roll back before
+    continuing with the minimal context."""
+    from src.scoring import pipeline
+
+    calls: dict[str, Any] = {"rollback": 0, "generate": 0, "write": 0}
+
+    class _RollbackTrackingDB(_QueryableFakeDB):
+        def rollback(self) -> None:
+            calls["rollback"] += 1
+
+    async def _fake_generate(**kwargs: Any) -> dict[str, Any]:
+        calls["generate"] += 1
+        return {"generation_complete": True, "llm_cost_usd": 0.0}
+
+    def _fake_write(*args: Any, **kwargs: Any) -> bool:
+        calls["write"] += 1
+        return True
+
+    def _boom_builder(keyword_id: int, db: Any, config: Any) -> Any:
+        raise RuntimeError("query failed mid-transaction")
+
+    monkeypatch.setattr("src.recommendations.context.build_recommendation_context", _boom_builder)
+    monkeypatch.setattr(pipeline, "assign_tag", lambda _score, _modifier: "STRONG_GO")
+    monkeypatch.setattr(pipeline, "write_keyword_score", lambda **kwargs: True)
+    monkeypatch.setattr("src.recommendations.tasks.generate_recommendation", _fake_generate)
+    monkeypatch.setattr("src.recommendations.storage.write_recommendation", _fake_write)
+    monkeypatch.setattr(
+        "src.recommendations.eligibility.should_regenerate_recommendation",
+        lambda keyword_id, current_final_score, db: True,
+    )
+
+    asyncio.run(
+        score_keyword(
+            keyword_id=203,
+            profile_name="default",
+            db=_RollbackTrackingDB(),
+            llm_client=None,
+            cache=None,
+            config={"recommendations": {"auto_generate": True}},
+        )
+    )
+
+    assert calls["rollback"] >= 1  # session healed before the fallback continued
+    assert calls["generate"] == 1  # recommendation still generated
+    assert calls["write"] == 1  # and persisted
