@@ -251,6 +251,16 @@ async def _collect_search_page_via_fetcher(
     from src.collection.search_result_parser import parse_search_results_from_html
 
     fetch_result = await fetcher.fetch(url, pacing_key="fiverr_search")
+    # A blocked/failed fetch must not be parsed as if it were a real results page -
+    # returning zero cards lets the caller's strictness-fallback ladder try the next
+    # variant instead of persisting an empty result set as real market data
+    # (SCRUM-1096; same guard as the gig-detail/seller-profile workflows).
+    if not getattr(fetch_result, "success", True) or not fetch_result.html:
+        failure_note = (
+            f"Fetch failed (success={getattr(fetch_result, 'success', True)}, "
+            f"status={fetch_result.status_code}); page not parsed."
+        )
+        return [], None, fetch_result.backend, [failure_note]
     parsed = parse_search_results_from_html(fetch_result.html)
     parsed_gig_cards = [
         {

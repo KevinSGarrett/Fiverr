@@ -71,6 +71,24 @@ async def run_gig_detail_collection(
         from src.collection.gig_detail import parse_gig_detail_from_html
         detail_url = build_gig_detail_url(gig_url)
         fetch_result = await fetcher.fetch(detail_url, pacing_key="fiverr_gig_detail")
+        # A blocked/failed fetch (success=False, empty or garbage HTML) must never be
+        # parsed and persisted as if it were real gig data - previously it was treated
+        # identically to a good fetch, silently writing empty/None fields over any
+        # existing gig row (SCRUM-1096).
+        if not getattr(fetch_result, "success", True) or not fetch_result.html:
+            return {
+                "gig_url": gig_url,
+                "keyword_id": keyword_id,
+                "collected": False,
+                "detail_collected": False,
+                "seller_queued": False,
+                "dry_run": False,
+                "backend": fetch_result.backend,
+                "error": (
+                    f"Fetch failed (success={getattr(fetch_result, 'success', True)}, "
+                    f"status={fetch_result.status_code}); nothing parsed or persisted."
+                ),
+            }
         parsed = parse_gig_detail_from_html(fetch_result.html)
 
         title = parsed.title

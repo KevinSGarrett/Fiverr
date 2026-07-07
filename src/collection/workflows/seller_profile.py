@@ -61,6 +61,20 @@ async def run_seller_profile_collection(
         from src.collection.seller_profile import parse_seller_profile_from_html
         profile_url = build_seller_profile_url(seller_username)
         fetch_result = await fetcher.fetch(profile_url, pacing_key="fiverr_seller_profile")
+        # A blocked/failed fetch must never be parsed and persisted as real seller data
+        # (SCRUM-1096; same guard as the gig-detail workflow).
+        if not getattr(fetch_result, "success", True) or not fetch_result.html:
+            return {
+                "seller_username": seller_username,
+                "collected": False,
+                "skipped": True,
+                "dry_run": False,
+                "backend": fetch_result.backend,
+                "error": (
+                    f"Fetch failed (success={getattr(fetch_result, 'success', True)}, "
+                    f"status={fetch_result.status_code}); nothing parsed or persisted."
+                ),
+            }
         parsed = parse_seller_profile_from_html(fetch_result.html)
 
         seller_level = parse_seller_level(getattr(parsed, "level", None))
