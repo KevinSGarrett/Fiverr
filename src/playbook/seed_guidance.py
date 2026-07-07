@@ -58,10 +58,27 @@ def validate_seed_payload_shape(payload: Mapping[str, Any]) -> bool:
             f"Received {keyword_count}. {SEED_SHAPE_MESSAGE}"
         )
 
-    if any(not isinstance(keyword, str) or not keyword.strip() for keyword in keywords):
-        raise ValueError(f"Keywords must be non-empty strings. {SEED_SHAPE_MESSAGE}")
+    # Real data/seeds/*.yaml entries are mappings ({"keyword": ..., "normalized_keyword":
+    # ..., "language": ..., "source": ...}); plain strings are also accepted for
+    # config-style seed lists. The string-only assumption previously meant this gate
+    # could never validate the shipped seed files at all (SCRUM-1115).
+    keyword_texts: list[str] = []
+    for entry in keywords:
+        if isinstance(entry, str):
+            keyword_text = entry
+        elif isinstance(entry, Mapping):
+            raw_text = entry.get("keyword")
+            keyword_text = raw_text if isinstance(raw_text, str) else ""
+        else:
+            keyword_text = ""
+        if not keyword_text.strip():
+            raise ValueError(
+                f"Keywords must be non-empty strings or mappings with a non-empty "
+                f"'keyword' key. {SEED_SHAPE_MESSAGE}"
+            )
+        keyword_texts.append(keyword_text)
 
-    normalized_keywords = [keyword.strip().lower() for keyword in keywords]
+    normalized_keywords = [keyword.strip().lower() for keyword in keyword_texts]
     if len(set(normalized_keywords)) != len(normalized_keywords):
         raise ValueError("Duplicate keywords are not allowed (case-insensitive, trimmed comparison).")
 

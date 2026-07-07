@@ -242,3 +242,85 @@ class TestImportSeedsDryRun:
         with Session(engine) as session:
             count = session.query(Keyword).count()
         assert count == 0, "Dry run must not write any rows to the database"
+
+
+# ---------------------------------------------------------------------------
+# Rank-10 (gap-audit-2 P1, SCRUM-1115): the documented seed-shape gate
+# (validate_seed_payload_shape) must actually run on the live import path.
+# Previously it was defined in src/playbook/seed_guidance.py but never invoked
+# from src/scripts/import_seeds.py, so malformed seeds (duplicates, missing
+# lineage, too few keywords) could reach the database undetected.
+# ---------------------------------------------------------------------------
+
+
+class TestSeedShapeGateWired:
+    def test_all_real_seed_files_pass_the_full_gate(self) -> None:
+        """Every shipped data/seeds/*.yaml must satisfy the documented gate,
+        including the source_lineage requirement the files previously lacked."""
+        import yaml
+        from src.playbook.seed_guidance import validate_seed_payload_shape
+        from src.scripts.import_seeds import _load_seed_file
+
+        seed_files = sorted(SEEDS_DIR.glob("*.yaml"))
+        assert len(seed_files) == 9
+        for path in seed_files:
+            data = _load_seed_file(path)  # raises if the gate rejects
+            assert validate_seed_payload_shape(data) is True
+            lineage = yaml.safe_load(path.read_text(encoding="utf-8"))["source_lineage"]
+            assert lineage["source"] == "config_seed"
+            assert lineage["method"] == "manual_curation"
+
+    def test_import_rejects_duplicate_keywords(self, tmp_path: Path) -> None:
+        bad = tmp_path / "bad_dupes.yaml"
+        bad.write_text(
+            "niche_id: bad_niche\n"
+            "niche_name: Bad Niche\n"
+            "source_lineage:\n  source: config_seed\n  method: manual_curation\n"
+            "keywords:\n"
+            + "".join("  - keyword: dupe keyword\n    normalized_keyword: dupe keyword\n" for _ in range(6)),
+            encoding="utf-8",
+        )
+        from src.scripts.import_seeds import _load_seed_file
+
+        with pytest.raises(ValueError, match="Duplicate keywords"):
+            _load_seed_file(bad)
+
+    def test_import_rejects_missing_source_lineage(self, tmp_path: Path) -> None:
+        bad = tmp_path / "bad_lineage.yaml"
+        bad.write_text(
+            "niche_id: bad_niche\n"
+            "niche_name: Bad Niche\n"
+            "keywords:\n"
+            + "".join(f"  - keyword: kw {i}\n" for i in range(6)),
+            encoding="utf-8",
+        )
+        from src.scripts.import_seeds import _load_seed_file
+
+        with pytest.raises(ValueError, match="source_lineage"):
+            _load_seed_file(bad)
+
+    def test_import_rejects_too_few_keywords(self, tmp_path: Path) -> None:
+        bad = tmp_path / "bad_count.yaml"
+        bad.write_text(
+            "niche_id: bad_niche\n"
+            "niche_name: Bad Niche\n"
+            "source_lineage:\n  source: config_seed\n  method: manual_curation\n"
+            "keywords:\n  - keyword: only one\n",
+            encoding="utf-8",
+        )
+        from src.scripts.import_seeds import _load_seed_file
+
+        with pytest.raises(ValueError, match="at least 6"):
+            _load_seed_file(bad)
+
+    def test_validator_accepts_real_dict_shaped_keywords(self) -> None:
+        """The validator previously only accepted plain-string keywords, meaning it
+        could never validate the real dict-shaped seed files at all."""
+        from src.playbook.seed_guidance import validate_seed_payload_shape
+
+        payload = {
+            "niche_id": "real_shape",
+            "source_lineage": {"source": "config_seed", "method": "manual_curation"},
+            "keywords": [{"keyword": f"keyword {i}", "normalized_keyword": f"keyword {i}"} for i in range(6)],
+        }
+        assert validate_seed_payload_shape(payload) is True

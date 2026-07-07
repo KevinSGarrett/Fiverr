@@ -1,6 +1,9 @@
 niche_id: python_automation
 niche_name: Python Automation Scripts
 category_path: programming-tech/buy/web-programming-services/python
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: Python automation script
     normalized_keyword: python automation script

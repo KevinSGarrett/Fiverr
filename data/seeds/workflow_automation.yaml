@@ -1,6 +1,9 @@
 niche_id: workflow_automation
 niche_name: Workflow Automation
 category_path: programming-tech/software-development/automations-workflows
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: n8n automation
     normalized_keyword: n8n automation

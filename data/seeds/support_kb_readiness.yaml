@@ -1,6 +1,9 @@
 niche_id: support_kb_readiness
 niche_name: Support-KB Readiness
 category_path: writing-translation/technical-writing
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: support knowledge base AI
     normalized_keyword: support knowledge base ai
