@@ -327,7 +327,23 @@ async def run_collection_pipeline(
         # them up automatically as the run cascades — no extra plumbing needed.
         from src.models.job import Job
 
+        # Dedup against any FIVERR_SEARCH job already recorded for this (run_id, keyword)
+        # — a retry/resume with the same run_id, or stranded jobs from a prior partial
+        # run, must not re-queue (and re-pay for) a search that already ran or is still
+        # queued; QueueProcessor will naturally resume draining any still-QUEUED ones.
+        already_queued_keyword_ids: set[Any] = set()
+        if niche_keyword_records:
+            existing_search_jobs = (
+                db.query(Job.payload).filter(Job.run_id == run_id, Job.job_type == "FIVERR_SEARCH").all()
+            )
+            for (payload,) in existing_search_jobs:
+                if isinstance(payload, dict) and payload.get("keyword_id") is not None:
+                    already_queued_keyword_ids.add(payload["keyword_id"])
+
+        new_search_jobs = 0
         for record in niche_keyword_records:
+            if record["keyword_id"] in already_queued_keyword_ids:
+                continue
             db.add(
                 Job(
                     job_id=f"fiverr_search_{uuid4().hex[:12]}",
@@ -346,7 +362,8 @@ async def run_collection_pipeline(
                     created_at=datetime.now(UTC),
                 )
             )
-        if niche_keyword_records:
+            new_search_jobs += 1
+        if new_search_jobs:
             db.commit()
         queue_processor = QueueProcessor(
             db=db,

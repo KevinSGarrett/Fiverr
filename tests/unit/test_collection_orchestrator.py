@@ -871,6 +871,119 @@ def test_run_collection_pipeline_real_db_fans_out_one_search_job_per_keyword(
         session.close()
 
 
+def test_run_collection_pipeline_real_db_does_not_requeue_existing_search_jobs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Codex finding on PR #161: a retry/resume with the same run_id (or stranded jobs
+    from a prior partial run) must NOT re-insert duplicate FIVERR_SEARCH jobs for a
+    keyword that already has one for this run_id — that would re-pay for and re-cascade
+    an already-completed (or still-queued) search."""
+    session = _build_real_jobs_session()
+    try:
+        # Simulate a job already recorded for keyword 101 from a prior attempt at this run.
+        session.add(
+            Job(
+                job_id="fiverr_search_preexisting",
+                run_id="run-dedup",
+                job_type="FIVERR_SEARCH",
+                stage=3,
+                niche_id="ai_automation",
+                priority="STANDARD",
+                status="COMPLETE",
+                payload={"keyword_id": 101, "keyword_text": "ai chatbot", "niche_id": "ai_automation", "depth": "standard"},
+            )
+        )
+        session.commit()
+
+        monkeypatch.setattr(
+            "src.collection.workflows.niche_init.run_niche_initialization",
+            AsyncMock(
+                return_value={
+                    "niches_processed": 1,
+                    "niche_specs": [
+                        {"niche_id": "ai_automation", "seeds": ["ai chatbot", "seo audit"], "depth": "standard"}
+                    ],
+                }
+            ),
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.keyword_expansion.run_keyword_expansion",
+            AsyncMock(
+                return_value={
+                    "niche_id": "ai_automation",
+                    "keywords_queued": 2,
+                    "keywords": [
+                        {"keyword_id": 101, "keyword_text": "ai chatbot"},
+                        {"keyword_id": 102, "keyword_text": "seo audit"},
+                    ],
+                }
+            ),
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.result_set_validation_workflow.run_stage_3_5_validation",
+            Mock(return_value={"skipped": True}),
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.fiverr_search.run_fiverr_search_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.gig_detail.run_gig_detail_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.seller_profile.run_seller_profile_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.autocomplete.run_autocomplete_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.google_trends.run_google_trends_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.reddit_signals.run_reddit_signals_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.collection.workflows.youtube_count.run_youtube_count_collection", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.analysis.keyword_clusterer.run_clustering_for_niche", AsyncMock(return_value={"clustered": False})
+        )
+        monkeypatch.setattr(
+            "src.analysis.competitor_profiler.run_competitor_profiling_for_niche", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr(
+            "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", AsyncMock(return_value={}))
+        monkeypatch.setattr(
+            "src.analysis.saturation_model.run_saturation_analysis_for_niche", AsyncMock(return_value={})
+        )
+        monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", Mock(return_value=object()))
+
+        result = _run(
+            collection_orchestrator.run_collection_pipeline(
+                run_id="run-dedup",
+                db=session,
+                config={
+                    "niches": [
+                        {"niche_id": "ai_automation", "seeds": ["ai chatbot", "seo audit"], "depth": "standard"}
+                    ]
+                },
+                session_manager=None,
+                dry_run=False,
+            )
+        )
+
+        # Only the NEW keyword (102) should have run; 101 already had a job for this run.
+        assert result["search_jobs_run"] == 1
+
+        search_jobs = session.query(Job).filter(Job.run_id == "run-dedup", Job.job_type == "FIVERR_SEARCH").all()
+        assert len(search_jobs) == 2  # the pre-existing one + exactly one new one, no dupes
+        keyword_ids = sorted(job.payload["keyword_id"] for job in search_jobs)
+        assert keyword_ids == [101, 102]
+    finally:
+        session.close()
+
+
 def test_run_collection_pipeline_fake_db_still_uses_dry_run_demo_queue(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
