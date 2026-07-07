@@ -264,3 +264,167 @@ def test_score_keyword_trigger_is_idempotent(monkeypatch) -> None:
     )
 
     assert calls["generate"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Rank-11 (gap-audit-2 P1, SCRUM-1112): the auto path must use the full
+# DB-backed context (pricing, competitor, review signals) when a real queryable
+# db is available - previously it always hand-built a minimal context, so the
+# pricing-aware builder was reachable from no production path at all and
+# generate_pricing_strategy silently skipped on every real auto run.
+# ---------------------------------------------------------------------------
+
+
+class _QueryableFakeDB(FakePipelineDB):
+    """Signals-fake that also looks like an ORM session (query returns [])."""
+
+    def query(self, *args: Any, **kwargs: Any) -> list[Any]:
+        del args, kwargs
+        return []
+
+
+def test_auto_recommendation_uses_full_context_when_db_queryable(monkeypatch) -> None:
+    from src.recommendations.context import RecommendationContext
+    from src.scoring import pipeline
+
+    captured: dict[str, Any] = {}
+
+    async def _fake_generate(**kwargs: Any) -> dict[str, Any]:
+        captured["context"] = kwargs["context"]
+        return {"generation_complete": True, "llm_cost_usd": 0.0}
+
+    full_context = RecommendationContext(
+        keyword_id=201,
+        keyword_text="stale keyword text",
+        niche_id=7,
+        niche_name="Real Niche Name",
+        tag="MONITOR",  # stale persisted tag - must be overlaid by this run's tag
+        final_score=1.0,  # stale - must be overlaid
+        price_distribution={"basic": {"min": 70.0, "max": 180.0, "median": 100.0}},
+        market_type="MODERATE_SPREAD",
+        top_buyer_complaints=["slow delivery"],
+    )
+    monkeypatch.setattr(
+        "src.recommendations.context.build_recommendation_context",
+        lambda keyword_id, db, config: full_context,
+    )
+    monkeypatch.setattr(pipeline, "assign_tag", lambda _score, _modifier: "STRONG_GO")
+    monkeypatch.setattr(pipeline, "write_keyword_score", lambda **kwargs: True)
+    monkeypatch.setattr("src.recommendations.tasks.generate_recommendation", _fake_generate)
+    monkeypatch.setattr("src.recommendations.storage.write_recommendation", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "src.recommendations.eligibility.should_regenerate_recommendation",
+        lambda keyword_id, current_final_score, db: True,
+    )
+
+    result = asyncio.run(
+        score_keyword(
+            keyword_id=201,
+            profile_name="default",
+            db=_QueryableFakeDB(),
+            llm_client=None,
+            cache=None,
+            config={"recommendations": {"auto_generate": True}},
+        )
+    )
+
+    context = captured["context"]
+    # Full DB-backed context fields survive...
+    assert context.price_distribution == {"basic": {"min": 70.0, "max": 180.0, "median": 100.0}}
+    assert context.market_type == "MODERATE_SPREAD"
+    assert context.top_buyer_complaints == ["slow delivery"]
+    assert context.niche_name == "Real Niche Name"
+    # ...while this run's fresh results overlay the stale persisted values.
+    assert context.tag == "STRONG_GO"
+    assert context.final_score == result["final_score"]
+    assert context.final_score != 1.0
+
+
+def test_auto_recommendation_falls_back_to_minimal_context_on_builder_failure(monkeypatch) -> None:
+    from src.scoring import pipeline
+
+    captured: dict[str, Any] = {}
+
+    async def _fake_generate(**kwargs: Any) -> dict[str, Any]:
+        captured["context"] = kwargs["context"]
+        return {"generation_complete": True, "llm_cost_usd": 0.0}
+
+    def _boom_builder(keyword_id: int, db: Any, config: Any) -> Any:
+        raise RuntimeError("context build exploded")
+
+    monkeypatch.setattr("src.recommendations.context.build_recommendation_context", _boom_builder)
+    monkeypatch.setattr(pipeline, "assign_tag", lambda _score, _modifier: "STRONG_GO")
+    monkeypatch.setattr(pipeline, "write_keyword_score", lambda **kwargs: True)
+    monkeypatch.setattr("src.recommendations.tasks.generate_recommendation", _fake_generate)
+    monkeypatch.setattr("src.recommendations.storage.write_recommendation", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "src.recommendations.eligibility.should_regenerate_recommendation",
+        lambda keyword_id, current_final_score, db: True,
+    )
+
+    result = asyncio.run(
+        score_keyword(
+            keyword_id=202,
+            profile_name="default",
+            db=_QueryableFakeDB(),
+            llm_client=None,
+            cache=None,
+            config={"recommendations": {"auto_generate": True}},
+        )
+    )
+
+    # A context-builder failure must never block the recommendation itself.
+    context = captured["context"]
+    assert context.tag == "STRONG_GO"
+    assert context.final_score == result["final_score"]
+    assert context.price_distribution is None  # minimal fallback has no pricing data
+
+
+def test_auto_recommendation_rolls_back_session_after_builder_failure(monkeypatch) -> None:
+    """Codex finding on PR #168: a failed context query leaves a real Session in
+    pending-rollback state, which would poison the fallback path's own
+    generate/write calls on the same session - the helper must roll back before
+    continuing with the minimal context."""
+    from src.scoring import pipeline
+
+    calls: dict[str, Any] = {"rollback": 0, "generate": 0, "write": 0}
+
+    class _RollbackTrackingDB(_QueryableFakeDB):
+        def rollback(self) -> None:
+            calls["rollback"] += 1
+
+    async def _fake_generate(**kwargs: Any) -> dict[str, Any]:
+        calls["generate"] += 1
+        return {"generation_complete": True, "llm_cost_usd": 0.0}
+
+    def _fake_write(*args: Any, **kwargs: Any) -> bool:
+        calls["write"] += 1
+        return True
+
+    def _boom_builder(keyword_id: int, db: Any, config: Any) -> Any:
+        raise RuntimeError("query failed mid-transaction")
+
+    monkeypatch.setattr("src.recommendations.context.build_recommendation_context", _boom_builder)
+    monkeypatch.setattr(pipeline, "assign_tag", lambda _score, _modifier: "STRONG_GO")
+    monkeypatch.setattr(pipeline, "write_keyword_score", lambda **kwargs: True)
+    monkeypatch.setattr("src.recommendations.tasks.generate_recommendation", _fake_generate)
+    monkeypatch.setattr("src.recommendations.storage.write_recommendation", _fake_write)
+    monkeypatch.setattr(
+        "src.recommendations.eligibility.should_regenerate_recommendation",
+        lambda keyword_id, current_final_score, db: True,
+    )
+
+    asyncio.run(
+        score_keyword(
+            keyword_id=203,
+            profile_name="default",
+            db=_RollbackTrackingDB(),
+            llm_client=None,
+            cache=None,
+            config={"recommendations": {"auto_generate": True}},
+        )
+    )
+
+    assert calls["rollback"] >= 1  # session healed before the fallback continued
+    assert calls["generate"] == 1  # recommendation still generated
+    assert calls["write"] == 1  # and persisted
