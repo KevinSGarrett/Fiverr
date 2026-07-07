@@ -1,6 +1,26 @@
-"""Recommendation engine — E05 scaffold.
+"""Recommendation engine — E05.
 
-Full implementation: SCRUM-178 through SCRUM-186.
+This package contains TWO parallel recommendation-generation stacks with different
+production entrypoints (SCRUM-1112). Know which one you are editing:
+
+Stack A — CLI batch path:
+    pipeline.py (run_recommendations_pipeline) -> context_builder.py
+    (build_recommendation_context) -> executor.py (generate_recommendation)
+    -> llm_tasks.py (task_*) -> storage.py (save_recommendation)
+    Invoked by: src/orchestrator.py mode="recommendations-only" and run.py.
+    Its context has NO pricing fields.
+
+Stack B — score-triggered auto path:
+    context.py (RecommendationContext / build_recommendation_context, the
+    pricing-aware builder) -> tasks.py (generate_*) -> storage.py
+    (write_recommendation)
+    Invoked by: src/scoring/pipeline.py's _maybe_auto_generate_recommendation
+    after STRONG_GO/CONDITIONAL_GO scores.
+
+run.py's run_recommendations_stage and orchestrator.py's RecommendationOrchestrator
+have NO production callers (tests only). A bug fix applied to one stack does not
+automatically fix the other — check both before closing a defect. Consolidating the
+stacks is tracked separately; do not add new callers to the unwired entrypoints.
 """
 
 from src.recommendations.context import (

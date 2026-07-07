@@ -911,6 +911,76 @@ def _auto_recommendation_enabled(config: dict[str, Any] | None) -> bool:
     return bool(recommendation_config.get("auto_generate", True))
 
 
+def _build_auto_recommendation_context(
+    *,
+    keyword_id: int,
+    keyword_text: str,
+    niche_id: int | None,
+    tag: str,
+    final_score: float,
+    scores: dict[str, float | None],
+    score_components: dict[str, Any],
+    db: Any,
+    config: dict[str, Any] | None,
+) -> Any:
+    """Build the richest available context for score-triggered auto recommendations.
+
+    Previously this path hand-built a minimal RecommendationContext with only identity
+    and score fields, so the full DB-backed builder (competitor weaknesses, buyer
+    review signals, price_distribution/price ladder, market_type, ...) was reachable
+    from NO production path at all - generate_pricing_strategy silently skipped on
+    every real auto run because context.price_distribution was always None
+    (SCRUM-1112). Now the full builder runs when a real queryable db is available,
+    with the fresh in-hand scoring results overlaid on top (they are newer than
+    anything persisted); any failure falls back to the minimal context so a context
+    hiccup can never block the recommendation itself.
+    """
+    from src.recommendations.context import RecommendationContext, build_recommendation_context
+
+    resolved_niche_id = niche_id if niche_id is not None else 0
+    minimal_fields: dict[str, Any] = {
+        "keyword_id": keyword_id,
+        "keyword_text": keyword_text,
+        "niche_id": resolved_niche_id,
+        "niche_name": str(resolved_niche_id) if resolved_niche_id else "Unknown",
+        "tag": tag,
+        "final_score": final_score,
+        "demand_score": scores.get("demand_score"),
+        "competition_score": scores.get("competition_score"),
+        "opportunity_score": scores.get("opportunity_score"),
+        "feasibility_score": scores.get("feasibility_score"),
+        "profitability_score": scores.get("profitability_score"),
+        "score_components": score_components,
+    }
+
+    if hasattr(db, "query"):
+        try:
+            full_context = build_recommendation_context(
+                keyword_id, db, config if isinstance(config, dict) else {}
+            )
+            # This run's results are authoritative: tag/final_score/components always
+            # overlay; individual sub-scores overlay only when computed this run (a
+            # None here should not clobber a persisted value the builder resolved).
+            overlay = {key: value for key, value in minimal_fields.items() if value is not None}
+            if not keyword_text:
+                overlay.pop("keyword_text", None)
+            if niche_id is None:
+                overlay.pop("niche_id", None)
+            if full_context.niche_name and full_context.niche_name != "Unknown":
+                overlay.pop("niche_name", None)
+            if not score_components:
+                overlay.pop("score_components", None)
+            return full_context.model_copy(update=overlay)
+        except Exception:
+            logger.debug(
+                "Full auto-recommendation context failed for keyword=%s; using minimal context",
+                keyword_id,
+                exc_info=True,
+            )
+
+    return RecommendationContext(**minimal_fields)
+
+
 async def _maybe_auto_generate_recommendation(
     *,
     keyword_id: int,
@@ -931,7 +1001,6 @@ async def _maybe_auto_generate_recommendation(
         return
 
     try:
-        from src.recommendations.context import RecommendationContext
         from src.recommendations.eligibility import should_regenerate_recommendation
         from src.recommendations.storage import write_recommendation
         from src.recommendations.tasks import generate_recommendation
@@ -945,20 +1014,16 @@ async def _maybe_auto_generate_recommendation(
         if not should_regen:
             return
 
-        resolved_niche_id = niche_id if niche_id is not None else 0
-        context = RecommendationContext(
+        context = _build_auto_recommendation_context(
             keyword_id=keyword_id,
             keyword_text=keyword_text,
-            niche_id=resolved_niche_id,
-            niche_name=str(resolved_niche_id) if resolved_niche_id else "Unknown",
+            niche_id=niche_id,
             tag=tag,
             final_score=final_score,
-            demand_score=scores.get("demand_score"),
-            competition_score=scores.get("competition_score"),
-            opportunity_score=scores.get("opportunity_score"),
-            feasibility_score=scores.get("feasibility_score"),
-            profitability_score=scores.get("profitability_score"),
+            scores=scores,
             score_components=score_components,
+            db=db,
+            config=config,
         )
         recommendation_data = await generate_recommendation(
             keyword_id=keyword_id,
