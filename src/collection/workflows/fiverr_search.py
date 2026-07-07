@@ -89,11 +89,13 @@ async def run_fiverr_search_collection(
         parse_warnings: list[str] = []
         collected_cards_by_url: dict[str, list[dict[str, Any]]] = {}
         collected_count_by_url: dict[str, int | None] = {}
+        any_fetch_ok = False
         for strictness in strictness_order:
             candidate_url = build_search_url(keyword_text, niche_id, strictness)
-            cards, total_count, backend, warnings = await _collect_search_page_via_fetcher(
+            cards, total_count, backend, warnings, fetch_ok = await _collect_search_page_via_fetcher(
                 candidate_url, fetcher
             )
+            any_fetch_ok = any_fetch_ok or fetch_ok
             collected_cards_by_url[candidate_url] = cards
             collected_count_by_url[candidate_url] = total_count
             parsed_gig_cards = cards
@@ -103,6 +105,28 @@ async def run_fiverr_search_collection(
             strictness_used = strictness
             if len(parsed_gig_cards) >= threshold:
                 break
+
+        if not any_fetch_ok:
+            # Every strictness attempt failed to fetch. Persisting an empty result set
+            # here would look identical to a genuinely-empty (ghost) market to
+            # downstream result-set validation - return a visible failure instead
+            # (Codex review, PR #170).
+            return {
+                "keyword_id": keyword_id,
+                "keyword_text": keyword_text,
+                "niche_id": niche_id,
+                "total_result_count": None,
+                "gig_cards_collected": 0,
+                "gig_urls_queued": 0,
+                "autocomplete_jobs_queued": 0,
+                "pages_collected": 0,
+                "dry_run": False,
+                "backend": fetch_backend,
+                "parse_warnings": parse_warnings,
+                "fetch_failed": True,
+                "search_strictness_used": strictness_used.value,
+            }
+
         if has_known_niche_mapping:
             selected_cards, selected_strictness = search_with_fallback(
                 keyword_text,
@@ -247,20 +271,22 @@ def _resolve_result_threshold(config: dict[str, Any] | None) -> int:
 async def _collect_search_page_via_fetcher(
     url: str,
     fetcher: Any,
-) -> tuple[list[dict[str, Any]], int | None, str, list[str]]:
+) -> tuple[list[dict[str, Any]], int | None, str, list[str], bool]:
     from src.collection.search_result_parser import parse_search_results_from_html
 
     fetch_result = await fetcher.fetch(url, pacing_key="fiverr_search")
-    # A blocked/failed fetch must not be parsed as if it were a real results page -
-    # returning zero cards lets the caller's strictness-fallback ladder try the next
-    # variant instead of persisting an empty result set as real market data
-    # (SCRUM-1096; same guard as the gig-detail/seller-profile workflows).
+    # A blocked/failed fetch must not be parsed as if it were a real results page.
+    # The final fetch_ok flag lets the caller distinguish "fetched fine, genuinely
+    # zero results" (real ghost-market evidence worth persisting) from "could not
+    # fetch at all" (a transient failure that must NOT be persisted as market data,
+    # since downstream result-set validation reads zero-card rows as ghost markets)
+    # (SCRUM-1096 + Codex review, PR #170).
     if not getattr(fetch_result, "success", True) or not fetch_result.html:
         failure_note = (
             f"Fetch failed (success={getattr(fetch_result, 'success', True)}, "
             f"status={fetch_result.status_code}); page not parsed."
         )
-        return [], None, fetch_result.backend, [failure_note]
+        return [], None, fetch_result.backend, [failure_note], False
     parsed = parse_search_results_from_html(fetch_result.html)
     parsed_gig_cards = [
         {
@@ -275,7 +301,7 @@ async def _collect_search_page_via_fetcher(
         }
         for card in parsed.gig_cards
     ]
-    return parsed_gig_cards, parsed.total_result_count, fetch_result.backend, parsed.warnings
+    return parsed_gig_cards, parsed.total_result_count, fetch_result.backend, parsed.warnings, True
 
 
 async def _collect_search_page_via_playwright(

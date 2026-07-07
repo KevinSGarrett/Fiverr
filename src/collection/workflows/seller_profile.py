@@ -76,6 +76,29 @@ async def run_seller_profile_collection(
                 ),
             }
         parsed = parse_seller_profile_from_html(fetch_result.html)
+        # Block pages can return HTTP 200 with real HTML that parses to an all-None
+        # shell - don't persist that as a real (empty) seller profile (Codex review,
+        # PR #170; same class as the gig-detail content check).
+        content_fields = (
+            getattr(parsed, "level", None),
+            getattr(parsed, "member_since", None),
+            getattr(parsed, "review_count", None),
+            getattr(parsed, "active_gig_count", None),
+            getattr(parsed, "response_time", None),
+        )
+        if all(field is None for field in content_fields):
+            return {
+                "seller_username": seller_username,
+                "collected": False,
+                "skipped": True,
+                "dry_run": False,
+                "backend": fetch_result.backend,
+                "error": (
+                    "Fetched page does not look like a seller profile (no profile "
+                    "fields parsed) - likely a block/interstitial page returned with "
+                    "HTTP 200; nothing persisted."
+                ),
+            }
 
         seller_level = parse_seller_level(getattr(parsed, "level", None))
         member_since = parse_member_since(getattr(parsed, "member_since", None))

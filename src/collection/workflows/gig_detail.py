@@ -90,6 +90,31 @@ async def run_gig_detail_collection(
                 ),
             }
         parsed = parse_gig_detail_from_html(fetch_result.html)
+        # Transport success is not proof of content: block pages can come back as
+        # HTTP 200 with real HTML ("Access Denied"), which passes the success check
+        # above but parses to an empty shell - persisting that would mark the gig
+        # collected while overwriting real fields with None (Codex review, PR #170).
+        # A real gig page either has the perseus payload (every real 2026 page) or,
+        # on the legacy chain, a title plus at least one substantive content field.
+        is_real_gig_page = parsed.metadata.get("mode") == "perseus" or (
+            parsed.title is not None
+            and bool(parsed.packages or parsed.description or parsed.seller_name)
+        )
+        if not is_real_gig_page:
+            return {
+                "gig_url": gig_url,
+                "keyword_id": keyword_id,
+                "collected": False,
+                "detail_collected": False,
+                "seller_queued": False,
+                "dry_run": False,
+                "backend": fetch_result.backend,
+                "error": (
+                    "Fetched page does not look like a gig detail page (no perseus "
+                    "payload and no substantive gig content) - likely a block/interstitial "
+                    "page returned with HTTP 200; nothing persisted."
+                ),
+            }
 
         title = parsed.title
         description = parsed.description
