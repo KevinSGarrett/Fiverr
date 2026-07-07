@@ -1,6 +1,9 @@
 niche_id: prd_ai_saas
 niche_name: PRD / AI SaaS MVP Roadmap
 category_path: programming-tech/ai-coding/AI-Technology-Consulting
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: product requirements document
     normalized_keyword: product requirements document

@@ -1,6 +1,9 @@
 niche_id: gumloop_lindy_workflow
 niche_name: Gumloop/Lindy Workflow
 category_path: programming-tech/software-development/automations-workflows
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: Gumloop workflow
     normalized_keyword: gumloop workflow

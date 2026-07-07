@@ -1,6 +1,9 @@
 niche_id: ai_tool_llm_integration
 niche_name: AI Tool / LLM Integration
 category_path: programming-tech/ai-coding/ai-integrations
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: LLM integration
     normalized_keyword: llm integration

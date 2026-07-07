@@ -1,6 +1,9 @@
 niche_id: mcp_ai_agent
 niche_name: MCP Server / AI-Agent Integration
 category_path: programming-tech/ai-coding/ai-agents-development
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: MCP server integration
     normalized_keyword: mcp server integration

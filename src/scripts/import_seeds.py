@@ -27,6 +27,8 @@ _DEFAULT_SEEDS_DIR = PROJECT_ROOT / "data" / "seeds"
 
 def _load_seed_file(path: Path) -> dict:
     """Load and validate a single seed YAML file."""
+    from src.playbook.seed_guidance import validate_seed_payload_shape
+
     with path.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh)
     if not isinstance(data, dict):
@@ -35,8 +37,14 @@ def _load_seed_file(path: Path) -> dict:
     missing = required_keys - set(data.keys())
     if missing:
         raise ValueError(f"Seed file {path} missing required keys: {missing}")
-    if not isinstance(data["keywords"], list) or len(data["keywords"]) == 0:
-        raise ValueError(f"Seed file {path} 'keywords' must be a non-empty list")
+    # Full documented seed-shape gate (niche_id format, >=6 unique keywords,
+    # source_lineage) - previously defined in src/playbook/seed_guidance.py but never
+    # invoked from this live import path, so malformed seeds could reach the database
+    # undetected (SCRUM-1115).
+    try:
+        validate_seed_payload_shape(data)
+    except ValueError as exc:
+        raise ValueError(f"Seed file {path} failed shape validation: {exc}") from exc
     return data
 
 

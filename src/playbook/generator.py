@@ -64,7 +64,11 @@ def generate_playbook(niche_id: str, db: Any, config: Any) -> dict[str, Any]:
         except Exception:
             keyword_used = ""
 
-    account_setup = build_account_setup_section(niche_id, profile_optimization, config or {})
+    # Third arg is profile_patterns (niche-level seller-profile statistics), NOT the run
+    # config - previously the raw config dict was passed here and silently ignored. No
+    # producer computes profile_patterns yet, so pass None until that pipeline exists.
+    _ = config
+    account_setup = build_account_setup_section(niche_id, profile_optimization, None)
     gig_creation = build_gig_creation_section(recommendation, pricing, visual)
     first_orders = build_first_5_orders_section(niche_id, pricing, buyer_persona)
     review = build_review_strategy_section(niche_id)
@@ -193,10 +197,40 @@ def build_account_setup_section(
     profile_opt: dict[str, Any] | None,
     profile_patterns: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Build 7-step account setup checklist."""
-    _ = profile_opt or {}
-    _patterns = profile_patterns or {}
+    """Build 7-step account setup checklist.
+
+    ``profile_opt`` is the recommendation's LLM-generated profile_optimization payload
+    (bio_template/headline/specialization_tags per src/recommendations/contracts.py's
+    ProfileOptimization) and enriches the bio/tags steps with real per-niche guidance.
+    ``profile_patterns`` is reserved for niche-level seller-profile statistics (e.g.
+    "73% of top sellers use professional headshots") - NO producer computes that data
+    yet, so it is accepted but unused until a seller-profile aggregation pipeline
+    exists (SCRUM-1114).
+    """
+    profile_opt = profile_opt if isinstance(profile_opt, dict) else {}
+    _ = profile_patterns  # reserved: no niche-profile-statistics producer exists yet
     display_name = get_niche_name(niche_id)
+
+    bio_detail = f"Frame your {display_name} service around concrete business results and turnaround."
+    headline = profile_opt.get("headline")
+    bio_template = profile_opt.get("bio_template")
+    if isinstance(headline, str) and headline.strip():
+        bio_detail = f'Lead with the positioning headline "{headline.strip()}". {bio_detail}'
+    bio_step: dict[str, Any] = {
+        "title": "Bio optimization",
+        "action": "Rewrite bio for buyer outcomes",
+        "detail": bio_detail,
+    }
+    if isinstance(bio_template, str) and bio_template.strip():
+        bio_step["guidance"] = f"Suggested bio template: {bio_template.strip()}"
+
+    tags_detail = "Prioritize buyer search phrases and remove vague tags."
+    specialization_tags = profile_opt.get("specialization_tags")
+    if isinstance(specialization_tags, list):
+        real_tags = [tag.strip() for tag in specialization_tags if isinstance(tag, str) and tag.strip()]
+        if real_tags:
+            tags_detail = f"Use the recommended niche tags: {', '.join(real_tags)}. {tags_detail}"
+
     return {
         "section": "Account Setup",
         "estimated_time": "1-2 weeks",
@@ -208,11 +242,7 @@ def build_account_setup_section(
                 "priority": "CRITICAL",
                 "guidance": "Natural expression, no heavy filters, clear face crop.",
             },
-            {
-                "title": "Bio optimization",
-                "action": "Rewrite bio for buyer outcomes",
-                "detail": f"Frame your {display_name} service around concrete business results and turnaround.",
-            },
+            bio_step,
             {
                 "title": "Portfolio setup",
                 "action": "Add 3-5 relevant portfolio samples",
@@ -226,7 +256,7 @@ def build_account_setup_section(
             {
                 "title": "Skill tags",
                 "action": "Select conversion-oriented skill tags",
-                "detail": "Prioritize buyer search phrases and remove vague tags.",
+                "detail": tags_detail,
             },
             {
                 "title": "Profile URL customization",
@@ -365,6 +395,24 @@ def build_review_strategy_section(niche_id: str) -> dict[str, Any]:
     }
 
 
+def _format_ladder_entry(level: dict[str, Any]) -> str | None:
+    """Format one price-ladder entry from any of the real payload shapes.
+
+    The LLM pricing_strategy payload (src/llm/prompts/pricing_strategy.j2) uses
+    basic/standard/premium keys with milestone_reviews; the calculator payload
+    (src/pricing/new_seller_pricing.py) uses the same tier keys with milestone.
+    Neither ever emits a bare "price" key - that shape only existed in old test
+    fixtures, so real ladders always fell through to placeholder text (SCRUM-1113).
+    """
+    price = level.get("basic", level.get("price"))
+    if not isinstance(price, int | float):
+        return None
+    milestone = level.get("milestone_reviews", level.get("milestone"))
+    if isinstance(milestone, int | float):
+        return f"${price:g} at {milestone:g} reviews"
+    return f"${price:g}"
+
+
 def build_ongoing_optimization_section(pricing: dict[str, Any] | None) -> dict[str, Any]:
     """Build 4 milestone growth plan with graceful pricing fallbacks."""
     pricing = pricing or {}
@@ -372,8 +420,10 @@ def build_ongoing_optimization_section(pricing: dict[str, Any] | None) -> dict[s
     ladder_values: list[str] = []
     if isinstance(ladder, list):
         for level in ladder:
-            if isinstance(level, dict) and "price" in level:
-                ladder_values.append(f"${level['price']}")
+            if isinstance(level, dict):
+                formatted = _format_ladder_entry(level)
+                if formatted is not None:
+                    ladder_values.append(formatted)
     ladder_hint = ", ".join(ladder_values) if ladder_values else "incremental price ladder"
 
     return {

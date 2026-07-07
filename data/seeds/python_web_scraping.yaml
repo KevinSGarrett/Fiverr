@@ -1,6 +1,9 @@
 niche_id: python_web_scraping
 niche_name: Python Web Scraping / Data Scripts
 category_path: programming-tech/buy/web-programming-services/python
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: Python web scraping
     normalized_keyword: python web scraping

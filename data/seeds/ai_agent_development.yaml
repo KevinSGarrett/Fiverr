@@ -1,6 +1,9 @@
 niche_id: ai_agent_development
 niche_name: AI Agent Development
 category_path: programming-tech/ai-coding/ai-agents-development
+source_lineage:
+  source: config_seed
+  method: manual_curation
 keywords:
   - keyword: AI agent development
     normalized_keyword: ai agent development

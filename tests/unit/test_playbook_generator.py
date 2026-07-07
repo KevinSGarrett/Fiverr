@@ -201,6 +201,63 @@ class TestSectionBuilders:
         actions_joined = " ".join(section["milestones"][1]["actions"])
         assert "$55" in actions_joined or "$95" in actions_joined
 
+    def test_ongoing_optimization_reads_real_llm_ladder_shape(self) -> None:
+        """Rank-10 (gap-audit-2 P1, SCRUM-1113): the real pricing_strategy payload
+        (src/llm/prompts/pricing_strategy.j2) uses basic/standard/premium keys with
+        milestone_reviews - never a bare "price" key, which only existed in test
+        fixtures like the one above. Real ladders always fell through to the generic
+        "incremental price ladder" placeholder."""
+        section = build_ongoing_optimization_section(
+            {
+                "price_ladder": [
+                    {"milestone_reviews": 5, "basic": 80, "standard": 160, "premium": 320,
+                     "adjustment_rationale": "entry pricing"},
+                    {"milestone_reviews": 10, "basic": 95, "standard": 185, "premium": 360,
+                     "adjustment_rationale": "post-social-proof raise"},
+                ]
+            }
+        )
+        actions_joined = " ".join(section["milestones"][1]["actions"])
+        assert "$80 at 5 reviews" in actions_joined
+        assert "$95 at 10 reviews" in actions_joined
+        assert "incremental price ladder" not in actions_joined
+
+    def test_ongoing_optimization_reads_calculator_ladder_shape(self) -> None:
+        """The calculator payload (src/pricing/new_seller_pricing.py) uses the same
+        tier keys but names the milestone key "milestone"."""
+        section = build_ongoing_optimization_section(
+            {"price_ladder": [{"milestone": 5, "basic": 60.0, "standard": 120.0, "premium": 240.0}]}
+        )
+        actions_joined = " ".join(section["milestones"][1]["actions"])
+        assert "$60 at 5 reviews" in actions_joined
+
+    def test_account_setup_enriched_by_real_profile_optimization(self) -> None:
+        """Rank-10 (gap-audit-2 P1, SCRUM-1114): the LLM-generated profile_optimization
+        payload production already persists (bio_template/headline/specialization_tags
+        per ProfileOptimization in src/recommendations/contracts.py) was previously
+        ignored entirely - the section stayed generic no matter how much real data
+        existed for the niche."""
+        section = build_account_setup_section(
+            "python_automation",
+            {
+                "headline": "Python Automation That Ships in 48 Hours",
+                "bio_template": "I build production-grade Python automations for ops teams.",
+                "specialization_tags": ["python automation", "api integration", "web scraping"],
+            },
+            None,
+        )
+        steps_by_title = {step["title"]: step for step in section["steps"]}
+        assert "Python Automation That Ships in 48 Hours" in steps_by_title["Bio optimization"]["detail"]
+        assert "production-grade Python automations" in steps_by_title["Bio optimization"]["guidance"]
+        assert "python automation, api integration, web scraping" in steps_by_title["Skill tags"]["detail"]
+        assert len(section["steps"]) == 7  # structure unchanged
+
+    def test_account_setup_stays_generic_without_profile_data(self) -> None:
+        section = build_account_setup_section("python_automation", {}, None)
+        steps_by_title = {step["title"]: step for step in section["steps"]}
+        assert "guidance" not in steps_by_title["Bio optimization"]
+        assert steps_by_title["Skill tags"]["detail"] == "Prioritize buyer search phrases and remove vague tags."
+
 
 class TestRecommendationOutputExtension:
     def test_profile_optimization_defaults_none(self) -> None:
