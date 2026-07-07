@@ -66,6 +66,20 @@ def _resolve_niche_pk(db: Any, niche_id: str) -> int | None:
     return int(row.id) if row is not None else None
 
 
+def _normalize_0_100_to_unit(raw: Any, default: float = 0.5) -> float:
+    """KeywordScore's demand/competition/trend/opportunity scores are 0-100 (see
+    src/scoring/demand.py:709, competition.py:518, trend.py:140), but hypothesis.py's
+    gap/trend filters and thresholds (GAP_DEMAND_THRESHOLD, TREND_VELOCITY_THRESHOLD,
+    etc.) are written for a 0-1 scale. Missing values default directly to 0.5 on the
+    0-1 scale (not divided), matching a neutral "unknown" prior."""
+    if raw is None:
+        return default
+    try:
+        return max(0.0, min(1.0, float(raw) / 100.0))
+    except (TypeError, ValueError):
+        return default
+
+
 def _build_seed_data(
     niche_id: str,
     db: Any,
@@ -110,9 +124,9 @@ def _build_seed_data(
             gap_signals = [
                 {
                     "keyword": keyword.keyword,
-                    "demand_score": getattr(score, "demand_score", 0.5) or 0.5,
-                    "competition_score": getattr(score, "competition_score", 0.5) or 0.5,
-                    "opportunity_score": getattr(score, "opportunity_score", 0.5) or 0.5,
+                    "demand_score": _normalize_0_100_to_unit(getattr(score, "demand_score", None)),
+                    "competition_score": _normalize_0_100_to_unit(getattr(score, "competition_score", None)),
+                    "opportunity_score": _normalize_0_100_to_unit(getattr(score, "opportunity_score", None)),
                 }
                 for keyword, score in score_rows
                 if getattr(keyword, "keyword", None)
@@ -129,11 +143,17 @@ def _build_seed_data(
             trend_signals = [
                 {
                     "keyword": keyword.keyword,
-                    "trend_score": getattr(score, "trend_score", 0.5) or 0.5,
-                    "trend_velocity": (
-                        getattr(score, "score_components", {}) or {}
-                    ).get("trend_velocity", 0.3),
-                    "opportunity_score": getattr(score, "opportunity_score", 0.5) or 0.5,
+                    "trend_score": _normalize_0_100_to_unit(getattr(score, "trend_score", None)),
+                    # KeywordScore.score_components (see calculate_weighted_composite in
+                    # src/scoring/pipeline.py) only preserves the FINAL 0-100 composite
+                    # value per metric, not TrendScoreCalculator's raw google_trends_slope
+                    # sub-signal - that breakdown never reaches the persisted row. There is
+                    # no separately-persisted velocity signal, so trend_score is the best
+                    # real proxy available; a "trend_velocity" key here was previously read
+                    # from a location that never existed, silently defaulting to 0.3 and
+                    # failing the >= 0.40 threshold on every real row (SCRUM-1104).
+                    "trend_velocity": _normalize_0_100_to_unit(getattr(score, "trend_score", None)),
+                    "opportunity_score": _normalize_0_100_to_unit(getattr(score, "opportunity_score", None)),
                 }
                 for keyword, score in score_rows
                 if getattr(keyword, "keyword", None)
