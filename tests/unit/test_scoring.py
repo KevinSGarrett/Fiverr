@@ -1741,3 +1741,115 @@ def test_orchestrator_run_context_marks_missing_reddit_signals() -> None:
     result = orchestrator.run([1201], db, profile="default")
     confidence_breakdown = result.keyword_results[0]["confidence_breakdown"]
     assert confidence_breakdown["missing_reddit_signals"] == -0.05
+
+
+def test_trend_fabricated_llm_default_excluded_from_weight() -> None:
+    """Rank-12 (gap-audit-2 P1, SCRUM-1100): with no llm_client (every real call site)
+    and no pre-stored classification, the fabricated "STABLE" default must be excluded
+    from the weighted average like any other missing signal - previously it was blended
+    in at the full 20% weight, permanently propping every production trend score toward
+    the neutral 50."""
+    calculator = TrendScoreCalculator()
+    inputs = _base_trend_inputs()
+    del inputs["llm_trend_classification"]
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+
+    component = result.score_components["llm_trend_classification"]
+    assert component.weight == 0.0
+    assert component.raw is None
+    assert result.total_weight_available == pytest.approx(0.80)  # slope+accel+reddit only
+    assert "llm.trend_classification" not in result.source_evidence
+
+    # The score must equal the weighted average of the REAL signals alone.
+    real = [
+        (result.score_components["google_trends_slope"], 0.40),
+        (result.score_components["google_trends_acceleration"], 0.25),
+        (result.score_components["reddit_activity_trend"], 0.15),
+    ]
+    expected = sum(c.value * w for c, w in real) / sum(w for _, w in real)
+    assert result.score_value == pytest.approx(round(expected, 2))
+
+
+def test_trend_prestored_llm_classification_still_counts_at_full_weight() -> None:
+    """A REAL pre-stored classification signal keeps its full 20% weight."""
+    calculator = TrendScoreCalculator()
+    result = calculator.calculate(
+        901, _db_with_inputs(trend_inputs=_base_trend_inputs(), keyword_id=901)
+    )
+    component = result.score_components["llm_trend_classification"]
+    assert component.weight == pytest.approx(0.20)
+    assert component.raw == "RISING"
+    assert result.total_weight_available == pytest.approx(1.0)
+    assert "llm.trend_classification" in result.source_evidence
+
+
+def test_trend_fabricated_llm_cannot_rescue_insufficient_coverage() -> None:
+    """Reddit alone is 0.15 weight (< 0.30 minimum). Previously the fabricated LLM
+    default added 0.20 fake weight, pushing coverage to 0.35 and producing a score
+    built almost entirely from an invented value; now this honestly returns None."""
+    calculator = TrendScoreCalculator()
+    inputs = {
+        "reddit_recent_post_volume": 30.0,
+        "reddit_historical_post_volume": 20.0,
+    }
+    result = calculator.calculate(901, _db_with_inputs(trend_inputs=inputs, keyword_id=901))
+    assert result.score_value is None
+    assert "Insufficient" in (result.confidence_reason or "")
+
+
+def test_orchestrator_calculator_failure_produces_error_entry_not_fake_pass(monkeypatch) -> None:
+    """Rank-12 (gap-audit-2 P1, SCRUM-1102): a crashed calculator previously produced a
+    fabricated final_score=0.0 / tag="PASS" entry structurally indistinguishable from a
+    legitimately-scored low keyword - silent data-quality regressions could ship to
+    paying users as real "pass" verdicts. Failures must now be visibly machine-
+    detectable ERROR entries."""
+    orchestrator = ScoringOrchestrator()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("calculator exploded")
+
+    monkeypatch.setattr(orchestrator._demand_calculator, "calculate", _boom)  # noqa: SLF001
+    db = _db_with_inputs(keyword_id=1301)
+    result = orchestrator.run([1301], db, profile="default")
+
+    entry = result.keyword_results[0]
+    assert entry["tag"] == "ERROR"
+    assert entry["scoring_failed"] is True
+    assert entry["final_score"] is None
+    assert "calculator exploded" in entry["error"]
+    assert "calculator exploded" in entry["final_payload"]["explanation_text"]
+    assert entry["final_payload"]["tag"] == "ERROR"
+    # The failure is also recorded in the run-level error list.
+    assert any("1301" in message for message in result.errors)
+
+
+def test_orchestrator_error_entries_rank_below_real_results(monkeypatch) -> None:
+    """ERROR entries sort to the bottom of rankings and group separately from every
+    legitimate tag - never mixed into real PASS results."""
+    orchestrator = ScoringOrchestrator()
+    original_calculate = orchestrator._demand_calculator.calculate  # noqa: SLF001
+
+    def _boom_only_1302(keyword_id, db, *args, **kwargs):
+        if keyword_id == 1302:
+            raise RuntimeError("calculator exploded")
+        return original_calculate(keyword_id, db, *args, **kwargs)
+
+    monkeypatch.setattr(orchestrator._demand_calculator, "calculate", _boom_only_1302)  # noqa: SLF001
+    db = _db_with_inputs(
+        demand_inputs=_base_demand_inputs(),
+        competition_inputs=_base_competition_inputs(),
+        feasibility_inputs=_base_feasibility_inputs(),
+        profitability_inputs=_base_profitability_inputs(),
+        intent_inputs=_base_intent_inputs(),
+        saturation_inputs=_base_saturation_inputs(),
+        weakness_inputs=_base_weakness_inputs(),
+        trend_inputs=_base_trend_inputs(),
+        keyword_id=1301,
+    )
+    result = orchestrator.run([1301, 1302], db, profile="default")
+
+    assert result.ranked_keywords[-1]["keyword_id"] == 1302  # errored entry ranks last
+    assert result.ranked_keywords[-1]["tag"] == "ERROR"
+    grouped = result.grouped_rankings
+    assert [kw["keyword_id"] for kw in grouped.get("ERROR", [])] == [1302]
+    assert all(kw["keyword_id"] != 1302 for kw in grouped.get("PASS", []))

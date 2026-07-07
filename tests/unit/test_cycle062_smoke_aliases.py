@@ -82,9 +82,12 @@ def test_feasibility_score_zero_review_seller_eligible() -> None:
 
 
 def test_trc_reliability_single_multiplier_no_stack() -> None:
+    # Canonical test renamed when _compute_trc_reliability was rewritten to the R4.1
+    # additive-deduction spec (SCRUM-1101) - the old min()-of-factors behavior this
+    # alias originally pointed at was the bug.
     from tests.unit import test_demand_score_extended as canonical
 
-    canonical.test_trc_reliability_uses_min_factor_not_product()
+    canonical.test_trc_reliability_stacks_additive_deductions_per_r41_spec()
 
 
 def test_null_means_include_backward_compat() -> None:

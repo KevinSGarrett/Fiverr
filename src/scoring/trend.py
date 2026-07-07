@@ -108,19 +108,30 @@ class TrendScoreCalculator:
         else:
             llm_classification = self._resolve_llm_trend_classification(signals, missing_data_warnings)
 
-        if llm_classification is None:
-            llm_classification = "STABLE"
-            if llm_client is None:
-                missing_data_warnings.append("llm_not_implemented: defaulted llm_trend_classification to STABLE.")
-        llm_score = self._LLM_CLASSIFICATION_MAP[llm_classification]
-        score_components["llm_trend_classification"] = ScoreComponent(
-            value=llm_score,
-            weight=self._LLM_TREND_WEIGHT,
-            raw=llm_classification,
-        )
-        weighted_sum += llm_score * self._LLM_TREND_WEIGHT
-        total_weight_available += self._LLM_TREND_WEIGHT
-        source_evidence.append("llm.trend_classification")
+        if llm_classification is not None:
+            # Real classification (live LLM call or pre-stored signal): full weight.
+            llm_score = self._LLM_CLASSIFICATION_MAP[llm_classification]
+            score_components["llm_trend_classification"] = ScoreComponent(
+                value=llm_score,
+                weight=self._LLM_TREND_WEIGHT,
+                raw=llm_classification,
+            )
+            weighted_sum += llm_score * self._LLM_TREND_WEIGHT
+            total_weight_available += self._LLM_TREND_WEIGHT
+            source_evidence.append("llm.trend_classification")
+        else:
+            # No real classification: treat it like every other missing signal in this
+            # module - excluded from the weighted average entirely, recorded at zero
+            # weight for observability. Previously a fabricated "STABLE" (score 50)
+            # was blended in at the full 20% weight, permanently propping every
+            # production trend score toward neutral since no real call site passes an
+            # llm_client (SCRUM-1100).
+            score_components["llm_trend_classification"] = ScoreComponent(
+                value=self._LLM_CLASSIFICATION_MAP["STABLE"],
+                weight=0.0,
+                raw=None,
+                note="No real LLM classification available; excluded from weighted average.",
+            )
 
         if total_weight_available < 0.30:
             return TrendScoreResult(
@@ -206,14 +217,21 @@ class TrendScoreCalculator:
         self,
         signals: dict[str, Any],
         warnings: list[str],
-    ) -> str:
+    ) -> str | None:
+        """Return a REAL pre-stored classification, or None when none exists.
+
+        Previously this returned a fabricated "STABLE" directly, which made the
+        default indistinguishable from a real signal to the caller - and the caller
+        then blended that fake neutral 50-point value into the weighted average at
+        the full 20% LLM weight (SCRUM-1100).
+        """
         raw_classification = signals.get("llm_trend_classification")
         if isinstance(raw_classification, str):
             normalized = raw_classification.strip().upper()
             if normalized in self._LLM_CLASSIFICATION_MAP:
                 return normalized
-        warnings.append("llm_not_implemented: defaulted llm_trend_classification to STABLE.")
-        return "STABLE"
+        warnings.append("llm_not_implemented: no llm_trend_classification signal available.")
+        return None
 
     async def _get_llm_trend_class(
         self,

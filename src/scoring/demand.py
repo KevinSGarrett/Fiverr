@@ -105,51 +105,50 @@ def _external_signals_config(config: dict[str, Any] | None) -> ExternalSignalsCo
         return defaults
 
 
-def _relevance_factor(rsv_relevance: float | None) -> float:
-    if rsv_relevance is None:
-        return 1.0
-    if rsv_relevance < 0.80:
-        return _clamp01(rsv_relevance)
-    return 1.0
-
-
-def _sponsored_factor(sponsored_fraction: float | None) -> float:
-    if sponsored_fraction is None:
-        return 1.0
-    if sponsored_fraction <= 0.10:
-        return 1.0
-    if sponsored_fraction <= 0.20:
-        return 0.90
-    if sponsored_fraction <= 0.35:
-        return 0.80
-    return 0.70
-
-
-def _strictness_factor(strictness: str | None) -> float:
-    normalized = _normalize_search_strictness(strictness)
-    if normalized in {"SUBCATEGORY", "CATEGORY"} or normalized is None:
-        return 1.0
-    if normalized == "NONE":
-        return _clamp01(1.0 + UNCONSTRAINED_DEMAND_DEDUCTION)
-    return 1.0
+# R4.1 (DEMAND_SCORE.md "TRC Reliability Qualifier") deduction schedule. The spec is an
+# ADDITIVE model stacking deductions from 1.0 - the previous implementation took min()
+# of the legacy R3 multiplicative band factors instead (raw RSV as the multiplier, R3's
+# 10%/20%/35% sponsored bands, zero CATEGORY penalty, no extreme-TRC factor), which the
+# spec explicitly supersedes ("Replaces the R3 sponsored-fraction bands once R4 ships.
+# Never stack both."). Concretely, RSV=0.50 yielded 0.50 instead of the intended 0.85,
+# suppressing Demand Score far more aggressively than designed (SCRUM-1101).
+_TRC_STRICTNESS_DEDUCTIONS = {"NONE": 0.15, "CATEGORY": 0.05, "SUBCATEGORY": 0.0}
+_TRC_RELEVANCE_DEDUCTION_WEIGHT = 0.30
+_TRC_SPONSORED_THRESHOLD = 0.35
+_TRC_SPONSORED_DEDUCTION = 0.10
+_TRC_EXTREME_COUNT_THRESHOLD = 100_000.0
+_TRC_EXTREME_COUNT_DEDUCTION = 0.05
 
 
 def _compute_trc_reliability(
     rsv_relevance: float | None,
     sponsored_fraction: float | None,
     strictness: str | None,
+    total_result_count: float | None = None,
     *,
     weights: dict[str, float] | None = None,
 ) -> float:
-    """DL-209: single reliability factor from existing component multipliers."""
+    """R4.1: single authoritative 0.0-1.0 reliability multiplier for raw TRC.
+
+    Additively stacks deductions from 1.0 per DEMAND_SCORE.md:
+      strictness NONE -0.15 / CATEGORY -0.05 / SUBCATEGORY 0
+      relevance   max(0, (1.0 - rsv) * 0.30)
+      sponsored   -0.10 when sponsored_fraction > 0.35
+      extreme TRC -0.05 when total_result_count > 100,000
+    Missing (None) inputs contribute no deduction.
+    """
     del weights
-    return _clamp01(
-        min(
-            _relevance_factor(rsv_relevance),
-            _sponsored_factor(sponsored_fraction),
-            _strictness_factor(strictness),
-        )
-    )
+    deductions = 0.0
+    normalized_strictness = _normalize_search_strictness(strictness)
+    if normalized_strictness is not None:
+        deductions += _TRC_STRICTNESS_DEDUCTIONS.get(normalized_strictness, 0.0)
+    if rsv_relevance is not None:
+        deductions += max(0.0, (1.0 - _clamp01(rsv_relevance)) * _TRC_RELEVANCE_DEDUCTION_WEIGHT)
+    if sponsored_fraction is not None and sponsored_fraction > _TRC_SPONSORED_THRESHOLD:
+        deductions += _TRC_SPONSORED_DEDUCTION
+    if total_result_count is not None and total_result_count > _TRC_EXTREME_COUNT_THRESHOLD:
+        deductions += _TRC_EXTREME_COUNT_DEDUCTION
+    return _clamp01(1.0 - deductions)
 
 
 def _classify_autocomplete_state(suggestions: list[str] | None) -> str:
@@ -507,8 +506,14 @@ class DemandScoreCalculator:
                     rsv_relevance=rsv_relevance,
                     sponsored_fraction=sponsored_fraction,
                     strictness=search_strictness_used,
+                    total_result_count=total_result_count,
                 )
                 adjusted_trc = total_result_count * trc_reliability
+                # R4.1: low reliability also dents confidence (DEMAND_SCORE.md line
+                # "trc_reliability < 0.70 -> confidence_breakdown[...] = -0.05") -
+                # previously never implemented anywhere (SCRUM-1101).
+                if trc_reliability < 0.70:
+                    confidence_breakdown["trc_reliability_low"] = -0.05
             elif rsv is not None:
                 adjusted_trc = apply_trc_adjustments(
                     trc=total_result_count,

@@ -10,9 +10,6 @@ from src.scoring.demand import (
     _classify_autocomplete_state,
     _compute_trc_reliability,
     _load_cluster_context_from_session,
-    _relevance_factor,
-    _sponsored_factor,
-    _strictness_factor,
     _trends_platform_qualifier,
     trc_adjustment,
 )
@@ -248,22 +245,35 @@ def test_demand_uses_shared_rsv_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     assert calls == [KEYWORD_ID]
 
 
-def test_trc_reliability_uses_min_factor_not_product() -> None:
+def test_trc_reliability_stacks_additive_deductions_per_r41_spec() -> None:
+    """Rank-12 (gap-audit-2 P1, SCRUM-1101): the R4.1 spec (DEMAND_SCORE.md) is an
+    ADDITIVE deduction model. The previous implementation took min() of the legacy R3
+    multiplicative band factors instead - RSV=0.60 yielded 0.60 where the spec intends
+    1.0 - (1-0.60)*0.30 = 0.88, over-suppressing Demand Score for every moderately-
+    relevant keyword. The old test here enshrined the wrong min() behavior."""
     factor = _compute_trc_reliability(0.60, 0.30, "SUBCATEGORY")
-    assert factor == pytest.approx(0.60)
-    assert (100.0 * factor) == pytest.approx(60.0)
+    assert factor == pytest.approx(0.88)
 
 
-def test_trc_reliability_equals_min_of_existing_component_factors() -> None:
-    rsv = 0.63
-    sponsored_fraction = 0.32
-    strictness = "NONE"
-    expected = min(
-        _relevance_factor(rsv),
-        _sponsored_factor(sponsored_fraction),
-        _strictness_factor(strictness),
-    )
-    assert _compute_trc_reliability(rsv, sponsored_fraction, strictness) == pytest.approx(expected)
+def test_trc_reliability_matches_spec_worked_example() -> None:
+    """DEMAND_SCORE.md worked example: RSV=0.85, SUBCATEGORY -> 1.0-(1-0.85)*0.30=0.955."""
+    assert _compute_trc_reliability(0.85, 0.05, "SUBCATEGORY") == pytest.approx(0.955)
+
+
+def test_trc_reliability_moderate_rsv_yields_085_not_050() -> None:
+    """The audit's concrete case: RSV=0.50 must give 0.85, not the raw 0.50."""
+    assert _compute_trc_reliability(0.50, None, "SUBCATEGORY") == pytest.approx(0.85)
+
+
+def test_trc_reliability_all_deductions_stack() -> None:
+    """NONE(-0.15) + relevance((1-0.60)*0.30=-0.12) + sponsored(-0.10) + extreme(-0.05)."""
+    factor = _compute_trc_reliability(0.60, 0.40, "NONE", total_result_count=150_000)
+    assert factor == pytest.approx(1.0 - 0.15 - 0.12 - 0.10 - 0.05)
+
+
+def test_trc_reliability_extreme_count_deduction_boundary() -> None:
+    assert _compute_trc_reliability(1.0, None, "SUBCATEGORY", total_result_count=100_000) == 1.0
+    assert _compute_trc_reliability(1.0, None, "SUBCATEGORY", total_result_count=100_001) == pytest.approx(0.95)
 
 
 def test_trc_reliability_none_inputs_no_penalty() -> None:
@@ -303,7 +313,41 @@ def test_keyword_score_trc_reliability_populated_when_on() -> None:
             session,
             config={"scoring": {"demand": {"use_trc_reliability": True}}},
         )
-        assert result.trc_reliability == pytest.approx(0.60)
+        # R4.1 additive model: 1.0 - (1 - 0.60) * 0.30 = 0.88 (was 0.60 under the
+        # superseded min-of-factors implementation).
+        assert result.trc_reliability == pytest.approx(0.88)
+        # 0.88 >= 0.70, so no low-reliability confidence dent.
+        assert "trc_reliability_low" not in result.confidence_breakdown
+    finally:
+        session.close()
+
+
+def test_low_trc_reliability_dents_confidence_per_spec() -> None:
+    """DEMAND_SCORE.md: trc_reliability < 0.70 -> confidence_breakdown
+    ["trc_reliability_low"] = -0.05. Previously never implemented anywhere."""
+    session, keyword = _build_demand_session()
+    try:
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                run_id="r1",
+                page_collected=1,
+                total_result_count=100,
+                sponsored_gig_count=3,
+                organic_gig_count=7,
+                search_strictness_used="NONE",
+            )
+        )
+        session.add(ResultSetValidation(keyword_id=keyword.id, run_id="r1", result_set_relevance_score=0.20))
+        session.commit()
+        result = DemandScoreCalculator().calculate(
+            keyword.id,
+            session,
+            config={"scoring": {"demand": {"use_trc_reliability": True}}},
+        )
+        # NONE(-0.15) + (1-0.20)*0.30(-0.24) = 0.61 < 0.70 -> confidence dent applies.
+        assert result.trc_reliability == pytest.approx(0.61)
+        assert result.confidence_breakdown["trc_reliability_low"] == pytest.approx(-0.05)
     finally:
         session.close()
 
@@ -355,28 +399,28 @@ def test_signal_qualifiers_toggle_off_matches_legacy() -> None:
     assert toggled_off.score_value == baseline.score_value
 
 
-def test_trc_reliability_min_when_relevance_lowest() -> None:
-    assert _compute_trc_reliability(0.55, 0.05, "CATEGORY") == pytest.approx(0.55)
+def test_trc_reliability_category_strictness_deducts_005() -> None:
+    """The spec assigns CATEGORY a real -0.05 deduction; the old implementation treated
+    CATEGORY identically to SUBCATEGORY (zero penalty)."""
+    assert _compute_trc_reliability(0.55, 0.05, "CATEGORY") == pytest.approx(1.0 - 0.05 - 0.135)
 
 
-def test_trc_reliability_min_when_sponsored_lowest() -> None:
-    # sponsored_fraction > 0.35 maps to the lowest sponsored factor band (0.70)
-    assert _compute_trc_reliability(0.90, 0.40, "CATEGORY") == pytest.approx(0.70)
+def test_trc_reliability_sponsored_single_threshold() -> None:
+    """Spec: single >35% threshold (-0.10) - not the legacy R3 10%/20%/35% bands, which
+    the spec explicitly supersedes ("Never stack both")."""
+    assert _compute_trc_reliability(0.90, 0.40, "CATEGORY") == pytest.approx(1.0 - 0.05 - 0.03 - 0.10)
+    # At/below the threshold: no sponsored deduction at all (legacy would deduct at 20%).
+    assert _compute_trc_reliability(1.0, 0.20, "SUBCATEGORY") == 1.0
+    assert _compute_trc_reliability(1.0, 0.35, "SUBCATEGORY") == 1.0
 
 
-def test_trc_reliability_all_factors_one_returns_one() -> None:
-    assert _compute_trc_reliability(0.95, 0.05, "CATEGORY") == pytest.approx(1.0)
+def test_trc_reliability_worst_case_floor_is_clamped() -> None:
+    """Maximum stacked deductions = 0.15 + 0.30 + 0.10 + 0.05 = 0.60 -> floor 0.40."""
+    assert _compute_trc_reliability(0.0, 1.0, "NONE", total_result_count=500_000) == pytest.approx(0.40)
 
 
-def test_trc_reliability_clamps_above_one(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.scoring.demand._relevance_factor", lambda *_: 1.2)
-    monkeypatch.setattr("src.scoring.demand._sponsored_factor", lambda *_: 1.2)
-    monkeypatch.setattr("src.scoring.demand._strictness_factor", lambda *_: 1.2)
-    assert _compute_trc_reliability(0.9, 0.0, "CATEGORY") == 1.0
-
-
-def test_trc_reliability_partial_none_uses_min_of_rest() -> None:
-    assert _compute_trc_reliability(None, 0.40, "CATEGORY") == pytest.approx(0.70)
+def test_trc_reliability_partial_none_skips_missing_deductions() -> None:
+    assert _compute_trc_reliability(None, 0.40, "CATEGORY") == pytest.approx(1.0 - 0.05 - 0.10)
 
 
 def test_autocomplete_present_full_no_penalty() -> None:
@@ -403,12 +447,14 @@ def test_trends_qualifier_none_returns_one() -> None:
     assert _trends_platform_qualifier(None) == pytest.approx(1.0)
 
 
-def test_sponsored_factor_high_fraction_uses_lowest_band() -> None:
-    assert _sponsored_factor(0.36) == pytest.approx(0.70)
+def test_trc_reliability_sponsored_just_over_threshold_deducts() -> None:
+    """Replaces the legacy R3 band test: >35% sponsored now deducts a flat 0.10."""
+    assert _compute_trc_reliability(1.0, 0.36, "SUBCATEGORY") == pytest.approx(0.90)
 
 
-def test_strictness_factor_unknown_strictness_defaults_to_one() -> None:
-    assert _strictness_factor("UNRECOGNIZED_MODE") == pytest.approx(1.0)
+def test_trc_reliability_unknown_strictness_no_deduction() -> None:
+    """Unrecognized strictness strings contribute no deduction (only NONE/CATEGORY do)."""
+    assert _compute_trc_reliability(1.0, 0.05, "UNRECOGNIZED_MODE") == pytest.approx(1.0)
 
 
 def test_trends_qualifier_invalid_mapping_value_returns_one() -> None:

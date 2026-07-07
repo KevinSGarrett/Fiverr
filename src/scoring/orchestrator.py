@@ -153,6 +153,14 @@ class ScoringOrchestrator:
                 message = f"keyword_id={keyword_id}: orchestrator failure: {exc}"
                 logger.exception(message)
                 errors.append(message)
+                # A crashed calculator must surface as a visibly FAILED entry - never a
+                # fabricated result. "PASS" is a legitimate verdict for genuinely-scored
+                # keywords in [0,20), so the old final_score=0.0/tag="PASS" stand-in was
+                # structurally indistinguishable from a real low-score verdict and could
+                # ship silent data-quality regressions to paying users as if they were
+                # real "pass" recommendations (SCRUM-1102). final_score=None sorts to
+                # the bottom of rankings and "ERROR" groups separately from every real
+                # tag; scoring_failed/error make the failure machine-detectable.
                 keyword_results.append(
                     {
                         "keyword_id": keyword_id,
@@ -160,18 +168,22 @@ class ScoringOrchestrator:
                         "scores": {},
                         "confidence_breakdown": {},
                         "missing_data_warnings": [],
-                        "final_score": 0.0,
-                        "tag": "PASS",
+                        "final_score": None,
+                        "tag": "ERROR",
+                        "scoring_failed": True,
+                        "error": str(exc),
                         "final_payload": {
                             "keyword_id": keyword_id,
-                            "final_score": 0.0,
-                            "tag": "PASS",
+                            "final_score": None,
+                            "tag": "ERROR",
+                            "scoring_failed": True,
+                            "error": str(exc),
                             "profile_used": profile,
                             "weights_applied": {},
                             "component_scores": {},
                             "confidence_modifier": 0.0,
                             "missing_components": [],
-                            "explanation_text": "Score failed in orchestrator.",
+                            "explanation_text": f"Scoring failed in orchestrator: {exc}",
                         },
                     }
                 )
