@@ -76,12 +76,17 @@ async def run_gig_detail_collection(
         title = parsed.title
         description = parsed.description
         packages = [
-            {"tier_index": i + 1, "price_text": pkg.price}
+            {
+                "tier_index": i + 1,
+                "price_text": pkg.price,
+                "price_cents": pkg.price_cents,
+                "delivery_days": pkg.delivery_days,
+            }
             for i, pkg in enumerate(parsed.packages)
         ]
-        tags: list[str] | None = None
-        faq_text: str | None = None
-        video_present: bool | None = None
+        tags = parsed.tags
+        faq_text = parsed.faq_text
+        video_present = parsed.video_present
         portfolio_count = parsed.image_count
         review_count = parsed.review_count
         rating = parsed.rating
@@ -106,6 +111,7 @@ async def run_gig_detail_collection(
             starting_price=starting_price,
             fallback_seller_username=fallback_seller_username,
             config=config,
+            fields_are_authoritative=parsed.metadata.get("mode") == "perseus",
         )
 
         return {
@@ -338,6 +344,7 @@ def _persist_gig_detail_and_backfill_search_results(
     starting_price: float | None,
     fallback_seller_username: str,
     config: dict[str, Any] | None = None,
+    fields_are_authoritative: bool = False,
 ) -> tuple[str, bool]:
     from sqlalchemy import inspect as sa_inspect
     from sqlalchemy.orm import Session
@@ -372,11 +379,16 @@ def _persist_gig_detail_and_backfill_search_results(
     gig.title = title
     gig.description_text = description
     gig.packages = packages
-    if tags is not None:
+    # An authoritative source (perseus JSON) can confidently report "no tags/FAQ/video" -
+    # None then means confirmed-empty, not extraction failure, so it must overwrite stale
+    # data from a prior crawl. Non-authoritative sources (legacy fallback chain,
+    # Playwright selectors) can't make that distinction, so None there still means
+    # "unknown" and must not clobber existing values.
+    if tags is not None or fields_are_authoritative:
         gig.tags = tags
-    if faq_text is not None:
+    if faq_text is not None or fields_are_authoritative:
         gig.faq_text = faq_text
-    if video_present is not None:
+    if video_present is not None or fields_are_authoritative:
         gig.video_present = video_present
     gig.portfolio_count = portfolio_count
     gig.review_count_exact = review_count

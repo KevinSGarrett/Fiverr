@@ -37,6 +37,9 @@ class GigDetailParseResult:
     packages: list[GigPackage] = field(default_factory=list)
     description: str | None = None
     has_faq: bool = False
+    faq_text: str | None = None
+    tags: list[str] | None = None
+    video_present: bool | None = None
     rating: float | None = None
     review_count: int | None = None
     image_count: int = 0
@@ -402,8 +405,153 @@ def _extract_from_next_data(html: str) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# perseus-initial-props JSON extraction
+#
+# Fiverr's gig detail SPA embeds the full page payload (title, seller identity,
+# real description, packages, tags, FAQ, gallery, per-gig reviews) as JSON in a
+# `perseus-initial-props` script tag — the same authoritative data source used
+# by the search-results page (see search_result_parser.py). The JSON-LD /
+# __NEXT_DATA__ / data-testid fallback chain below produces materially wrong
+# values on real 2026 Fiverr pages (generic "Fiverr" seller name, boilerplate
+# schema.org description, image_count inflated by every unrelated <img> tag on
+# the page) — verified against real ScrapFly-fetched gig pages.
+# ---------------------------------------------------------------------------
+
+_PERSEUS_SCRIPT_RE = re.compile(
+    r'<script[^>]*\bid=["\']perseus-initial-props["\'][^>]*>(.*?)</script>',
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _extract_perseus_gig_props(html: str) -> dict[str, Any] | None:
+    """Locate and parse the perseus-initial-props JSON blob. Never raises."""
+    match = _PERSEUS_SCRIPT_RE.search(html)
+    if not match:
+        return None
+    try:
+        props = json.loads(match.group(1).strip())
+    except (ValueError, TypeError):
+        return None
+    return props if isinstance(props, dict) else None
+
+
+def _perseus_gig_packages(props: dict[str, Any]) -> list[GigPackage]:
+    packages_obj = props.get("packages")
+    package_list = packages_obj.get("packageList") if isinstance(packages_obj, dict) else None
+    if not isinstance(package_list, list):
+        return []
+
+    packages: list[GigPackage] = []
+    for entry in package_list:
+        if not isinstance(entry, dict):
+            continue
+        price_cents = entry.get("price")
+        price_text = f"${price_cents / 100:.2f}" if isinstance(price_cents, int | float) else None
+        duration_hours = entry.get("duration")
+        delivery_days = (
+            int(duration_hours) // 24 if isinstance(duration_hours, int | float) and duration_hours else None
+        )
+        name = entry.get("title")
+        packages.append(
+            GigPackage(
+                name=name if isinstance(name, str) and name else "Unnamed package",
+                price=price_text,
+                price_cents=int(price_cents) if isinstance(price_cents, int | float) else None,
+                delivery_days=delivery_days,
+            )
+        )
+    return packages
+
+
+def _perseus_faq_text(qa_pairs: list[Any]) -> str | None:
+    entries = []
+    for qa in qa_pairs:
+        if not isinstance(qa, dict):
+            continue
+        question = qa.get("question")
+        answer = qa.get("answer")
+        if isinstance(question, str) and isinstance(answer, str) and question.strip() and answer.strip():
+            entries.append(f"Q: {question.strip()}\nA: {answer.strip()}")
+    return "\n\n".join(entries) if entries else None
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _parse_gig_detail_from_perseus(props: dict[str, Any]) -> GigDetailParseResult | None:
+    general = _as_dict(props.get("general"))
+    open_graph = _as_dict(props.get("openGraph"))
+    seller = _as_dict(props.get("seller"))
+    seller_user = _as_dict(seller.get("user"))
+    description_obj = _as_dict(props.get("description"))
+    reviews = _as_dict(props.get("reviews"))
+    tags_obj = _as_dict(props.get("tags"))
+    faq_obj = _as_dict(props.get("faq"))
+    gallery = _as_dict(props.get("gallery"))
+
+    title = general.get("gigTitle") or open_graph.get("title")
+    if not isinstance(title, str) or not title.strip():
+        return None  # not a real gig-detail perseus payload — fall back to legacy chain
+
+    seller_name = seller_user.get("name")
+    raw_description = description_obj.get("content") or open_graph.get("description")
+    description = _clean_text(raw_description) if isinstance(raw_description, str) else None
+
+    qa_pairs = faq_obj.get("questionsAndAnswers")
+    qa_list = qa_pairs if isinstance(qa_pairs, list) else []
+    faq_text = _perseus_faq_text(qa_list)
+    has_faq = bool(qa_list)
+
+    tag_list = tags_obj.get("tagsGigList")
+    tags = (
+        [tag["name"] for tag in tag_list if isinstance(tag, dict) and isinstance(tag.get("name"), str)]
+        if isinstance(tag_list, list)
+        else []
+    ) or None
+
+    video_present = bool(open_graph.get("video"))
+
+    rating_value = reviews.get("average_valuation")
+    rating = float(rating_value) if isinstance(rating_value, int | float) else None
+    review_count_value = reviews.get("total_count")
+    review_count = int(review_count_value) if isinstance(review_count_value, int | float) else None
+
+    slides = gallery.get("slides")
+    image_count = 0
+    if isinstance(slides, list):
+        for entry in slides:
+            slide = entry.get("slide") if isinstance(entry, dict) else None
+            if isinstance(slide, dict) and slide.get("typeImage"):
+                image_count += 1
+
+    return GigDetailParseResult(
+        title=title.strip(),
+        seller_name=seller_name if isinstance(seller_name, str) and seller_name else None,
+        packages=_perseus_gig_packages(props),
+        description=description,
+        has_faq=has_faq,
+        faq_text=faq_text,
+        tags=tags,
+        video_present=video_present,
+        rating=rating,
+        review_count=review_count,
+        image_count=image_count,
+        warnings=[],
+        errors=[],
+        metadata={"mode": "perseus", "gig_id": general.get("gigId")},
+    )
+
+
 def parse_gig_detail_from_html(html: str) -> GigDetailParseResult:
     """Parse gig detail fixture HTML with safe warnings and no side effects."""
+
+    perseus_props = _extract_perseus_gig_props(html)
+    if perseus_props is not None:
+        perseus_result = _parse_gig_detail_from_perseus(perseus_props)
+        if perseus_result is not None:
+            return perseus_result
 
     warnings: list[str] = []
     errors: list[str] = []
