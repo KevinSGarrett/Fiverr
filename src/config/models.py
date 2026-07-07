@@ -302,7 +302,13 @@ class DiscoveryConfig(BaseModel):
     max_cost_per_run: float = Field(default=5.0, ge=0)
     min_confidence: float = Field(default=0.6, ge=0, le=1)
     gold_threshold: float = Field(default=0.8, ge=0, le=1)
-    enabled_modes: list[str] = Field(default_factory=lambda: ["full"])
+    # Stage-16 hypothesis generator names (adjacent_keyword, adjacent_niche, gap_exploit,
+    # trend_chase) - NOT pipeline mode names ("full", "collect-only", ...) from
+    # src.orchestrator.AVAILABLE_MODES, a distinct, unrelated set of strings. An empty
+    # list means "no override" - stage16._select_modes() runs its own built-in defaults
+    # (see SCRUM-1107: the previous ["full"] default silently zeroed out every real
+    # discovery cycle, since "full" never matches any Stage-16 generator name).
+    enabled_modes: list[str] = Field(default_factory=list)
     skill_profile: DiscoverySkillProfileConfig = Field(
         default_factory=lambda: DiscoverySkillProfileConfig(primary_skills=["market_research"])
     )

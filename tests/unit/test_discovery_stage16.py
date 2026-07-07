@@ -100,6 +100,27 @@ class TestSelectModes:
 
         assert "adjacent_niche" in _select_modes(run_number=6)
 
+    def test_real_config_yaml_does_not_zero_out_modes(self) -> None:
+        """Codex finding on PR #164 (SCRUM-1107): config.yaml's discovery.enabled_modes
+        previously listed pipeline-stage mode names ("full", "collect-only" - from
+        src.orchestrator.AVAILABLE_MODES) instead of real Stage-16 generator names
+        (adjacent_keyword/gap_exploit/trend_chase/adjacent_niche). Since enabled_modes
+        acts as an allow-list filter, a non-empty list containing zero real generator
+        names silently zeroed out _select_modes() every time - both run.py's `discover`
+        command and (once wired) src.orchestrator.py's `discovery-only` mode would
+        complete with 0 hypotheses generated, with no error, forever. This loads the
+        REAL checked-in config.yaml end-to-end to prove that can't happen again."""
+        from src.config import ConfigLoader
+        from src.discovery.stage16 import _BASE_MODES, _select_modes
+
+        config = ConfigLoader("config.yaml").load()
+        config_payload = config.model_dump()
+
+        modes = _select_modes(config=config_payload)
+        assert set(_BASE_MODES).issubset(set(modes)), (
+            f"config.yaml's discovery.enabled_modes filtered out real Stage-16 modes: {modes}"
+        )
+
 
 class TestBuildSeedData:
     def test_returns_required_keys(self) -> None:
