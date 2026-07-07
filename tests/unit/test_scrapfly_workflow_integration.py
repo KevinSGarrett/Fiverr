@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -514,3 +515,189 @@ async def test_scrapfly_path_persists_real_tags_faq_and_video_from_perseus_json(
     # Codex finding: delivery_days must survive persistence, not just parsing.
     assert [p["delivery_days"] for p in gig.packages] == [3, 7, 14]
     assert [p["price_cents"] for p in gig.packages] == [8000, 45000, 95000]
+
+
+# ---------------------------------------------------------------------------
+# Rank-13 (gap-audit-2 P1, SCRUM-1096): a blocked/failed fetch (success=False or
+# empty HTML) must never be parsed and persisted as real data. Previously all
+# three fetcher workflows treated a failed fetch identically to a good one.
+# ---------------------------------------------------------------------------
+
+
+def _failed_fetch_result(url: str = "https://www.fiverr.com/test") -> FetchResult:
+    return FetchResult(
+        url=url,
+        html="<html><body>Access Denied</body></html>",
+        status_code=403,
+        backend="scrapfly",
+        credits_used=1,
+        success=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_gig_detail_failed_fetch_persists_nothing() -> None:
+    db = _in_memory_session()
+    gig_url = "https://www.fiverr.com/sellerone/i-will-design-a-logo"
+    db.add(
+        Gig(
+            gig_url=gig_url,
+            seller_username="sellerone",
+            title="Existing real title",
+            faq_text="Existing FAQ",
+        )
+    )
+    db.commit()
+
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_failed_fetch_result(gig_url)))
+    result = await run_gig_detail_collection(
+        gig_url=gig_url,
+        keyword_id=444,
+        niche_id="design",
+        depth="standard",
+        run_id="run-sf-blocked",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert result["collected"] is False
+    assert result["seller_queued"] is False
+    assert "Fetch failed" in result["error"]
+    # Existing real data untouched - the blocked page was never parsed or persisted.
+    refreshed = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+    assert refreshed.title == "Existing real title"
+    assert refreshed.faq_text == "Existing FAQ"
+    assert refreshed.detail_collected is not True
+
+
+@pytest.mark.asyncio
+async def test_seller_profile_failed_fetch_persists_nothing() -> None:
+    from src.models.seller import Seller
+
+    db = _in_memory_session()
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_failed_fetch_result()))
+    result = await run_seller_profile_collection(
+        seller_username="blocked_seller",
+        niche_id="design",
+        run_id="run-sf-blocked-seller",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert result["collected"] is False
+    assert "Fetch failed" in result["error"]
+    assert db.query(Seller).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_fiverr_search_failed_fetch_returns_no_cards(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def _capture_write(**kwargs: Any) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr("src.collection.workflows.fiverr_search.write_search_result", _capture_write)
+    monkeypatch.setattr(
+        "src.collection.workflows.fiverr_search._queue_gig_detail_jobs", lambda **_kwargs: 0
+    )
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=_failed_fetch_result()))
+
+    result = await run_fiverr_search_collection(
+        keyword_id=555,
+        keyword_text="blocked query",
+        niche_id="design",
+        depth="standard",
+        run_id="run-sf-blocked-search",
+        db=object(),
+        session_manager=object(),
+        pacing_manager=object(),
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert result["gig_cards_collected"] == 0
+    assert result["fetch_failed"] is True
+    assert result["pages_collected"] == 0
+    assert any("Fetch failed" in warning for warning in result["parse_warnings"])
+    # Nothing persisted: an all-fetches-failed keyword must NOT be written as an
+    # empty (ghost-market-looking) search result (Codex review, PR #170).
+    assert captured == {}
+
+
+@pytest.mark.asyncio
+async def test_gig_detail_http200_block_page_persists_nothing() -> None:
+    """Codex finding on PR #170: block pages can return HTTP 200 with real HTML
+    ("Access Denied"), passing the transport-level success check but parsing to an
+    empty shell - the content check must reject them before persisting."""
+    db = _in_memory_session()
+    gig_url = "https://www.fiverr.com/sellerone/i-will-design-a-logo"
+    db.add(Gig(gig_url=gig_url, seller_username="sellerone", title="Existing real title"))
+    db.commit()
+
+    block_page = FetchResult(
+        url=gig_url,
+        html="<html><body><h1>Access Denied</h1><p>You do not have permission.</p></body></html>",
+        status_code=200,
+        backend="scrapfly",
+        credits_used=1,
+        success=True,  # transport-level success - the trap this guard closes
+    )
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=block_page))
+    result = await run_gig_detail_collection(
+        gig_url=gig_url,
+        keyword_id=666,
+        niche_id="design",
+        depth="standard",
+        run_id="run-sf-block200",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert result["collected"] is False
+    assert "does not look like a gig detail page" in result["error"]
+    refreshed = db.query(Gig).filter(Gig.gig_url == gig_url).one()
+    assert refreshed.title == "Existing real title"
+    assert refreshed.detail_collected is not True
+
+
+@pytest.mark.asyncio
+async def test_seller_profile_http200_block_page_persists_nothing() -> None:
+    from src.models.seller import Seller
+
+    db = _in_memory_session()
+    block_page = FetchResult(
+        url="https://www.fiverr.com/blocked",
+        html="<html><body><h1>Access Denied</h1></body></html>",
+        status_code=200,
+        backend="scrapfly",
+        credits_used=1,
+        success=True,
+    )
+    fetcher = SimpleNamespace(fetch=AsyncMock(return_value=block_page))
+    result = await run_seller_profile_collection(
+        seller_username="blocked_seller_200",
+        niche_id="design",
+        run_id="run-sf-block200-seller",
+        db=db,
+        session_manager=object(),
+        pacing_manager=object(),
+        checkpoint_manager=None,
+        dry_run=False,
+        fetcher=fetcher,
+    )
+
+    assert result["collected"] is False
+    assert "does not look like a seller profile" in result["error"]
+    assert db.query(Seller).count() == 0

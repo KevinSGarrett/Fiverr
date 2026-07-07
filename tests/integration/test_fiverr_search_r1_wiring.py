@@ -63,10 +63,10 @@ def test_fiverr_search_fetcher_calls_builder_and_fallback_with_niche(monkeypatch
         strictness_for_url[url] = strictness
         return url
 
-    async def fake_collect(_url: str, _fetcher: object) -> tuple[list[dict[str, Any]], int, str, list[str]]:
+    async def fake_collect(_url: str, _fetcher: object) -> tuple[list[dict[str, Any]], int, str, list[str], bool]:
         strictness = strictness_for_url[_url]
         cards = cards_by_strictness[strictness]
-        return cards, len(cards), "mock-fetcher", []
+        return cards, len(cards), "mock-fetcher", [], True
 
     def fake_search_with_fallback(
         keyword: str,
@@ -139,11 +139,11 @@ def test_fiverr_search_fetcher_preserves_gig_card_shape_for_constrained_result(
         strictness_for_url[url] = strictness
         return url
 
-    async def fake_collect(_url: str, _fetcher: object) -> tuple[list[dict[str, Any]], int, str, list[str]]:
+    async def fake_collect(_url: str, _fetcher: object) -> tuple[list[dict[str, Any]], int, str, list[str], bool]:
         strictness = strictness_for_url[_url]
         if strictness == SearchStrictness.SUBCATEGORY:
-            return expected_cards, 24, "mock-fetcher", []
-        return [], 0, "mock-fetcher", []
+            return expected_cards, 24, "mock-fetcher", [], True
+        return [], 0, "mock-fetcher", [], True
 
     monkeypatch.setattr(workflow, "build_search_url", fake_build_search_url)
     monkeypatch.setattr(workflow, "_collect_search_page_via_fetcher", fake_collect)

@@ -71,7 +71,50 @@ async def run_gig_detail_collection(
         from src.collection.gig_detail import parse_gig_detail_from_html
         detail_url = build_gig_detail_url(gig_url)
         fetch_result = await fetcher.fetch(detail_url, pacing_key="fiverr_gig_detail")
+        # A blocked/failed fetch (success=False, empty or garbage HTML) must never be
+        # parsed and persisted as if it were real gig data - previously it was treated
+        # identically to a good fetch, silently writing empty/None fields over any
+        # existing gig row (SCRUM-1096).
+        if not getattr(fetch_result, "success", True) or not fetch_result.html:
+            return {
+                "gig_url": gig_url,
+                "keyword_id": keyword_id,
+                "collected": False,
+                "detail_collected": False,
+                "seller_queued": False,
+                "dry_run": False,
+                "backend": fetch_result.backend,
+                "error": (
+                    f"Fetch failed (success={getattr(fetch_result, 'success', True)}, "
+                    f"status={fetch_result.status_code}); nothing parsed or persisted."
+                ),
+            }
         parsed = parse_gig_detail_from_html(fetch_result.html)
+        # Transport success is not proof of content: block pages can come back as
+        # HTTP 200 with real HTML ("Access Denied"), which passes the success check
+        # above but parses to an empty shell - persisting that would mark the gig
+        # collected while overwriting real fields with None (Codex review, PR #170).
+        # A real gig page either has the perseus payload (every real 2026 page) or,
+        # on the legacy chain, a title plus at least one substantive content field.
+        is_real_gig_page = parsed.metadata.get("mode") == "perseus" or (
+            parsed.title is not None
+            and bool(parsed.packages or parsed.description or parsed.seller_name)
+        )
+        if not is_real_gig_page:
+            return {
+                "gig_url": gig_url,
+                "keyword_id": keyword_id,
+                "collected": False,
+                "detail_collected": False,
+                "seller_queued": False,
+                "dry_run": False,
+                "backend": fetch_result.backend,
+                "error": (
+                    "Fetched page does not look like a gig detail page (no perseus "
+                    "payload and no substantive gig content) - likely a block/interstitial "
+                    "page returned with HTTP 200; nothing persisted."
+                ),
+            }
 
         title = parsed.title
         description = parsed.description

@@ -625,9 +625,22 @@ def parse_gig_detail_from_html(html: str) -> GigDetailParseResult:
     if not packages:
         warnings.append("No package cards were found in gig detail fixture.")
 
-    image_count = len(re.findall(r"<img\b", html, flags=re.IGNORECASE))
-    if image_count == 0 and isinstance(json_ld.get("image_count"), int):
-        image_count = json_ld["image_count"]
+    # Prefer the structured JSON-LD gallery count (schema.org Product.image list) over
+    # the blunt page-wide <img> regex - on a real fetched page the regex counts every
+    # avatar/carousel-thumbnail/logo on the page (116 on a real 1.9MB gig page with 1
+    # actual gallery image), so it is only a last resort for simple fixture pages
+    # without structured data (SCRUM-1097; real 2026 pages are handled by the perseus
+    # path above and never reach this chain).
+    json_ld_image_count = json_ld.get("image_count")
+    if isinstance(json_ld_image_count, int) and json_ld_image_count > 0:
+        image_count = json_ld_image_count
+    else:
+        image_count = len(re.findall(r"<img\b", html, flags=re.IGNORECASE))
+        if image_count > 0:
+            warnings.append(
+                "image_count derived from a page-wide <img> tag count (no structured "
+                "gallery data available); treat as an upper bound, not a gallery size."
+            )
     if image_count == 0:
         warnings.append("No images were detected in gig detail fixture.")
 
