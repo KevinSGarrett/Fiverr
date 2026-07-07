@@ -223,7 +223,7 @@ def foundation_gate_command(config_path: str, database_url: str) -> None:
 @click.option("--database-url", default=None, help="Target database URL (or use DATABASE_URL env var).")
 def seed_niches_command(database_url: str | None) -> None:
     """Seed niche rows from config.yaml into the target database."""
-    from src.models.niche import Niche
+    from src.models.niche import Niche, NicheConfigRecord
 
     resolved_database_url = database_url or os.environ.get("DATABASE_URL")
     if not resolved_database_url:
@@ -246,19 +246,46 @@ def seed_niches_command(database_url: str | None) -> None:
             niche_slug = str(niche_item.get("niche_id", "")).strip()
             if not niche_slug:
                 continue
+            name = str(niche_item.get("name", niche_slug.replace("_", " ").title()))
+            category_path = str(niche_item.get("category_path", "uncategorized"))
+            is_active = bool(niche_item.get("is_active", True))
+            depth = str(niche_item.get("depth", "standard"))
+
             existing = db.query(Niche).filter(Niche.slug == niche_slug).first()
-            if existing is not None:
-                continue
-            db.add(
-                Niche(
-                    slug=niche_slug,
-                    name=str(niche_item.get("name", niche_slug.replace("_", " ").title())),
-                    category_path=str(niche_item.get("category_path", "uncategorized")),
-                    is_active=bool(niche_item.get("is_active", True)),
-                    description=None,
+            if existing is None:
+                db.add(
+                    Niche(
+                        slug=niche_slug,
+                        name=name,
+                        category_path=category_path,
+                        is_active=is_active,
+                        description=None,
+                    )
                 )
-            )
-            added += 1
+                added += 1
+
+            # NicheConfigRecord is the persisted config slice downstream analysis code
+            # (e.g. pricing depth-tier sample sizing) reads by niche slug - keep it in
+            # sync with config.yaml on every seed, not just on first insert, since depth
+            # can change between seeds (SCRUM-1111 Codex review finding: this table was
+            # never populated anywhere, so depth-tier resolution silently no-op'd for
+            # every real seeded niche).
+            config_record = db.query(NicheConfigRecord).filter(NicheConfigRecord.niche_id == niche_slug).first()
+            if config_record is None:
+                db.add(
+                    NicheConfigRecord(
+                        niche_id=niche_slug,
+                        name=name,
+                        depth=depth,
+                        category_path=category_path,
+                        is_active=is_active,
+                    )
+                )
+            else:
+                config_record.name = name
+                config_record.depth = depth
+                config_record.category_path = category_path
+                config_record.is_active = is_active
         db.commit()
         total = int(db.query(Niche).count())
 
