@@ -134,10 +134,14 @@ jobs:
         # stay ignored HERE and are covered on the self-hosted runner
         # (runner-smoke.yml). Follow-up: make them portable (mock _resolve_binary)
         # or add a self-hosted tests job. Keep in sync with post_cycle_review.py.
+        # test_playbook_generator.py's WeasyPrint PDF test is no longer
+        # excluded: it hit the same weasyprint.progress logging bug fixed for
+        # tests/unit/test_reports_generator.py (SCRUM-1148/1154) and is now
+        # green here (all tests/integration, /observability, /prompt_quality
+        # verified passing locally before being added -- SCRUM-1154).
         run: >
-          python -m pytest tests/unit/
+          python -m pytest tests/unit/ tests/integration/ tests/observability/ tests/prompt_quality/
           --ignore=tests/unit/test_cycle062_smoke_aliases.py
-          --ignore=tests/unit/test_playbook_generator.py
           --ignore=tests/unit/test_automation_system_restriction_removal.py
           --ignore=tests/unit/test_cursor_adapter.py
           --ignore=tests/unit/test_prompt_generator.py

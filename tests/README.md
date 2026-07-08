@@ -133,7 +133,8 @@ pytest --cov=src/utils --cov-report=term tests/unit/test_utils.py
 
 | Threshold | Value | Enforced by |
 |-----------|-------|-------------|
-| Project overall | 90% | `ci.yml` (`--cov-fail-under=90`) |
+| Project overall (pytest gate) | 80% | `ci.yml` (`--cov-fail-under=80`, matches `pyproject.toml`'s `fail_under = 80`) |
+| Project overall (Codecov gate) | 90% | Codecov `codecov.yml` |
 | Patch (new code) | 90% | Codecov `codecov.yml` |
 | New module minimum | 80% | `.cursorrules` testing rules |
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -138,7 +139,15 @@ class TestExportPlaybookMarkdown:
         markdown = export_playbook_markdown(playbook)
         assert "Checklist" not in markdown or isinstance(markdown, str)
 
-    def test_export_playbook_pdf_writes_file_or_raises_install_hint(self, tmp_path: Path) -> None:
+    def test_export_playbook_pdf_writes_file_or_raises_install_hint(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # weasyprint.progress has a known bug where its internal "Creating
+        # layout - Page %d" log call can crash pytest's log-record formatting
+        # with an unrelated TypeError; silencing it here is the sanctioned
+        # pytest-side mechanism (see src/reports/generator.py for the same fix
+        # applied to the report generator).
+        caplog.set_level(logging.CRITICAL, logger="weasyprint.progress")
         playbook = generate_playbook("python_automation", _FakeDB(None), {})
         output = tmp_path / "playbook.pdf"
         try:
