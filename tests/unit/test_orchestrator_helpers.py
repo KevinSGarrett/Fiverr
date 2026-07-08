@@ -13,6 +13,26 @@ from sqlalchemy.exc import SQLAlchemyError
 import src.orchestrator as orchestrator
 
 
+def _fake_session_manager_constructor(session_valid: bool) -> Any:
+    """Builds a fake `_construct_session_manager` replacement that never
+    touches real Playwright/network (see orchestrator._construct_session_manager)."""
+
+    class _FakeSessionManager:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def is_session_valid(self) -> bool:
+            return session_valid
+
+        async def close(self) -> None:
+            self.closed = True
+
+    def _construct(_config: Any) -> Any:
+        return _FakeSessionManager()
+
+    return _construct
+
+
 def test_run_export_stub_validates_inputs(capsys: pytest.CaptureFixture[str]) -> None:
     assert orchestrator.run_export_stub("xml", "input.json") == 2
     assert "Unsupported export format" in capsys.readouterr().out
@@ -341,16 +361,61 @@ def test_run_pipeline_initializes_database_and_prints_mode(
 
     async def _fake_score_keyword_batch(**kwargs: Any) -> list[dict[str, Any]]:
         calls["keyword_ids"] = kwargs["keyword_ids"]
+        calls["scoring_llm_client"] = kwargs["llm_client"]
         return [{"keyword_id": 101}]
 
+    async def _fake_collection_pipeline(**kwargs: Any) -> dict[str, Any]:
+        calls["collection_dry_run"] = kwargs["dry_run"]
+        return {"stages_run": ["stage01_niche_init"], "errors": []}
+
+    async def _fake_recommendations_pipeline(**kwargs: Any) -> dict[str, Any]:
+        calls["reco_llm_client"] = kwargs["llm_client"]
+        calls["reco_dry_run"] = kwargs["dry_run"]
+        return {"generated": 0}
+
+    async def _fake_export_all_recommendations(**_kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    def _fake_export_all_pricing(**_kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    def _fake_generate_playbook(niche_id: str, _db: Any, _config: Any) -> dict[str, Any]:
+        calls.setdefault("playbook_niche_ids", []).append(niche_id)
+        return {"niche_id": niche_id}
+
+    def _fake_export_playbook_markdown(_playbook: dict[str, Any]) -> str:
+        return "# playbook"
+
     monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(
+        orchestrator, "_construct_session_manager", _fake_session_manager_constructor(session_valid=False)
+    )
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
+    monkeypatch.setattr("src.llm.client.build_llm_client", lambda _payload: None)
     monkeypatch.setattr("src.scoring.pipeline.score_keyword_batch", _fake_score_keyword_batch)
+    monkeypatch.setattr("src.recommendations.pipeline.run_recommendations_pipeline", _fake_recommendations_pipeline)
+    monkeypatch.setattr("src.recommendations.export.export_all_recommendations", _fake_export_all_recommendations)
+    monkeypatch.setattr("src.pricing.pricing_export.export_all_pricing", _fake_export_all_pricing)
+    monkeypatch.setattr("src.playbook.generator.generate_playbook", _fake_generate_playbook)
+    monkeypatch.setattr("src.playbook.generator.export_playbook_markdown", _fake_export_playbook_markdown)
 
     assert orchestrator.run_pipeline("full", config_path="config.yaml", database_url=None) == 0
     assert calls["loaded"] is True
     assert calls["logged"] is True
     assert calls["keyword_ids"] == [101]
-    assert "Scoring complete: 1 keywords scored" in capsys.readouterr().out
+    # No OPENAI_API_KEY / build_llm_client stub returns None -> both scoring and
+    # recommendations must receive None, and recommendations must fall back to dry_run.
+    assert calls["scoring_llm_client"] is None
+    assert calls["reco_llm_client"] is None
+    assert calls["reco_dry_run"] is True
+    # No valid saved Fiverr session in tests -> collection must stay a dry run.
+    assert calls["collection_dry_run"] is True
+    assert calls["playbook_niche_ids"] == ["12"]
+    out = capsys.readouterr().out
+    assert "Collection complete" in out
+    assert "Scoring complete: 1 keywords scored" in out
+    assert "Recommendations complete" in out
+    assert "Playbooks complete" in out
 
 
 def test_run_pipeline_rejects_unsupported_mode() -> None:
@@ -438,7 +503,16 @@ def test_run_pipeline_collect_only_runs_collection_orchestrator(
         def load(self) -> object:
             return SimpleNamespace(model_dump=lambda: {"niches": []})
 
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
     async def _fake_collection_pipeline(**kwargs: Any) -> dict[str, Any]:
+        # No valid saved session in tests, so this must stay a dry run.
         assert kwargs["dry_run"] is True
         return {"run_id": kwargs["run_id"], "stages_run": ["stage01_niche_init"], "errors": []}
 
@@ -446,10 +520,88 @@ def test_run_pipeline_collect_only_runs_collection_orchestrator(
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
     monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
     monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(
+        orchestrator, "_construct_session_manager", _fake_session_manager_constructor(session_valid=False)
+    )
     monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
 
     assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 0
     assert "Collection dry run complete" in capsys.readouterr().out
+
+
+def test_run_pipeline_collect_only_runs_live_when_session_valid(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    async def _fake_collection_pipeline(**kwargs: Any) -> dict[str, Any]:
+        # A valid saved session should enable a real (non-dry-run) attempt.
+        assert kwargs["dry_run"] is False
+        return {"run_id": kwargs["run_id"], "stages_run": ["stage01_niche_init"], "errors": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(
+        orchestrator, "_construct_session_manager", _fake_session_manager_constructor(session_valid=True)
+    )
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
+
+    assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 0
+    assert "Collection dry run complete" in capsys.readouterr().out
+
+
+def test_collection_stage_shares_one_event_loop_between_session_check_and_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression test (Codex review, PR #172): Playwright's Browser/BrowserContext
+    are event-loop-bound. is_session_valid() and run_collection_pipeline() must run
+    on the SAME loop, or a session_manager initialized during the validity check
+    would hand the pipeline a context tied to an already-closed loop."""
+    import asyncio
+
+    loop_ids: dict[str, int] = {}
+
+    class _LoopRecordingSessionManager:
+        async def is_session_valid(self) -> bool:
+            loop_ids["session_check"] = id(asyncio.get_running_loop())
+            return True
+
+        async def close(self) -> None:
+            pass
+
+    async def _fake_collection_pipeline(**_kwargs: Any) -> dict[str, Any]:
+        loop_ids["pipeline"] = id(asyncio.get_running_loop())
+        return {"stages_run": [], "errors": []}
+
+    monkeypatch.setattr(orchestrator, "_construct_session_manager", lambda _config: _LoopRecordingSessionManager())
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
+
+    result = orchestrator._run_collection_stage(
+        run_id="run-1", db_session=object(), config=object(), config_payload={}
+    )
+
+    assert result == {"stages_run": [], "errors": []}
+    assert loop_ids["session_check"] == loop_ids["pipeline"]
 
 
 def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
@@ -463,6 +615,14 @@ def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
         def load(self) -> object:
             return SimpleNamespace(model_dump=lambda: {"niches": []})
 
+    class _FakeSessionContext:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
     async def _broken_collection_pipeline(**_kwargs: Any) -> dict[str, Any]:
         raise RuntimeError("dry-run boom")
 
@@ -470,6 +630,11 @@ def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
     monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
     monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///tmp.db")
     monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(
+        orchestrator, "_construct_session_manager", _fake_session_manager_constructor(session_valid=False)
+    )
     monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _broken_collection_pipeline)
 
     assert orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None) == 1
