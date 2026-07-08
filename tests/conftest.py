@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.util
+import logging
 import os
 import pathlib
 import sys
@@ -16,6 +17,44 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+
+# ---------------------------------------------------------------------------
+# Root logger isolation: undo any handler/level/filter mutation a test causes.
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _restore_root_logging_config() -> None:
+    """Snapshot and restore the root logger's handlers/level around each test.
+
+    ``src.utils.logging.configure_logging`` calls ``root_logger.handlers.clear()``
+    then installs a fresh ``StreamHandler`` (with a ``RedactingFilter`` attached)
+    directly on the root logger -- a raw mutation, not something ``monkeypatch``
+    can auto-revert. Any test that reaches the real ``configure_logging`` (e.g.
+    by exercising a CLI command end-to-end without mocking ``run_pipeline``)
+    leaves that handler/filter on the root logger for the rest of the session.
+
+    Because a ``LogRecord`` is shared across every handler on a logger, and
+    ``RedactingFilter.filter()`` mutates ``record.args`` in place (stringifying
+    them for redaction), that leaked handler silently corrupts the args of
+    unrelated ``%d``/``%s`` log calls in *later* tests once pytest's own log
+    capture handler formats the same (already-mutated) record -- observed as a
+    spurious ``TypeError: %d format: a real number is required, not str``
+    ("Logging error") in tests far removed from the actual leak source.
+
+    This fixture makes root-logger configuration test-local regardless of how
+    a test (or the code under test) mutates it.
+    """
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    original_disabled = root_logger.disabled
+    try:
+        yield
+    finally:
+        root_logger.handlers[:] = original_handlers
+        root_logger.setLevel(original_level)
+        root_logger.disabled = original_disabled
+
 
 # Subdirectories created under every isolated runner root.
 _RUNNER_SUBDIRS = (
