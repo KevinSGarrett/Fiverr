@@ -2,17 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 from typing import Any
 
 import numpy as np
 from sqlalchemy.orm import Session
 
+from src.llm import TemplateRenderer
 from src.models.market import Keyword, write_saturation_score
 from src.models.niche import Niche
 from src.models.search_result import SearchResult
 from src.models.search_result import get_latest_search_result as _model_get_latest_search_result
+from src.utils.json import safe_json_loads
+
+_RENDERER = TemplateRenderer()
+
+_SATURATION_CLASS_SCORE_MAP: dict[str, float] = {
+    "HIGHLY_DIFFERENTIATED": 10.0,
+    "MODERATELY_DIFFERENTIATED": 35.0,
+    "SATURATED": 65.0,
+    "COMMODITIZED": 90.0,
+}
 
 TITLE_STOP_WORDS = {
     "i",
@@ -200,12 +214,20 @@ def get_llm_saturation_score(
     db: Any,
     llm_client: Any = None,
     cache: Any = None,
-) -> float:
+    context: dict[str, Any] | None = None,
+) -> tuple[float | None, str | None]:
     """
-    Stub for LLM saturation classification.
+    Classifies market saturation via LLM (gpt-4o-mini) using
+    ``saturation_narrative.j2``, returning ``(score, one_sentence_narrative)``.
 
-    Returns a stable default of 50.0 when no LLM client is available, cache misses,
-    or any runtime issue is encountered.
+    Returns ``(None, None)`` when no real classification is available (no
+    cached value, no llm_client, missing context, or a failed/malformed LLM
+    response) rather than fabricating a value.
+
+    Previously this always returned a stable 50.0 regardless of whether an
+    llm_client was supplied -- it never actually attempted an LLM call -- and
+    the caller blended that fake neutral value into every persisted
+    saturation score at the full 15% weight (SCRUM-1098/1099).
     """
     del db
     cache_key = f"saturation_class_score:{keyword_id}"
@@ -213,19 +235,125 @@ def get_llm_saturation_score(
     if cache is not None and hasattr(cache, "get"):
         try:
             cached = cache.get(cache_key)
-            if hasattr(cached, "__await__"):
-                # Keep this helper sync-only by using the stable default for async cache clients.
-                return 50.0
-            parsed = _safe_float(cached)
-            if parsed is not None:
-                return max(0.0, min(100.0, parsed))
         except Exception:
-            return 50.0
+            cached = None
+        else:
+            if hasattr(cached, "__await__"):
+                cached = None  # this helper is sync-only; treat as a cache miss
+        parsed = _safe_float(cached)
+        if parsed is not None:
+            return max(0.0, min(100.0, parsed)), None
 
-    if llm_client is None:
-        return 50.0
+    if llm_client is None or not context:
+        return None, None
 
-    return 50.0
+    classified = _run_async(_classify_saturation_via_llm(context, llm_client, cache))
+    if classified is None:
+        return None, None
+
+    score, narrative = classified
+    if cache is not None and hasattr(cache, "set"):
+        try:
+            cache.set(cache_key, score)
+        except Exception:
+            pass
+    return score, narrative
+
+
+async def _classify_saturation_via_llm(
+    context: dict[str, Any],
+    llm_client: Any,
+    cache: Any,
+) -> tuple[float, str | None] | None:
+    prompt = _RENDERER.render_template(
+        "saturation_narrative.j2",
+        {
+            "keyword_text": context.get("keyword_text", ""),
+            "niche_name": context.get("niche_name", ""),
+            "total_result_count": context.get("total_result_count", 0),
+            "title_dup_rate": context.get("title_dup_rate", 0.0),
+            "price_compression": context.get("price_compression", 0.0),
+            "top_10_titles": context.get("top_10_titles", []),
+        },
+    )
+    try:
+        response = await asyncio.to_thread(
+            _complete_with_optional_cache, llm_client, prompt, "gpt-4o-mini", cache
+        )
+    except Exception:
+        return None
+
+    try:
+        payload = safe_json_loads(_extract_llm_text(response))
+    except ValueError:
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+
+    saturation_class = str(payload.get("saturation_class", "")).strip().upper()
+    score = _SATURATION_CLASS_SCORE_MAP.get(saturation_class)
+    if score is None:
+        return None
+
+    narrative = payload.get("one_sentence_narrative")
+    return score, (str(narrative) if isinstance(narrative, str) and narrative.strip() else None)
+
+
+def _complete_with_optional_cache(llm_client: Any, prompt: str, model: str, cache: Any | None) -> Any:
+    try:
+        return llm_client.complete(prompt=prompt, model=model, cache=cache)
+    except TypeError:
+        return llm_client.complete(prompt=prompt, model=model)
+
+
+def _extract_llm_text(response: Any) -> str:
+    if isinstance(response, str):
+        return response
+    text = getattr(response, "text", None)
+    return text if isinstance(text, str) else str(response)
+
+
+def _run_async(coro: Any) -> Any:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, coro).result()
+
+
+def _build_llm_saturation_context(
+    keyword_id: int,
+    niche_id: str,
+    db: Any,
+    gig_cards: list[dict[str, Any]],
+    total_count: float,
+    title_dup_rate: float,
+    price_compression: float,
+) -> dict[str, Any] | None:
+    if not isinstance(db, Session):
+        return None
+
+    keyword_row = db.query(Keyword.keyword).filter(Keyword.id == keyword_id).one_or_none()
+    keyword_text = str(keyword_row[0]) if keyword_row and keyword_row[0] else ""
+
+    niche_name = niche_id
+    niche_pk = _resolve_niche_pk(niche_id, db)
+    if niche_pk is not None:
+        niche_row = db.query(Niche.name).filter(Niche.id == niche_pk).one_or_none()
+        if niche_row and niche_row[0]:
+            niche_name = str(niche_row[0])
+
+    top_10_titles = [str(card.get("gig_title")) for card in gig_cards[:10] if card.get("gig_title")]
+
+    return {
+        "keyword_text": keyword_text,
+        "niche_name": niche_name,
+        "total_result_count": total_count,
+        "title_dup_rate": title_dup_rate,
+        "price_compression": price_compression,
+        "top_10_titles": top_10_titles,
+    }
 
 
 def calculate_saturation_score(
@@ -440,16 +568,42 @@ def _calculate_saturation_components(
     seller_overlap_rate = calculate_seller_overlap(keyword_id, niche_id, db)
     overlap_score = seller_overlap_rate * 100
 
-    # Component 5: LLM saturation classification (15%)
-    llm_class_score = get_llm_saturation_score(keyword_id, db, llm_client=llm_client, cache=cache)
-
-    saturation_score = (
-        count_score * 0.25
-        + title_dup_score * 0.25
-        + price_score * 0.20
-        + overlap_score * 0.15
-        + llm_class_score * 0.15
+    # Component 5: LLM saturation classification (15%) -- only when a real
+    # classification is available; otherwise the other four components are
+    # renormalized rather than blending in a fabricated neutral value.
+    llm_context = None
+    if llm_client is not None:
+        llm_context = _build_llm_saturation_context(
+            keyword_id=keyword_id,
+            niche_id=niche_id,
+            db=db,
+            gig_cards=gig_cards,
+            total_count=float(total_count),
+            title_dup_rate=title_dup_rate,
+            price_compression=price_compression,
+        )
+    llm_class_score, llm_narrative = get_llm_saturation_score(
+        keyword_id, db, llm_client=llm_client, cache=cache, context=llm_context
     )
+
+    rule_based_sum = count_score * 0.25 + title_dup_score * 0.25 + price_score * 0.20 + overlap_score * 0.15
+    if llm_class_score is not None:
+        saturation_score = rule_based_sum + llm_class_score * 0.15
+        recorded_llm_score = llm_class_score
+        explanation_text = (
+            "Saturation score blends result volume, title duplication, price compression, "
+            "seller overlap, and qualitative LLM classification."
+        )
+        if llm_narrative:
+            explanation_text = f"{explanation_text} {llm_narrative}"
+    else:
+        saturation_score = rule_based_sum / 0.85
+        recorded_llm_score = 0.0
+        explanation_text = (
+            "Saturation score blends result volume, title duplication, price compression, and "
+            "seller overlap; qualitative LLM classification unavailable."
+        )
+
     clamped_score = round(min(100.0, max(0.0, saturation_score)), 2)
 
     return {
@@ -458,14 +612,11 @@ def _calculate_saturation_components(
         "title_dup_score": round(title_dup_score, 2),
         "price_score": round(price_score, 2),
         "overlap_score": round(overlap_score, 2),
-        "llm_class_score": round(llm_class_score, 2),
+        "llm_class_score": round(recorded_llm_score, 2),
         "title_duplication_rate": round(title_dup_rate, 4),
         "price_compression_rate": round(price_compression, 4),
         "seller_overlap_rate": round(seller_overlap_rate, 4),
-        "explanation_text": (
-            "Saturation score blends result volume, title duplication, price compression, "
-            "seller overlap, and qualitative classification."
-        ),
+        "explanation_text": explanation_text,
     }
 
 

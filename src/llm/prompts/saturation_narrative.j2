@@ -1,0 +1,27 @@
+You are analyzing the saturation level of a Fiverr keyword market.
+
+Keyword: {{ keyword_text }}
+Niche: {{ niche_name }}
+Total search results: {{ total_result_count }}
+Title duplication rate: {{ "%.2f"|format(title_dup_rate) }} (0=unique, 1=identical)
+Price compression score: {{ "%.2f"|format(price_compression) }} (0=healthy, 1=compressed)
+
+Top 10 gig titles:
+{% for title in top_10_titles %}
+- {{ title }}
+{% endfor %}
+
+Classify this market's saturation level and explain why in one sentence.
+
+Return JSON:
+{
+  "saturation_class": "HIGHLY_DIFFERENTIATED|MODERATELY_DIFFERENTIATED|SATURATED|COMMODITIZED",
+  "saturation_score": 0-100,
+  "one_sentence_narrative": "string"
+}
+
+Scoring guide:
+HIGHLY_DIFFERENTIATED (0-25): Titles and approaches vary significantly
+MODERATELY_DIFFERENTIATED (26-50): Some differentiation but patterns emerging
+SATURATED (51-75): Many similar offerings, price competition visible
+COMMODITIZED (76-100): Near-identical titles, extreme price compression, no differentiation
