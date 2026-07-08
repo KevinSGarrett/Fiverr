@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path("C:/Fiverr/Fiverr")
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _run_controller_command(*args: str) -> tuple[int, str]:
