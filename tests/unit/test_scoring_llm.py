@@ -144,6 +144,20 @@ def test_saturation_without_llm_stub() -> None:
     assert any("llm_not_implemented" in warning for warning in result.missing_data_warnings)
 
 
+def test_saturation_with_async_llm_client() -> None:
+    class _AsyncLLMClient:
+        async def complete(self, prompt: str, model: str, cache: Any = None) -> Any:
+            return SimpleNamespace(text="80")
+
+    calculator = SaturationScoreCalculator()
+    result = calculator.calculate(
+        701,
+        FakeScoringDB(saturation_inputs={701: _base_saturation_inputs()}),
+        llm_client=_AsyncLLMClient(),
+    )
+    assert result.score_components["llm_saturation_assessment"].value == 80.0
+
+
 def test_saturation_llm_invalid_response() -> None:
     calculator = SaturationScoreCalculator()
     llm_client = Mock()
@@ -209,6 +223,20 @@ def test_trend_with_llm_strongly_rising() -> None:
         901,
         FakeScoringDB(trend_inputs={901: _base_trend_inputs()}),
         llm_client=llm_client,
+    )
+    assert result.score_components["llm_trend_classification"].value == 100.0
+
+
+def test_trend_with_async_llm_client() -> None:
+    class _AsyncLLMClient:
+        async def complete(self, prompt: str, model: str, cache: Any = None) -> Any:
+            return SimpleNamespace(text="STRONGLY_RISING")
+
+    calculator = TrendScoreCalculator()
+    result = calculator.calculate(
+        901,
+        FakeScoringDB(trend_inputs={901: _base_trend_inputs()}),
+        llm_client=_AsyncLLMClient(),
     )
     assert result.score_components["llm_trend_classification"].value == 100.0
 

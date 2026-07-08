@@ -247,7 +247,7 @@ def test_saturation_score_formula_components_weighted_correctly(monkeypatch) -> 
     monkeypatch.setattr(saturation_model, "calculate_title_duplication_rate", lambda *_args, **_kwargs: 0.4)
     monkeypatch.setattr(saturation_model, "calculate_price_compression", lambda *_args, **_kwargs: 0.5)
     monkeypatch.setattr(saturation_model, "calculate_seller_overlap", lambda *_args, **_kwargs: 0.2)
-    monkeypatch.setattr(saturation_model, "get_llm_saturation_score", lambda *_args, **_kwargs: 80.0)
+    monkeypatch.setattr(saturation_model, "get_llm_saturation_score", lambda *_args, **_kwargs: (80.0, None))
 
     score = saturation_model.calculate_saturation_score(
         keyword_id=1,
@@ -264,7 +264,7 @@ def test_saturation_score_clamped_to_0_100(monkeypatch) -> None:
     monkeypatch.setattr(saturation_model, "calculate_title_duplication_rate", lambda *_args, **_kwargs: 1.0)
     monkeypatch.setattr(saturation_model, "calculate_price_compression", lambda *_args, **_kwargs: 1.0)
     monkeypatch.setattr(saturation_model, "calculate_seller_overlap", lambda *_args, **_kwargs: 1.0)
-    monkeypatch.setattr(saturation_model, "get_llm_saturation_score", lambda *_args, **_kwargs: 200.0)
+    monkeypatch.setattr(saturation_model, "get_llm_saturation_score", lambda *_args, **_kwargs: (200.0, None))
 
     high = saturation_model.calculate_saturation_score(
         keyword_id=1,
@@ -277,7 +277,7 @@ def test_saturation_score_clamped_to_0_100(monkeypatch) -> None:
     monkeypatch.setattr(saturation_model, "calculate_title_duplication_rate", lambda *_args, **_kwargs: 0.0)
     monkeypatch.setattr(saturation_model, "calculate_price_compression", lambda *_args, **_kwargs: 0.0)
     monkeypatch.setattr(saturation_model, "calculate_seller_overlap", lambda *_args, **_kwargs: 0.0)
-    monkeypatch.setattr(saturation_model, "get_llm_saturation_score", lambda *_args, **_kwargs: -200.0)
+    monkeypatch.setattr(saturation_model, "get_llm_saturation_score", lambda *_args, **_kwargs: (-200.0, None))
 
     low = saturation_model.calculate_saturation_score(
         keyword_id=1,
@@ -527,9 +527,161 @@ def test_llm_saturation_score_cache_paths() -> None:
         def get(_key: str) -> str:
             raise RuntimeError("cache unavailable")
 
-    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_SyncCache()) == 87.5
-    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_AsyncCache()) == 50.0
-    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_FailingCache()) == 50.0
+    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_SyncCache()) == (87.5, None)
+    # Async cache clients and cache read failures used to fall back to a fabricated 50.0;
+    # they now honestly report "no real classification available" (SCRUM-1098/1099).
+    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_AsyncCache()) == (None, None)
+    assert saturation_model.get_llm_saturation_score(1, db=None, cache=_FailingCache()) == (None, None)
+
+
+def test_llm_saturation_score_without_client_or_context_returns_none() -> None:
+    assert saturation_model.get_llm_saturation_score(1, db=None) == (None, None)
+    assert saturation_model.get_llm_saturation_score(1, db=None, llm_client=object(), context=None) == (None, None)
+
+
+def test_llm_saturation_score_calls_real_llm_and_parses_narrative() -> None:
+    class _FakeLLMClient:
+        def complete(self, prompt: str, model: str, cache: Any = None) -> str:
+            assert "widget seo" in prompt
+            assert model == "gpt-4o-mini"
+            return (
+                '{"saturation_class": "SATURATED", "saturation_score": 65, '
+                '"one_sentence_narrative": "Many similar offerings at compressed prices."}'
+            )
+
+    score, narrative = saturation_model.get_llm_saturation_score(
+        1,
+        db=None,
+        llm_client=_FakeLLMClient(),
+        context={
+            "keyword_text": "widget seo",
+            "niche_name": "Widgets",
+            "total_result_count": 1200,
+            "title_dup_rate": 0.6,
+            "price_compression": 0.5,
+            "top_10_titles": ["I will do widget seo"],
+        },
+    )
+    assert score == 65.0
+    assert narrative == "Many similar offerings at compressed prices."
+
+
+def test_llm_saturation_score_awaits_async_llm_client() -> None:
+    class _AsyncLLMClient:
+        async def complete(self, prompt: str, model: str, cache: Any = None) -> str:
+            assert "widget seo" in prompt
+            return '{"saturation_class": "COMMODITIZED", "one_sentence_narrative": "Copy-paste titles."}'
+
+    score, narrative = saturation_model.get_llm_saturation_score(
+        1,
+        db=None,
+        llm_client=_AsyncLLMClient(),
+        context={"keyword_text": "widget seo", "niche_name": "Widgets", "total_result_count": 1200},
+    )
+    assert score == 90.0
+    assert narrative == "Copy-paste titles."
+
+
+def test_llm_saturation_score_returns_none_on_malformed_response() -> None:
+    class _BadLLMClient:
+        def complete(self, prompt: str, model: str, cache: Any = None) -> str:
+            return "not json"
+
+    result = saturation_model.get_llm_saturation_score(
+        1,
+        db=None,
+        llm_client=_BadLLMClient(),
+        context={"keyword_text": "k", "niche_name": "n", "total_result_count": 1},
+    )
+    assert result == (None, None)
+
+
+def test_saturation_components_renormalize_when_llm_classification_unavailable(monkeypatch) -> None:
+    fake_result = SimpleNamespace(gig_cards=[{"gig_title": "x", "starting_price": 10}], total_result_count=1_000)
+    monkeypatch.setattr(saturation_model, "get_latest_search_result", lambda *_args, **_kwargs: fake_result)
+    monkeypatch.setattr(saturation_model, "calculate_title_duplication_rate", lambda *_args, **_kwargs: 0.4)
+    monkeypatch.setattr(saturation_model, "calculate_price_compression", lambda *_args, **_kwargs: 0.5)
+    monkeypatch.setattr(saturation_model, "calculate_seller_overlap", lambda *_args, **_kwargs: 0.2)
+
+    class _NoOpLLMClient:
+        def complete(self, prompt: str, model: str, cache: Any = None) -> str:
+            return "not json"
+
+    components = saturation_model._calculate_saturation_components(
+        keyword_id=1,
+        niche_id="niche",
+        db=None,
+        niche_context={"median_result_count": 500},
+        llm_client=_NoOpLLMClient(),
+    )
+    # llm_class_score is recorded as 0.0 for schema/observability but excluded from the
+    # weighted formula -- the remaining 85% of rule-based weight is renormalized to 1.0
+    # instead of blending in a fabricated neutral value.
+    assert components["llm_class_score"] == 0.0
+    assert components["saturation_score"] == round(48.0 / 0.85, 2)
+    assert "unavailable" in str(components["explanation_text"])
+
+
+def test_build_llm_saturation_context_pulls_real_keyword_and_niche_from_db() -> None:
+    session = _make_session()
+    try:
+        niche = _seed_niche(session, "context_from_db")
+        keyword = _seed_keyword(session, niche, "python scraper automation")
+
+        context = saturation_model._build_llm_saturation_context(
+            keyword_id=keyword.id,
+            niche_id="context_from_db",
+            db=session,
+            gig_cards=[{"gig_title": "I will build a python scraper"}, {"starting_price": 5.0}],
+            total_count=42.0,
+            title_dup_rate=0.3,
+            price_compression=0.4,
+        )
+        assert context is not None
+        assert context["keyword_text"] == "python scraper automation"
+        assert context["niche_name"] == "Context From Db"
+        assert context["total_result_count"] == 42.0
+        assert context["top_10_titles"] == ["I will build a python scraper"]
+    finally:
+        session.close()
+
+
+def test_run_saturation_analysis_calls_real_llm_end_to_end(monkeypatch) -> None:
+    class _FakeLLMClient:
+        def complete(self, prompt: str, model: str, cache: Any = None) -> str:
+            assert "e2e keyword" in prompt
+            return '{"saturation_class": "COMMODITIZED", "one_sentence_narrative": "Extreme overlap."}'
+
+    session = _make_session()
+    try:
+        niche = _seed_niche(session, "e2e_llm_niche")
+        keyword = _seed_keyword(session, niche, "e2e keyword")
+        _seed_search_result(
+            session,
+            keyword_id=keyword.id,
+            run_id="run-e2e-llm",
+            total_result_count=100,
+            gig_cards=[{"gig_title": "I will do e2e keyword", "starting_price": 10.0, "seller_username": "s1"}],
+        )
+
+        result = asyncio.run(
+            saturation_model.run_saturation_analysis_for_niche(
+                niche_id="e2e_llm_niche",
+                run_id="run-e2e-llm",
+                db=session,
+                config={"niches": [{"niche_id": "e2e_llm_niche", "is_active": True}]},
+                llm_client=_FakeLLMClient(),
+            )
+        )
+        assert result["analyzed"] is True
+
+        row = session.execute(
+            select(SaturationScore).filter(SaturationScore.keyword_id == keyword.id)
+        ).scalar_one()
+        assert row.llm_class_score == 90.0  # COMMODITIZED
+        assert "Extreme overlap." in row.explanation_text
+    finally:
+        session.close()
 
 
 def test_resolve_niche_pk_handles_numeric_and_slug_values() -> None:

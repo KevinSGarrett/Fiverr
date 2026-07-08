@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import math
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -306,6 +307,10 @@ class SaturationScoreCalculator:
                 "gpt-4o-mini",
                 cache,
             )
+            if inspect.isawaitable(response):
+                # llm_client.complete() was itself async: asyncio.to_thread only
+                # created the coroutine, so it must still be awaited here.
+                response = await response
         except Exception:
             return None
         text = self._extract_llm_text(response).strip()
