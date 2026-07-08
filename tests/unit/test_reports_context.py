@@ -78,7 +78,7 @@ def test_opportunity_context_uses_latest_score_per_keyword_ranked_descending() -
             session,
             keyword,
             final_score=88.0,
-            tag="STRONG GO",
+            tag="STRONG_GO",  # persisted underscore-separated (src/scoring/pipeline.py OPPORTUNITY_TAGS)
             scored_at=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
@@ -87,7 +87,7 @@ def test_opportunity_context_uses_latest_score_per_keyword_ranked_descending() -
         assert context["niches"][0]["name"] == "AI Automation"
         assert context["niches"][0]["depth"] == "full"
         assert context["niches"][0]["keywords"][0]["final_score"] == 88.0
-        assert context["niches"][0]["keywords"][0]["tag"] == "STRONG GO"
+        assert context["niches"][0]["keywords"][0]["tag"] == "STRONG GO"  # humanized for display
         assert {m["label"]: m["value"] for m in context["summary_metrics"]}["STRONG GO"] == 1
     finally:
         session.close()
@@ -121,7 +121,7 @@ def test_recommendation_context_filters_to_go_tags_and_generation_complete() -> 
             Recommendation(
                 keyword_id=keyword_go.id,
                 niche_id=niche.slug,
-                tag="STRONG GO",
+                tag="STRONG_GO",
                 final_score=91.0,
                 generation_complete=True,
                 recommendation_type="keyword_recommendation",
@@ -183,7 +183,7 @@ def test_recommendation_context_filters_to_go_tags_and_generation_complete() -> 
             Recommendation(
                 keyword_id=keyword_go.id,
                 niche_id=niche.slug,
-                tag="CONDITIONAL GO",
+                tag="CONDITIONAL_GO",
                 final_score=70.0,
                 generation_complete=False,
                 recommendation_type="keyword_recommendation",
@@ -196,7 +196,7 @@ def test_recommendation_context_filters_to_go_tags_and_generation_complete() -> 
 
         assert len(context["recommendations"]) == 1
         rec = context["recommendations"][0]
-        assert rec["tag"] == "STRONG GO"
+        assert rec["tag"] == "STRONG GO"  # humanized for display; persisted as STRONG_GO
         assert rec["keyword_text"] == "seo blog writing"
         assert rec["viability"]["blunt_recommendation"] == "Go."
         assert rec["differentiation"]["one_sentence_pitch"] == "SEO content that ranks."
@@ -215,7 +215,7 @@ def test_run_summary_context_derives_metrics_from_pipeline_results_and_db() -> N
                 keyword_id=keyword.id,
                 niche_id=niche.slug,
                 run_id_text="run-abc",
-                tag="STRONG GO",
+                tag="STRONG_GO",
                 final_score=93.0,
                 generation_complete=True,
                 recommendation_type="keyword_recommendation",

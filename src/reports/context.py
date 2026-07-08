@@ -18,6 +18,21 @@ from src.models.market import Keyword
 from src.models.niche import Niche, NicheConfigRecord
 from src.models.scoring import Recommendation
 
+# KeywordScore.tag and Recommendation.tag are persisted underscore-separated
+# (see OPPORTUNITY_TAGS in src/scoring/pipeline.py -- "STRONG_GO",
+# "CONDITIONAL_GO", "MONITOR", "CAUTION", "PASS"). Only the two GO tags need a
+# customer-facing display form; comparisons/filters always use the raw value.
+_TAG_DISPLAY_MAP: dict[str, str] = {
+    "STRONG_GO": "STRONG GO",
+    "CONDITIONAL_GO": "CONDITIONAL GO",
+}
+
+
+def _display_tag(tag: str | None) -> str | None:
+    if tag is None:
+        return None
+    return _TAG_DISPLAY_MAP.get(tag, tag)
+
 
 def _resolve_niche_depth(niche_slug: str, db: Session) -> str:
     depth = (
@@ -55,7 +70,7 @@ def build_opportunity_report_context(db: Any, niche_ids: list[int] | None = None
         keyword_entries = [
             {
                 "keyword_text": keyword.keyword,
-                "tag": score.tag,
+                "tag": _display_tag(score.tag),
                 "final_score": score.final_score,
                 "demand": score.demand_score,
                 "competition": score.competition_score,
@@ -73,7 +88,7 @@ def build_opportunity_report_context(db: Any, niche_ids: list[int] | None = None
         if not keyword_entries:
             continue
 
-        total_strong_go += sum(1 for entry in keyword_entries if entry["tag"] == "STRONG GO")
+        total_strong_go += sum(1 for _keyword, score in latest_by_keyword.values() if score.tag == "STRONG_GO")
         total_keywords += len(keyword_entries)
         niche_payloads.append(
             {
@@ -102,7 +117,7 @@ def build_recommendation_report_context(db: Any, run_id: str | None = None) -> d
         .join(Keyword, Recommendation.keyword_id == Keyword.id)
         .join(Niche, Keyword.niche_id == Niche.id)
         .filter(Recommendation.generation_complete.is_(True))
-        .filter(Recommendation.tag.in_(["STRONG GO", "CONDITIONAL GO"]))
+        .filter(Recommendation.tag.in_(["STRONG_GO", "CONDITIONAL_GO"]))
     )
     if run_id:
         query = query.filter(Recommendation.run_id_text == run_id)
@@ -112,7 +127,7 @@ def build_recommendation_report_context(db: Any, run_id: str | None = None) -> d
     for rec, keyword, niche in rows:
         recommendations.append(
             {
-                "tag": rec.tag,
+                "tag": _display_tag(rec.tag),
                 "keyword_text": keyword.keyword,
                 "niche_name": niche.name,
                 "final_score": rec.final_score,
@@ -168,7 +183,7 @@ def build_run_summary_context(
                 db.query(Recommendation, Keyword, Niche)
                 .join(Keyword, Recommendation.keyword_id == Keyword.id)
                 .join(Niche, Keyword.niche_id == Niche.id)
-                .filter(Recommendation.run_id_text == run_id, Recommendation.tag == "STRONG GO")
+                .filter(Recommendation.run_id_text == run_id, Recommendation.tag == "STRONG_GO")
                 .all()
             )
             new_strong_go = [
