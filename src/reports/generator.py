@@ -11,11 +11,21 @@ follow-up).
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+
+# WeasyPrint's internal progress logger has a known bug where its "Creating
+# layout - Page %d" message is occasionally emitted with a non-numeric page
+# identifier, which crashes any log handler that formats the record (e.g.
+# pytest's log capture) with "TypeError: %d format: a real number is
+# required, not str". This logger is routine internal progress noise with no
+# value to report consumers, so it's silenced entirely rather than relying on
+# every caller's log configuration to tolerate a third-party formatting bug.
+logging.getLogger("weasyprint.progress").setLevel(logging.CRITICAL)
 
 REPORT_TITLES: dict[str, str] = {
     "opportunity": "Opportunity Report",
