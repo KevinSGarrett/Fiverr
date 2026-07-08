@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Summary metrics -->
+<div style="margin: 20px 0;">
+    {% for metric in summary_metrics %}
+    <div class="metric-box">
+        <div class="metric-value">{{ metric.value }}</div>
+        <div class="metric-label">{{ metric.label }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Per-niche sections -->
+{% for niche in niches %}
+<h2>{{ niche.name }}</h2>
+<p>Depth: {{ niche.depth }} | Keywords: {{ niche.keyword_count }}</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Rank</th><th>Keyword</th><th>Tag</th><th>Score</th>
+            <th>Demand</th><th>Comp</th><th>Opp</th><th>Feas</th>
+            <th>Trend</th><th>Conf</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for kw in niche.keywords %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ kw.keyword_text }}</td>
+            <td><span class="tag-badge tag-{{ kw.tag | lower | replace(' ', '-') }}">{{ kw.tag or "—" }}</span></td>
+            <td class="score-cell">{{ kw.final_score | round(1) if kw.final_score is not none else "—" }}</td>
+            <td class="score-cell">{{ kw.demand | round(0) if kw.demand is not none else "—" }}</td>
+            <td class="score-cell">{{ kw.competition | round(0) if kw.competition is not none else "—" }}</td>
+            <td class="score-cell">{{ kw.opportunity | round(0) if kw.opportunity is not none else "—" }}</td>
+            <td class="score-cell">{{ kw.feasibility | round(0) if kw.feasibility is not none else "—" }}</td>
+            <td class="score-cell">{{ kw.trend | round(0) if kw.trend is not none else "—" }}</td>
+            <td class="score-cell">{{ kw.confidence | round(2) if kw.confidence is not none else "—" }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if not loop.last %}<div class="page-break"></div>{% endif %}
+{% endfor %}
+
+{% endblock %}

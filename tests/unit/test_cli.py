@@ -162,6 +162,39 @@ def test_export_recommendation_command_exists() -> None:
     assert "Export a recommendation as Markdown or JSON for a given keyword ID." in result.output
 
 
+def test_report_opportunity_command_exists() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["report-opportunity", "--help"])
+    assert result.exit_code == 0
+    assert "Opportunity Report" in result.output
+
+
+def test_report_recommendations_command_exists() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["report-recommendations", "--help"])
+    assert result.exit_code == 0
+    assert "--run-id" in result.output
+    assert "Recommendation Report" in result.output
+
+
+def test_report_opportunity_command_writes_pdf_or_reports_install_hint(tmp_path: Path) -> None:
+    runner = CliRunner()
+    db_path = tmp_path / "reports.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    output = tmp_path / "opportunity.pdf"
+
+    result = runner.invoke(
+        cli,
+        ["report-opportunity", "--database-url", db_url, "--output", str(output)],
+    )
+
+    if result.exit_code == 0:
+        assert output.exists()
+        assert f"PDF: {output}" in result.output
+    else:
+        assert "WeasyPrint + Jinja2" in str(result.output)
+
+
 def test_foundation_gate_succeeds_with_temp_sqlite_db(tmp_path: Path) -> None:
     runner = CliRunner()
     db_path = tmp_path / "foundation_gate.db"

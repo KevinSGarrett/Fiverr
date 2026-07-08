@@ -386,6 +386,18 @@ def test_run_pipeline_initializes_database_and_prints_mode(
     def _fake_export_playbook_markdown(_playbook: dict[str, Any]) -> str:
         return "# playbook"
 
+    def _fake_build_run_summary_context(**kwargs: Any) -> dict[str, Any]:
+        calls["run_summary_run_id"] = kwargs["run_id"]
+        return {"run": {}}
+
+    def _fake_build_opportunity_report_context(_db: Any) -> dict[str, Any]:
+        calls["opportunity_context_built"] = True
+        return {"summary_metrics": [], "niches": []}
+
+    def _fake_generate_report(report_type: str, _data: dict[str, Any], output_path: str, **_kwargs: Any) -> str:
+        calls.setdefault("generated_reports", []).append(report_type)
+        return output_path
+
     monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
     monkeypatch.setattr(
         orchestrator, "_construct_session_manager", _fake_session_manager_constructor(session_valid=False)
@@ -398,6 +410,9 @@ def test_run_pipeline_initializes_database_and_prints_mode(
     monkeypatch.setattr("src.pricing.pricing_export.export_all_pricing", _fake_export_all_pricing)
     monkeypatch.setattr("src.playbook.generator.generate_playbook", _fake_generate_playbook)
     monkeypatch.setattr("src.playbook.generator.export_playbook_markdown", _fake_export_playbook_markdown)
+    monkeypatch.setattr("src.reports.context.build_run_summary_context", _fake_build_run_summary_context)
+    monkeypatch.setattr("src.reports.context.build_opportunity_report_context", _fake_build_opportunity_report_context)
+    monkeypatch.setattr("src.reports.generator.generate_report", _fake_generate_report)
 
     assert orchestrator.run_pipeline("full", config_path="config.yaml", database_url=None) == 0
     assert calls["loaded"] is True
@@ -411,8 +426,12 @@ def test_run_pipeline_initializes_database_and_prints_mode(
     # No valid saved Fiverr session in tests -> collection must stay a dry run.
     assert calls["collection_dry_run"] is True
     assert calls["playbook_niche_ids"] == ["12"]
+    assert isinstance(calls["run_summary_run_id"], str) and calls["run_summary_run_id"]
+    assert calls["opportunity_context_built"] is True
+    assert sorted(calls["generated_reports"]) == ["opportunity", "run_summary"]
     out = capsys.readouterr().out
     assert "Collection complete" in out
+    assert "Reports complete" in out
     assert "Scoring complete: 1 keywords scored" in out
     assert "Recommendations complete" in out
     assert "Playbooks complete" in out

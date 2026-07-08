@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page {
+        size: A4;
+        margin: 2cm 1.5cm;
+        @bottom-center {
+            content: "Fiverr Research System — {{ report_title }} — Page " counter(page);
+            font-size: 9px;
+            color: #888;
+        }
+    }
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #333;
+    }
+    h1 { font-size: 22px; color: #1a1a2e; border-bottom: 2px solid #16213e; padding-bottom: 8px; }
+    h2 { font-size: 16px; color: #16213e; margin-top: 20px; }
+    h3 { font-size: 13px; color: #0f3460; }
+    .tag-badge {
+        display: inline-block; padding: 2px 10px; border-radius: 12px;
+        font-size: 10px; font-weight: bold; color: white;
+    }
+    .tag-strong-go { background: #f59e0b; }
+    .tag-conditional-go { background: #6b7280; }
+    .tag-monitor { background: #3b82f6; }
+    .tag-caution { background: #ef4444; }
+    .tag-pass { background: #d1d5db; color: #374151; }
+    .score-cell { text-align: center; font-weight: bold; }
+    .metric-box {
+        display: inline-block; border: 1px solid #e5e7eb; border-radius: 8px;
+        padding: 12px 20px; margin: 4px; text-align: center; min-width: 100px;
+    }
+    .metric-value { font-size: 20px; font-weight: bold; color: #1a1a2e; }
+    .metric-label { font-size: 9px; color: #6b7280; text-transform: uppercase; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    th { background: #f3f4f6; padding: 8px; text-align: left; font-size: 10px; }
+    td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+    .page-break { page-break-before: always; }
+    .red-flag { background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px; margin: 8px 0; }
+    .insight-box { background: #f0f9ff; border-left: 3px solid #3b82f6; padding: 8px; margin: 8px 0; }
+</style>
+</head>
+<body>
+    <h1>{{ report_title }}</h1>
+    <p style="color: #6b7280; font-size: 10px;">
+        Generated: {{ generated_at }} | Run: {{ run_id[:8] if run_id else "Manual" }}
+        {% if niche_name %} | Niche: {{ niche_name }}{% endif %}
+    </p>
+
+    {% block content %}{% endblock %}
+</body>
+</html>
