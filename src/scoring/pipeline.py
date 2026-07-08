@@ -1155,11 +1155,16 @@ def _build_confidence_context(
             # position.asc().nullslast()/id.asc() ordering, so scores actually computed
             # from those gigs aren't penalized as if no (or the wrong) gig data existed
             # (Codex review, PR #176).
+            # ProfitabilityScoreCalculator/the feasibility loader limit this fallback
+            # tier's own query to candidate_window (not top_n_for_scoring) for the
+            # same reason as the gig_cards window above: if the first
+            # top_n_for_scoring positions here are sponsored, the real organic gigs
+            # that fed the score sit just past them (Codex review, PR #176).
             fallback_query = db.query(Gig).filter(Gig.keyword_id == keyword_id)
             if active_run_id is not None:
                 fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
             fallback_gigs = (
-                fallback_query.order_by(Gig.position.asc().nullslast(), Gig.id.asc()).limit(top_n_for_scoring).all()
+                fallback_query.order_by(Gig.position.asc().nullslast(), Gig.id.asc()).limit(candidate_window).all()
             )
             # A stale active_run_id can point to unlinked SearchResult rows with no
             # matching Gig.run_id at all - retry unscoped, matching the same final
@@ -1170,12 +1175,14 @@ def _build_confidence_context(
                     db.query(Gig)
                     .filter(Gig.keyword_id == keyword_id)
                     .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
-                    .limit(top_n_for_scoring)
+                    .limit(candidate_window)
                     .all()
                 )
             fallback_organic = 0
             fallback_zombie_count = 0
             for gig in fallback_gigs:
+                if fallback_organic >= top_n_for_scoring:
+                    break
                 if getattr(gig, "is_sponsored", None) is True:
                     continue
                 fallback_organic += 1

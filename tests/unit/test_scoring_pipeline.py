@@ -1846,6 +1846,63 @@ def test_confidence_context_fallback_gigs_count_toward_zombie_concentration() ->
     assert context["zombie_fraction"] == pytest.approx(1.0)
 
 
+def test_confidence_context_keyword_fallback_reaches_organic_gigs_past_sponsored() -> None:
+    """Codex review, PR #176 (P2): when the keyword has no SearchResult-linked gigs
+    at all, the Gig.keyword_id fallback tier must gather the same candidate_window
+    ProfitabilityScoreCalculator/the feasibility loader use before skipping
+    sponsored gigs, not a naive top_n_for_scoring position cutoff - otherwise
+    sponsored gigs occupying the first positions crowd out the real organic gigs
+    that fed the score."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-fallback-sponsored-window", name="ContextFallbackSponsoredWindow", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="fallback sponsored window keyword",
+        normalized_keyword="fallback sponsored window keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="fallback_sponsored_window_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    for position in range(1, 14):
+        # Positions 1-3 are sponsored - the top_n_for_scoring=10 organic gigs that
+        # actually fed the real score are positions 4-13.
+        is_sponsored = position <= 3
+        # The last organic gig (position 13) - unreachable under the old
+        # top_n_for_scoring-sized fallback limit - is a zombie.
+        is_zombie = position == 13
+        session.add(
+            Gig(
+                seller_id=seller.id,
+                keyword_id=keyword.id,
+                position=position,
+                title=f"I will do fallback sponsored window work {position}",
+                normalized_title=f"fallback sponsored window work {position}",
+                detail_collected=True,
+                detail_collected_at=datetime.now(UTC),
+                is_sponsored=is_sponsored,
+                is_zombie=is_zombie,
+            )
+        )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["zombie_fraction"] == pytest.approx(0.1)
+
+
 def test_confidence_context_scopes_search_results_to_active_run() -> None:
     """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/
     GigQualityWeaknessScoreCalculator resolve an active_run_id (the run_id of the
