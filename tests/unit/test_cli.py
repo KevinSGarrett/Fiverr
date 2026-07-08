@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -177,7 +178,14 @@ def test_report_recommendations_command_exists() -> None:
     assert "Recommendation Report" in result.output
 
 
-def test_report_opportunity_command_writes_pdf_or_reports_install_hint(tmp_path: Path) -> None:
+def test_report_opportunity_command_writes_pdf_or_reports_install_hint(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # weasyprint.progress has a known bug where its internal "Creating layout
+    # - Page %d" log call can crash pytest's log-record formatting with an
+    # unrelated TypeError; silencing it here is the sanctioned pytest-side
+    # mechanism (see src/reports/generator.py for the production-side fix).
+    caplog.set_level(logging.CRITICAL, logger="weasyprint.progress")
     runner = CliRunner()
     db_path = tmp_path / "reports.db"
     db_url = f"sqlite:///{db_path.as_posix()}"

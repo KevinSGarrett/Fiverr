@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -39,7 +40,14 @@ def test_generate_report_rejects_unknown_report_type(tmp_path: Path) -> None:
         generate_report("competitor", {}, str(tmp_path / "out.pdf"))
 
 
-def test_generate_report_writes_pdf_or_raises_install_hint(tmp_path: Path) -> None:
+def test_generate_report_writes_pdf_or_raises_install_hint(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # weasyprint.progress has a known bug where its internal "Creating layout
+    # - Page %d" log call can crash pytest's log-record formatting with an
+    # unrelated TypeError; silencing it here is the sanctioned pytest-side
+    # mechanism (see src/reports/generator.py for the production-side fix).
+    caplog.set_level(logging.CRITICAL, logger="weasyprint.progress")
     output = tmp_path / "opportunity.pdf"
     try:
         result = generate_report(
@@ -52,7 +60,10 @@ def test_generate_report_writes_pdf_or_raises_install_hint(tmp_path: Path) -> No
         assert "WeasyPrint + Jinja2" in str(exc)
 
 
-def test_generate_report_run_summary_writes_pdf_or_raises_install_hint(tmp_path: Path) -> None:
+def test_generate_report_run_summary_writes_pdf_or_raises_install_hint(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.CRITICAL, logger="weasyprint.progress")
     output = tmp_path / "run_summary.pdf"
     data = {
         "run": {
@@ -74,7 +85,10 @@ def test_generate_report_run_summary_writes_pdf_or_raises_install_hint(tmp_path:
         assert "WeasyPrint + Jinja2" in str(exc)
 
 
-def test_generate_report_recommendation_writes_pdf_or_raises_install_hint(tmp_path: Path) -> None:
+def test_generate_report_recommendation_writes_pdf_or_raises_install_hint(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.CRITICAL, logger="weasyprint.progress")
     output = tmp_path / "recommendation.pdf"
     data = {
         "recommendations": [
