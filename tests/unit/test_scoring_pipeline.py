@@ -677,6 +677,7 @@ def test_confidence_context_detects_real_gig_detail_and_seller_profile_collectio
         seller_id=seller.id,
         title="I will do detailed work",
         normalized_title="detailed work",
+        detail_collected=True,
         detail_collected_at=datetime.now(UTC),
     )
     session.add(gig)
@@ -732,6 +733,110 @@ def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> N
     assert context["source_diversity_score"] == pytest.approx(0.0)
 
 
+def test_confidence_context_requires_detail_collected_flag_not_just_timestamp() -> None:
+    """Codex review, PR #176 (P2): Gig.is_stale() requires BOTH detail_collected
+    (bool) and detail_collected_at. write_gig_card() resets detail_collected=False
+    on every re-seen search card WITHOUT clearing the old detail_collected_at, so a
+    stale leftover timestamp alone must not be treated as proof detail collection
+    succeeded for the current run."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-invalidated-detail", name="ContextInvalidatedDetail", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="invalidated detail keyword", normalized_keyword="invalidated detail keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="invalidated_detail_seller")
+    session.add(seller)
+    session.flush()
+    # A gig re-seen by card collection: detail_collected reset to False, but the old
+    # detail_collected_at timestamp from a prior successful scrape was left intact.
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do work with invalidated detail",
+        normalized_title="invalidated detail work",
+        detail_collected=False,
+        detail_collected_at=datetime.now(UTC),
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is False
+
+
+def test_confidence_context_reddit_demand_freshness_independent_of_reddit_activity() -> None:
+    """Codex review, PR #176 (P2): demand/intent scoring reads reddit_demand
+    specifically, regardless of reddit_activity's freshness. A stale reddit_demand
+    row that is still the one actually used by scoring must not be hidden behind a
+    fresher reddit_activity row that only feeds trend scoring."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-reddit-demand-stale", name="ContextRedditDemandStale", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="reddit demand stale keyword", normalized_keyword="reddit demand stale keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=2000)
+    fresh_at = datetime.now(UTC)
+    # Stale reddit_demand row - still the one demand/intent scoring actually reads.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_demand",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-reddit-demand-stale-run",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    # Fresh reddit_activity row - only feeds trend scoring's combined pool.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_activity",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=fresh_at,
+            run_id="ctx-reddit-demand-stale-run",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    # The stale reddit_demand row must still be able to drive staleness even though a
+    # fresher reddit_activity row exists for the same keyword.
+    assert context["data_age_hours"] >= 168.0
+
+
 def test_confidence_context_freshness_reflects_stale_records() -> None:
     """SCRUM-1153: data_freshness_score/data_age_hours must reflect real record
     age, not a hardcoded 0.0-age/1.0-freshness pair."""
@@ -759,6 +864,7 @@ def test_confidence_context_freshness_reflects_stale_records() -> None:
         seller_id=seller.id,
         title="I will do stale work",
         normalized_title="stale work",
+        detail_collected=True,
         detail_collected_at=stale_at,
         updated_at=stale_at,
     )
@@ -808,6 +914,7 @@ def test_confidence_context_freshness_picks_highest_staleness_ratio_not_oldest_t
         seller_id=seller.id,
         title="I will do ratio work",
         normalized_title="ratio work",
+        detail_collected=True,
         detail_collected_at=gig_stale_at,
         updated_at=gig_stale_at,
     )
@@ -972,6 +1079,7 @@ def test_confidence_context_freshness_includes_unranked_marketplace_snapshot() -
         seller_id=seller.id,
         title="I will do fresh ranked work",
         normalized_title="fresh ranked work",
+        detail_collected=True,
         detail_collected_at=fresh_at,
         updated_at=fresh_at,
     )
@@ -1034,6 +1142,7 @@ def test_confidence_context_resolves_gigs_via_keyword_id_fallback() -> None:
         keyword_id=keyword.id,
         title="I will do keyword-linked work",
         normalized_title="keyword-linked work",
+        detail_collected=True,
         detail_collected_at=datetime.now(UTC),
     )
     session.add(gig)
@@ -1078,6 +1187,7 @@ def test_confidence_context_keyword_fallback_retries_unscoped_after_run_scoped_m
         keyword_id=keyword.id,
         title="I will do unscoped-run work",
         normalized_title="unscoped-run work",
+        detail_collected=True,
         detail_collected_at=datetime.now(UTC),
         run_id="run-legacy",
     )
@@ -1130,6 +1240,7 @@ def test_confidence_context_fallback_gigs_count_toward_zombie_concentration() ->
                 keyword_id=keyword.id,
                 title=f"I will do zombie work {i}",
                 normalized_title=f"zombie work {i}",
+                detail_collected=True,
                 detail_collected_at=datetime.now(UTC),
                 is_zombie=True,
             )
@@ -1172,6 +1283,7 @@ def test_confidence_context_scopes_search_results_to_active_run() -> None:
         seller_id=seller.id,
         title="I will do fresh active-run work",
         normalized_title="fresh active-run work",
+        detail_collected=True,
         detail_collected_at=fresh_at,
         updated_at=fresh_at,
         run_id="run-new",
@@ -1181,6 +1293,7 @@ def test_confidence_context_scopes_search_results_to_active_run() -> None:
         seller_id=seller.id,
         title="I will do stale old-run work",
         normalized_title="stale old-run work",
+        detail_collected=True,
         detail_collected_at=stale_at,
         updated_at=stale_at,
         run_id="run-old",
@@ -1237,6 +1350,7 @@ def test_confidence_context_llm_quality_incomplete_counted_even_when_detail_coll
         seller_id=seller.id,
         title="I will do fully detailed work",
         normalized_title="fully detailed work",
+        detail_collected=True,
         detail_collected_at=datetime.now(UTC),
     )
     session.add(gig)
@@ -1282,6 +1396,7 @@ def test_confidence_context_freshness_uses_record_own_ttl_not_global_default() -
         seller_id=seller.id,
         title="I will do fresh gig work",
         normalized_title="fresh gig work",
+        detail_collected=True,
         detail_collected_at=fresh_at,
         updated_at=fresh_at,
     )
@@ -1405,6 +1520,7 @@ def test_confidence_context_freshness_uses_oldest_not_newest_contributing_record
         seller_id=seller.id,
         title="I will do stale work with a fresh signal",
         normalized_title="mixed freshness work",
+        detail_collected=True,
         detail_collected_at=stale_at,
         updated_at=stale_at,
     )
@@ -1456,6 +1572,7 @@ def test_confidence_context_freshness_uses_collected_at_not_metadata_touch() -> 
         seller_id=seller.id,
         title="I will do work with stale detail but a fresh metadata touch",
         normalized_title="metadata touch work",
+        detail_collected=True,
         detail_collected_at=stale_at,
         updated_at=fresh_at,
     )
@@ -1508,6 +1625,7 @@ def test_confidence_context_freshness_score_is_mean_not_worst_record() -> None:
         seller_id=seller.id,
         title="I will do mostly fresh work",
         normalized_title="mostly fresh work",
+        detail_collected=True,
         detail_collected_at=very_stale_at,
         updated_at=very_stale_at,
     )

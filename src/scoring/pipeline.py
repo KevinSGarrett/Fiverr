@@ -905,7 +905,12 @@ def _build_confidence_context(
         def _process_gig(gig: Any) -> None:
             nonlocal gig_detail_collected, seller_profiles_collected
             gig_detail_collected_at = getattr(gig, "detail_collected_at", None)
-            if gig_detail_collected_at is not None:
+            # Gig.is_stale() requires BOTH detail_collected (bool) and
+            # detail_collected_at: write_gig_card() resets detail_collected=False on
+            # every re-seen search card WITHOUT clearing the old detail_collected_at,
+            # so a stale timestamp alone is not proof detail collection succeeded for
+            # the current run (Codex review, PR #176).
+            if bool(getattr(gig, "detail_collected", False)) and gig_detail_collected_at is not None:
                 gig_detail_collected = True
             # Prefer the actual collection timestamp over updated_at: a gig's metadata
             # (relevance/zombie flags, price) can be touched long after its detail
@@ -1023,32 +1028,45 @@ def _build_confidence_context(
                     youtube_video_count = int(raw_count)
             except (TypeError, ValueError):
                 youtube_video_count = None
-        # Aggregate only the newest row PER effective loader source group, matching the
-        # "only the latest row counts" semantics the real scoring loaders use (e.g.
-        # DemandScoreCalculator._load_signals_from_db orders by created_at.desc() and
-        # takes .first() per type) - an old, superseded row from a prior run must not
-        # drive staleness when a fresher same-group row is the one actually scored.
-        # reddit_demand/reddit_activity are grouped together because
-        # TrendScoreCalculator._load_signals_from_db treats them as one combined pool
-        # (signal_type.in_([...]).order_by(created_at.desc()).first()) - a stale
-        # reddit_activity row must not count once a fresher reddit_demand row exists
-        # (Codex review, PR #176).
+        # Aggregate only the newest row PER exact signal_type, matching the "only the
+        # latest row counts" semantics most scoring loaders use (e.g.
+        # DemandScoreCalculator/ConversionIntentScoreCalculator read reddit_demand
+        # specifically) - an old, superseded row from a prior run must not drive
+        # staleness when a fresher same-type row is the one actually scored.
         all_signals = (
             db.query(ExternalSignal)
             .filter(ExternalSignal.keyword_id == keyword_id)
             .order_by(ExternalSignal.created_at.desc(), ExternalSignal.id.desc())
             .all()
         )
-        seen_signal_groups: set[str] = set()
-        latest_signal_per_group: list[ExternalSignal] = []
+        # reddit_activity is never read on its own by any scoring loader - it only
+        # ever contributes via TrendScoreCalculator's combined-with-reddit_demand pool
+        # below - so it must not be folded in independently here, or a reddit_activity
+        # row staler than reddit_demand would wrongly count even though nothing reads
+        # it in that scenario (Codex review, PR #176).
+        seen_signal_types: set[str] = set()
+        latest_signal_per_type: list[ExternalSignal] = []
         for signal in all_signals:
-            group_key = "reddit" if signal.signal_type in ("reddit_demand", "reddit_activity") else signal.signal_type
-            if group_key in seen_signal_groups:
+            if signal.signal_type == "reddit_activity":
                 continue
-            seen_signal_groups.add(group_key)
-            latest_signal_per_group.append(signal)
-        for signal in latest_signal_per_group:
+            if signal.signal_type in seen_signal_types:
+                continue
+            seen_signal_types.add(signal.signal_type)
+            latest_signal_per_type.append(signal)
+        for signal in latest_signal_per_type:
             _consider_freshness(signal.collected_at, signal.ttl_hours)
+        # TrendScoreCalculator._load_signals_from_db additionally treats reddit_demand
+        # and reddit_activity as one combined pool
+        # (signal_type.in_([...]).order_by(created_at.desc()).first()) - fold that
+        # combined value in too, in addition to (not instead of) reddit_demand's own
+        # per-type entry above, since demand/intent scoring still reads reddit_demand
+        # specifically regardless of reddit_activity's freshness (Codex review, PR #176).
+        reddit_combined_newest = next(
+            (signal for signal in all_signals if signal.signal_type in ("reddit_demand", "reddit_activity")),
+            None,
+        )
+        if reddit_combined_newest is not None:
+            _consider_freshness(reddit_combined_newest.collected_at, reddit_combined_newest.ttl_hours)
         newest_signal = (
             db.query(ExternalSignal)
             .filter(ExternalSignal.keyword_id == keyword_id)
