@@ -1050,6 +1050,102 @@ def test_confidence_context_resolves_gigs_via_keyword_id_fallback() -> None:
     assert context["seller_profiles_collected"] is True
 
 
+def test_confidence_context_keyword_fallback_retries_unscoped_after_run_scoped_miss() -> None:
+    """Codex review, PR #176 (P2): profitability.py/weakness.py retry an UNSCOPED
+    Gig.keyword_id query when the run-scoped fallback comes up empty (a stale
+    active_run_id can point to unlinked SearchResult rows with no matching
+    Gig.run_id at all). Mirror that final recovery tier."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-unscoped-fallback", name="ContextUnscopedFallback", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="unscoped fallback keyword", normalized_keyword="unscoped fallback keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="unscoped_fallback_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    # This gig has a DIFFERENT run_id than the active run determined from the
+    # SearchResult row below, and is only reachable via the unscoped retry tier.
+    gig = Gig(
+        seller_id=seller.id,
+        keyword_id=keyword.id,
+        title="I will do unscoped-run work",
+        normalized_title="unscoped-run work",
+        detail_collected_at=datetime.now(UTC),
+        run_id="run-legacy",
+    )
+    session.add(gig)
+    session.flush()
+    # An unlinked SearchResult row (no gig_id) determines the active run, but no Gig
+    # row actually carries that run_id.
+    session.add(
+        SearchResult(keyword_id=keyword.id, rank=1, gig_id=None, title="unlinked row", run_id="run-current")
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is True
+    assert context["seller_profiles_collected"] is True
+
+
+def test_confidence_context_fallback_gigs_count_toward_zombie_concentration() -> None:
+    """Codex review, PR #176 (P2): the search-result-linked path counts
+    total_organic/zombie_count before processing gigs, but the Gig.keyword_id
+    fallback path left both at 0 - a keyword scored entirely from fallback gigs
+    must still be able to trigger zombie_concentration_high/moderate when those
+    gigs are zombies."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-fallback-zombie", name="ContextFallbackZombie", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="fallback zombie keyword", normalized_keyword="fallback zombie keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="fallback_zombie_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    for i in range(4):
+        session.add(
+            Gig(
+                seller_id=seller.id,
+                keyword_id=keyword.id,
+                title=f"I will do zombie work {i}",
+                normalized_title=f"zombie work {i}",
+                detail_collected_at=datetime.now(UTC),
+                is_zombie=True,
+            )
+        )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["zombie_fraction"] == pytest.approx(1.0)
+
+
 def test_confidence_context_scopes_search_results_to_active_run() -> None:
     """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/
     GigQualityWeaknessScoreCalculator resolve an active_run_id (the run_id of the

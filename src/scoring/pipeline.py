@@ -952,10 +952,33 @@ def _build_confidence_context(
             fallback_gigs = (
                 fallback_query.order_by(Gig.position.asc().nullslast(), Gig.id.asc()).limit(top_n_for_scoring).all()
             )
+            # A stale active_run_id can point to unlinked SearchResult rows with no
+            # matching Gig.run_id at all - retry unscoped, matching the same final
+            # recovery tier profitability.py/weakness.py fall back to (Codex review,
+            # PR #176).
+            if not fallback_gigs and active_run_id is not None:
+                fallback_gigs = (
+                    db.query(Gig)
+                    .filter(Gig.keyword_id == keyword_id)
+                    .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                    .limit(top_n_for_scoring)
+                    .all()
+                )
+            fallback_organic = 0
+            fallback_zombie_count = 0
             for gig in fallback_gigs:
                 if getattr(gig, "is_sponsored", None) is True:
                     continue
+                fallback_organic += 1
+                if bool(getattr(gig, "is_zombie", False)):
+                    fallback_zombie_count += 1
                 _process_gig(gig)
+            if fallback_organic > 0:
+                # These gigs are the only ones contributing to this keyword's score
+                # (the search-result-linked path found none), so zombie concentration
+                # must be measured against them too, not left at 0.0 (Codex review,
+                # PR #176).
+                zombie_fraction = fallback_zombie_count / fallback_organic
         # DemandScoreCalculator._resolve_marketplace_snapshot reads the SearchResult
         # row with the highest total_result_count regardless of rank (it can be
         # unranked or outside the top-N), so demand can be driven by a row this
