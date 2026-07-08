@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import re
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
@@ -280,6 +281,10 @@ async def _classify_saturation_via_llm(
         response = await asyncio.to_thread(
             _complete_with_optional_cache, llm_client, prompt, "gpt-4o-mini", cache
         )
+        if inspect.isawaitable(response):
+            # llm_client.complete() was itself async: asyncio.to_thread only
+            # created the coroutine, so it must still be awaited here.
+            response = await response
     except Exception:
         return None
 

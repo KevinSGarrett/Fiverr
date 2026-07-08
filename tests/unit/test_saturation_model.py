@@ -566,6 +566,22 @@ def test_llm_saturation_score_calls_real_llm_and_parses_narrative() -> None:
     assert narrative == "Many similar offerings at compressed prices."
 
 
+def test_llm_saturation_score_awaits_async_llm_client() -> None:
+    class _AsyncLLMClient:
+        async def complete(self, prompt: str, model: str, cache: Any = None) -> str:
+            assert "widget seo" in prompt
+            return '{"saturation_class": "COMMODITIZED", "one_sentence_narrative": "Copy-paste titles."}'
+
+    score, narrative = saturation_model.get_llm_saturation_score(
+        1,
+        db=None,
+        llm_client=_AsyncLLMClient(),
+        context={"keyword_text": "widget seo", "niche_name": "Widgets", "total_result_count": 1200},
+    )
+    assert score == 90.0
+    assert narrative == "Copy-paste titles."
+
+
 def test_llm_saturation_score_returns_none_on_malformed_response() -> None:
     class _BadLLMClient:
         def complete(self, prompt: str, model: str, cache: Any = None) -> str:
