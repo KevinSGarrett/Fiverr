@@ -42,8 +42,13 @@ AVAILABLE_MODES = (
 )
 
 STAGE_AVAILABILITY = {
-    "full": "Foundation CLI is active. Full pipeline orchestration is not wired yet.",
-    "collect-only": "Collection module contracts exist; full collection orchestration is pending.",
+    "full": (
+        "Full mode chains collection (Stage 1-13), scoring, pricing, recommendations, "
+        "playbook generation, and exports in one run. Live collection auto-detects a "
+        "valid saved Fiverr session; ScrapFly spend is further gated by "
+        "collection.scrapfly.enabled in config."
+    ),
+    "collect-only": "Runs Stage 1-13 collection plus its built-in analysis stages only.",
     "cluster-only": "Cluster-only mode runs Stage 9 keyword clustering for active niches.",
     "profile-only": "Profile-only mode runs Stage 10 competitor profiling for active niches.",
     "quality-analysis": "Quality-analysis mode runs Stage 11 gig quality rubric analysis.",
@@ -93,6 +98,109 @@ def _resolve_existing_run_id(db_session: Any) -> str | None:
         return latest_gig_run.strip()
 
     return None
+
+
+def _run_collection_stage(
+    run_id: str,
+    db_session: Any,
+    config: Any,
+    config_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Runs Stage 1-13 collection plus its built-in analysis stages.
+
+    Live vs. dry-run is auto-detected from saved Fiverr session validity, so a
+    routine `full`/`collect-only` invocation never spends ScrapFly credits
+    unless an operator has already completed `relogin` AND left
+    `collection.scrapfly.enabled: true` in their config (that flag defaults to
+    false in git, matching the existing live_pilot safety convention).
+    Previously `full`/`collect-only` passed a fake `db={}` and hardcoded
+    `dry_run=True` unconditionally, so this stage never ran for real and never
+    persisted anything even when credentials were configured (SCRUM-1147).
+    """
+    from src.collection.orchestrator import run_collection_pipeline
+
+    session_manager: Any = None
+    try:
+        session_manager = _construct_session_manager(config)
+        session_valid = asyncio.run(session_manager.is_session_valid())
+    except Exception:  # noqa: BLE001
+        session_valid = False
+
+    try:
+        return asyncio.run(
+            run_collection_pipeline(
+                run_id=run_id,
+                db=db_session,
+                config=config_payload,
+                session_manager=session_manager,
+                dry_run=not session_valid,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+    finally:
+        if session_manager is not None:
+            try:
+                asyncio.run(session_manager.close())
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _construct_session_manager(config: Any) -> Any:
+    """Constructs the real Playwright-backed SessionManager.
+
+    Kept as a standalone indirection point (rather than importing SessionManager
+    directly inline) so tests can monkeypatch this one function instead of
+    triggering a real Playwright import via the underlying module.
+    """
+    from src.collection.session_manager import SessionManager
+
+    return SessionManager(config)
+
+
+def _build_llm_client_safely(config_payload: dict[str, Any]) -> Any:
+    """Builds a real LLM client when OPENAI_API_KEY is configured, else None."""
+    try:
+        from src.llm.client import build_llm_client
+
+        return build_llm_client(config_payload)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_active_niche_ids(config_payload: dict[str, Any]) -> list[str]:
+    """Extracts active niche_id strings from config, mirroring each analysis
+    module's own `_extract_niche_ids` convention."""
+    niches = config_payload.get("niches", []) if isinstance(config_payload, dict) else []
+    if not isinstance(niches, list):
+        return []
+    resolved: list[str] = []
+    for niche in niches:
+        if not isinstance(niche, dict):
+            continue
+        if niche.get("is_active", True) is False:
+            continue
+        niche_id = niche.get("niche_id")
+        if isinstance(niche_id, str) and niche_id.strip():
+            resolved.append(niche_id.strip())
+    return resolved
+
+
+def _resolve_full_mode_niche_pks(config_payload: dict[str, Any]) -> list[int]:
+    """Resolves config niche_id entries to integer Keyword.niche_id PKs, when
+    the config already uses numeric niche identifiers."""
+    niche_ids: list[int] = []
+    niches_payload = config_payload.get("niches", []) if isinstance(config_payload, dict) else []
+    if isinstance(niches_payload, dict):
+        return [int(niche_id) for niche_id in niches_payload.keys() if str(niche_id).isdigit()]
+    if isinstance(niches_payload, list):
+        for niche in niches_payload:
+            if not isinstance(niche, dict):
+                continue
+            niche_id = niche.get("niche_id")
+            if niche_id is not None and str(niche_id).isdigit():
+                niche_ids.append(int(niche_id))
+    return niche_ids
 
 
 def build_dashboard_readiness_handoff(
@@ -431,21 +539,17 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
     if mode == "collect-only":
         import uuid
 
-        from src.collection.orchestrator import run_collection_pipeline
-
         run_id = str(uuid.uuid4())
-        try:
-            result = asyncio.run(
-                run_collection_pipeline(
-                    run_id=run_id,
-                    db={},
-                    config=config_payload if isinstance(config_payload, dict) else {},
-                    session_manager=None,
-                    dry_run=True,
-                )
+        session_factory = create_session_factory(engine)
+        with get_session(session_factory) as db_session:
+            result = _run_collection_stage(
+                run_id=run_id,
+                db_session=db_session,
+                config=config,
+                config_payload=config_payload if isinstance(config_payload, dict) else {},
             )
-        except Exception as exc:  # noqa: BLE001
-            print(f"Collection dry run failed: {exc}")
+        if "error" in result:
+            print(f"Collection dry run failed: {result['error']}")
             return 1
         print(f"Collection dry run complete: {result}")
         return 0
@@ -583,50 +687,118 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         return 0
 
     if mode == "full":
+        import uuid
+
         from src.models import Keyword
+        from src.playbook.generator import export_playbook_markdown, generate_playbook
         from src.pricing.orchestrator import run_pricing_stage
+        from src.pricing.pricing_export import export_all_pricing
+        from src.recommendations.export import export_all_recommendations
+        from src.recommendations.pipeline import run_recommendations_pipeline
         from src.scoring.pipeline import score_keyword_batch
 
+        run_id = str(uuid.uuid4())
+        payload = config_payload if isinstance(config_payload, dict) else {}
         profile_name = (
             getattr(getattr(config, "scoring", None), "active_profile", None)
-            or config_payload.get("scoring", {}).get("active_profile")
+            or payload.get("scoring", {}).get("active_profile")
             or "default"
         )
-        niche_ids: list[int] = []
-        niches_payload = config_payload.get("niches", [])
-        if isinstance(niches_payload, dict):
-            niche_ids = [int(niche_id) for niche_id in niches_payload.keys() if str(niche_id).isdigit()]
-        elif isinstance(niches_payload, list):
-            for niche in niches_payload:
-                if not isinstance(niche, dict):
-                    continue
-                niche_id = niche.get("niche_id")
-                if niche_id is not None and str(niche_id).isdigit():
-                    niche_ids.append(int(niche_id))
+        niche_ids = _resolve_full_mode_niche_pks(payload)
+        llm_client = _build_llm_client_safely(payload)
+
         session_factory = create_session_factory(engine)
         with get_session(session_factory) as db_session:
+            collection_result = _run_collection_stage(
+                run_id=run_id,
+                db_session=db_session,
+                config=config,
+                config_payload=payload,
+            )
+
             keyword_query = db_session.query(Keyword.id)
             if niche_ids:
                 keyword_query = keyword_query.filter(Keyword.niche_id.in_(niche_ids))
             keyword_ids = [int(keyword_id) for (keyword_id,) in keyword_query.all()]
-            scored_results = asyncio.run(
-                score_keyword_batch(
-                    keyword_ids=keyword_ids,
-                    profile_name=profile_name,
-                    db=db_session,
-                    llm_client=None,
-                    cache=None,
-                    config=config_payload if isinstance(config_payload, dict) else {},
+
+            try:
+                scored_results = asyncio.run(
+                    score_keyword_batch(
+                        keyword_ids=keyword_ids,
+                        profile_name=profile_name,
+                        db=db_session,
+                        llm_client=llm_client,
+                        cache=None,
+                        config=payload,
+                    )
                 )
-            )
-            pricing_result = run_pricing_stage(
-                run_id=timestamp_stamp(),
-                keyword_ids=keyword_ids,
-                db=db_session,
-                config=config_payload if isinstance(config_payload, dict) else {},
-            )
+            except Exception as exc:  # noqa: BLE001
+                scored_results = []
+                print(f"Scoring stage failed: {exc}")
+
+            try:
+                pricing_result = run_pricing_stage(
+                    run_id=run_id,
+                    keyword_ids=keyword_ids,
+                    db=db_session,
+                    config=payload,
+                )
+            except Exception as exc:  # noqa: BLE001
+                pricing_result = {"error": str(exc)}
+
+            try:
+                recommendations_result = asyncio.run(
+                    run_recommendations_pipeline(
+                        run_id=run_id,
+                        db=db_session,
+                        config=payload,
+                        llm_client=llm_client,
+                        cache=None,
+                        dry_run=llm_client is None,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                recommendations_result = {"error": str(exc)}
+
+            try:
+                recommendations_export = asyncio.run(
+                    export_all_recommendations(run_id=run_id, fmt="markdown", db=db_session, config=payload)
+                )
+            except Exception as exc:  # noqa: BLE001
+                recommendations_export = {"error": str(exc)}
+
+            try:
+                pricing_export = export_all_pricing(
+                    keyword_ids=keyword_ids,
+                    db=db_session,
+                    output_dir="data/exports/pricing",
+                )
+            except Exception as exc:  # noqa: BLE001
+                pricing_export = {"error": str(exc)}
+
+            playbook_results: dict[str, str] = {}
+            for niche_id_str in _extract_active_niche_ids(payload):
+                try:
+                    playbook = generate_playbook(niche_id_str, db_session, payload)
+                    markdown = export_playbook_markdown(playbook)
+                    out_dir = Path("data/exports/playbook")
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    out_path = out_dir / f"{niche_id_str}.md"
+                    out_path.write_text(markdown, encoding="utf-8")
+                    playbook_results[niche_id_str] = str(out_path)
+                except Exception as exc:  # noqa: BLE001
+                    playbook_results[niche_id_str] = f"error: {exc}"
+
+        print(f"Collection complete: {collection_result}")
         print(f"Scoring complete: {len(scored_results)} keywords scored")
         print(f"Stage 10.5 complete: {pricing_result}")
+        print(f"Recommendations complete: {recommendations_result}")
+        print(
+            "Exports complete: "
+            f"recommendations={len(recommendations_export) if isinstance(recommendations_export, dict) else 0} "
+            f"pricing={len(pricing_export) if isinstance(pricing_export, dict) else 0}"
+        )
+        print(f"Playbooks complete: {playbook_results}")
         return 0
 
     print(f"Mode: {mode}")
