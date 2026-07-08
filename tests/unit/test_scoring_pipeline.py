@@ -796,6 +796,48 @@ def test_confidence_context_requires_usable_google_trends_payload() -> None:
     assert context["google_trends_available"] is False
 
 
+def test_confidence_context_counts_legacy_signal_value_google_trends_as_available() -> None:
+    """Codex review, PR #176 (P2): DemandScoreCalculator._signal_float falls back to
+    the row's own signal_value/normalized_value when trends_12mo_score is absent
+    from the JSON payload (a legacy/back-compat shape). That fallback still feeds
+    demand scoring, so it must count as usable Google Trends data even with an
+    empty JSON payload."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-google-trends-legacy", name="ContextGoogleTrendsLegacy", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="google trends legacy keyword", normalized_keyword="google trends legacy keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=72.0,
+            signal_json={},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-google-trends-legacy-run",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is True
+
+
 def test_confidence_context_resolves_gigs_from_gig_cards() -> None:
     """Codex review, PR #176 (P2): a page-level SearchResult row can carry multiple
     gig cards in gig_cards beyond the single gig_id it links to.
@@ -826,9 +868,12 @@ def test_confidence_context_resolves_gigs_from_gig_cards() -> None:
     )
     session.add(linked_gig)
     # A second gig on the same page, referenced only via gig_cards (no SearchResult
-    # row links to it directly), and it is a zombie.
+    # row links to it directly), and it is a zombie. run_id="legacy" matches
+    # write_search_result's implicit default for a SearchResult that doesn't specify
+    # one below, so the active-run-scoped exact card-URL match can find it.
     card_only_gig = Gig(
         seller_id=seller.id,
+        run_id="legacy",
         gig_url="https://www.fiverr.com/card_only_gig",
         title="I will do zombie card work",
         normalized_title="zombie card work",
@@ -885,8 +930,12 @@ def test_confidence_context_limits_card_gigs_to_scoring_window() -> None:
         # healthy; positions 11-12 fall outside it and are zombies that must be
         # ignored.
         is_zombie = position > 10
+        # run_id="legacy" matches write_search_result's implicit default for the
+        # SearchResult below, so the active-run-scoped exact card-URL match can find
+        # these gigs.
         gig = Gig(
             seller_id=seller.id,
+            run_id="legacy",
             gig_url=f"https://www.fiverr.com/card_window_gig_{position}",
             title=f"I will do card window work {position}",
             normalized_title=f"card window work {position}",
@@ -936,10 +985,14 @@ def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> 
     session.add(seller)
     session.flush()
     # The persisted Gig's URL differs from the card's URL only by a tracking query
-    # string - an exact Gig.gig_url.in_(...) match must not miss it.
+    # string - an exact Gig.gig_url.in_(...) match must not miss it. run_id="legacy"
+    # matches the SearchResult's implicit default below, so this is reachable via
+    # the keyword+run-scoped identity fallback specifically (not the unscoped
+    # total_organic==0 recovery tier, which would mask this test's intent).
     zombie_gig = Gig(
         seller_id=seller.id,
         keyword_id=keyword.id,
+        run_id="legacy",
         gig_url="https://www.fiverr.com/card_identity_gig",
         title="I will do zombie identity work",
         normalized_title="zombie identity work",
@@ -965,6 +1018,77 @@ def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> 
         db=session,
     )
     assert context["zombie_fraction"] == pytest.approx(1.0)
+
+
+def test_confidence_context_scopes_exact_card_gig_match_to_active_run() -> None:
+    """Codex review, PR #176 (P2): Gig.gig_url is only unique for the row's current
+    collection state, not scoped to a particular run - a Gig row last updated by a
+    different/older run must not be pulled in as the active run's card gig just
+    because its URL matches a card on the active run's page, mirroring
+    ProfitabilityScoreCalculator's active-run filter on its own exact card-URL
+    lookup."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-card-run-scope", name="ContextCardRunScope", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="card run scope keyword", normalized_keyword="card run scope keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="card_run_scope_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    # Directly linked to the active run's SearchResult row, fresh and not a zombie -
+    # total_organic > 0 so the total_organic==0 fallback tier never engages, keeping
+    # this test isolated to the exact card-URL match path.
+    linked_gig = Gig(
+        seller_id=seller.id,
+        title="I will do fresh linked run work",
+        normalized_title="fresh linked run work",
+        detail_collected=True,
+        detail_collected_at=datetime.now(UTC),
+    )
+    session.add(linked_gig)
+    # This Gig row's URL is referenced by the active run's gig_cards, but the row
+    # itself was last updated by a DIFFERENT, older run - and it is a zombie.
+    stale_gig = Gig(
+        seller_id=seller.id,
+        keyword_id=keyword.id,
+        run_id="ctx-card-run-scope-old-run",
+        gig_url="https://www.fiverr.com/card_run_scope_gig",
+        title="I will do stale run gig work",
+        normalized_title="stale run gig work",
+        is_zombie=True,
+    )
+    session.add(stale_gig)
+    session.commit()
+
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            rank=1,
+            gig_id=linked_gig.id,
+            run_id="ctx-card-run-scope-new-run",
+            title=linked_gig.title,
+            gig_cards=[{"gig_url": stale_gig.gig_url, "position": 2}],
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    # The other run's zombie gig must not be counted just because its URL matches.
+    assert context["zombie_fraction"] == pytest.approx(0.0)
 
 
 def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> None:

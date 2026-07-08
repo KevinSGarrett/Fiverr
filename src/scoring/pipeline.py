@@ -808,12 +808,6 @@ def _as_ttl_hours(value: Any) -> float:
     return ttl if ttl > 0 else _DEFAULT_TTL_HOURS
 
 
-# The fields DemandScoreCalculator (trends_12mo_score) and TrendScoreCalculator
-# (slope, series-derived slope, avg-derived acceleration) actually read - a
-# google_trends ExternalSignal row with none of these populated is treated as
-# missing by both calculators (their own missing_google_trends deductions fire),
-# so source_diversity_score must not count it as available either (Codex review,
-# PR #176).
 def _normalize_gig_url_identity(raw_url: Any) -> str | None:
     """Mirror ProfitabilityScoreCalculator._normalize_gig_url_identity so a card URL
     that differs only by tracking query string, fragment, URL-encoded path, or
@@ -832,6 +826,12 @@ def _normalize_gig_url_identity(raw_url: Any) -> str | None:
     return base.lower() if base else None
 
 
+# The fields DemandScoreCalculator (trends_12mo_score) and TrendScoreCalculator
+# (slope, series-derived slope, avg-derived acceleration) actually read - a
+# google_trends ExternalSignal row with none of these populated is treated as
+# missing by both calculators (their own missing_google_trends deductions fire),
+# so source_diversity_score must not count it as available either (Codex review,
+# PR #176).
 _GOOGLE_TRENDS_SCALAR_FIELDS = (
     "trends_12mo_score",
     "trends_3mo_score",
@@ -842,9 +842,8 @@ _GOOGLE_TRENDS_SCALAR_FIELDS = (
 _GOOGLE_TRENDS_SERIES_FIELDS = ("google_trends_12mo_series", "google_trends_3mo_series")
 
 
-def _google_trends_payload_has_usable_data(raw_payload: Any) -> bool:
-    if not isinstance(raw_payload, dict):
-        return False
+def _google_trends_signal_has_usable_data(signal: Any) -> bool:
+    raw_payload = signal.raw_value_json if isinstance(signal.raw_value_json, dict) else {}
     for field in _GOOGLE_TRENDS_SCALAR_FIELDS:
         value = raw_payload.get(field)
         if value is None:
@@ -858,7 +857,11 @@ def _google_trends_payload_has_usable_data(raw_payload: Any) -> bool:
         series = raw_payload.get(field)
         if isinstance(series, list) and len(series) >= 2:
             return True
-    return False
+    # DemandScoreCalculator._signal_float falls back to the row's own
+    # signal_value/normalized_value when trends_12mo_score is absent from the JSON
+    # payload (a legacy/back-compat shape) - that fallback still feeds demand
+    # scoring, so it counts as usable too (Codex review, PR #176).
+    return getattr(signal, "normalized_value", None) is not None
 
 
 def _build_confidence_context(
@@ -1046,7 +1049,16 @@ def _build_confidence_context(
             if len(card_gig_urls) >= top_n_for_scoring:
                 break
         if card_gig_urls:
-            card_gigs = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls)).all()
+            card_gigs_query = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls))
+            # A gig_url is only unique within a run's own collection, not globally -
+            # without this filter a page from an older/different run can pull in that
+            # run's stale Gig row for the same URL, reporting its detail/freshness/
+            # zombie state (and short-circuiting the identity fallback below) instead
+            # of the active run's. ProfitabilityScoreCalculator's equivalent exact-URL
+            # lookup applies the same active-run filter (Codex review, PR #176).
+            if active_run_id is not None:
+                card_gigs_query = card_gigs_query.filter(Gig.run_id == active_run_id)
+            card_gigs = card_gigs_query.all()
             # An exact string match misses persisted Gig rows whose gig_url differs
             # only by a tracking query string, fragment, URL-encoded path, or
             # trailing slash from the card's URL. ProfitabilityScoreCalculator
@@ -1199,8 +1211,8 @@ def _build_confidence_context(
             (signal for signal in all_signals if signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS),
             None,
         )
-        trends_available = newest_google_trends_signal is not None and _google_trends_payload_has_usable_data(
-            newest_google_trends_signal.raw_value_json
+        trends_available = newest_google_trends_signal is not None and _google_trends_signal_has_usable_data(
+            newest_google_trends_signal
         )
         # reddit_activity is never read on its own by any scoring loader - it only
         # ever contributes via TrendScoreCalculator's combined-with-reddit_demand pool
