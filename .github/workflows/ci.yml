@@ -139,12 +139,22 @@ jobs:
         # tests/unit/test_reports_generator.py (SCRUM-1148/1154) and is now
         # green here (all tests/integration, /observability, /prompt_quality
         # verified passing locally before being added -- SCRUM-1154).
+        # tests/integration/test_automation_system_smoke.py exercises
+        # automation/ai_cycle_controller.py's brain-check, which validates
+        # LIVE operator state (Cursor CLI installed, real provider
+        # credentials) that only exists on the dedicated self-hosted runner
+        # box -- it is the AI dev-cycle build-runner's own health check, not
+        # Fiverr product code, and cannot pass in the ubuntu-hosted CI
+        # sandbox. Joins the same CANNOT-run-on-ubuntu-CI category as the
+        # cursor_adapter/prompt_generator/prompt_contract_builder exclusions
+        # above; covered on the self-hosted runner (runner-smoke.yml).
         run: >
           python -m pytest tests/unit/ tests/integration/ tests/observability/ tests/prompt_quality/
           --ignore=tests/unit/test_cycle062_smoke_aliases.py
           --ignore=tests/unit/test_automation_system_restriction_removal.py
           --ignore=tests/unit/test_cursor_adapter.py
           --ignore=tests/unit/test_prompt_generator.py
+          --ignore=tests/integration/test_automation_system_smoke.py
           --ignore=tests/unit/test_prompt_contract_builder.py
           --cov=src --cov=automation
           --cov-config=pyproject.toml
