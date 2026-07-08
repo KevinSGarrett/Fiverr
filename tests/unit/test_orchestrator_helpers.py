@@ -437,6 +437,84 @@ def test_run_pipeline_initializes_database_and_prints_mode(
     assert "Playbooks complete" in out
 
 
+def test_run_pipeline_full_mode_skip_collection_never_triggers_collection_stage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: live_validate_command's Stage 4 always called
+    run_pipeline(mode="full") with no way to skip its internal collection stage,
+    so --skip-collection (and even a completed Stage 2) was silently followed by a
+    second, redundant real collection pass. skip_collection=True must prevent
+    _run_collection_stage from running at all."""
+    calls: dict[str, Any] = {}
+
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(
+                scoring=SimpleNamespace(active_profile="default"),
+                model_dump=lambda: {"niches": []},
+            )
+
+    class _FakeQuery:
+        def filter(self, *args: Any, **kwargs: Any) -> _FakeQuery:
+            return self
+
+        def all(self) -> list[tuple[int]]:
+            return []
+
+    class _FakeSession:
+        def query(self, _model: Any) -> _FakeQuery:
+            return _FakeQuery()
+
+    class _FakeSessionContext:
+        def __enter__(self) -> _FakeSession:
+            return _FakeSession()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    def _fake_collection_stage(**_kwargs: Any) -> dict[str, Any]:
+        calls["collection_stage_called"] = True
+        return {}
+
+    async def _fake_score_keyword_batch(**_kwargs: Any) -> list[dict[str, Any]]:
+        return []
+
+    async def _fake_recommendations_pipeline(**_kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    async def _fake_export_all_recommendations(**_kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///normalized.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_run_collection_stage", _fake_collection_stage)
+    monkeypatch.setattr("src.llm.client.build_llm_client", lambda _payload: None)
+    monkeypatch.setattr("src.scoring.pipeline.score_keyword_batch", _fake_score_keyword_batch)
+    monkeypatch.setattr("src.recommendations.pipeline.run_recommendations_pipeline", _fake_recommendations_pipeline)
+    monkeypatch.setattr("src.recommendations.export.export_all_recommendations", _fake_export_all_recommendations)
+    monkeypatch.setattr("src.pricing.pricing_export.export_all_pricing", lambda **_kwargs: {})
+    monkeypatch.setattr("src.reports.context.build_run_summary_context", lambda **_kwargs: {"run": {}})
+    monkeypatch.setattr(
+        "src.reports.context.build_opportunity_report_context", lambda _db: {"summary_metrics": [], "niches": []}
+    )
+    monkeypatch.setattr("src.reports.generator.generate_report", lambda *_a, **_k: "report.pdf")
+
+    exit_code = orchestrator.run_pipeline(
+        "full", config_path="config.yaml", database_url=None, skip_collection=True
+    )
+
+    assert exit_code == 0
+    assert "collection_stage_called" not in calls
+
+
 def test_run_pipeline_rejects_unsupported_mode() -> None:
     with pytest.raises(ValueError, match="Unsupported mode"):
         orchestrator.run_pipeline("unknown-mode")
