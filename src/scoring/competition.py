@@ -141,10 +141,12 @@ def _exclude_price_outliers_iqr(prices: list[float] | None) -> tuple[list[float]
         return vals, 0
     q1, q3 = _quartiles(vals)
     iqr = q3 - q1
-    lower = q1 - (1.5 * iqr)
-    upper = q3 + (1.5 * iqr)
-    # Preserve low-tail values for the SRDI EX-2 contract; only clear extreme outliers.
-    lower = min(lower, min(vals))
+    # R4.5 spec (SCORING_INTEGRITY_EXTENSIONS.md / COMPETITION_SCORE.md) defines an
+    # upper-bound-only filter: upper = Q3 + 2.5 * IQR. Low-tail values are always
+    # preserved (SRDI EX-2 contract) -- the standard 1.5x Tukey fence was previously
+    # used here by mistake, which excluded more low-priced gigs than the spec intends.
+    upper = q3 + (2.5 * iqr)
+    lower = min(vals)
     kept = [price for price in vals if lower <= price <= upper]
     return kept, len(vals) - len(kept)
 

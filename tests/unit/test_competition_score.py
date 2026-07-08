@@ -744,15 +744,21 @@ def test_config_feasibility_gap_bounds_reject_invalid_values(tmp_path: Path) -> 
         ConfigLoader(config_path).load()
 
 
-def test_r4_toggle_defaults_false() -> None:
+def test_r4_toggles_enabled_in_production_config() -> None:
+    """R4 (SCORING_INTEGRITY_EXTENSIONS.md) is complete and tested for its
+    enabled path; config.yaml previously kept all 7 toggles off, meaning none
+    of this already-shipped correctness work was ever live (SCRUM-1152).
+    TRC reliability is safe to enable: demand.py only applies the legacy R3
+    sponsored-band multiplier `if not use_trc_reliability`, so enabling R4.1
+    correctly supersedes it rather than stacking (DEC-3, R4-RISK-1)."""
     config = ConfigLoader(Path("config.yaml")).load()
-    assert config.scoring.demand.use_trc_reliability is False
-    assert config.scoring.demand.use_signal_qualifiers is False
-    assert config.scoring.competition.use_per_keyword_profile is False
-    assert config.scoring.competition.exclude_contaminated is False
-    assert config.scoring.exclude_price_outliers is False
-    assert config.scoring.feasibility.use_clean_gig_set is False
-    assert config.scoring.opportunity.qualify_by_relevance is False
+    assert config.scoring.demand.use_trc_reliability is True
+    assert config.scoring.demand.use_signal_qualifiers is True
+    assert config.scoring.competition.use_per_keyword_profile is True
+    assert config.scoring.competition.exclude_contaminated is True
+    assert config.scoring.exclude_price_outliers is True
+    assert config.scoring.feasibility.use_clean_gig_set is True
+    assert config.scoring.opportunity.qualify_by_relevance is True
 
 
 def test_competition_helper_guards_and_normalizers() -> None:
