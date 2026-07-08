@@ -933,6 +933,11 @@ def live_validate_command(
             mode="full",
             config_path=normalize_cli_config_path(config_path),
             database_url=resolved_db,
+            # Stage 2 above already collected live data (or the caller explicitly
+            # opted out via --skip-collection) - "full" mode must not silently
+            # re-run a second, redundant real collection pass here regardless of
+            # which branch Stage 2 took.
+            skip_collection=True,
         )
         evidence["stages"]["scoring"] = {"success": True}
     except Exception as exc:  # noqa: BLE001

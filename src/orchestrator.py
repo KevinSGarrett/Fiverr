@@ -543,7 +543,12 @@ def build_phase2_smoke_metadata() -> dict[str, Any]:
     }
 
 
-def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str | None = None) -> int:
+def run_pipeline(
+    mode: str,
+    config_path: str = "config.yaml",
+    database_url: str | None = None,
+    skip_collection: bool = False,
+) -> int:
     if mode not in AVAILABLE_MODES:
         raise ValueError(f"Unsupported mode '{mode}'.")
 
@@ -768,12 +773,20 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
 
         session_factory = create_session_factory(engine)
         with get_session(session_factory) as db_session:
-            collection_result = _run_collection_stage(
-                run_id=run_id,
-                db_session=db_session,
-                config=config,
-                config_payload=payload,
-            )
+            if skip_collection:
+                # Caller already collected (or deliberately skipped) live data
+                # upstream - e.g. live_validate_command's own Stage 2 - so "full"
+                # mode must not silently re-trigger a real collection pass here
+                # (Codex-adjacent finding: --skip-collection did not previously
+                # propagate past live_validate's Stage 2 into this call).
+                collection_result: dict[str, Any] = {"skipped": True, "reason": "skip_collection=True"}
+            else:
+                collection_result = _run_collection_stage(
+                    run_id=run_id,
+                    db_session=db_session,
+                    config=config,
+                    config_payload=payload,
+                )
 
             keyword_query = db_session.query(Keyword.id)
             if niche_ids:
