@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.analysis.llm_relevance_classifier import LLMRelevanceClassifier, LLMRelevanceConfig
-from src.models import ExternalSignal, Keyword, SearchResult
+from src.models import ExternalSignal, Gig, Keyword, SearchResult
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
@@ -883,19 +883,8 @@ def _build_confidence_context(
                 data_age_hours = candidate_age_hours
                 data_ttl_hours = candidate_ttl_hours
 
-        for result in top_results:
-            # collected_at (when this search snapshot was actually fetched) rather
-            # than updated_at, which a later reprocessing pass can bump without
-            # recollecting the underlying marketplace data (Codex review, PR #176).
-            _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
-            gig = getattr(result, "gig", None)
-            if gig is None:
-                continue
-            if getattr(gig, "is_sponsored", None) is True:
-                continue
-            total_organic += 1
-            if bool(getattr(gig, "is_zombie", False)):
-                zombie_count += 1
+        def _process_gig(gig: Any) -> None:
+            nonlocal gig_detail_collected, seller_profiles_collected
             gig_detail_collected_at = getattr(gig, "detail_collected_at", None)
             if gig_detail_collected_at is not None:
                 gig_detail_collected = True
@@ -914,7 +903,35 @@ def _build_confidence_context(
                     seller_profile_collected_at if isinstance(seller_profile_collected_at, datetime) else seller.updated_at
                 )
                 _consider_freshness(seller_freshness_at, getattr(seller, "ttl_hours", None))
+
+        for result in top_results:
+            # collected_at (when this search snapshot was actually fetched) rather
+            # than updated_at, which a later reprocessing pass can bump without
+            # recollecting the underlying marketplace data (Codex review, PR #176).
+            _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
+            gig = getattr(result, "gig", None)
+            if gig is None:
+                continue
+            if getattr(gig, "is_sponsored", None) is True:
+                continue
+            total_organic += 1
+            if bool(getattr(gig, "is_zombie", False)):
+                zombie_count += 1
+            _process_gig(gig)
         zombie_fraction = zombie_count / max(total_organic, 1)
+        if total_organic == 0:
+            # ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator both fall
+            # back to Gig.keyword_id (bypassing SearchResult.gig_id entirely) when no
+            # gig could be resolved through search-result linkage - mirror that final
+            # fallback tier here so scores actually computed from those gigs aren't
+            # penalized as if no gig data existed at all (Codex review, PR #176).
+            fallback_gigs = (
+                db.query(Gig).filter(Gig.keyword_id == keyword_id).order_by(Gig.id.asc()).limit(top_n_for_scoring).all()
+            )
+            for gig in fallback_gigs:
+                if getattr(gig, "is_sponsored", None) is True:
+                    continue
+                _process_gig(gig)
         # DemandScoreCalculator._resolve_marketplace_snapshot reads the SearchResult
         # row with the highest total_result_count regardless of rank (it can be
         # unranked or outside the top-N), so demand can be driven by a row this

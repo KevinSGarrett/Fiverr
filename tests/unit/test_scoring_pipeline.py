@@ -1004,6 +1004,52 @@ def test_confidence_context_freshness_includes_unranked_marketplace_snapshot() -
     assert context["data_ttl_hours"] == pytest.approx(168.0)
 
 
+def test_confidence_context_resolves_gigs_via_keyword_id_fallback() -> None:
+    """Codex review, PR #176 (P2): ProfitabilityScoreCalculator and
+    GigQualityWeaknessScoreCalculator both fall back to Gig.keyword_id (bypassing
+    SearchResult.gig_id entirely) when no gig can be resolved through search-result
+    linkage. A keyword whose gigs are only reachable that way must not report
+    gig_detail_collected=False just because no SearchResult row links to a gig."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-keyword-fallback", name="ContextKeywordFallback", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="keyword id fallback keyword", normalized_keyword="keyword id fallback keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="fallback_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    # This gig is linked to the keyword directly (Gig.keyword_id), not through any
+    # SearchResult.gig_id - the fallback tier both calculators use when search-result
+    # linkage is unavailable.
+    gig = Gig(
+        seller_id=seller.id,
+        keyword_id=keyword.id,
+        title="I will do keyword-linked work",
+        normalized_title="keyword-linked work",
+        detail_collected_at=datetime.now(UTC),
+    )
+    session.add(gig)
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is True
+    assert context["seller_profiles_collected"] is True
+
+
 def test_confidence_context_llm_quality_incomplete_counted_even_when_detail_collected() -> None:
     """Codex review, PR #176 (P2): whether gig detail was scraped and whether LLM
     quality analysis ran on it are unrelated. A gig with a fully-collected detail
