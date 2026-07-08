@@ -21,8 +21,18 @@ def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
 
 
+_RELEVANCE_QUALIFIER_THRESHOLD = 0.70
+
+
 def _opportunity_relevance_qualifier(rsv_relevance: float | None) -> float:
-    return 1.0 if rsv_relevance is None else _clamp01(rsv_relevance)
+    """R4.7 (SCORING_INTEGRITY_EXTENSIONS.md / OPPORTUNITY_SCORE.md SRDI ADDENDUM):
+    only qualify when the result set is contaminated (RSV < 0.70); a clean or
+    absent RSV leaves the opportunity score unchanged. Below the threshold,
+    scale by 0.50 + 0.50*rsv rather than by raw RSV directly -- e.g. RSV=0.60
+    scales by 0.80, not 0.60 (Codex review, PR #175)."""
+    if rsv_relevance is None or rsv_relevance >= _RELEVANCE_QUALIFIER_THRESHOLD:
+        return 1.0
+    return 0.50 + 0.50 * _clamp01(rsv_relevance)
 
 
 def _opportunity_config(config: dict[str, Any] | None) -> dict[str, Any]:

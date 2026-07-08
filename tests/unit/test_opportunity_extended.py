@@ -76,6 +76,8 @@ def _expected_normalized(raw_value: float) -> float:
 
 
 def test_opportunity_scaled_by_rsv() -> None:
+    # RSV=0.60 is below the R4.7 threshold (0.70) and matches the spec's own
+    # worked example: multiplier = 0.50 + 0.50*0.60 = 0.80.
     baseline = OpportunityScoreCalculator().calculate(
         1,
         _FakeDB({1: {}}),
@@ -85,26 +87,47 @@ def test_opportunity_scaled_by_rsv() -> None:
     )
     qualified = OpportunityScoreCalculator().calculate(
         1,
-        _FakeDB({1: {"rsv_relevance": 0.75}}),
+        _FakeDB({1: {"rsv_relevance": 0.60}}),
         demand_result=_demand(),
         competition_result=_competition_for_raw_80(),
         config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
     assert baseline.score_value == _expected_normalized(80.0)
-    assert qualified.score_value == _expected_normalized(60.0)
-    assert qualified.opportunity_relevance_factor == pytest.approx(0.75)
+    assert qualified.score_value == _expected_normalized(64.0)
+    assert qualified.opportunity_relevance_factor == pytest.approx(0.80)
 
 
 def test_opportunity_qualified_by_relevance() -> None:
     result = OpportunityScoreCalculator().calculate(
         1,
-        _FakeDB({1: {"rsv_relevance": 0.75, "query_intent_class": "TRANSACTIONAL", "service_intent_class": "TRANSACTIONAL"}}),
+        _FakeDB({1: {"rsv_relevance": 0.60, "query_intent_class": "TRANSACTIONAL", "service_intent_class": "TRANSACTIONAL"}}),
         demand_result=_demand(),
         competition_result=_competition_for_raw_80(),
         config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    assert result.score_value == _expected_normalized(60.0)
-    assert result.opportunity_relevance_factor == pytest.approx(0.75)
+    assert result.score_value == _expected_normalized(64.0)
+    assert result.opportunity_relevance_factor == pytest.approx(0.80)
+
+
+def test_opportunity_relevance_at_or_above_threshold_unchanged() -> None:
+    """R4.7: RSV >= 0.70 must leave the opportunity score unchanged (only
+    contaminated result sets, RSV < 0.70, are qualified/penalized)."""
+    baseline = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": False}}},
+    )
+    at_threshold = OpportunityScoreCalculator().calculate(
+        1,
+        _FakeDB({1: {"rsv_relevance": 0.70}}),
+        demand_result=_demand(),
+        competition_result=_competition_for_raw_80(),
+        config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
+    )
+    assert at_threshold.opportunity_relevance_factor == pytest.approx(1.0)
+    assert at_threshold.score_value == baseline.score_value
 
 
 def test_relevance_does_not_boost_negative_opportunity() -> None:
@@ -151,12 +174,12 @@ def test_opportunity_relevance_none_no_change() -> None:
 def test_opportunity_relevance_factor_recorded() -> None:
     result = OpportunityScoreCalculator().calculate(
         1,
-        _FakeDB({1: {"rsv_relevance": 0.75}}),
+        _FakeDB({1: {"rsv_relevance": 0.60}}),
         demand_result=_demand(),
         competition_result=_competition(),
         config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    assert result.opportunity_relevance_factor == pytest.approx(0.75)
+    assert result.opportunity_relevance_factor == pytest.approx(0.80)
 
 
 def test_opportunity_qualifier_toggle_off_matches_legacy() -> None:
@@ -174,7 +197,18 @@ def test_opportunity_qualifier_toggle_off_matches_legacy() -> None:
 def test_opportunity_relevance_qualifier_clamps() -> None:
     assert _opportunity_relevance_qualifier(None) == 1.0
     assert _opportunity_relevance_qualifier(1.5) == 1.0
-    assert _opportunity_relevance_qualifier(-0.5) == 0.0
+    # Below threshold: 0.50 + 0.50*clamp01(rsv). -0.5 clamps to 0.0 -> factor 0.50.
+    assert _opportunity_relevance_qualifier(-0.5) == 0.50
+
+
+def test_opportunity_relevance_qualifier_matches_spec_worked_examples() -> None:
+    """OPPORTUNITY_SCORE.md SRDI ADDENDUM effect-examples table (threshold-gated
+    reading: unchanged at/above 0.70, else 0.50 + 0.50*rsv)."""
+    assert _opportunity_relevance_qualifier(1.00) == pytest.approx(1.0)
+    assert _opportunity_relevance_qualifier(0.70) == pytest.approx(1.0)
+    assert _opportunity_relevance_qualifier(0.60) == pytest.approx(0.80)
+    assert _opportunity_relevance_qualifier(0.40) == pytest.approx(0.70)
+    assert _opportunity_relevance_qualifier(0.20) == pytest.approx(0.60)
 
 
 def test_opportunity_rsv_none_unchanged() -> None:
@@ -211,12 +245,12 @@ def test_opportunity_rsv_clamped() -> None:
 def test_opportunity_factor_recorded() -> None:
     result = OpportunityScoreCalculator().calculate(
         1,
-        _FakeDB({1: {"rsv_relevance": 0.75}}),
+        _FakeDB({1: {"rsv_relevance": 0.60}}),
         demand_result=_demand(),
         competition_result=_competition_for_raw_80(),
         config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    assert result.opportunity_relevance_factor == pytest.approx(0.75)
+    assert result.opportunity_relevance_factor == pytest.approx(0.80)
 
 
 def test_opportunity_config_guard_paths() -> None:
@@ -231,7 +265,7 @@ def test_opportunity_config_guard_paths() -> None:
 def test_opportunity_rsv_and_intent_loaded_from_mapping_db() -> None:
     payload = {
         1: {
-            "rsv_relevance": 0.75,
+            "rsv_relevance": 0.60,
             "query_intent_class": "INFORMATIONAL",
             "service_intent_class": "TRANSACTIONAL",
         }
@@ -243,5 +277,5 @@ def test_opportunity_rsv_and_intent_loaded_from_mapping_db() -> None:
         competition_result=_competition_for_raw_80(),
         config={"scoring": {"opportunity": {"qualify_by_relevance": True}}},
     )
-    assert result.opportunity_relevance_factor == pytest.approx(0.75)
+    assert result.opportunity_relevance_factor == pytest.approx(0.80)
     assert result.score_value is not None
