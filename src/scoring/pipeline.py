@@ -769,11 +769,11 @@ def _resolve_depth(keyword_id: int, db: Any) -> str:
 _OTHER_LLM_SIGNAL_COUNT = 5
 
 
-def _newer(current: datetime | None, candidate: datetime) -> datetime:
+def _older(current: datetime | None, candidate: datetime) -> datetime:
     if current is None:
         return candidate
     try:
-        return candidate if candidate > current else current
+        return candidate if candidate < current else current
     except TypeError:
         # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - keep the
         # already-selected value rather than raising.
@@ -808,11 +808,17 @@ def _build_confidence_context(
     signal_age_days = 0
     signal_relevance_score = 1.0
     external_signal_context_present = False
-    gig_detail_collected = False
-    seller_profiles_collected = False
+    # Unknown collection state (no Session available to check) must not be treated as
+    # "missing" - only the ORM-backed branch below can actually determine this, so it
+    # defaults to the pre-fix lenient assumption and only downgrades on real evidence
+    # (Codex review, PR #176).
+    gig_detail_collected = True
+    seller_profiles_collected = True
     data_age_hours = 0.0
     data_ttl_hours = 168.0
     if isinstance(db, Session):
+        gig_detail_collected = False
+        seller_profiles_collected = False
         top_results = (
             db.query(SearchResult)
             .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= top_n_for_scoring)
@@ -821,10 +827,13 @@ def _build_confidence_context(
         )
         total_organic = 0
         zombie_count = 0
-        newest_record_at: datetime | None = None
+        # Freshness reflects the OLDEST contributing record, per DATA_FLOW.md's Stage 11
+        # definition - a single recently-touched record must not mask other stale inputs
+        # (Codex review, PR #176).
+        oldest_record_at: datetime | None = None
         for result in top_results:
             if isinstance(result.updated_at, datetime):
-                newest_record_at = _newer(newest_record_at, result.updated_at)
+                oldest_record_at = _older(oldest_record_at, result.updated_at)
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
@@ -836,16 +845,16 @@ def _build_confidence_context(
             if getattr(gig, "detail_collected_at", None) is not None:
                 gig_detail_collected = True
             if isinstance(gig.updated_at, datetime):
-                newest_record_at = _newer(newest_record_at, gig.updated_at)
+                oldest_record_at = _older(oldest_record_at, gig.updated_at)
             seller = getattr(gig, "seller", None)
             if seller is not None and bool(getattr(seller, "profile_collected", False)):
                 seller_profiles_collected = True
             if seller is not None and isinstance(seller.updated_at, datetime):
-                newest_record_at = _newer(newest_record_at, seller.updated_at)
+                oldest_record_at = _older(oldest_record_at, seller.updated_at)
         zombie_fraction = zombie_count / max(total_organic, 1)
         keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
         if keyword_row is not None and isinstance(keyword_row.updated_at, datetime):
-            newest_record_at = _newer(newest_record_at, keyword_row.updated_at)
+            oldest_record_at = _older(oldest_record_at, keyword_row.updated_at)
         reddit_count = (
             db.query(ExternalSignal)
             .filter(
@@ -881,7 +890,7 @@ def _build_confidence_context(
         if newest_signal is not None and isinstance(newest_signal.collected_at, datetime):
             external_signal_context_present = True
             collected_at = newest_signal.collected_at
-            newest_record_at = _newer(newest_record_at, collected_at)
+            oldest_record_at = _older(oldest_record_at, collected_at)
             # SQLite often round-trips timestamps as naive datetimes even when written as UTC.
             if collected_at.tzinfo is None:
                 now = datetime.now()
@@ -892,9 +901,9 @@ def _build_confidence_context(
         rsv = get_result_set_validation(keyword_id, db)
         if rsv is not None and rsv.result_set_relevance_score is not None:
             signal_relevance_score = float(rsv.result_set_relevance_score)
-        if newest_record_at is not None:
-            now_for_age = datetime.now(UTC) if newest_record_at.tzinfo is not None else datetime.now()
-            data_age_hours = max(0.0, (now_for_age - newest_record_at).total_seconds() / 3600.0)
+        if oldest_record_at is not None:
+            now_for_age = datetime.now(UTC) if oldest_record_at.tzinfo is not None else datetime.now()
+            data_age_hours = max(0.0, (now_for_age - oldest_record_at).total_seconds() / 3600.0)
     trends_available = scores.get("trend_score") is not None
     data_freshness_score = max(0.0, min(1.0, 1.0 - (data_age_hours / data_ttl_hours)))
     available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])

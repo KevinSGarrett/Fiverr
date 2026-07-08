@@ -778,6 +778,81 @@ def test_confidence_context_freshness_reflects_stale_records() -> None:
     assert context["data_freshness_score"] == 0.0
 
 
+def test_confidence_context_freshness_uses_oldest_not_newest_contributing_record() -> None:
+    """SCRUM-1153/Codex review: DATA_FLOW.md's Stage 11 defines freshness as the age
+    of the OLDEST contributing record vs. TTL. A single recently-touched record (e.g.
+    a fresh external signal) must not mask a stale gig/seller elsewhere in the same
+    keyword's data."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-mixed", name="ContextMixed", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    stale_at = datetime.now(UTC) - timedelta(hours=400)
+    fresh_at = datetime.now(UTC)
+    keyword = Keyword(niche_id=niche.id, keyword="mixed freshness keyword", normalized_keyword="mixed freshness keyword")
+    session.add(keyword)
+    session.flush()
+    # A fresh external signal exists alongside a stale gig - overall freshness must
+    # still reflect the stale gig, not the fresh signal.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="google_trends",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=fresh_at,
+            run_id="ctx-mixed-run",
+            collection_method="google_trends_api",
+        )
+    )
+    seller = Seller(seller_handle="mixed_seller", profile_collected=True, updated_at=fresh_at)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do stale work with a fresh signal",
+        normalized_title="mixed freshness work",
+        detail_collected_at=stale_at,
+        updated_at=stale_at,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, updated_at=stale_at))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] >= 168.0
+    assert context["data_freshness_score"] == 0.0
+
+
+def test_confidence_context_non_session_db_preserves_lenient_collection_defaults() -> None:
+    """SCRUM-1153/Codex review: when no Session is available to check real collection
+    state (e.g. a dict-based db payload), gig_detail_collected/seller_profiles_collected
+    must stay at their pre-fix lenient default rather than being penalized for an
+    unknown state we have no way to verify."""
+    from src.scoring import pipeline
+
+    context = pipeline._build_confidence_context(
+        keyword_id=1,
+        scores={},
+        depth="standard",
+        warnings=[],
+        db={"some": "dict-based-payload"},
+    )
+    assert context["gig_detail_collected"] is True
+    assert context["seller_profiles_collected"] is True
+
+
 def test_confidence_context_llm_completion_ratio_ignores_quality_and_competitor_warnings() -> None:
     """SCRUM-1153: llm_analysis_completion_ratio must react to real LLM fallback
     warnings while avoiding double-counting the quality/competitor deductions
