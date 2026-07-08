@@ -884,7 +884,10 @@ def _build_confidence_context(
                 data_ttl_hours = candidate_ttl_hours
 
         for result in top_results:
-            _consider_freshness(result.updated_at, getattr(result, "ttl_hours", None))
+            # collected_at (when this search snapshot was actually fetched) rather
+            # than updated_at, which a later reprocessing pass can bump without
+            # recollecting the underlying marketplace data (Codex review, PR #176).
+            _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
@@ -912,6 +915,21 @@ def _build_confidence_context(
                 )
                 _consider_freshness(seller_freshness_at, getattr(seller, "ttl_hours", None))
         zombie_fraction = zombie_count / max(total_organic, 1)
+        # DemandScoreCalculator._resolve_marketplace_snapshot reads the SearchResult
+        # row with the highest total_result_count regardless of rank (it can be
+        # unranked or outside the top-N), so demand can be driven by a row this
+        # function's rank-filtered top_results never sees - fold its freshness in too
+        # (Codex review, PR #176).
+        marketplace_snapshot_row = (
+            db.query(SearchResult)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.total_result_count.isnot(None))
+            .order_by(
+                SearchResult.total_result_count.desc(), SearchResult.collected_at.desc(), SearchResult.id.desc()
+            )
+            .first()
+        )
+        if marketplace_snapshot_row is not None:
+            _consider_freshness(marketplace_snapshot_row.collected_at, marketplace_snapshot_row.ttl_hours)
         keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
         if keyword_row is not None:
             _consider_freshness(keyword_row.updated_at, None)

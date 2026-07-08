@@ -944,6 +944,66 @@ def test_confidence_context_freshness_groups_reddit_aliases_like_trend_loader() 
     assert context["data_freshness_score"] > 0.9
 
 
+def test_confidence_context_freshness_includes_unranked_marketplace_snapshot() -> None:
+    """Codex review, PR #176 (P2): DemandScoreCalculator._resolve_marketplace_snapshot
+    reads the SearchResult row with the highest total_result_count regardless of rank
+    (it can be unranked or outside the top-N), so demand can be driven by a row the
+    rank-filtered top_results query never sees. A stale unranked snapshot row must
+    still be able to trigger staleness."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-marketplace-snapshot", name="ContextMarketplaceSnapshot", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="marketplace snapshot keyword", normalized_keyword="marketplace snapshot keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    stale_at = datetime.now(UTC) - timedelta(hours=400)
+    fresh_at = datetime.now(UTC)
+    seller = Seller(seller_handle="snapshot_seller", profile_collected=True, profile_collected_at=fresh_at)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do fresh ranked work",
+        normalized_title="fresh ranked work",
+        detail_collected_at=fresh_at,
+        updated_at=fresh_at,
+    )
+    session.add(gig)
+    session.flush()
+    # A normal, fresh, ranked top-10 row.
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, collected_at=fresh_at))
+    # A separate, unranked marketplace-snapshot row carrying total_result_count -
+    # this is what DemandScoreCalculator._resolve_marketplace_snapshot actually reads,
+    # and it is stale even though the ranked row above is fresh.
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            run_id="snapshot-run",
+            rank=None,
+            total_result_count=5000,
+            collected_at=stale_at,
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] >= 168.0
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+
+
 def test_confidence_context_llm_quality_incomplete_counted_even_when_detail_collected() -> None:
     """Codex review, PR #176 (P2): whether gig detail was scraped and whether LLM
     quality analysis ran on it are unrelated. A gig with a fully-collected detail
