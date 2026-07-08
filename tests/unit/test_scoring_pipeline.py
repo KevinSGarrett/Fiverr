@@ -688,7 +688,7 @@ def test_confidence_context_detects_real_gig_detail_and_seller_profile_collectio
             keyword_id=int(keyword.id),
             signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
             signal_value=50.0,
-            signal_json={},
+            signal_json={"trends_12mo_score": 60.0},
             collected_at=datetime.now(UTC),
             run_id="ctx-detail-run",
             collection_method="google_trends_api",
@@ -738,6 +738,50 @@ def test_confidence_context_diversity_requires_real_google_trends_signal() -> No
             collected_at=datetime.now(UTC),
             run_id="ctx-trend-no-google-run",
             collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is False
+
+
+def test_confidence_context_requires_usable_google_trends_payload() -> None:
+    """Codex review, PR #176 (P2): DemandScoreCalculator/TrendScoreCalculator both
+    treat a google_trends row with no trends_12mo_score/slope/series data as
+    missing (their own missing_google_trends deductions fire). A mere row of that
+    signal_type with an empty payload must not be treated as proof Google Trends
+    contributed to source_diversity_score."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-google-trends-empty", name="ContextGoogleTrendsEmpty", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="google trends empty keyword", normalized_keyword="google trends empty keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    # A google_trends row exists, but its payload has none of the fields
+    # DemandScoreCalculator/TrendScoreCalculator actually read.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=None,
+            signal_json={},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-google-trends-empty-run",
+            collection_method="google_trends_api",
         )
     )
     session.commit()
@@ -867,6 +911,60 @@ def test_confidence_context_limits_card_gigs_to_scoring_window() -> None:
     # Only positions 1-10 (the top_n_for_scoring window) should resolve to real
     # gigs - the zombie cards at positions 11-12 must not count.
     assert context["zombie_fraction"] == pytest.approx(0.0)
+
+
+def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> None:
+    """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/WeaknessCalculator
+    normalize card URLs by path identity and fall back through the keyword's own
+    gigs when an exact string match misses (tracking query strings, fragments,
+    URL-encoded paths, trailing slashes). Confidence must resolve the same gig via
+    the same identity match instead of silently dropping it."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-card-url-identity", name="ContextCardUrlIdentity", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="card url identity keyword", normalized_keyword="card url identity keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="card_url_identity_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    # The persisted Gig's URL differs from the card's URL only by a tracking query
+    # string - an exact Gig.gig_url.in_(...) match must not miss it.
+    zombie_gig = Gig(
+        seller_id=seller.id,
+        keyword_id=keyword.id,
+        gig_url="https://www.fiverr.com/card_identity_gig",
+        title="I will do zombie identity work",
+        normalized_title="zombie identity work",
+        is_zombie=True,
+    )
+    session.add(zombie_gig)
+    session.commit()
+
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            rank=1,
+            gig_cards=[{"gig_url": "https://www.fiverr.com/card_identity_gig?ref=track_123", "position": 1}],
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["zombie_fraction"] == pytest.approx(1.0)
 
 
 def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> None:

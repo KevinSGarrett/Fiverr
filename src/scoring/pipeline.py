@@ -8,6 +8,7 @@ from collections.abc import Awaitable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -807,6 +808,59 @@ def _as_ttl_hours(value: Any) -> float:
     return ttl if ttl > 0 else _DEFAULT_TTL_HOURS
 
 
+# The fields DemandScoreCalculator (trends_12mo_score) and TrendScoreCalculator
+# (slope, series-derived slope, avg-derived acceleration) actually read - a
+# google_trends ExternalSignal row with none of these populated is treated as
+# missing by both calculators (their own missing_google_trends deductions fire),
+# so source_diversity_score must not count it as available either (Codex review,
+# PR #176).
+def _normalize_gig_url_identity(raw_url: Any) -> str | None:
+    """Mirror ProfitabilityScoreCalculator._normalize_gig_url_identity so a card URL
+    that differs only by tracking query string, fragment, URL-encoded path, or
+    trailing slash still resolves to the same persisted Gig row (Codex review,
+    PR #176)."""
+    if not isinstance(raw_url, str):
+        return None
+    stripped = raw_url.strip()
+    if not stripped:
+        return None
+    split = urlsplit(stripped)
+    normalized_path = unquote(split.path).strip().rstrip("/")
+    if normalized_path:
+        return normalized_path.lower()
+    base = stripped.split("?", 1)[0].split("#", 1)[0].strip().rstrip("/")
+    return base.lower() if base else None
+
+
+_GOOGLE_TRENDS_SCALAR_FIELDS = (
+    "trends_12mo_score",
+    "trends_3mo_score",
+    "trends_3mo_avg",
+    "trends_12mo_avg",
+    "google_trends_slope",
+)
+_GOOGLE_TRENDS_SERIES_FIELDS = ("google_trends_12mo_series", "google_trends_3mo_series")
+
+
+def _google_trends_payload_has_usable_data(raw_payload: Any) -> bool:
+    if not isinstance(raw_payload, dict):
+        return False
+    for field in _GOOGLE_TRENDS_SCALAR_FIELDS:
+        value = raw_payload.get(field)
+        if value is None:
+            continue
+        try:
+            float(value)
+        except (TypeError, ValueError):
+            continue
+        return True
+    for field in _GOOGLE_TRENDS_SERIES_FIELDS:
+        series = raw_payload.get(field)
+        if isinstance(series, list) and len(series) >= 2:
+            return True
+    return False
+
+
 def _build_confidence_context(
     keyword_id: int,
     scores: dict[str, float | None],
@@ -993,6 +1047,37 @@ def _build_confidence_context(
                 break
         if card_gig_urls:
             card_gigs = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls)).all()
+            # An exact string match misses persisted Gig rows whose gig_url differs
+            # only by a tracking query string, fragment, URL-encoded path, or
+            # trailing slash from the card's URL. ProfitabilityScoreCalculator
+            # normalizes by path identity and falls back through the keyword's own
+            # gigs for exactly this reason - mirror that so those gigs' missing
+            # detail/staleness/zombie state isn't silently dropped from confidence
+            # (Codex review, PR #176).
+            wanted_identities = {
+                identity
+                for identity in (_normalize_gig_url_identity(card_url) for card_url in card_gig_urls)
+                if identity is not None
+            }
+            matched_identities = {
+                identity
+                for identity in (_normalize_gig_url_identity(getattr(gig, "gig_url", None)) for gig in card_gigs)
+                if identity is not None
+            }
+            missing_identities = wanted_identities - matched_identities
+            if missing_identities:
+                identity_fallback_query = db.query(Gig).filter(Gig.keyword_id == keyword_id, Gig.gig_url.isnot(None))
+                if active_run_id is not None:
+                    identity_fallback_query = identity_fallback_query.filter(Gig.run_id == active_run_id)
+                existing_ids = {gig.id for gig in card_gigs if getattr(gig, "id", None) is not None}
+                for candidate_gig in identity_fallback_query.all():
+                    if candidate_gig.id in existing_ids:
+                        continue
+                    if _normalize_gig_url_identity(candidate_gig.gig_url) not in missing_identities:
+                        continue
+                    card_gigs.append(candidate_gig)
+                    if candidate_gig.id is not None:
+                        existing_ids.add(candidate_gig.id)
             for card_gig in card_gigs:
                 if getattr(card_gig, "id", None) in processed_gig_ids:
                     continue
@@ -1105,8 +1190,18 @@ def _build_confidence_context(
         # A non-null trend_score does not prove Google Trends contributed -
         # TrendScoreCalculator can produce a score from Reddit plus LLM classification
         # alone with Google Trends absent, which would overstate source diversity.
-        # Check the actual signal instead (Codex review, PR #176).
-        trends_available = any(signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS for signal in all_signals)
+        # Check the actual signal instead (Codex review, PR #176). A mere row is not
+        # enough either: DemandScoreCalculator/TrendScoreCalculator both treat an
+        # empty or field-less payload as missing (their own missing_google_trends
+        # deductions fire) - require the newest row's payload to carry a field either
+        # calculator actually reads (Codex review, PR #176).
+        newest_google_trends_signal = next(
+            (signal for signal in all_signals if signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS),
+            None,
+        )
+        trends_available = newest_google_trends_signal is not None and _google_trends_payload_has_usable_data(
+            newest_google_trends_signal.raw_value_json
+        )
         # reddit_activity is never read on its own by any scoring loader - it only
         # ever contributes via TrendScoreCalculator's combined-with-reddit_demand pool
         # below - so it must not be folded in independently here, or a reddit_activity
