@@ -213,6 +213,53 @@ def _resolve_full_mode_niche_pks(config_payload: dict[str, Any]) -> list[int]:
     return niche_ids
 
 
+def _generate_full_run_reports(
+    db_session: Any,
+    run_id: str,
+    duration_seconds: float,
+    collection_result: dict[str, Any],
+    scored_count: int,
+    recommendations_result: dict[str, Any],
+) -> dict[str, str]:
+    """Auto-generates the run_summary and opportunity PDF reports at the end
+    of every full run (PM_Pack/ref/project_plan/07_reporting/REPORT_TEMPLATES.md).
+
+    Tolerates a missing WeasyPrint native install (Pango/Cairo/GObject) the
+    same way src/playbook/generator.py does -- report generation failing
+    never fails the pipeline run itself.
+    """
+    from src.reports.context import build_opportunity_report_context, build_run_summary_context
+    from src.reports.generator import generate_report
+
+    results: dict[str, str] = {}
+    out_dir = "data/exports/reports"
+
+    try:
+        run_summary_context = build_run_summary_context(
+            run_id=run_id,
+            duration_seconds=duration_seconds,
+            collection_result=collection_result,
+            scored_count=scored_count,
+            recommendations_result=recommendations_result,
+            db=db_session,
+        )
+        results["run_summary"] = generate_report(
+            "run_summary", run_summary_context, f"{out_dir}/run_summary_{run_id}.pdf", run_id=run_id
+        )
+    except Exception as exc:  # noqa: BLE001
+        results["run_summary"] = f"error: {exc}"
+
+    try:
+        opportunity_context = build_opportunity_report_context(db_session)
+        results["opportunity"] = generate_report(
+            "opportunity", opportunity_context, f"{out_dir}/opportunity_{run_id}.pdf", run_id=run_id
+        )
+    except Exception as exc:  # noqa: BLE001
+        results["opportunity"] = f"error: {exc}"
+
+    return results
+
+
 def build_dashboard_readiness_handoff(
     app_entry_smoke: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -697,6 +744,7 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         return 0
 
     if mode == "full":
+        import time
         import uuid
 
         from src.models import Keyword
@@ -707,6 +755,7 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
         from src.recommendations.pipeline import run_recommendations_pipeline
         from src.scoring.pipeline import score_keyword_batch
 
+        run_started_at = time.monotonic()
         run_id = str(uuid.uuid4())
         payload = config_payload if isinstance(config_payload, dict) else {}
         profile_name = (
@@ -799,6 +848,15 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
                 except Exception as exc:  # noqa: BLE001
                     playbook_results[niche_id_str] = f"error: {exc}"
 
+            report_results = _generate_full_run_reports(
+                db_session=db_session,
+                run_id=run_id,
+                duration_seconds=time.monotonic() - run_started_at,
+                collection_result=collection_result,
+                scored_count=len(scored_results),
+                recommendations_result=recommendations_result,
+            )
+
         print(f"Collection complete: {collection_result}")
         print(f"Scoring complete: {len(scored_results)} keywords scored")
         print(f"Stage 10.5 complete: {pricing_result}")
@@ -809,6 +867,7 @@ def run_pipeline(mode: str, config_path: str = "config.yaml", database_url: str 
             f"pricing={len(pricing_export) if isinstance(pricing_export, dict) else 0}"
         )
         print(f"Playbooks complete: {playbook_results}")
+        print(f"Reports complete: {report_results}")
         return 0
 
     print(f"Mode: {mode}")

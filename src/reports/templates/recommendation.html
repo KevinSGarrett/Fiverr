@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% for rec in recommendations %}
+<div {% if not loop.first %}class="page-break"{% endif %}>
+    <h2>
+        <span class="tag-badge tag-{{ rec.tag | lower | replace(' ', '-') }}">{{ rec.tag }}</span>
+        {{ rec.keyword_text }} — Score: {{ rec.final_score | round(1) if rec.final_score is not none else "—" }}
+    </h2>
+    <p style="color: #6b7280;">Niche: {{ rec.niche_name }} | Generated: {{ rec.generated_at }}</p>
+
+    {% if rec.viability %}
+    <div class="insight-box">
+        <strong>Viability:</strong> {{ rec.viability.viability_assessment }}<br>
+        <strong>Timing:</strong> {{ rec.viability.timing_assessment }}<br>
+        <strong>Recommendation:</strong> {{ rec.viability.blunt_recommendation }}
+    </div>
+    {% endif %}
+
+    {% if rec.gig_titles %}
+    <h3>Gig Titles</h3>
+    <ol>
+    {% for title in rec.gig_titles %}
+        <li>{{ title.title }} <em>({{ title.positioning_angle }})</em></li>
+    {% endfor %}
+    </ol>
+    {% endif %}
+
+    {% if rec.package_structure %}
+    <h3>Packages</h3>
+    <table>
+        <thead>
+            <tr><th>Tier</th><th>Price</th><th>Delivery</th><th>Revisions</th><th>Deliverables</th></tr>
+        </thead>
+        <tbody>
+        {% for tier_name in ["basic", "standard", "premium"] %}
+            {% set tier = rec.package_structure.get(tier_name) %}
+            {% if tier %}
+            <tr>
+                <td>{{ tier.name }}</td>
+                <td class="score-cell">${{ tier.price }}</td>
+                <td class="score-cell">{{ tier.delivery_days }}d</td>
+                <td class="score-cell">{{ tier.revisions }}</td>
+                <td>{{ tier.deliverables | join(", ") }}</td>
+            </tr>
+            {% endif %}
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if rec.differentiation %}
+    <h3>Differentiation Angle</h3>
+    <p>{{ rec.differentiation.positioning_statement }}</p>
+    <p><strong>Pitch:</strong> <em>{{ rec.differentiation.one_sentence_pitch }}</em></p>
+    {% for d in rec.differentiation.differentiators %}
+    <p>→ {{ d.action }}</p>
+    {% endfor %}
+    {% endif %}
+
+    {% if rec.faq_entries %}
+    <h3>FAQ</h3>
+    {% for faq in rec.faq_entries %}
+    <p><strong>Q: {{ faq.question }}</strong><br>A: {{ faq.answer }}</p>
+    {% endfor %}
+    {% endif %}
+
+    {% if rec.red_flags %}
+    <h3>Red Flags (Risk: {{ rec.red_flags.overall_risk_level }})</h3>
+    {% for flag in rec.red_flags.red_flags %}
+    <div class="red-flag">
+        <strong>{{ flag.severity }} — {{ flag.flag_type }}:</strong> {{ flag.description }}<br>
+        <em>Mitigation: {{ flag.mitigation }}</em>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endfor %}
+
+{% endblock %}

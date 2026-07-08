@@ -1070,6 +1070,45 @@ def playbook_command(niche_id: str, fmt: str, output: str | None, database_url: 
     raise SystemExit(0)
 
 
+@cli.command("report-opportunity")
+@click.option("--output", default=None, help="Output PDF path.")
+@click.option("--database-url", default=None)
+def report_opportunity_command(output: str | None, database_url: str | None) -> None:
+    """Generate the cross-niche Opportunity Report (real keyword scores, no fabrication)."""
+    from src.reports.context import build_opportunity_report_context
+    from src.reports.generator import generate_report
+
+    with _recommendation_db_session(database_url) as db:
+        context = build_opportunity_report_context(db)
+    out = output or "data/exports/reports/opportunity.pdf"
+    try:
+        generate_report("opportunity", context, out)
+    except ImportError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"PDF: {out}")
+    raise SystemExit(0)
+
+
+@cli.command("report-recommendations")
+@click.option("--run-id", default=None, help="Filter to a specific run_id (default: all runs).")
+@click.option("--output", default=None, help="Output PDF path.")
+@click.option("--database-url", default=None)
+def report_recommendations_command(run_id: str | None, output: str | None, database_url: str | None) -> None:
+    """Generate the Recommendation Report for all STRONG GO + CONDITIONAL GO keywords."""
+    from src.reports.context import build_recommendation_report_context
+    from src.reports.generator import generate_report
+
+    with _recommendation_db_session(database_url) as db:
+        context = build_recommendation_report_context(db, run_id=run_id)
+    out = output or "data/exports/reports/recommendations.pdf"
+    try:
+        generate_report("recommendation", context, out, run_id=run_id)
+    except ImportError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"PDF: {out}")
+    raise SystemExit(0)
+
+
 @cli.command("price-analysis")
 @click.option("--config-path", default="config.yaml", show_default=True, help="Config file path.")
 @click.option("--database-url", default=None, help="Database URL override.")

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="margin: 20px 0;">
+    <div class="metric-box"><div class="metric-value">{{ run.duration }}</div><div class="metric-label">Duration</div></div>
+    <div class="metric-box"><div class="metric-value">${{ run.llm_cost | round(2) }}</div><div class="metric-label">LLM Cost</div></div>
+    <div class="metric-box"><div class="metric-value">{{ run.keywords_expanded }}</div><div class="metric-label">Keywords</div></div>
+    <div class="metric-box"><div class="metric-value">{{ run.gigs_collected }}</div><div class="metric-label">Gigs</div></div>
+    <div class="metric-box"><div class="metric-value">{{ run.error_count }}</div><div class="metric-label">Errors</div></div>
+</div>
+
+{% if run.summary_text %}
+<div class="insight-box">{{ run.summary_text }}</div>
+{% endif %}
+
+{% if run.new_strong_go %}
+<h3>New STRONG GO Keywords</h3>
+<ul>
+{% for kw in run.new_strong_go %}
+<li>{{ kw.keyword_text }} ({{ kw.niche_name }}) — Score: {{ kw.final_score | round(1) if kw.final_score is not none else "—" }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+{% if run.dead_letters %}
+<h3>Failed Jobs ({{ run.dead_letters | length }})</h3>
+<table>
+    <thead><tr><th>Job Type</th><th>Error</th></tr></thead>
+    <tbody>
+    {% for dl in run.dead_letters %}
+    <tr><td>{{ dl.job_type }}</td><td>{{ dl.error_message[:80] }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock %}
