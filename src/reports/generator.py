@@ -18,15 +18,6 @@ from typing import Any
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 
-# WeasyPrint's internal progress logger has a known bug where its "Creating
-# layout - Page %d" message is occasionally emitted with a non-numeric page
-# identifier, which crashes any log handler that formats the record (e.g.
-# pytest's log capture) with "TypeError: %d format: a real number is
-# required, not str". This logger is routine internal progress noise with no
-# value to report consumers, so it's silenced entirely rather than relying on
-# every caller's log configuration to tolerate a third-party formatting bug.
-logging.getLogger("weasyprint.progress").setLevel(logging.CRITICAL)
-
 REPORT_TITLES: dict[str, str] = {
     "opportunity": "Opportunity Report",
     "recommendation": "Recommendation Report",
@@ -61,6 +52,15 @@ def generate_report(
         raise ImportError(
             "PDF report generation requires WeasyPrint + Jinja2. Install with: pip install weasyprint jinja2"
         ) from exc
+
+    # WeasyPrint's internal progress logger has a known bug where its
+    # "Creating layout - Page %d" message is occasionally emitted with a
+    # non-numeric page identifier, which crashes any handler that formats the
+    # record (e.g. pytest's log capture) with "TypeError: %d format: a real
+    # number is required, not str". Disabled unconditionally -- checked after
+    # importing weasyprint so its own logger setup can't re-enable it -- since
+    # it's routine internal progress noise with no value to report consumers.
+    logging.getLogger("weasyprint.progress").disabled = True
 
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
     template = env.get_template(f"{report_type}.html")
