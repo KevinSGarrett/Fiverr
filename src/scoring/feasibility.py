@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping
 from typing import Any
@@ -12,9 +13,12 @@ from sqlalchemy.orm import Session
 from src.models import CompetitorProfile, Gig, Keyword, Niche, SearchResult
 from src.scoring.contracts import FeasibilityScoreResult, ScoreComponent
 
+log = logging.getLogger(__name__)
+
 _SUPPORTED_GAP_FLAGS = {"LOW_VIDEO_PRESENCE", "LOW_PORTFOLIO_PRESENCE", "HIGH_PRICE_VARIANCE"}
 _DEFAULT_GAP_BOOST_PER_FLAG = 10.0
 _DEFAULT_MAX_GAP_BOOST = 30.0
+_MIN_CLEAN_GIGS_FOR_BARRIER = 3
 
 
 def _coerce_float(value: Any, default: float) -> float:
@@ -60,12 +64,23 @@ def _relevance_config(config: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _clean_gig_set(gigs: list[Gig]) -> list[Gig]:
-    """Return relevant non-sponsored non-zombie gigs."""
+    """Return relevant non-sponsored non-zombie gigs (R4.6).
+
+    NEW_SELLER_FEASIBILITY.md's clean-set filter is `is not True`/`is not
+    False`, not a boolean coercion: an unannotated (None) relevance_flag must
+    be treated as "not excluded" (clean), the same as sponsored/zombie flags
+    already were. Coercing None to False here excluded every gig that simply
+    hadn't been LLM-classified yet, not just genuinely irrelevant ones.
+    """
     cleaned: list[Gig] = []
     for gig in gigs:
-        is_relevant = bool(getattr(gig, "is_relevant", getattr(gig, "relevance_flag", False)))
-        if is_relevant and not bool(getattr(gig, "is_sponsored", False)) and not bool(getattr(gig, "is_zombie", False)):
-            cleaned.append(gig)
+        if getattr(gig, "is_sponsored", None) is True:
+            continue
+        if getattr(gig, "is_zombie", None) is True:
+            continue
+        if getattr(gig, "relevance_flag", None) is False:
+            continue
+        cleaned.append(gig)
     return cleaned
 
 
@@ -579,8 +594,17 @@ class NewSellerFeasibilityCalculator:
         basis_gigs = top_gigs
         clean_gig_count: int | None = None
         if use_clean_gig_set:
-            basis_gigs = _clean_gig_set(top_gigs) or top_gigs
-            clean_gig_count = len(basis_gigs)
+            clean_gigs = _clean_gig_set(top_gigs)
+            clean_gig_count = len(clean_gigs)  # stored for dashboard transparency regardless of fallback
+            if clean_gig_count < _MIN_CLEAN_GIGS_FOR_BARRIER:
+                log.warning(
+                    "insufficient_clean_gigs_for_barrier: using full set (keyword_id=%s, clean=%d)",
+                    keyword_id,
+                    clean_gig_count,
+                )
+                basis_gigs = top_gigs
+            else:
+                basis_gigs = clean_gigs
         seller_levels = [str(gig.seller.level) for gig in basis_gigs if gig.seller and gig.seller.level]
         accessible_levels = {
             "",

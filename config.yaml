@@ -107,16 +107,16 @@ analysis:
 scoring:
   active_profile: aggressive_new_seller
   demand:
-    use_trc_reliability: false
-    use_signal_qualifiers: false
+    use_trc_reliability: true
+    use_signal_qualifiers: true
   competition:
-    use_per_keyword_profile: false
-    exclude_contaminated: false
-  exclude_price_outliers: false
+    use_per_keyword_profile: true
+    exclude_contaminated: true
+  exclude_price_outliers: true
   feasibility:
-    use_clean_gig_set: false
+    use_clean_gig_set: true
   opportunity:
-    qualify_by_relevance: false
+    qualify_by_relevance: true
   thresholds:
     strong_go: 80
     conditional_go: 60

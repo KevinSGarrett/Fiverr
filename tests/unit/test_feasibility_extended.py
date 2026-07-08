@@ -248,6 +248,33 @@ def test_clean_set_excludes_zombie() -> None:
     assert len(clean) == 1
 
 
+def test_clean_gig_set_treats_unset_relevance_flag_as_clean() -> None:
+    """R4.6: relevance_flag is not False (None passes) -- previously coerced
+    None to False via bool(), excluding every un-annotated gig (Codex, PR #175)."""
+
+    class _Gig:
+        def __init__(self, relevance_flag: bool | None) -> None:
+            self.relevance_flag = relevance_flag
+            self.is_sponsored = False
+            self.is_zombie = False
+
+    gigs = [_Gig(None), _Gig(True), _Gig(False)]
+    clean = _clean_gig_set(gigs)  # type: ignore[arg-type]
+    assert len(clean) == 2
+    assert all(gig.relevance_flag is not False for gig in clean)
+
+
+def test_clean_gig_set_treats_unset_sponsored_and_zombie_flags_as_clean() -> None:
+    class _Gig:
+        def __init__(self) -> None:
+            self.relevance_flag = None
+            self.is_sponsored = None
+            self.is_zombie = None
+
+    clean = _clean_gig_set([_Gig()])  # type: ignore[arg-type]
+    assert len(clean) == 1
+
+
 def test_clean_gig_count_recorded() -> None:
     result = NewSellerFeasibilityCalculator().calculate(
         100,
@@ -288,8 +315,43 @@ def test_clean_set_empty_falls_back_to_full() -> None:
                 "scoring": {"feasibility": {"use_clean_gig_set": True}},
             },
         )
-        assert payload["clean_gig_count"] == len(payload["top10_seller_levels"])
+        # clean_gig_count reflects the TRUE clean count (0, all sponsored) for
+        # dashboard transparency; top10_seller_levels reflects the larger
+        # fallback set actually used for scoring -- they are no longer the
+        # same value now that the fallback is correctly threshold-gated.
+        assert payload["clean_gig_count"] == 0
+        assert len(payload["top10_seller_levels"]) > 0
         assert payload["lowest_ranked_review_count_page1"] is not None
+    finally:
+        session.close()
+
+
+def test_clean_set_below_minimum_falls_back_to_full() -> None:
+    """R4.6: fallback triggers when fewer than 3 clean gigs remain, not only
+    when the clean set is completely empty (Codex, PR #175)."""
+    session = next(_session())
+    keyword_id = _seed_keyword_data_for_feasibility_high_scores(
+        session, use_card_path=False, run_id="clean-fallback-partial"
+    )
+    try:
+        gigs = session.query(Gig).filter(Gig.keyword_id == keyword_id).order_by(Gig.position.asc()).all()
+        assert len(gigs) == 10
+        # Mark all but 2 as sponsored -> only 2 clean gigs remain (< 3 minimum).
+        for gig in gigs[2:]:
+            gig.is_sponsored = True
+        session.commit()
+
+        payload = NewSellerFeasibilityCalculator()._load_signals_from_db(  # pylint: disable=protected-access
+            keyword_id,
+            session,
+            config={
+                "relevance": {"enable_sponsored_exclusion": False, "enable_zombie_filter": False},
+                "scoring": {"feasibility": {"use_clean_gig_set": True}},
+            },
+        )
+        assert payload["clean_gig_count"] == 2
+        # Falls back to the full (unfiltered) set, not the 2-gig clean set.
+        assert len(payload["top10_seller_levels"]) > 2
     finally:
         session.close()
 
