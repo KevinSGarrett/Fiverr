@@ -852,6 +852,25 @@ def _build_confidence_context(
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        # Scope to the active run the same way ProfitabilityScoreCalculator/
+        # FeasibilityCalculator/WeaknessCalculator do: the run_id of the lowest-rank
+        # row. A keyword recollected across multiple runs can otherwise mix an old
+        # run's stale rows into freshness/detail checks even though the current score
+        # was computed only from the active run's data (Codex review, PR #176).
+        active_run_id = next(
+            (
+                result.run_id.strip()
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip()
+            ),
+            None,
+        )
+        if active_run_id is not None:
+            top_results = [
+                result
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip() == active_run_id
+            ]
         total_organic = 0
         zombie_count = 0
         # data_freshness_score is the MEAN of each contributing record's individual
@@ -923,10 +942,15 @@ def _build_confidence_context(
             # ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator both fall
             # back to Gig.keyword_id (bypassing SearchResult.gig_id entirely) when no
             # gig could be resolved through search-result linkage - mirror that final
-            # fallback tier here so scores actually computed from those gigs aren't
-            # penalized as if no gig data existed at all (Codex review, PR #176).
+            # fallback tier here, including its active-run scoping and
+            # position.asc().nullslast()/id.asc() ordering, so scores actually computed
+            # from those gigs aren't penalized as if no (or the wrong) gig data existed
+            # (Codex review, PR #176).
+            fallback_query = db.query(Gig).filter(Gig.keyword_id == keyword_id)
+            if active_run_id is not None:
+                fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
             fallback_gigs = (
-                db.query(Gig).filter(Gig.keyword_id == keyword_id).order_by(Gig.id.asc()).limit(top_n_for_scoring).all()
+                fallback_query.order_by(Gig.position.asc().nullslast(), Gig.id.asc()).limit(top_n_for_scoring).all()
             )
             for gig in fallback_gigs:
                 if getattr(gig, "is_sponsored", None) is True:

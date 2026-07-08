@@ -1050,6 +1050,73 @@ def test_confidence_context_resolves_gigs_via_keyword_id_fallback() -> None:
     assert context["seller_profiles_collected"] is True
 
 
+def test_confidence_context_scopes_search_results_to_active_run() -> None:
+    """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/
+    GigQualityWeaknessScoreCalculator resolve an active_run_id (the run_id of the
+    lowest-rank SearchResult row) and scope their inputs to it. A stale row left
+    over from an older run must not feed freshness/detail checks once a fresher
+    run's rows exist for the same keyword."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-active-run", name="ContextActiveRun", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="active run keyword", normalized_keyword="active run keyword")
+    session.add(keyword)
+    session.flush()
+    stale_at = datetime.now(UTC) - timedelta(hours=400)
+    fresh_at = datetime.now(UTC)
+    seller = Seller(seller_handle="active_run_seller", profile_collected=True, profile_collected_at=fresh_at)
+    session.add(seller)
+    session.flush()
+    fresh_gig = Gig(
+        seller_id=seller.id,
+        title="I will do fresh active-run work",
+        normalized_title="fresh active-run work",
+        detail_collected_at=fresh_at,
+        updated_at=fresh_at,
+        run_id="run-new",
+    )
+    session.add(fresh_gig)
+    stale_gig = Gig(
+        seller_id=seller.id,
+        title="I will do stale old-run work",
+        normalized_title="stale old-run work",
+        detail_collected_at=stale_at,
+        updated_at=stale_at,
+        run_id="run-old",
+    )
+    session.add(stale_gig)
+    session.flush()
+    # Old run's rank 4 row is stale and must be excluded once a fresher run exists.
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id, rank=4, gig_id=stale_gig.id, title=stale_gig.title, run_id="run-old",
+            collected_at=stale_at,
+        )
+    )
+    # New run's rank 1 row is fresh and determines the active run.
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id, rank=1, gig_id=fresh_gig.id, title=fresh_gig.title, run_id="run-new",
+            collected_at=fresh_at,
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_freshness_score"] > 0.9
+
+
 def test_confidence_context_llm_quality_incomplete_counted_even_when_detail_collected() -> None:
     """Codex review, PR #176 (P2): whether gig detail was scraped and whether LLM
     quality analysis ran on it are unrelated. A gig with a fully-collected detail
