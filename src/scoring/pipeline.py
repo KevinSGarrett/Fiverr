@@ -999,9 +999,12 @@ def _build_confidence_context(
         )
         if marketplace_snapshot_row is not None:
             _consider_freshness(marketplace_snapshot_row.collected_at, marketplace_snapshot_row.ttl_hours)
-        keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
-        if keyword_row is not None:
-            _consider_freshness(keyword_row.updated_at, None)
+        # Keyword.updated_at reflects when the keyword ROW's own metadata was last
+        # touched (niche reassignment, etc.), not when any underlying market data was
+        # collected - it has no TTL category in FRESHNESS_MODEL.md's reference table
+        # unlike every genuine collected-record type, and a keyword can go untouched
+        # for weeks while its search results/gigs/signals stay current. Folding it in
+        # here wrongly ages otherwise-fresh scores (Codex review, PR #176).
         reddit_count = (
             db.query(ExternalSignal)
             .filter(
