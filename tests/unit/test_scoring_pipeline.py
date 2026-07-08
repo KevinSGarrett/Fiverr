@@ -778,6 +778,151 @@ def test_confidence_context_freshness_reflects_stale_records() -> None:
     assert context["data_freshness_score"] == 0.0
 
 
+def test_confidence_context_freshness_picks_highest_staleness_ratio_not_oldest_timestamp() -> None:
+    """Codex review, PR #176 (P2): with mixed TTLs, the absolute-oldest timestamp is
+    not necessarily the most stale record relative to its own TTL. A 500h-old seller
+    (720h TTL, ratio 0.69) is older in wall-clock terms than a 400h-old gig (168h TTL,
+    ratio 2.38), but the gig is far more over its own TTL and must win."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-ratio", name="ContextRatio", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="ratio keyword", normalized_keyword="ratio keyword")
+    session.add(keyword)
+    session.flush()
+    seller_stale_at = datetime.now(UTC) - timedelta(hours=500)
+    gig_stale_at = datetime.now(UTC) - timedelta(hours=400)
+    seller = Seller(seller_handle="ratio_seller", profile_collected=True, profile_collected_at=seller_stale_at)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do ratio work",
+        normalized_title="ratio work",
+        detail_collected_at=gig_stale_at,
+        updated_at=gig_stale_at,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, updated_at=gig_stale_at))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    # The 168h-TTL gig (ratio ~2.38) must win over the 720h-TTL seller (ratio ~0.69),
+    # even though the seller's timestamp is older in absolute wall-clock terms.
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+    assert context["data_age_hours"] == pytest.approx(400.0, abs=15.0)
+
+
+def test_confidence_context_freshness_ignores_superseded_signal_rows() -> None:
+    """Codex review, PR #176 (P1): the real scoring loaders (e.g.
+    DemandScoreCalculator._load_signals_from_db) only read the newest ExternalSignal
+    row per signal_type. An old row from a prior run must not drive staleness when a
+    fresher same-type row is the one actually contributing to the score."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-superseded", name="ContextSuperseded", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="superseded keyword", normalized_keyword="superseded keyword")
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=2000)
+    fresh_at = datetime.now(UTC)
+    # Old row from a prior run - superseded, must be excluded from freshness.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="google_trends",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-superseded-run-1",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+    # Fresh row from the current run, same signal_type - this is the one the real
+    # scoring loaders actually read.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="google_trends",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=fresh_at,
+            run_id="ctx-superseded-run-2",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] < 24.0
+    assert context["data_freshness_score"] > 0.9
+
+
+def test_confidence_context_llm_quality_incomplete_counted_even_when_detail_collected() -> None:
+    """Codex review, PR #176 (P2): whether gig detail was scraped and whether LLM
+    quality analysis ran on it are unrelated. A gig with a fully-collected detail
+    payload but no LLM quality score must still count toward
+    llm_gig_quality_incomplete_count, not be silently excluded because detail
+    collection succeeded."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-quality-gap", name="ContextQualityGap", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="quality gap keyword", normalized_keyword="quality gap keyword")
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="quality_gap_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do fully detailed work",
+        normalized_title="fully detailed work",
+        detail_collected_at=datetime.now(UTC),
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=["llm_not_implemented: missing LLM gig quality weakness."],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is True
+    assert context["llm_gig_quality_incomplete_count"] == 1
+
+
 def test_confidence_context_freshness_uses_record_own_ttl_not_global_default() -> None:
     """Codex review, PR #176 (P2): Seller defaults to a 720h TTL
     (src/models/seller.py), longer than the old flat 168h assumption. A seller

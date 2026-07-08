@@ -841,30 +841,31 @@ def _build_confidence_context(
         )
         total_organic = 0
         zombie_count = 0
-        # Freshness reflects the OLDEST contributing record vs. THAT record's own TTL,
-        # per DATA_FLOW.md's Stage 11 definition - a single recently-touched record must
-        # not mask other stale inputs, and a long-TTL source (e.g. sellers default to
-        # 720h) must not be judged against a shorter source's TTL (Codex review, PR #176).
-        oldest_record_at: datetime | None = None
-        oldest_record_ttl_hours = _DEFAULT_TTL_HOURS
+        # Freshness reflects the contributing record with the HIGHEST staleness ratio
+        # (age / that record's own TTL), per DATA_FLOW.md's Stage 11 definition - not
+        # simply the oldest absolute timestamp, since a long-TTL source (sellers default
+        # to 720h) can be older in wall-clock terms than a short-TTL source (168h) that
+        # is actually further past its own TTL (Codex review, PR #176).
+        freshness_found = False
 
         def _consider_freshness(candidate_at: Any, candidate_ttl: Any) -> None:
-            nonlocal oldest_record_at, oldest_record_ttl_hours
+            nonlocal data_age_hours, data_ttl_hours, freshness_found
             if not isinstance(candidate_at, datetime):
                 return
-            if oldest_record_at is None:
-                oldest_record_at = candidate_at
-                oldest_record_ttl_hours = _as_ttl_hours(candidate_ttl)
-                return
+            now_for_candidate = datetime.now(UTC) if candidate_at.tzinfo is not None else datetime.now()
             try:
-                is_older = candidate_at < oldest_record_at
+                candidate_age_hours = max(0.0, (now_for_candidate - candidate_at).total_seconds() / 3600.0)
             except TypeError:
-                # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - keep
-                # the already-selected value rather than raising.
+                # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - skip
+                # rather than raising.
                 return
-            if is_older:
-                oldest_record_at = candidate_at
-                oldest_record_ttl_hours = _as_ttl_hours(candidate_ttl)
+            candidate_ttl_hours = _as_ttl_hours(candidate_ttl)
+            candidate_ratio = candidate_age_hours / candidate_ttl_hours
+            current_ratio = data_age_hours / data_ttl_hours if freshness_found else -1.0
+            if candidate_ratio > current_ratio:
+                data_age_hours = candidate_age_hours
+                data_ttl_hours = candidate_ttl_hours
+                freshness_found = True
 
         for result in top_results:
             _consider_freshness(result.updated_at, getattr(result, "ttl_hours", None))
@@ -924,12 +925,26 @@ def _build_confidence_context(
                     youtube_video_count = int(raw_count)
             except (TypeError, ValueError):
                 youtube_video_count = None
-        # Aggregate every contributing external signal's own timestamp/TTL, not just the
-        # single newest one - a stale Google Trends row must still be able to trigger
-        # staleness even when a fresher Reddit/YouTube row exists for the same keyword
+        # Aggregate only the newest row PER signal_type, matching the "only the latest
+        # row counts" semantics the real scoring loaders use (e.g.
+        # DemandScoreCalculator._load_signals_from_db orders by created_at.desc() and
+        # takes .first() per type) - an old, superseded row from a prior run must not
+        # drive staleness when a fresher same-type row is the one actually scored
         # (Codex review, PR #176).
-        all_signals = db.query(ExternalSignal).filter(ExternalSignal.keyword_id == keyword_id).all()
+        all_signals = (
+            db.query(ExternalSignal)
+            .filter(ExternalSignal.keyword_id == keyword_id)
+            .order_by(ExternalSignal.signal_type.asc(), ExternalSignal.created_at.desc(), ExternalSignal.id.desc())
+            .all()
+        )
+        seen_signal_types: set[str] = set()
+        latest_signal_per_type: list[ExternalSignal] = []
         for signal in all_signals:
+            if signal.signal_type in seen_signal_types:
+                continue
+            seen_signal_types.add(signal.signal_type)
+            latest_signal_per_type.append(signal)
+        for signal in latest_signal_per_type:
             _consider_freshness(signal.collected_at, signal.ttl_hours)
         newest_signal = (
             db.query(ExternalSignal)
@@ -950,21 +965,18 @@ def _build_confidence_context(
         rsv = get_result_set_validation(keyword_id, db)
         if rsv is not None and rsv.result_set_relevance_score is not None:
             signal_relevance_score = float(rsv.result_set_relevance_score)
-        if oldest_record_at is not None:
-            now_for_age = datetime.now(UTC) if oldest_record_at.tzinfo is not None else datetime.now()
-            data_age_hours = max(0.0, (now_for_age - oldest_record_at).total_seconds() / 3600.0)
-            data_ttl_hours = oldest_record_ttl_hours
     trends_available = scores.get("trend_score") is not None
     data_freshness_score = max(0.0, min(1.0, 1.0 - (data_age_hours / data_ttl_hours)))
     available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])
     source_diversity_score = min(1.0, available_core_sources / 3.0)
-    llm_quality_incomplete_count = 0
-    if not gig_detail_collected:
-        llm_quality_incomplete_count = sum(
-            1
-            for warning in warnings
-            if "llm_not_implemented" in warning and "quality" in warning.lower()
-        )
+    # Whether gig detail was scraped and whether LLM quality analysis ran on it are
+    # unrelated: a gig can have a fully-collected detail payload with no LLM quality
+    # score yet, so this must not be gated on gig_detail_collected (Codex review, PR #176).
+    llm_quality_incomplete_count = sum(
+        1
+        for warning in warnings
+        if "llm_not_implemented" in warning and "quality" in warning.lower()
+    )
     llm_other_missing = sum(
         1 for warning in warnings if any(marker in warning for marker in _OTHER_LLM_SIGNAL_MARKERS)
     )
