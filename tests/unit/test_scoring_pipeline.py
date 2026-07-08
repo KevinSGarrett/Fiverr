@@ -931,6 +931,34 @@ def test_confidence_context_llm_completion_ratio_ignores_quality_and_competitor_
     assert degraded["llm_analysis_completion_ratio"] == pytest.approx(1.0 - (2 / 5))
 
 
+def test_confidence_context_llm_completion_ratio_ignores_weakness_stub_warnings() -> None:
+    """Codex review, PR #176 (P1): src/scoring/weakness.py emits its own
+    llm_not_implemented warnings (llm_weakness_count_per_gig,
+    llm_faq_completeness_score, llm_package_differentiation_score,
+    llm_niche_specificity_score) whose text does not contain "quality" or
+    "competitor" at all. An exclude-by-substring filter would miscount these as
+    one of the 5 intended "other" signals and collapse llm_analysis_completion_ratio
+    to 0.0 in the common no-LLM-key case even though buyer intent/upsell/
+    saturation/trend/entry-gap are all present. feasibility.py's "missing LLM gig
+    weakness assessment" warning has the same shape and must also be ignored."""
+    from src.scoring import pipeline
+
+    context = pipeline._build_confidence_context(
+        keyword_id=1,
+        scores={},
+        depth="standard",
+        warnings=[
+            "llm_not_implemented: missing llm_weakness_count_per_gig.",
+            "llm_not_implemented: missing llm_faq_completeness_score.",
+            "llm_not_implemented: missing llm_package_differentiation_score.",
+            "llm_not_implemented: missing llm_niche_specificity_score.",
+            "llm_not_implemented: missing LLM gig weakness assessment.",
+        ],
+        db={},
+    )
+    assert context["llm_analysis_completion_ratio"] == pytest.approx(1.0)
+
+
 def test_mode_full_smoke() -> None:
     import src.orchestrator as orchestrator
 

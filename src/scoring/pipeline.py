@@ -760,13 +760,27 @@ def _resolve_depth(keyword_id: int, db: Any) -> str:
     return "standard"
 
 
-# Fixed count of scoring-stage LLM-dependent signals tracked by
-# llm_analysis_completion_ratio, excluding the "quality" and "competitor" warnings
-# that already drive their own dedicated confidence deductions above: buyer intent
-# (intent.py), upsell potential (profitability.py), saturation assessment
-# (saturation_score.py), trend classification (trend.py), entry-gap assessment
-# (feasibility.py).
-_OTHER_LLM_SIGNAL_COUNT = 5
+# Exact marker substrings for the 5 scoring-stage LLM-dependent signals tracked by
+# llm_analysis_completion_ratio: buyer intent (intent.py), upsell potential
+# (profitability.py), saturation assessment (saturation_score.py), trend
+# classification (trend.py), entry-gap assessment (feasibility.py).
+#
+# An explicit allowlist (rather than excluding "quality"/"competitor" substrings)
+# is required because other calculators emit their own llm_not_implemented warnings
+# whose text does not contain "quality" or "competitor" at all - e.g. weakness.py's
+# llm_weakness_count_per_gig/llm_faq_completeness_score/llm_package_differentiation_
+# score/llm_niche_specificity_score, and feasibility.py's "missing LLM gig weakness
+# assessment" - which an exclude-filter would miscount as "other", capping
+# llm_analysis_completion_ratio at 0.0 in the common no-LLM-key case even when the
+# 5 intended signals are otherwise complete (Codex review, PR #176).
+_OTHER_LLM_SIGNAL_MARKERS = (
+    "missing LLM buyer intent classification",
+    "missing LLM upsell potential assessment",
+    "missing LLM saturation assessment",
+    "no llm_trend_classification signal available",
+    "missing LLM entry gap assessment",
+)
+_OTHER_LLM_SIGNAL_COUNT = len(_OTHER_LLM_SIGNAL_MARKERS)
 
 
 def _older(current: datetime | None, candidate: datetime) -> datetime:
@@ -927,9 +941,7 @@ def _build_confidence_context(
             if "llm_not_implemented" in warning and "quality" in warning.lower()
         )
     llm_other_missing = sum(
-        1
-        for warning in warnings
-        if "llm_not_implemented" in warning and "quality" not in warning.lower() and "competitor" not in warning.lower()
+        1 for warning in warnings if any(marker in warning for marker in _OTHER_LLM_SIGNAL_MARKERS)
     )
     llm_analysis_completion_ratio = max(0.0, 1.0 - (min(llm_other_missing, _OTHER_LLM_SIGNAL_COUNT) / _OTHER_LLM_SIGNAL_COUNT))
     return {
