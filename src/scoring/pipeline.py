@@ -941,26 +941,31 @@ def _build_confidence_context(
                     youtube_video_count = int(raw_count)
             except (TypeError, ValueError):
                 youtube_video_count = None
-        # Aggregate only the newest row PER signal_type, matching the "only the latest
-        # row counts" semantics the real scoring loaders use (e.g.
+        # Aggregate only the newest row PER effective loader source group, matching the
+        # "only the latest row counts" semantics the real scoring loaders use (e.g.
         # DemandScoreCalculator._load_signals_from_db orders by created_at.desc() and
         # takes .first() per type) - an old, superseded row from a prior run must not
-        # drive staleness when a fresher same-type row is the one actually scored
+        # drive staleness when a fresher same-group row is the one actually scored.
+        # reddit_demand/reddit_activity are grouped together because
+        # TrendScoreCalculator._load_signals_from_db treats them as one combined pool
+        # (signal_type.in_([...]).order_by(created_at.desc()).first()) - a stale
+        # reddit_activity row must not count once a fresher reddit_demand row exists
         # (Codex review, PR #176).
         all_signals = (
             db.query(ExternalSignal)
             .filter(ExternalSignal.keyword_id == keyword_id)
-            .order_by(ExternalSignal.signal_type.asc(), ExternalSignal.created_at.desc(), ExternalSignal.id.desc())
+            .order_by(ExternalSignal.created_at.desc(), ExternalSignal.id.desc())
             .all()
         )
-        seen_signal_types: set[str] = set()
-        latest_signal_per_type: list[ExternalSignal] = []
+        seen_signal_groups: set[str] = set()
+        latest_signal_per_group: list[ExternalSignal] = []
         for signal in all_signals:
-            if signal.signal_type in seen_signal_types:
+            group_key = "reddit" if signal.signal_type in ("reddit_demand", "reddit_activity") else signal.signal_type
+            if group_key in seen_signal_groups:
                 continue
-            seen_signal_types.add(signal.signal_type)
-            latest_signal_per_type.append(signal)
-        for signal in latest_signal_per_type:
+            seen_signal_groups.add(group_key)
+            latest_signal_per_group.append(signal)
+        for signal in latest_signal_per_group:
             _consider_freshness(signal.collected_at, signal.ttl_hours)
         newest_signal = (
             db.query(ExternalSignal)

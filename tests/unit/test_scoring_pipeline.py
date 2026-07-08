@@ -886,6 +886,64 @@ def test_confidence_context_freshness_ignores_superseded_signal_rows() -> None:
     assert context["data_freshness_score"] > 0.9
 
 
+def test_confidence_context_freshness_groups_reddit_aliases_like_trend_loader() -> None:
+    """Codex review, PR #176 (P2): TrendScoreCalculator._load_signals_from_db treats
+    reddit_demand and reddit_activity as one combined pool
+    (signal_type.in_([...]).order_by(created_at.desc()).first()), reading only the
+    newest row across both. A stale reddit_activity row from an old run must not
+    count once a fresher reddit_demand row exists for the same keyword."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-reddit-alias", name="ContextRedditAlias", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="reddit alias keyword", normalized_keyword="reddit alias keyword")
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=2000)
+    fresh_at = datetime.now(UTC)
+    # Stale reddit_activity row from an old run.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_activity",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-reddit-alias-run-1",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+    # Fresh reddit_demand row from the current run - a different literal signal_type,
+    # but the same "reddit" source group as far as the real trend loader is concerned.
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_demand",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=fresh_at,
+            run_id="ctx-reddit-alias-run-2",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] < 24.0
+    assert context["data_freshness_score"] > 0.9
+
+
 def test_confidence_context_llm_quality_incomplete_counted_even_when_detail_collected() -> None:
     """Codex review, PR #176 (P2): whether gig detail was scraped and whether LLM
     quality analysis ran on it are unrelated. A gig with a fully-collected detail
