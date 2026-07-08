@@ -778,6 +778,112 @@ def test_confidence_context_freshness_reflects_stale_records() -> None:
     assert context["data_freshness_score"] == 0.0
 
 
+def test_confidence_context_freshness_uses_record_own_ttl_not_global_default() -> None:
+    """Codex review, PR #176 (P2): Seller defaults to a 720h TTL
+    (src/models/seller.py), longer than the old flat 168h assumption. A seller
+    profile collected 480h ago is still within its own TTL and must not be
+    reported as fully stale (freshness=0.0) just because 480h > 168h."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-seller-ttl", name="ContextSellerTtl", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="seller ttl keyword", normalized_keyword="seller ttl keyword")
+    session.add(keyword)
+    session.flush()
+    seller_stale_at = datetime.now(UTC) - timedelta(hours=480)
+    fresh_at = datetime.now(UTC)
+    # Seller's own 720h default TTL means 480h old is still within TTL, unlike a
+    # 168h-TTL source (Gig/SearchResult) at the same age.
+    seller = Seller(seller_handle="ttl_seller", profile_collected=True, profile_collected_at=seller_stale_at)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do fresh gig work",
+        normalized_title="fresh gig work",
+        detail_collected_at=fresh_at,
+        updated_at=fresh_at,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, updated_at=fresh_at))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_ttl_hours"] == pytest.approx(720.0)
+    # Generous tolerance: naive-vs-aware SQLite round-tripping can introduce a
+    # local-UTC-offset-sized skew (see the pre-existing "SQLite often round-trips
+    # timestamps as naive" handling elsewhere in this function).
+    assert context["data_age_hours"] == pytest.approx(480.0, abs=15.0)
+    assert context["data_freshness_score"] == pytest.approx(1.0 - (480.0 / 720.0), abs=0.03)
+    assert context["data_freshness_score"] > 0.0
+
+
+def test_confidence_context_freshness_aggregates_all_external_signals() -> None:
+    """Codex review, PR #176 (P2): a stale Google Trends signal must still be able
+    to trigger staleness even when a fresher Reddit/YouTube signal exists for the
+    same keyword - aggregating only the single newest signal would hide this."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-multi-signal", name="ContextMultiSignal", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="multi signal keyword", normalized_keyword="multi signal keyword")
+    session.add(keyword)
+    session.flush()
+    stale_at = datetime.now(UTC) - timedelta(hours=400)
+    fresh_at = datetime.now(UTC)
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="google_trends",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=stale_at,
+            run_id="ctx-multi-run",
+            collection_method="google_trends_api",
+        )
+    )
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_demand",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=fresh_at,
+            run_id="ctx-multi-run",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] >= 168.0
+    assert context["data_freshness_score"] == 0.0
+    # The newest-signal-derived fields must still reflect the freshest signal.
+    assert context["signal_age_days"] == 0
+    assert context["external_signal_context_present"] is True
+
+
 def test_confidence_context_freshness_uses_oldest_not_newest_contributing_record() -> None:
     """SCRUM-1153/Codex review: DATA_FLOW.md's Stage 11 defines freshness as the age
     of the OLDEST contributing record vs. TTL. A single recently-touched record (e.g.

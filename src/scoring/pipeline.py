@@ -783,15 +783,15 @@ _OTHER_LLM_SIGNAL_MARKERS = (
 _OTHER_LLM_SIGNAL_COUNT = len(_OTHER_LLM_SIGNAL_MARKERS)
 
 
-def _older(current: datetime | None, candidate: datetime) -> datetime:
-    if current is None:
-        return candidate
+_DEFAULT_TTL_HOURS = 168.0
+
+
+def _as_ttl_hours(value: Any) -> float:
     try:
-        return candidate if candidate < current else current
-    except TypeError:
-        # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - keep the
-        # already-selected value rather than raising.
-        return current
+        ttl = float(value)
+    except (TypeError, ValueError):
+        return _DEFAULT_TTL_HOURS
+    return ttl if ttl > 0 else _DEFAULT_TTL_HOURS
 
 
 def _build_confidence_context(
@@ -829,7 +829,7 @@ def _build_confidence_context(
     gig_detail_collected = True
     seller_profiles_collected = True
     data_age_hours = 0.0
-    data_ttl_hours = 168.0
+    data_ttl_hours = _DEFAULT_TTL_HOURS
     if isinstance(db, Session):
         gig_detail_collected = False
         seller_profiles_collected = False
@@ -841,13 +841,33 @@ def _build_confidence_context(
         )
         total_organic = 0
         zombie_count = 0
-        # Freshness reflects the OLDEST contributing record, per DATA_FLOW.md's Stage 11
-        # definition - a single recently-touched record must not mask other stale inputs
-        # (Codex review, PR #176).
+        # Freshness reflects the OLDEST contributing record vs. THAT record's own TTL,
+        # per DATA_FLOW.md's Stage 11 definition - a single recently-touched record must
+        # not mask other stale inputs, and a long-TTL source (e.g. sellers default to
+        # 720h) must not be judged against a shorter source's TTL (Codex review, PR #176).
         oldest_record_at: datetime | None = None
+        oldest_record_ttl_hours = _DEFAULT_TTL_HOURS
+
+        def _consider_freshness(candidate_at: Any, candidate_ttl: Any) -> None:
+            nonlocal oldest_record_at, oldest_record_ttl_hours
+            if not isinstance(candidate_at, datetime):
+                return
+            if oldest_record_at is None:
+                oldest_record_at = candidate_at
+                oldest_record_ttl_hours = _as_ttl_hours(candidate_ttl)
+                return
+            try:
+                is_older = candidate_at < oldest_record_at
+            except TypeError:
+                # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - keep
+                # the already-selected value rather than raising.
+                return
+            if is_older:
+                oldest_record_at = candidate_at
+                oldest_record_ttl_hours = _as_ttl_hours(candidate_ttl)
+
         for result in top_results:
-            if isinstance(result.updated_at, datetime):
-                oldest_record_at = _older(oldest_record_at, result.updated_at)
+            _consider_freshness(result.updated_at, getattr(result, "ttl_hours", None))
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
@@ -864,8 +884,7 @@ def _build_confidence_context(
             # payload was scraped, which would otherwise mask stale gig-detail data
             # behind an unrelated recent write (Codex review, PR #176).
             gig_freshness_at = gig_detail_collected_at if isinstance(gig_detail_collected_at, datetime) else gig.updated_at
-            if isinstance(gig_freshness_at, datetime):
-                oldest_record_at = _older(oldest_record_at, gig_freshness_at)
+            _consider_freshness(gig_freshness_at, getattr(gig, "ttl_hours", None))
             seller = getattr(gig, "seller", None)
             if seller is not None:
                 seller_profile_collected_at = getattr(seller, "profile_collected_at", None)
@@ -874,12 +893,11 @@ def _build_confidence_context(
                 seller_freshness_at = (
                     seller_profile_collected_at if isinstance(seller_profile_collected_at, datetime) else seller.updated_at
                 )
-                if isinstance(seller_freshness_at, datetime):
-                    oldest_record_at = _older(oldest_record_at, seller_freshness_at)
+                _consider_freshness(seller_freshness_at, getattr(seller, "ttl_hours", None))
         zombie_fraction = zombie_count / max(total_organic, 1)
         keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
-        if keyword_row is not None and isinstance(keyword_row.updated_at, datetime):
-            oldest_record_at = _older(oldest_record_at, keyword_row.updated_at)
+        if keyword_row is not None:
+            _consider_freshness(keyword_row.updated_at, None)
         reddit_count = (
             db.query(ExternalSignal)
             .filter(
@@ -906,6 +924,13 @@ def _build_confidence_context(
                     youtube_video_count = int(raw_count)
             except (TypeError, ValueError):
                 youtube_video_count = None
+        # Aggregate every contributing external signal's own timestamp/TTL, not just the
+        # single newest one - a stale Google Trends row must still be able to trigger
+        # staleness even when a fresher Reddit/YouTube row exists for the same keyword
+        # (Codex review, PR #176).
+        all_signals = db.query(ExternalSignal).filter(ExternalSignal.keyword_id == keyword_id).all()
+        for signal in all_signals:
+            _consider_freshness(signal.collected_at, signal.ttl_hours)
         newest_signal = (
             db.query(ExternalSignal)
             .filter(ExternalSignal.keyword_id == keyword_id)
@@ -915,7 +940,6 @@ def _build_confidence_context(
         if newest_signal is not None and isinstance(newest_signal.collected_at, datetime):
             external_signal_context_present = True
             collected_at = newest_signal.collected_at
-            oldest_record_at = _older(oldest_record_at, collected_at)
             # SQLite often round-trips timestamps as naive datetimes even when written as UTC.
             if collected_at.tzinfo is None:
                 now = datetime.now()
@@ -929,6 +953,7 @@ def _build_confidence_context(
         if oldest_record_at is not None:
             now_for_age = datetime.now(UTC) if oldest_record_at.tzinfo is not None else datetime.now()
             data_age_hours = max(0.0, (now_for_age - oldest_record_at).total_seconds() / 3600.0)
+            data_ttl_hours = oldest_record_ttl_hours
     trends_available = scores.get("trend_score") is not None
     data_freshness_score = max(0.0, min(1.0, 1.0 - (data_age_hours / data_ttl_hours)))
     available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])
