@@ -958,16 +958,39 @@ def _build_confidence_context(
         # to. ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator resolve
         # those card URLs to real top-N gigs too, so one linked fresh gig must not hide
         # additional stale/missing-detail/missing-seller/zombie card gigs from
-        # confidence (Codex review, PR #176).
-        card_gig_urls: set[str] = set()
+        # confidence (Codex review, PR #176). write_search_result stamps a whole page's
+        # row with its first card's rank, so a page row can carry card positions well
+        # outside top_n_for_scoring - sort by each card's own position and slice to the
+        # same scoring window the loaders use, rather than resolving every card on the
+        # page (Codex review, PR #176).
+        ranked_card_urls: list[tuple[int, str]] = []
         for result in top_results:
             cards = result.gig_cards if isinstance(result.gig_cards, list) else []
             for card in cards:
                 if not isinstance(card, dict):
                     continue
                 raw_url = card.get("gig_url")
-                if isinstance(raw_url, str) and raw_url.strip():
-                    card_gig_urls.add(raw_url.strip())
+                if not isinstance(raw_url, str) or not raw_url.strip():
+                    continue
+                normalized_url = raw_url.strip()
+                raw_position = card.get("position")
+                if isinstance(raw_position, int) and raw_position > 0:
+                    position = raw_position
+                elif isinstance(raw_position, str) and raw_position.strip().isdigit():
+                    position = int(raw_position.strip())
+                else:
+                    position = 10_000
+                ranked_card_urls.append((position, normalized_url))
+        ranked_card_urls.sort(key=lambda value: value[0])
+        card_gig_urls: set[str] = set()
+        seen_card_urls: set[str] = set()
+        for _, normalized_url in ranked_card_urls:
+            if normalized_url in seen_card_urls:
+                continue
+            seen_card_urls.add(normalized_url)
+            card_gig_urls.add(normalized_url)
+            if len(card_gig_urls) >= top_n_for_scoring:
+                break
         if card_gig_urls:
             card_gigs = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls)).all()
             for card_gig in card_gigs:
@@ -1113,12 +1136,18 @@ def _build_confidence_context(
         # combined value in too, in addition to (not instead of) reddit_demand's own
         # per-type entry above, since demand/intent scoring still reads reddit_demand
         # specifically regardless of reddit_activity's freshness (Codex review, PR #176).
-        reddit_combined_newest = next(
-            (signal for signal in all_signals if signal.signal_type in ("reddit_demand", "reddit_activity")),
-            None,
-        )
-        if reddit_combined_newest is not None:
-            _consider_freshness(reddit_combined_newest.collected_at, reddit_combined_newest.ttl_hours)
+        # Only TrendScoreCalculator reads reddit_activity, and only when trend scoring
+        # actually ran for this call (score 9 is skipped for keyword_only/feasibility
+        # depth, leaving trend_score None) - gate on that so an unused, possibly stale
+        # reddit_activity row cannot demote a partial-depth run's freshness for a
+        # signal nothing in that run reads (Codex review, PR #176).
+        if scores.get("trend_score") is not None:
+            reddit_combined_newest = next(
+                (signal for signal in all_signals if signal.signal_type in ("reddit_demand", "reddit_activity")),
+                None,
+            )
+            if reddit_combined_newest is not None:
+                _consider_freshness(reddit_combined_newest.collected_at, reddit_combined_newest.ttl_hours)
         newest_signal = (
             db.query(ExternalSignal)
             .filter(ExternalSignal.keyword_id == keyword_id)

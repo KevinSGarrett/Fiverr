@@ -813,6 +813,62 @@ def test_confidence_context_resolves_gigs_from_gig_cards() -> None:
     assert context["zombie_fraction"] == pytest.approx(0.5)
 
 
+def test_confidence_context_limits_card_gigs_to_scoring_window() -> None:
+    """Codex review, PR #176 (P2): write_search_result stamps a whole page's
+    SearchResult row with its first card's rank, so a single page row can carry
+    gig_cards positions well outside top_n_for_scoring. Card URLs must be sorted by
+    position and sliced to the same scoring window the loaders use before being
+    resolved to gigs, or a bad card far down the page can wrongly demote
+    confidence."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-card-window", name="ContextCardWindow", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="card window keyword", normalized_keyword="card window keyword")
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="card_window_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+
+    gig_cards = []
+    for position in range(1, 13):
+        # Positions 1-10 fall inside the default top_n_for_scoring window and are
+        # healthy; positions 11-12 fall outside it and are zombies that must be
+        # ignored.
+        is_zombie = position > 10
+        gig = Gig(
+            seller_id=seller.id,
+            gig_url=f"https://www.fiverr.com/card_window_gig_{position}",
+            title=f"I will do card window work {position}",
+            normalized_title=f"card window work {position}",
+            detail_collected=True,
+            detail_collected_at=datetime.now(UTC),
+            is_zombie=is_zombie,
+        )
+        session.add(gig)
+        gig_cards.append({"gig_url": gig.gig_url, "position": position})
+    session.commit()
+
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_cards=gig_cards))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    # Only positions 1-10 (the top_n_for_scoring window) should resolve to real
+    # gigs - the zombie cards at positions 11-12 must not count.
+    assert context["zombie_fraction"] == pytest.approx(0.0)
+
+
 def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> None:
     """SCRUM-1153: a gig/seller with no detail/profile collected must NOT be
     silently reported as collected."""
@@ -1207,6 +1263,54 @@ def test_confidence_context_freshness_groups_reddit_aliases_like_trend_loader() 
     )
     assert context["data_age_hours"] < 24.0
     assert context["data_freshness_score"] > 0.9
+
+
+def test_confidence_context_gates_reddit_activity_freshness_on_trend_scoring() -> None:
+    """Codex review, PR #176 (P2): TrendScoreCalculator is the only reader of
+    reddit_activity, and only when trend scoring (score 9) actually ran. In
+    keyword_only/feasibility runs where score 9 is skipped and trend_score is None,
+    an unused stale reddit_activity row must not demote freshness for a signal
+    nothing in that run reads."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-reddit-activity-ungated", name="ContextRedditActivityUngated", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="reddit activity ungated keyword",
+        normalized_keyword="reddit activity ungated keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=3000)
+    # Only reddit_activity exists (no reddit_demand) - TrendScoreCalculator's only
+    # reader of this signal - and this run never scored trend (score 9 skipped).
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_activity",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-reddit-activity-ungated-run",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="feasibility",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_freshness_score"] == pytest.approx(1.0)
+    assert context["data_age_hours"] == pytest.approx(0.0)
 
 
 def test_confidence_context_freshness_includes_unranked_marketplace_snapshot() -> None:
