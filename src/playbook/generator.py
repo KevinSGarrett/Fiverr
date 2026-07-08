@@ -158,6 +158,13 @@ def export_playbook_pdf(playbook: dict[str, Any], output_path: str) -> None:
             "PDF export requires WeasyPrint + Jinja2. Install with: pip install weasyprint jinja2"
         ) from exc
 
+    # See src/reports/generator.py for why this is disabled (a known
+    # weasyprint.progress logging bug that only reproduces where WeasyPrint's
+    # native libs are actually installed).
+    import logging
+
+    logging.getLogger("weasyprint.progress").disabled = True
+
     template_dir = Path("src/reports/templates")
     env = Environment(loader=FileSystemLoader(str(template_dir)))
     template = env.get_template("playbook.html")
