@@ -1290,12 +1290,23 @@ def _build_confidence_context(
         # youtube-confidence-gate when external_signals_enabled is true - a stale
         # leftover youtube_count row must not depress freshness while that feature is
         # disabled, since nothing reads it in that case (Codex review, PR #176).
+        #
+        # autocomplete_position rows are the same story: DemandScoreCalculator reads
+        # its "autocomplete_position" signal from Keyword.metadata_json, not this
+        # ExternalSignal row - the row's own JSON payload ("autocomplete_data") is
+        # only consulted by _classify_autocomplete_absence, itself only called when
+        # external_signals_enabled is true. A stale leftover row must not depress
+        # freshness while nothing reads it (Codex review, PR #176).
+        external_signals_gated_types = (
+            ExternalSignal.SIGNAL_YOUTUBE_COUNT,
+            ExternalSignal.SIGNAL_AUTOCOMPLETE_POSITION,
+        )
         seen_signal_types: set[str] = set()
         latest_signal_per_type: list[ExternalSignal] = []
         for signal in all_signals:
             if signal.signal_type == "reddit_activity":
                 continue
-            if signal.signal_type == ExternalSignal.SIGNAL_YOUTUBE_COUNT and not external_signals_enabled:
+            if signal.signal_type in external_signals_gated_types and not external_signals_enabled:
                 continue
             if signal.signal_type in seen_signal_types:
                 continue

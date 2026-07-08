@@ -1433,6 +1433,53 @@ def test_confidence_context_ignores_disabled_youtube_signal_freshness() -> None:
     assert context["data_freshness_score"] == pytest.approx(1.0)
 
 
+def test_confidence_context_ignores_disabled_autocomplete_signal_freshness() -> None:
+    """Codex review, PR #176 (P2): DemandScoreCalculator reads its
+    "autocomplete_position" signal from Keyword.metadata_json, not this
+    ExternalSignal row - the row's own JSON payload is only consulted by
+    _classify_autocomplete_absence, itself only called when
+    external_signals_enabled is true. A stale leftover row must not depress
+    freshness while that feature is disabled, since nothing reads it."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-autocomplete-disabled", name="ContextAutocompleteDisabled", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="autocomplete disabled keyword",
+        normalized_keyword="autocomplete disabled keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=2000)
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_AUTOCOMPLETE_POSITION,
+            signal_value=1.0,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-autocomplete-disabled-run",
+            collection_method="fiverr_autocomplete",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+        config={"analysis": {"external_signals_enabled": False}},
+    )
+    assert context["data_freshness_score"] == pytest.approx(1.0)
+
+
 def test_confidence_context_freshness_reflects_stale_records() -> None:
     """SCRUM-1153: data_freshness_score/data_age_hours must reflect real record
     age, not a hardcoded 0.0-age/1.0-freshness pair."""
