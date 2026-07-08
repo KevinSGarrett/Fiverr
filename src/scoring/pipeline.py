@@ -760,6 +760,26 @@ def _resolve_depth(keyword_id: int, db: Any) -> str:
     return "standard"
 
 
+# Fixed count of scoring-stage LLM-dependent signals tracked by
+# llm_analysis_completion_ratio, excluding the "quality" and "competitor" warnings
+# that already drive their own dedicated confidence deductions above: buyer intent
+# (intent.py), upsell potential (profitability.py), saturation assessment
+# (saturation_score.py), trend classification (trend.py), entry-gap assessment
+# (feasibility.py).
+_OTHER_LLM_SIGNAL_COUNT = 5
+
+
+def _newer(current: datetime | None, candidate: datetime) -> datetime:
+    if current is None:
+        return candidate
+    try:
+        return candidate if candidate > current else current
+    except TypeError:
+        # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - keep the
+        # already-selected value rather than raising.
+        return current
+
+
 def _build_confidence_context(
     keyword_id: int,
     scores: dict[str, float | None],
@@ -788,6 +808,10 @@ def _build_confidence_context(
     signal_age_days = 0
     signal_relevance_score = 1.0
     external_signal_context_present = False
+    gig_detail_collected = False
+    seller_profiles_collected = False
+    data_age_hours = 0.0
+    data_ttl_hours = 168.0
     if isinstance(db, Session):
         top_results = (
             db.query(SearchResult)
@@ -797,7 +821,10 @@ def _build_confidence_context(
         )
         total_organic = 0
         zombie_count = 0
+        newest_record_at: datetime | None = None
         for result in top_results:
+            if isinstance(result.updated_at, datetime):
+                newest_record_at = _newer(newest_record_at, result.updated_at)
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
@@ -806,7 +833,19 @@ def _build_confidence_context(
             total_organic += 1
             if bool(getattr(gig, "is_zombie", False)):
                 zombie_count += 1
+            if getattr(gig, "detail_collected_at", None) is not None:
+                gig_detail_collected = True
+            if isinstance(gig.updated_at, datetime):
+                newest_record_at = _newer(newest_record_at, gig.updated_at)
+            seller = getattr(gig, "seller", None)
+            if seller is not None and bool(getattr(seller, "profile_collected", False)):
+                seller_profiles_collected = True
+            if seller is not None and isinstance(seller.updated_at, datetime):
+                newest_record_at = _newer(newest_record_at, seller.updated_at)
         zombie_fraction = zombie_count / max(total_organic, 1)
+        keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
+        if keyword_row is not None and isinstance(keyword_row.updated_at, datetime):
+            newest_record_at = _newer(newest_record_at, keyword_row.updated_at)
         reddit_count = (
             db.query(ExternalSignal)
             .filter(
@@ -842,6 +881,7 @@ def _build_confidence_context(
         if newest_signal is not None and isinstance(newest_signal.collected_at, datetime):
             external_signal_context_present = True
             collected_at = newest_signal.collected_at
+            newest_record_at = _newer(newest_record_at, collected_at)
             # SQLite often round-trips timestamps as naive datetimes even when written as UTC.
             if collected_at.tzinfo is None:
                 now = datetime.now()
@@ -852,8 +892,13 @@ def _build_confidence_context(
         rsv = get_result_set_validation(keyword_id, db)
         if rsv is not None and rsv.result_set_relevance_score is not None:
             signal_relevance_score = float(rsv.result_set_relevance_score)
+        if newest_record_at is not None:
+            now_for_age = datetime.now(UTC) if newest_record_at.tzinfo is not None else datetime.now()
+            data_age_hours = max(0.0, (now_for_age - newest_record_at).total_seconds() / 3600.0)
     trends_available = scores.get("trend_score") is not None
-    gig_detail_collected = True
+    data_freshness_score = max(0.0, min(1.0, 1.0 - (data_age_hours / data_ttl_hours)))
+    available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])
+    source_diversity_score = min(1.0, available_core_sources / 3.0)
     llm_quality_incomplete_count = 0
     if not gig_detail_collected:
         llm_quality_incomplete_count = sum(
@@ -861,21 +906,27 @@ def _build_confidence_context(
             for warning in warnings
             if "llm_not_implemented" in warning and "quality" in warning.lower()
         )
+    llm_other_missing = sum(
+        1
+        for warning in warnings
+        if "llm_not_implemented" in warning and "quality" not in warning.lower() and "competitor" not in warning.lower()
+    )
+    llm_analysis_completion_ratio = max(0.0, 1.0 - (min(llm_other_missing, _OTHER_LLM_SIGNAL_COUNT) / _OTHER_LLM_SIGNAL_COUNT))
     return {
         "data_completeness_ratio": present_scores / max(1, total_scores),
-        "data_freshness_score": 1.0,
-        "source_diversity_score": 1.0,
-        "llm_analysis_completion_ratio": 1.0,
+        "data_freshness_score": data_freshness_score,
+        "source_diversity_score": source_diversity_score,
+        "llm_analysis_completion_ratio": llm_analysis_completion_ratio,
         "google_trends_available": trends_available,
         "gig_detail_collected": gig_detail_collected,
-        "seller_profiles_collected": True,
+        "seller_profiles_collected": seller_profiles_collected,
         "reddit_signals_available": reddit_signals_available,
         "llm_gig_quality_incomplete_count": llm_quality_incomplete_count,
         "llm_competitor_synthesis_failed": any(
             "competitor" in warning and "llm_not_implemented" in warning for warning in warnings
         ),
-        "data_age_hours": 0.0,
-        "data_ttl_hours": 168.0,
+        "data_age_hours": data_age_hours,
+        "data_ttl_hours": data_ttl_hours,
         "mode": depth,
         "enable_zombie_filter": enable_zombie_filter,
         "zombie_fraction": zombie_fraction,

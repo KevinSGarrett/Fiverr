@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.models import Base, ExternalSignal, Keyword, Niche
+from src.models import Base, ExternalSignal, Gig, Keyword, Niche, SearchResult, Seller
 from src.scoring.contracts import FeasibilityScoreResult, WeaknessScoreResult
 from src.scoring.pipeline import (
     DEPTH_SCORE_AVAILABILITY,
@@ -654,6 +654,158 @@ def test_confidence_context_handles_naive_external_signal_timestamp() -> None:
     )
     assert context["signal_age_days"] >= 0
     assert context["external_signal_context_present"] is True
+
+
+def test_confidence_context_detects_real_gig_detail_and_seller_profile_collection() -> None:
+    """SCRUM-1153: gig_detail_collected/seller_profiles_collected must reflect real
+    Gig.detail_collected_at/Seller.profile_collected state, not a hardcoded True."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-detail", name="ContextDetail", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="detailed keyword", normalized_keyword="detailed keyword")
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="detailed_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do detailed work",
+        normalized_title="detailed work",
+        detail_collected_at=datetime.now(UTC),
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is True
+    assert context["seller_profiles_collected"] is True
+    assert context["source_diversity_score"] == pytest.approx(1.0)
+    assert context["data_freshness_score"] == pytest.approx(1.0, abs=0.01)
+
+
+def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> None:
+    """SCRUM-1153: a gig/seller with no detail/profile collected must NOT be
+    silently reported as collected."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-missing", name="ContextMissing", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="undetailed keyword", normalized_keyword="undetailed keyword")
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="undetailed_seller")
+    session.add(seller)
+    session.flush()
+    gig = Gig(seller_id=seller.id, title="I will do undetailed work", normalized_title="undetailed work")
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is False
+    assert context["seller_profiles_collected"] is False
+    assert context["source_diversity_score"] == pytest.approx(0.0)
+
+
+def test_confidence_context_freshness_reflects_stale_records() -> None:
+    """SCRUM-1153: data_freshness_score/data_age_hours must reflect real record
+    age, not a hardcoded 0.0-age/1.0-freshness pair."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-stale", name="ContextStale", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    stale_at = datetime.now(UTC) - timedelta(hours=400)
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="stale keyword",
+        normalized_keyword="stale keyword",
+        updated_at=stale_at,
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="stale_seller", profile_collected=True, updated_at=stale_at)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do stale work",
+        normalized_title="stale work",
+        detail_collected_at=stale_at,
+        updated_at=stale_at,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, updated_at=stale_at))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] >= 168.0
+    assert context["data_freshness_score"] == 0.0
+
+
+def test_confidence_context_llm_completion_ratio_ignores_quality_and_competitor_warnings() -> None:
+    """SCRUM-1153: llm_analysis_completion_ratio must react to real LLM fallback
+    warnings while avoiding double-counting the quality/competitor deductions
+    that already have their own dedicated confidence penalties."""
+    from src.scoring import pipeline
+
+    full = pipeline._build_confidence_context(
+        keyword_id=1,
+        scores={},
+        depth="standard",
+        warnings=[],
+        db={},
+    )
+    assert full["llm_analysis_completion_ratio"] == pytest.approx(1.0)
+
+    degraded = pipeline._build_confidence_context(
+        keyword_id=1,
+        scores={},
+        depth="standard",
+        warnings=[
+            "llm_not_implemented: missing LLM buyer intent classification; defaulted to CONSIDERATION (40).",
+            "llm_not_implemented: no llm_trend_classification signal available.",
+            "llm_not_implemented: missing LLM gig quality weakness.",
+            "llm_not_implemented: missing competitor synthesis.",
+        ],
+        db={},
+    )
+    assert degraded["llm_analysis_completion_ratio"] == pytest.approx(1.0 - (2 / 5))
 
 
 def test_mode_full_smoke() -> None:
