@@ -570,6 +570,40 @@ def test_run_pipeline_collect_only_runs_live_when_session_valid(
     assert "Collection dry run complete" in capsys.readouterr().out
 
 
+def test_collection_stage_shares_one_event_loop_between_session_check_and_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression test (Codex review, PR #172): Playwright's Browser/BrowserContext
+    are event-loop-bound. is_session_valid() and run_collection_pipeline() must run
+    on the SAME loop, or a session_manager initialized during the validity check
+    would hand the pipeline a context tied to an already-closed loop."""
+    import asyncio
+
+    loop_ids: dict[str, int] = {}
+
+    class _LoopRecordingSessionManager:
+        async def is_session_valid(self) -> bool:
+            loop_ids["session_check"] = id(asyncio.get_running_loop())
+            return True
+
+        async def close(self) -> None:
+            pass
+
+    async def _fake_collection_pipeline(**_kwargs: Any) -> dict[str, Any]:
+        loop_ids["pipeline"] = id(asyncio.get_running_loop())
+        return {"stages_run": [], "errors": []}
+
+    monkeypatch.setattr(orchestrator, "_construct_session_manager", lambda _config: _LoopRecordingSessionManager())
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
+
+    result = orchestrator._run_collection_stage(
+        run_id="run-1", db_session=object(), config=object(), config_payload={}
+    )
+
+    assert result == {"stages_run": [], "errors": []}
+    assert loop_ids["session_check"] == loop_ids["pipeline"]
+
+
 def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

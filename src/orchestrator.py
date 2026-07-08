@@ -116,34 +116,44 @@ def _run_collection_stage(
     Previously `full`/`collect-only` passed a fake `db={}` and hardcoded
     `dry_run=True` unconditionally, so this stage never ran for real and never
     persisted anything even when credentials were configured (SCRUM-1147).
+
+    The session-validity check and the pipeline run share a single event loop
+    (one `asyncio.run` call) because Playwright's Browser/BrowserContext
+    objects are event-loop-bound: `is_session_valid()` initializes and caches
+    a real context on the SessionManager, and running the pipeline afterward
+    on a second, separate `asyncio.run` loop would hand that same manager a
+    context tied to an already-closed loop, breaking every live fetch (Codex
+    review, PR #172).
     """
     from src.collection.orchestrator import run_collection_pipeline
 
-    session_manager: Any = None
-    try:
-        session_manager = _construct_session_manager(config)
-        session_valid = asyncio.run(session_manager.is_session_valid())
-    except Exception:  # noqa: BLE001
+    async def _run() -> dict[str, Any]:
+        session_manager: Any = None
         session_valid = False
+        try:
+            session_manager = _construct_session_manager(config)
+            session_valid = await session_manager.is_session_valid()
+        except Exception:  # noqa: BLE001
+            pass
 
-    try:
-        return asyncio.run(
-            run_collection_pipeline(
+        try:
+            return await run_collection_pipeline(
                 run_id=run_id,
                 db=db_session,
                 config=config_payload,
                 session_manager=session_manager,
                 dry_run=not session_valid,
             )
-        )
-    except Exception as exc:  # noqa: BLE001
-        return {"error": str(exc)}
-    finally:
-        if session_manager is not None:
-            try:
-                asyncio.run(session_manager.close())
-            except Exception:  # noqa: BLE001
-                pass
+        except Exception as exc:  # noqa: BLE001
+            return {"error": str(exc)}
+        finally:
+            if session_manager is not None:
+                try:
+                    await session_manager.close()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    return asyncio.run(_run())
 
 
 def _construct_session_manager(config: Any) -> Any:
