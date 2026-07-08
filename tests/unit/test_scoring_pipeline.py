@@ -1024,6 +1024,61 @@ def test_confidence_context_reaches_organic_gigs_past_sponsored_top_positions() 
     assert context["zombie_fraction"] == pytest.approx(0.1)
 
 
+def test_confidence_context_reaches_organic_gigs_past_sponsored_ranked_rows() -> None:
+    """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/the feasibility
+    loader load rank <= candidate_window (not top_n_for_scoring) for per-gig-rank-
+    linked SearchResult rows too, so sponsored gigs occupying the first ranks don't
+    crowd the organic gigs that fed the score out of confidence's window."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-ranked-sponsored-window", name="ContextRankedSponsoredWindow", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="ranked sponsored window keyword",
+        normalized_keyword="ranked sponsored window keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="ranked_sponsored_window_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+
+    for rank in range(1, 14):
+        # Ranks 1-3 are sponsored - the top_n_for_scoring=10 organic gigs that
+        # actually fed the real score are ranks 4-13.
+        is_sponsored = rank <= 3
+        # The last organic gig (rank 13) - unreachable under the old
+        # top_n_for_scoring-sized SearchResult rank filter - is a zombie.
+        is_zombie = rank == 13
+        gig = Gig(
+            seller_id=seller.id,
+            title=f"I will do ranked sponsored window work {rank}",
+            normalized_title=f"ranked sponsored window work {rank}",
+            detail_collected=True,
+            detail_collected_at=datetime.now(UTC),
+            is_sponsored=is_sponsored,
+            is_zombie=is_zombie,
+        )
+        session.add(gig)
+        session.flush()
+        session.add(SearchResult(keyword_id=keyword.id, rank=rank, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["zombie_fraction"] == pytest.approx(0.1)
+
+
 def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> None:
     """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/WeaknessCalculator
     normalize card URLs by path identity and fall back through the keyword's own

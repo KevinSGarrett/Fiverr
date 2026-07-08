@@ -924,9 +924,15 @@ def _build_confidence_context(
         keyword_only_run = depth == "keyword_only"
         gig_detail_collected = keyword_only_run
         seller_profiles_collected = keyword_only_run
+        # ProfitabilityScoreCalculator/the feasibility loader load rank <=
+        # candidate_window, not top_n_for_scoring, for the same reason as the
+        # gig_cards/keyword-fallback windows above: per-gig-rank-linked
+        # SearchResult rows can have sponsored gigs occupying some of the first N
+        # ranks, pushing the organic gigs that actually fed the score past rank N
+        # (Codex review, PR #176).
         top_results = (
             db.query(SearchResult)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= top_n_for_scoring)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= candidate_window)
             .order_by(SearchResult.rank.asc())
             .all()
         )
@@ -1017,7 +1023,13 @@ def _build_confidence_context(
             # collected_at (when this search snapshot was actually fetched) rather
             # than updated_at, which a later reprocessing pass can bump without
             # recollecting the underlying marketplace data (Codex review, PR #176).
+            # Row-level freshness folds regardless of the organic quota below - every
+            # row up to candidate_window still had to be looked at to know whether
+            # its gig was sponsored, matching how far the real loaders' own
+            # resolution pass reaches (Codex review, PR #176).
             _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
+            if total_organic >= top_n_for_scoring:
+                continue
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
