@@ -1047,10 +1047,17 @@ def _build_confidence_context(
         # below - so it must not be folded in independently here, or a reddit_activity
         # row staler than reddit_demand would wrongly count even though nothing reads
         # it in that scenario (Codex review, PR #176).
+        #
+        # youtube_count is only ever consumed by ConfidenceScoreModifier's own
+        # youtube-confidence-gate when external_signals_enabled is true - a stale
+        # leftover youtube_count row must not depress freshness while that feature is
+        # disabled, since nothing reads it in that case (Codex review, PR #176).
         seen_signal_types: set[str] = set()
         latest_signal_per_type: list[ExternalSignal] = []
         for signal in all_signals:
             if signal.signal_type == "reddit_activity":
+                continue
+            if signal.signal_type == ExternalSignal.SIGNAL_YOUTUBE_COUNT and not external_signals_enabled:
                 continue
             if signal.signal_type in seen_signal_types:
                 continue

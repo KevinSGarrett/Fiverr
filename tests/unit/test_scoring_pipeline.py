@@ -837,6 +837,49 @@ def test_confidence_context_reddit_demand_freshness_independent_of_reddit_activi
     assert context["data_age_hours"] >= 168.0
 
 
+def test_confidence_context_ignores_disabled_youtube_signal_freshness() -> None:
+    """Codex review, PR #176 (P2): youtube_count is only ever consumed by
+    ConfidenceScoreModifier's own youtube-confidence-gate when
+    external_signals_enabled is true. A stale leftover youtube_count row must not
+    depress freshness while that feature is disabled, since nothing reads it."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-youtube-disabled", name="ContextYoutubeDisabled", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="youtube disabled keyword", normalized_keyword="youtube disabled keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=2000)
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_YOUTUBE_COUNT,
+            signal_value=1.0,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-youtube-disabled-run",
+            collection_method="youtube_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+        config={"analysis": {"external_signals_enabled": False}},
+    )
+    assert context["data_freshness_score"] == pytest.approx(1.0)
+
+
 def test_confidence_context_freshness_reflects_stale_records() -> None:
     """SCRUM-1153: data_freshness_score/data_age_hours must reflect real record
     age, not a hardcoded 0.0-age/1.0-freshness pair."""
