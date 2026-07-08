@@ -835,6 +835,54 @@ def test_confidence_context_freshness_uses_oldest_not_newest_contributing_record
     assert context["data_freshness_score"] == 0.0
 
 
+def test_confidence_context_freshness_uses_collected_at_not_metadata_touch() -> None:
+    """SCRUM-1153/Codex review: a gig/seller's updated_at can be refreshed by an
+    unrelated metadata write (relevance/zombie flag, price) long after its detail
+    payload or profile was actually scraped. Freshness must key off
+    detail_collected_at/profile_collected_at, not updated_at, or a stale gig detail
+    payload could hide behind a recent unrelated write."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-metadata-touch", name="ContextMetadataTouch", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    stale_at = datetime.now(UTC) - timedelta(hours=400)
+    fresh_at = datetime.now(UTC)
+    keyword = Keyword(niche_id=niche.id, keyword="metadata touch keyword", normalized_keyword="metadata touch keyword")
+    session.add(keyword)
+    session.flush()
+    # Seller profile collected long ago, but a later unrelated write bumped updated_at.
+    seller = Seller(seller_handle="metadata_touch_seller", profile_collected=True, profile_collected_at=stale_at, updated_at=fresh_at)
+    session.add(seller)
+    session.flush()
+    # Gig detail collected long ago, but a later relevance/zombie reprocessing pass
+    # bumped updated_at without re-scraping the detail payload.
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do work with stale detail but a fresh metadata touch",
+        normalized_title="metadata touch work",
+        detail_collected_at=stale_at,
+        updated_at=fresh_at,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, updated_at=fresh_at))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_age_hours"] >= 168.0
+    assert context["data_freshness_score"] == 0.0
+
+
 def test_confidence_context_non_session_db_preserves_lenient_collection_defaults() -> None:
     """SCRUM-1153/Codex review: when no Session is available to check real collection
     state (e.g. a dict-based db payload), gig_detail_collected/seller_profiles_collected

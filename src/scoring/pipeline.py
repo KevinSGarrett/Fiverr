@@ -842,15 +842,26 @@ def _build_confidence_context(
             total_organic += 1
             if bool(getattr(gig, "is_zombie", False)):
                 zombie_count += 1
-            if getattr(gig, "detail_collected_at", None) is not None:
+            gig_detail_collected_at = getattr(gig, "detail_collected_at", None)
+            if gig_detail_collected_at is not None:
                 gig_detail_collected = True
-            if isinstance(gig.updated_at, datetime):
-                oldest_record_at = _older(oldest_record_at, gig.updated_at)
+            # Prefer the actual collection timestamp over updated_at: a gig's metadata
+            # (relevance/zombie flags, price) can be touched long after its detail
+            # payload was scraped, which would otherwise mask stale gig-detail data
+            # behind an unrelated recent write (Codex review, PR #176).
+            gig_freshness_at = gig_detail_collected_at if isinstance(gig_detail_collected_at, datetime) else gig.updated_at
+            if isinstance(gig_freshness_at, datetime):
+                oldest_record_at = _older(oldest_record_at, gig_freshness_at)
             seller = getattr(gig, "seller", None)
-            if seller is not None and bool(getattr(seller, "profile_collected", False)):
-                seller_profiles_collected = True
-            if seller is not None and isinstance(seller.updated_at, datetime):
-                oldest_record_at = _older(oldest_record_at, seller.updated_at)
+            if seller is not None:
+                seller_profile_collected_at = getattr(seller, "profile_collected_at", None)
+                if bool(getattr(seller, "profile_collected", False)):
+                    seller_profiles_collected = True
+                seller_freshness_at = (
+                    seller_profile_collected_at if isinstance(seller_profile_collected_at, datetime) else seller.updated_at
+                )
+                if isinstance(seller_freshness_at, datetime):
+                    oldest_record_at = _older(oldest_record_at, seller_freshness_at)
         zombie_fraction = zombie_count / max(total_organic, 1)
         keyword_row = db.query(Keyword).filter(Keyword.id == keyword_id).first()
         if keyword_row is not None and isinstance(keyword_row.updated_at, datetime):
