@@ -887,6 +887,11 @@ def _build_confidence_context(
             external_signals_config = dict(raw_external_cfg)
     enable_zombie_filter = bool(relevance_cfg.get("enable_zombie_filter", True))
     top_n_for_scoring = max(1, int(relevance_cfg.get("top_n_for_scoring", 10)))
+    # Matches ProfitabilityScoreCalculator/FeasibilityCalculator's own candidate
+    # window: when sponsored slots occupy some of the first top_n_for_scoring card
+    # positions, the real top-N organic gigs that fed the score sit further down the
+    # page than a naive top_n_for_scoring cutoff would reach (Codex review, PR #176).
+    candidate_window = max(top_n_for_scoring, 10) * 3
     zombie_fraction = 0.0
     youtube_video_count: int | None = None
     signal_age_days = 0
@@ -905,8 +910,20 @@ def _build_confidence_context(
     data_age_hours = 0.0
     data_ttl_hours = _DEFAULT_TTL_HOURS
     if isinstance(db, Session):
-        gig_detail_collected = False
-        seller_profiles_collected = False
+        # _queue_gig_detail_jobs (src/collection/workflows/fiverr_search.py) returns 0
+        # unconditionally for depth="keyword_only" - no GIG_DETAIL job is ever queued,
+        # and seller profile jobs are only ever queued as a side effect of processing
+        # one, so no gig/seller in a keyword_only run will ever have
+        # detail_collected/profile_collected=True. That absence reflects out-of-scope
+        # collection, not a data-quality failure - confidence.py already applies a
+        # separate partial_depth_mode deduction for keyword_only/feasibility; stacking
+        # missing_gig_detail/missing_seller_profiles on top would double-penalize
+        # every keyword_only score for something it never intended to collect
+        # (Codex review, PR #176). feasibility still queues up to 5 GIG_DETAIL jobs,
+        # so it keeps the strict evidence-based check.
+        keyword_only_run = depth == "keyword_only"
+        gig_detail_collected = keyword_only_run
+        seller_profiles_collected = keyword_only_run
         top_results = (
             db.query(SearchResult)
             .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= top_n_for_scoring)
@@ -1017,10 +1034,15 @@ def _build_confidence_context(
         # additional stale/missing-detail/missing-seller/zombie card gigs from
         # confidence (Codex review, PR #176). write_search_result stamps a whole page's
         # row with its first card's rank, so a page row can carry card positions well
-        # outside top_n_for_scoring - sort by each card's own position and slice to the
-        # same scoring window the loaders use, rather than resolving every card on the
-        # page (Codex review, PR #176).
+        # outside top_n_for_scoring - sort by each card's own position, rather than
+        # resolving every card on the page (Codex review, PR #176). Gather a wider
+        # candidate_window (not just top_n_for_scoring) of raw card positions before
+        # resolving: sponsored slots occupying some of the first top_n_for_scoring
+        # positions would otherwise cut off before reaching the organic gigs further
+        # down the page that ProfitabilityScoreCalculator/the feasibility loader
+        # actually slice their own top-N-organic window from (Codex review, PR #176).
         ranked_card_urls: list[tuple[int, str]] = []
+        position_by_url: dict[str, int] = {}
         for result in top_results:
             cards = result.gig_cards if isinstance(result.gig_cards, list) else []
             for card in cards:
@@ -1038,6 +1060,7 @@ def _build_confidence_context(
                 else:
                     position = 10_000
                 ranked_card_urls.append((position, normalized_url))
+                position_by_url[normalized_url] = min(position, position_by_url.get(normalized_url, position))
         ranked_card_urls.sort(key=lambda value: value[0])
         card_gig_urls: set[str] = set()
         seen_card_urls: set[str] = set()
@@ -1046,8 +1069,13 @@ def _build_confidence_context(
                 continue
             seen_card_urls.add(normalized_url)
             card_gig_urls.add(normalized_url)
-            if len(card_gig_urls) >= top_n_for_scoring:
+            if len(card_gig_urls) >= candidate_window:
                 break
+        position_by_identity: dict[str, int] = {}
+        for normalized_url, position in position_by_url.items():
+            identity = _normalize_gig_url_identity(normalized_url)
+            if identity is not None:
+                position_by_identity[identity] = min(position, position_by_identity.get(identity, position))
         if card_gig_urls:
             card_gigs_query = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls))
             # A gig_url is only unique within a run's own collection, not globally -
@@ -1090,7 +1118,26 @@ def _build_confidence_context(
                     card_gigs.append(candidate_gig)
                     if candidate_gig.id is not None:
                         existing_ids.add(candidate_gig.id)
+            # Resolve each gig back to its original card position (falling back to
+            # identity-matched position for gigs found only via the fallback above),
+            # then walk them in that order so the sponsored skip below reproduces
+            # ProfitabilityScoreCalculator/the feasibility loader's own "gather wide,
+            # skip sponsored, slice to top N organic" behavior instead of admitting
+            # every resolved gig from the widened candidate_window (Codex review,
+            # PR #176).
+            def _card_gig_position(gig: Any) -> int:
+                gig_url = getattr(gig, "gig_url", None)
+                if isinstance(gig_url, str) and gig_url in position_by_url:
+                    return position_by_url[gig_url]
+                identity = _normalize_gig_url_identity(gig_url)
+                if identity is not None and identity in position_by_identity:
+                    return position_by_identity[identity]
+                return 10_000
+
+            card_gigs.sort(key=_card_gig_position)
             for card_gig in card_gigs:
+                if total_organic >= top_n_for_scoring:
+                    break
                 if getattr(card_gig, "id", None) in processed_gig_ids:
                     continue
                 if getattr(card_gig, "is_sponsored", None) is True:

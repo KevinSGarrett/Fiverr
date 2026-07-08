@@ -962,6 +962,68 @@ def test_confidence_context_limits_card_gigs_to_scoring_window() -> None:
     assert context["zombie_fraction"] == pytest.approx(0.0)
 
 
+def test_confidence_context_reaches_organic_gigs_past_sponsored_top_positions() -> None:
+    """Codex review, PR #176 (P2): when sponsored slots occupy some of the first
+    top_n_for_scoring card positions, the real top-N organic gigs that fed the score
+    sit further down the page. ProfitabilityScoreCalculator/the feasibility loader
+    gather a wider candidate_window, skip sponsored, and slice to the top N organic
+    gigs - confidence must reach those same organic gigs instead of cutting off at
+    a naive top_n_for_scoring position cutoff."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-sponsored-window", name="ContextSponsoredWindow", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="sponsored window keyword", normalized_keyword="sponsored window keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="sponsored_window_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+
+    gig_cards = []
+    for position in range(1, 14):
+        # Positions 1-3 are sponsored - the top_n_for_scoring=10 organic gigs that
+        # actually fed the real score are positions 4-13, reaching past position 10.
+        is_sponsored = position <= 3
+        # The last organic gig (position 13) - unreachable under the old
+        # top_n_for_scoring-sized card_gig_urls limit - is a zombie.
+        is_zombie = position == 13
+        gig = Gig(
+            seller_id=seller.id,
+            run_id="legacy",
+            gig_url=f"https://www.fiverr.com/sponsored_window_gig_{position}",
+            title=f"I will do sponsored window work {position}",
+            normalized_title=f"sponsored window work {position}",
+            detail_collected=True,
+            detail_collected_at=datetime.now(UTC),
+            is_sponsored=is_sponsored,
+            is_zombie=is_zombie,
+        )
+        session.add(gig)
+        gig_cards.append({"gig_url": gig.gig_url, "position": position})
+    session.commit()
+
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_cards=gig_cards))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    # The top 10 organic gigs are positions 4-13 (one of them, position 13, a
+    # zombie) - the sponsored slots at 1-3 must not crowd them out of the window.
+    assert context["zombie_fraction"] == pytest.approx(0.1)
+
+
 def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> None:
     """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/WeaknessCalculator
     normalize card URLs by path identity and fall back through the keyword's own
@@ -1124,6 +1186,49 @@ def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> N
     assert context["gig_detail_collected"] is False
     assert context["seller_profiles_collected"] is False
     assert context["source_diversity_score"] == pytest.approx(0.0)
+
+
+def test_confidence_context_keyword_only_depth_preserves_lenient_detail_flags() -> None:
+    """Codex review, PR #176 (P2): _queue_gig_detail_jobs
+    (src/collection/workflows/fiverr_search.py) returns 0 unconditionally for
+    depth="keyword_only" - no gig/seller in that run will ever have
+    detail_collected/profile_collected=True. confidence.py already applies a
+    separate partial_depth_mode deduction for keyword_only - missing_gig_detail/
+    missing_seller_profiles must not stack on top of it for data that was never in
+    scope to collect."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-keyword-only-lenient", name="ContextKeywordOnlyLenient", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="keyword only lenient keyword", normalized_keyword="keyword only lenient keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="keyword_only_lenient_seller")
+    session.add(seller)
+    session.flush()
+    # No detail_collected/profile_collected - exactly what a keyword_only run's gigs
+    # actually look like, since detail collection is structurally never queued.
+    gig = Gig(seller_id=seller.id, title="I will do keyword-only work", normalized_title="keyword-only work")
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="keyword_only",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is True
+    assert context["seller_profiles_collected"] is True
 
 
 def test_confidence_context_requires_detail_collected_flag_not_just_timestamp() -> None:
