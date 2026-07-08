@@ -683,6 +683,17 @@ def test_confidence_context_detects_real_gig_detail_and_seller_profile_collectio
     session.add(gig)
     session.flush()
     session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=50.0,
+            signal_json={},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-detail-run",
+            collection_method="google_trends_api",
+        )
+    )
     session.commit()
 
     context = pipeline._build_confidence_context(
@@ -696,6 +707,110 @@ def test_confidence_context_detects_real_gig_detail_and_seller_profile_collectio
     assert context["seller_profiles_collected"] is True
     assert context["source_diversity_score"] == pytest.approx(1.0)
     assert context["data_freshness_score"] == pytest.approx(1.0, abs=0.01)
+
+
+def test_confidence_context_diversity_requires_real_google_trends_signal() -> None:
+    """Codex review, PR #176 (P2): TrendScoreCalculator can produce a non-null
+    trend_score from Reddit plus LLM classification alone with Google Trends
+    absent. A non-null trend_score must not be treated as proof Google Trends
+    contributed to source_diversity_score."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-trend-no-google", name="ContextTrendNoGoogle", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="trend no google keyword", normalized_keyword="trend no google keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    # Only a Reddit signal exists - no google_trends row - yet trend_score is non-null
+    # (TrendScoreCalculator can score from Reddit + LLM classification alone).
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type="reddit_demand",
+            signal_value=1.0,
+            signal_json={},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-trend-no-google-run",
+            collection_method="reddit_devvit_bridge",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is False
+
+
+def test_confidence_context_resolves_gigs_from_gig_cards() -> None:
+    """Codex review, PR #176 (P2): a page-level SearchResult row can carry multiple
+    gig cards in gig_cards beyond the single gig_id it links to.
+    ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator resolve those card
+    URLs to real top-N gigs too - a fresh linked gig must not hide a stale,
+    zombie card gig referenced only via gig_cards."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-gig-cards", name="ContextGigCards", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="gig cards keyword", normalized_keyword="gig cards keyword")
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="gig_cards_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    # The linked gig is fresh and not a zombie.
+    linked_gig = Gig(
+        seller_id=seller.id,
+        title="I will do fresh linked work",
+        normalized_title="fresh linked work",
+        detail_collected=True,
+        detail_collected_at=datetime.now(UTC),
+    )
+    session.add(linked_gig)
+    # A second gig on the same page, referenced only via gig_cards (no SearchResult
+    # row links to it directly), and it is a zombie.
+    card_only_gig = Gig(
+        seller_id=seller.id,
+        gig_url="https://www.fiverr.com/card_only_gig",
+        title="I will do zombie card work",
+        normalized_title="zombie card work",
+        is_zombie=True,
+    )
+    session.add(card_only_gig)
+    session.commit()
+    session.add(
+        SearchResult(
+            keyword_id=keyword.id,
+            rank=1,
+            gig_id=linked_gig.id,
+            title=linked_gig.title,
+            gig_cards=[{"gig_url": linked_gig.gig_url, "position": 1}, {"gig_url": card_only_gig.gig_url, "position": 2}],
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["zombie_fraction"] == pytest.approx(0.5)
 
 
 def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> None:

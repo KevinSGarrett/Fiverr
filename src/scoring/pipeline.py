@@ -841,6 +841,10 @@ def _build_confidence_context(
     # (Codex review, PR #176).
     gig_detail_collected = True
     seller_profiles_collected = True
+    # Fallback proxy for non-Session/unknown db paths, where no ExternalSignal query
+    # is possible - a real google_trends row is checked directly below when a Session
+    # is available (Codex review, PR #176).
+    trends_available = scores.get("trend_score") is not None
     data_age_hours = 0.0
     data_ttl_hours = _DEFAULT_TTL_HOURS
     if isinstance(db, Session):
@@ -902,8 +906,15 @@ def _build_confidence_context(
                 data_age_hours = candidate_age_hours
                 data_ttl_hours = candidate_ttl_hours
 
+        processed_gig_ids: set[int] = set()
+
         def _process_gig(gig: Any) -> None:
             nonlocal gig_detail_collected, seller_profiles_collected
+            gig_id = getattr(gig, "id", None)
+            if isinstance(gig_id, int):
+                if gig_id in processed_gig_ids:
+                    return
+                processed_gig_ids.add(gig_id)
             gig_detail_collected_at = getattr(gig, "detail_collected_at", None)
             # Gig.is_stale() requires BOTH detail_collected (bool) and
             # detail_collected_at: write_gig_card() resets detail_collected=False on
@@ -942,6 +953,32 @@ def _build_confidence_context(
             if bool(getattr(gig, "is_zombie", False)):
                 zombie_count += 1
             _process_gig(gig)
+        # A page-level SearchResult row can carry multiple gig cards in gig_cards
+        # (write_search_result's raw scrape payload) beyond the single gig_id it links
+        # to. ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator resolve
+        # those card URLs to real top-N gigs too, so one linked fresh gig must not hide
+        # additional stale/missing-detail/missing-seller/zombie card gigs from
+        # confidence (Codex review, PR #176).
+        card_gig_urls: set[str] = set()
+        for result in top_results:
+            cards = result.gig_cards if isinstance(result.gig_cards, list) else []
+            for card in cards:
+                if not isinstance(card, dict):
+                    continue
+                raw_url = card.get("gig_url")
+                if isinstance(raw_url, str) and raw_url.strip():
+                    card_gig_urls.add(raw_url.strip())
+        if card_gig_urls:
+            card_gigs = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls)).all()
+            for card_gig in card_gigs:
+                if getattr(card_gig, "id", None) in processed_gig_ids:
+                    continue
+                if getattr(card_gig, "is_sponsored", None) is True:
+                    continue
+                total_organic += 1
+                if bool(getattr(card_gig, "is_zombie", False)):
+                    zombie_count += 1
+                _process_gig(card_gig)
         zombie_fraction = zombie_count / max(total_organic, 1)
         if total_organic == 0:
             # ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator both fall
@@ -1042,6 +1079,11 @@ def _build_confidence_context(
             .order_by(ExternalSignal.created_at.desc(), ExternalSignal.id.desc())
             .all()
         )
+        # A non-null trend_score does not prove Google Trends contributed -
+        # TrendScoreCalculator can produce a score from Reddit plus LLM classification
+        # alone with Google Trends absent, which would overstate source diversity.
+        # Check the actual signal instead (Codex review, PR #176).
+        trends_available = any(signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS for signal in all_signals)
         # reddit_activity is never read on its own by any scoring loader - it only
         # ever contributes via TrendScoreCalculator's combined-with-reddit_demand pool
         # below - so it must not be folded in independently here, or a reddit_activity
@@ -1102,7 +1144,6 @@ def _build_confidence_context(
             data_freshness_score = 1.0
     else:
         data_freshness_score = 1.0
-    trends_available = scores.get("trend_score") is not None
     available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])
     source_diversity_score = min(1.0, available_core_sources / 3.0)
     # Whether gig detail was scraped and whether LLM quality analysis ran on it are
