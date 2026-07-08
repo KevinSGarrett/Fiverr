@@ -775,7 +775,12 @@ def test_confidence_context_freshness_reflects_stale_records() -> None:
         db=session,
     )
     assert context["data_age_hours"] >= 168.0
-    assert context["data_freshness_score"] == 0.0
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+    # data_freshness_score averages every contributing record's individual freshness
+    # (FRESHNESS_MODEL.md) - most records here share the 400h-stale timestamp at a
+    # 168h TTL (fully stale, 0.0 each), while the seller's 720h TTL keeps it partially
+    # fresh, so the mean lands well below 0.5 without being exactly 0.0.
+    assert context["data_freshness_score"] < 0.5
 
 
 def test_confidence_context_freshness_picks_highest_staleness_ratio_not_oldest_timestamp() -> None:
@@ -970,8 +975,10 @@ def test_confidence_context_freshness_uses_record_own_ttl_not_global_default() -
     # local-UTC-offset-sized skew (see the pre-existing "SQLite often round-trips
     # timestamps as naive" handling elsewhere in this function).
     assert context["data_age_hours"] == pytest.approx(480.0, abs=15.0)
-    assert context["data_freshness_score"] == pytest.approx(1.0 - (480.0 / 720.0), abs=0.03)
-    assert context["data_freshness_score"] > 0.0
+    # data_freshness_score averages every record (mostly fresh here); it must not be
+    # collapsed to near-zero just because the seller is old in absolute terms while
+    # still within its own 720h TTL.
+    assert context["data_freshness_score"] > 0.7
 
 
 def test_confidence_context_freshness_aggregates_all_external_signals() -> None:
@@ -1023,7 +1030,11 @@ def test_confidence_context_freshness_aggregates_all_external_signals() -> None:
         db=session,
     )
     assert context["data_age_hours"] >= 168.0
-    assert context["data_freshness_score"] == 0.0
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+    # data_freshness_score averages the stale Trends signal alongside the fresh Reddit
+    # signal and keyword row, so it must not sit at 1.0 (proving the stale signal was
+    # NOT dropped) even though it isn't fully collapsed to 0.0 either.
+    assert context["data_freshness_score"] < 1.0
     # The newest-signal-derived fields must still reflect the freshest signal.
     assert context["signal_age_days"] == 0
     assert context["external_signal_context_present"] is True
@@ -1083,7 +1094,10 @@ def test_confidence_context_freshness_uses_oldest_not_newest_contributing_record
         db=session,
     )
     assert context["data_age_hours"] >= 168.0
-    assert context["data_freshness_score"] == 0.0
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+    # data_freshness_score averages in the fresh signal too, so it must not sit at 1.0
+    # (proving the stale gig/search-result was not masked by the fresh signal alone).
+    assert context["data_freshness_score"] < 1.0
 
 
 def test_confidence_context_freshness_uses_collected_at_not_metadata_touch() -> None:
@@ -1131,7 +1145,63 @@ def test_confidence_context_freshness_uses_collected_at_not_metadata_touch() -> 
         db=session,
     )
     assert context["data_age_hours"] >= 168.0
-    assert context["data_freshness_score"] == 0.0
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+    # data_freshness_score averages in the fresh search-result/keyword rows too, so it
+    # must not sit at 1.0 (proving the stale gig detail was not masked by the fresh
+    # metadata-only write to updated_at).
+    assert context["data_freshness_score"] < 1.0
+
+
+def test_confidence_context_freshness_score_is_mean_not_worst_record() -> None:
+    """Codex review, PR #176 (P2): FRESHNESS_MODEL.md's calculate_data_freshness_score
+    and CONFIDENCE_SCORE.md both define data_freshness_score as the MEAN of each
+    contributing record's individual freshness, not just the single worst record - one
+    expired signal must not collapse confidence to 0 when the rest of the data is
+    fresh."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-mean-freshness", name="ContextMeanFreshness", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(niche_id=niche.id, keyword="mean freshness keyword", normalized_keyword="mean freshness keyword")
+    session.add(keyword)
+    session.flush()
+    # One fully-stale (ratio 2.0, individual freshness 0.0) record alongside three
+    # fully-fresh (ratio 0.0, individual freshness 1.0) records -> mean should be 0.75,
+    # not 0.0.
+    very_stale_at = datetime.now(UTC) - timedelta(hours=336)  # 2x the 168h default TTL
+    fresh_at = datetime.now(UTC)
+    seller = Seller(seller_handle="mean_seller", profile_collected=True, profile_collected_at=fresh_at)
+    session.add(seller)
+    session.flush()
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do mostly fresh work",
+        normalized_title="mostly fresh work",
+        detail_collected_at=very_stale_at,
+        updated_at=very_stale_at,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title, updated_at=fresh_at))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    # data_age_hours/data_ttl_hours still reflect the single worst record (the stale
+    # gig), for the discrete data_stale_over_2x_ttl deduction gate.
+    assert context["data_ttl_hours"] == pytest.approx(168.0)
+    assert context["data_age_hours"] >= 320.0
+    # But data_freshness_score itself must be a mean, not collapsed by that one record.
+    assert context["data_freshness_score"] > 0.5
 
 
 def test_confidence_context_non_session_db_preserves_lenient_collection_defaults() -> None:
@@ -1179,7 +1249,9 @@ def test_confidence_context_llm_completion_ratio_ignores_quality_and_competitor_
         ],
         db={},
     )
-    assert degraded["llm_analysis_completion_ratio"] == pytest.approx(1.0 - (2 / 5))
+    # 6 intended "other" signals total (buyer intent, upsell, saturation, trend,
+    # entry-gap, gig-weakness-assessment); only buyer intent + trend are present here.
+    assert degraded["llm_analysis_completion_ratio"] == pytest.approx(1.0 - (2 / 6))
 
 
 def test_confidence_context_llm_completion_ratio_ignores_weakness_stub_warnings() -> None:
@@ -1188,10 +1260,9 @@ def test_confidence_context_llm_completion_ratio_ignores_weakness_stub_warnings(
     llm_faq_completeness_score, llm_package_differentiation_score,
     llm_niche_specificity_score) whose text does not contain "quality" or
     "competitor" at all. An exclude-by-substring filter would miscount these as
-    one of the 5 intended "other" signals and collapse llm_analysis_completion_ratio
+    one of the intended "other" signals and collapse llm_analysis_completion_ratio
     to 0.0 in the common no-LLM-key case even though buyer intent/upsell/
-    saturation/trend/entry-gap are all present. feasibility.py's "missing LLM gig
-    weakness assessment" warning has the same shape and must also be ignored."""
+    saturation/trend/entry-gap/gig-weakness are all present."""
     from src.scoring import pipeline
 
     context = pipeline._build_confidence_context(
@@ -1203,11 +1274,27 @@ def test_confidence_context_llm_completion_ratio_ignores_weakness_stub_warnings(
             "llm_not_implemented: missing llm_faq_completeness_score.",
             "llm_not_implemented: missing llm_package_differentiation_score.",
             "llm_not_implemented: missing llm_niche_specificity_score.",
-            "llm_not_implemented: missing LLM gig weakness assessment.",
         ],
         db={},
     )
     assert context["llm_analysis_completion_ratio"] == pytest.approx(1.0)
+
+
+def test_confidence_context_llm_completion_ratio_counts_gig_weakness_assessment() -> None:
+    """Codex review, PR #176 (P2): feasibility.py's "missing LLM gig weakness
+    assessment" is a real keyword-level LLM signal distinct from weakness.py's
+    per-gig quality fields, and must count as one of the 6 intended "other" signals
+    tracked by llm_analysis_completion_ratio, not be silently dropped."""
+    from src.scoring import pipeline
+
+    context = pipeline._build_confidence_context(
+        keyword_id=1,
+        scores={},
+        depth="standard",
+        warnings=["llm_not_implemented: missing LLM gig weakness assessment."],
+        db={},
+    )
+    assert context["llm_analysis_completion_ratio"] == pytest.approx(1.0 - (1 / 6))
 
 
 def test_mode_full_smoke() -> None:

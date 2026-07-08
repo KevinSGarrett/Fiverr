@@ -779,8 +779,21 @@ _OTHER_LLM_SIGNAL_MARKERS = (
     "missing LLM saturation assessment",
     "no llm_trend_classification signal available",
     "missing LLM entry gap assessment",
+    "missing LLM gig weakness assessment",
 )
 _OTHER_LLM_SIGNAL_COUNT = len(_OTHER_LLM_SIGNAL_MARKERS)
+
+# The per-gig LLM quality fields src/scoring/weakness.py emits llm_not_implemented
+# warnings for when GigQualityWeaknessScoreCalculator runs without an llm_client. Only
+# two of these six contain "quality" in their text, so an exclude/include filter keyed
+# on that one substring silently drops the other four (Codex review, PR #176).
+_GIG_QUALITY_LLM_MARKERS = (
+    "quality",
+    "llm_weakness_count_per_gig",
+    "llm_faq_completeness_score",
+    "llm_package_differentiation_score",
+    "llm_niche_specificity_score",
+)
 
 
 _DEFAULT_TTL_HOURS = 168.0
@@ -841,15 +854,18 @@ def _build_confidence_context(
         )
         total_organic = 0
         zombie_count = 0
-        # Freshness reflects the contributing record with the HIGHEST staleness ratio
-        # (age / that record's own TTL), per DATA_FLOW.md's Stage 11 definition - not
-        # simply the oldest absolute timestamp, since a long-TTL source (sellers default
-        # to 720h) can be older in wall-clock terms than a short-TTL source (168h) that
-        # is actually further past its own TTL (Codex review, PR #176).
-        freshness_found = False
+        # data_freshness_score is the MEAN of each contributing record's individual
+        # freshness (max(0, 1 - age/ttl)), per FRESHNESS_MODEL.md's
+        # calculate_data_freshness_score - not just the single worst record, so a few
+        # aging inputs don't collapse confidence when most of the data is fresh.
+        # data_age_hours/data_ttl_hours are tracked separately from the single most
+        # overdue record (highest age/ttl ratio) purely to drive the existing discrete
+        # data_stale_over_2x_ttl deduction gate in confidence.py (Codex review, PR #176).
+        freshness_ratios: list[float] = []
+        worst_ratio = -1.0
 
         def _consider_freshness(candidate_at: Any, candidate_ttl: Any) -> None:
-            nonlocal data_age_hours, data_ttl_hours, freshness_found
+            nonlocal data_age_hours, data_ttl_hours, worst_ratio
             if not isinstance(candidate_at, datetime):
                 return
             now_for_candidate = datetime.now(UTC) if candidate_at.tzinfo is not None else datetime.now()
@@ -861,11 +877,11 @@ def _build_confidence_context(
                 return
             candidate_ttl_hours = _as_ttl_hours(candidate_ttl)
             candidate_ratio = candidate_age_hours / candidate_ttl_hours
-            current_ratio = data_age_hours / data_ttl_hours if freshness_found else -1.0
-            if candidate_ratio > current_ratio:
+            freshness_ratios.append(candidate_ratio)
+            if candidate_ratio > worst_ratio:
+                worst_ratio = candidate_ratio
                 data_age_hours = candidate_age_hours
                 data_ttl_hours = candidate_ttl_hours
-                freshness_found = True
 
         for result in top_results:
             _consider_freshness(result.updated_at, getattr(result, "ttl_hours", None))
@@ -965,8 +981,13 @@ def _build_confidence_context(
         rsv = get_result_set_validation(keyword_id, db)
         if rsv is not None and rsv.result_set_relevance_score is not None:
             signal_relevance_score = float(rsv.result_set_relevance_score)
+        if freshness_ratios:
+            data_freshness_score = sum(max(0.0, 1.0 - ratio) for ratio in freshness_ratios) / len(freshness_ratios)
+        else:
+            data_freshness_score = 1.0
+    else:
+        data_freshness_score = 1.0
     trends_available = scores.get("trend_score") is not None
-    data_freshness_score = max(0.0, min(1.0, 1.0 - (data_age_hours / data_ttl_hours)))
     available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])
     source_diversity_score = min(1.0, available_core_sources / 3.0)
     # Whether gig detail was scraped and whether LLM quality analysis ran on it are
@@ -975,7 +996,7 @@ def _build_confidence_context(
     llm_quality_incomplete_count = sum(
         1
         for warning in warnings
-        if "llm_not_implemented" in warning and "quality" in warning.lower()
+        if "llm_not_implemented" in warning and any(marker in warning for marker in _GIG_QUALITY_LLM_MARKERS)
     )
     llm_other_missing = sum(
         1 for warning in warnings if any(marker in warning for marker in _OTHER_LLM_SIGNAL_MARKERS)
