@@ -282,13 +282,13 @@ def _generate_all_hypotheses(
             log.warning("trend_chase generation failed for %s: %s", niche_id, exc)
 
     if "llm_niche_expansion" in modes and llm_client is not None:
+        tracked_client = _CostTrackingLLMClient(llm_client)
         try:
             # enable_relevance_gates=True is required here (not tied to the separate
             # discovery.enable_relevance_gates config key, which only gates the unwired
             # DiscoveryOrchestrator legacy path): the ungated dict shape has no
             # specificity_score/buyer/deliverable at all, which _adapt_llm_hypotheses
             # needs to build a usable HypothesisContract.
-            tracked_client = _CostTrackingLLMClient(llm_client)
             raw = asyncio.run(
                 generate_niche_hypotheses(
                     niche_id,
@@ -299,10 +299,16 @@ def _generate_all_hypotheses(
                 )
             )
             all_hypotheses.extend(_adapt_llm_hypotheses(raw, niche_id))
-            if cost_tracker is not None:
-                cost_tracker.append(tracked_client.cost_usd)
         except Exception as exc:
             log.warning("llm_niche_expansion generation failed for %s: %s", niche_id, exc)
+        finally:
+            # Codex P2 (PR #181): the provider call may have already incurred real
+            # cost even if parsing/adapting the response raises afterward - always
+            # record what the proxy actually observed, not just on the happy path,
+            # so max_cost_per_run gating and DiscoveryCycleLog.total_cost_usd stay
+            # accurate for malformed-response cases too.
+            if cost_tracker is not None:
+                cost_tracker.append(tracked_client.cost_usd)
 
     passing = [
         hypothesis

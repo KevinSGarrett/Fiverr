@@ -461,6 +461,47 @@ class TestGenerateAllHypotheses:
         assert hypotheses == []
         assert gated == 0
 
+    def test_llm_niche_expansion_records_cost_when_parsing_fails_after_call(self) -> None:
+        """Codex P2 round 4 (PR #181): the provider call may already have incurred
+        real cost even if generate_niche_hypotheses raises AFTER calling
+        llm_client.complete(...) (e.g. a parsing/adapting bug) - the finally block
+        must still record what the cost-tracking proxy observed, not skip it."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+
+        async def _fake_generate(
+            niche_id: object,
+            existing_keywords: object,
+            llm_client: object,
+            cache: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            del niche_id, existing_keywords, cache, kwargs
+            llm_client.complete(prompt="x", model="gpt-4o-mini", temperature=0.4)
+            raise ValueError("malformed response while parsing")
+
+        real_llm_client = MagicMock()
+        real_llm_client.complete.return_value = SimpleNamespace(
+            text="{}",
+            metadata={"estimated_cost_usd": 0.0099},
+        )
+        cost_tracker: list[float] = []
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=real_llm_client,
+                cost_tracker=cost_tracker,
+            )
+
+        assert hypotheses == []
+        assert gated == 0
+        assert cost_tracker == [0.0099]
+
     def test_generate_all_returns_list_int(self) -> None:
         from src.discovery.stage16 import _generate_all_hypotheses
 
