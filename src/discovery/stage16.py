@@ -175,6 +175,27 @@ def _build_seed_data(
     }
 
 
+class _CostTrackingLLMClient:
+    """Proxies a real LLMClient's complete() call to record estimated_cost_usd
+    without changing generate_niche_hypotheses' widely-tested return contract
+    (Codex P2 finding on PR #181): llm_niche_expansion made real paid calls but
+    never accounted for or gated on discovery.max_cost_per_run, and always
+    persisted DiscoveryCycleLog.total_cost_usd=0.0 regardless."""
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+        self.cost_usd = 0.0
+
+    def complete(self, *args: Any, **kwargs: Any) -> Any:
+        result = self._inner.complete(*args, **kwargs)
+        metadata = getattr(result, "metadata", None) or {}
+        self.cost_usd += float(metadata.get("estimated_cost_usd", 0.0) or 0.0)
+        return result
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
 def _adapt_llm_hypotheses(raw: list[dict[str, Any]], niche_id: str) -> list[HypothesisContract]:
     """Convert generate_niche_hypotheses' gated dict output into HypothesisContract
     rows so LLM-driven hypotheses flow through the same accept/gate/persist pipeline
@@ -207,6 +228,7 @@ def _generate_all_hypotheses(
     seed_data: dict[str, Any],
     min_confidence: float,
     llm_client: Any | None = None,
+    cost_tracker: list[float] | None = None,
 ) -> tuple[list[Any], int]:
     """Generate hypotheses from all active modes for one niche."""
     all_hypotheses: list[Any] = []
@@ -262,16 +284,19 @@ def _generate_all_hypotheses(
             # DiscoveryOrchestrator legacy path): the ungated dict shape has no
             # specificity_score/buyer/deliverable at all, which _adapt_llm_hypotheses
             # needs to build a usable HypothesisContract.
+            tracked_client = _CostTrackingLLMClient(llm_client)
             raw = asyncio.run(
                 generate_niche_hypotheses(
                     niche_id,
                     seed_data["existing_kw_texts"],
-                    llm_client,
+                    tracked_client,
                     None,
                     enable_relevance_gates=True,
                 )
             )
             all_hypotheses.extend(_adapt_llm_hypotheses(raw, niche_id))
+            if cost_tracker is not None:
+                cost_tracker.append(tracked_client.cost_usd)
         except Exception as exc:
             log.warning("llm_niche_expansion generation failed for %s: %s", niche_id, exc)
 
@@ -299,6 +324,7 @@ def run_discovery_cycle(
     min_confidence = discovery_config.get("min_hypothesis_confidence", DEFAULT_MIN_CONFIDENCE)
     max_hypotheses = discovery_config.get("max_hypotheses_per_run", DEFAULT_MAX_HYPOTHESES)
     run_number = discovery_config.get("run_number")
+    max_cost_per_run = discovery_config.get("max_cost_per_run")
 
     try:
         evaluate_discovery_results(run_id, db)
@@ -315,17 +341,31 @@ def run_discovery_cycle(
     modes = _select_modes(config=config, run_number=run_number)
     all_hypotheses: list[Any] = []
     total_gated = 0
+    total_llm_cost_usd = 0.0
 
     if pending_count <= (max_hypotheses * 3):
         for niche_id in NICHE_VALIDATION_CONFIG.keys():
             seed_data = _build_seed_data(niche_id, db, modes)
+            # Budget gate (Codex P2, PR #181): stop spending on llm_niche_expansion
+            # once the accumulated cost reaches discovery.max_cost_per_run, but keep
+            # running the free rule-based generators for the remaining niches.
+            niche_llm_client = llm_client
+            if (
+                niche_llm_client is not None
+                and max_cost_per_run is not None
+                and total_llm_cost_usd >= float(max_cost_per_run)
+            ):
+                niche_llm_client = None
+            cost_tracker: list[float] = []
             niche_hypotheses, niche_gated = _generate_all_hypotheses(
                 niche_id=niche_id,
                 modes=modes,
                 seed_data=seed_data,
                 min_confidence=min_confidence,
-                llm_client=llm_client,
+                llm_client=niche_llm_client,
+                cost_tracker=cost_tracker,
             )
+            total_llm_cost_usd += sum(cost_tracker)
             all_hypotheses.extend(niche_hypotheses)
             total_gated += niche_gated
     else:
@@ -356,7 +396,7 @@ def run_discovery_cycle(
         hypotheses_generated=total_generated,
         hypotheses_gated=total_gated,
         hypotheses_accepted=insert_result["inserted"],
-        total_cost_usd=0.0,
+        total_cost_usd=round(total_llm_cost_usd, 6),
         feedback_summary=json.dumps(feedback_dict),
         cycle_at=datetime.utcnow(),
     )
@@ -369,6 +409,7 @@ __all__ = [
     "DEFAULT_MAX_HYPOTHESES",
     "DEFAULT_MIN_CONFIDENCE",
     "_BASE_MODES",
+    "_CostTrackingLLMClient",
     "_adapt_llm_hypotheses",
     "_build_seed_data",
     "_generate_all_hypotheses",

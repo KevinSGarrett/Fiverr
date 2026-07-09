@@ -388,6 +388,57 @@ class TestGenerateAllHypotheses:
         assert contract.accepted is True
         assert gated == 0
 
+    def test_llm_niche_expansion_records_cost_into_tracker(self) -> None:
+        """Codex P2 (PR #181): llm_niche_expansion previously made real paid calls
+        but never accounted for cost - _CostTrackingLLMClient must capture the real
+        LLMResult.metadata['estimated_cost_usd'] and append it to cost_tracker so
+        run_discovery_cycle can persist an accurate total_cost_usd and gate spend."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        gated_dicts = [
+            {
+                "hypothesis_text": "python automation for agencies",
+                "buyer": "agencies",
+                "deliverable": "python automation",
+                "specificity_score": 0.80,
+                "gate_reason": "passed specificity + on-niche",
+            }
+        ]
+
+        async def _fake_generate(
+            niche_id: object,
+            existing_keywords: object,
+            llm_client: object,
+            cache: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            del niche_id, existing_keywords, cache, kwargs
+            # Exercise the real proxy: call through so cost accrues exactly like
+            # the real generate_niche_hypotheses does via llm_client.complete(...).
+            llm_client.complete(prompt="x", model="gpt-4o-mini", temperature=0.4)
+            return gated_dicts
+
+        real_llm_client = MagicMock()
+        real_llm_client.complete.return_value = SimpleNamespace(
+            text="{}",
+            metadata={"estimated_cost_usd": 0.0042},
+        )
+        cost_tracker: list[float] = []
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, _gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=real_llm_client,
+                cost_tracker=cost_tracker,
+            )
+
+        assert len(hypotheses) == 1
+        assert cost_tracker == [0.0042]
+
     def test_llm_niche_expansion_failure_non_fatal(self) -> None:
         """SCRUM-1106: an LLM/network failure in llm_niche_expansion must not break
         the rest of the discovery cycle, mirroring the other 4 generators' try/except."""
@@ -989,6 +1040,105 @@ def test_run_discovery_cycle_forwards_llm_client_to_generate_all_hypotheses() ->
     ):
         run_discovery_cycle(db, "llm-thread", llm_client=sentinel_client)
     assert received_clients == [sentinel_client]
+
+
+def test_run_discovery_cycle_persists_accumulated_llm_cost() -> None:
+    """Codex P2 (PR #181): DiscoveryCycleLog.total_cost_usd must reflect real
+    accumulated llm_niche_expansion spend across niches, not a hardcoded 0.0."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    log_kwargs: dict[str, object] = {}
+
+    def capture_log(**kwargs: object) -> MagicMock:
+        log_kwargs.update(kwargs)
+        return MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        cost_tracker: list[float] | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, llm_client, kwargs
+        if cost_tracker is not None:
+            cost_tracker.append(0.5)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "cost", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", side_effect=capture_log),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"niche_a": {}, "niche_b": {}}),
+    ):
+        run_discovery_cycle(db, "cost", llm_client=MagicMock())
+    assert log_kwargs.get("total_cost_usd") == 1.0
+
+
+def test_run_discovery_cycle_gates_llm_client_once_budget_exceeded() -> None:
+    """Codex P2 (PR #181): once accumulated cost reaches discovery.max_cost_per_run,
+    remaining niches must get llm_client=None (free rule-based modes still run),
+    matching Codex's suggested remedy of gating further LLM calls on budget."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        cost_tracker: list[float] | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        if cost_tracker is not None and llm_client is not None:
+            cost_tracker.append(5.0)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "budget", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch(
+            "src.discovery.stage16.NICHE_VALIDATION_CONFIG",
+            {"niche_a": {}, "niche_b": {}, "niche_c": {}},
+        ),
+    ):
+        run_discovery_cycle(
+            db,
+            "budget",
+            config={"discovery": {"max_cost_per_run": 5.0}},
+            llm_client=sentinel_client,
+        )
+    assert received_clients[0] is sentinel_client
+    assert received_clients[1] is None
+    assert received_clients[2] is None
 
 
 def test_feedback_summary_stored_as_json() -> None:
