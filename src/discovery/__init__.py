@@ -8,9 +8,10 @@ The PRODUCTION entrypoint is `src.discovery.stage16.run_discovery_cycle` (also r
 via `python run.py discover` and `src.orchestrator.run_pipeline(mode="discovery-only")`).
 `DiscoveryOrchestrator` exported below is an SRDI-legacy reference implementation with no
 production caller — see its module docstring in `orchestrator.py` before relying on it.
-`generate_niche_hypotheses` (LLM-driven hypothesis generation) is likewise real but not
-yet wired into `run_discovery_cycle`, which currently only runs the rule-based
-adjacent_keyword/adjacent_niche/gap_exploit/trend_chase generators (SCRUM-1106).
+`generate_niche_hypotheses` (LLM-driven hypothesis generation) is wired into
+`run_discovery_cycle` as the optional `llm_niche_expansion` mode: it runs alongside the
+rule-based adjacent_keyword/adjacent_niche/gap_exploit/trend_chase generators whenever a
+caller supplies `llm_client`, and is a no-op otherwise (SCRUM-1106).
 """
 
 from __future__ import annotations

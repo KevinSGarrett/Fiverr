@@ -73,6 +73,7 @@ class HypothesisContract:
     specificity_score: float = 0.0
     accepted: bool = False
     reason: str = ""
+    discovery_mode: str | None = None
 
 
 async def generate_niche_hypotheses(

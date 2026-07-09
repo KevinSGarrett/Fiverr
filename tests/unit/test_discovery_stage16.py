@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ast
 import json
+from inspect import isawaitable
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -48,7 +50,7 @@ class TestSelectModes:
 
         modes = _select_modes(run_number=None)
         assert "adjacent_niche" not in modes
-        assert len(modes) == 3
+        assert len(modes) == 4
 
     def test_config_override_filters_modes(self) -> None:
         from src.discovery.stage16 import _select_modes
@@ -61,7 +63,12 @@ class TestSelectModes:
     def test_empty_config_returns_defaults(self) -> None:
         from src.discovery.stage16 import _select_modes
 
-        assert _select_modes(config={}) == ["adjacent_keyword", "gap_exploit", "trend_chase"]
+        assert _select_modes(config={}) == [
+            "adjacent_keyword",
+            "gap_exploit",
+            "trend_chase",
+            "llm_niche_expansion",
+        ]
 
     def test_returns_list_type(self) -> None:
         from src.discovery.stage16 import _select_modes
@@ -93,7 +100,7 @@ class TestSelectModes:
 
         modes = _select_modes(run_number=0)
         assert "adjacent_niche" in modes
-        assert len(modes) == 4
+        assert len(modes) == 5
 
     def test_adjacent_niche_included_on_run_6(self) -> None:
         from src.discovery.stage16 import _select_modes
@@ -316,6 +323,236 @@ class TestGenerateAllHypotheses:
         hypotheses, gated = _generate_all_hypotheses("python_automation", [], seed, 0.50)
         assert hypotheses == []
         assert gated == 0
+
+    def test_llm_niche_expansion_noop_without_llm_client(self) -> None:
+        """SCRUM-1106: llm_niche_expansion must not call generate_niche_hypotheses
+        at all when llm_client is None, matching the codebase-wide LLM-optional
+        convention (no wasted call, no accidental cost)."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        with patch("src.discovery.stage16.generate_niche_hypotheses") as mock_generate:
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=None,
+            )
+        mock_generate.assert_not_called()
+        assert hypotheses == []
+        assert gated == 0
+
+    def test_llm_niche_expansion_adapts_gated_dicts_to_contracts(self) -> None:
+        """SCRUM-1106: when llm_client is provided, generate_niche_hypotheses' gated
+        dict output (specificity_score/buyer/deliverable/gate_reason) must be adapted
+        into HypothesisContract rows with accepted=True so it survives the same
+        accept/gate filter as the rule-based generators."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {
+            "seed_keywords": ["python automation"],
+            "gap_signals": [],
+            "trend_signals": [],
+            "existing_kw_texts": ["python automation"],
+        }
+        gated_dicts = [
+            {
+                "hypothesis_text": "python automation for e-commerce",
+                "hypothesis_type": "adjacent_keyword",
+                "source_signal": "gated_hypothesis",
+                "buyer": "e-commerce store owners",
+                "deliverable": "python automation",
+                "specificity_score": 0.86,
+                "gate_reason": "passed specificity + on-niche",
+            }
+        ]
+
+        async def _fake_generate(*args: object, **kwargs: object) -> list[dict[str, object]]:
+            assert kwargs["enable_relevance_gates"] is True
+            return gated_dicts
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=MagicMock(),
+            )
+
+        assert len(hypotheses) == 1
+        contract = hypotheses[0]
+        assert contract.hypothesis_text == "python automation for e-commerce"
+        assert contract.niche_id == "python_automation"
+        assert contract.buyer == "e-commerce store owners"
+        assert contract.specificity_score == 0.86
+        assert contract.accepted is True
+        assert contract.discovery_mode == "llm_niche_expansion"
+        assert gated == 0
+
+    def test_llm_niche_expansion_records_cost_into_tracker(self) -> None:
+        """Codex P2 (PR #181): llm_niche_expansion previously made real paid calls
+        but never accounted for cost - _CostTrackingLLMClient must capture the real
+        LLMResult.metadata['estimated_cost_usd'] and append it to cost_tracker so
+        run_discovery_cycle can persist an accurate total_cost_usd and gate spend."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        gated_dicts = [
+            {
+                "hypothesis_text": "python automation for agencies",
+                "buyer": "agencies",
+                "deliverable": "python automation",
+                "specificity_score": 0.80,
+                "gate_reason": "passed specificity + on-niche",
+            }
+        ]
+
+        async def _fake_generate(
+            niche_id: object,
+            existing_keywords: object,
+            llm_client: object,
+            cache: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            del niche_id, existing_keywords, cache, kwargs
+            # Exercise the real proxy: call through so cost accrues exactly like
+            # the real generate_niche_hypotheses does via llm_client.complete(...).
+            llm_client.complete(prompt="x", model="gpt-4o-mini", temperature=0.4)
+            return gated_dicts
+
+        real_llm_client = MagicMock()
+        real_llm_client.complete.return_value = SimpleNamespace(
+            text="{}",
+            metadata={"estimated_cost_usd": 0.0042},
+        )
+        cost_tracker: list[float] = []
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, _gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=real_llm_client,
+                cost_tracker=cost_tracker,
+            )
+
+        assert len(hypotheses) == 1
+        assert cost_tracker == [0.0042]
+
+    def test_llm_niche_expansion_records_cost_from_async_llm_client(self) -> None:
+        """Codex P2 round 5 (PR #181): generate_niche_hypotheses explicitly supports
+        async-capable clients (`if isawaitable(response): response = await response`).
+        _CostTrackingLLMClient must preserve that contract - reading .metadata off an
+        unawaited coroutine would silently record 0.0 cost for a real, paid call."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        gated_dicts = [
+            {
+                "hypothesis_text": "python automation for startups",
+                "buyer": "startups",
+                "deliverable": "python automation",
+                "specificity_score": 0.82,
+                "gate_reason": "passed specificity + on-niche",
+            }
+        ]
+
+        async def _fake_generate(
+            niche_id: object,
+            existing_keywords: object,
+            llm_client: object,
+            cache: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            del niche_id, existing_keywords, cache, kwargs
+            # Mirrors hypothesis.py's own async-client handling exactly.
+            response = llm_client.complete(prompt="x", model="gpt-4o-mini", temperature=0.4)
+            if isawaitable(response):
+                await response
+            return gated_dicts
+
+        class _AsyncLLMClient:
+            async def complete(self, **_: object) -> SimpleNamespace:
+                return SimpleNamespace(text="{}", metadata={"estimated_cost_usd": 0.0075})
+
+        cost_tracker: list[float] = []
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, _gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=_AsyncLLMClient(),
+                cost_tracker=cost_tracker,
+            )
+
+        assert len(hypotheses) == 1
+        assert cost_tracker == [0.0075]
+
+    def test_llm_niche_expansion_failure_non_fatal(self) -> None:
+        """SCRUM-1106: an LLM/network failure in llm_niche_expansion must not break
+        the rest of the discovery cycle, mirroring the other 4 generators' try/except."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        with patch(
+            "src.discovery.stage16.generate_niche_hypotheses",
+            side_effect=Exception("llm error"),
+        ):
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=MagicMock(),
+            )
+        assert hypotheses == []
+        assert gated == 0
+
+    def test_llm_niche_expansion_records_cost_when_parsing_fails_after_call(self) -> None:
+        """Codex P2 round 4 (PR #181): the provider call may already have incurred
+        real cost even if generate_niche_hypotheses raises AFTER calling
+        llm_client.complete(...) (e.g. a parsing/adapting bug) - the finally block
+        must still record what the cost-tracking proxy observed, not skip it."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+
+        async def _fake_generate(
+            niche_id: object,
+            existing_keywords: object,
+            llm_client: object,
+            cache: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            del niche_id, existing_keywords, cache, kwargs
+            llm_client.complete(prompt="x", model="gpt-4o-mini", temperature=0.4)
+            raise ValueError("malformed response while parsing")
+
+        real_llm_client = MagicMock()
+        real_llm_client.complete.return_value = SimpleNamespace(
+            text="{}",
+            metadata={"estimated_cost_usd": 0.0099},
+        )
+        cost_tracker: list[float] = []
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=real_llm_client,
+                cost_tracker=cost_tracker,
+            )
+
+        assert hypotheses == []
+        assert gated == 0
+        assert cost_tracker == [0.0099]
 
     def test_generate_all_returns_list_int(self) -> None:
         from src.discovery.stage16 import _generate_all_hypotheses
@@ -764,7 +1001,8 @@ def test_select_modes_run_3_has_adj_niche() -> None:
     assert "adjacent_keyword" in modes
     assert "gap_exploit" in modes
     assert "trend_chase" in modes
-    assert len(modes) == 4
+    assert "llm_niche_expansion" in modes
+    assert len(modes) == 5
 
 
 def test_select_modes_run_1_no_adj_niche() -> None:
@@ -772,7 +1010,7 @@ def test_select_modes_run_1_no_adj_niche() -> None:
 
     modes = _select_modes(run_number=1)
     assert "adjacent_niche" not in modes
-    assert len(modes) == 3
+    assert len(modes) == 4
 
 
 def test_all_below_confidence_gated() -> None:
@@ -859,6 +1097,441 @@ def test_multiple_niches_all_called() -> None:
     assert set(generate_calls) == set(fake_niches.keys())
 
 
+def test_run_discovery_cycle_forwards_llm_client_to_generate_all_hypotheses() -> None:
+    """SCRUM-1106: run_discovery_cycle must thread its llm_client param through to
+    every per-niche _generate_all_hypotheses call, not just build/ignore it."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "llm-thread", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+        # Isolate llm_client threading from the round-6 niche-PK gate (which would
+        # otherwise force llm_client=None against _mock_db()'s unresolvable niche).
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
+    ):
+        run_discovery_cycle(db, "llm-thread", llm_client=sentinel_client)
+    assert received_clients == [sentinel_client]
+
+
+def test_run_discovery_cycle_persists_accumulated_llm_cost() -> None:
+    """Codex P2 (PR #181): DiscoveryCycleLog.total_cost_usd must reflect real
+    accumulated llm_niche_expansion spend across niches, not a hardcoded 0.0."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    log_kwargs: dict[str, object] = {}
+
+    def capture_log(**kwargs: object) -> MagicMock:
+        log_kwargs.update(kwargs)
+        return MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        cost_tracker: list[float] | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, llm_client, kwargs
+        if cost_tracker is not None:
+            cost_tracker.append(0.5)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "cost", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", side_effect=capture_log),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"niche_a": {}, "niche_b": {}}),
+    ):
+        run_discovery_cycle(db, "cost", llm_client=MagicMock())
+    assert log_kwargs.get("total_cost_usd") == 1.0
+
+
+def test_run_discovery_cycle_gates_llm_client_once_budget_exceeded() -> None:
+    """Codex P2 (PR #181): once accumulated cost reaches discovery.max_cost_per_run,
+    remaining niches must get llm_client=None (free rule-based modes still run),
+    matching Codex's suggested remedy of gating further LLM calls on budget."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        cost_tracker: list[float] | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        if cost_tracker is not None and llm_client is not None:
+            cost_tracker.append(5.0)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "budget", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch(
+            "src.discovery.stage16.NICHE_VALIDATION_CONFIG",
+            {"niche_a": {}, "niche_b": {}, "niche_c": {}},
+        ),
+        # Isolate budget gating from the round-6 niche-PK gate (which would
+        # otherwise force llm_client=None against _mock_db()'s unresolvable niche).
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
+    ):
+        run_discovery_cycle(
+            db,
+            "budget",
+            config={"discovery": {"max_cost_per_run": 5.0}},
+            llm_client=sentinel_client,
+        )
+    assert received_clients[0] is sentinel_client
+    assert received_clients[1] is None
+    assert received_clients[2] is None
+
+
+def test_run_discovery_cycle_resolves_niche_slug_to_integer_pk() -> None:
+    """Codex P2 (PR #181): Keyword.niche_id is an integer FK to niches.id, but every
+    generator (rule-based and llm_niche_expansion alike) stamps
+    HypothesisContract.niche_id with the string validation slug. run_discovery_cycle
+    must overwrite it with the real resolved PK before hypotheses reach
+    process_accepted_hypotheses(), or insert_discovery_keyword() would pass a string
+    straight into an integer column."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    captured_hypotheses: list[Any] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        contract = HypothesisContract(
+            hypothesis_text="python automation for agencies",
+            niche_id=str(niche_id),
+            buyer="agencies",
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+        )
+        return [contract], 0
+
+    def mock_process(hypotheses: list[Any], run_id: str, db: object) -> dict[str, object]:
+        del run_id, db
+        captured_hypotheses.extend(hypotheses)
+        return {"inserted": len(hypotheses), "skipped": 0, "run_id": "pk-test", "keyword_ids": []}
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=42),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "pk-test")
+
+    assert len(captured_hypotheses) == 1
+    assert captured_hypotheses[0].niche_id == 42
+
+
+def test_run_discovery_cycle_keeps_slug_when_niche_pk_unresolvable() -> None:
+    """When the niche row can't be resolved (e.g. against a mocked/empty DB), the
+    slug must be left as-is rather than silently dropped - matches every other
+    _mock_db()-based test in this file, which relies on this exact fallback."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    captured_hypotheses: list[Any] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        contract = HypothesisContract(
+            hypothesis_text="python automation for agencies",
+            niche_id=str(niche_id),
+            buyer="agencies",
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+        )
+        return [contract], 0
+
+    def mock_process(hypotheses: list[Any], run_id: str, db: object) -> dict[str, object]:
+        del run_id, db
+        captured_hypotheses.extend(hypotheses)
+        return {"inserted": len(hypotheses), "skipped": 0, "run_id": "pk-none", "keyword_ids": []}
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=None),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "pk-none")
+
+    assert len(captured_hypotheses) == 1
+    assert captured_hypotheses[0].niche_id == "python_automation"
+
+
+def test_run_discovery_cycle_skips_llm_call_for_unresolvable_niche() -> None:
+    """Codex P2 round 6 (PR #181): a niche whose row can't be resolved would carry
+    an unresolvable slug on any accepted LLM hypothesis and could never be
+    persisted - the paid llm_niche_expansion call must be skipped entirely for that
+    niche, not attempted and then silently wasted. The free rule-based modes still
+    get the real llm_client=None passed through the OTHER gates unaffected."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        **kwargs: object,
+    ) -> tuple[list[Any], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "no-pk", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=None),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "no-pk", llm_client=sentinel_client)
+
+    assert received_clients == [None]
+
+
+def test_run_discovery_cycle_drops_llm_output_that_pushed_over_budget() -> None:
+    """Codex P2 round 7 (PR #181): the pre-call budget gate only stops FUTURE calls
+    - if a single niche's own llm_niche_expansion call pushes total_llm_cost_usd
+    over discovery.max_cost_per_run, that niche's LLM output must not be persisted
+    either, even though the free rule-based hypotheses from the SAME call still
+    should be."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    captured_hypotheses: list[Any] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        cost_tracker: list[float] | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        rule_based = HypothesisContract(
+            hypothesis_text="python automation for startups",
+            niche_id=str(niche_id),
+            buyer=None,
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+            discovery_mode="adjacent_keyword",
+        )
+        llm_generated = HypothesisContract(
+            hypothesis_text="python automation for agencies",
+            niche_id=str(niche_id),
+            buyer="agencies",
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+            discovery_mode="llm_niche_expansion",
+        )
+        if cost_tracker is not None and llm_client is not None:
+            cost_tracker.append(0.02)
+        return [rule_based, llm_generated], 0
+
+    def mock_process(hypotheses: list[Any], run_id: str, db: object) -> dict[str, object]:
+        del run_id, db
+        captured_hypotheses.extend(hypotheses)
+        return {"inserted": len(hypotheses), "skipped": 0, "run_id": "over-budget", "keyword_ids": []}
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(
+            db,
+            "over-budget",
+            config={"discovery": {"max_cost_per_run": 0.01}},
+            llm_client=MagicMock(),
+        )
+
+    assert len(captured_hypotheses) == 1
+    assert captured_hypotheses[0].discovery_mode == "adjacent_keyword"
+
+
+def test_run_discovery_cycle_skips_llm_call_once_insert_quota_filled() -> None:
+    """Codex P2 round 8 (PR #181): once earlier niches already produced at least
+    max_hypotheses_per_run accepted candidates, the final accepted[:max_hypotheses]
+    slice would discard any later niche's LLM output anyway - the paid call must be
+    skipped once the quota is filled, not attempted and then silently dropped. The
+    free rule-based generators must still run for every niche regardless."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        contract = HypothesisContract(
+            hypothesis_text=f"{niche_id} automation",
+            niche_id=str(niche_id),
+            buyer=None,
+            deliverable="automation",
+            specificity_score=0.9,
+            accepted=True,
+            discovery_mode="adjacent_keyword",
+        )
+        return [contract], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "quota", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch(
+            "src.discovery.stage16.NICHE_VALIDATION_CONFIG",
+            {"niche_a": {}, "niche_b": {}, "niche_c": {}},
+        ),
+    ):
+        run_discovery_cycle(
+            db,
+            "quota",
+            config={"discovery": {"max_hypotheses_per_run": 1}},
+            llm_client=sentinel_client,
+        )
+
+    assert received_clients[0] is sentinel_client
+    assert received_clients[1] is None
+    assert received_clients[2] is None
+
+
 def test_feedback_summary_stored_as_json() -> None:
     from src.discovery.stage16 import run_discovery_cycle
 
@@ -889,7 +1562,7 @@ def test_feedback_summary_stored_as_json() -> None:
 
 def test_stage16_module_size() -> None:
     n = len(open("src/discovery/stage16.py", encoding="utf-8").readlines())
-    assert 100 <= n <= 500
+    assert 100 <= n <= 550
 
 
 def test_complete_s78_smoke() -> None:
@@ -917,14 +1590,14 @@ def test_mode_count_run_0() -> None:
     from src.discovery.stage16 import _select_modes
 
     modes = _select_modes(run_number=0)
-    assert len(modes) == 4
+    assert len(modes) == 5
 
 
 def test_config_none_uses_defaults() -> None:
     from src.discovery.stage16 import _select_modes
 
     modes = _select_modes(config=None, run_number=1)
-    assert len(modes) == 3
+    assert len(modes) == 4
 
 
 def test_stage16_coexists_with_s76() -> None:
@@ -1082,7 +1755,7 @@ def test_select_modes_run_9() -> None:
 
     modes = _select_modes(run_number=9)
     assert "adjacent_niche" in modes
-    assert len(modes) == 4
+    assert len(modes) == 5
 
 
 def test_select_modes_run_5() -> None:
@@ -1090,7 +1763,7 @@ def test_select_modes_run_5() -> None:
 
     modes = _select_modes(run_number=5)
     assert "adjacent_niche" not in modes
-    assert len(modes) == 3
+    assert len(modes) == 4
 
 
 def test_generate_all_adj_niche_failure_nonfatal() -> None:

@@ -90,7 +90,11 @@ class TestFeedbackConstants:
         assert feedback.AUTO_RETIRE_THRESHOLD < feedback.MISS_THRESHOLD
 
     def test_discovery_modes_len(self) -> None:
-        assert len(feedback.DISCOVERY_MODES) == 4
+        """SCRUM-1106 (Codex P2, PR #181): llm_niche_expansion joins the 4 rule-based
+        modes so build_feedback_summary's mode_stats/best_mode/worst_mode aren't blind
+        to LLM-generated keyword outcomes."""
+        assert len(feedback.DISCOVERY_MODES) == 5
+        assert "llm_niche_expansion" in feedback.DISCOVERY_MODES
 
 
 class TestBuildFeedbackSummary:

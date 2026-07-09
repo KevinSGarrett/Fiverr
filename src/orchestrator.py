@@ -632,12 +632,14 @@ def run_pipeline(
     if mode == "discovery-only":
         from src.discovery.stage16 import run_discovery_cycle
 
+        discovery_payload = config_payload if isinstance(config_payload, dict) else {}
         session_factory = create_session_factory(engine)
         try:
             with get_session(session_factory) as db_session:
                 cycle_log = run_discovery_cycle(
                     db=db_session,
-                    config=config_payload if isinstance(config_payload, dict) else {},
+                    config=discovery_payload,
+                    llm_client=_build_llm_client_safely(discovery_payload),
                 )
         except Exception as exc:  # noqa: BLE001
             print(f"Discovery cycle failed: {exc}")
