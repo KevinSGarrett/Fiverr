@@ -8,11 +8,12 @@ from collections.abc import Awaitable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy.orm import Session
 
 from src.analysis.llm_relevance_classifier import LLMRelevanceClassifier, LLMRelevanceConfig
-from src.models import ExternalSignal, Keyword, SearchResult
+from src.models import ExternalSignal, Gig, Keyword, SearchResult
 from src.models.keyword_score import KeywordScore
 from src.scoring.competition import CompetitionScoreCalculator
 from src.scoring.confidence import ConfidenceScoreModifier
@@ -352,13 +353,27 @@ async def score_keyword(
     profitability_result = (
         profitability_calculator.calculate(keyword_id, db, config=config) if 5 in available_scores else None
     )
-    intent_result = intent_calculator.calculate(keyword_id, db, config=config) if 6 in available_scores else None
-    saturation_result = (
-        saturation_calculator.calculate(keyword_id, db, config=config) if 7 in available_scores else None
+    intent_result = (
+        intent_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache, config=config)
+        if 6 in available_scores
+        else None
     )
-    weakness_result = weakness_calculator.calculate(keyword_id, db) if 8 in available_scores else None
+    saturation_result = (
+        saturation_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache, config=config)
+        if 7 in available_scores
+        else None
+    )
+    weakness_result = (
+        weakness_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache)
+        if 8 in available_scores
+        else None
+    )
     _apply_weakness_feedback_to_feasibility(feasibility_result, weakness_result)
-    trend_result = trend_calculator.calculate(keyword_id, db) if 9 in available_scores else None
+    trend_result = (
+        trend_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache)
+        if 9 in available_scores
+        else None
+    )
 
     llm_relevance_verdict: str | None = None
     if llm_relevance_classifier is not None:
@@ -760,6 +775,119 @@ def _resolve_depth(keyword_id: int, db: Any) -> str:
     return "standard"
 
 
+# Exact marker substrings for the 5 scoring-stage LLM-dependent signals tracked by
+# llm_analysis_completion_ratio: buyer intent (intent.py), upsell potential
+# (profitability.py), saturation assessment (saturation_score.py), trend
+# classification (trend.py), entry-gap assessment (feasibility.py).
+#
+# An explicit allowlist (rather than excluding "quality"/"competitor" substrings)
+# is required because other calculators emit their own llm_not_implemented warnings
+# whose text does not contain "quality" or "competitor" at all - e.g. weakness.py's
+# llm_weakness_count_per_gig/llm_faq_completeness_score/llm_package_differentiation_
+# score/llm_niche_specificity_score, and feasibility.py's "missing LLM gig weakness
+# assessment" - which an exclude-filter would miscount as "other", capping
+# llm_analysis_completion_ratio at 0.0 in the common no-LLM-key case even when the
+# 5 intended signals are otherwise complete (Codex review, PR #176).
+_OTHER_LLM_SIGNAL_MARKERS = (
+    "missing LLM buyer intent classification",
+    "missing LLM upsell potential assessment",
+    "missing LLM saturation assessment",
+    "no llm_trend_classification signal available",
+    "missing LLM entry gap assessment",
+    "missing LLM gig weakness assessment",
+)
+_OTHER_LLM_SIGNAL_COUNT = len(_OTHER_LLM_SIGNAL_MARKERS)
+
+# The per-gig LLM quality fields src/scoring/weakness.py emits llm_not_implemented
+# warnings for when GigQualityWeaknessScoreCalculator runs without an llm_client. Only
+# two of these six contain "quality" in their text, so an exclude/include filter keyed
+# on that one substring silently drops the other four (Codex review, PR #176).
+_GIG_QUALITY_LLM_MARKERS = (
+    "quality",
+    "llm_weakness_count_per_gig",
+    "llm_faq_completeness_score",
+    "llm_package_differentiation_score",
+    "llm_niche_specificity_score",
+)
+
+
+_DEFAULT_TTL_HOURS = 168.0
+
+
+def _as_ttl_hours(value: Any) -> float:
+    try:
+        ttl = float(value)
+    except (TypeError, ValueError):
+        return _DEFAULT_TTL_HOURS
+    return ttl if ttl > 0 else _DEFAULT_TTL_HOURS
+
+
+def _normalize_gig_url_identity(raw_url: Any) -> str | None:
+    """Mirror ProfitabilityScoreCalculator._normalize_gig_url_identity so a card URL
+    that differs only by tracking query string, fragment, URL-encoded path, or
+    trailing slash still resolves to the same persisted Gig row (Codex review,
+    PR #176)."""
+    if not isinstance(raw_url, str):
+        return None
+    stripped = raw_url.strip()
+    if not stripped:
+        return None
+    split = urlsplit(stripped)
+    normalized_path = unquote(split.path).strip().rstrip("/")
+    if normalized_path:
+        return normalized_path.lower()
+    base = stripped.split("?", 1)[0].split("#", 1)[0].strip().rstrip("/")
+    return base.lower() if base else None
+
+
+def _as_optional_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _numeric_series_values(value: Any) -> list[float]:
+    if not isinstance(value, list):
+        return []
+    return [numeric for item in value if (numeric := _as_optional_float(item)) is not None]
+
+
+def _google_trends_signal_has_usable_data(signal: Any) -> bool:
+    """A google_trends ExternalSignal row is only "usable" if it carries a field one
+    of the real calculators actually reads - trends_3mo_score is extracted into
+    TrendScoreCalculator's signals dict but never read by any _resolve_* method
+    there, and the 3mo/12mo averages only support _resolve_acceleration_score when
+    BOTH sides are present (Codex review, PR #176)."""
+    raw_payload = signal.raw_value_json if isinstance(signal.raw_value_json, dict) else {}
+    # DemandScoreCalculator._signal_float(google_trends, "trends_12mo_score").
+    if _as_optional_float(raw_payload.get("trends_12mo_score")) is not None:
+        return True
+    # TrendScoreCalculator._resolve_google_trends_slope: explicit slope, or >=2
+    # numeric points to derive one via linear regression.
+    if _as_optional_float(raw_payload.get("google_trends_slope")) is not None:
+        return True
+    if len(_numeric_series_values(raw_payload.get("google_trends_12mo_series"))) >= 2:
+        return True
+    # TrendScoreCalculator._resolve_acceleration_score: needs a 3mo AND a 12mo
+    # average (explicit or series-derived) - one side alone yields None.
+    has_3mo_average = _as_optional_float(raw_payload.get("trends_3mo_avg")) is not None or bool(
+        _numeric_series_values(raw_payload.get("google_trends_3mo_series"))
+    )
+    has_12mo_average = _as_optional_float(raw_payload.get("trends_12mo_avg")) is not None or bool(
+        _numeric_series_values(raw_payload.get("google_trends_12mo_series"))
+    )
+    if has_3mo_average and has_12mo_average:
+        return True
+    # DemandScoreCalculator._signal_float falls back to the row's own
+    # signal_value/normalized_value when trends_12mo_score is absent from the JSON
+    # payload (a legacy/back-compat shape) - that fallback still feeds demand
+    # scoring, so it counts as usable too (Codex review, PR #176).
+    return getattr(signal, "normalized_value", None) is not None
+
+
 def _build_confidence_context(
     keyword_id: int,
     scores: dict[str, float | None],
@@ -782,31 +910,375 @@ def _build_confidence_context(
         if isinstance(raw_external_cfg, dict):
             external_signals_config = dict(raw_external_cfg)
     enable_zombie_filter = bool(relevance_cfg.get("enable_zombie_filter", True))
+    # ProfitabilityScoreCalculator/FeasibilityCalculator/CompetitionScoreCalculator
+    # all gate their own sponsored-gig skip on this same config flag (default True)
+    # - when a deployment disables it, sponsored gigs stay in the real scored top-N
+    # set, so confidence must resolve their detail/freshness/profile state too
+    # instead of unconditionally dropping them (Codex review, PR #176).
+    enable_sponsored_exclusion = bool(relevance_cfg.get("enable_sponsored_exclusion", True))
     top_n_for_scoring = max(1, int(relevance_cfg.get("top_n_for_scoring", 10)))
+    # Matches ProfitabilityScoreCalculator/FeasibilityCalculator's own candidate
+    # window: when sponsored slots occupy some of the first top_n_for_scoring card
+    # positions, the real top-N organic gigs that fed the score sit further down the
+    # page than a naive top_n_for_scoring cutoff would reach (Codex review, PR #176).
+    candidate_window = max(top_n_for_scoring, 10) * 3
     zombie_fraction = 0.0
     youtube_video_count: int | None = None
     signal_age_days = 0
     signal_relevance_score = 1.0
     external_signal_context_present = False
+    # Unknown collection state (no Session available to check) must not be treated as
+    # "missing" - only the ORM-backed branch below can actually determine this, so it
+    # defaults to the pre-fix lenient assumption and only downgrades on real evidence
+    # (Codex review, PR #176).
+    gig_detail_collected = True
+    seller_profiles_collected = True
+    # Fallback proxy for non-Session/unknown db paths, where no ExternalSignal query
+    # is possible - a real google_trends row is checked directly below when a Session
+    # is available (Codex review, PR #176).
+    trends_available = scores.get("trend_score") is not None
+    data_age_hours = 0.0
+    data_ttl_hours = _DEFAULT_TTL_HOURS
     if isinstance(db, Session):
+        # _queue_gig_detail_jobs (src/collection/workflows/fiverr_search.py) returns 0
+        # unconditionally for depth="keyword_only" - no GIG_DETAIL job is ever queued,
+        # and seller profile jobs are only ever queued as a side effect of processing
+        # one, so no gig/seller in a keyword_only run will ever have
+        # detail_collected/profile_collected=True. That absence reflects out-of-scope
+        # collection, not a data-quality failure - confidence.py already applies a
+        # separate partial_depth_mode deduction for keyword_only/feasibility; stacking
+        # missing_gig_detail/missing_seller_profiles on top would double-penalize
+        # every keyword_only score for something it never intended to collect
+        # (Codex review, PR #176). feasibility still queues up to 5 GIG_DETAIL jobs,
+        # so it keeps the strict evidence-based check.
+        keyword_only_run = depth == "keyword_only"
+        gig_detail_collected = keyword_only_run
+        seller_profiles_collected = keyword_only_run
+        # ProfitabilityScoreCalculator/the feasibility loader load rank <=
+        # candidate_window, not top_n_for_scoring, for the same reason as the
+        # gig_cards/keyword-fallback windows above: per-gig-rank-linked
+        # SearchResult rows can have sponsored gigs occupying some of the first N
+        # ranks, pushing the organic gigs that actually fed the score past rank N
+        # (Codex review, PR #176).
         top_results = (
             db.query(SearchResult)
-            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= top_n_for_scoring)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.rank <= candidate_window)
             .order_by(SearchResult.rank.asc())
             .all()
         )
+        # Scope to the active run the same way ProfitabilityScoreCalculator/
+        # FeasibilityCalculator/WeaknessCalculator do: the run_id of the lowest-rank
+        # row. A keyword recollected across multiple runs can otherwise mix an old
+        # run's stale rows into freshness/detail checks even though the current score
+        # was computed only from the active run's data (Codex review, PR #176).
+        active_run_id = next(
+            (
+                result.run_id.strip()
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip()
+            ),
+            None,
+        )
+        if active_run_id is not None:
+            top_results = [
+                result
+                for result in top_results
+                if isinstance(result.run_id, str) and result.run_id.strip() == active_run_id
+            ]
         total_organic = 0
         zombie_count = 0
+        # data_freshness_score is the MEAN of each contributing record's individual
+        # freshness (max(0, 1 - age/ttl)), per FRESHNESS_MODEL.md's
+        # calculate_data_freshness_score - not just the single worst record, so a few
+        # aging inputs don't collapse confidence when most of the data is fresh.
+        # data_age_hours/data_ttl_hours are tracked separately from the single most
+        # overdue record (highest age/ttl ratio) purely to drive the existing discrete
+        # data_stale_over_2x_ttl deduction gate in confidence.py (Codex review, PR #176).
+        freshness_ratios: list[float] = []
+        worst_ratio = -1.0
+
+        def _consider_freshness(candidate_at: Any, candidate_ttl: Any) -> None:
+            nonlocal data_age_hours, data_ttl_hours, worst_ratio
+            if not isinstance(candidate_at, datetime):
+                return
+            now_for_candidate = datetime.now(UTC) if candidate_at.tzinfo is not None else datetime.now()
+            try:
+                candidate_age_hours = max(0.0, (now_for_candidate - candidate_at).total_seconds() / 3600.0)
+            except TypeError:
+                # Mixed naive/aware datetimes (SQLite round-trip inconsistency) - skip
+                # rather than raising.
+                return
+            candidate_ttl_hours = _as_ttl_hours(candidate_ttl)
+            candidate_ratio = candidate_age_hours / candidate_ttl_hours
+            freshness_ratios.append(candidate_ratio)
+            if candidate_ratio > worst_ratio:
+                worst_ratio = candidate_ratio
+                data_age_hours = candidate_age_hours
+                data_ttl_hours = candidate_ttl_hours
+
+        processed_gig_ids: set[int] = set()
+
+        def _process_gig(gig: Any) -> None:
+            nonlocal gig_detail_collected, seller_profiles_collected
+            gig_id = getattr(gig, "id", None)
+            if isinstance(gig_id, int):
+                if gig_id in processed_gig_ids:
+                    return
+                processed_gig_ids.add(gig_id)
+            gig_detail_collected_at = getattr(gig, "detail_collected_at", None)
+            # Gig.is_stale() requires BOTH detail_collected (bool) and
+            # detail_collected_at: write_gig_card() resets detail_collected=False on
+            # every re-seen search card WITHOUT clearing the old detail_collected_at,
+            # so a stale timestamp alone is not proof detail collection succeeded for
+            # the current run (Codex review, PR #176).
+            if bool(getattr(gig, "detail_collected", False)) and gig_detail_collected_at is not None:
+                gig_detail_collected = True
+            # Prefer the actual collection timestamp over updated_at: a gig's metadata
+            # (relevance/zombie flags, price) can be touched long after its detail
+            # payload was scraped, which would otherwise mask stale gig-detail data
+            # behind an unrelated recent write (Codex review, PR #176).
+            gig_freshness_at = gig_detail_collected_at if isinstance(gig_detail_collected_at, datetime) else gig.updated_at
+            _consider_freshness(gig_freshness_at, getattr(gig, "ttl_hours", None))
+            seller = getattr(gig, "seller", None)
+            if seller is not None:
+                seller_profile_collected_at = getattr(seller, "profile_collected_at", None)
+                if bool(getattr(seller, "profile_collected", False)):
+                    seller_profiles_collected = True
+                seller_freshness_at = (
+                    seller_profile_collected_at if isinstance(seller_profile_collected_at, datetime) else seller.updated_at
+                )
+                _consider_freshness(seller_freshness_at, getattr(seller, "ttl_hours", None))
+
+        # admitted_organic_count tracks gigs actually folded into detail/freshness
+        # via _process_gig - kept separate from total_organic/zombie_count (the
+        # zombie_fraction denominator/numerator) because when enable_zombie_filter
+        # is true the real calculators exclude zombies before slicing to
+        # top_n_for_scoring, so the first N zombie gigs must not exhaust the window
+        # and hide the deeper clean gigs that actually fed detail/seller-profile/
+        # freshness scoring (Codex review, PR #176).
+        admitted_organic_count = 0
         for result in top_results:
+            if admitted_organic_count >= top_n_for_scoring:
+                continue
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
-            if getattr(gig, "is_sponsored", None) is True:
+            if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
                 continue
+            is_zombie_gig = bool(getattr(gig, "is_zombie", False))
             total_organic += 1
-            if bool(getattr(gig, "is_zombie", False)):
+            if is_zombie_gig:
                 zombie_count += 1
+            if enable_zombie_filter and is_zombie_gig:
+                continue
+            # collected_at (when this search snapshot was actually fetched) rather
+            # than updated_at, which a later reprocessing pass can bump without
+            # recollecting the underlying marketplace data (Codex review, PR #176).
+            # Only folded for a row actually admitted to the scored window - a
+            # later, unused row from deeper in the widened candidate_window never
+            # contributed to the score and must not affect freshness (Codex review,
+            # PR #176).
+            _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
+            admitted_organic_count += 1
+            _process_gig(gig)
+        # A page-level SearchResult row can carry multiple gig cards in gig_cards
+        # (write_search_result's raw scrape payload) beyond the single gig_id it links
+        # to. ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator resolve
+        # those card URLs to real top-N gigs too, so one linked fresh gig must not hide
+        # additional stale/missing-detail/missing-seller/zombie card gigs from
+        # confidence (Codex review, PR #176). write_search_result stamps a whole page's
+        # row with its first card's rank, so a page row can carry card positions well
+        # outside top_n_for_scoring - sort by each card's own position, rather than
+        # resolving every card on the page (Codex review, PR #176). Gather a wider
+        # candidate_window (not just top_n_for_scoring) of raw card positions before
+        # resolving: sponsored slots occupying some of the first top_n_for_scoring
+        # positions would otherwise cut off before reaching the organic gigs further
+        # down the page that ProfitabilityScoreCalculator/the feasibility loader
+        # actually slice their own top-N-organic window from (Codex review, PR #176).
+        ranked_card_urls: list[tuple[int, str]] = []
+        position_by_url: dict[str, int] = {}
+        for result in top_results:
+            cards = result.gig_cards if isinstance(result.gig_cards, list) else []
+            for card in cards:
+                if not isinstance(card, dict):
+                    continue
+                raw_url = card.get("gig_url")
+                if not isinstance(raw_url, str) or not raw_url.strip():
+                    continue
+                normalized_url = raw_url.strip()
+                raw_position = card.get("position")
+                if isinstance(raw_position, int) and raw_position > 0:
+                    position = raw_position
+                elif isinstance(raw_position, str) and raw_position.strip().isdigit():
+                    position = int(raw_position.strip())
+                else:
+                    position = 10_000
+                ranked_card_urls.append((position, normalized_url))
+                position_by_url[normalized_url] = min(position, position_by_url.get(normalized_url, position))
+        ranked_card_urls.sort(key=lambda value: value[0])
+        card_gig_urls: set[str] = set()
+        seen_card_urls: set[str] = set()
+        for _, normalized_url in ranked_card_urls:
+            if normalized_url in seen_card_urls:
+                continue
+            seen_card_urls.add(normalized_url)
+            card_gig_urls.add(normalized_url)
+            if len(card_gig_urls) >= candidate_window:
+                break
+        position_by_identity: dict[str, int] = {}
+        for normalized_url, position in position_by_url.items():
+            identity = _normalize_gig_url_identity(normalized_url)
+            if identity is not None:
+                position_by_identity[identity] = min(position, position_by_identity.get(identity, position))
+        if card_gig_urls:
+            card_gigs_query = db.query(Gig).filter(Gig.gig_url.in_(card_gig_urls))
+            # A gig_url is only unique within a run's own collection, not globally -
+            # without this filter a page from an older/different run can pull in that
+            # run's stale Gig row for the same URL, reporting its detail/freshness/
+            # zombie state (and short-circuiting the identity fallback below) instead
+            # of the active run's. ProfitabilityScoreCalculator's equivalent exact-URL
+            # lookup applies the same active-run filter (Codex review, PR #176).
+            if active_run_id is not None:
+                card_gigs_query = card_gigs_query.filter(Gig.run_id == active_run_id)
+            card_gigs = card_gigs_query.all()
+            # An exact string match misses persisted Gig rows whose gig_url differs
+            # only by a tracking query string, fragment, URL-encoded path, or
+            # trailing slash from the card's URL. ProfitabilityScoreCalculator
+            # normalizes by path identity and falls back through the keyword's own
+            # gigs for exactly this reason - mirror that so those gigs' missing
+            # detail/staleness/zombie state isn't silently dropped from confidence
+            # (Codex review, PR #176).
+            wanted_identities = {
+                identity
+                for identity in (_normalize_gig_url_identity(card_url) for card_url in card_gig_urls)
+                if identity is not None
+            }
+            matched_identities = {
+                identity
+                for identity in (_normalize_gig_url_identity(getattr(gig, "gig_url", None)) for gig in card_gigs)
+                if identity is not None
+            }
+            missing_identities = wanted_identities - matched_identities
+            if missing_identities:
+                identity_fallback_query = db.query(Gig).filter(Gig.keyword_id == keyword_id, Gig.gig_url.isnot(None))
+                if active_run_id is not None:
+                    identity_fallback_query = identity_fallback_query.filter(Gig.run_id == active_run_id)
+                existing_ids = {gig.id for gig in card_gigs if getattr(gig, "id", None) is not None}
+                for candidate_gig in identity_fallback_query.all():
+                    if candidate_gig.id in existing_ids:
+                        continue
+                    if _normalize_gig_url_identity(candidate_gig.gig_url) not in missing_identities:
+                        continue
+                    card_gigs.append(candidate_gig)
+                    if candidate_gig.id is not None:
+                        existing_ids.add(candidate_gig.id)
+            # Resolve each gig back to its original card position (falling back to
+            # identity-matched position for gigs found only via the fallback above),
+            # then walk them in that order so the sponsored skip below reproduces
+            # ProfitabilityScoreCalculator/the feasibility loader's own "gather wide,
+            # skip sponsored, slice to top N organic" behavior instead of admitting
+            # every resolved gig from the widened candidate_window (Codex review,
+            # PR #176).
+            def _card_gig_position(gig: Any) -> int:
+                gig_url = getattr(gig, "gig_url", None)
+                if isinstance(gig_url, str) and gig_url in position_by_url:
+                    return position_by_url[gig_url]
+                identity = _normalize_gig_url_identity(gig_url)
+                if identity is not None and identity in position_by_identity:
+                    return position_by_identity[identity]
+                return 10_000
+
+            card_gigs.sort(key=_card_gig_position)
+            for card_gig in card_gigs:
+                if admitted_organic_count >= top_n_for_scoring:
+                    break
+                if getattr(card_gig, "id", None) in processed_gig_ids:
+                    continue
+                if enable_sponsored_exclusion and getattr(card_gig, "is_sponsored", None) is True:
+                    continue
+                is_zombie_gig = bool(getattr(card_gig, "is_zombie", False))
+                total_organic += 1
+                if is_zombie_gig:
+                    zombie_count += 1
+                if enable_zombie_filter and is_zombie_gig:
+                    continue
+                admitted_organic_count += 1
+                _process_gig(card_gig)
         zombie_fraction = zombie_count / max(total_organic, 1)
+        if total_organic == 0:
+            # ProfitabilityScoreCalculator/GigQualityWeaknessScoreCalculator both fall
+            # back to Gig.keyword_id (bypassing SearchResult.gig_id entirely) when no
+            # gig could be resolved through search-result linkage - mirror that final
+            # fallback tier here, including its active-run scoping and
+            # position.asc().nullslast()/id.asc() ordering, so scores actually computed
+            # from those gigs aren't penalized as if no (or the wrong) gig data existed
+            # (Codex review, PR #176).
+            # ProfitabilityScoreCalculator/the feasibility loader limit this fallback
+            # tier's own query to candidate_window (not top_n_for_scoring) for the
+            # same reason as the gig_cards window above: if the first
+            # top_n_for_scoring positions here are sponsored, the real organic gigs
+            # that fed the score sit just past them (Codex review, PR #176).
+            fallback_query = db.query(Gig).filter(Gig.keyword_id == keyword_id)
+            if active_run_id is not None:
+                fallback_query = fallback_query.filter(Gig.run_id == active_run_id)
+            fallback_gigs = (
+                fallback_query.order_by(Gig.position.asc().nullslast(), Gig.id.asc()).limit(candidate_window).all()
+            )
+            # A stale active_run_id can point to unlinked SearchResult rows with no
+            # matching Gig.run_id at all - retry unscoped, matching the same final
+            # recovery tier profitability.py/weakness.py fall back to (Codex review,
+            # PR #176).
+            if not fallback_gigs and active_run_id is not None:
+                fallback_gigs = (
+                    db.query(Gig)
+                    .filter(Gig.keyword_id == keyword_id)
+                    .order_by(Gig.position.asc().nullslast(), Gig.id.asc())
+                    .limit(candidate_window)
+                    .all()
+                )
+            fallback_organic = 0
+            fallback_zombie_count = 0
+            fallback_admitted_count = 0
+            for gig in fallback_gigs:
+                if fallback_admitted_count >= top_n_for_scoring:
+                    break
+                if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
+                    continue
+                is_zombie_gig = bool(getattr(gig, "is_zombie", False))
+                fallback_organic += 1
+                if is_zombie_gig:
+                    fallback_zombie_count += 1
+                if enable_zombie_filter and is_zombie_gig:
+                    continue
+                fallback_admitted_count += 1
+                _process_gig(gig)
+            if fallback_organic > 0:
+                # These gigs are the only ones contributing to this keyword's score
+                # (the search-result-linked path found none), so zombie concentration
+                # must be measured against them too, not left at 0.0 (Codex review,
+                # PR #176).
+                zombie_fraction = fallback_zombie_count / fallback_organic
+        # DemandScoreCalculator._resolve_marketplace_snapshot reads the SearchResult
+        # row with the highest total_result_count regardless of rank (it can be
+        # unranked or outside the top-N), so demand can be driven by a row this
+        # function's rank-filtered top_results never sees - fold its freshness in too
+        # (Codex review, PR #176).
+        marketplace_snapshot_row = (
+            db.query(SearchResult)
+            .filter(SearchResult.keyword_id == keyword_id, SearchResult.total_result_count.isnot(None))
+            .order_by(
+                SearchResult.total_result_count.desc(), SearchResult.collected_at.desc(), SearchResult.id.desc()
+            )
+            .first()
+        )
+        if marketplace_snapshot_row is not None:
+            _consider_freshness(marketplace_snapshot_row.collected_at, marketplace_snapshot_row.ttl_hours)
+        # Keyword.updated_at reflects when the keyword ROW's own metadata was last
+        # touched (niche reassignment, etc.), not when any underlying market data was
+        # collected - it has no TTL category in FRESHNESS_MODEL.md's reference table
+        # unlike every genuine collected-record type, and a keyword can go untouched
+        # for weeks while its search results/gigs/signals stay current. Folding it in
+        # here wrongly ages otherwise-fresh scores (Codex review, PR #176).
         reddit_count = (
             db.query(ExternalSignal)
             .filter(
@@ -833,6 +1305,90 @@ def _build_confidence_context(
                     youtube_video_count = int(raw_count)
             except (TypeError, ValueError):
                 youtube_video_count = None
+        # Aggregate only the newest row PER exact signal_type, matching the "only the
+        # latest row counts" semantics most scoring loaders use (e.g.
+        # DemandScoreCalculator/ConversionIntentScoreCalculator read reddit_demand
+        # specifically) - an old, superseded row from a prior run must not drive
+        # staleness when a fresher same-type row is the one actually scored.
+        all_signals = (
+            db.query(ExternalSignal)
+            .filter(ExternalSignal.keyword_id == keyword_id)
+            .order_by(ExternalSignal.created_at.desc(), ExternalSignal.id.desc())
+            .all()
+        )
+        # A non-null trend_score does not prove Google Trends contributed -
+        # TrendScoreCalculator can produce a score from Reddit plus LLM classification
+        # alone with Google Trends absent, which would overstate source diversity.
+        # Check the actual signal instead (Codex review, PR #176). A mere row is not
+        # enough either: DemandScoreCalculator/TrendScoreCalculator both treat an
+        # empty or field-less payload as missing (their own missing_google_trends
+        # deductions fire) - require the newest row's payload to carry a field either
+        # calculator actually reads (Codex review, PR #176).
+        newest_google_trends_signal = next(
+            (signal for signal in all_signals if signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS),
+            None,
+        )
+        trends_available = newest_google_trends_signal is not None and _google_trends_signal_has_usable_data(
+            newest_google_trends_signal
+        )
+        # reddit_activity is never read on its own by any scoring loader - it only
+        # ever contributes via TrendScoreCalculator's combined-with-reddit_demand pool
+        # below - so it must not be folded in independently here, or a reddit_activity
+        # row staler than reddit_demand would wrongly count even though nothing reads
+        # it in that scenario (Codex review, PR #176).
+        #
+        # youtube_count is only ever consumed by ConfidenceScoreModifier's own
+        # youtube-confidence-gate when external_signals_enabled is true - a stale
+        # leftover youtube_count row must not depress freshness while that feature is
+        # disabled, since nothing reads it in that case (Codex review, PR #176).
+        #
+        # autocomplete_position rows are the same story: DemandScoreCalculator reads
+        # its "autocomplete_position" signal from Keyword.metadata_json, not this
+        # ExternalSignal row - the row's own JSON payload ("autocomplete_data") is
+        # only consulted by _classify_autocomplete_absence, itself only called when
+        # external_signals_enabled is true. A stale leftover row must not depress
+        # freshness while nothing reads it (Codex review, PR #176).
+        external_signals_gated_types = (
+            ExternalSignal.SIGNAL_YOUTUBE_COUNT,
+            ExternalSignal.SIGNAL_AUTOCOMPLETE_POSITION,
+        )
+        seen_signal_types: set[str] = set()
+        latest_signal_per_type: list[ExternalSignal] = []
+        for signal in all_signals:
+            if signal.signal_type == "reddit_activity":
+                continue
+            if signal.signal_type in external_signals_gated_types and not external_signals_enabled:
+                continue
+            # An empty/failed google_trends row (no field either calculator reads)
+            # is already reported as missing via trends_available above - it must
+            # not also depress freshness, since nothing consumes it either way
+            # (Codex review, PR #176).
+            if signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS and not trends_available:
+                continue
+            if signal.signal_type in seen_signal_types:
+                continue
+            seen_signal_types.add(signal.signal_type)
+            latest_signal_per_type.append(signal)
+        for signal in latest_signal_per_type:
+            _consider_freshness(signal.collected_at, signal.ttl_hours)
+        # TrendScoreCalculator._load_signals_from_db additionally treats reddit_demand
+        # and reddit_activity as one combined pool
+        # (signal_type.in_([...]).order_by(created_at.desc()).first()) - fold that
+        # combined value in too, in addition to (not instead of) reddit_demand's own
+        # per-type entry above, since demand/intent scoring still reads reddit_demand
+        # specifically regardless of reddit_activity's freshness (Codex review, PR #176).
+        # Only TrendScoreCalculator reads reddit_activity, and only when trend scoring
+        # actually ran for this call (score 9 is skipped for keyword_only/feasibility
+        # depth, leaving trend_score None) - gate on that so an unused, possibly stale
+        # reddit_activity row cannot demote a partial-depth run's freshness for a
+        # signal nothing in that run reads (Codex review, PR #176).
+        if scores.get("trend_score") is not None:
+            reddit_combined_newest = next(
+                (signal for signal in all_signals if signal.signal_type in ("reddit_demand", "reddit_activity")),
+                None,
+            )
+            if reddit_combined_newest is not None:
+                _consider_freshness(reddit_combined_newest.collected_at, reddit_combined_newest.ttl_hours)
         newest_signal = (
             db.query(ExternalSignal)
             .filter(ExternalSignal.keyword_id == keyword_id)
@@ -852,30 +1408,41 @@ def _build_confidence_context(
         rsv = get_result_set_validation(keyword_id, db)
         if rsv is not None and rsv.result_set_relevance_score is not None:
             signal_relevance_score = float(rsv.result_set_relevance_score)
-    trends_available = scores.get("trend_score") is not None
-    gig_detail_collected = True
-    llm_quality_incomplete_count = 0
-    if not gig_detail_collected:
-        llm_quality_incomplete_count = sum(
-            1
-            for warning in warnings
-            if "llm_not_implemented" in warning and "quality" in warning.lower()
-        )
+        if freshness_ratios:
+            data_freshness_score = sum(max(0.0, 1.0 - ratio) for ratio in freshness_ratios) / len(freshness_ratios)
+        else:
+            data_freshness_score = 1.0
+    else:
+        data_freshness_score = 1.0
+    available_core_sources = sum([trends_available, gig_detail_collected, seller_profiles_collected])
+    source_diversity_score = min(1.0, available_core_sources / 3.0)
+    # Whether gig detail was scraped and whether LLM quality analysis ran on it are
+    # unrelated: a gig can have a fully-collected detail payload with no LLM quality
+    # score yet, so this must not be gated on gig_detail_collected (Codex review, PR #176).
+    llm_quality_incomplete_count = sum(
+        1
+        for warning in warnings
+        if "llm_not_implemented" in warning and any(marker in warning for marker in _GIG_QUALITY_LLM_MARKERS)
+    )
+    llm_other_missing = sum(
+        1 for warning in warnings if any(marker in warning for marker in _OTHER_LLM_SIGNAL_MARKERS)
+    )
+    llm_analysis_completion_ratio = max(0.0, 1.0 - (min(llm_other_missing, _OTHER_LLM_SIGNAL_COUNT) / _OTHER_LLM_SIGNAL_COUNT))
     return {
         "data_completeness_ratio": present_scores / max(1, total_scores),
-        "data_freshness_score": 1.0,
-        "source_diversity_score": 1.0,
-        "llm_analysis_completion_ratio": 1.0,
+        "data_freshness_score": data_freshness_score,
+        "source_diversity_score": source_diversity_score,
+        "llm_analysis_completion_ratio": llm_analysis_completion_ratio,
         "google_trends_available": trends_available,
         "gig_detail_collected": gig_detail_collected,
-        "seller_profiles_collected": True,
+        "seller_profiles_collected": seller_profiles_collected,
         "reddit_signals_available": reddit_signals_available,
         "llm_gig_quality_incomplete_count": llm_quality_incomplete_count,
         "llm_competitor_synthesis_failed": any(
             "competitor" in warning and "llm_not_implemented" in warning for warning in warnings
         ),
-        "data_age_hours": 0.0,
-        "data_ttl_hours": 168.0,
+        "data_age_hours": data_age_hours,
+        "data_ttl_hours": data_ttl_hours,
         "mode": depth,
         "enable_zombie_filter": enable_zombie_filter,
         "zombie_fraction": zombie_fraction,
