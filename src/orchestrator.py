@@ -139,14 +139,20 @@ def _run_collection_stage(
             pass
 
         try:
+            # Several downstream analysis stages (clustering/review/saturation) have
+            # no dry_run parameter of their own and will call a real llm_client
+            # unconditionally if one is passed in - a run reported as a collection
+            # dry run (no valid saved Fiverr session) must not silently make paid
+            # OpenAI calls just because OPENAI_API_KEY happens to be configured
+            # (Codex review, PR #179).
             return await run_collection_pipeline(
                 run_id=run_id,
                 db=db_session,
                 config=config_payload,
                 session_manager=session_manager,
                 dry_run=not session_valid,
-                llm_client=llm_client,
-                cache=cache,
+                llm_client=llm_client if session_valid else None,
+                cache=cache if session_valid else None,
             )
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)}

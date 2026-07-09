@@ -825,6 +825,49 @@ def test_collection_stage_shares_one_event_loop_between_session_check_and_pipeli
     assert loop_ids["session_check"] == loop_ids["pipeline"]
 
 
+def test_collection_stage_withholds_llm_client_without_a_valid_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Codex review, PR #179 (P2): several downstream analysis stages
+    (clustering/review/saturation) have no dry_run parameter of their own and will
+    call a real llm_client unconditionally if one is passed in. A run reported as a
+    collection dry run (no valid saved Fiverr session) must not silently make real
+    LLM calls just because OPENAI_API_KEY happens to be configured - llm_client/
+    cache must be withheld (forced to None) when session_valid is false."""
+    sentinel_llm_client = object()
+    sentinel_cache = object()
+    recorded: dict[str, Any] = {}
+
+    class _InvalidSessionManager:
+        async def is_session_valid(self) -> bool:
+            return False
+
+        async def close(self) -> None:
+            pass
+
+    async def _fake_collection_pipeline(**kwargs: Any) -> dict[str, Any]:
+        recorded["llm_client"] = kwargs.get("llm_client")
+        recorded["cache"] = kwargs.get("cache")
+        recorded["dry_run"] = kwargs.get("dry_run")
+        return {"stages_run": [], "errors": []}
+
+    monkeypatch.setattr(orchestrator, "_construct_session_manager", lambda _config: _InvalidSessionManager())
+    monkeypatch.setattr("src.collection.orchestrator.run_collection_pipeline", _fake_collection_pipeline)
+
+    orchestrator._run_collection_stage(
+        run_id="run-invalid-session",
+        db_session=object(),
+        config=object(),
+        config_payload={},
+        llm_client=sentinel_llm_client,
+        cache=sentinel_cache,
+    )
+
+    assert recorded["dry_run"] is True
+    assert recorded["llm_client"] is None
+    assert recorded["cache"] is None
+
+
 def test_run_pipeline_collect_only_returns_error_on_orchestrator_failure(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
