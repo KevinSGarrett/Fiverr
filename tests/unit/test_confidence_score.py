@@ -569,6 +569,64 @@ def test_confidence_kw3_cm_matches_expected_with_full_data() -> None:
     assert breakdown["remaining_modifier"] == 1.0
 
 
+def test_confidence_base_modifier_does_not_collapse_on_llm_hiccup() -> None:
+    """PM_Pack/ref/project_plan/05_scoring/CONFIDENCE_SCORE.md specifies base_modifier
+    as an ADDITIVE weighted sum (0.30/0.30/0.20/0.20) of completeness, freshness,
+    diversity, and llm_completion - NOT llm_completion multiplicatively gating the
+    other three. A transient LLM hiccup (llm_analysis_completion_ratio=0.0) with
+    otherwise-perfect data must land at the spec's floor of 0.80, not collapse the
+    entire base modifier to 0.0."""
+    calculator = ConfidenceScoreModifier()
+    context = {
+        "data_completeness_ratio": 1.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 0.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    modifier, breakdown = calculator.calculate_with_breakdown(keyword_id=3, run_context=context, db=None)
+    assert breakdown["base_modifier"] == pytest.approx(0.80)
+    assert modifier == pytest.approx(0.80)
+
+
+def test_confidence_base_modifier_weights_all_four_inputs_additively() -> None:
+    """Locks in the spec's exact 0.30/0.30/0.20/0.20 weight split (not the old,
+    incorrect 0.50/0.30/0.20 multiplicative split) by varying each input
+    independently against non-uniform values for the other three."""
+    calculator = ConfidenceScoreModifier()
+    base_context = {
+        "data_completeness_ratio": 0.0,
+        "data_freshness_score": 1.0,
+        "source_diversity_score": 1.0,
+        "llm_analysis_completion_ratio": 1.0,
+        "google_trends_available": True,
+        "gig_detail_collected": True,
+        "seller_profiles_collected": True,
+        "reddit_signals_available": True,
+        "llm_gig_quality_incomplete_count": 0.0,
+        "llm_competitor_synthesis_failed": False,
+        "mode": "standard",
+    }
+    _, breakdown = calculator.calculate_with_breakdown(keyword_id=3, run_context=base_context, db=None)
+    # completeness=0.0: 0*0.30 + 1*0.30 + 1*0.20 + 1*0.20 = 0.70 (spec), not 0.50
+    # (the old multiplicative formula's (0*0.50+1*0.30+1*0.20)*1 result).
+    assert breakdown["base_modifier"] == pytest.approx(0.70)
+
+    freshness_zero = dict(base_context, data_completeness_ratio=1.0, data_freshness_score=0.0)
+    _, breakdown = calculator.calculate_with_breakdown(keyword_id=3, run_context=freshness_zero, db=None)
+    assert breakdown["base_modifier"] == pytest.approx(0.70)
+
+    diversity_zero = dict(base_context, data_completeness_ratio=1.0, source_diversity_score=0.0)
+    _, breakdown = calculator.calculate_with_breakdown(keyword_id=3, run_context=diversity_zero, db=None)
+    assert breakdown["base_modifier"] == pytest.approx(0.80)
+
+
 def test_confidence_reddit_deduction_removed_when_signal_present() -> None:
     calculator = ConfidenceScoreModifier()
     base_context = {
