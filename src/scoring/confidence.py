@@ -60,7 +60,15 @@ class ConfidenceScoreModifier:
         diversity = self._clamp_0_1(self._as_float(context.get("source_diversity_score"), 1.0))
         llm_completion = self._clamp_0_1(self._as_float(context.get("llm_analysis_completion_ratio"), 1.0))
 
-        base_modifier = ((completeness * 0.50) + (freshness * 0.30) + (diversity * 0.20)) * llm_completion
+        # PM_Pack/ref/project_plan/05_scoring/CONFIDENCE_SCORE.md's
+        # calculate_confidence_modifier: an additive weighted sum of all four
+        # inputs (0.30/0.30/0.20/0.20, summing to 1.0) - NOT llm_completion gating
+        # the other three multiplicatively. Under the old multiplicative form, any
+        # transient LLM hiccup (llm_completion=0) collapsed the entire base
+        # modifier to 0.0 even with perfect completeness/freshness/diversity,
+        # instead of the spec's floor of 0.80 in that scenario (Codex-adjacent
+        # finding, gap-audit P0).
+        base_modifier = (completeness * 0.30) + (freshness * 0.30) + (diversity * 0.20) + (llm_completion * 0.20)
 
         deductions: dict[str, float] = {}
         if not self._as_bool(context.get("google_trends_available"), True):
