@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1140,6 +1141,113 @@ def test_run_discovery_cycle_gates_llm_client_once_budget_exceeded() -> None:
     assert received_clients[0] is sentinel_client
     assert received_clients[1] is None
     assert received_clients[2] is None
+
+
+def test_run_discovery_cycle_resolves_niche_slug_to_integer_pk() -> None:
+    """Codex P2 (PR #181): Keyword.niche_id is an integer FK to niches.id, but every
+    generator (rule-based and llm_niche_expansion alike) stamps
+    HypothesisContract.niche_id with the string validation slug. run_discovery_cycle
+    must overwrite it with the real resolved PK before hypotheses reach
+    process_accepted_hypotheses(), or insert_discovery_keyword() would pass a string
+    straight into an integer column."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    captured_hypotheses: list[Any] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        contract = HypothesisContract(
+            hypothesis_text="python automation for agencies",
+            niche_id=str(niche_id),
+            buyer="agencies",
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+        )
+        return [contract], 0
+
+    def mock_process(hypotheses: list[Any], run_id: str, db: object) -> dict[str, object]:
+        del run_id, db
+        captured_hypotheses.extend(hypotheses)
+        return {"inserted": len(hypotheses), "skipped": 0, "run_id": "pk-test", "keyword_ids": []}
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=42),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "pk-test")
+
+    assert len(captured_hypotheses) == 1
+    assert captured_hypotheses[0].niche_id == 42
+
+
+def test_run_discovery_cycle_keeps_slug_when_niche_pk_unresolvable() -> None:
+    """When the niche row can't be resolved (e.g. against a mocked/empty DB), the
+    slug must be left as-is rather than silently dropped - matches every other
+    _mock_db()-based test in this file, which relies on this exact fallback."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    captured_hypotheses: list[Any] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        contract = HypothesisContract(
+            hypothesis_text="python automation for agencies",
+            niche_id=str(niche_id),
+            buyer="agencies",
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+        )
+        return [contract], 0
+
+    def mock_process(hypotheses: list[Any], run_id: str, db: object) -> dict[str, object]:
+        del run_id, db
+        captured_hypotheses.extend(hypotheses)
+        return {"inserted": len(hypotheses), "skipped": 0, "run_id": "pk-none", "keyword_ids": []}
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=None),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "pk-none")
+
+    assert len(captured_hypotheses) == 1
+    assert captured_hypotheses[0].niche_id == "python_automation"
 
 
 def test_feedback_summary_stored_as_json() -> None:

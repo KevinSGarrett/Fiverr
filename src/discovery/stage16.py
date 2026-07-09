@@ -370,6 +370,19 @@ def run_discovery_cycle(
                 cost_tracker=cost_tracker,
             )
             total_llm_cost_usd += sum(cost_tracker)
+            # Codex P2 (PR #181): every generator (rule-based and llm_niche_expansion
+            # alike) stamps the validation slug (e.g. "python_automation") onto
+            # HypothesisContract.niche_id, but Keyword.niche_id is an integer FK to
+            # niches.id - insert_discovery_keyword() would pass the slug straight
+            # into the Keyword constructor and fail at flush. Resolve the real PK
+            # once per niche and overwrite it on every hypothesis from that niche
+            # before it reaches process_accepted_hypotheses(); leave it as the slug
+            # (existing behavior) when the niche row can't be resolved, e.g. in
+            # tests against a mocked/empty DB.
+            niche_pk = _resolve_niche_pk(db, niche_id)
+            if niche_pk is not None:
+                for hypothesis in niche_hypotheses:
+                    hypothesis.niche_id = niche_pk
             all_hypotheses.extend(niche_hypotheses)
             total_gated += niche_gated
     else:
