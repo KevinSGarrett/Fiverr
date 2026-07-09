@@ -1132,6 +1132,9 @@ def test_run_discovery_cycle_forwards_llm_client_to_generate_all_hypotheses() ->
         ),
         patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
         patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+        # Isolate llm_client threading from the round-6 niche-PK gate (which would
+        # otherwise force llm_client=None against _mock_db()'s unresolvable niche).
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
     ):
         run_discovery_cycle(db, "llm-thread", llm_client=sentinel_client)
     assert received_clients == [sentinel_client]
@@ -1224,6 +1227,9 @@ def test_run_discovery_cycle_gates_llm_client_once_budget_exceeded() -> None:
             "src.discovery.stage16.NICHE_VALIDATION_CONFIG",
             {"niche_a": {}, "niche_b": {}, "niche_c": {}},
         ),
+        # Isolate budget gating from the round-6 niche-PK gate (which would
+        # otherwise force llm_client=None against _mock_db()'s unresolvable niche).
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
     ):
         run_discovery_cycle(
             db,
@@ -1341,6 +1347,51 @@ def test_run_discovery_cycle_keeps_slug_when_niche_pk_unresolvable() -> None:
 
     assert len(captured_hypotheses) == 1
     assert captured_hypotheses[0].niche_id == "python_automation"
+
+
+def test_run_discovery_cycle_skips_llm_call_for_unresolvable_niche() -> None:
+    """Codex P2 round 6 (PR #181): a niche whose row can't be resolved would carry
+    an unresolvable slug on any accepted LLM hypothesis and could never be
+    persisted - the paid llm_niche_expansion call must be skipped entirely for that
+    niche, not attempted and then silently wasted. The free rule-based modes still
+    get the real llm_client=None passed through the OTHER gates unaffected."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        **kwargs: object,
+    ) -> tuple[list[Any], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "no-pk", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=None),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "no-pk", llm_client=sentinel_client)
+
+    assert received_clients == [None]
 
 
 def test_feedback_summary_stored_as_json() -> None:
