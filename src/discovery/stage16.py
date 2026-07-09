@@ -10,13 +10,17 @@ Wires the complete S7.1-S7.7 discovery loop into a single callable function:
   6. process_accepted_hypotheses() - insert to keyword table (S7.7)
   7. DiscoveryCycleLog             - persist cycle record
 
-No LLM calls. Pure data analysis + keyword table inserts.
+The 4 rule-based modes (adjacent_keyword/adjacent_niche/gap_exploit/trend_chase) do
+pure data analysis with no LLM calls. An optional 5th mode, llm_niche_expansion, calls
+generate_niche_hypotheses() when a caller supplies llm_client (SCRUM-1106); it is a
+no-op when llm_client is None, matching the codebase-wide LLM-optional convention.
 No new migration required (DiscoveryCycleLog from migration_14 / C070).
 Does NOT modify src/discovery/orchestrator.py (SRDI legacy, untouched).
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -26,9 +30,11 @@ from typing import Any
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
 from src.discovery.feedback import build_feedback_summary, evaluate_discovery_results
 from src.discovery.hypothesis import (
+    HypothesisContract,
     generate_adjacent_keyword_hypotheses,
     generate_adjacent_niche_hypotheses,
     generate_gap_exploit_hypotheses,
+    generate_niche_hypotheses,
     generate_trend_chase_hypotheses,
 )
 from src.discovery.integration import get_pending_discovery_keywords, process_accepted_hypotheses
@@ -39,7 +45,7 @@ log = logging.getLogger(__name__)
 DEFAULT_MIN_CONFIDENCE: float = 0.50
 DEFAULT_MAX_HYPOTHESES: int = 15
 
-_BASE_MODES = ["adjacent_keyword", "gap_exploit", "trend_chase"]
+_BASE_MODES = ["adjacent_keyword", "gap_exploit", "trend_chase", "llm_niche_expansion"]
 _PERIODIC_MODES: dict[int, str] = {3: "adjacent_niche"}
 
 
@@ -169,11 +175,38 @@ def _build_seed_data(
     }
 
 
+def _adapt_llm_hypotheses(raw: list[dict[str, Any]], niche_id: str) -> list[HypothesisContract]:
+    """Convert generate_niche_hypotheses' gated dict output into HypothesisContract
+    rows so LLM-driven hypotheses flow through the same accept/gate/persist pipeline
+    as the rule-based generators. Called with enable_relevance_gates=True, so every
+    dict already passed hypothesis.py's own GATE1_SPECIFICITY_THRESHOLD filter."""
+    contracts: list[HypothesisContract] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        hypothesis_text = str(item.get("hypothesis_text") or "").strip()
+        if not hypothesis_text:
+            continue
+        contracts.append(
+            HypothesisContract(
+                hypothesis_text=hypothesis_text,
+                niche_id=niche_id,
+                buyer=item.get("buyer"),
+                deliverable=item.get("deliverable"),
+                specificity_score=float(item.get("specificity_score") or 0.0),
+                accepted=True,
+                reason=str(item.get("gate_reason") or "llm gate1 accepted"),
+            )
+        )
+    return contracts
+
+
 def _generate_all_hypotheses(
     niche_id: str,
     modes: list[str],
     seed_data: dict[str, Any],
     min_confidence: float,
+    llm_client: Any | None = None,
 ) -> tuple[list[Any], int]:
     """Generate hypotheses from all active modes for one niche."""
     all_hypotheses: list[Any] = []
@@ -222,6 +255,26 @@ def _generate_all_hypotheses(
         except Exception as exc:
             log.warning("trend_chase generation failed for %s: %s", niche_id, exc)
 
+    if "llm_niche_expansion" in modes and llm_client is not None:
+        try:
+            # enable_relevance_gates=True is required here (not tied to the separate
+            # discovery.enable_relevance_gates config key, which only gates the unwired
+            # DiscoveryOrchestrator legacy path): the ungated dict shape has no
+            # specificity_score/buyer/deliverable at all, which _adapt_llm_hypotheses
+            # needs to build a usable HypothesisContract.
+            raw = asyncio.run(
+                generate_niche_hypotheses(
+                    niche_id,
+                    seed_data["existing_kw_texts"],
+                    llm_client,
+                    None,
+                    enable_relevance_gates=True,
+                )
+            )
+            all_hypotheses.extend(_adapt_llm_hypotheses(raw, niche_id))
+        except Exception as exc:
+            log.warning("llm_niche_expansion generation failed for %s: %s", niche_id, exc)
+
     passing = [
         hypothesis
         for hypothesis in all_hypotheses
@@ -236,6 +289,7 @@ def run_discovery_cycle(
     db: Any,
     run_id: str | None = None,
     config: dict[str, Any] | None = None,
+    llm_client: Any | None = None,
 ) -> Any:
     """Execute one complete autonomous discovery cycle."""
     if run_id is None:
@@ -270,6 +324,7 @@ def run_discovery_cycle(
                 modes=modes,
                 seed_data=seed_data,
                 min_confidence=min_confidence,
+                llm_client=llm_client,
             )
             all_hypotheses.extend(niche_hypotheses)
             total_gated += niche_gated
@@ -314,6 +369,7 @@ __all__ = [
     "DEFAULT_MAX_HYPOTHESES",
     "DEFAULT_MIN_CONFIDENCE",
     "_BASE_MODES",
+    "_adapt_llm_hypotheses",
     "_build_seed_data",
     "_generate_all_hypotheses",
     "_select_modes",

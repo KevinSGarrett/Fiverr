@@ -48,7 +48,7 @@ class TestSelectModes:
 
         modes = _select_modes(run_number=None)
         assert "adjacent_niche" not in modes
-        assert len(modes) == 3
+        assert len(modes) == 4
 
     def test_config_override_filters_modes(self) -> None:
         from src.discovery.stage16 import _select_modes
@@ -61,7 +61,12 @@ class TestSelectModes:
     def test_empty_config_returns_defaults(self) -> None:
         from src.discovery.stage16 import _select_modes
 
-        assert _select_modes(config={}) == ["adjacent_keyword", "gap_exploit", "trend_chase"]
+        assert _select_modes(config={}) == [
+            "adjacent_keyword",
+            "gap_exploit",
+            "trend_chase",
+            "llm_niche_expansion",
+        ]
 
     def test_returns_list_type(self) -> None:
         from src.discovery.stage16 import _select_modes
@@ -93,7 +98,7 @@ class TestSelectModes:
 
         modes = _select_modes(run_number=0)
         assert "adjacent_niche" in modes
-        assert len(modes) == 4
+        assert len(modes) == 5
 
     def test_adjacent_niche_included_on_run_6(self) -> None:
         from src.discovery.stage16 import _select_modes
@@ -314,6 +319,92 @@ class TestGenerateAllHypotheses:
 
         seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
         hypotheses, gated = _generate_all_hypotheses("python_automation", [], seed, 0.50)
+        assert hypotheses == []
+        assert gated == 0
+
+    def test_llm_niche_expansion_noop_without_llm_client(self) -> None:
+        """SCRUM-1106: llm_niche_expansion must not call generate_niche_hypotheses
+        at all when llm_client is None, matching the codebase-wide LLM-optional
+        convention (no wasted call, no accidental cost)."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        with patch("src.discovery.stage16.generate_niche_hypotheses") as mock_generate:
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=None,
+            )
+        mock_generate.assert_not_called()
+        assert hypotheses == []
+        assert gated == 0
+
+    def test_llm_niche_expansion_adapts_gated_dicts_to_contracts(self) -> None:
+        """SCRUM-1106: when llm_client is provided, generate_niche_hypotheses' gated
+        dict output (specificity_score/buyer/deliverable/gate_reason) must be adapted
+        into HypothesisContract rows with accepted=True so it survives the same
+        accept/gate filter as the rule-based generators."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {
+            "seed_keywords": ["python automation"],
+            "gap_signals": [],
+            "trend_signals": [],
+            "existing_kw_texts": ["python automation"],
+        }
+        gated_dicts = [
+            {
+                "hypothesis_text": "python automation for e-commerce",
+                "hypothesis_type": "adjacent_keyword",
+                "source_signal": "gated_hypothesis",
+                "buyer": "e-commerce store owners",
+                "deliverable": "python automation",
+                "specificity_score": 0.86,
+                "gate_reason": "passed specificity + on-niche",
+            }
+        ]
+
+        async def _fake_generate(*args: object, **kwargs: object) -> list[dict[str, object]]:
+            assert kwargs["enable_relevance_gates"] is True
+            return gated_dicts
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=MagicMock(),
+            )
+
+        assert len(hypotheses) == 1
+        contract = hypotheses[0]
+        assert contract.hypothesis_text == "python automation for e-commerce"
+        assert contract.niche_id == "python_automation"
+        assert contract.buyer == "e-commerce store owners"
+        assert contract.specificity_score == 0.86
+        assert contract.accepted is True
+        assert gated == 0
+
+    def test_llm_niche_expansion_failure_non_fatal(self) -> None:
+        """SCRUM-1106: an LLM/network failure in llm_niche_expansion must not break
+        the rest of the discovery cycle, mirroring the other 4 generators' try/except."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        with patch(
+            "src.discovery.stage16.generate_niche_hypotheses",
+            side_effect=Exception("llm error"),
+        ):
+            hypotheses, gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=MagicMock(),
+            )
         assert hypotheses == []
         assert gated == 0
 
@@ -764,7 +855,8 @@ def test_select_modes_run_3_has_adj_niche() -> None:
     assert "adjacent_keyword" in modes
     assert "gap_exploit" in modes
     assert "trend_chase" in modes
-    assert len(modes) == 4
+    assert "llm_niche_expansion" in modes
+    assert len(modes) == 5
 
 
 def test_select_modes_run_1_no_adj_niche() -> None:
@@ -772,7 +864,7 @@ def test_select_modes_run_1_no_adj_niche() -> None:
 
     modes = _select_modes(run_number=1)
     assert "adjacent_niche" not in modes
-    assert len(modes) == 3
+    assert len(modes) == 4
 
 
 def test_all_below_confidence_gated() -> None:
@@ -859,6 +951,46 @@ def test_multiple_niches_all_called() -> None:
     assert set(generate_calls) == set(fake_niches.keys())
 
 
+def test_run_discovery_cycle_forwards_llm_client_to_generate_all_hypotheses() -> None:
+    """SCRUM-1106: run_discovery_cycle must thread its llm_client param through to
+    every per-niche _generate_all_hypotheses call, not just build/ignore it."""
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MagicMock], int]:
+        del niche_id, modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        return [], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "llm-thread", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(db, "llm-thread", llm_client=sentinel_client)
+    assert received_clients == [sentinel_client]
+
+
 def test_feedback_summary_stored_as_json() -> None:
     from src.discovery.stage16 import run_discovery_cycle
 
@@ -917,14 +1049,14 @@ def test_mode_count_run_0() -> None:
     from src.discovery.stage16 import _select_modes
 
     modes = _select_modes(run_number=0)
-    assert len(modes) == 4
+    assert len(modes) == 5
 
 
 def test_config_none_uses_defaults() -> None:
     from src.discovery.stage16 import _select_modes
 
     modes = _select_modes(config=None, run_number=1)
-    assert len(modes) == 3
+    assert len(modes) == 4
 
 
 def test_stage16_coexists_with_s76() -> None:
@@ -1082,7 +1214,7 @@ def test_select_modes_run_9() -> None:
 
     modes = _select_modes(run_number=9)
     assert "adjacent_niche" in modes
-    assert len(modes) == 4
+    assert len(modes) == 5
 
 
 def test_select_modes_run_5() -> None:
@@ -1090,7 +1222,7 @@ def test_select_modes_run_5() -> None:
 
     modes = _select_modes(run_number=5)
     assert "adjacent_niche" not in modes
-    assert len(modes) == 3
+    assert len(modes) == 4
 
 
 def test_generate_all_adj_niche_failure_nonfatal() -> None:

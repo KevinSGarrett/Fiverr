@@ -24,6 +24,7 @@ from src.models.database import (
 from src.models.price_analysis import PriceAnalysis
 from src.orchestrator import (
     AVAILABLE_MODES,
+    _build_llm_client_safely,
     normalize_cli_config_path,
     run_analysis_dry_run,
     run_collection_dry_run,
@@ -470,6 +471,7 @@ def discover_command(run_id: str | None, config_path: str, database_url: str | N
             db=db,
             run_id=run_id,
             config=config_payload,
+            llm_client=_build_llm_client_safely(config_payload),
         )
     click.echo(f"Discovery complete: {cycle_log.hypotheses_accepted} keywords inserted")
 
