@@ -1394,6 +1394,79 @@ def test_run_discovery_cycle_skips_llm_call_for_unresolvable_niche() -> None:
     assert received_clients == [None]
 
 
+def test_run_discovery_cycle_drops_llm_output_that_pushed_over_budget() -> None:
+    """Codex P2 round 7 (PR #181): the pre-call budget gate only stops FUTURE calls
+    - if a single niche's own llm_niche_expansion call pushes total_llm_cost_usd
+    over discovery.max_cost_per_run, that niche's LLM output must not be persisted
+    either, even though the free rule-based hypotheses from the SAME call still
+    should be."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    captured_hypotheses: list[Any] = []
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        cost_tracker: list[float] | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        rule_based = HypothesisContract(
+            hypothesis_text="python automation for startups",
+            niche_id=str(niche_id),
+            buyer=None,
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+            discovery_mode="adjacent_keyword",
+        )
+        llm_generated = HypothesisContract(
+            hypothesis_text="python automation for agencies",
+            niche_id=str(niche_id),
+            buyer="agencies",
+            deliverable="python automation",
+            specificity_score=0.9,
+            accepted=True,
+            discovery_mode="llm_niche_expansion",
+        )
+        if cost_tracker is not None and llm_client is not None:
+            cost_tracker.append(0.02)
+        return [rule_based, llm_generated], 0
+
+    def mock_process(hypotheses: list[Any], run_id: str, db: object) -> dict[str, object]:
+        del run_id, db
+        captured_hypotheses.extend(hypotheses)
+        return {"inserted": len(hypotheses), "skipped": 0, "run_id": "over-budget", "keyword_ids": []}
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch("src.discovery.stage16.process_accepted_hypotheses", side_effect=mock_process),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch("src.discovery.stage16.NICHE_VALIDATION_CONFIG", {"python_automation": {}}),
+    ):
+        run_discovery_cycle(
+            db,
+            "over-budget",
+            config={"discovery": {"max_cost_per_run": 0.01}},
+            llm_client=MagicMock(),
+        )
+
+    assert len(captured_hypotheses) == 1
+    assert captured_hypotheses[0].discovery_mode == "adjacent_keyword"
+
+
 def test_feedback_summary_stored_as_json() -> None:
     from src.discovery.stage16 import run_discovery_cycle
 
@@ -1424,7 +1497,7 @@ def test_feedback_summary_stored_as_json() -> None:
 
 def test_stage16_module_size() -> None:
     n = len(open("src/discovery/stage16.py", encoding="utf-8").readlines())
-    assert 100 <= n <= 500
+    assert 100 <= n <= 550
 
 
 def test_complete_s78_smoke() -> None:

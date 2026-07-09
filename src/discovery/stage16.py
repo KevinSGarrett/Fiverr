@@ -408,6 +408,22 @@ def run_discovery_cycle(
                 cost_tracker=cost_tracker,
             )
             total_llm_cost_usd += sum(cost_tracker)
+            if (
+                cost_tracker
+                and max_cost_per_run is not None
+                and total_llm_cost_usd > float(max_cost_per_run)
+            ):
+                # Codex P2 round 7: the pre-call gate above only stops FUTURE calls -
+                # if THIS niche's own call pushed the running total over
+                # max_cost_per_run, its llm_niche_expansion output must not be
+                # persisted either. Drop only those hypotheses (by discovery_mode,
+                # stamped in _adapt_llm_hypotheses), keeping the free rule-based
+                # hypotheses generated for the same niche in the same call.
+                niche_hypotheses = [
+                    hypothesis
+                    for hypothesis in niche_hypotheses
+                    if getattr(hypothesis, "discovery_mode", None) != "llm_niche_expansion"
+                ]
             if niche_pk is not None:
                 for hypothesis in niche_hypotheses:
                     hypothesis.niche_id = niche_pk
