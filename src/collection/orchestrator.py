@@ -694,11 +694,15 @@ async def run_collection_pipeline(
     for niche_spec in stage1_result.get("niche_specs", []):
         niche_id = str(niche_spec.get("niche_id", ""))
         try:
+            # run_review_analysis_for_niche has no explicit cache parameter of its
+            # own - it reads cache exclusively from config.get("cache") - so the
+            # pipeline-level cache must be injected into the config dict here or it
+            # is silently dropped for this stage's LLM calls (Codex review, PR #179).
             review_result = await run_review_analysis_for_niche(
                 niche_id=niche_id,
                 run_id=run_id,
                 db=db,
-                config=config if isinstance(config, dict) else {},
+                config={**(config if isinstance(config, dict) else {}), "cache": cache},
                 llm_client=llm_client,
             )
             summary["review_analysis_results"].append(review_result)
@@ -710,11 +714,13 @@ async def run_collection_pipeline(
     for niche_spec in stage1_result.get("niche_specs", []):
         niche_id = str(niche_spec.get("niche_id", ""))
         try:
+            # run_saturation_analysis_for_niche has the same config.get("cache")-only
+            # pattern as review analysis above (Codex review, PR #179).
             saturation_result = await run_saturation_analysis_for_niche(
                 niche_id=niche_id,
                 run_id=run_id,
                 db=db,
-                config=config if isinstance(config, dict) else {},
+                config={**(config if isinstance(config, dict) else {}), "cache": cache},
                 niche_context=None,
                 llm_client=llm_client,
             )

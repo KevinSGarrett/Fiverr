@@ -814,6 +814,11 @@ def test_run_collection_pipeline_forwards_llm_client_to_llm_capable_stages(
         assert recorded_calls[name].get("llm_client") is sentinel_llm_client, name
     for name in ("keyword_expansion", "reddit_signals", "clustering"):
         assert recorded_calls[name].get("cache") is sentinel_cache, name
+    # run_review_analysis_for_niche/run_saturation_analysis_for_niche have no
+    # explicit cache parameter of their own - they read cache exclusively from
+    # config.get("cache") (Codex review, PR #179).
+    for name in ("review", "saturation"):
+        assert recorded_calls[name]["config"].get("cache") is sentinel_cache, name
 
 
 def test_run_collection_pipeline_withholds_llm_client_during_dry_run(
@@ -878,6 +883,8 @@ def test_run_collection_pipeline_withholds_llm_client_during_dry_run(
         assert recorded_calls[name].get("llm_client") is None, name
     for name in ("keyword_expansion", "reddit_signals", "clustering"):
         assert recorded_calls[name].get("cache") is None, name
+    for name in ("review", "saturation"):
+        assert recorded_calls[name]["config"].get("cache") is None, name
 
 
 def _build_real_jobs_session() -> Any:
