@@ -1312,6 +1312,60 @@ def test_confidence_context_ignores_freshness_of_unused_candidate_window_rows() 
     assert context["data_freshness_score"] == pytest.approx(1.0)
 
 
+def test_confidence_context_zombies_do_not_exhaust_window_before_clean_gigs() -> None:
+    """Codex review, PR #176 (P2): when enable_zombie_filter is true (the
+    default), ProfitabilityScoreCalculator/the feasibility loader exclude zombies
+    before slicing to top_n_for_scoring - the first N zombie gigs must not exhaust
+    confidence's window and hide a deeper clean gig that the real calculators
+    actually scored from."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(
+        slug="ctx-zombie-window-exhaustion", name="ContextZombieWindowExhaustion", category_path="a/b"
+    )
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="zombie window exhaustion keyword",
+        normalized_keyword="zombie window exhaustion keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="zombie_window_exhaustion_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+
+    for rank in range(1, 12):
+        # Ranks 1-10 are zombies with no detail collected - they must not exhaust
+        # the window before the one real clean gig at rank 11.
+        is_zombie = rank <= 10
+        gig = Gig(
+            seller_id=seller.id,
+            title=f"I will do zombie window exhaustion work {rank}",
+            normalized_title=f"zombie window exhaustion work {rank}",
+            detail_collected=not is_zombie,
+            detail_collected_at=datetime.now(UTC) if not is_zombie else None,
+            is_zombie=is_zombie,
+        )
+        session.add(gig)
+        session.flush()
+        session.add(SearchResult(keyword_id=keyword.id, rank=rank, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["gig_detail_collected"] is True
+
+
 def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> None:
     """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/WeaknessCalculator
     normalize card URLs by path identity and fall back through the keyword's own

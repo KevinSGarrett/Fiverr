@@ -1049,13 +1049,27 @@ def _build_confidence_context(
                 )
                 _consider_freshness(seller_freshness_at, getattr(seller, "ttl_hours", None))
 
+        # admitted_organic_count tracks gigs actually folded into detail/freshness
+        # via _process_gig - kept separate from total_organic/zombie_count (the
+        # zombie_fraction denominator/numerator) because when enable_zombie_filter
+        # is true the real calculators exclude zombies before slicing to
+        # top_n_for_scoring, so the first N zombie gigs must not exhaust the window
+        # and hide the deeper clean gigs that actually fed detail/seller-profile/
+        # freshness scoring (Codex review, PR #176).
+        admitted_organic_count = 0
         for result in top_results:
-            if total_organic >= top_n_for_scoring:
+            if admitted_organic_count >= top_n_for_scoring:
                 continue
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
             if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
+                continue
+            is_zombie_gig = bool(getattr(gig, "is_zombie", False))
+            total_organic += 1
+            if is_zombie_gig:
+                zombie_count += 1
+            if enable_zombie_filter and is_zombie_gig:
                 continue
             # collected_at (when this search snapshot was actually fetched) rather
             # than updated_at, which a later reprocessing pass can bump without
@@ -1065,9 +1079,7 @@ def _build_confidence_context(
             # contributed to the score and must not affect freshness (Codex review,
             # PR #176).
             _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
-            total_organic += 1
-            if bool(getattr(gig, "is_zombie", False)):
-                zombie_count += 1
+            admitted_organic_count += 1
             _process_gig(gig)
         # A page-level SearchResult row can carry multiple gig cards in gig_cards
         # (write_search_result's raw scrape payload) beyond the single gig_id it links
@@ -1178,15 +1190,19 @@ def _build_confidence_context(
 
             card_gigs.sort(key=_card_gig_position)
             for card_gig in card_gigs:
-                if total_organic >= top_n_for_scoring:
+                if admitted_organic_count >= top_n_for_scoring:
                     break
                 if getattr(card_gig, "id", None) in processed_gig_ids:
                     continue
                 if enable_sponsored_exclusion and getattr(card_gig, "is_sponsored", None) is True:
                     continue
+                is_zombie_gig = bool(getattr(card_gig, "is_zombie", False))
                 total_organic += 1
-                if bool(getattr(card_gig, "is_zombie", False)):
+                if is_zombie_gig:
                     zombie_count += 1
+                if enable_zombie_filter and is_zombie_gig:
+                    continue
+                admitted_organic_count += 1
                 _process_gig(card_gig)
         zombie_fraction = zombie_count / max(total_organic, 1)
         if total_organic == 0:
@@ -1222,14 +1238,19 @@ def _build_confidence_context(
                 )
             fallback_organic = 0
             fallback_zombie_count = 0
+            fallback_admitted_count = 0
             for gig in fallback_gigs:
-                if fallback_organic >= top_n_for_scoring:
+                if fallback_admitted_count >= top_n_for_scoring:
                     break
                 if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
                     continue
+                is_zombie_gig = bool(getattr(gig, "is_zombie", False))
                 fallback_organic += 1
-                if bool(getattr(gig, "is_zombie", False)):
+                if is_zombie_gig:
                     fallback_zombie_count += 1
+                if enable_zombie_filter and is_zombie_gig:
+                    continue
+                fallback_admitted_count += 1
                 _process_gig(gig)
             if fallback_organic > 0:
                 # These gigs are the only ones contributing to this keyword's score
