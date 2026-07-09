@@ -1467,6 +1467,71 @@ def test_run_discovery_cycle_drops_llm_output_that_pushed_over_budget() -> None:
     assert captured_hypotheses[0].discovery_mode == "adjacent_keyword"
 
 
+def test_run_discovery_cycle_skips_llm_call_once_insert_quota_filled() -> None:
+    """Codex P2 round 8 (PR #181): once earlier niches already produced at least
+    max_hypotheses_per_run accepted candidates, the final accepted[:max_hypotheses]
+    slice would discard any later niche's LLM output anyway - the paid call must be
+    skipped once the quota is filled, not attempted and then silently dropped. The
+    free rule-based generators must still run for every niche regardless."""
+    from src.discovery.hypothesis import HypothesisContract
+    from src.discovery.stage16 import run_discovery_cycle
+
+    db = _mock_db()
+    received_clients: list[object] = []
+    sentinel_client = MagicMock()
+
+    def mock_generate(
+        niche_id: str | None = None,
+        modes: list[str] | None = None,
+        seed_data: dict[str, object] | None = None,
+        min_conf: float | None = None,
+        llm_client: object | None = None,
+        **kwargs: object,
+    ) -> tuple[list[HypothesisContract], int]:
+        del modes, seed_data, min_conf, kwargs
+        received_clients.append(llm_client)
+        contract = HypothesisContract(
+            hypothesis_text=f"{niche_id} automation",
+            niche_id=str(niche_id),
+            buyer=None,
+            deliverable="automation",
+            specificity_score=0.9,
+            accepted=True,
+            discovery_mode="adjacent_keyword",
+        )
+        return [contract], 0
+
+    with (
+        patch("src.discovery.stage16.evaluate_discovery_results"),
+        patch("src.discovery.stage16.build_feedback_summary", return_value={}),
+        patch(
+            "src.discovery.stage16.process_accepted_hypotheses",
+            return_value={"inserted": 0, "skipped": 0, "run_id": "quota", "keyword_ids": []},
+        ),
+        patch("src.discovery.stage16._generate_all_hypotheses", side_effect=mock_generate),
+        patch(
+            "src.discovery.stage16._build_seed_data",
+            return_value={"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []},
+        ),
+        patch("src.discovery.stage16._resolve_niche_pk", return_value=1),
+        patch("src.discovery.stage16.DiscoveryCycleLog", return_value=MagicMock()),
+        patch(
+            "src.discovery.stage16.NICHE_VALIDATION_CONFIG",
+            {"niche_a": {}, "niche_b": {}, "niche_c": {}},
+        ),
+    ):
+        run_discovery_cycle(
+            db,
+            "quota",
+            config={"discovery": {"max_hypotheses_per_run": 1}},
+            llm_client=sentinel_client,
+        )
+
+    assert received_clients[0] is sentinel_client
+    assert received_clients[1] is None
+    assert received_clients[2] is None
+
+
 def test_feedback_summary_stored_as_json() -> None:
     from src.discovery.stage16 import run_discovery_cycle
 

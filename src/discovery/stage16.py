@@ -242,6 +242,15 @@ def _adapt_llm_hypotheses(raw: list[dict[str, Any]], niche_id: str) -> list[Hypo
     return contracts
 
 
+def _is_accepted_hypothesis(hypothesis: Any, min_confidence: float) -> bool:
+    """Shared accept/gate predicate: budget-gate use (round 8) and the final
+    quota slice must agree on what counts as "accepted" or the LLM call could be
+    skipped for hypotheses the final slice would have kept anyway, or vice versa."""
+    return bool(getattr(hypothesis, "accepted", False)) and (
+        getattr(hypothesis, "specificity_score", 0.0) or 0.0
+    ) >= min_confidence
+
+
 def _generate_all_hypotheses(
     niche_id: str,
     modes: list[str],
@@ -398,6 +407,16 @@ def run_discovery_cycle(
                 and total_llm_cost_usd >= float(max_cost_per_run)
             ):
                 niche_llm_client = None
+            if niche_llm_client is not None:
+                accepted_so_far = sum(
+                    1 for h in all_hypotheses if _is_accepted_hypothesis(h, min_confidence)
+                )
+                if accepted_so_far >= max_hypotheses:
+                    # Round 8: the final accepted[:max_hypotheses] slice would
+                    # discard this niche's LLM output anyway once earlier niches
+                    # (rule-based or LLM) already filled the insert quota - don't
+                    # pay for output that provably can't be persisted.
+                    niche_llm_client = None
             cost_tracker: list[float] = []
             niche_hypotheses, niche_gated = _generate_all_hypotheses(
                 niche_id=niche_id,
@@ -438,10 +457,7 @@ def run_discovery_cycle(
 
     total_generated = len(all_hypotheses)
     accepted = [
-        hypothesis
-        for hypothesis in all_hypotheses
-        if getattr(hypothesis, "accepted", False)
-        and (getattr(hypothesis, "specificity_score", 0.0) or 0.0) >= min_confidence
+        hypothesis for hypothesis in all_hypotheses if _is_accepted_hypothesis(hypothesis, min_confidence)
     ][:max_hypotheses]
     total_gated = total_generated - len(accepted)
 
