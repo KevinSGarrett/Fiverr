@@ -157,6 +157,16 @@ async def run_collection_pipeline(
     When dry_run=False, live Stage 3/4/5 workflow calls can route through
     the configured fetch transport via the shared fetcher factory.
     """
+    # Several downstream analysis stages (clustering/review/saturation) have no
+    # dry_run parameter of their own and call a real llm_client unconditionally if
+    # one is passed in. dry_run=True is this function's own public "no real
+    # network/LLM activity" contract - a direct caller that passes a real
+    # llm_client alongside dry_run=True must not be able to violate it (Codex
+    # review, PR #179).
+    if dry_run:
+        llm_client = None
+        cache = None
+
     from src.analysis.competitor_profiler import run_competitor_profiling_for_niche
     from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_niche
     from src.analysis.keyword_clusterer import run_clustering_for_niche
