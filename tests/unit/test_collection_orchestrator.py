@@ -719,6 +719,231 @@ def test_run_collection_pipeline_queue_error_is_recorded(monkeypatch: pytest.Mon
     assert any("Queue processing error: queue failed" in error for error in result["errors"])
 
 
+def test_run_collection_pipeline_forwards_llm_client_to_llm_capable_stages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`run_collection_pipeline` accepted an llm_client/cache pair but hardcoded
+    llm_client=None (and omitted cache/llm_client entirely) at every internal call
+    to a stage that accepts them, silently disabling LLM enrichment across
+    Stage 2 keyword expansion, Reddit signals, clustering, competitor profiling,
+    gig-quality analysis, review analysis, and saturation analysis regardless of
+    what llm_client was actually configured for the run."""
+    sentinel_llm_client = object()
+    sentinel_cache = object()
+    recorded_calls: dict[str, dict[str, Any]] = {}
+
+    def _make_fake(name: str) -> Any:
+        async def _fake(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+            recorded_calls[name] = kwargs
+            return {}
+
+        return _fake
+
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion.run_keyword_expansion", _make_fake("keyword_expansion")
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.reddit_signals.run_reddit_signals_collection", _make_fake("reddit_signals")
+    )
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", _make_fake("clustering"))
+    monkeypatch.setattr(
+        "src.analysis.competitor_profiler.run_competitor_profiling_for_niche", _make_fake("competitor_profiling")
+    )
+    monkeypatch.setattr(
+        "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", _make_fake("gig_quality")
+    )
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", _make_fake("review"))
+    monkeypatch.setattr(
+        "src.analysis.saturation_model.run_saturation_analysis_for_niche", _make_fake("saturation")
+    )
+
+    monkeypatch.setattr(
+        "src.collection.workflows.niche_init.run_niche_initialization",
+        AsyncMock(
+            return_value={
+                "niches_processed": 1,
+                "niche_specs": [{"niche_id": "niche-1", "seeds": ["seo"], "seed_keywords": ["seo"]}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.fiverr_search.run_fiverr_search_collection", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.gig_detail.run_gig_detail_collection", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.seller_profile.run_seller_profile_collection", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.autocomplete.run_autocomplete_collection", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.google_trends.run_google_trends_collection", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.youtube_count.run_youtube_count_collection", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr("src.collection.http_fetcher.build_fetcher", Mock(return_value=object()))
+    monkeypatch.setattr("src.collection.scrapfly_client.ScrapFlyClient", Mock())
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-llm-wiring",
+            db={},
+            config={"collection": {"scrapfly": {"enabled": False}}, "niches": []},
+            session_manager=object(),
+            # dry_run=False (a real, non-dry run) - dry_run=True forces
+            # llm_client/cache to None regardless of what's passed in, which is
+            # covered separately below.
+            dry_run=False,
+            llm_client=sentinel_llm_client,
+            cache=sentinel_cache,
+        )
+    )
+    assert result["errors"] == []
+    for name in (
+        "keyword_expansion",
+        "reddit_signals",
+        "clustering",
+        "competitor_profiling",
+        "gig_quality",
+        "review",
+        "saturation",
+    ):
+        assert recorded_calls[name].get("llm_client") is sentinel_llm_client, name
+    for name in ("keyword_expansion", "reddit_signals", "clustering"):
+        assert recorded_calls[name].get("cache") is sentinel_cache, name
+    # run_review_analysis_for_niche/run_saturation_analysis_for_niche have no
+    # explicit cache parameter of their own - they read cache exclusively from
+    # config.get("cache") (Codex review, PR #179).
+    for name in ("review", "saturation"):
+        assert recorded_calls[name]["config"].get("cache") is sentinel_cache, name
+
+
+def test_run_collection_pipeline_preserves_config_cache_when_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Codex review, PR #179 (P2): a caller that keeps its cache directly in
+    config (the only supported path before run_collection_pipeline accepted a
+    top-level cache parameter) and omits the new argument must not have that
+    config-provided cache overwritten with None for
+    run_review_analysis_for_niche/run_saturation_analysis_for_niche."""
+    sentinel_config_cache = object()
+    recorded_calls: dict[str, dict[str, Any]] = {}
+
+    def _make_fake(name: str) -> Any:
+        async def _fake(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+            recorded_calls[name] = kwargs
+            return {}
+
+        return _fake
+
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion.run_keyword_expansion", _make_fake("keyword_expansion")
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.reddit_signals.run_reddit_signals_collection", _make_fake("reddit_signals")
+    )
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", _make_fake("clustering"))
+    monkeypatch.setattr(
+        "src.analysis.competitor_profiler.run_competitor_profiling_for_niche", _make_fake("competitor_profiling")
+    )
+    monkeypatch.setattr(
+        "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", _make_fake("gig_quality")
+    )
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", _make_fake("review"))
+    monkeypatch.setattr(
+        "src.analysis.saturation_model.run_saturation_analysis_for_niche", _make_fake("saturation")
+    )
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-config-cache-preserved",
+            db={},
+            config={
+                "niches": [{"niche_id": "niche-1", "seed_keywords": ["seo"], "seeds": ["seo"]}],
+                "cache": sentinel_config_cache,
+            },
+            session_manager=None,
+            dry_run=True,
+            # llm_client provided, but the new top-level cache argument is
+            # deliberately omitted (defaults to None) - matching a caller that
+            # never adopted it.
+            llm_client=object(),
+        )
+    )
+    assert result["errors"] == []
+    for name in ("review", "saturation"):
+        assert recorded_calls[name]["config"].get("cache") is sentinel_config_cache, name
+
+
+def test_run_collection_pipeline_withholds_llm_client_during_dry_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Codex review, PR #179 (P2): several downstream analysis stages
+    (clustering/review/saturation) have no dry_run parameter of their own and call
+    a real llm_client unconditionally if one is passed in. dry_run=True is
+    run_collection_pipeline's own public "no real network/LLM activity" contract -
+    a direct caller that passes a real llm_client alongside dry_run=True must not
+    be able to violate it."""
+    sentinel_llm_client = object()
+    sentinel_cache = object()
+    recorded_calls: dict[str, dict[str, Any]] = {}
+
+    def _make_fake(name: str) -> Any:
+        async def _fake(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+            recorded_calls[name] = kwargs
+            return {}
+
+        return _fake
+
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion.run_keyword_expansion", _make_fake("keyword_expansion")
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.reddit_signals.run_reddit_signals_collection", _make_fake("reddit_signals")
+    )
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", _make_fake("clustering"))
+    monkeypatch.setattr(
+        "src.analysis.competitor_profiler.run_competitor_profiling_for_niche", _make_fake("competitor_profiling")
+    )
+    monkeypatch.setattr(
+        "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", _make_fake("gig_quality")
+    )
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", _make_fake("review"))
+    monkeypatch.setattr(
+        "src.analysis.saturation_model.run_saturation_analysis_for_niche", _make_fake("saturation")
+    )
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-llm-dry-run-withheld",
+            db={},
+            config={"niches": [{"niche_id": "niche-1", "seed_keywords": ["seo"], "seeds": ["seo"]}]},
+            session_manager=None,
+            dry_run=True,
+            llm_client=sentinel_llm_client,
+            cache=sentinel_cache,
+        )
+    )
+    assert result["errors"] == []
+    for name in (
+        "keyword_expansion",
+        "reddit_signals",
+        "clustering",
+        "competitor_profiling",
+        "gig_quality",
+        "review",
+        "saturation",
+    ):
+        assert recorded_calls[name].get("llm_client") is None, name
+    for name in ("keyword_expansion", "reddit_signals", "clustering"):
+        assert recorded_calls[name].get("cache") is None, name
+    for name in ("review", "saturation"):
+        assert recorded_calls[name]["config"].get("cache") is None, name
+
+
 def _build_real_jobs_session() -> Any:
     engine = create_engine("sqlite:///:memory:", future=True)
     Job.__table__.create(bind=engine, checkfirst=True)

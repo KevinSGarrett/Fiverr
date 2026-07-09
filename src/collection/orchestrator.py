@@ -132,6 +132,17 @@ def _is_real_db_session(db: Any) -> bool:
     return isinstance(db, Session)
 
 
+def _inject_pipeline_cache(config: Any, cache: Any) -> dict[str, Any]:
+    """Merge the pipeline-level cache into a stage's config dict without clobbering
+    a cache the caller already placed directly in config (the only supported path
+    before run_collection_pipeline accepted a top-level cache parameter). Only
+    override when a pipeline-level cache was actually supplied."""
+    merged = dict(config) if isinstance(config, dict) else {}
+    if cache is not None:
+        merged["cache"] = cache
+    return merged
+
+
 def _validate_collection_url_payload(niche_id: str | None, gig_url: str) -> None:
     normalized_niche_id = (niche_id or "").strip()
     if normalized_niche_id == "dry_run" or "dry-run-test.invalid" in gig_url:
@@ -148,6 +159,8 @@ async def run_collection_pipeline(
     config: dict[str, Any],
     session_manager: Any,
     dry_run: bool = True,
+    llm_client: Any = None,
+    cache: Any = None,
 ) -> dict[str, Any]:
     """
     Run the Stage 1-12 dry-run orchestration contract.
@@ -155,6 +168,16 @@ async def run_collection_pipeline(
     When dry_run=False, live Stage 3/4/5 workflow calls can route through
     the configured fetch transport via the shared fetcher factory.
     """
+    # Several downstream analysis stages (clustering/review/saturation) have no
+    # dry_run parameter of their own and call a real llm_client unconditionally if
+    # one is passed in. dry_run=True is this function's own public "no real
+    # network/LLM activity" contract - a direct caller that passes a real
+    # llm_client alongside dry_run=True must not be able to violate it (Codex
+    # review, PR #179).
+    if dry_run:
+        llm_client = None
+        cache = None
+
     from src.analysis.competitor_profiler import run_competitor_profiling_for_niche
     from src.analysis.gig_quality_rubric import run_gig_quality_analysis_for_niche
     from src.analysis.keyword_clusterer import run_clustering_for_niche
@@ -270,6 +293,8 @@ async def run_collection_pipeline(
                 session_manager=session_manager,
                 pacing_manager=pacing,
                 dry_run=dry_run,
+                llm_client=llm_client,
+                cache=cache,
             )
             summary["keywords_queued"] += int(stage2_result.get("keywords_queued", 0))
             for record in stage2_result.get("keywords", []):
@@ -558,8 +583,8 @@ async def run_collection_pipeline(
                     run_id=run_id,
                     db=db,
                     pacing_manager=pacing,
-                    llm_client=None,
-                    cache=None,
+                    llm_client=llm_client,
+                    cache=cache,
                     checkpoint_manager=checkpoint_mgr,
                     dry_run=dry_run,
                 )
@@ -635,8 +660,8 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config_payload,
-                llm_client=None,
-                cache=None,
+                llm_client=llm_client,
+                cache=cache,
             )
             summary["clustering_results"].append(clustering_result)
             if clustering_result.get("clustered") is True:
@@ -653,7 +678,7 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config if isinstance(config, dict) else {},
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["competitor_profiling_results"].append(profiling_result)
             if profiling_result.get("profiled") is True:
@@ -669,7 +694,7 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config if isinstance(config, dict) else {},
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["gig_quality_analysis_results"].append(gig_quality_result)
             if gig_quality_result.get("analyzed") is True:
@@ -680,12 +705,20 @@ async def run_collection_pipeline(
     for niche_spec in stage1_result.get("niche_specs", []):
         niche_id = str(niche_spec.get("niche_id", ""))
         try:
+            # run_review_analysis_for_niche has no explicit cache parameter of its
+            # own - it reads cache exclusively from config.get("cache") - so the
+            # pipeline-level cache must be injected into the config dict here or it
+            # is silently dropped for this stage's LLM calls. Only override when a
+            # pipeline-level cache was actually supplied - a caller that keeps its
+            # cache directly in config (the only supported path before this cache
+            # parameter existed) and omits the new argument must not have that
+            # config-provided cache overwritten with None (Codex review, PR #179).
             review_result = await run_review_analysis_for_niche(
                 niche_id=niche_id,
                 run_id=run_id,
                 db=db,
-                config=config if isinstance(config, dict) else {},
-                llm_client=None,
+                config=_inject_pipeline_cache(config, cache),
+                llm_client=llm_client,
             )
             summary["review_analysis_results"].append(review_result)
             if review_result.get("analyzed") is True:
@@ -696,13 +729,15 @@ async def run_collection_pipeline(
     for niche_spec in stage1_result.get("niche_specs", []):
         niche_id = str(niche_spec.get("niche_id", ""))
         try:
+            # run_saturation_analysis_for_niche has the same config.get("cache")-only
+            # pattern as review analysis above (Codex review, PR #179).
             saturation_result = await run_saturation_analysis_for_niche(
                 niche_id=niche_id,
                 run_id=run_id,
                 db=db,
-                config=config if isinstance(config, dict) else {},
+                config=_inject_pipeline_cache(config, cache),
                 niche_context=None,
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["saturation_analysis_results"].append(saturation_result)
             if saturation_result.get("analyzed") is True:
