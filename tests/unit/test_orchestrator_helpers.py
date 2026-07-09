@@ -515,6 +515,130 @@ def test_run_pipeline_full_mode_skip_collection_never_triggers_collection_stage(
     assert "collection_stage_called" not in calls
 
 
+def test_run_pipeline_full_mode_forwards_llm_client_to_collection_stage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`full` mode built a real llm_client for scoring/recommendations but never
+    passed it into _run_collection_stage, silently disabling LLM enrichment across
+    every LLM-capable collection sub-stage (Reddit signals, clustering, competitor
+    profiling, gig-quality/review/saturation analysis) regardless of what llm_client
+    was actually configured for the run."""
+    calls: dict[str, Any] = {}
+    sentinel_llm_client = object()
+
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(
+                scoring=SimpleNamespace(active_profile="default"),
+                model_dump=lambda: {"niches": []},
+            )
+
+    class _FakeQuery:
+        def filter(self, *args: Any, **kwargs: Any) -> _FakeQuery:
+            return self
+
+        def all(self) -> list[tuple[int]]:
+            return []
+
+    class _FakeSession:
+        def query(self, _model: Any) -> _FakeQuery:
+            return _FakeQuery()
+
+    class _FakeSessionContext:
+        def __enter__(self) -> _FakeSession:
+            return _FakeSession()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    def _fake_collection_stage(**kwargs: Any) -> dict[str, Any]:
+        calls["collection_llm_client"] = kwargs.get("llm_client")
+        return {}
+
+    async def _fake_score_keyword_batch(**_kwargs: Any) -> list[dict[str, Any]]:
+        return []
+
+    async def _fake_recommendations_pipeline(**_kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    async def _fake_export_all_recommendations(**_kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///normalized.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_run_collection_stage", _fake_collection_stage)
+    monkeypatch.setattr("src.llm.client.build_llm_client", lambda _payload: sentinel_llm_client)
+    monkeypatch.setattr("src.scoring.pipeline.score_keyword_batch", _fake_score_keyword_batch)
+    monkeypatch.setattr("src.recommendations.pipeline.run_recommendations_pipeline", _fake_recommendations_pipeline)
+    monkeypatch.setattr("src.recommendations.export.export_all_recommendations", _fake_export_all_recommendations)
+    monkeypatch.setattr("src.pricing.pricing_export.export_all_pricing", lambda **_kwargs: {})
+    monkeypatch.setattr("src.reports.context.build_run_summary_context", lambda **_kwargs: {"run": {}})
+    monkeypatch.setattr(
+        "src.reports.context.build_opportunity_report_context", lambda _db: {"summary_metrics": [], "niches": []}
+    )
+    monkeypatch.setattr("src.reports.generator.generate_report", lambda *_a, **_k: "report.pdf")
+
+    exit_code = orchestrator.run_pipeline(
+        "full", config_path="config.yaml", database_url=None, skip_collection=False
+    )
+
+    assert exit_code == 0
+    assert calls["collection_llm_client"] is sentinel_llm_client
+
+
+def test_run_pipeline_collect_only_forwards_llm_client_to_collection_stage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`collect-only` mode never built or passed an llm_client into
+    _run_collection_stage at all, unlike `full` mode."""
+    calls: dict[str, Any] = {}
+    sentinel_llm_client = object()
+
+    class _FakeLoader:
+        def __init__(self, _config_path: str) -> None:
+            pass
+
+        def load(self) -> object:
+            return SimpleNamespace(model_dump=lambda: {"niches": []})
+
+    class _FakeSession:
+        pass
+
+    class _FakeSessionContext:
+        def __enter__(self) -> _FakeSession:
+            return _FakeSession()
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            del exc_type, exc, tb
+            return None
+
+    def _fake_collection_stage(**kwargs: Any) -> dict[str, Any]:
+        calls["collection_llm_client"] = kwargs.get("llm_client")
+        return {"stages_run": []}
+
+    monkeypatch.setattr(orchestrator, "configure_logging", lambda: None)
+    monkeypatch.setattr(orchestrator, "ConfigLoader", _FakeLoader)
+    monkeypatch.setattr(orchestrator, "normalize_database_url", lambda db: "sqlite:///normalized.db")
+    monkeypatch.setattr(orchestrator, "initialize_database", lambda database_url: object())
+    monkeypatch.setattr(orchestrator, "create_session_factory", lambda _engine: object())
+    monkeypatch.setattr(orchestrator, "get_session", lambda _factory: _FakeSessionContext())
+    monkeypatch.setattr(orchestrator, "_run_collection_stage", _fake_collection_stage)
+    monkeypatch.setattr("src.llm.client.build_llm_client", lambda _payload: sentinel_llm_client)
+
+    exit_code = orchestrator.run_pipeline("collect-only", config_path="config.yaml", database_url=None)
+
+    assert exit_code == 0
+    assert calls["collection_llm_client"] is sentinel_llm_client
+
+
 def test_run_pipeline_rejects_unsupported_mode() -> None:
     with pytest.raises(ValueError, match="Unsupported mode"):
         orchestrator.run_pipeline("unknown-mode")

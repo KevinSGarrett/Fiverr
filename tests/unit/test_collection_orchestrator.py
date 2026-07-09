@@ -719,6 +719,70 @@ def test_run_collection_pipeline_queue_error_is_recorded(monkeypatch: pytest.Mon
     assert any("Queue processing error: queue failed" in error for error in result["errors"])
 
 
+def test_run_collection_pipeline_forwards_llm_client_to_llm_capable_stages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`run_collection_pipeline` accepted an llm_client/cache pair but hardcoded
+    llm_client=None (and omitted cache/llm_client entirely) at every internal call
+    to a stage that accepts them, silently disabling LLM enrichment across
+    Stage 2 keyword expansion, Reddit signals, clustering, competitor profiling,
+    gig-quality analysis, review analysis, and saturation analysis regardless of
+    what llm_client was actually configured for the run."""
+    sentinel_llm_client = object()
+    sentinel_cache = object()
+    recorded_calls: dict[str, dict[str, Any]] = {}
+
+    def _make_fake(name: str) -> Any:
+        async def _fake(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+            recorded_calls[name] = kwargs
+            return {}
+
+        return _fake
+
+    monkeypatch.setattr(
+        "src.collection.workflows.keyword_expansion.run_keyword_expansion", _make_fake("keyword_expansion")
+    )
+    monkeypatch.setattr(
+        "src.collection.workflows.reddit_signals.run_reddit_signals_collection", _make_fake("reddit_signals")
+    )
+    monkeypatch.setattr("src.analysis.keyword_clusterer.run_clustering_for_niche", _make_fake("clustering"))
+    monkeypatch.setattr(
+        "src.analysis.competitor_profiler.run_competitor_profiling_for_niche", _make_fake("competitor_profiling")
+    )
+    monkeypatch.setattr(
+        "src.analysis.gig_quality_rubric.run_gig_quality_analysis_for_niche", _make_fake("gig_quality")
+    )
+    monkeypatch.setattr("src.analysis.review_analyzer.run_review_analysis_for_niche", _make_fake("review"))
+    monkeypatch.setattr(
+        "src.analysis.saturation_model.run_saturation_analysis_for_niche", _make_fake("saturation")
+    )
+
+    result = _run(
+        collection_orchestrator.run_collection_pipeline(
+            run_id="run-llm-wiring",
+            db={},
+            config={"niches": [{"niche_id": "niche-1", "seed_keywords": ["seo"], "seeds": ["seo"]}]},
+            session_manager=None,
+            dry_run=True,
+            llm_client=sentinel_llm_client,
+            cache=sentinel_cache,
+        )
+    )
+    assert result["errors"] == []
+    for name in (
+        "keyword_expansion",
+        "reddit_signals",
+        "clustering",
+        "competitor_profiling",
+        "gig_quality",
+        "review",
+        "saturation",
+    ):
+        assert recorded_calls[name].get("llm_client") is sentinel_llm_client, name
+    for name in ("keyword_expansion", "reddit_signals", "clustering"):
+        assert recorded_calls[name].get("cache") is sentinel_cache, name
+
+
 def _build_real_jobs_session() -> Any:
     engine = create_engine("sqlite:///:memory:", future=True)
     Job.__table__.create(bind=engine, checkfirst=True)

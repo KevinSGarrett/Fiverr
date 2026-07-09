@@ -148,6 +148,8 @@ async def run_collection_pipeline(
     config: dict[str, Any],
     session_manager: Any,
     dry_run: bool = True,
+    llm_client: Any = None,
+    cache: Any = None,
 ) -> dict[str, Any]:
     """
     Run the Stage 1-12 dry-run orchestration contract.
@@ -270,6 +272,8 @@ async def run_collection_pipeline(
                 session_manager=session_manager,
                 pacing_manager=pacing,
                 dry_run=dry_run,
+                llm_client=llm_client,
+                cache=cache,
             )
             summary["keywords_queued"] += int(stage2_result.get("keywords_queued", 0))
             for record in stage2_result.get("keywords", []):
@@ -558,8 +562,8 @@ async def run_collection_pipeline(
                     run_id=run_id,
                     db=db,
                     pacing_manager=pacing,
-                    llm_client=None,
-                    cache=None,
+                    llm_client=llm_client,
+                    cache=cache,
                     checkpoint_manager=checkpoint_mgr,
                     dry_run=dry_run,
                 )
@@ -635,8 +639,8 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config_payload,
-                llm_client=None,
-                cache=None,
+                llm_client=llm_client,
+                cache=cache,
             )
             summary["clustering_results"].append(clustering_result)
             if clustering_result.get("clustered") is True:
@@ -653,7 +657,7 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config if isinstance(config, dict) else {},
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["competitor_profiling_results"].append(profiling_result)
             if profiling_result.get("profiled") is True:
@@ -669,7 +673,7 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config if isinstance(config, dict) else {},
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["gig_quality_analysis_results"].append(gig_quality_result)
             if gig_quality_result.get("analyzed") is True:
@@ -685,7 +689,7 @@ async def run_collection_pipeline(
                 run_id=run_id,
                 db=db,
                 config=config if isinstance(config, dict) else {},
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["review_analysis_results"].append(review_result)
             if review_result.get("analyzed") is True:
@@ -702,7 +706,7 @@ async def run_collection_pipeline(
                 db=db,
                 config=config if isinstance(config, dict) else {},
                 niche_context=None,
-                llm_client=None,
+                llm_client=llm_client,
             )
             summary["saturation_analysis_results"].append(saturation_result)
             if saturation_result.get("analyzed") is True:

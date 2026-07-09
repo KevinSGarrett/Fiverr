@@ -105,6 +105,8 @@ def _run_collection_stage(
     db_session: Any,
     config: Any,
     config_payload: dict[str, Any],
+    llm_client: Any = None,
+    cache: Any = None,
 ) -> dict[str, Any]:
     """Runs Stage 1-13 collection plus its built-in analysis stages.
 
@@ -143,6 +145,8 @@ def _run_collection_stage(
                 config=config_payload,
                 session_manager=session_manager,
                 dry_run=not session_valid,
+                llm_client=llm_client,
+                cache=cache,
             )
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)}
@@ -602,13 +606,16 @@ def run_pipeline(
         import uuid
 
         run_id = str(uuid.uuid4())
+        collect_only_payload = config_payload if isinstance(config_payload, dict) else {}
         session_factory = create_session_factory(engine)
         with get_session(session_factory) as db_session:
             result = _run_collection_stage(
                 run_id=run_id,
                 db_session=db_session,
                 config=config,
-                config_payload=config_payload if isinstance(config_payload, dict) else {},
+                config_payload=collect_only_payload,
+                llm_client=_build_llm_client_safely(collect_only_payload),
+                cache=None,
             )
         if "error" in result:
             print(f"Collection dry run failed: {result['error']}")
@@ -786,6 +793,8 @@ def run_pipeline(
                     db_session=db_session,
                     config=config,
                     config_payload=payload,
+                    llm_client=llm_client,
+                    cache=None,
                 )
 
             keyword_query = db_session.query(Keyword.id)
