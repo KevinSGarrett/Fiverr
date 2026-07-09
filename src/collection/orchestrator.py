@@ -132,6 +132,17 @@ def _is_real_db_session(db: Any) -> bool:
     return isinstance(db, Session)
 
 
+def _inject_pipeline_cache(config: Any, cache: Any) -> dict[str, Any]:
+    """Merge the pipeline-level cache into a stage's config dict without clobbering
+    a cache the caller already placed directly in config (the only supported path
+    before run_collection_pipeline accepted a top-level cache parameter). Only
+    override when a pipeline-level cache was actually supplied."""
+    merged = dict(config) if isinstance(config, dict) else {}
+    if cache is not None:
+        merged["cache"] = cache
+    return merged
+
+
 def _validate_collection_url_payload(niche_id: str | None, gig_url: str) -> None:
     normalized_niche_id = (niche_id or "").strip()
     if normalized_niche_id == "dry_run" or "dry-run-test.invalid" in gig_url:
@@ -697,12 +708,16 @@ async def run_collection_pipeline(
             # run_review_analysis_for_niche has no explicit cache parameter of its
             # own - it reads cache exclusively from config.get("cache") - so the
             # pipeline-level cache must be injected into the config dict here or it
-            # is silently dropped for this stage's LLM calls (Codex review, PR #179).
+            # is silently dropped for this stage's LLM calls. Only override when a
+            # pipeline-level cache was actually supplied - a caller that keeps its
+            # cache directly in config (the only supported path before this cache
+            # parameter existed) and omits the new argument must not have that
+            # config-provided cache overwritten with None (Codex review, PR #179).
             review_result = await run_review_analysis_for_niche(
                 niche_id=niche_id,
                 run_id=run_id,
                 db=db,
-                config={**(config if isinstance(config, dict) else {}), "cache": cache},
+                config=_inject_pipeline_cache(config, cache),
                 llm_client=llm_client,
             )
             summary["review_analysis_results"].append(review_result)
@@ -720,7 +735,7 @@ async def run_collection_pipeline(
                 niche_id=niche_id,
                 run_id=run_id,
                 db=db,
-                config={**(config if isinstance(config, dict) else {}), "cache": cache},
+                config=_inject_pipeline_cache(config, cache),
                 niche_context=None,
                 llm_client=llm_client,
             )
