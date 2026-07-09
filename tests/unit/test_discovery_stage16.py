@@ -386,6 +386,7 @@ class TestGenerateAllHypotheses:
         assert contract.buyer == "e-commerce store owners"
         assert contract.specificity_score == 0.86
         assert contract.accepted is True
+        assert contract.discovery_mode == "llm_niche_expansion"
         assert gated == 0
 
     def test_llm_niche_expansion_records_cost_into_tracker(self) -> None:

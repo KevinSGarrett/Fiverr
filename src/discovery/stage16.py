@@ -200,7 +200,10 @@ def _adapt_llm_hypotheses(raw: list[dict[str, Any]], niche_id: str) -> list[Hypo
     """Convert generate_niche_hypotheses' gated dict output into HypothesisContract
     rows so LLM-driven hypotheses flow through the same accept/gate/persist pipeline
     as the rule-based generators. Called with enable_relevance_gates=True, so every
-    dict already passed hypothesis.py's own GATE1_SPECIFICITY_THRESHOLD filter."""
+    dict already passed hypothesis.py's own GATE1_SPECIFICITY_THRESHOLD filter.
+    Stamps discovery_mode="llm_niche_expansion" so insert_discovery_keyword()
+    (src/discovery/integration.py) attributes these keywords correctly instead of
+    falling back to "unknown" (Codex P2 finding on PR #181)."""
     contracts: list[HypothesisContract] = []
     for item in raw:
         if not isinstance(item, dict):
@@ -217,6 +220,7 @@ def _adapt_llm_hypotheses(raw: list[dict[str, Any]], niche_id: str) -> list[Hypo
                 specificity_score=float(item.get("specificity_score") or 0.0),
                 accepted=True,
                 reason=str(item.get("gate_reason") or "llm gate1 accepted"),
+                discovery_mode="llm_niche_expansion",
             )
         )
     return contracts
