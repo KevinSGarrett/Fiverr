@@ -826,37 +826,47 @@ def _normalize_gig_url_identity(raw_url: Any) -> str | None:
     return base.lower() if base else None
 
 
-# The fields DemandScoreCalculator (trends_12mo_score) and TrendScoreCalculator
-# (slope, series-derived slope, avg-derived acceleration) actually read - a
-# google_trends ExternalSignal row with none of these populated is treated as
-# missing by both calculators (their own missing_google_trends deductions fire),
-# so source_diversity_score must not count it as available either (Codex review,
-# PR #176).
-_GOOGLE_TRENDS_SCALAR_FIELDS = (
-    "trends_12mo_score",
-    "trends_3mo_score",
-    "trends_3mo_avg",
-    "trends_12mo_avg",
-    "google_trends_slope",
-)
-_GOOGLE_TRENDS_SERIES_FIELDS = ("google_trends_12mo_series", "google_trends_3mo_series")
+def _as_optional_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _numeric_series_values(value: Any) -> list[float]:
+    if not isinstance(value, list):
+        return []
+    return [numeric for item in value if (numeric := _as_optional_float(item)) is not None]
 
 
 def _google_trends_signal_has_usable_data(signal: Any) -> bool:
+    """A google_trends ExternalSignal row is only "usable" if it carries a field one
+    of the real calculators actually reads - trends_3mo_score is extracted into
+    TrendScoreCalculator's signals dict but never read by any _resolve_* method
+    there, and the 3mo/12mo averages only support _resolve_acceleration_score when
+    BOTH sides are present (Codex review, PR #176)."""
     raw_payload = signal.raw_value_json if isinstance(signal.raw_value_json, dict) else {}
-    for field in _GOOGLE_TRENDS_SCALAR_FIELDS:
-        value = raw_payload.get(field)
-        if value is None:
-            continue
-        try:
-            float(value)
-        except (TypeError, ValueError):
-            continue
+    # DemandScoreCalculator._signal_float(google_trends, "trends_12mo_score").
+    if _as_optional_float(raw_payload.get("trends_12mo_score")) is not None:
         return True
-    for field in _GOOGLE_TRENDS_SERIES_FIELDS:
-        series = raw_payload.get(field)
-        if isinstance(series, list) and len(series) >= 2:
-            return True
+    # TrendScoreCalculator._resolve_google_trends_slope: explicit slope, or >=2
+    # numeric points to derive one via linear regression.
+    if _as_optional_float(raw_payload.get("google_trends_slope")) is not None:
+        return True
+    if len(_numeric_series_values(raw_payload.get("google_trends_12mo_series"))) >= 2:
+        return True
+    # TrendScoreCalculator._resolve_acceleration_score: needs a 3mo AND a 12mo
+    # average (explicit or series-derived) - one side alone yields None.
+    has_3mo_average = _as_optional_float(raw_payload.get("trends_3mo_avg")) is not None or bool(
+        _numeric_series_values(raw_payload.get("google_trends_3mo_series"))
+    )
+    has_12mo_average = _as_optional_float(raw_payload.get("trends_12mo_avg")) is not None or bool(
+        _numeric_series_values(raw_payload.get("google_trends_12mo_series"))
+    )
+    if has_3mo_average and has_12mo_average:
+        return True
     # DemandScoreCalculator._signal_float falls back to the row's own
     # signal_value/normalized_value when trends_12mo_score is absent from the JSON
     # payload (a legacy/back-compat shape) - that fallback still feeds demand
@@ -886,6 +896,12 @@ def _build_confidence_context(
         if isinstance(raw_external_cfg, dict):
             external_signals_config = dict(raw_external_cfg)
     enable_zombie_filter = bool(relevance_cfg.get("enable_zombie_filter", True))
+    # ProfitabilityScoreCalculator/FeasibilityCalculator/CompetitionScoreCalculator
+    # all gate their own sponsored-gig skip on this same config flag (default True)
+    # - when a deployment disables it, sponsored gigs stay in the real scored top-N
+    # set, so confidence must resolve their detail/freshness/profile state too
+    # instead of unconditionally dropping them (Codex review, PR #176).
+    enable_sponsored_exclusion = bool(relevance_cfg.get("enable_sponsored_exclusion", True))
     top_n_for_scoring = max(1, int(relevance_cfg.get("top_n_for_scoring", 10)))
     # Matches ProfitabilityScoreCalculator/FeasibilityCalculator's own candidate
     # window: when sponsored slots occupy some of the first top_n_for_scoring card
@@ -1033,7 +1049,7 @@ def _build_confidence_context(
             gig = getattr(result, "gig", None)
             if gig is None:
                 continue
-            if getattr(gig, "is_sponsored", None) is True:
+            if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
                 continue
             total_organic += 1
             if bool(getattr(gig, "is_zombie", False)):
@@ -1152,7 +1168,7 @@ def _build_confidence_context(
                     break
                 if getattr(card_gig, "id", None) in processed_gig_ids:
                     continue
-                if getattr(card_gig, "is_sponsored", None) is True:
+                if enable_sponsored_exclusion and getattr(card_gig, "is_sponsored", None) is True:
                     continue
                 total_organic += 1
                 if bool(getattr(card_gig, "is_zombie", False)):
@@ -1195,7 +1211,7 @@ def _build_confidence_context(
             for gig in fallback_gigs:
                 if fallback_organic >= top_n_for_scoring:
                     break
-                if getattr(gig, "is_sponsored", None) is True:
+                if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
                     continue
                 fallback_organic += 1
                 if bool(getattr(gig, "is_zombie", False)):

@@ -838,6 +838,133 @@ def test_confidence_context_counts_legacy_signal_value_google_trends_as_availabl
     assert context["google_trends_available"] is True
 
 
+def test_confidence_context_ignores_unread_trends_3mo_score_field() -> None:
+    """Codex review, PR #176 (P2): trends_3mo_score is extracted into
+    TrendScoreCalculator's signals dict (_load_signals_from_db) but never read by
+    any of its _resolve_* methods - a google_trends row containing only that field
+    must not count as proof Google Trends contributed to source_diversity_score."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-google-trends-unread-field", name="ContextGoogleTrendsUnreadField", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="google trends unread field keyword",
+        normalized_keyword="google trends unread field keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=None,
+            signal_json={"trends_3mo_score": 42.0},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-google-trends-unread-field-run",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is False
+
+
+def test_confidence_context_requires_both_sides_of_trend_acceleration_average() -> None:
+    """Codex review, PR #176 (P2): TrendScoreCalculator._resolve_acceleration_score
+    returns None unless BOTH a 3mo and a 12mo average (explicit or series-derived)
+    are present - one side alone must not count as usable Google Trends data."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-google-trends-one-sided", name="ContextGoogleTrendsOneSided", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="google trends one sided keyword",
+        normalized_keyword="google trends one sided keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=None,
+            signal_json={"trends_12mo_avg": 55.0},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-google-trends-one-sided-run",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is False
+
+
+def test_confidence_context_counts_trend_acceleration_average_as_usable() -> None:
+    """Codex review, PR #176 (P2): with both a 3mo and a 12mo average present,
+    TrendScoreCalculator._resolve_acceleration_score can produce a real score -
+    that must count as usable Google Trends data."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-google-trends-acceleration", name="ContextGoogleTrendsAcceleration", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="google trends acceleration keyword",
+        normalized_keyword="google trends acceleration keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=None,
+            signal_json={"trends_3mo_avg": 65.0, "trends_12mo_avg": 55.0},
+            collected_at=datetime.now(UTC),
+            run_id="ctx-google-trends-acceleration-run",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is True
+
+
 def test_confidence_context_resolves_gigs_from_gig_cards() -> None:
     """Codex review, PR #176 (P2): a page-level SearchResult row can carry multiple
     gig cards in gig_cards beyond the single gig_id it links to.
@@ -1206,6 +1333,53 @@ def test_confidence_context_scopes_exact_card_gig_match_to_active_run() -> None:
     )
     # The other run's zombie gig must not be counted just because its URL matches.
     assert context["zombie_fraction"] == pytest.approx(0.0)
+
+
+def test_confidence_context_honors_disabled_sponsored_exclusion_config() -> None:
+    """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/FeasibilityCalculator
+    /CompetitionScoreCalculator all gate their own sponsored-gig skip on
+    relevance.enable_sponsored_exclusion (default True). When a deployment disables
+    it, sponsored gigs stay in the real scored top-N set - confidence must resolve
+    their detail/freshness state too instead of unconditionally dropping them."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(slug="ctx-sponsored-included", name="ContextSponsoredIncluded", category_path="a/b")
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id, keyword="sponsored included keyword", normalized_keyword="sponsored included keyword"
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="sponsored_included_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+    # The only gig is sponsored, but it does have real, fresh detail data.
+    gig = Gig(
+        seller_id=seller.id,
+        title="I will do sponsored included work",
+        normalized_title="sponsored included work",
+        detail_collected=True,
+        detail_collected_at=datetime.now(UTC),
+        is_sponsored=True,
+    )
+    session.add(gig)
+    session.flush()
+    session.add(SearchResult(keyword_id=keyword.id, rank=1, gig_id=gig.id, title=gig.title))
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+        config={"relevance": {"enable_sponsored_exclusion": False}},
+    )
+    assert context["gig_detail_collected"] is True
 
 
 def test_confidence_context_reports_missing_gig_detail_and_seller_profile() -> None:
