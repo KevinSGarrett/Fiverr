@@ -353,13 +353,27 @@ async def score_keyword(
     profitability_result = (
         profitability_calculator.calculate(keyword_id, db, config=config) if 5 in available_scores else None
     )
-    intent_result = intent_calculator.calculate(keyword_id, db, config=config) if 6 in available_scores else None
-    saturation_result = (
-        saturation_calculator.calculate(keyword_id, db, config=config) if 7 in available_scores else None
+    intent_result = (
+        intent_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache, config=config)
+        if 6 in available_scores
+        else None
     )
-    weakness_result = weakness_calculator.calculate(keyword_id, db) if 8 in available_scores else None
+    saturation_result = (
+        saturation_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache, config=config)
+        if 7 in available_scores
+        else None
+    )
+    weakness_result = (
+        weakness_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache)
+        if 8 in available_scores
+        else None
+    )
     _apply_weakness_feedback_to_feasibility(feasibility_result, weakness_result)
-    trend_result = trend_calculator.calculate(keyword_id, db) if 9 in available_scores else None
+    trend_result = (
+        trend_calculator.calculate(keyword_id, db, llm_client=llm_client, cache=cache)
+        if 9 in available_scores
+        else None
+    )
 
     llm_relevance_verdict: str | None = None
     if llm_relevance_classifier is not None:
@@ -1323,6 +1337,12 @@ def _build_confidence_context(
             if signal.signal_type == "reddit_activity":
                 continue
             if signal.signal_type in external_signals_gated_types and not external_signals_enabled:
+                continue
+            # An empty/failed google_trends row (no field either calculator reads)
+            # is already reported as missing via trends_available above - it must
+            # not also depress freshness, since nothing consumes it either way
+            # (Codex review, PR #176).
+            if signal.signal_type == ExternalSignal.SIGNAL_GOOGLE_TRENDS and not trends_available:
                 continue
             if signal.signal_type in seen_signal_types:
                 continue

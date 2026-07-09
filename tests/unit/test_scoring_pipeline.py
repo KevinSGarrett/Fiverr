@@ -149,6 +149,50 @@ def test_depth_standard_allows_all(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert result["scores"]["trend_score"] is not None
 
 
+def test_score_keyword_passes_llm_client_to_llm_capable_calculators(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review, PR #176 (P1): score_keyword accepted llm_client/cache
+    parameters but never forwarded them to intent/saturation/weakness/trend's own
+    calculate() calls, so those calculators always fell back to their no-real-LLM
+    warning paths (llm_not_implemented) even when a real llm_client was provided -
+    which llm_analysis_completion_ratio then turns into a confidence penalty for
+    runs where an LLM was actually available."""
+    from src.scoring import pipeline
+
+    monkeypatch.setattr(pipeline, "_SIDE_CAR_DIR", tmp_path)
+    sentinel_llm_client = object()
+    sentinel_cache = object()
+    recorded_calls: dict[str, dict[str, Any]] = {}
+
+    def _make_fake_calculator(name: str) -> type:
+        class _FakeCalculator:
+            def calculate(self, *args: Any, **kwargs: Any) -> None:
+                recorded_calls[name] = kwargs
+                return None
+
+        return _FakeCalculator
+
+    monkeypatch.setattr(pipeline, "ConversionIntentScoreCalculator", _make_fake_calculator("intent"))
+    monkeypatch.setattr(pipeline, "SaturationScoreCalculator", _make_fake_calculator("saturation"))
+    monkeypatch.setattr(pipeline, "GigQualityWeaknessScoreCalculator", _make_fake_calculator("weakness"))
+    monkeypatch.setattr(pipeline, "TrendScoreCalculator", _make_fake_calculator("trend"))
+
+    asyncio.run(
+        score_keyword(
+            101,
+            "default",
+            FakePipelineDB("standard"),
+            llm_client=sentinel_llm_client,
+            cache=sentinel_cache,
+        )
+    )
+
+    for name in ("intent", "saturation", "weakness", "trend"):
+        assert recorded_calls[name].get("llm_client") is sentinel_llm_client, name
+        assert recorded_calls[name].get("cache") is sentinel_cache, name
+
+
 def test_score4_higher_when_low_weakness_detected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1651,6 +1695,55 @@ def test_confidence_context_ignores_disabled_autocomplete_signal_freshness() -> 
         db=session,
         config={"analysis": {"external_signals_enabled": False}},
     )
+    assert context["data_freshness_score"] == pytest.approx(1.0)
+
+
+def test_confidence_context_ignores_unusable_google_trends_row_in_freshness() -> None:
+    """Codex review, PR #176 (P2): an empty/failed google_trends row (no field
+    either DemandScoreCalculator or TrendScoreCalculator reads) is already reported
+    as missing via google_trends_available - it must not also depress
+    data_freshness_score, since nothing consumes it either way."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(
+        slug="ctx-google-trends-unusable-freshness",
+        name="ContextGoogleTrendsUnusableFreshness",
+        category_path="a/b",
+    )
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="google trends unusable freshness keyword",
+        normalized_keyword="google trends unusable freshness keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    ancient_at = datetime.now(UTC) - timedelta(hours=3000)
+    session.add(
+        ExternalSignal(
+            keyword_id=int(keyword.id),
+            signal_type=ExternalSignal.SIGNAL_GOOGLE_TRENDS,
+            signal_value=None,
+            signal_json={},
+            collected_at=ancient_at,
+            run_id="ctx-google-trends-unusable-freshness-run",
+            collection_method="google_trends_api",
+        )
+    )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={"trend_score": 50.0},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["google_trends_available"] is False
     assert context["data_freshness_score"] == pytest.approx(1.0)
 
 
