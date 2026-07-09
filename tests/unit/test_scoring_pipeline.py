@@ -1250,6 +1250,68 @@ def test_confidence_context_reaches_organic_gigs_past_sponsored_ranked_rows() ->
     assert context["zombie_fraction"] == pytest.approx(0.1)
 
 
+def test_confidence_context_ignores_freshness_of_unused_candidate_window_rows() -> None:
+    """Codex review, PR #176 (P2): a later SearchResult row from deeper in the
+    widened candidate_window that was never admitted to the scored top-N window
+    (because the organic quota was already met) never contributed to the score and
+    must not affect data_freshness_score."""
+    from src.scoring import pipeline
+
+    engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
+    niche = Niche(
+        slug="ctx-unused-candidate-freshness", name="ContextUnusedCandidateFreshness", category_path="a/b"
+    )
+    session.add(niche)
+    session.flush()
+    keyword = Keyword(
+        niche_id=niche.id,
+        keyword="unused candidate freshness keyword",
+        normalized_keyword="unused candidate freshness keyword",
+    )
+    session.add(keyword)
+    session.flush()
+    seller = Seller(seller_handle="unused_candidate_freshness_seller", profile_collected=True)
+    session.add(seller)
+    session.flush()
+
+    ancient_at = datetime.now(UTC) - timedelta(hours=3000)
+    fresh_at = datetime.now(UTC)
+    for rank in range(1, 14):
+        # Ranks 1-10 fill the top_n_for_scoring=10 organic quota and are fresh.
+        # Ranks 11-13 fall past the quota (never admitted) and are ancient.
+        within_quota = rank <= 10
+        gig = Gig(
+            seller_id=seller.id,
+            title=f"I will do unused candidate freshness work {rank}",
+            normalized_title=f"unused candidate freshness work {rank}",
+            detail_collected=True,
+            detail_collected_at=fresh_at if within_quota else ancient_at,
+        )
+        session.add(gig)
+        session.flush()
+        session.add(
+            SearchResult(
+                keyword_id=keyword.id,
+                rank=rank,
+                gig_id=gig.id,
+                title=gig.title,
+                collected_at=fresh_at if within_quota else ancient_at,
+            )
+        )
+    session.commit()
+
+    context = pipeline._build_confidence_context(
+        keyword_id=int(keyword.id),
+        scores={},
+        depth="standard",
+        warnings=[],
+        db=session,
+    )
+    assert context["data_freshness_score"] == pytest.approx(1.0)
+
+
 def test_confidence_context_resolves_card_gigs_via_normalized_url_identity() -> None:
     """Codex review, PR #176 (P2): ProfitabilityScoreCalculator/WeaknessCalculator
     normalize card URLs by path identity and fall back through the keyword's own

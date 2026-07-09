@@ -1050,14 +1050,6 @@ def _build_confidence_context(
                 _consider_freshness(seller_freshness_at, getattr(seller, "ttl_hours", None))
 
         for result in top_results:
-            # collected_at (when this search snapshot was actually fetched) rather
-            # than updated_at, which a later reprocessing pass can bump without
-            # recollecting the underlying marketplace data (Codex review, PR #176).
-            # Row-level freshness folds regardless of the organic quota below - every
-            # row up to candidate_window still had to be looked at to know whether
-            # its gig was sponsored, matching how far the real loaders' own
-            # resolution pass reaches (Codex review, PR #176).
-            _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
             if total_organic >= top_n_for_scoring:
                 continue
             gig = getattr(result, "gig", None)
@@ -1065,6 +1057,14 @@ def _build_confidence_context(
                 continue
             if enable_sponsored_exclusion and getattr(gig, "is_sponsored", None) is True:
                 continue
+            # collected_at (when this search snapshot was actually fetched) rather
+            # than updated_at, which a later reprocessing pass can bump without
+            # recollecting the underlying marketplace data (Codex review, PR #176).
+            # Only folded for a row actually admitted to the scored window - a
+            # later, unused row from deeper in the widened candidate_window never
+            # contributed to the score and must not affect freshness (Codex review,
+            # PR #176).
+            _consider_freshness(result.collected_at, getattr(result, "ttl_hours", None))
             total_organic += 1
             if bool(getattr(gig, "is_zombie", False)):
                 zombie_count += 1
