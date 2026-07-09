@@ -25,6 +25,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
+from inspect import isawaitable
 from typing import Any
 
 from src.analysis.result_set_validator import NICHE_VALIDATION_CONFIG
@@ -188,9 +189,24 @@ class _CostTrackingLLMClient:
 
     def complete(self, *args: Any, **kwargs: Any) -> Any:
         result = self._inner.complete(*args, **kwargs)
+        # generate_niche_hypotheses explicitly supports async-capable clients
+        # (`if isawaitable(response): response = await response`); mirror that
+        # contract here too, or an async client's real cost would never be
+        # recorded (Codex P2, PR #181 round 5) - reading .metadata off the raw
+        # coroutine before it's awaited always yields None.
+        if isawaitable(result):
+            return self._await_and_record(result)
+        self._record_cost(result)
+        return result
+
+    async def _await_and_record(self, awaitable: Any) -> Any:
+        result = await awaitable
+        self._record_cost(result)
+        return result
+
+    def _record_cost(self, result: Any) -> None:
         metadata = getattr(result, "metadata", None) or {}
         self.cost_usd += float(metadata.get("estimated_cost_usd", 0.0) or 0.0)
-        return result
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)

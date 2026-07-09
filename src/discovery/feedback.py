@@ -23,7 +23,7 @@ HIT_THRESHOLD = 60.0
 MISS_THRESHOLD = 40.0
 AUTO_RETIRE_THRESHOLD = 30.0
 
-DISCOVERY_MODES = ("adjacent_keyword", "adjacent_niche", "gap_exploit", "trend_chase")
+DISCOVERY_MODES = ("adjacent_keyword", "adjacent_niche", "gap_exploit", "trend_chase", "llm_niche_expansion")
 
 
 def evaluate_discovery_results(run_id: str, db: Any) -> dict[str, int]:

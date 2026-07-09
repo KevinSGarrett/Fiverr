@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+from inspect import isawaitable
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -440,6 +441,57 @@ class TestGenerateAllHypotheses:
 
         assert len(hypotheses) == 1
         assert cost_tracker == [0.0042]
+
+    def test_llm_niche_expansion_records_cost_from_async_llm_client(self) -> None:
+        """Codex P2 round 5 (PR #181): generate_niche_hypotheses explicitly supports
+        async-capable clients (`if isawaitable(response): response = await response`).
+        _CostTrackingLLMClient must preserve that contract - reading .metadata off an
+        unawaited coroutine would silently record 0.0 cost for a real, paid call."""
+        from src.discovery.stage16 import _generate_all_hypotheses
+
+        seed = {"seed_keywords": [], "gap_signals": [], "trend_signals": [], "existing_kw_texts": []}
+        gated_dicts = [
+            {
+                "hypothesis_text": "python automation for startups",
+                "buyer": "startups",
+                "deliverable": "python automation",
+                "specificity_score": 0.82,
+                "gate_reason": "passed specificity + on-niche",
+            }
+        ]
+
+        async def _fake_generate(
+            niche_id: object,
+            existing_keywords: object,
+            llm_client: object,
+            cache: object,
+            **kwargs: object,
+        ) -> list[dict[str, object]]:
+            del niche_id, existing_keywords, cache, kwargs
+            # Mirrors hypothesis.py's own async-client handling exactly.
+            response = llm_client.complete(prompt="x", model="gpt-4o-mini", temperature=0.4)
+            if isawaitable(response):
+                await response
+            return gated_dicts
+
+        class _AsyncLLMClient:
+            async def complete(self, **_: object) -> SimpleNamespace:
+                return SimpleNamespace(text="{}", metadata={"estimated_cost_usd": 0.0075})
+
+        cost_tracker: list[float] = []
+
+        with patch("src.discovery.stage16.generate_niche_hypotheses", side_effect=_fake_generate):
+            hypotheses, _gated = _generate_all_hypotheses(
+                "python_automation",
+                ["llm_niche_expansion"],
+                seed,
+                0.50,
+                llm_client=_AsyncLLMClient(),
+                cost_tracker=cost_tracker,
+            )
+
+        assert len(hypotheses) == 1
+        assert cost_tracker == [0.0075]
 
     def test_llm_niche_expansion_failure_non_fatal(self) -> None:
         """SCRUM-1106: an LLM/network failure in llm_niche_expansion must not break
